@@ -43,6 +43,13 @@ namespace coop {
         void barrier() {
 			__cuda_syscall_CGS_sync(__cuda_syscall_CGS_get_intrinsic_handle(1 /* cudaCGScopeGrid */), 0);
         }
+		
+		static uint32_t size() {
+			// product of global_size dims
+			return (__nvvm_read_ptx_sreg_nctaid_x() * __nvvm_read_ptx_sreg_ntid_x() *
+					__nvvm_read_ptx_sreg_nctaid_y() * __nvvm_read_ptx_sreg_ntid_y() *
+					__nvvm_read_ptx_sreg_nctaid_z() * __nvvm_read_ptx_sreg_ntid_z());
+		}
 	};
 #endif
 	

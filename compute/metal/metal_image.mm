@@ -286,7 +286,7 @@ FLOOR_POP_WARNINGS()
 	shim_image_type = image_type;
 }
 
-bool metal_image::create_internal(const bool copy_host_data, const metal_device* device, const compute_queue* cqueue) {
+bool metal_image::create_internal(const bool copy_host_data, const metal_device* device, compute_queue* cqueue) {
 	// NOTE: opengl sharing flag is ignored, because there is no metal/opengl sharing and metal can interop with itself w/o explicit sharing
 	
 	// should not be called under that condition, but just to be safe

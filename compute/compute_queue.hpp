@@ -132,6 +132,19 @@ public:
 	//! returns the compute device associated with this queue
 	shared_ptr<compute_device> get_device() const { return device; }
 	
+	//! returns true if this queue has profiling support
+	virtual bool has_profiling_support() const {
+		return false;
+	}
+	
+	//! starts profiling
+	virtual void start_profiling() {}
+	
+	//! stops the previously started profiling and returns the elapsed time in microseconds
+	virtual uint64_t stop_profiling() {
+		return 0;
+	}
+	
 protected:
 	shared_ptr<compute_device> device;
 	

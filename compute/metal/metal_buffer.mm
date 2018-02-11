@@ -237,13 +237,13 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
-			fill_n((uint8_t*)[buffer contents] + offset, pattern_count, *(uint8_t*)pattern);
+			fill_n((uint8_t*)[buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
 			break;
 		case 2:
-			fill_n((uint16_t*)[buffer contents] + offset / 2u, pattern_count, *(uint16_t*)pattern);
+			fill_n((uint16_t*)[buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
 			break;
 		case 4:
-			fill_n((uint32_t*)[buffer contents] + offset / 4u, pattern_count, *(uint32_t*)pattern);
+			fill_n((uint32_t*)[buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
 			break;
 		default:
 			// not a pattern size that allows a fast memset

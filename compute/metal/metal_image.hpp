@@ -84,7 +84,7 @@ protected:
 	unordered_map<void*, metal_mapping> mappings;
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, const metal_device* device, const compute_queue* cqueue);
+	bool create_internal(const bool copy_host_data, const metal_device* device, compute_queue* cqueue);
 	
 };
 

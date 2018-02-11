@@ -45,28 +45,46 @@ bool llvm_toolchain::create_floor_function_info(const string& ffi_file_name,
 		if(line.empty()) continue;
 		const auto tokens = core::tokenize(line, ',');
 		
-		// at least 4 w/o any args: <version>,<func_name>,<type>,<args...>
-		if(tokens.size() < 4) {
+		// at least 7 w/o any args:
+		// <version>,<func_name>,<type>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
+		if(tokens.size() < 7) {
 			log_error("invalid function info entry: %s", line);
 			return false;
 		}
 		
-		static constexpr const char floor_functions_version[] { "2" };
+		static constexpr const char floor_functions_version[] { "3" };
 		if(tokens[0] != floor_functions_version) {
 			log_error("invalid floor function info version, expected %u, got %u!",
 					  floor_functions_version, tokens[0]);
 			return false;
 		}
 		
+		function_info::FUNCTION_TYPE func_type = function_info::FUNCTION_TYPE::NONE;
+		if(tokens[2] == "1") func_type = function_info::FUNCTION_TYPE::KERNEL;
+		else if(tokens[2] == "2") func_type = function_info::FUNCTION_TYPE::VERTEX;
+		else if(tokens[2] == "3") func_type = function_info::FUNCTION_TYPE::FRAGMENT;
+		else if(tokens[2] == "4") func_type = function_info::FUNCTION_TYPE::GEOMETRY;
+		else if(tokens[2] == "5") func_type = function_info::FUNCTION_TYPE::TESSELLATION_CONTROL;
+		else if(tokens[2] == "6") func_type = function_info::FUNCTION_TYPE::TESSELLATION_EVALUATION;
+		
+		if(func_type != function_info::FUNCTION_TYPE::KERNEL &&
+		   func_type != function_info::FUNCTION_TYPE::VERTEX &&
+		   func_type != function_info::FUNCTION_TYPE::FRAGMENT) {
+			log_error("unsupported function type: %s", tokens[2]);
+			return false;
+		}
+		
 		function_info info {
 			.name = tokens[1],
-			.type = (tokens[2] == "1" ? function_info::FUNCTION_TYPE::KERNEL :
-					 (tokens[2] == "2" ? function_info::FUNCTION_TYPE::VERTEX :
-					  (tokens[2] == "3" ? function_info::FUNCTION_TYPE::FRAGMENT :
-					   function_info::FUNCTION_TYPE::NONE))),
+			.type = func_type,
+			.local_size = {
+				(uint32_t)strtoull(tokens[3].c_str(), nullptr, 10),
+				(uint32_t)strtoull(tokens[4].c_str(), nullptr, 10),
+				(uint32_t)strtoull(tokens[5].c_str(), nullptr, 10),
+			}
 		};
 		
-		for(size_t i = 3, count = tokens.size(); i < count; ++i) {
+		for(size_t i = 6, count = tokens.size(); i < count; ++i) {
 			if(tokens[i].empty()) continue;
 			// function arg info: #elem_idx size, address space, image type, image access
 			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);

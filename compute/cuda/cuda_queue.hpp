@@ -29,6 +29,7 @@
 class cuda_queue final : public compute_queue {
 public:
 	cuda_queue(shared_ptr<compute_device> device, const cu_stream queue);
+	~cuda_queue() override;
 	
 	void finish() const override;
 	void flush() const override;
@@ -36,8 +37,15 @@ public:
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;
 	
+	bool has_profiling_support() const override {
+		return true;
+	}
+	void start_profiling() override;
+	uint64_t stop_profiling() override;
+	
 protected:
 	cu_stream queue;
+	cu_event prof_start { nullptr }, prof_stop { nullptr };
 	
 };
 

@@ -21,6 +21,17 @@
 #if !defined(FLOOR_NO_CUDA)
 
 cuda_queue::cuda_queue(shared_ptr<compute_device> device_, const cu_stream queue_) : compute_queue(device_), queue(queue_) {
+	CU_CALL_NO_ACTION(cu_event_create(&prof_start, CU_EVENT_FLAGS::BLOCKING_SYNC), "failed to create profiling event")
+	CU_CALL_NO_ACTION(cu_event_create(&prof_stop, CU_EVENT_FLAGS::BLOCKING_SYNC), "failed to create profiling event")
+}
+
+cuda_queue::~cuda_queue() {
+	if(prof_start != nullptr) {
+		CU_CALL_NO_ACTION(cu_event_destroy(prof_start), "failed to destroy profiling event")
+	}
+	if(prof_stop != nullptr) {
+		CU_CALL_NO_ACTION(cu_event_destroy(prof_stop), "failed to destroy profiling event")
+	}
 }
 
 void cuda_queue::finish() const {
@@ -38,6 +49,20 @@ const void* cuda_queue::get_queue_ptr() const {
 
 void* cuda_queue::get_queue_ptr() {
 	return queue;
+}
+
+void cuda_queue::start_profiling() {
+	CU_CALL_NO_ACTION(cu_event_record(prof_start, queue), "failed to record profiling event")
+}
+
+uint64_t cuda_queue::stop_profiling() {
+	CU_CALL_RET(cu_event_record(prof_stop, queue), "failed to record profiling event", 0)
+	CU_CALL_RET(cu_event_synchronize(prof_stop), "failed to synchronize profiling event", 0)
+	
+	float elapsed_time = 0.0f;
+	CU_CALL_RET(cu_event_elapsed_time(&elapsed_time, prof_start, prof_stop),
+				"failed to compute elapsed time between profiling events", 0)
+	return uint64_t(double(elapsed_time) * 1000.0);
 }
 
 #endif

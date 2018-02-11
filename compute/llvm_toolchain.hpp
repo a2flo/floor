@@ -43,6 +43,13 @@ public:
 	struct function_info {
 		string name;
 		
+		//! required local size/dim needed for execution
+		//! NOTE: if any component is 0, the local size is considered unspecified
+		uint3 local_size { 0u };
+		constexpr bool has_valid_local_size() const {
+			return (local_size != 0u).all();
+		}
+		
 		enum class FUNCTION_TYPE : uint32_t {
 			NONE							= (0u),
 			KERNEL							= (1u),

@@ -378,6 +378,13 @@ enum class CU_TEXTURE_FLAGS : uint32_t {
 };
 floor_global_enum_ext(CU_TEXTURE_FLAGS)
 
+enum class CU_EVENT_FLAGS : uint32_t {
+	DEFAULT 		= 0u,
+	BLOCKING_SYNC	= (1u << 0u),
+	DISABLE_TIMING	= (1u << 1u),
+	INTERPROCESS	= (1u << 2u),
+};
+
 #define CU_LAUNCH_PARAM_BUFFER_POINTER ((void*)1)
 #define CU_LAUNCH_PARAM_BUFFER_SIZE ((void*)2)
 #define CU_LAUNCH_PARAM_END nullptr
@@ -392,6 +399,7 @@ typedef struct _cu_module* cu_module;
 typedef struct _cu_function* cu_function;
 typedef struct _cu_graphics_resource* cu_graphics_resource;
 typedef struct _cu_link_state* cu_link_state;
+typedef struct _cu_event* cu_event;
 
 typedef int32_t cu_device;
 typedef size_t cu_device_ptr;
@@ -517,6 +525,11 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*device_get_name)(char* name, int32_t len, cu_device dev);
 	CU_API CU_RESULT (*device_total_mem)(size_t* bytes, cu_device dev);
 	CU_API CU_RESULT (*driver_get_version)(int32_t* driver_version);
+	CU_API CU_RESULT (*event_create)(cu_event* evt, CU_EVENT_FLAGS flags);
+	CU_API CU_RESULT (*event_destroy)(cu_event evt);
+	CU_API CU_RESULT (*event_elapsed_time)(float* milli_seconds, cu_event start_evt, cu_event end_evt);
+	CU_API CU_RESULT (*event_record)(cu_event evt, cu_stream stream);
+	CU_API CU_RESULT (*event_synchronize)(cu_event evt);
 	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
@@ -592,6 +605,11 @@ extern bool cuda_can_use_internal_api();
 #define cu_device_get_name cuda_api.device_get_name
 #define cu_device_total_mem cuda_api.device_total_mem
 #define cu_driver_get_version cuda_api.driver_get_version
+#define cu_event_create cuda_api.event_create
+#define cu_event_destroy cuda_api.event_destroy
+#define cu_event_elapsed_time cuda_api.event_elapsed_time
+#define cu_event_record cuda_api.event_record
+#define cu_event_synchronize cuda_api.event_synchronize
 #define cu_function_get_attribute cuda_api.function_get_attribute
 #define cu_get_error_name cuda_api.get_error_name
 #define cu_get_error_string cuda_api.get_error_string

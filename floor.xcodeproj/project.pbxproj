@@ -205,6 +205,10 @@
 		5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */; };
+		5CC5980D201E724600D8D19F /* vector_2d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC59809201E724400D8D19F /* vector_2d.cpp */; };
+		5CC5980E201E724600D8D19F /* vector_1d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980A201E724500D8D19F /* vector_1d.cpp */; };
+		5CC5980F201E724600D8D19F /* vector_3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980B201E724500D8D19F /* vector_3d.cpp */; };
+		5CC59810201E724600D8D19F /* vector_4d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980C201E724500D8D19F /* vector_4d.cpp */; };
 		5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
 		5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */; };
 		5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCF37951C3D208D006D355B /* metal_post.hpp */; };
@@ -467,6 +471,10 @@
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
 		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
+		5CC59809201E724400D8D19F /* vector_2d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_2d.cpp; sourceTree = "<group>"; };
+		5CC5980A201E724500D8D19F /* vector_1d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_1d.cpp; sourceTree = "<group>"; };
+		5CC5980B201E724500D8D19F /* vector_3d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_3d.cpp; sourceTree = "<group>"; };
+		5CC5980C201E724500D8D19F /* vector_4d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_4d.cpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
@@ -565,6 +573,10 @@
 				5C0DF00A19B8C79200331AAC /* vector_lib.hpp */,
 				5CE0BDCE19BA46E3000B28B3 /* vector.cpp */,
 				5C0DF00819B8C79200331AAC /* vector.hpp */,
+				5CC5980A201E724500D8D19F /* vector_1d.cpp */,
+				5CC59809201E724400D8D19F /* vector_2d.cpp */,
+				5CC5980B201E724500D8D19F /* vector_3d.cpp */,
+				5CC5980C201E724500D8D19F /* vector_4d.cpp */,
 				5C0DF00919B8C79200331AAC /* vector_helper.hpp */,
 				5C0DF00B19B8C79200331AAC /* vector_ops.hpp */,
 				5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */,
@@ -1176,7 +1188,7 @@
 		5C10915617D114BC007F536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0900;
+				LastUpgradeCheck = 0930;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1256,6 +1268,7 @@
 				5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
+				5CC5980D201E724600D8D19F /* vector_2d.cpp in Sources */,
 				5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */,
 				5CDEB85D1D81AC0200A8CD9B /* vulkan_memory.cpp in Sources */,
 				5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */,
@@ -1280,6 +1293,7 @@
 				5C20C8C31B4139260005F5EA /* host_buffer.cpp in Sources */,
 				5C4A85B218F953590039BFD4 /* source_types.cpp in Sources */,
 				5C8FD0CE1AD38FAA00215230 /* cuda_image.cpp in Sources */,
+				5CC5980E201E724600D8D19F /* vector_1d.cpp in Sources */,
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5C20C8CA1B4139260005F5EA /* host_image.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
@@ -1287,6 +1301,7 @@
 				5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */,
 				5C5383EA1A641B1E007AEDD7 /* cuda_kernel.cpp in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
+				5CC5980F201E724600D8D19F /* vector_3d.cpp in Sources */,
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C0416F91B60048100370253 /* json.cpp in Sources */,
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
@@ -1306,6 +1321,7 @@
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
+				5CC59810201E724600D8D19F /* vector_4d.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
@@ -1401,12 +1417,14 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -1542,12 +1560,14 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -1663,6 +1683,7 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1703,6 +1724,7 @@
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1745,6 +1767,7 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -1771,6 +1794,7 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -1789,6 +1813,7 @@
 		5CC2F79518678AAD0031E08D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -1846,6 +1871,7 @@
 		5CC2F79618678AAD0031E08D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";

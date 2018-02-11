@@ -42,11 +42,19 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 				if(info.name == func_name) {
 					vulkan_kernel::vulkan_kernel_entry entry;
 					entry.info = &info;
-					entry.max_local_size = prog.first->max_local_size;
 					
-					// always assume that we can execute this with the max possible work-group size,
-					// i.e. use this as the initial default
-					entry.max_total_local_size = prog.first->max_total_local_size;
+					if(!info.has_valid_local_size()) {
+						entry.max_local_size = prog.first->max_local_size;
+						
+						// always assume that we can execute this with the max possible work-group size,
+						// i.e. use this as the initial default
+						entry.max_total_local_size = prog.first->max_total_local_size;
+					}
+					else {
+						// a required local size/dim is specified -> use it
+						entry.max_local_size = info.local_size;
+						entry.max_total_local_size = info.local_size.extent();
+					}
 					
 					// TODO: make sure that _all_ of this is synchronized
 					
@@ -262,7 +270,9 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 									 "failed to create pipeline layout (" + func_name + ")");
 						
-						const uint3 work_group_size { entry.max_total_local_size, 1, 1 };
+						const uint3 work_group_size = (info.has_valid_local_size() ?
+													   info.local_size :
+													   uint3 { entry.max_total_local_size, 1, 1 });
 						if(entry.specialize(prog.first, work_group_size) == nullptr) {
 							// NOTE: if specialization failed, this will have already printed an error
 							continue;

@@ -113,6 +113,21 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.driver_get_version = load_symbol(cuda_lib, "cuDriverGetVersion");
 	if(cuda_api.driver_get_version == nullptr) log_error("failed to retrieve function pointer for \"cuDriverGetVersion\"");
 	
+	(void*&)cuda_api.event_create = load_symbol(cuda_lib, "cuEventCreate");
+	if(cuda_api.event_create == nullptr) log_error("failed to retrieve function pointer for \"cuEventCreate\"");
+	
+	(void*&)cuda_api.event_destroy = load_symbol(cuda_lib, "cuEventDestroy_v2");
+	if(cuda_api.event_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuEventDestroy_v2\"");
+	
+	(void*&)cuda_api.event_elapsed_time = load_symbol(cuda_lib, "cuEventElapsedTime");
+	if(cuda_api.event_elapsed_time == nullptr) log_error("failed to retrieve function pointer for \"cuEventElapsedTime\"");
+	
+	(void*&)cuda_api.event_record = load_symbol(cuda_lib, "cuEventRecord");
+	if(cuda_api.event_record == nullptr) log_error("failed to retrieve function pointer for \"cuEventRecord\"");
+	
+	(void*&)cuda_api.event_synchronize = load_symbol(cuda_lib, "cuEventSynchronize");
+	if(cuda_api.event_synchronize == nullptr) log_error("failed to retrieve function pointer for \"cuEventSynchronize\"");
+	
 	(void*&)cuda_api.function_get_attribute = load_symbol(cuda_lib, "cuFuncGetAttribute");
 	if(cuda_api.function_get_attribute == nullptr) log_error("failed to retrieve function pointer for \"cuFuncGetAttribute\"");
 	
