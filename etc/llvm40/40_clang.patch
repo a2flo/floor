@@ -4979,7 +4979,7 @@ index dd803909f0..2f81dd3ddc 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12ea2..8688ebba85 100644
+index 183ee12ea2..f0112adf1e 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4992,7 +4992,7 @@ index 183ee12ea2..8688ebba85 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -436,185 +439,1787 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -436,185 +439,1795 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -6422,11 +6422,19 @@ index 183ee12ea2..8688ebba85 100644
 +	const PrintingPolicy &Policy = getContext().getPrintingPolicy();
 +	
 +	// #0: info version
-+	info << "2,";
++	info << "3,";
 +	// #1: function name
 +	info << Fn->getName().str() << ",";
 +	// #2: function type
 +	info << (is_kernel ? "1" : (is_vertex ? "2" : "3")) << ",";
++	// #3,4,5: local size/dim
++	if(const ReqdWorkGroupSizeAttr *reg_local_size = FD->getAttr<ReqdWorkGroupSizeAttr>()) {
++		info << reg_local_size->getXDim() << ",";
++		info << reg_local_size->getYDim() << ",";
++		info << reg_local_size->getZDim() << ",";
++	} else {
++		info << "0,0,0,";
++	}
 +	
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
@@ -6925,7 +6933,7 @@ index 183ee12ea2..8688ebba85 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -632,6 +2237,67 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -632,6 +2245,67 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
          llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
      Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, attrMDArgs));
    }
@@ -6993,7 +7001,7 @@ index 183ee12ea2..8688ebba85 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -661,6 +2327,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -661,6 +2335,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7001,7 +7009,7 @@ index 183ee12ea2..8688ebba85 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -711,7 +2378,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -711,7 +2386,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // attribute to all functions that are not marked AlwaysInline, or
    // to all functions that are not marked inline or implicitly inline
    // in the case of -finline-hint-functions.
@@ -7010,7 +7018,7 @@ index 183ee12ea2..8688ebba85 100644
      const CodeGenOptions& CodeGenOpts = CGM.getCodeGenOpts();
      if (!CodeGenOpts.NoInline) {
        for (auto RI : FD->redecls())
-@@ -732,16 +2399,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -732,16 +2407,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    Fn->addFnAttr("no-jump-tables",
                  llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
  
@@ -7040,7 +7048,7 @@ index 183ee12ea2..8688ebba85 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -758,7 +2433,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -758,7 +2441,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7049,7 +7057,7 @@ index 183ee12ea2..8688ebba85 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -822,7 +2497,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -822,7 +2505,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7067,7 +7075,7 @@ index 183ee12ea2..8688ebba85 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -864,11 +2548,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -864,11 +2556,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7083,7 +7091,7 @@ index 183ee12ea2..8688ebba85 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1034,7 +2718,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1034,7 +2726,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
