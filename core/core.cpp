@@ -486,6 +486,14 @@ uint32_t core::unix_timestamp() {
 	return (uint32_t)chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
+uint64_t core::unix_timestamp_ms() {
+	return (uint32_t)chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+}
+
+uint64_t core::unix_timestamp_us() {
+	return (uint32_t)chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now().time_since_epoch()).count();
+}
+
 uint32_t core::get_hw_thread_count() {
 	uint32_t hw_thread_count = 1; // default to 1
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))

@@ -27,14 +27,14 @@
 
 // TODO: proper error (return) value handling everywhere
 
-metal_image::metal_image(metal_device* device,
+metal_image::metal_image(metal_device* floor_nonnull device,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
-						 void* host_ptr_,
+						 void* floor_nullable host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
-						 const opengl_image_info* gl_image_info) :
+						 const opengl_image_info* floor_nullable gl_image_info) :
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
 	// introduced with os x 10.11 / ios 9.0, kernel/shader access flags can actually be set
@@ -88,12 +88,12 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	}
 	
 	// actually create the image
-	if(!create_internal(true, device, nullptr)) {
+	if(!create_internal(true, device)) {
 		return; // can't do much else
 	}
 }
 
-static uint4 compute_metal_image_dim(id <MTLTexture> img) {
+static uint4 compute_metal_image_dim(id <MTLTexture> floor_nonnull img) {
 	// start with straightforward copy, some of these may be 0
 	uint4 dim = { (uint32_t)[img width], (uint32_t)[img height], (uint32_t)[img depth], 0 };
 	
@@ -112,7 +112,7 @@ static uint4 compute_metal_image_dim(id <MTLTexture> img) {
 	return dim;
 }
 
-static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> img, const COMPUTE_MEMORY_FLAG flags) {
+static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull img, const COMPUTE_MEMORY_FLAG flags) {
 	COMPUTE_IMAGE_TYPE type { COMPUTE_IMAGE_TYPE::NONE };
 	
 	if([img isFramebufferOnly]) {
@@ -241,8 +241,8 @@ FLOOR_POP_WARNINGS()
 }
 
 metal_image::metal_image(shared_ptr<compute_device> device,
-						 id <MTLTexture> external_image,
-						 void* host_ptr_,
+						 id <MTLTexture> floor_nonnull external_image,
+						 void* floor_nullable host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(device.get(), compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
 			  host_ptr_, flags_, 0, 0, nullptr), image(external_image), is_external(true) {
@@ -286,7 +286,7 @@ FLOOR_POP_WARNINGS()
 	shim_image_type = image_type;
 }
 
-bool metal_image::create_internal(const bool copy_host_data, const metal_device* device, compute_queue* cqueue) {
+bool metal_image::create_internal(const bool copy_host_data, const metal_device* floor_nonnull device) {
 	// NOTE: opengl sharing flag is ignored, because there is no metal/opengl sharing and metal can interop with itself w/o explicit sharing
 	
 	// should not be called under that condition, but just to be safe
@@ -478,7 +478,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 	if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// figure out where we're getting our command queue from
-		metal_queue* mqueue = (metal_queue*)(dev != nullptr ? device->internal_queue : cqueue);
+		metal_queue* mqueue = (metal_queue*)device->internal_queue;
 		
 		// copy to device memory must go through a blit command
 		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
@@ -605,8 +605,8 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	[cmd_buffer waitUntilCompleted];
 }
 
-void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
-													 const COMPUTE_MEMORY_MAP_FLAG flags_) {
+void* floor_nullable __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
+																	const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nil) return nullptr;
 	
 	// TODO: parameter origin + region + layer
@@ -712,7 +712,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 	return host_buffer;
 }
 
-void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nil) return;
 	if(mapped_ptr == nullptr) return;
 	

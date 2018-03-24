@@ -41,7 +41,7 @@
 
 namespace host_limits {
 	//! max amout of local memory that can be allocated per work-group
-	static constexpr const size_t local_memory_size { 128ull * 1024ull * 1024ull };
+	static constexpr const size_t local_memory_size { 128ull * 1024ull };
 	
 	//! max supported image dim, identical for all image types
 	static constexpr const uint32_t max_image_dim { 32768 };

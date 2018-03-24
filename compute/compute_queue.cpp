@@ -17,5 +17,16 @@
  */
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/core/core.hpp>
 
 compute_queue::~compute_queue() {}
+
+void compute_queue::start_profiling() {
+	finish();
+	us_prof_start = core::unix_timestamp_us();
+}
+
+uint64_t compute_queue::stop_profiling() {
+	finish();
+	return core::unix_timestamp_us() - us_prof_start;
+}

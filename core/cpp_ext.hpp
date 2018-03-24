@@ -60,19 +60,4 @@ floor_inline_always static bool stob(const string& str) {
 
 #endif // !FLOOR_COMPUTE || FLOOR_COMPUTE_HOST
 
-// apply(function, tuple): calls a function with the unpacked tuple elements used as the function arguments
-#if !defined(FLOOR_NO_APPLY)
-// ref N3658: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3658.html
-// -> removed return types, since c++14 has auto-deduced return types + added constexpr
-template<typename F, typename Tuple, size_t... I>
-constexpr auto apply_impl(F&& f, Tuple&& args, index_sequence<I...>) {
-	return forward<F>(f)(get<I>(forward<Tuple>(args))...);
-}
-
-template<typename F, typename Tuple, typename Indices = make_index_sequence<tuple_size<Tuple>::value>>
-constexpr auto apply(F&& f, Tuple&& args) {
-	return apply_impl(forward<F>(f), forward<Tuple>(args), Indices());
-}
-#endif
-
 #endif

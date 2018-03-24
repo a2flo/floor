@@ -86,7 +86,7 @@ floor_inline_always double atomic_add(volatile double* addr, const double& val) 
 	asm volatile("atom.add.f64 %0, [%1], %2;" : "=d"(ret) : "l"(addr), "d"(val));
 	return ret;
 #else
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(+, , addr, val)
+	FLOOR_ATOMIC_FALLBACK_OP_64(+, , addr, val)
 #endif
 }
 
@@ -122,7 +122,7 @@ floor_inline_always double atomic_sub(volatile double* addr, const double& val) 
 	asm volatile("atom.add.f64 %0, [%1], %2;" : "=d"(ret) : "l"(addr), "d"(-val));
 	return ret;
 #else
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(-, , addr, val)
+	FLOOR_ATOMIC_FALLBACK_OP_64(-, , addr, val)
 #endif
 }
 

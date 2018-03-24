@@ -37,6 +37,15 @@ public:
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;
 	
+	bool has_profiling_support() const override {
+		return true;
+	}
+	void start_profiling() override;
+	uint64_t stop_profiling() override;
+	
+protected:
+	uint64_t profiling_time { 0 };
+	
 };
 
 #endif

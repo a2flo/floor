@@ -186,6 +186,8 @@ public:
 	
 	// misc functions
 	static uint32_t unix_timestamp();
+	static uint64_t unix_timestamp_ms();
+	static uint64_t unix_timestamp_us();
 	template <typename clock_type>
 	static inline uint32_t unix_timestamp(const chrono::time_point<clock_type>& time_point) {
 		return (uint32_t)chrono::duration_cast<chrono::seconds>(time_point.time_since_epoch()).count();

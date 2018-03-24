@@ -189,6 +189,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		auto device = make_shared<metal_device>();
 		devices.emplace_back(device);
 		device->device = dev;
+		device->context = this;
 		device->name = [[dev name] UTF8String];
 		device->type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
 		++device_num;

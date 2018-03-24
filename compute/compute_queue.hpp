@@ -138,15 +138,14 @@ public:
 	}
 	
 	//! starts profiling
-	virtual void start_profiling() {}
+	virtual void start_profiling();
 	
 	//! stops the previously started profiling and returns the elapsed time in microseconds
-	virtual uint64_t stop_profiling() {
-		return 0;
-	}
+	virtual uint64_t stop_profiling();
 	
 protected:
 	shared_ptr<compute_device> device;
+	uint64_t us_prof_start { 0 };
 	
 };
 

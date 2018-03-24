@@ -1432,7 +1432,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = NO;
@@ -1575,7 +1574,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = YES;
@@ -1623,6 +1621,7 @@
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				OTHER_CFLAGS = (
+					"-march=native",
 					"-fparse-all-comments",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/include",
@@ -1684,7 +1683,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -1698,14 +1696,11 @@
 					"/usr/local/opt/openal-soft/include",
 				);
 				LIBRARY_SEARCH_PATHS = (
-					/usr/X11/lib,
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-isystem",
-					/opt/X11/include,
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
@@ -1725,7 +1720,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -1739,14 +1733,11 @@
 					"/usr/local/opt/openal-soft/include",
 				);
 				LIBRARY_SEARCH_PATHS = (
-					/usr/X11/lib,
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
-					"-isystem",
-					/opt/X11/include,
 					"-isystem",
 					/usr/local/include,
 					"-isystem",

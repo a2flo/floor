@@ -39,4 +39,18 @@ void* host_queue::get_queue_ptr() {
 	return this;
 }
 
+static inline uint64_t clock_in_us() {
+	return (uint64_t)chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
+
+void host_queue::start_profiling() {
+	profiling_time = clock_in_us();
+}
+
+uint64_t host_queue::stop_profiling() {
+	const auto elapsed_time = clock_in_us() - profiling_time;
+	profiling_time = 0;
+	return elapsed_time;
+}
+
 #endif

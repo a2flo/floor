@@ -595,7 +595,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	LDFLAGS="${LDFLAGS} ${LIBS}"
 else
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
-	INCLUDES="${INCLUDES} -isystem /opt/X11/include"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	fi
@@ -608,7 +607,6 @@ else
 	LDFLAGS="${LDFLAGS} -dynamiclib"
 	
 	# additional lib paths
-	LDFLAGS="${LDFLAGS} -L/opt/X11/lib"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openssl/lib"
 	fi
@@ -648,7 +646,7 @@ fi
 
 # just in case, also add these rather default ones (should also go after all previous libs,
 # in case a local or otherwise set up lib is overwriting a system lib and should be used instead)
-LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib -L/opt/floor/lib"
+LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib"
 
 # create the floor_conf.hpp file
 if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then

@@ -114,8 +114,8 @@
 // library checks:
 #include <floor/core/platform.hpp>
 
-#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 3700)
-#error "You need to install libc++ 3.7+ to compile floor"
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 4000)
+#error "You need to install libc++ 4.0+ to compile floor"
 #endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 2)

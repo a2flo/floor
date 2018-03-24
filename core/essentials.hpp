@@ -87,6 +87,19 @@
 #define floor_hidden
 #endif
 
+// nullability attributes/qualifiers
+#if defined(__clang__)
+#define floor_nonnull _Nonnull
+#define floor_null_unspecified _Null_unspecified
+#define floor_nullable _Nullable
+#define floor_returns_nonnull __attribute__((returns_nonnull))
+#else
+#define floor_nonnull
+#define floor_null_unspecified
+#define floor_nullable
+#define floor_returns_nonnull
+#endif
+
 // set compute defines if host-based compute is enabled
 #if !defined(FLOOR_NO_HOST_COMPUTE) && !defined(FLOOR_COMPUTE)
 #define FLOOR_COMPUTE 1

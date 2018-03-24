@@ -31,19 +31,19 @@ class metal_device;
 class compute_device;
 class metal_image final : public compute_image {
 public:
-	metal_image(metal_device* device,
+	metal_image(metal_device* floor_nonnull device,
 				const uint4 image_dim,
 				const COMPUTE_IMAGE_TYPE image_type,
-				void* host_ptr = nullptr,
+				void* floor_nullable host_ptr = nullptr,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type = 0,
 				const uint32_t external_gl_object_ = 0,
-				const opengl_image_info* gl_image_info = nullptr);
+				const opengl_image_info* floor_nullable gl_image_info = nullptr);
 	
 	//! wraps an already existing metal image, with the specified flags and backed by the specified host pointer
 	metal_image(shared_ptr<compute_device> device,
-				id <MTLTexture> external_image,
-				void* host_ptr = nullptr,
+				id <MTLTexture> floor_nonnull external_image,
+				void* floor_nullable host_ptr = nullptr,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
@@ -54,22 +54,23 @@ public:
 	
 	void zero(shared_ptr<compute_queue> cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags =
-											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	void* floor_nullable __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+														   const COMPUTE_MEMORY_MAP_FLAG flags =
+														   (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+															COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(shared_ptr<compute_queue> cqueue,
+			   void* floor_nullable __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the metal specific image object
-	id <MTLTexture> get_metal_image() const { return image; }
+	id <MTLTexture> floor_nullable get_metal_image() const { return image; }
 	
 	//! creates the mip-map chain for this metal image
 	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) override;
 	
 protected:
-	id <MTLTexture> image { nil };
-	MTLTextureDescriptor* desc { nil };
+	id <MTLTexture> floor_null_unspecified image { nil };
+	MTLTextureDescriptor* floor_null_unspecified desc { nil };
 	bool is_external { false };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
@@ -84,7 +85,7 @@ protected:
 	unordered_map<void*, metal_mapping> mappings;
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, const metal_device* device, compute_queue* cqueue);
+	bool create_internal(const bool copy_host_data, const metal_device* floor_nonnull device);
 	
 };
 
