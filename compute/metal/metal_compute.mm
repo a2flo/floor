@@ -42,53 +42,11 @@
 // include again to clean up macro mess
 #include <floor/core/essentials.hpp>
 
-// only need this on os x right now (won't work on ios 8.0 anyways, different spi)
+// only need this on os x right now
 #if !defined(FLOOR_IOS)
-typedef struct {
-	unsigned int _field1;
-	unsigned int _field2;
-} CDStruct_c0454aff;
-
-typedef struct {
-	unsigned int _field1;
-	unsigned int _field2;
-	unsigned int _field3;
-	unsigned int _field4;
-	unsigned int _field5;
-	unsigned int _field6;
-	unsigned int _field7;
-	unsigned int _field8;
-	unsigned int _field9;
-	unsigned int _field10;
-	unsigned int _field11;
-	unsigned int _field12;
-	unsigned int _field13;
-	unsigned int _field14;
-	unsigned int _field15;
-	unsigned int _field16;
-	unsigned int _field17;
-	unsigned int _field18;
-	float _field19;
-	float _field20;
-	unsigned int _field21;
-	unsigned int _field22;
-	unsigned int _field23;
-	unsigned int _field24;
-	unsigned int _field25;
-	unsigned int _field26;
-	unsigned int _field27;
-	unsigned int _field28;
-	unsigned int _field29;
-	unsigned int _field30;
-	unsigned int _field31;
-	unsigned int _field32;
-	unsigned int _field33;
-	unsigned int _field34;
-} CDStruct_97d836cc;
 
 @protocol MTLDeviceSPI <MTLDevice>
-+ (void)registerDevices;
-@property(readonly) unsigned int acceleratorPort;
+@property(readonly) unsigned long long dedicatedMemorySize;
 @property(readonly) unsigned long long iosurfaceTextureAlignmentBytes;
 @property(readonly) unsigned long long linearTextureAlignmentBytes;
 @property(readonly) unsigned long long maxTextureLayers;
@@ -123,40 +81,25 @@ typedef struct {
 @property(readonly) unsigned long long maxVertexBuffers;
 @property(readonly) unsigned long long maxVertexAttributes;
 @property(readonly) unsigned long long maxColorAttachments;
-@property(readonly) const CDStruct_97d836cc* limits;
 @property(readonly) unsigned long long featureProfile;
 @property(nonatomic) BOOL metalAssertionsEnabled;
 @property(readonly) unsigned long long doubleFPConfig;
 @property(readonly) unsigned long long singleFPConfig;
 @property(readonly) unsigned long long halfFPConfig;
 @property(readonly, getter=isMagicMipmapSupported) BOOL magicMipmapSupported;
-- (CDStruct_c0454aff)pipelineCacheStats;
-- (CDStruct_c0454aff)libraryCacheStats;
-- (void)unloadShaderCaches;
-- (id <MTLTexture>)newTextureWithDescriptor:(MTLTextureDescriptor *)arg1 iosurface:(struct __IOSurface *)arg2 plane:(unsigned long long)arg3;
+//@property(readonly) int llvmVersion;
+@property(readonly) unsigned long long recommendedMaxWorkingSetSize;
+@property(readonly) unsigned long long registryID;
+@property(readonly) BOOL requiresIABEmulation;
+@property(readonly) BOOL supportPriorityBand;
 
 @optional
-@property(readonly, getter=isSystemDefaultDevice) BOOL systemDefaultDevice;
-@property BOOL shaderDebugInfoCaching;
-- (void)compilerPropagatesThreadPriority:(_Bool)arg1;
 - (NSString *)productName;
 - (NSString *)familyName;
 - (NSString *)vendorName;
-- (void)newComputePipelineStateWithDescriptor:(MTLComputePipelineDescriptor *)arg1 completionHandler:(void (^)(id <MTLComputePipelineState>, NSError *))arg2;
-- (id <MTLComputePipelineState>)newComputePipelineStateWithDescriptor:(MTLComputePipelineDescriptor *)arg1 error:(id *)arg2;
-- (void)unmapShaderSampleBuffer;
-- (BOOL)mapShaderSampleBufferWithBuffer:(void*)arg1 capacity:(unsigned long long)arg2 size:(unsigned long long)arg3;
 @end
+
 #endif
-
-@protocol MTLFunctionSPI <MTLFunction>
-@property(readonly) long long lineNumber;
-@property(copy) NSString *filePath;
-@end
-
-@interface _MTLLibrary : NSObject <MTLLibrary>
-@property(readonly, retain, nonatomic) NSMutableDictionary *functionDictionary;
-@end
 
 metal_compute::metal_compute(const vector<string> whitelist) : compute_context() {
 #if defined(FLOOR_IOS)
@@ -319,7 +262,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			device->simd_range = { device->simd_width, device->simd_width };
 		}
 		else device->vendor = COMPUTE_VENDOR::UNKNOWN;
-		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
+		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now
+		if ([dev_spi respondsToSelector:@selector(dedicatedMemorySize)]) {
+			device->global_mem_size = [dev_spi dedicatedMemorySize];
+		}
 		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
 		device->family = (uint32_t)[dev_spi featureProfile];
 		if(device->family >= 10002) {

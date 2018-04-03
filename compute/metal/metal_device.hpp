@@ -38,7 +38,7 @@ public:
 	// metal version which this device supports
 	METAL_VERSION metal_version;
 	
-	// device family, currently 1 (A7), 2 (A8/A8X), 3 (A9/A9X/A10/A10X) and 10000 (anything on OS X)
+	// device family, currently 1 (A7), 2 (A8/A8X), 3 (A9/A9X/A10/A10X/A11) and 10000+ (anything on OS X)
 	uint32_t family { 0u };
 	
 	// on iOS: 1 (iOS 8.x if A7/A8, or iOS 9.x for A9), 2 (iOS 9.x if A7/A8, iOS 10.x if A9), 3 (iOS 10.x if A7/A8)

@@ -63,7 +63,52 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
-#if defined(__AVX__)
+#if defined(__AVX512F__) && defined(__AVX512DQ__)
+asm("floor_get_context_sysv_x86_64:"
+	// store all registers in fiber_context*
+	"movq %rbp, %xmm1;"
+	"pinsrq $1, %rbx, %xmm1;"
+	"vinserti64x2 $0, %xmm1, %zmm0, %zmm0;"
+	
+	"movq %r12, %xmm2;"
+	"pinsrq $1, %r13, %xmm2;"
+	"vinserti64x2 $1, %xmm2, %zmm0, %zmm0;"
+	
+	"movq %r14, %xmm3;"
+	"pinsrq $1, %r15, %xmm3;"
+	"vinserti64x2 $2, %xmm3, %zmm0, %zmm0;"
+	
+	"movq %rsp, %rcx;"
+	"addq $0x8, %rcx;"
+	"movq %rcx, %xmm4;" // rsp
+	"pinsrq $1, (%rsp), %xmm4;"
+	"vinserti64x2 $3, %xmm4, %zmm0, %zmm0;"
+	"vmovdqa64 %zmm0, (%rdi);" // rip
+	
+	"retq;");
+asm("floor_set_context_sysv_x86_64:"
+	// restore all registers from fiber_context*
+	"vmovdqu64 (%rdi), %zmm0;"
+	"vextracti64x2 $0, %zmm0, %xmm1;"
+	"vextracti64x2 $1, %zmm0, %xmm2;"
+	"vextracti64x2 $2, %zmm0, %xmm3;"
+	"vextracti64x2 $3, %zmm0, %xmm4;"
+	
+	"vmovq %xmm1, %rbp;"
+	"vpextrq $1, %xmm1, %rbx;"
+	
+	"vmovq %xmm2, %r12;"
+	"vpextrq $1, %xmm2, %r13;"
+	
+	"vmovq %xmm3, %r14;"
+	"vpextrq $1, %xmm3, %r15;"
+	
+	"vmovq %xmm4, %rsp;"
+	"vpextrq $1, %xmm4, %rcx;" // rip
+	
+	// and jump to rip (rcx)
+	"jmp *%rcx;");
+#elif defined(__AVX__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
 	"prefetchw (%rdi);"
@@ -161,7 +206,7 @@ extern "C" void floor_set_context(void* ctx) asm("floor_set_context_sysv_x86_64"
 extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
 #endif
 
-struct fiber_context {
+struct alignas(128) fiber_context {
 	typedef void (*init_func_type)(const uint32_t);
 
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
@@ -185,6 +230,11 @@ struct fiber_context {
 			  init_func_type init_func_, const uint32_t& init_arg_,
 			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
+		
+		if(size_t(this) % 128u != 0u) {
+			log_error("fiber_context must be 128-byte aligned!"); logger::flush();
+			return;
+		}
 
 		if(stack_ptr != nullptr) {
 			// check stack pointer validity (must be 16-byte aligned)
@@ -409,6 +459,13 @@ struct fiber_context {
 	uint32_t init_arg { 0 };
 	
 };
+#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+// make sure member variables are at the right offsets when using the sysv abi fiber approach
+static_assert(offsetof(fiber_context, init_func) == 0x50);
+static_assert(offsetof(fiber_context, exit_ctx) == 0x58);
+static_assert(offsetof(fiber_context, main_ctx) == 0x60);
+static_assert(offsetof(fiber_context, init_arg) == 0x68);
+#endif
 
 // thread affinity handling
 static void floor_set_thread_affinity(const uint32_t& affinity) {

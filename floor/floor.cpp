@@ -366,6 +366,7 @@ bool floor::init(const init_state& state) {
 		config.metal_llc = config_doc.get<string>("toolchain.metal.llc", config.default_llc);
 		config.metal_as = config_doc.get<string>("toolchain.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
+		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
 		
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
 		config.vulkan_validate_spirv = config_doc.get<bool>("toolchain.vulkan.validate_spirv", false);
@@ -1744,6 +1745,9 @@ const string& floor::get_metal_as() {
 }
 const string& floor::get_metal_dis() {
 	return config.metal_dis;
+}
+const uint32_t& floor::get_metal_force_version() {
+	return config.metal_force_version;
 }
 
 const string& floor::get_vulkan_base_path() {

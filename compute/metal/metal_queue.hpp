@@ -40,11 +40,21 @@ public:
 	id <MTLCommandQueue> get_queue();
 	id <MTLCommandBuffer> make_command_buffer() REQUIRES(!cmd_buffers_lock);
 	
+	bool has_profiling_support() const override {
+		return true;
+	}
+	void start_profiling() override;
+	uint64_t stop_profiling() override;
+	
 protected:
 	id <MTLCommandQueue> queue { nil };
 	
 	mutable safe_recursive_mutex cmd_buffers_lock;
-	vector<id <MTLCommandBuffer>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	vector<pair<id <MTLCommandBuffer>, bool>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	
+	bool can_do_profiling { false };
+	atomic<bool> is_profiling { false };
+	atomic<uint64_t> profiling_sum { 0 };
 	
 };
 

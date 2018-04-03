@@ -73,6 +73,15 @@
 #include <cassert>
 #include <stdbool.h>
 
+#if __has_include(<optional>)
+#include <optional>
+#elif __has_include(<experimental/optional>)
+#include <experimental/optional>
+using namespace std::experimental::fundamentals_v1;
+#else
+#error "no <optional> header found"
+#endif
+
 #if defined(CYGWIN)
 #include <sys/wait.h>
 #endif

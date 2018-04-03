@@ -175,10 +175,27 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			output_file_type = "metallib";
 			
 			const auto mtl_dev = (metal_device*)device.get();
+			auto metal_version = mtl_dev->metal_version;
+			const auto metal_force_version = floor::get_metal_force_version();
+			switch (metal_force_version) {
+				case 11:
+					metal_version = METAL_VERSION::METAL_1_1;
+					break;
+				case 12:
+					metal_version = METAL_VERSION::METAL_1_2;
+					break;
+				case 20:
+					metal_version = METAL_VERSION::METAL_2_0;
+					break;
+				default:
+					log_error("invalid force_version: %u", metal_force_version);
+					break;
+			}
+			
 			string os_target;
 			if(mtl_dev->family < 10000) {
 				// -> iOS 9.0+
-				switch(mtl_dev->metal_version) {
+				switch(metal_version) {
 					default:
 						os_target = "ios9.0.0";
 						break;
@@ -192,7 +209,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			}
 			else {
 				// -> OS X 10.11+
-				switch(mtl_dev->metal_version) {
+				switch(metal_version) {
 					default:
 						os_target = "macosx10.11.0";
 						break;
@@ -206,7 +223,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			}
 			
 			string metal_std = "metal1.1";
-			switch(mtl_dev->metal_version) {
+			switch(metal_version) {
 				case METAL_VERSION::METAL_1_2:
 					metal_std = "metal1.2";
 					break;
@@ -234,8 +251,8 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" \
 				" -llvm-metallib" +
-				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(mtl_dev->metal_version) +
-				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(mtl_dev->metal_version)
+				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
+				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(metal_version)
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";

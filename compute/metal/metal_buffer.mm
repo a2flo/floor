@@ -209,7 +209,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 	
 #if !defined(FLOOR_IOS)
 	if((((metal_buffer*)src.get())->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_resource(cqueue, buffer);
+		sync_metal_resource(cqueue, ((metal_buffer*)src.get())->get_metal_buffer());
 	}
 #endif
 	

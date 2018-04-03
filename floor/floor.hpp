@@ -275,6 +275,7 @@ public:
 	static const string& get_metal_llc();
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
+	static const uint32_t& get_metal_force_version();
 	
 	// vulkan
 	static const string& get_vulkan_base_path();
@@ -399,6 +400,7 @@ protected:
 		string metal_llc = default_llc;
 		string metal_as = default_as;
 		string metal_dis = default_dis;
+		uint32_t metal_force_version = 0;
 		
 		// host
 		string host_base_path = "";
