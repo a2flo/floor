@@ -90,7 +90,7 @@ void host_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst,
 	if(buffer == nullptr) return;
 
 	const size_t read_size = (size_ == 0 ? size : size_);
-	if(!read_check(size, read_size, offset)) return;
+	if(!read_check(size, read_size, offset, flags)) return;
 
 	GUARD(lock);
 	memcpy(dst, buffer + offset, read_size);
@@ -104,7 +104,7 @@ void host_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const voi
 	if(buffer == nullptr) return;
 
 	const size_t write_size = (size_ == 0 ? size : size_);
-	if(!write_check(size, write_size, offset)) return;
+	if(!write_check(size, write_size, offset, flags)) return;
 	
 	GUARD(lock);
 	memcpy(buffer + offset, src, write_size);

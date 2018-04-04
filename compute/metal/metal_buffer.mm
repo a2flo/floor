@@ -27,13 +27,14 @@
 
 // TODO: proper error (return) value handling everywhere
 
-metal_buffer::metal_buffer(metal_device* device,
+metal_buffer::metal_buffer(const bool is_staging_buffer_,
+						   metal_device* device,
 						   const size_t& size_,
 						   void* host_ptr_,
 						   const COMPUTE_MEMORY_FLAG flags_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
@@ -59,9 +60,19 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 	else {
 #if !defined(FLOOR_IOS)
-		// if the buffer is accessed by the host in some way, use managed storage
-		// note that this requires us to perform explicit sync operations
-		options |= MTLResourceStorageModeManaged;
+		if (!is_staging_buffer) {
+			// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
+			// that we'll use to copy memory to and from the private storage buffer
+			options |= MTLResourceStorageModePrivate;
+			staging_buffer = unique_ptr<metal_buffer>(new metal_buffer(true /* staging */, device, size, nullptr,
+																	   COMPUTE_MEMORY_FLAG::READ_WRITE |
+																	   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0));
+		}
+		else {
+			// use managed storage for the staging buffer
+			// note that this requires us to perform explicit sync operations
+			options |= MTLResourceStorageModeManaged;
+		}
 #else
 		// iOS only knows private and shared storage modes
 		options |= MTLResourceStorageModeShared;
@@ -164,9 +175,15 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused_on_ios, vo
 	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
-	if(!read_check(size, read_size, offset)) return;
+	if(!read_check(size, read_size, offset, flags)) return;
 	
 #if !defined(FLOOR_IOS)
+	if (staging_buffer != nullptr) {
+		staging_buffer->copy(cqueue, *this, read_size, offset, offset);
+		staging_buffer->read(cqueue, dst, read_size, offset);
+		return;
+	}
+	
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		sync_metal_resource(cqueue, buffer);
 	}
@@ -180,41 +197,71 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, c
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
+void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused_on_ios, const void* src,
+						 const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	if(!write_check(size, write_size, offset)) return;
+	if(!write_check(size, write_size, offset, flags)) return;
 	
 	GUARD(lock);
-	memcpy((uint8_t*)[buffer contents] + offset, src, write_size);
+	id <MTLBuffer> write_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
+	memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
 	
 #if !defined(FLOOR_IOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[buffer didModifyRange:NSRange { offset, offset + write_size }];
+		[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
+	}
+	
+	if(staging_buffer != nullptr) {
+		copy(cqueue, *staging_buffer, write_size, offset, offset);
 	}
 #endif
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
-						shared_ptr<compute_buffer> src,
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue, shared_ptr<compute_buffer> src,
+						const size_t size_, const size_t src_offset, const size_t dst_offset) {
+	if(buffer == nil || src == nullptr) return;
+	copy(cqueue, (metal_buffer&)*src, size_, src_offset, dst_offset);
+}
+
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, metal_buffer& src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;
 	
-	const size_t src_size = src->get_size();
+	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	GUARD(lock);
 	
 #if !defined(FLOOR_IOS)
-	if((((metal_buffer*)src.get())->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_resource(cqueue, ((metal_buffer*)src.get())->get_metal_buffer());
+	// if either source or destination uses private storage, we need to perform a blit copy
+	if((src.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+	   (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		[blit_encoder copyFromBuffer:src.get_metal_buffer()
+						sourceOffset:src_offset
+							toBuffer:buffer
+				   destinationOffset:dst_offset
+								size:copy_size];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+		return;
+	}
+	
+	if((src.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, src.get_metal_buffer());
+	}
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, buffer);
 	}
 #endif
 	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
-		   (uint8_t*)[((metal_buffer*)src.get())->get_metal_buffer() contents] + src_offset,
+		   (uint8_t*)[src.get_metal_buffer() contents] + src_offset,
 		   copy_size);
 	
 #if !defined(FLOOR_IOS)
@@ -224,7 +271,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 #endif
 }
 
-void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
+void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
@@ -234,20 +281,37 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	
 	GUARD(lock);
 	
+	id <MTLBuffer> fill_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
-		case 1:
-			fill_n((uint8_t*)[buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
+		case 1: {
+#if !defined(FLOOR_IOS)
+			// can use fillBuffer directly on the private storage buffer
+			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+				id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+				id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+				[blit_encoder fillBuffer:buffer
+								   range:NSRange { offset, offset + fill_size }
+								   value:*(const uint8_t*)pattern];
+				[blit_encoder endEncoding];
+				[cmd_buffer commit];
+				[cmd_buffer waitUntilCompleted];
+				return;
+			}
+#endif
+			fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
 			break;
+		}
+		// TODO: implement 2/4/any for MTLResourceStorageModePrivate
 		case 2:
-			fill_n((uint16_t*)[buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
+			fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
 			break;
 		case 4:
-			fill_n((uint32_t*)[buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
+			fill_n((uint32_t*)[fill_buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
 			break;
 		default:
 			// not a pattern size that allows a fast memset
-			uint8_t* write_ptr = ((uint8_t*)[buffer contents]) + offset;
+			uint8_t* write_ptr = ((uint8_t*)[fill_buffer contents]) + offset;
 			for(size_t i = 0; i < pattern_count; i++) {
 				memcpy(write_ptr, pattern, pattern_size);
 				write_ptr += pattern_size;
@@ -257,23 +321,18 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	
 #if !defined(FLOOR_IOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[buffer didModifyRange:NSRange { offset, offset + fill_size }];
+		[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
+	}
+	
+	if(staging_buffer != nullptr) {
+		copy(cqueue, *staging_buffer, fill_size, offset, offset);
 	}
 #endif
 }
 
-void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused) {
-	if(buffer == nil) return;
-	
-	GUARD(lock);
-	
-	memset([buffer contents], 0, size);
-	
-#if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[buffer didModifyRange:NSRange { 0, size }];
-	}
-#endif
+void metal_buffer::zero(shared_ptr<compute_queue> cqueue) {
+	const uint8_t zero_pattern = 0u;
+	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
 bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
@@ -293,20 +352,21 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 	const size_t map_size = (size_ == 0 ? size : size_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
-	bool write_only = false;
+	bool does_read = false, does_write = false;
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
-		write_only = true;
+		does_write = true;
 	}
 	else {
 		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
 			case COMPUTE_MEMORY_MAP_FLAG::READ:
-				write_only = false;
+				does_read = true;
 				break;
 			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
-				write_only = true;
+				does_write = true;
 				break;
 			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
-				write_only = false;
+				does_read = true;
+				does_write = true;
 				break;
 			case COMPUTE_MEMORY_MAP_FLAG::NONE:
 			default:
@@ -314,6 +374,8 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 				return nullptr;
 		}
 	}
+	const bool write_only = (!does_read && does_write);
+	const bool read_only = (does_read && !does_write);
 	
 	// must lock this to make sure all prior work has completed
 	_lock();
@@ -338,9 +400,23 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 		}
 		
 		// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-		mappings.emplace(host_buffer, metal_mapping { map_size, offset, flags_, write_only });
+		mappings.emplace(host_buffer, metal_mapping { map_size, offset, flags_, write_only, read_only });
 		
 		return host_buffer;
+	}
+	else if(staging_buffer != nullptr) {
+		if(!write_only) {
+			// read-only or read-write: update staging buffer
+			staging_buffer->copy(cqueue, (metal_buffer&)*this, map_size, offset);
+		}
+		
+		// do the mapping using the staging buffer
+		auto mapped_ptr = staging_buffer->map(cqueue, flags_, size_, offset);
+		
+		// remember the mapping so that we can properly unmap again later
+		mappings.emplace(mapped_ptr, metal_mapping { map_size, offset, flags_, write_only, read_only });
+		
+		return mapped_ptr;
 	}
 	else {
 #endif
@@ -351,13 +427,15 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 #endif
 }
 
-void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return;
 	if(mapped_ptr == nullptr) return;
 	
 #if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	const bool is_managed = ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
+	const bool has_staging_buffer = (staging_buffer != nullptr);
+	if(is_managed || has_staging_buffer) {
 		// check if this is actually a mapped pointer (+get the mapped size)
 		const auto iter = mappings.find(mapped_ptr);
 		if(iter == mappings.end()) {
@@ -365,21 +443,30 @@ void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 			return;
 		}
 		
-		// check if we need to actually copy data back to the device (not the case if read-only mapping)
-		if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-			// if mapping is write-only, mapped_ptr was manually alloc'ed and we need to copy the data
-			// to the actual metal buffer
-			if(iter->second.write_only) {
-				memcpy(((uint8_t*)[buffer contents]) + iter->second.offset, mapped_ptr, iter->second.size);
+		if (is_managed) {
+			// check if we need to actually copy data back to the device (not the case if read-only mapping)
+			if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+			   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+				// if mapping is write-only, mapped_ptr was manually alloc'ed and we need to copy the data
+				// to the actual metal buffer
+				if(iter->second.write_only) {
+					memcpy(((uint8_t*)[buffer contents]) + iter->second.offset, mapped_ptr, iter->second.size);
+					
+					// and cleanup
+					delete [] (unsigned char*)mapped_ptr;
+				}
+				// else: the user received pointer directly to the metal buffer and nothing needs to be copied
 				
-				// and cleanup
-				delete [] (unsigned char*)mapped_ptr;
+				// finally, notify the buffer that we changed its contents
+				[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];
 			}
-			// else: the user received pointer directly to the metal buffer and nothing needs to be copied
-			
-			// finally, notify the buffer that we changed its contents
-			[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];
+		}
+		else if(has_staging_buffer) {
+			// perform unmap on the staging buffer, then update this buffer if necessary
+			staging_buffer->unmap(cqueue, mapped_ptr);
+			if (iter->second.write_only || !iter->second.read_only) {
+				copy(cqueue, *staging_buffer, iter->second.size, iter->second.offset);
+			}
 		}
 		
 		// remove the mapping

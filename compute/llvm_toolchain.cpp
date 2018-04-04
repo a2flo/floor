@@ -177,19 +177,21 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			const auto mtl_dev = (metal_device*)device.get();
 			auto metal_version = mtl_dev->metal_version;
 			const auto metal_force_version = floor::get_metal_force_version();
-			switch (metal_force_version) {
-				case 11:
-					metal_version = METAL_VERSION::METAL_1_1;
-					break;
-				case 12:
-					metal_version = METAL_VERSION::METAL_1_2;
-					break;
-				case 20:
-					metal_version = METAL_VERSION::METAL_2_0;
-					break;
-				default:
-					log_error("invalid force_version: %u", metal_force_version);
-					break;
+			if (metal_force_version != 0) {
+				switch (metal_force_version) {
+					case 11:
+						metal_version = METAL_VERSION::METAL_1_1;
+						break;
+					case 12:
+						metal_version = METAL_VERSION::METAL_1_2;
+						break;
+					case 20:
+						metal_version = METAL_VERSION::METAL_2_0;
+						break;
+					default:
+						log_error("invalid force_version: %u", metal_force_version);
+						break;
+				}
 			}
 			
 			string os_target;

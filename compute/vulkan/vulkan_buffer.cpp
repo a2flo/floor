@@ -120,7 +120,7 @@ void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, void* dst,
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
-	if(!read_check(size, read_size, offset)) return;
+	if(!read_check(size, read_size, offset, flags)) return;
 	
 	GUARD(lock);
 	read_memory_data(cqueue, dst, read_size, offset, 0, "failed to read buffer");
@@ -135,7 +135,7 @@ void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src,
 	if(buffer == nullptr) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	if(!write_check(size, write_size, offset)) return;
+	if(!write_check(size, write_size, offset, flags)) return;
 	
 	GUARD(lock);
 	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");

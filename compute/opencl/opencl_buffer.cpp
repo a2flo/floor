@@ -133,7 +133,7 @@ void opencl_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
-	if(!read_check(size, read_size, offset)) return;
+	if(!read_check(size, read_size, offset, flags)) return;
 	
 	// TODO: blocking flag
 	clEnqueueReadBuffer(queue_or_default_queue(cqueue), buffer, true, offset, read_size, dst,
@@ -148,7 +148,7 @@ void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, con
 	if(buffer == nullptr) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	if(!write_check(size, write_size, offset)) return;
+	if(!write_check(size, write_size, offset, flags)) return;
 	
 	// TODO: blocking flag
 	clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, true, offset, write_size, src,

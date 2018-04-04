@@ -168,7 +168,7 @@ void cuda_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t
 	if(buffer == 0) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
-	if(!read_check(size, read_size, offset)) return;
+	if(!read_check(size, read_size, offset, flags)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_dtoh_async(dst, buffer + offset, read_size, (cu_stream)cqueue->get_queue_ptr()),
@@ -183,7 +183,7 @@ void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const
 	if(buffer == 0) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	if(!write_check(size, write_size, offset)) return;
+	if(!write_check(size, write_size, offset, flags)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_htod_async(buffer + offset, src, write_size, (cu_stream)cqueue->get_queue_ptr()),

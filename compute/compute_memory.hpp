@@ -168,7 +168,7 @@ protected:
 	uint32_t gl_object { 0u };
 	bool gl_object_state { true }; // false: compute use, true: opengl use
 	
-	safe_mutex lock;
+	safe_recursive_mutex lock;
 	
 };
 

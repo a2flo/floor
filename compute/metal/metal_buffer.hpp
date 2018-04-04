@@ -37,14 +37,15 @@ public:
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0,
-				 const uint32_t external_gl_object_ = 0);
+				 const uint32_t external_gl_object_ = 0) :
+	metal_buffer(false, device, size_, host_ptr, flags_, opengl_type_, external_gl_object_) {}
 	
 	metal_buffer(metal_device* device,
 				 const size_t& size_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(device, size_, nullptr, flags_, opengl_type_) {}
+	metal_buffer(false, device, size_, nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
 	metal_buffer(metal_device* device,
@@ -52,7 +53,7 @@ public:
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+	metal_buffer(false, device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
 	metal_buffer(metal_device* device,
@@ -60,7 +61,7 @@ public:
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+	metal_buffer(false, device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
 	
 	//! wraps an already existing metal buffer, with the specified flags and backed by the specified host pointer
 	metal_buffer(shared_ptr<compute_device> device,
@@ -80,6 +81,9 @@ public:
 	void copy(shared_ptr<compute_queue> cqueue,
 			  shared_ptr<compute_buffer> src,
 			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
+	void copy(shared_ptr<compute_queue> cqueue,
+			  metal_buffer& src,
+			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0);
 	
 	void fill(shared_ptr<compute_queue> cqueue,
 			  const void* pattern, const size_t& pattern_size,
@@ -115,8 +119,20 @@ public:
 	static void sync_metal_resource(shared_ptr<compute_queue> cqueue, id <MTLResource> rsrc);
 	
 protected:
+	//! protected constructor so that we can decide whether a staging buffer is created
+	metal_buffer(const bool is_staging_buffer_,
+				 metal_device* device,
+				 const size_t& size_,
+				 void* host_ptr,
+				 const COMPUTE_MEMORY_FLAG flags_,
+				 const uint32_t opengl_type_,
+				 const uint32_t external_gl_object_ = 0);
+	
+protected:
 	id <MTLBuffer> buffer { nil };
+	unique_ptr<metal_buffer> staging_buffer;
 	bool is_external { false };
+	bool is_staging_buffer { false };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	
@@ -125,6 +141,7 @@ protected:
 		const size_t offset;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 		const bool write_only;
+		const bool read_only;
 	};
 	// stores all mapped pointers and the mapped buffer
 	unordered_map<void*, metal_mapping> mappings;

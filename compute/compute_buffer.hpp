@@ -172,7 +172,8 @@ protected:
 #if defined(FLOOR_DEBUG) || defined(FLOOR_DEBUG_COMPUTE_BUFFER)
 	floor_inline_always static bool read_check(const size_t& buffer_size,
 											   const size_t& read_size,
-											   const size_t& offset) {
+											   const size_t& offset,
+											   const COMPUTE_MEMORY_FLAG& buffer_flags) {
 		if(read_size == 0) {
 			log_warn("read: trying to read 0 bytes!");
 		}
@@ -185,12 +186,18 @@ protected:
 					  offset, read_size, buffer_size);
 			return false;
 		}
+		// should buffer be readable from the host?
+		if(!has_flag<COMPUTE_MEMORY_FLAG::HOST_READ>(buffer_flags)) {
+			log_error("read: buffer is not readable by the host (HOST_READ buffer flag not set)");
+			return false;
+		}
 		return true;
 	}
 	
 	floor_inline_always static bool write_check(const size_t& buffer_size,
 												const size_t& write_size,
-												const size_t& offset) {
+												const size_t& offset,
+												const COMPUTE_MEMORY_FLAG& buffer_flags) {
 		if(write_size == 0) {
 			log_warn("write: trying to write 0 bytes!");
 		}
@@ -201,6 +208,11 @@ protected:
 		if(offset + write_size > buffer_size) {
 			log_error("write: invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
 					  offset, write_size, buffer_size);
+			return false;
+		}
+		// should buffer be writable from the host?
+		if(!has_flag<COMPUTE_MEMORY_FLAG::HOST_WRITE>(buffer_flags)) {
+			log_error("write: buffer is not writable by the host (HOST_WRITE buffer flag not set)");
 			return false;
 		}
 		return true;
