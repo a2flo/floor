@@ -324,10 +324,12 @@ protected:
 		return true;
 	}
 #else
-	floor_inline_always static constexpr bool read_check(const size_t&, const size_t&, const size_t&) {
+	floor_inline_always static constexpr bool read_check(const size_t&, const size_t&, const size_t&,
+														 const COMPUTE_MEMORY_FLAG&) {
 		return true;
 	}
-	floor_inline_always static constexpr bool write_check(const size_t&, const size_t&, const size_t&) {
+	floor_inline_always static constexpr bool write_check(const size_t&, const size_t&, const size_t&,
+														  const COMPUTE_MEMORY_FLAG&) {
 		return true;
 	}
 	floor_inline_always static constexpr bool copy_check(const size_t&, const size_t&, const size_t&,
