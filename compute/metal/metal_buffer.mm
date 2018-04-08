@@ -23,6 +23,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/compute/metal/metal_compute.hpp>
 #include <floor/darwin/darwin_helper.hpp>
 
 // TODO: proper error (return) value handling everywhere
@@ -60,7 +61,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 	else {
 #if !defined(FLOOR_IOS)
-		if (!is_staging_buffer) {
+		if (!is_staging_buffer && !has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 			// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
 			// that we'll use to copy memory to and from the private storage buffer
 			options |= MTLResourceStorageModePrivate;
@@ -69,7 +70,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 																	   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0));
 		}
 		else {
-			// use managed storage for the staging buffer
+			// use managed storage for the staging buffer or host memory backed buffer
 			// note that this requires us to perform explicit sync operations
 			options |= MTLResourceStorageModeManaged;
 		}
@@ -152,7 +153,38 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
 		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			buffer = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size options:options];
+			// can't use "newBufferWithBytes" with private storage memory
+			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+				auto cqueue = ((metal_compute*)dev->context)->get_device_internal_queue(dev);
+				
+				// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
+				//    if available), then blit from the host memory buffer
+				buffer = [((metal_device*)dev)->device newBufferWithLength:size options:options];
+				if (staging_buffer == nullptr) {
+					auto buffer_with_host_mem = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size
+																						 options:(MTLResourceStorageModeManaged |
+																								  MTLCPUCacheModeWriteCombined)];
+					
+					id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+					[blit_encoder copyFromBuffer:buffer_with_host_mem
+									sourceOffset:0
+										toBuffer:buffer
+							   destinationOffset:0
+											size:size];
+					[blit_encoder endEncoding];
+					[cmd_buffer commit];
+					[cmd_buffer waitUntilCompleted];
+				}
+				else {
+					staging_buffer->write(cqueue, host_ptr, size);
+					copy(cqueue, *staging_buffer);
+				}
+			}
+			else {
+				// all other storage modes can just use it
+				buffer = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size options:options];
+			}
 		}
 		// else: just create a buffer of the specified size
 		else {
@@ -209,7 +241,8 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused_on_ios, c
 	memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
 	
 #if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+	   staging_buffer != nullptr) {
 		[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
 	}
 	
@@ -320,7 +353,8 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 	}
 	
 #if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+	   staging_buffer != nullptr) {
 		[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
 	}
 	
