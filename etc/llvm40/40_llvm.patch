@@ -44506,7 +44506,7 @@ index 40c3327a98d..566dd96eaa3 100644
    // except reserved size is not correctly aligned.
  }
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 032991a20cc..c1cd150908e 100644
+index 032991a20cc..d0d6e0d8c7a 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -44556,7 +44556,7 @@ index 032991a20cc..c1cd150908e 100644
  
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
-@@ -64,6 +78,10 @@ def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
+@@ -64,6 +78,12 @@ def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
                               "Use PTX version 4.3">;
  def PTX50 : SubtargetFeature<"ptx50", "PTXVersion", "50",
                               "Use PTX version 5.0">;
@@ -44564,10 +44564,12 @@ index 032991a20cc..c1cd150908e 100644
 +                             "Use PTX version 6.0">;
 +def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
 +                             "Use PTX version 6.1">;
++def PTX62 : SubtargetFeature<"ptx62", "PTXVersion", "62",
++                             "Use PTX version 6.2">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -84,6 +102,10 @@ def : Proc<"sm_53", [SM53, PTX42]>;
+@@ -84,6 +104,10 @@ def : Proc<"sm_53", [SM53, PTX42]>;
  def : Proc<"sm_60", [SM60, PTX50]>;
  def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
