@@ -188,6 +188,9 @@ public:
 	//////////////////////////////////////////
 	// program/function functionality
 	
+	//! adds a pre-compiled universal binary (loaded from a file)
+	virtual shared_ptr<compute_program> add_universal_binary(const string& file_name) = 0;
+	
 	//! alias the llvm_toolchain compile_options (for now)
 	using compile_options = llvm_toolchain::compile_options;
 	

@@ -61,6 +61,9 @@ public:
 	
 	//! loads a SPIR-V container file and processes it into a usable 'container' object
 	static container load_container(const string& file_name);
+	static container load_container_from_memory(const uint8_t* data_ptr,
+												const size_t& data_size,
+												const string identifier = "");
 	
 protected:
 	// static class

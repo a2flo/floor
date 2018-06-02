@@ -28,6 +28,7 @@
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/universal_binary.hpp>
 #include <floor/floor/floor.hpp>
 
 opencl_compute::opencl_compute(const uint32_t platform_index_,
@@ -297,6 +298,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			
 			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
+			if(!device->image_support) {
+				log_error("device \"%s\" does not have basic image support, removing it!", device->name);
+				devices.pop_back();
+				continue;
+			}
+			
 			device->image_depth_support = core::contains(device->extensions, "cl_khr_depth_images");
 			device->image_depth_write_support = device->image_depth_support;
 			device->image_msaa_support = core::contains(device->extensions, "cl_khr_gl_msaa_sharing");
@@ -486,9 +493,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 									case 1:
 										spirv_version = SPIRV_VERSION::SPIRV_1_1;
 										break;
-									default:
 									case 2:
 										spirv_version = SPIRV_VERSION::SPIRV_1_2;
+										break;
+									default:
+									case 3:
+										spirv_version = SPIRV_VERSION::SPIRV_1_3;
 										break;
 								}
 								break;
@@ -543,7 +553,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 						case COMPUTE_VENDOR::AMD:
 							multiplier = 16;
 							break;
-							// none for INTEL
+						// none for INTEL
 						default: break;
 					}
 					return multiplier * (dev->units * dev->clock);
@@ -865,6 +875,35 @@ shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> 
 									 opengl_target, opengl_image, &info);
 }
 
+shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: %s", file_name);
+		return {};
+	}
+	
+	// create the program
+	opencl_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+		const auto cl_dev = (opencl_device*)devices[i].get();
+		const auto& dev_best_bin = bins.dev_binaries[i];
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		
+		prog_map.insert_or_assign(cl_dev,
+								  create_opencl_program_internal(cl_dev,
+																 dev_best_bin.first->data.data(),
+																 dev_best_bin.first->data.size(),
+																 func_info,
+																 dev_best_bin.second.opencl.is_spir ?
+																 llvm_toolchain::TARGET::SPIR :
+																 llvm_toolchain::TARGET::SPIRV_OPENCL,
+																 false /* TODO: true? */));
+	}
+	
+	return add_program(move(prog_map));
+}
+
 shared_ptr<opencl_program> opencl_compute::add_program(opencl_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
@@ -921,48 +960,70 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
 																		   llvm_toolchain::program_data program,
 																		   const llvm_toolchain::TARGET& target) {
-	opencl_program::opencl_program_entry ret;
-	ret.functions = program.functions;
-	const auto cl_dev = (const opencl_device*)device.get();
-	
 	if(!program.valid) {
-		return ret;
+		return {};
 	}
+	
+	if (target == llvm_toolchain::TARGET::SPIRV_OPENCL) {
+		// SPIR-V binary, loaded from a file
+		size_t spirv_binary_size = 0;
+		auto spirv_binary = spirv_handler::load_binary(program.data_or_filename, spirv_binary_size);
+		if (!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
+			// cleanup if file exists
+			core::system("rm " + program.data_or_filename);
+		}
+		if (spirv_binary == nullptr) return {}; // already prints an error
+		
+		return create_opencl_program_internal((opencl_device*)device.get(),
+											  (const void*)spirv_binary.get(), spirv_binary_size,
+											  program.functions, target,
+											  program.options.silence_debug_output);
+	} else {
+		// SPIR binary, alreay in memory
+		return create_opencl_program_internal((opencl_device*)device.get(),
+											  (const void*)program.data_or_filename.data(),
+											  program.data_or_filename.size(),
+											  program.functions, target,
+											  program.options.silence_debug_output);
+	}
+	
+}
+
+opencl_program::opencl_program_entry
+opencl_compute::create_opencl_program_internal(opencl_device* cl_dev,
+											   const void* program_data,
+											   const size_t& program_size,
+											   const vector<llvm_toolchain::function_info>& functions,
+											   const llvm_toolchain::TARGET& target,
+											   const bool& silence_debug_output) {
+	opencl_program::opencl_program_entry ret;
+	ret.functions = functions;
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
 	if(target != llvm_toolchain::TARGET::SPIRV_OPENCL) {
 		// opencl api handling
-		const size_t length = program.data_or_filename.size();
-		const unsigned char* binary_ptr = (const unsigned char*)program.data_or_filename.data();
 		cl_int binary_status = CL_SUCCESS;
 		
 		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
-												&length, &binary_ptr, &binary_status, &create_err);
+												&program_size, (const unsigned char**)&program_data,
+												&binary_status, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
 			log_error("devices binary status: %s", to_string(binary_status));
 			return ret;
 		}
-		else if(!program.options.silence_debug_output) {
+		else if(!silence_debug_output) {
 			log_debug("successfully created opencl program!");
 		}
 	}
 	else {
-		size_t code_size = 0;
-		auto code = spirv_handler::load_binary(program.data_or_filename, code_size);
-		if(!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
-			// cleanup if file exists
-			core::system("rm " + program.data_or_filename);
-		}
-		if(code == nullptr) return ret; // already prints an error
-		
-		ret.program = cl_create_program_with_il(ctx, code.get(), code_size, &create_err);
+		ret.program = cl_create_program_with_il(ctx, program_data, program_size, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
 			return ret;
 		}
-		else if(!program.options.silence_debug_output) {
+		else if(!silence_debug_output) {
 			log_debug("successfully created opencl program (from IL/SPIR-V)!");
 		}
 	}
@@ -978,7 +1039,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	
 	
 	// print out build log
-	if(!program.options.silence_debug_output) {
+	if(!silence_debug_output) {
 		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
 	}
 	
@@ -986,7 +1047,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	if(floor::get_toolchain_log_binaries()) {
 		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(ret.program);
 		if(binaries.size() > 0 && !binaries[0].empty()) {
-			file_io::string_to_file("binary_" + core::to_file_name(device->name) + ".bin", binaries[0]);
+			file_io::string_to_file("binary_" + core::to_file_name(cl_dev->name) + ".bin", binaries[0]);
 		}
 		else {
 			log_error("failed to retrieve compiled binary");

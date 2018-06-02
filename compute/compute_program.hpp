@@ -24,6 +24,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/universal_binary.hpp>
 
 class compute_program {
 public:
@@ -44,6 +45,9 @@ public:
 	
 	//! stores a program + function infos for an individual device
 	struct program_entry {
+		//! only non-nullptr for backends that need to keep the archive memory around
+		shared_ptr<universal_binary::archive> archive;
+		
 		vector<llvm_toolchain::function_info> functions;
 		bool valid { false };
 	};

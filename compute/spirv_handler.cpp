@@ -52,29 +52,34 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 		log_error("failed to load spir-v container (\"%s\")", file_name);
 		return {};
 	}
-	
+	return load_container_from_memory((const uint8_t*)data.data(), data.size(), file_name);
+}
+
+spirv_handler::container spirv_handler::load_container_from_memory(const uint8_t* data_ptr_,
+																   const size_t& data_size_,
+																   const string identifier) {
 	// reasonable size assumption
-	if(data.size() >= 0x80000000) {
+	if(data_size_ >= 0x80000000) {
 		log_error("container too large");
 		return {};
 	}
-	if(data.size() < 8) {
+	if(data_size_ < 8) {
 		log_error("container too small");
 		return {};
 	}
-	const auto data_size = (uint32_t)data.size();
+	const auto data_size = (uint32_t)data_size_; // we ensured this fits into 32-bit
 	
 	// check header and version
-	const char* data_ptr = data.data();
-	const char* data_end_ptr = data_ptr + data_size;
+	auto data_ptr = data_ptr_;
+	const auto data_end_ptr = data_ptr + data_size;
 	if(memcmp(data_ptr, "SPVC", 4) != 0) {
-		log_error("invalid spir-v container header (in \"%s\")", file_name);
+		log_error("invalid spir-v container header%s", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
 		return {};
 	}
 	data_ptr += 4;
 	
 	if(memcmp(data_ptr, &container_version, sizeof(container_version)) != 0) {
-		log_error("invalid spir-v container version (in \"%s\")", file_name);
+		log_error("invalid spir-v container version%s", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
 		return {};
 	}
 	data_ptr += sizeof(container_version);
@@ -146,7 +151,7 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 				log_error("function name has no terminator");
 				return {};
 			}
-			entry.function_names[i] = data_ptr; // string is \0 terminated
+			entry.function_names[i] = (const char*)data_ptr; // string is \0 terminated
 			
 			auto padded_len = (uint32_t)entry.function_names[i].size();
 			padded_len += 4u - (padded_len % 4u);

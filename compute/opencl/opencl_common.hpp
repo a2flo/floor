@@ -67,6 +67,24 @@ constexpr const char* cl_minor_version_to_string(const OPENCL_VERSION& version) 
 		case OPENCL_VERSION::OPENCL_2_2: return "2";
 	}
 }
+constexpr OPENCL_VERSION cl_version_from_uint(const uint32_t major, const uint32_t minor) {
+	if (major == 0 || major > 2) return OPENCL_VERSION::NONE;
+	if (major == 1) {
+		switch (minor) {
+			case 0: return OPENCL_VERSION::OPENCL_1_0;
+			case 1: return OPENCL_VERSION::OPENCL_1_1;
+			case 2: return OPENCL_VERSION::OPENCL_1_2;
+			default: return OPENCL_VERSION::NONE;
+		}
+	}
+	// major == 2
+	switch (minor) {
+		case 0: return OPENCL_VERSION::OPENCL_2_0;
+		case 1: return OPENCL_VERSION::OPENCL_2_1;
+		case 2: return OPENCL_VERSION::OPENCL_2_2;
+		default: return OPENCL_VERSION::NONE;
+	}
+}
 
 //! spir-v version that is supported by a device
 enum class SPIRV_VERSION : uint32_t {
@@ -74,6 +92,7 @@ enum class SPIRV_VERSION : uint32_t {
 	SPIRV_1_0,
 	SPIRV_1_1,
 	SPIRV_1_2,
+	SPIRV_1_3,
 };
 
 constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
@@ -82,6 +101,18 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 		case SPIRV_VERSION::SPIRV_1_0: return "1.0";
 		case SPIRV_VERSION::SPIRV_1_1: return "1.1";
 		case SPIRV_VERSION::SPIRV_1_2: return "1.2";
+		case SPIRV_VERSION::SPIRV_1_3: return "1.3";
+	}
+}
+constexpr SPIRV_VERSION spirv_version_from_uint(const uint32_t major, const uint32_t minor) {
+	if (major == 0 || major > 1) return SPIRV_VERSION::NONE;
+	// major == 1
+	switch (minor) {
+		case 0: return SPIRV_VERSION::SPIRV_1_0;
+		case 1: return SPIRV_VERSION::SPIRV_1_1;
+		case 2: return SPIRV_VERSION::SPIRV_1_2;
+		case 3: return SPIRV_VERSION::SPIRV_1_3;
+		default: return SPIRV_VERSION::NONE;
 	}
 }
 

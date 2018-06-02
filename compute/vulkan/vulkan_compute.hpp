@@ -30,6 +30,7 @@
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <floor/compute/vulkan/vulkan_program.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
+#include <floor/compute/spirv_handler.hpp>
 
 class vulkan_compute final : public compute_context {
 public:
@@ -110,6 +111,8 @@ public:
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
+	
+	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
@@ -207,6 +210,12 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
+	
+	vulkan_program::vulkan_program_entry
+	create_vulkan_program_internal(vulkan_device* device,
+								   const spirv_handler::container& container,
+								   const vector<llvm_toolchain::function_info>& functions,
+								   const string& identifier);
 	
 #if defined(FLOOR_DEBUG)
 	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback { nullptr };

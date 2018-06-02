@@ -74,8 +74,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #if (__clang_major__ == 8 && __clang_minor__ >= 1)
 #define FLOOR_TOOLCHAIN_VERSION 30900u
-#else // Xcode 9.0.0+
+#elif (__clang_major__ == 9 && __clang_minor__ == 0) // Xcode 9.0 - 9.2
 #define FLOOR_TOOLCHAIN_VERSION 40000u
+#else // Xcode 9.3.0+
+#define FLOOR_TOOLCHAIN_VERSION 50000u
 #endif
 
 #endif

@@ -27,6 +27,7 @@
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/universal_binary.hpp>
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 #include <floor/compute/device/sampler.hpp>
@@ -211,7 +212,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
 		};
-		vector<const char*> device_extensions;
+		vector<string> device_extensions;
 		if(enable_renderer && !screen.x11_forwarding) {
 			device_extensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
@@ -228,6 +229,11 @@ compute_context(), enable_renderer(enable_renderer_) {
 		log_debug("using device extensions: %s", dev_exts_str);
 		log_debug("using device layers: %s", dev_layers_str);
 		
+		vector<const char*> device_extensions_ptrs;
+		for(const auto& ext : device_extensions) {
+			device_extensions_ptrs.emplace_back(ext.c_str());
+		}
+		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = nullptr,
@@ -236,8 +242,8 @@ compute_context(), enable_renderer(enable_renderer_) {
 			.pQueueCreateInfos = queue_create_info.data(),
 			.enabledLayerCount = (uint32_t)size(device_layers),
 			.ppEnabledLayerNames = size(device_layers) > 0 ? device_layers.data() : nullptr,
-			.enabledExtensionCount = (uint32_t)size(device_extensions),
-			.ppEnabledExtensionNames = size(device_extensions) > 0 ? device_extensions.data() : nullptr,
+			.enabledExtensionCount = (uint32_t)size(device_extensions_ptrs),
+			.ppEnabledExtensionNames = size(device_extensions_ptrs) > 0 ? device_extensions_ptrs.data() : nullptr,
 			.pEnabledFeatures = &features // enable all that is supported
 		};
 		
@@ -258,6 +264,16 @@ compute_context(), enable_renderer(enable_renderer_) {
 							   to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
 							   to_string(VK_VERSION_PATCH(props.apiVersion)));
 		device->driver_version_str = to_string(props.driverVersion);
+		device->extensions = device_extensions;
+		
+		// TODO: determine context/platform vulkan version
+		device->vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
+		if (device->vulkan_version == VULKAN_VERSION::VULKAN_1_0) {
+			device->spirv_version = SPIRV_VERSION::SPIRV_1_0;
+		} else if (device->vulkan_version >= VULKAN_VERSION::VULKAN_1_1) {
+			// "A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V"
+			device->spirv_version = SPIRV_VERSION::SPIRV_1_3;
+		}
 		
 		if(props.vendorID < 0x10000) {
 			switch(props.vendorID) {
@@ -986,6 +1002,33 @@ shared_ptr<compute_image> vulkan_compute::wrap_image(shared_ptr<compute_device>,
 	return {};
 }
 
+shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: %s", file_name);
+		return {};
+	}
+	
+	// create the program
+	vulkan_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+		const auto vlk_dev = (vulkan_device*)devices[i].get();
+		const auto& dev_best_bin = bins.dev_binaries[i];
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		
+		auto container = spirv_handler::load_container_from_memory(dev_best_bin.first->data.data(),
+																   dev_best_bin.first->data.size(),
+																   file_name);
+		if(!container.valid) return {}; // already prints an error
+		
+		prog_map.insert_or_assign(vlk_dev,
+								  create_vulkan_program_internal(vlk_dev, container, func_info, file_name));
+	}
+	
+	return add_program(move(prog_map));
+}
+
 shared_ptr<vulkan_program> vulkan_compute::add_program(vulkan_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
@@ -1037,12 +1080,8 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
 																		   llvm_toolchain::program_data program) {
-	vulkan_program::vulkan_program_entry ret;
-	ret.functions = program.functions;
-	const auto dev = (const vulkan_device*)device.get();
-	
 	if(!program.valid) {
-		return ret;
+		return {};
 	}
 	
 	auto container = spirv_handler::load_container(program.data_or_filename);
@@ -1050,7 +1089,19 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		// cleanup if file exists
 		core::system("rm " + program.data_or_filename);
 	}
-	if(!container.valid) return ret; // already prints an error
+	if(!container.valid) return {}; // already prints an error
+	
+	return create_vulkan_program_internal((vulkan_device*)device.get(), container, program.functions,
+										  program.data_or_filename);
+}
+
+vulkan_program::vulkan_program_entry
+vulkan_compute::create_vulkan_program_internal(vulkan_device* device,
+											   const spirv_handler::container& container,
+											   const vector<llvm_toolchain::function_info>& functions,
+											   const string& identifier) {
+	vulkan_program::vulkan_program_entry ret;
+	ret.functions = functions;
 	
 	// create modules
 	ret.programs.reserve(container.entries.size());
@@ -1069,8 +1120,8 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 			.pCode = &container.spirv_data[entry.data_offset],
 		};
 		VkShaderModule module { nullptr };
-		VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &module),
-					"failed to create shader module (\"" + program.data_or_filename + "\") for device \"" + dev->name + "\"", ret);
+		VK_CALL_RET(vkCreateShaderModule(device->device, &module_info, nullptr, &module),
+					"failed to create shader module (\"" + identifier + "\") for device \"" + device->name + "\"", ret);
 		ret.programs.emplace_back(module);
 	}
 

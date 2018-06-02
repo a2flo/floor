@@ -176,6 +176,9 @@
 		5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */; };
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
 		5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */; };
+		5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9C1377209E3C34005C516C /* universal_binary.hpp */; };
+		5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
+		5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAC7FB91D91D14D00994062 /* ext_traits.hpp */; };
@@ -239,6 +242,7 @@
 		5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */; };
 		5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */; };
 		5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD719BB2A75000B28B3 /* ray.hpp */; };
+		5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE2D906209FDA5F00180D47 /* sha_256.hpp */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
 		5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0D01AD3944F00215230 /* metal_image.mm */; };
 		5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE797CF1C5338D0005AB753 /* rt_math.hpp */; };
@@ -448,6 +452,8 @@
 		5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_pre.hpp; path = device/opencl_pre.hpp; sourceTree = "<group>"; };
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
 		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
+		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
+		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
@@ -508,6 +514,7 @@
 		5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5CE0BDD719BB2A75000B28B3 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
+		5CE2D906209FDA5F00180D47 /* sha_256.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = sha_256.hpp; sourceTree = "<group>"; };
 		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		5CE797CF1C5338D0005AB753 /* rt_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = rt_math.hpp; sourceTree = "<group>"; };
 		5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_id.hpp; path = device/cuda_id.hpp; sourceTree = "<group>"; };
@@ -770,6 +777,7 @@
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
 				5CAC7FB91D91D14D00994062 /* ext_traits.hpp */,
+				5CE2D906209FDA5F00180D47 /* sha_256.hpp */,
 				5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */,
 				5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */,
 				5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */,
@@ -874,6 +882,8 @@
 				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
 				5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */,
 				5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */,
+				5C9C1378209E3C35005C516C /* universal_binary.cpp */,
+				5C9C1377209E3C34005C516C /* universal_binary.hpp */,
 				5C6008A91AB6D68900BC7012 /* device */,
 				5CD2175219E985D80049D6AE /* cuda */,
 				5C20C8B31B4139140005F5EA /* host */,
@@ -1029,6 +1039,7 @@
 				5CD6448E1A51BF5B00716FE8 /* compute_common.hpp in Headers */,
 				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */,
+				5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */,
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
@@ -1106,6 +1117,7 @@
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
+				5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */,
 				5CBBFF581BC2B786001813E0 /* image.hpp in Headers */,
 				5C20C8CF1B4139260005F5EA /* host_program.hpp in Headers */,
 				5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */,
@@ -1132,7 +1144,7 @@
 /* Begin PBXLegacyTarget section */
 		5CBB61241D6367A000B09EEE /* floor_remote */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "floor_remote \"cd ~/floor_remote && export FLOOR_DEV=1 && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug; else ./build.sh $(ACTION); fi\"";
+			buildArgumentsString = "floor_remote \"cd ~/floor && export FLOOR_DEV=1 && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug -j16; else ./build.sh $(ACTION) -j16; fi\"";
 			buildConfigurationList = 5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */;
 			buildPhases = (
 			);
@@ -1284,6 +1296,7 @@
 				5C20C8CE1B4139260005F5EA /* host_program.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
+				5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5C8FD0D51AD3983000215230 /* compute_memory.cpp in Sources */,
@@ -1350,6 +1363,7 @@
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5C8FD0D11AD3944F00215230 /* metal_image.mm in Sources */,
 				5C8461491A914759004D4745 /* metal_compute.mm in Sources */,
+				5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
@@ -1756,7 +1770,6 @@
 		5CBB61251D6367A000B09EEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -1765,7 +1778,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				DEBUGGING_SYMBOLS = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1783,7 +1795,6 @@
 		5CBB61261D6367A000B09EEE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -1792,7 +1803,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";

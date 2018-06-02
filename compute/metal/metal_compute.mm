@@ -30,6 +30,7 @@
 #endif
 
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/universal_binary.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
@@ -474,6 +475,47 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 		programs->push_back(prog);
 	}
 	return prog;
+}
+
+shared_ptr<compute_program> metal_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: %s", file_name);
+		return {};
+	}
+	
+	// move the archive memory to a shared_ptr
+	// NOTE: we need to do this because dispatch_data_t/newLibraryWithData will access the data after leaving this function,
+	//       when the archive will have been destructed already if kept in the local unique_ptr
+	shared_ptr<universal_binary::archive> ar(bins.ar.release());
+	
+	// create the program
+	metal_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+		const auto mtl_dev = (metal_device*)devices[i].get();
+		const auto& dev_best_bin = bins.dev_binaries[i];
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		
+		metal_program::metal_program_entry entry;
+		entry.archive = ar; // ensure we keep the archive memory
+		entry.functions = func_info;
+		
+		NSError* err { nil };
+		dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
+														dispatch_get_main_queue(), ^{} /* must be non-default */);
+		entry.program = [mtl_dev->device newLibraryWithData:lib_data error:&err];
+		if (!entry.program) {
+			log_error("failed to create metal program/library for device %s: %s",
+					  mtl_dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+			return {};
+		}
+		entry.valid = true;
+		
+		prog_map.insert_or_assign(mtl_dev, entry);
+	}
+	
+	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,

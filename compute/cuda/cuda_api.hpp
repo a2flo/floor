@@ -199,6 +199,11 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	COOPERATIVE_LAUNCH_SUPPORTED = 95,
 	COOPERATIVE_MULTI_DEVICE_LAUNCH_SUPPORTED = 96,
 	MAX_SHARED_MEMORY_PER_BLOCK_OPTIN = 97,
+	// CUDA 9.2+
+	CAN_FLUSH_REMOTE_WRITES = 98,
+	HOST_REGISTER_SUPPORTED = 99,
+	PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES = 100,
+	DIRECT_MANAGED_MEM_ACCESS_FROM_HOST = 101,
 };
 enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
 	MAX_THREADS_PER_BLOCK = 0,
@@ -544,7 +549,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params, void** extra);
 	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params);
 	CU_API CU_RESULT (*launch_cooperative_kernel_multi_device)(cu_launch_params* launch_params, uint32_t num_devices, uint32_t flags);
-	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, void* data, size_t size, const char* name, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
+	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, const void* data, size_t size, const char* name, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
 	CU_API CU_RESULT (*link_complete)(cu_link_state state, void** cubin_out, size_t* size_out);
 	CU_API CU_RESULT (*link_create)(uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values, cu_link_state* state_out);
 	CU_API CU_RESULT (*link_destroy)(cu_link_state state);

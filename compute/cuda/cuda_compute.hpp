@@ -110,6 +110,8 @@ public:
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
+	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
 	
@@ -154,6 +156,13 @@ protected:
 	uint32_t driver_version { 0 };
 	
 	flat_map<const compute_device*, shared_ptr<compute_queue>> default_queues;
+	
+	cuda_program::cuda_program_entry create_cuda_program_internal(const cuda_device* device,
+																  const void* program_data,
+																  const size_t& program_size,
+																  const vector<llvm_toolchain::function_info>& functions,
+																  const uint32_t& max_registers,
+																  const bool& silence_debug_output);
 	
 };
 

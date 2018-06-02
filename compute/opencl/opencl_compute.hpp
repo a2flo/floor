@@ -112,6 +112,8 @@ public:
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
+	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
 	
@@ -172,6 +174,14 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<opencl_program>> programs GUARDED_BY(programs_lock);
+	
+	opencl_program::opencl_program_entry
+	create_opencl_program_internal(opencl_device* cl_dev,
+								   const void* program_data,
+								   const size_t& program_size,
+								   const vector<llvm_toolchain::function_info>& functions,
+								   const llvm_toolchain::TARGET& target,
+								   const bool& silence_debug_output);
 	
 	// either core clCreateProgramWithIL or extension clCreateProgramWithILKHR
 	CL_API_CALL cl_program (*cl_create_program_with_il)(cl_context context,

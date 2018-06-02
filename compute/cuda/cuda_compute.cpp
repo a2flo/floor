@@ -22,6 +22,7 @@
 
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
+#include <floor/compute/universal_binary.hpp>
 
 cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
@@ -203,6 +204,26 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			auto sampler_func_ptr = (void**)(uintptr_t(device_ptr) + cuda_device_sampler_func_offset);
 			(void*&)device->sampler_init_func_ptr = *sampler_func_ptr;
 			*sampler_func_ptr = (void*)&cuda_image::internal_device_sampler_init;
+		}
+		
+		// set max supported PTX version and min required PTX version
+		if (driver_version >= 7050 && driver_version < 8000) {
+			device->ptx = { 4, 3 };
+		} else if (driver_version < 9000) {
+			device->ptx = { 5, 0 };
+		} else if (driver_version < 9010) {
+			device->ptx = { 6, 0 };
+		} else if (driver_version < 9020) {
+			device->ptx = { 6, 1 };
+		} else {
+			device->ptx = { 6, 2 };
+		}
+		
+		device->min_req_ptx = { 4, 3 };
+		if (device->sm.x == 6) {
+			device->min_req_ptx = { 5, 0 };
+		} else if (device->sm.x >= 7) {
+			device->min_req_ptx = { 6, 0 };
 		}
 		
 		// compute score and try to figure out which device is the fastest
@@ -408,6 +429,33 @@ shared_ptr<compute_image> cuda_compute::wrap_image(shared_ptr<compute_device> de
 								   opengl_target, opengl_image, &info);
 }
 
+shared_ptr<compute_program> cuda_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: %s", file_name);
+		return {};
+	}
+	
+	// create the program
+	cuda_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+		const auto cuda_dev = (cuda_device*)devices[i].get();
+		const auto& dev_best_bin = bins.dev_binaries[i];
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		// TODO: handle CUBIN
+		prog_map.insert_or_assign(cuda_dev,
+								  create_cuda_program_internal(cuda_dev,
+															   dev_best_bin.first->data.data(),
+															   dev_best_bin.first->data.size(),
+															   func_info,
+															   dev_best_bin.second.cuda.max_registers,
+															   false /* TODO: true? */));
+	}
+	
+	return add_program(move(prog_map));
+}
+
 shared_ptr<cuda_program> cuda_compute::add_program(cuda_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
@@ -461,15 +509,26 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 
 cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_device* device,
 																   llvm_toolchain::program_data program) {
+	if(!program.valid) {
+		return {};
+	}
+	return create_cuda_program_internal(device,
+										program.data_or_filename.data(), program.data_or_filename.size(),
+										program.functions, program.options.cuda.max_registers,
+										program.options.silence_debug_output);
+}
+
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(const cuda_device* device,
+																			const void* program_data,
+																			const size_t& program_size,
+																			const vector<llvm_toolchain::function_info>& functions,
+																			const uint32_t& max_registers,
+																			const bool& silence_debug_output) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = device->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cuda_program::cuda_program_entry ret;
-	ret.functions = program.functions;
-	
-	if(!program.valid) {
-		return ret;
-	}
+	ret.functions = functions;
 	
 	// must make the device ctx current for this thread (if it isn't already)
 	CU_CALL_RET(cu_ctx_set_current(device->ctx),
@@ -492,13 +551,13 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			{ .ui = sm_version },
 			{ .ui = floor::get_toolchain_profiling() ? 1u : 0u },
 			{ .ui = 0u },
-			{ .ui = program.options.cuda.max_registers != 0 ? program.options.cuda.max_registers : floor::get_cuda_max_registers() },
+			{ .ui = max_registers != 0 ? max_registers : floor::get_cuda_max_registers() },
 			{ .ui = floor::get_cuda_jit_opt_level() },
 		};
 		static_assert(option_count == size(jit_option_values), "mismatching option count");
 		
 		CU_CALL_RET(cu_module_load_data_ex(&ret.program,
-										   program.data_or_filename.c_str(),
+										   program_data,
 										   option_count,
 										   (const CU_JIT_OPTION*)&jit_options[0],
 										   (const void* const*)&jit_option_values[0]),
@@ -537,7 +596,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			{ .ui = sm_version },
 			{ .ui = (floor::get_toolchain_profiling() || floor::get_toolchain_debug()) ? 1u : 0u },
 			{ .ui = floor::get_toolchain_debug() ? 1u : 0u },
-			{ .ui = program.options.cuda.max_registers != 0 ? program.options.cuda.max_registers : floor::get_cuda_max_registers() },
+			{ .ui = max_registers != 0 ? max_registers : floor::get_cuda_max_registers() },
 			// opt level must be 0 when debug info is generated
 			{ .ui = (floor::get_toolchain_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },
@@ -558,7 +617,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 								   &link_state),
 					"failed to create link state", {});
 		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
-											(void*)program.data_or_filename.c_str(), program.data_or_filename.size(),
+											program_data, program_size,
 											nullptr, 0, nullptr, nullptr),
 						   "failed to add ptx data to link state", {
 							   print_error_log();
@@ -584,8 +643,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 						  "failed to destroy link state");
 		
-		if(info_log[0] != 0 &&
-		   !program.options.silence_debug_output) {
+		if(info_log[0] != 0 && !silence_debug_output) {
 			info_log[log_size - 1] = 0;
 			log_debug("ptx build info: %s", info_log);
 		}
@@ -596,7 +654,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		}
 	}
 	
-	if(!program.options.silence_debug_output) {
+	if(!silence_debug_output) {
 		log_debug("successfully created cuda program!");
 	}
 	

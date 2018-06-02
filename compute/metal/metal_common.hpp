@@ -55,6 +55,22 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_2_0: return "0";
 	}
 }
+constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint32_t minor) {
+	if (major == 0 || major > 2) return METAL_VERSION::NONE;
+	if (major == 1) {
+		switch (minor) {
+			case 1: return METAL_VERSION::METAL_1_1;
+			case 2: return METAL_VERSION::METAL_1_2;
+			case 0:
+			default: return METAL_VERSION::NONE;
+		}
+	}
+	// major == 2
+	switch (minor) {
+		case 0: return METAL_VERSION::METAL_2_0;
+		default: return METAL_VERSION::NONE;
+	}
+}
 
 #if !defined(FLOOR_NO_METAL)
 

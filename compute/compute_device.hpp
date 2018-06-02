@@ -77,10 +77,14 @@ public:
 	//! types of this device
 	TYPE type { TYPE::NONE };
 	
-	//! returns true if the device is a cpu
+	//! returns true if the device is a CPU
 	bool is_cpu() const { return (type & TYPE::CPU) != TYPE::NONE; }
-	//! returns true if the device is a gpu
+	//! returns true if the device is a GPU
 	bool is_gpu() const { return (type & TYPE::GPU) != TYPE::NONE; }
+	//! returns true if the device is neither a CPU nor a GPU
+	bool is_no_cpu_or_gpu() const {
+		return !(is_cpu() || is_gpu());
+	}
 	
 	//! type for internal use (OpenCL: stores cl_device_type)
 	uint32_t internal_type { 0u };
@@ -199,7 +203,7 @@ public:
 	string version_str { "" };
 	//! device driver version in string form
 	string driver_version_str { "" };
-	//! array of supported extensions (OpenCL only)
+	//! array of supported extensions (OpenCL/Vulkan only)
 	vector<string> extensions;
 	
 	//! associated compute_context this device is part of

@@ -176,7 +176,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			
 			const auto mtl_dev = (metal_device*)device.get();
 			auto metal_version = mtl_dev->metal_version;
-			const auto metal_force_version = floor::get_metal_force_version();
+			const auto metal_force_version = (!options.ignore_runtime_info ? floor::get_metal_force_version() : 0);
 			if (metal_force_version != 0) {
 				switch (metal_force_version) {
 					case 11:
@@ -243,7 +243,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				// always enable intel workarounds (conversion problems)
 				(device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
 				// enable nvidia workarounds on osx 10.12+ (array load/store problems)
-				(device->vendor == COMPUTE_VENDOR::NVIDIA && darwin_helper::get_system_version() >= 101200 ?
+				(!options.ignore_runtime_info &&
+				 device->vendor == COMPUTE_VENDOR::NVIDIA &&
+				 darwin_helper::get_system_version() >= 101200 ?
 				 " -Xclang -metal-nvidia-workarounds" : "") +
 #endif
 				" -Xclang -cl-mad-enable" \
@@ -263,12 +265,8 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		case TARGET::PTX: {
 			// handle sm version
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
-#if !defined(FLOOR_NO_CUDA)
 			const auto& sm = ((cuda_device*)device.get())->sm;
-			sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
-#else
-			if(!force_sm.empty()) sm_version = force_sm;
-#endif
+			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
 
 			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_70+)
 			switch(((cuda_device*)device.get())->sm.x) {
@@ -285,7 +283,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					ptx_version = max(60u, ptx_version);
 					break;
 			}
-			if(!floor::get_cuda_force_ptx().empty()) {
+			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
 				const auto forced_version = stou(floor::get_cuda_force_ptx());
 				if(forced_version >= 43 && forced_version < numeric_limits<uint32_t>::max()) {
 					ptx_version = forced_version;
@@ -375,29 +373,33 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
 	const auto vendor_str = compute_vendor_to_string(device->vendor);
 	const auto platform_vendor_str = compute_vendor_to_string(device->platform_vendor);
-	const auto type_str = (compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "GPU" :
-						   compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? "CPU" : "UNKNOWN");
-	const auto os_str = (options.target != TARGET::AIR ?
-						 // non metal/air targets (aka the usual/proper handling)
+	const auto type_str = (device->is_gpu() ? "GPU" : (device->is_cpu() ? "CPU" : "UNKNOWN"));
+	string os_str;
+	if (!options.ignore_runtime_info) {
+		os_str = (options.target != TARGET::AIR ?
+				  // non metal/air targets (aka the usual/proper handling)
 #if defined(__APPLE__)
 #if defined(FLOOR_IOS)
-						 "IOS"
+				  "IOS"
 #else
-						 "OSX"
+				  "OSX"
 #endif
 #elif defined(__WINDOWS__)
-						 "WINDOWS"
+				  "WINDOWS"
 #elif defined(__LINUX__)
-						 "LINUX"
+				  "LINUX"
 #elif defined(__FreeBSD__)
-						 "FREEBSD"
+				  "FREEBSD"
 #elif defined(__OpenBSD__)
-						 "OPENBSD"
+				  "OPENBSD"
 #else
-						 "UNKNOWN"
+				  "UNKNOWN"
 #endif
-						 // metal/air specific handling, target os is dependent on device family
-						 : (((metal_device*)device.get())->family < 10000 ? "IOS" : "OSX"));
+				  // metal/air specific handling, target os is dependent on device family
+				  : (((metal_device*)device.get())->family < 10000 ? "IOS" : "OSX"));
+	} else {
+		os_str = "UNKNOWN";
+	}
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR="s + vendor_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR_"s + vendor_str;
@@ -408,19 +410,20 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS="s + os_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_"s + os_str;
 	
-#if defined(__APPLE__)
-	const auto os_version_str = to_string(darwin_helper::get_system_version());
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + os_version_str;
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + os_version_str;
-#else
-	// TODO: do this on windows and linux as well? if so, how/what?
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION=0";
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
+	string os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION=0";
+	os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
+#if defined(__APPLE__) // TODO: do this on windows and linux as well? if so, how/what?
+	if (!options.ignore_runtime_info) {
+		const auto osx_version_str = to_string(darwin_helper::get_system_version());
+		os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + osx_version_str;
+		os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + osx_version_str;
+	}
 #endif
+	clang_cmd += os_version_str;
 	
 	// assume all gpus have fma support
-	bool has_fma = compute_device::has_flag<compute_device::TYPE::GPU>(device->type);
-	if(compute_device::has_flag<compute_device::TYPE::CPU>(device->type)) {
+	bool has_fma = device->is_gpu();
+	if(device->is_cpu() && !options.ignore_runtime_info) {
 		// if device is a cpu, need to check cpuid on x86, or check if cpu is armv8
 		has_fma = core::cpu_has_fma();
 	}
@@ -487,7 +490,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	uint2 simd_range = device->simd_range;
 	if(simd_width == 0) {
 		// try to figure out the simd width of the device if it's 0
-		if(compute_device::has_flag<compute_device::TYPE::GPU>(device->type)) {
+		if(device->is_gpu()) {
 			switch(device->vendor) {
 				case COMPUTE_VENDOR::NVIDIA: simd_width = 32; simd_range = { simd_width, simd_width }; break;
 				case COMPUTE_VENDOR::AMD: simd_width = 64; simd_range = { simd_width, simd_width }; break;
@@ -497,7 +500,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				default: break;
 			}
 		}
-		else if(compute_device::has_flag<compute_device::TYPE::CPU>(device->type)) {
+		else if(device->is_cpu() && !options.ignore_runtime_info) {
 			// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
 			simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			simd_range = { 1, simd_width };
@@ -646,7 +649,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	}
 
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
-	if((floor::get_toolchain_debug() || options.emit_debug_line_info) &&
+	if(((floor::get_toolchain_debug() && !options.ignore_runtime_info) || options.emit_debug_line_info) &&
 		options.target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
 	}
@@ -766,6 +769,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		}
 		string ptx_code = "";
 		core::system(llc_cmd, ptx_code);
+		ptx_code += '\0'; // make sure there is a \0 terminator
 		
 		// only output the compiled ptx code if this was specified in the config
 		// NOTE: explicitly create this in the working directory (not in tmp)

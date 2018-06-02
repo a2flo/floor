@@ -20,6 +20,7 @@
 #define __FLOOR_VULKAN_DEVICE_HPP__
 
 #include <floor/compute/vulkan/vulkan_common.hpp>
+#include <floor/compute/opencl/opencl_common.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <memory>
 #include <unordered_set>
@@ -35,6 +36,12 @@ class vulkan_device final : public compute_device {
 public:
 	vulkan_device();
 	~vulkan_device() override {}
+	
+	//! supported Vulkan version
+	VULKAN_VERSION vulkan_version { VULKAN_VERSION::NONE };
+	
+	//! supported SPIR-V version
+	SPIRV_VERSION spirv_version { SPIRV_VERSION::NONE };
 	
 #if !defined(FLOOR_NO_VULKAN)
 	//! physical vulkan device

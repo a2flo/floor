@@ -23,12 +23,12 @@
 
 //! used to differentiate between the different compute implementations
 enum class COMPUTE_TYPE : uint32_t {
-	NONE,
-	OPENCL,
-	CUDA,
-	METAL,
-	HOST,
-	VULKAN,
+	NONE	= 0u,
+	OPENCL	= 1u,
+	CUDA	= 2u,
+	METAL	= 3u,
+	HOST	= 4u,
+	VULKAN	= 5u,
 };
 
 //! returns the string representation of the enum COMPUTE_TYPE

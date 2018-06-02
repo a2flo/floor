@@ -32,6 +32,7 @@
 #endif
 
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/universal_binary.hpp>
 #include <floor/floor/floor.hpp>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
@@ -279,6 +280,12 @@ shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> de
 								   opengl_target, opengl_image, &info);
 }
 
+shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name floor_unused) {
+	// TODO: implement this
+	log_error("not yet implemented");
+	return {};
+}
+
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
 														   const string additional_options floor_unused) {
 	return make_shared<host_program>(fastest_device);
@@ -308,7 +315,7 @@ shared_ptr<compute_program> host_compute::add_precompiled_program_file(const str
 shared_ptr<compute_program::program_entry> host_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
 																			  llvm_toolchain::program_data program,
 																			  const llvm_toolchain::TARGET) {
-	return make_shared<compute_program::program_entry>(compute_program::program_entry { program.functions, true });
+	return make_shared<compute_program::program_entry>(compute_program::program_entry { {}, program.functions, true });
 }
 
 #endif

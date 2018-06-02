@@ -105,6 +105,8 @@ public:
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
+	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
 	

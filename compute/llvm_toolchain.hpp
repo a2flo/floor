@@ -186,6 +186,10 @@ public:
 		//! if true, overrides the config compute.log_commands option and silences other debug output
 		bool silence_debug_output { false };
 		
+		//! ignore changing compile settings based on querying these at runtime
+		//! e.g. OS, CPU features, ...
+		bool ignore_runtime_info { false };
+		
 		//! cuda specific options
 		struct {
 			//! sets the PTX version that should be used (4.3 by default)

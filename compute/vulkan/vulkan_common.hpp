@@ -21,6 +21,23 @@
 
 #include <floor/core/essentials.hpp>
 
+//! vulkan version of the platform/driver/device
+enum class VULKAN_VERSION : uint32_t {
+	NONE,
+	VULKAN_1_0,
+	VULKAN_1_1,
+};
+
+constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const uint32_t minor) {
+	if (major == 0 || major > 1) return VULKAN_VERSION::NONE;
+	// major == 1
+	switch (minor) {
+		case 0: return VULKAN_VERSION::VULKAN_1_0;
+		case 1: return VULKAN_VERSION::VULKAN_1_1;
+		default: return VULKAN_VERSION::NONE;
+	}
+}
+
 #if !defined(FLOOR_NO_VULKAN)
 
 #if defined(__WINDOWS__) || defined(__APPLE__)
@@ -87,11 +104,6 @@ static_assert(sizeof(floor_vulkan_non_dispatchable_object<0>) == sizeof(uint64_t
 #if VK_HEADER_VERSION < 24
 #error "Vulkan header version must at least be 24"
 #endif
-
-//! vulkan version of the platform/driver/device
-enum class VULKAN_VERSION : uint32_t {
-	VULKAN_1_0,
-};
 
 constexpr const char* vulkan_error_to_string(const int& error_code) {
 	// NOTE: don't use actual enums here so this doesn't have to rely on vulkan version or vendor specific headers
