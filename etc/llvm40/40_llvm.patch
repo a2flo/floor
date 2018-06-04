@@ -3342,10 +3342,10 @@ index 00000000000..f7b6db49209
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..fca84915b54
+index 00000000000..d748afee0d8
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,495 @@
+@@ -0,0 +1,500 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3646,6 +3646,7 @@ index 00000000000..fca84915b54
 +        {110, {{{1, 8, 0}}, {{1, 1, 0}}}},
 +        {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
 +        {200, {{{2, 0, 0}}, {{2, 0, 0}}}},
++        {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
 +    };
 +
 +//
@@ -3660,18 +3661,22 @@ index 00000000000..fca84915b54
 +      target_air_version = 110;
 +    } else if (ios_major == 10) {
 +      target_air_version = 120;
-+    } else if (ios_major >= 11) {
++    } else if (ios_major == 11) {
 +      target_air_version = 200;
++    } else if (ios_major >= 12) {
++      target_air_version = 210;
 +    }
 +  } else {
 +    uint32_t osx_major, osx_minor, osx_micro;
 +    TT.getMacOSXVersion(osx_major, osx_minor, osx_micro);
-+    if (osx_minor <= 11) {
++    if (osx_major == 10 && osx_minor <= 11) {
 +      target_air_version = 110;
-+    } else if (osx_minor == 12) {
++    } else if (osx_major == 10 && osx_minor == 12) {
 +      target_air_version = 120;
-+    } else if (osx_minor >= 13 || osx_major > 10) {
++    } else if (osx_major == 10 && osx_minor == 13) {
 +      target_air_version = 200;
++    } else if ((osx_major == 10 && osx_minor >= 14) || osx_major > 10) {
++      target_air_version = 210;
 +    }
 +  }
 +  const auto &metal_version = *metal_versions.find(target_air_version);
