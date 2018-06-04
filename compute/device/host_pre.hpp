@@ -76,8 +76,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_TOOLCHAIN_VERSION 30900u
 #elif (__clang_major__ == 9 && __clang_minor__ == 0) // Xcode 9.0 - 9.2
 #define FLOOR_TOOLCHAIN_VERSION 40000u
-#else // Xcode 9.3.0+
+#elif (__clang_major__ == 9 && __clang_minor__ >= 1) // Xcode 9.3.0+
 #define FLOOR_TOOLCHAIN_VERSION 50000u
+#else // Xcode 10.0+
+#define FLOOR_TOOLCHAIN_VERSION 60000u
 #endif
 
 #endif
@@ -126,8 +128,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101100
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101200 && FLOOR_COMPUTE_INFO_OS_VERSION < 101300
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101200
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101300
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101300 && FLOOR_COMPUTE_INFO_OS_VERSION < 101400
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101300
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101400
+#define FLOOR_COMPUTE_INFO_OS_VERSION_101400
 #endif
 
 #elif defined(__APPLE__) && defined(FLOOR_IOS) // ios
@@ -142,8 +146,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_90000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 100000 && FLOOR_COMPUTE_INFO_OS_VERSION < 110000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_100000
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000 && FLOOR_COMPUTE_INFO_OS_VERSION < 120000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_110000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 120000
+#define FLOOR_COMPUTE_INFO_OS_VERSION_120000
 #endif
 
 #else // all else

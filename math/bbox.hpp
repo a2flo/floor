@@ -113,7 +113,7 @@ public:
 	matrix4f mview;
 	
 	constexpr extbbox() noexcept : pos(), mview() {}
-	constexpr extbbox(const extbbox& ebox) noexcept  : pos(ebox.pos), mview(ebox.mview) {}
+	constexpr extbbox(const extbbox& ebox) noexcept : bbox(ebox), pos(ebox.pos), mview(ebox.mview) {}
 	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept :
 		bbox(bmin, bmax), pos(bpos), mview(bmview) {}
 	

@@ -60,7 +60,6 @@
 @property(readonly) unsigned long long maxTextureWidth1D;
 @property(readonly) unsigned long long minBufferNoCopyAlignmentBytes;
 @property(readonly) unsigned long long minConstantBufferAlignmentBytes;
-@property(readonly) unsigned long long maxBufferLength;
 @property(readonly) unsigned long long maxVisibilityQueryOffset;
 @property(readonly) float maxPointSize;
 @property(readonly) float maxLineWidth;
@@ -158,7 +157,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->version_str = to_string(device->family);
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 110000) {
+		if(darwin_helper::get_system_version() >= 120000) {
+			device->metal_version = METAL_VERSION::METAL_2_1;
+		}
+		else if(darwin_helper::get_system_version() >= 110000) {
 			device->metal_version = METAL_VERSION::METAL_2_0;
 		}
 		else if(darwin_helper::get_system_version() >= 100000) {
@@ -295,7 +297,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 101300) {
+		if(darwin_helper::get_system_version() >= 101400) {
+			device->metal_version = METAL_VERSION::METAL_2_1;
+		}
+		else if(darwin_helper::get_system_version() >= 101300) {
 			device->metal_version = METAL_VERSION::METAL_2_0;
 		}
 		else if(darwin_helper::get_system_version() >= 101200) {

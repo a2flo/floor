@@ -34,6 +34,18 @@ public:
 		return origin + distance * direction;
 	}
 	
+#if !defined(FLOOR_NO_MATH_STR)
+	friend ostream& operator<<(ostream& output, const ray& r) {
+		output << "(Origin: " << r.origin << ", Dir: " << r.direction << ")";
+		return output;
+	}
+	string to_string() const {
+		stringstream sstr;
+		sstr << *this;
+		return sstr.str();
+	}
+#endif
+	
 };
 
 #endif

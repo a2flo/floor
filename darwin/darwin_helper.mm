@@ -450,7 +450,8 @@ int64_t darwin_helper::get_memory_size() {
 }
 
 string darwin_helper::get_bundle_identifier() {
-	return [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] UTF8String];
+	NSString* bundle_id = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"];
+	return [bundle_id UTF8String];
 }
 
 string darwin_helper::get_pref_path() {

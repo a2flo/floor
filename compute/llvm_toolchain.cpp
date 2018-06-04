@@ -188,6 +188,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					case 20:
 						metal_version = METAL_VERSION::METAL_2_0;
 						break;
+					case 21:
+						metal_version = METAL_VERSION::METAL_2_1;
+						break;
 					default:
 						log_error("invalid force_version: %u", metal_force_version);
 						break;
@@ -207,6 +210,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					case METAL_VERSION::METAL_2_0:
 						os_target = "ios11.0.0";
 						break;
+					case METAL_VERSION::METAL_2_1:
+						os_target = "ios12.0.0";
+						break;
 				}
 			}
 			else {
@@ -221,6 +227,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					case METAL_VERSION::METAL_2_0:
 						os_target = "macosx10.13.0";
 						break;
+					case METAL_VERSION::METAL_2_1:
+						os_target = "macosx10.14.0";
+						break;
 				}
 			}
 			
@@ -231,6 +240,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					break;
 				case METAL_VERSION::METAL_2_0:
 					metal_std = "metal2.0";
+					break;
+				case METAL_VERSION::METAL_2_1:
+					metal_std = "metal2.1";
 					break;
 				default: break;
 			}
