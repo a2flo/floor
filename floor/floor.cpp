@@ -1250,8 +1250,10 @@ void floor::init_gl() {
 /* function to reset our viewport after a window resize
  */
 void floor::resize_gl_window() {
-	// set the viewport
-	glViewport(0, 0, (GLsizei)config.width, (GLsizei)config.height);
+	if(renderer == RENDERER::OPENGL) {
+		// set the viewport
+		glViewport(0, 0, (GLsizei)config.width, (GLsizei)config.height);
+	}
 }
 
 /*! sets the cursors visibility to state

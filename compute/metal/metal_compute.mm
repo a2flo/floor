@@ -147,13 +147,12 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		
 		// hard to make this forward compatible, there is no direct "get family" call
 		// -> just try the first 64 types, good enough for now
-		for(uint32_t i = 64; i > 0; --i) {
+		for(uint32_t i = 12; i > 0; --i) {
 			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
-				device->family = i;
+				device->feature_set = i - 1;
 				break;
 			}
 		}
-		device->family_version = 1;
 		device->version_str = to_string(device->family);
 		
 		// figure out which metal version we can use
@@ -170,21 +169,59 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			device->metal_version = METAL_VERSION::METAL_1_1;
 		}
 		
-		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
-		switch(device->family) {
-			case 0:
-				log_error("unsupported hardware - family is 0!");
-				return;
-				
-			// A7/A7X
-			case 9:
-			case 6:
-			case 3:
-			case 1:
-				device->family_version = (device->family == 1 ? 1 :
-										  (device->family == 3 ? 2 :
-										   (device->family == 6 ? 3 : 4)));
+		switch (device->feature_set) {
+			default:
+			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
+			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
+			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
+			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
 				device->family = 1;
+				break;
+			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
+			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
+			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
+			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
+				device->family = 2;
+				break;
+			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
+			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
+			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
+				device->family = 3;
+				break;
+			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
+				device->family = 4;
+				break;
+		}
+		
+		switch (device->feature_set) {
+			default:
+			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
+			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
+			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
+			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
+				device->family_version = 1;
+				break;
+			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
+			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
+			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
+				device->family_version = 2;
+				break;
+			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
+			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
+			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
+				device->family_version = 3;
+				break;
+			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
+			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
+				device->family_version = 4;
+				break;
+		}
+		
+		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
+		switch (device->family) {
+			// A7/A7X
+			default:
+			case 1:
 				device->units = 4; // G6430
 				device->mem_clock = 1600; // ram clock
 				device->max_image_1d_dim = { 8192 };
@@ -192,14 +229,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			
 			// A8/A8X
-			case 10:
-			case 7:
-			case 4:
 			case 2:
-				device->family_version = (device->family == 2 ? 1 :
-										  (device->family == 4 ? 2 :
-										   (device->family == 7 ? 3 : 4)));
-				device->family = 2;
 				if(device->name.find("A8X") != string::npos) {
 					device->units = 8; // GXA6850
 				}
@@ -212,15 +242,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			
 			// A9/A9X and A10/A10X
-			default:
-				log_warn("unknown device family (%u), defaulting to family 3 (A9/A10)", device->family);
-				floor_fallthrough;
-			case 11:
-			case 8:
-			case 5:
-				device->family_version = (device->family == 5 ? 1 :
-										  (device->family == 8 : 2 : 3));
-				device->family = 3;
+			case 3:
 				if(device->name.find("A9X") != string::npos ||
 				   device->name.find("A10X") != string::npos) {
 					device->units = 12; // GT7800/7900?
@@ -228,6 +250,14 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				else {
 					device->units = 6; // GT7600 / GT7600 Plus
 				}
+				device->mem_clock = 1600; // TODO: ram clock
+				device->max_image_1d_dim = { 16384 };
+				device->max_image_2d_dim = { 16384, 16384 };
+				break;
+			
+			// A11
+			case 4:
+				device->units = 3; // Apple custom
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
 				device->max_image_2d_dim = { 16384, 16384 };
@@ -270,16 +300,56 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			device->global_mem_size = [dev_spi dedicatedMemorySize];
 		}
 		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
-		device->family = (uint32_t)[dev_spi featureProfile];
-		if(device->family >= 10002) {
-			// NOTE: MTLFeatureSet_OSX_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
-			// MTLFeatureSet_macOS_GPUFamily1_v3 and so on are offset as well
-			device->family_version = device->family - 10000;
+		
+		// there is no direct way of querying the highest available feature set
+		// -> find the highest (currently known) version
+		device->feature_set = 10000;
+		for (uint32_t fs_version = 10005; fs_version >= 10000; --fs_version) {
+			if ([dev supportsFeatureSet:(MTLFeatureSet)(fs_version)]) {
+				device->feature_set = fs_version;
+				break;
+			}
+		}
+		
+		switch (device->feature_set) {
+			default:
+			case 10000: // MTLFeatureSet_macOS_GPUFamily1_v1
+			case 10001: // MTLFeatureSet_macOS_GPUFamily1_v2
+			case 10002: // MTLFeatureSet_macOS_ReadWriteTextureTier2
+			case 10003: // MTLFeatureSet_macOS_GPUFamily1_v3
+			case 10004: // MTLFeatureSet_macOS_GPUFamily1_v4
+				device->family = 1;
+				break;
+			case 10005: // MTLFeatureSet_macOS_GPUFamily2_v1
+				device->family = 2;
+				break;
+		}
+		
+		switch (device->feature_set) {
+			default:
+			case 10000: // MTLFeatureSet_macOS_GPUFamily1_v1
+				device->family_version = 1;
+				break;
+			case 10001: // MTLFeatureSet_macOS_GPUFamily1_v2
+			case 10002: // MTLFeatureSet_macOS_ReadWriteTextureTier2
+				device->family_version = 2;
+				break;
+			case 10003: // MTLFeatureSet_macOS_GPUFamily1_v3
+				device->family_version = 3;
+				break;
+			case 10004: // MTLFeatureSet_macOS_GPUFamily1_v4
+				device->family_version = 4;
+				break;
+			case 10005: // MTLFeatureSet_macOS_GPUFamily2_v1
+				device->family_version = 1;
+				break;
+		}
+		
+		if ([dev supportsFeatureSet:(MTLFeatureSet)10002]) {
+			// NOTE: MTLFeatureSet_macOS_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
 			//device->image_read_write_support = true; // TODO: enable this when supported by the compiler
 		}
-		else {
-			device->family_version = device->family - 10000 + 1;
-		}
+        
 		device->local_mem_size = [dev_spi maxComputeThreadgroupMemory];
 		device->max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		device->units = 0; // sadly unknown and impossible to query
@@ -328,9 +398,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (Memory: %u MB): %s, family %u, family version %u",
+		log_debug("GPU (Memory: %u MB): %s, feature set %u, family %u, family version %u",
 				  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
 				  device->name,
+				  device->feature_set,
 				  device->family,
 				  device->family_version);
 	}

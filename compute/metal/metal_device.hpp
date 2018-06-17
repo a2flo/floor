@@ -38,11 +38,13 @@ public:
 	// metal version which this device supports
 	METAL_VERSION metal_version;
 	
-	// device family, currently 1 (A7), 2 (A8/A8X), 3 (A9/A9X/A10/A10X/A11) and 10000+ (anything on OS X)
-	uint32_t family { 0u };
+	// iOS: < 10000, macOS: >= 10000
+	uint32_t feature_set { 0u };
 	
-	// on iOS: 1 (iOS 8.x if A7/A8, or iOS 9.x for A9), 2 (iOS 9.x if A7/A8, iOS 10.x if A9), 3 (iOS 10.x if A7/A8)
-	// on OS X: 1 if 10.11, 2 if 10.12, 3 if 10.13
+	// device family
+	uint32_t family { 1u };
+	
+	// device family version (OS/Metal version dependent)
 	uint32_t family_version { 1u };
 	
 	// compute queue used for internal purposes (try not to use this ...)

@@ -198,7 +198,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			}
 			
 			string os_target;
-			if(mtl_dev->family < 10000) {
+			if(mtl_dev->feature_set < 10000) {
 				// -> iOS 9.0+
 				switch(metal_version) {
 					default:
@@ -407,8 +407,8 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 #else
 				  "UNKNOWN"
 #endif
-				  // metal/air specific handling, target os is dependent on device family
-				  : (((metal_device*)device.get())->family < 10000 ? "IOS" : "OSX"));
+				  // metal/air specific handling, target os is dependent on feature set
+				  : (((metal_device*)device.get())->feature_set < 10000 ? "IOS" : "OSX"));
 	} else {
 		os_str = "UNKNOWN";
 	}

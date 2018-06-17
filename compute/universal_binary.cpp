@@ -390,7 +390,8 @@ namespace universal_binary {
 				toolchain_version = floor::get_metal_toolchain_version();
 				options.target = llvm_toolchain::TARGET::AIR;
 				mtl_dev.metal_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
-				mtl_dev.family = (mtl_target.is_ios ? 1 : 10000);
+				mtl_dev.feature_set = (mtl_target.is_ios ? 0 : 10000);
+				mtl_dev.family = 1; // can't be overwritten right now
 				mtl_dev.family_version = 1; // can't be overwritten right now
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
 				mtl_dev.bitness = 64;
@@ -1009,11 +1010,11 @@ namespace universal_binary {
 					const auto& mtl_target = target.metal;
 					
 					// iOS binary, macOS device?
-					if (mtl_target.is_ios && mtl_dev.family >= 10000u) {
+					if (mtl_target.is_ios && mtl_dev.feature_set >= 10000u) {
 						continue;
 					}
 					// macOS binary, iOS device?
-					if (!mtl_target.is_ios && mtl_dev.family < 10000u) {
+					if (!mtl_target.is_ios && mtl_dev.feature_set < 10000u) {
 						continue;
 					}
 					
