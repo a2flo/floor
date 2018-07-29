@@ -70,7 +70,7 @@ public:
 	//! serializes the specified parameters into this serializer data container
 	template <typename type, typename... types>
 	void serialize(const type& arg, const types&... args) {
-		serialization<type>::serialize(storage, arg);
+		serialization<type>::serialize(*this, storage, arg);
 		if constexpr(sizeof...(args) > 0) {
 			serialize(args...);
 		}
@@ -101,10 +101,10 @@ public:
 					  "obj_type must be directly constructible or directly constructible with an empty base");
 		
 		if constexpr(is_direct) {
-			return { serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(storage)... };
+			return { serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(*this, storage)... };
 		}
 		else if constexpr(is_empty_base) {
-			return { {}, serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(storage)... };
+			return { {}, serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(*this, storage)... };
 		}
 		return {};
 	}
@@ -156,10 +156,10 @@ protected:
 	//! type-specific serialization implementation
 	template <typename type, typename = void>
 	struct serialization {
-		static void serialize(storage_type&, const type&) {
+		static void serialize(serializer&, storage_type&, const type&) {
 			serialization_not_implemented_for_this_type<type>();
 		}
-		static type deserialize(storage_type&) {
+		static type deserialize(serializer&, storage_type&) {
 			serialization_not_implemented_for_this_type<type>();
 		}
 		static constexpr bool is_size_static() { return false; }
@@ -186,21 +186,21 @@ protected:
 	// handle erroneous cases
 	template <typename type>
 	struct serialization<type, enable_if_t<is_pointer<type>::value>> {
-		static void serialize(const type&)
+		static void serialize(serializer&, storage_type&, const type&)
 		__attribute__((unavailable("serialization of pointers is not possible")));
-		static type deserialize()
+		static type deserialize(serializer&, storage_type&)
 		__attribute__((unavailable("serialization of pointers is not possible")));
 	};
 	
 	// integral and floating point types (+compiler extension int/fp types)
 	template <typename arith_type>
 	struct serialization<arith_type, enable_if_t<ext::is_arithmetic_v<arith_type>>> {
-		static void serialize(storage_type& storage, const arith_type& value) {
+		static void serialize(serializer&, storage_type& storage, const arith_type& value) {
 			uint8_t bytes[sizeof(arith_type)];
 			memcpy(bytes, &value, sizeof(arith_type));
 			storage.insert(storage.end(), begin(bytes), end(bytes));
 		}
-		static arith_type deserialize(storage_type& storage) {
+		static arith_type deserialize(serializer&, storage_type& storage) {
 			arith_type ret;
 			memcpy(&ret, storage.data(), sizeof(arith_type));
 			storage.erase(storage.begin(), storage.begin() + sizeof(arith_type));
@@ -214,12 +214,12 @@ protected:
 	// enums
 	template <typename enum_type>
 	struct serialization<enum_type, enable_if_t<is_enum<enum_type>::value>> {
-		static void serialize(storage_type& storage, const enum_type& value) {
+		static void serialize(serializer&, storage_type& storage, const enum_type& value) {
 			uint8_t bytes[sizeof(enum_type)];
 			memcpy(bytes, &value, sizeof(enum_type));
 			storage.insert(storage.end(), begin(bytes), end(bytes));
 		}
-		static enum_type deserialize(storage_type& storage) {
+		static enum_type deserialize(serializer&, storage_type& storage) {
 			enum_type ret;
 			memcpy(&ret, storage.data(), sizeof(enum_type));
 			storage.erase(storage.begin(), storage.begin() + sizeof(enum_type));
@@ -237,7 +237,7 @@ protected:
 		static_assert(!is_reference<scalar_type>::value, "can't serialize references");
 		static_assert(!is_pointer<scalar_type>::value, "can't serialize pointers");
 		
-		static void serialize(storage_type& storage, const vec_type& vec) {
+		static void serialize(serializer&, storage_type& storage, const vec_type& vec) {
 			uint8_t bytes[sizeof(scalar_type) * vec_type::dim()];
 #pragma unroll
 			for(uint32_t i = 0; i < vec_type::dim(); ++i) {
@@ -245,7 +245,7 @@ protected:
 			}
 			storage.insert(storage.end(), begin(bytes), end(bytes));
 		}
-		static vec_type deserialize(storage_type& storage) {
+		static vec_type deserialize(serializer&, storage_type& storage) {
 			vec_type ret;
 #pragma unroll
 			for(uint32_t i = 0; i < vec_type::dim(); ++i) {
@@ -263,12 +263,12 @@ protected:
 	template <typename char_type>
 	struct serialization<basic_string<char_type>> {
 		typedef basic_string<char_type> string_type;
-		static void serialize(storage_type& storage, const string_type& str) {
+		static void serialize(serializer&, storage_type& storage, const string_type& str) {
 			const uint64_as_bytes size { .ui64 = str.size() * sizeof(char_type) };
 			storage.insert(storage.end(), begin(size.bytes), end(size.bytes));
 			storage.insert(storage.end(), begin(str), end(str));
 		}
-		static string_type deserialize(storage_type& storage) {
+		static string_type deserialize(serializer&, storage_type& storage) {
 			uint64_t size = 0;
 			memcpy(&size, storage.data(), sizeof(size));
 			
@@ -290,14 +290,14 @@ protected:
 	// vector
 	template <typename data_type>
 	struct serialization<vector<data_type>> {
-		static void serialize(storage_type& storage, const vector<data_type>& vec) {
+		static void serialize(serializer& ser, storage_type& storage, const vector<data_type>& vec) {
 			const uint64_as_bytes size { .ui64 = vec.size() };
 			storage.insert(storage.end(), begin(size.bytes), end(size.bytes));
 			for(const auto& elem : vec) {
-				serializer::serialization<data_type>::serialize(storage, elem);
+				serializer::serialization<data_type>::serialize(ser, storage, elem);
 			}
 		}
-		static vector<data_type> deserialize(storage_type& storage) {
+		static vector<data_type> deserialize(serializer& ser, storage_type& storage) {
 			uint64_t size = 0;
 			memcpy(&size, storage.data(), sizeof(size));
 			storage.erase(storage.begin(), storage.begin() + sizeof(size));
@@ -305,7 +305,7 @@ protected:
 			vector<data_type> ret;
 			ret.resize(size);
 			for(uint64_t i = 0; i < size; ++i) {
-				ret[i] = serializer::serialization<data_type>::deserialize(storage);
+				ret[i] = serializer::serialization<data_type>::deserialize(ser, storage);
 			}
 			
 			return ret;
@@ -330,15 +330,15 @@ protected:
 	// array
 	template <typename data_type, size_t count>
 	struct serialization<array<data_type, count>> {
-		static void serialize(storage_type& storage, const array<data_type, count>& arr) {
+		static void serialize(serializer& ser, storage_type& storage, const array<data_type, count>& arr) {
 			for(const auto& elem : arr) {
-				serializer::serialization<data_type>::serialize(storage, elem);
+				serializer::serialization<data_type>::serialize(ser, storage, elem);
 			}
 		}
-		static array<data_type, count> deserialize(storage_type& storage) {
+		static array<data_type, count> deserialize(serializer& ser, storage_type& storage) {
 			array<data_type, count> ret;
 			for(uint32_t i = 0; i < count; ++i) {
-				ret[i] = serializer::serialization<data_type>::deserialize(storage);
+				ret[i] = serializer::serialization<data_type>::deserialize(ser, storage);
 			}
 			return ret;
 		}
@@ -354,6 +354,26 @@ protected:
 					ret += serializer::serialization<data_type>::size(arg[i]);
 				}
 				return ret;
+			}
+		}
+	};
+	
+	// serializable class
+	template <typename ser_class_type>
+	struct serialization<ser_class_type, enable_if_t<ser_class_type::is_serializable()>> {
+		static void serialize(serializer& ser, storage_type&, const ser_class_type& obj) {
+			obj.serialize(ser);
+		}
+		static ser_class_type deserialize(serializer& ser, storage_type&) {
+			return ser_class_type::deserialize(ser);
+		}
+		static constexpr bool is_size_static() { return ser_class_type::is_serialization_size_static(); }
+		static constexpr size_t static_size() { return ser_class_type::static_serialization_size(); }
+		static size_t size(const ser_class_type& obj) {
+			if constexpr(is_size_static()) {
+				return static_size();
+			} else {
+				return obj.serialization_size();
 			}
 		}
 	};

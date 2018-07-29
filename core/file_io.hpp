@@ -116,6 +116,33 @@ public:
 	bool fail() const;
 	bool bad() const;
 	bool is_open() const;
+	
+	//! reads all data as binary from "filename" and returns it as a vector of the specified "data_type"
+	template <typename data_type>
+	static optional<vector<data_type>> file_to_vector(const string& filename) {
+		file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
+		if (!file.is_open()) {
+			return {};
+		}
+		
+		const size_t size = (size_t)file.get_filesize();
+		const size_t readable_count = size / sizeof(data_type); // drop last bytes if they don't fit
+		const size_t readable_size = readable_count * sizeof(data_type);
+		vector<data_type> ret(readable_count);
+		if (ret.size() != readable_count) {
+			return {};
+		}
+		
+		file.get_filestream()->read((char*)&ret[0], (streamsize)readable_size);
+		const auto read_size = file.get_filestream()->gcount();
+		if (read_size != (decltype(read_size))readable_size) {
+			log_error("expected %u bytes, but only read %u bytes", readable_size, read_size);
+			return {};
+		}
+		file.close();
+		
+		return ret;
+	}
 
 protected:
 	OPEN_TYPE open_type { OPEN_TYPE::READ_BINARY };

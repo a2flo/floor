@@ -20,6 +20,7 @@
 #define __FLOOR_EXT_TRAITS_HPP__
 
 #include <type_traits>
+#include <experimental/type_traits>
 #include <limits>
 
 // vector is not supported on compute/graphics backends
