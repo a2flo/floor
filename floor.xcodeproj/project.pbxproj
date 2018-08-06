@@ -46,6 +46,7 @@
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
+		5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */; };
 		5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */; };
 		5C20C8C31B4139260005F5EA /* host_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B41B4139260005F5EA /* host_buffer.cpp */; };
 		5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C20C8B51B4139260005F5EA /* host_buffer.hpp */; };
@@ -333,6 +334,7 @@
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
 		5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_pre.hpp; path = device/cuda_pre.hpp; sourceTree = "<group>"; };
 		5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_pre.hpp; path = device/metal_pre.hpp; sourceTree = "<group>"; };
+		5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = serializer_storage.hpp; sourceTree = "<group>"; };
 		5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_compat.hpp; path = device/atomic_compat.hpp; sourceTree = "<group>"; };
 		5C20C8B41B4139260005F5EA /* host_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_buffer.cpp; path = host/host_buffer.cpp; sourceTree = "<group>"; };
 		5C20C8B51B4139260005F5EA /* host_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_buffer.hpp; path = host/host_buffer.hpp; sourceTree = "<group>"; };
@@ -638,6 +640,7 @@
 				5C10917A17D1153E007F536E /* platform.hpp */,
 				5C6B6D8C1EC7381C00342E50 /* serializer.cpp */,
 				5C6B6D8D1EC7381C00342E50 /* serializer.hpp */,
+				5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */,
 				5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */,
 				5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */,
 				5C10917B17D1153E007F536E /* timer.hpp */,
@@ -1031,6 +1034,7 @@
 				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
 				5C6B6D901EC7381C00342E50 /* serializer.hpp in Headers */,
 				5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */,
+				5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */,
 				5C8FD0CF1AD38FAA00215230 /* cuda_image.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
