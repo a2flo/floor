@@ -107,6 +107,27 @@
 		5C3EA9E41D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
 		5C3EA9E51D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
 		5C3EA9E61D8B373000EC932F /* spirv_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */; };
+		5C4331CB214DAA0F004F0CD0 /* opencl_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C51AD38F9700215230 /* opencl_image.cpp */; };
+		5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */; };
+		5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */; };
+		5C4331CE214DAA0F004F0CD0 /* vulkan_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */; };
+		5C4331CF214DAA0F004F0CD0 /* vulkan_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */; };
+		5C4331D0214DAA0F004F0CD0 /* vulkan_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */; };
+		5C4331D1214DAA0F004F0CD0 /* vulkan_memory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CDEB85B1D81AC0200A8CD9B /* vulkan_memory.cpp */; };
+		5C4331D2214DAA0F004F0CD0 /* vulkan_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */; };
+		5C4331D3214DAA0F004F0CD0 /* vulkan_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */; };
+		5C4331D4214DAA0F004F0CD0 /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
+		5C4331D5214DAA0F004F0CD0 /* vector_1d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980A201E724500D8D19F /* vector_1d.cpp */; };
+		5C4331D6214DAA0F004F0CD0 /* vector_2d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC59809201E724400D8D19F /* vector_2d.cpp */; };
+		5C4331D7214DAA0F004F0CD0 /* vector_3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980B201E724500D8D19F /* vector_3d.cpp */; };
+		5C4331D8214DAA0F004F0CD0 /* vector_4d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980C201E724500D8D19F /* vector_4d.cpp */; };
+		5C4331D9214DAA5B004F0CD0 /* cuda_api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC063B91B85A06600F5979A /* cuda_api.cpp */; };
+		5C4331DA214DAA5B004F0CD0 /* cuda_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383DC1A641B1E007AEDD7 /* cuda_buffer.cpp */; };
+		5C4331DB214DAA5B004F0CD0 /* cuda_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383DE1A641B1E007AEDD7 /* cuda_device.cpp */; };
+		5C4331DC214DAA5B004F0CD0 /* cuda_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0CC1AD38FAA00215230 /* cuda_image.cpp */; };
+		5C4331DD214DAA5B004F0CD0 /* cuda_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E01A641B1E007AEDD7 /* cuda_kernel.cpp */; };
+		5C4331DE214DAA5B004F0CD0 /* cuda_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E21A641B1E007AEDD7 /* cuda_program.cpp */; };
+		5C4331DF214DAA5B004F0CD0 /* cuda_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E41A641B1E007AEDD7 /* cuda_queue.cpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -1353,6 +1374,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C4331D9214DAA5B004F0CD0 /* cuda_api.cpp in Sources */,
+				5C4331DA214DAA5B004F0CD0 /* cuda_buffer.cpp in Sources */,
+				5C4331DB214DAA5B004F0CD0 /* cuda_device.cpp in Sources */,
+				5C4331DC214DAA5B004F0CD0 /* cuda_image.cpp in Sources */,
+				5C4331DD214DAA5B004F0CD0 /* cuda_kernel.cpp in Sources */,
+				5C4331DE214DAA5B004F0CD0 /* cuda_program.cpp in Sources */,
+				5C4331DF214DAA5B004F0CD0 /* cuda_queue.cpp in Sources */,
+				5C4331CB214DAA0F004F0CD0 /* opencl_image.cpp in Sources */,
+				5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */,
+				5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */,
+				5C4331CE214DAA0F004F0CD0 /* vulkan_device.cpp in Sources */,
+				5C4331CF214DAA0F004F0CD0 /* vulkan_image.cpp in Sources */,
+				5C4331D0214DAA0F004F0CD0 /* vulkan_kernel.cpp in Sources */,
+				5C4331D1214DAA0F004F0CD0 /* vulkan_memory.cpp in Sources */,
+				5C4331D2214DAA0F004F0CD0 /* vulkan_program.cpp in Sources */,
+				5C4331D3214DAA0F004F0CD0 /* vulkan_queue.cpp in Sources */,
+				5C4331D4214DAA0F004F0CD0 /* soft_f16.cpp in Sources */,
+				5C4331D5214DAA0F004F0CD0 /* vector_1d.cpp in Sources */,
+				5C4331D6214DAA0F004F0CD0 /* vector_2d.cpp in Sources */,
+				5C4331D7214DAA0F004F0CD0 /* vector_3d.cpp in Sources */,
+				5C4331D8214DAA0F004F0CD0 /* vector_4d.cpp in Sources */,
 				5C266C351B4E84C90055F511 /* host_compute.cpp in Sources */,
 				5C266C361B4E84C90055F511 /* host_buffer.cpp in Sources */,
 				5C266C371B4E84C90055F511 /* host_device.cpp in Sources */,
@@ -1503,13 +1545,7 @@
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"-fparse-all-comments",
-					"-isystem",
-					"$(DT_TOOLCHAIN_DIR)/usr/include",
-					"-isystem",
-					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
-				);
+				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-std=gnu++1z",
@@ -1557,6 +1593,7 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
+					"-Wno-return-std-move-in-c++11",
 				);
 			};
 			name = Debug;
@@ -1643,10 +1680,6 @@
 				OTHER_CFLAGS = (
 					"-march=native",
 					"-fparse-all-comments",
-					"-isystem",
-					"$(DT_TOOLCHAIN_DIR)/usr/include",
-					"-isystem",
-					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -1695,6 +1728,7 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
+					"-Wno-return-std-move-in-c++11",
 				);
 			};
 			name = Release;
@@ -1860,8 +1894,6 @@
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
-					"$(SDKROOT)/usr/include",
-					"-isystem",
 					ios/deps/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
@@ -1869,9 +1901,9 @@
 				PRODUCT_NAME = floord_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = "arm64 armv7";
+				VALID_ARCHS = arm64;
 			};
 			name = Debug;
 		};
@@ -1914,8 +1946,6 @@
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
-					"$(SDKROOT)/usr/include",
-					"-isystem",
 					ios/deps/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
@@ -1923,9 +1953,9 @@
 				PRODUCT_NAME = floor_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = "arm64 armv7";
+				VALID_ARCHS = arm64;
 			};
 			name = Release;
 		};

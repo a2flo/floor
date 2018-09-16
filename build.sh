@@ -858,6 +858,8 @@ if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	# ignore warnings about required alignment increases on 32-bit platforms (won't and can't fix)
 	WARNINGS="${WARNINGS} -Wno-cast-align"
 fi
+# ignore "explicit move to avoid copying on older compilers" warning
+WARNINGS="${WARNINGS} -Wno-return-std-move-in-c++11"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
 # diagnostics

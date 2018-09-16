@@ -686,6 +686,8 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		" -Wno-switch-enum"
 		// don't warn when using macros prefixed with "__" or "_"
 		" -Wno-reserved-id-macro"
+		// ignore "explicit move to avoid copying on older compilers" warning
+		" -Wno-return-std-move-in-c++11"
 		// end
 		" "
 	};

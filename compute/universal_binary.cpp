@@ -711,7 +711,7 @@ namespace universal_binary {
 		ar_stream.seekp(header_offsets_pos);
 		archive.write_block(header.offsets.data(), header.offsets.size() * sizeof(typename decltype(header.offsets)::value_type));
 		
-		return false;
+		return true;
 	}
 	
 	bool build_archive_from_file(const string& src_file_name,

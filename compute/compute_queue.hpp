@@ -108,6 +108,7 @@ public:
 	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
+#if !defined(FLOOR_IOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
 			  enable_if_t<((is_same<decay_t<work_size_type_global>, uint1>::value ||
@@ -128,6 +129,7 @@ public:
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
 	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
+#endif
 	
 	//! returns the compute device associated with this queue
 	shared_ptr<compute_device> get_device() const { return device; }

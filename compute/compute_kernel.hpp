@@ -142,6 +142,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 	}
 }
 
+#if !defined(FLOOR_IOS)
 template <typename... Args, class work_size_type_global, class work_size_type_local>
 void compute_kernel::execute_cooperative(compute_queue* queue_ptr,
 										 work_size_type_global&& global_work_size,
@@ -167,6 +168,8 @@ void compute_kernel::execute_cooperative(compute_queue* queue_ptr,
 			break;
 	}
 }
+#endif
+
 #endif
 
 FLOOR_POP_WARNINGS()

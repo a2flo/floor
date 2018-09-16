@@ -161,9 +161,15 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 				//    if available), then blit from the host memory buffer
 				buffer = [((metal_device*)dev)->device newBufferWithLength:size options:options];
 				if (staging_buffer == nullptr) {
+#if !defined(FLOOR_IOS)
 					auto buffer_with_host_mem = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size
 																						 options:(MTLResourceStorageModeManaged |
 																								  MTLCPUCacheModeWriteCombined)];
+#else
+					auto buffer_with_host_mem = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size
+																						 options:(MTLResourceStorageModeShared |
+																								  MTLCPUCacheModeWriteCombined)];
+#endif
 					
 					id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -408,14 +414,14 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 				return nullptr;
 		}
 	}
-	const bool write_only = (!does_read && does_write);
-	const bool read_only = (does_read && !does_write);
 	
 	// must lock this to make sure all prior work has completed
 	_lock();
 	
 #if !defined(FLOOR_IOS)
 	// NOTE: MTLResourceStorageModePrivate handled by map_check (-> no host access is handled)
+	const bool write_only = (!does_read && does_write);
+	const bool read_only = (does_read && !does_write);
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		alignas(128) unsigned char* host_buffer = nullptr;
 		

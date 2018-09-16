@@ -33,6 +33,16 @@ static class_type deserialize(serializer<storage_type>& s) { \
 	typedef decltype(serializer<storage_type>::make_tuple_type_list(__VA_ARGS__)) tupled_arg_types; \
 	return s.template deserialize<class_type, tupled_arg_types>(make_index_sequence<tuple_size<tupled_arg_types>::value>()); \
 } \
+template <typename storage_type> \
+void deserialize_inplace(serializer<storage_type>& s) { \
+	s.deserialize_inplace(__VA_ARGS__); \
+} \
+template <typename storage_type> \
+static unique_ptr<class_type> deserialize_dynamic(serializer<storage_type>& s) { \
+	auto obj = make_unique<class_type>(); \
+	obj->deserialize_inplace(s); \
+	return obj; \
+} \
 static constexpr bool is_serializable() { return true; } \
 static constexpr bool is_serialization_size_static() { \
 	typedef decltype(serializer<>::make_tuple_type_list(__VA_ARGS__)) tupled_arg_types; \
@@ -48,9 +58,7 @@ static constexpr size_t static_serialization_size() { \
 } \
 size_t serialization_size() const { \
 	if constexpr(is_serialization_size_static()) { return static_serialization_size(); } \
-	else { \
-		return serializer<>::serialization_size(__VA_ARGS__); \
-	} \
+	return serializer<>::serialization_size(__VA_ARGS__); \
 }
 
 //! serialization and deserialization of classes (class members)
@@ -109,6 +117,15 @@ public:
 		return {};
 	}
 	
+	//! in-place deserializes a "obj_type" class object from this serializer data container
+	template <typename type, typename... types>
+	void deserialize_inplace(type& arg, types&... args) {
+		serialization<type>::deserialize_inplace(*this, storage, const_cast<remove_const_t<type>&>(arg));
+		if constexpr(sizeof...(args) > 0) {
+			deserialize_inplace(args...);
+		}
+	}
+	
 	//! returns true if all specified types have a statically known size
 	template <typename tupled_arg_types, size_t... indices>
 	static constexpr bool is_serialization_size_static(index_sequence<indices...>) {
@@ -162,6 +179,9 @@ protected:
 		static type deserialize(serializer&, storage_type&) {
 			serialization_not_implemented_for_this_type<type>();
 		}
+		static void deserialize_inplace(serializer&, storage_type&, type&) {
+			serialization_not_implemented_for_this_type<type>();
+		}
 		static constexpr bool is_size_static() { return false; }
 		static constexpr size_t static_size() { return 0; }
 	};
@@ -190,6 +210,8 @@ protected:
 		__attribute__((unavailable("serialization of pointers is not possible")));
 		static type deserialize(serializer&, storage_type&)
 		__attribute__((unavailable("serialization of pointers is not possible")));
+		static void deserialize_inplace(serializer&, storage_type&, type&)
+		__attribute__((unavailable("serialization of pointers is not possible")));
 	};
 	
 	// integral and floating point types (+compiler extension int/fp types)
@@ -205,6 +227,10 @@ protected:
 			memcpy(&ret, storage.data(), sizeof(arith_type));
 			storage.erase(storage.begin(), storage.begin() + sizeof(arith_type));
 			return ret;
+		}
+		static void deserialize_inplace(serializer&, storage_type& storage, arith_type& val) {
+			memcpy(&val, storage.data(), sizeof(arith_type));
+			storage.erase(storage.begin(), storage.begin() + sizeof(arith_type));
 		}
 		static constexpr bool is_size_static() { return true; }
 		static constexpr size_t static_size() { return sizeof(arith_type); }
@@ -224,6 +250,10 @@ protected:
 			memcpy(&ret, storage.data(), sizeof(enum_type));
 			storage.erase(storage.begin(), storage.begin() + sizeof(enum_type));
 			return ret;
+		}
+		static void deserialize_inplace(serializer&, storage_type& storage, enum_type& val) {
+			memcpy(&val, storage.data(), sizeof(enum_type));
+			storage.erase(storage.begin(), storage.begin() + sizeof(enum_type));
 		}
 		static constexpr bool is_size_static() { return true; }
 		static constexpr size_t static_size() { return sizeof(enum_type); }
@@ -254,6 +284,13 @@ protected:
 			storage.erase(storage.begin(), storage.begin() + sizeof(scalar_type) * vec_type::dim());
 			return ret;
 		}
+		static void deserialize_inplace(serializer&, storage_type& storage, vec_type& val) {
+#pragma unroll
+			for(uint32_t i = 0; i < vec_type::dim(); ++i) {
+				memcpy(&val[i], storage.data() + i * sizeof(scalar_type), sizeof(scalar_type));
+			}
+			storage.erase(storage.begin(), storage.begin() + sizeof(scalar_type) * vec_type::dim());
+		}
 		static constexpr bool is_size_static() { return true; }
 		static constexpr size_t static_size() { return sizeof(scalar_type) * vec_type::dim(); }
 		static constexpr size_t size(const vec_type&) { return static_size(); }
@@ -279,6 +316,15 @@ protected:
 			storage.erase(storage.begin(), storage.begin() + sizeof(size) + typename string_type::difference_type(size));
 			
 			return ret;
+		}
+		static void deserialize_inplace(serializer&, storage_type& storage, string_type& val) {
+			uint64_t size = 0;
+			memcpy(&size, storage.data(), sizeof(size));
+			
+			val.resize(size / sizeof(char_type));
+			memcpy(&val[0], storage.data() + sizeof(size), size);
+			
+			storage.erase(storage.begin(), storage.begin() + sizeof(size) + typename string_type::difference_type(size));
 		}
 		static constexpr bool is_size_static() { return false; }
 		static constexpr size_t static_size() { return 0; }
@@ -309,6 +355,16 @@ protected:
 			}
 			
 			return ret;
+		}
+		static void deserialize_inplace(serializer& ser, storage_type& storage, vector<data_type>& val) {
+			uint64_t size = 0;
+			memcpy(&size, storage.data(), sizeof(size));
+			storage.erase(storage.begin(), storage.begin() + sizeof(size));
+			
+			val.resize(size);
+			for(uint64_t i = 0; i < size; ++i) {
+				serializer::serialization<data_type>::deserialize_inplace(ser, storage, val[i]);
+			}
 		}
 		static constexpr bool is_size_static() { return false; }
 		static constexpr size_t static_size() { return 0; }
@@ -342,6 +398,11 @@ protected:
 			}
 			return ret;
 		}
+		static void deserialize_inplace(serializer& ser, storage_type& storage, array<data_type, count>& val) {
+			for(uint32_t i = 0; i < count; ++i) {
+				serializer::serialization<data_type>::deserialize_inplace(ser, storage, val[i]);
+			}
+		}
 		static constexpr bool is_size_static() { return serializer::serialization<data_type>::is_size_static(); }
 		static constexpr size_t static_size() { return count * serializer::serialization<data_type>::static_size(); }
 		static size_t size(const array<data_type, count>& arg) {
@@ -366,6 +427,9 @@ protected:
 		}
 		static ser_class_type deserialize(serializer& ser, storage_type&) {
 			return ser_class_type::deserialize(ser);
+		}
+		static void deserialize_inplace(serializer& ser, storage_type&, ser_class_type& val) {
+			val.deserialize_inplace(ser);
 		}
 		static constexpr bool is_size_static() { return ser_class_type::is_serialization_size_static(); }
 		static constexpr size_t static_size() { return ser_class_type::static_serialization_size(); }
