@@ -3342,10 +3342,10 @@ index 00000000000..f7b6db49209
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..d748afee0d8
+index 00000000000..1bfc52121ff
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,500 @@
+@@ -0,0 +1,509 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3416,7 +3416,7 @@ index 00000000000..d748afee0d8
 +  uint32_t unknown_version_rev : 4;   // lo
 +  uint32_t unknown_version_minor : 4; // hi
 +
-+  // unknown: always 2
++  // unknown: always 2 (macOS), 3 (iOS)
 +  uint32_t unkown_version;
 +
 +  // unknown: always 0
@@ -3797,13 +3797,22 @@ index 00000000000..d748afee0d8
 +  OS.write("MTLB", 4);
 +
 +  metallib_version header;
-+  header.container_version_major = 1; // always 1.8.0 right now
-+  header.container_version_minor = 8;
++  if (TT.isiOS()) {
++    header.container_version_major = 1; // always 1.0.0 right now
++    header.container_version_minor = 0;
++  } else { // macOS
++    header.container_version_major = 1; // always 1.8.0 right now
++    header.container_version_minor = 8;
++  }
 +  header.container_version_rev = 0;
 +  header.unknown_version_major = 2;
 +  header.unknown_version_minor = 0;
 +  header.unknown_version_rev = 0;
-+  header.unkown_version = 2;
++  if (TT.isiOS()) {
++    header.unkown_version = 3;
++  } else { // macOS
++    header.unkown_version = 2;
++  }
 +  header.zero = 0;
 +
 +  OS.write((const char *)&header, sizeof(metallib_version));
