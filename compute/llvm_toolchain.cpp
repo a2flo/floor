@@ -280,7 +280,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			const auto& sm = ((cuda_device*)device.get())->sm;
 			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
 
-			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_70+)
+			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_7x < 75, 6.3 for sm_75+)
 			switch(((cuda_device*)device.get())->sm.x) {
 				case 2:
 				case 3:
@@ -291,8 +291,10 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					ptx_version = max(50u, ptx_version);
 					break;
 				case 7:
+					ptx_version = max(((cuda_device*)device.get())->sm.y < 5 ? 60u : 63u, ptx_version);
+					break;
 				default:
-					ptx_version = max(60u, ptx_version);
+					ptx_version = max(63u, ptx_version);
 					break;
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {

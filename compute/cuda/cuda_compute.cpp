@@ -215,15 +215,23 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device->ptx = { 6, 0 };
 		} else if (driver_version < 9020) {
 			device->ptx = { 6, 1 };
-		} else {
+		} else if (driver_version < 10000) {
 			device->ptx = { 6, 2 };
+		} else {
+			device->ptx = { 6, 3 };
 		}
 		
 		device->min_req_ptx = { 4, 3 };
 		if (device->sm.x == 6) {
 			device->min_req_ptx = { 5, 0 };
-		} else if (device->sm.x >= 7) {
-			device->min_req_ptx = { 6, 0 };
+		} else if (device->sm.x == 7) {
+			if (device->sm.y < 5) {
+				device->min_req_ptx = { 6, 0 };
+			} else {
+				device->min_req_ptx = { 6, 3 };
+			}
+		} else {
+			device->min_req_ptx = { 6, 3 };
 		}
 		
 		// compute score and try to figure out which device is the fastest
