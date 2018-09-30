@@ -141,12 +141,12 @@ void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src,
 	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");
 }
 
-void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
-						 shared_ptr<compute_buffer> src floor_unused,
+void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_buffer& src floor_unused,
 						 const size_t size_ floor_unused, const size_t src_offset floor_unused, const size_t dst_offset floor_unused) {
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
+	log_error("vulkan_buffer::copy not implemented yet");
 }
 
 void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
@@ -155,6 +155,7 @@ void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
+	log_error("vulkan_buffer::fill not implemented yet");
 }
 
 void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {

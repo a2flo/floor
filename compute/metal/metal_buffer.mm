@@ -258,16 +258,11 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused_on_ios, c
 #endif
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue, shared_ptr<compute_buffer> src,
-						const size_t size_, const size_t src_offset, const size_t dst_offset) {
-	if(buffer == nil || src == nullptr) return;
-	copy(cqueue, (metal_buffer&)*src, size_, src_offset, dst_offset);
-}
-
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, metal_buffer& src,
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, compute_buffer& src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;
 	
+	auto src_mtl_buffer = (metal_buffer*)&src;
 	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
@@ -276,11 +271,11 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, me
 	
 #if !defined(FLOOR_IOS)
 	// if either source or destination uses private storage, we need to perform a blit copy
-	if((src.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+	if((src_mtl_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
 	   (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		[blit_encoder copyFromBuffer:src.get_metal_buffer()
+		[blit_encoder copyFromBuffer:src_mtl_buffer->get_metal_buffer()
 						sourceOffset:src_offset
 							toBuffer:buffer
 				   destinationOffset:dst_offset
@@ -291,8 +286,8 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, me
 		return;
 	}
 	
-	if((src.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_resource(cqueue, src.get_metal_buffer());
+	if((src_mtl_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, src_mtl_buffer->get_metal_buffer());
 	}
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		sync_metal_resource(cqueue, buffer);
@@ -300,7 +295,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, me
 #endif
 	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
-		   (uint8_t*)[src.get_metal_buffer() contents] + src_offset,
+		   (uint8_t*)[src_mtl_buffer->get_metal_buffer() contents] + src_offset,
 		   copy_size);
 	
 #if !defined(FLOOR_IOS)

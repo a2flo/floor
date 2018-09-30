@@ -11,7 +11,7 @@
 ** other Unix: if x64 and other requirements are met
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 4.0+ and "libc++":http://libcxx.llvm.org 4.0+
-** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 8.3+
+** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+
 ** Windows (VS): "VS2017":https://www.visualstudio.com with "Clang / LLVM for Windows":http://llvm.org/builds
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 4.0+ and libc++ 4.0+
 * libraries and optional requirements:

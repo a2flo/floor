@@ -101,9 +101,19 @@ public:
 	
 	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
 	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer
-	virtual void copy(shared_ptr<compute_queue> cqueue,
-					  shared_ptr<compute_buffer> src,
+	virtual void copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 					  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) = 0;
+	
+	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
+	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer
+	void copy(shared_ptr<compute_queue> cqueue, shared_ptr<compute_buffer> src,
+			  const size_t size_ = 0, const size_t src_offset_ = 0, const size_t dst_offset_ = 0) {
+		return copy(cqueue, *src, size_, src_offset_, dst_offset_);
+	}
+	
+	//! clones this buffer, optionally copying its contents as well
+	virtual shared_ptr<compute_buffer> clone(shared_ptr<compute_queue> cqueue, const bool copy_contents = false,
+											 const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE);
 	
 	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes)
 	//! NOTE: filling the buffer with patterns that are 1 byte, 2 bytes or 4 bytes in size might be faster than other sizes

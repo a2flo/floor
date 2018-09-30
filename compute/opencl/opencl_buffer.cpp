@@ -155,19 +155,18 @@ void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, con
 						 0, nullptr, nullptr);
 }
 
-void opencl_buffer::copy(shared_ptr<compute_queue> cqueue,
-						 shared_ptr<compute_buffer> src,
+void opencl_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 	
 	// use min(src size, dst size) as the default size if no size is specified
-	const size_t src_size = src->get_size();
+	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	// TODO: blocking flag?
 	clEnqueueCopyBuffer(queue_or_default_queue(cqueue),
-						((shared_ptr<opencl_buffer>&)src)->get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
+						((opencl_buffer&)src).get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
 						0, nullptr, nullptr);
 }
 

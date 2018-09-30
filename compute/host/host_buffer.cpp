@@ -110,23 +110,22 @@ void host_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const voi
 	memcpy(buffer + offset, src, write_size);
 }
 
-void host_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
-					   shared_ptr<compute_buffer> src,
+void host_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_buffer& src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 
 	// use min(src size, dst size) as the default size if no size is specified
-	const size_t src_size = src->get_size();
+	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
-	src->_lock();
+	src._lock();
 	_lock();
 	
-	memcpy(buffer + dst_offset, ((host_buffer*)src.get())->get_host_buffer_ptr() + src_offset, copy_size);
+	memcpy(buffer + dst_offset, ((host_buffer*)&src)->get_host_buffer_ptr() + src_offset, copy_size);
 	
 	_unlock();
-	src->_unlock();
+	src._unlock();
 }
 
 void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,

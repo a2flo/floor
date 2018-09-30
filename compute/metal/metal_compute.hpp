@@ -47,26 +47,26 @@ public:
 	//////////////////////////////////////////
 	// buffer creation
 	
-	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+	shared_ptr<compute_buffer> create_buffer(compute_device& device,
 											 const size_t& size,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) override;
 	
-	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+	shared_ptr<compute_buffer> create_buffer(compute_device& device,
 											 const size_t& size,
 											 void* data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   void* data,

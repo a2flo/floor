@@ -361,38 +361,38 @@ shared_ptr<compute_queue> cuda_compute::get_device_default_queue(const compute_d
 	return {};
 }
 
-shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> cuda_compute::create_buffer(compute_device& device,
 													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) {
-	return make_shared<cuda_buffer>((cuda_device*)device.get(), size, flags, opengl_type);
+	return make_shared<cuda_buffer>((cuda_device*)&device, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> cuda_compute::create_buffer(compute_device& device,
 													   const size_t& size, void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) {
-	return make_shared<cuda_buffer>((cuda_device*)device.get(), size, data, flags, opengl_type);
+	return make_shared<cuda_buffer>((cuda_device*)&device, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(compute_device& device,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
 													 const COMPUTE_MEMORY_FLAG flags) {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>((cuda_device*)device.get(), info.size, nullptr,
+	return make_shared<cuda_buffer>((cuda_device*)&device, info.size, nullptr,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(compute_device& device,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags) {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>((cuda_device*)device.get(), info.size, data,
+	return make_shared<cuda_buffer>((cuda_device*)&device, info.size, data,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }

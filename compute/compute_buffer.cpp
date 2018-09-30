@@ -17,6 +17,8 @@
  */
 
 #include <floor/compute/compute_buffer.hpp>
+#include <floor/compute/compute_device.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
 compute_buffer::compute_buffer(compute_device* device,
@@ -203,4 +205,29 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	
 	info.valid = true;
 	return {};
+}
+
+shared_ptr<compute_buffer> compute_buffer::clone(shared_ptr<compute_queue> cqueue, const bool copy_contents,
+												 const COMPUTE_MEMORY_FLAG flags_override) {
+	if (dev == nullptr || dev->context == nullptr) {
+		log_error("invalid buffer/device state");
+		return {};
+	}
+	
+	auto clone_flags = (flags_override != COMPUTE_MEMORY_FLAG::NONE ? flags_override : flags);
+	if (host_ptr != nullptr) {
+		// never copy host data on the newly created buffer
+		clone_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+	}
+	
+	auto ret = dev->context->create_buffer(*dev, size, host_ptr, clone_flags, opengl_type);
+	if (ret == nullptr) {
+		return {};
+	}
+	
+	if (copy_contents) {
+		ret->copy(cqueue, *this);
+	}
+	
+	return ret;
 }

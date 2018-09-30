@@ -117,7 +117,7 @@ namespace compute_algorithm {
 #pragma unroll
 		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
-#if defined(FLOOR_COMPUTE_CUDA)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
 			if(i >= device_info::simd_width())
 #endif
 			{
@@ -163,7 +163,7 @@ namespace compute_algorithm {
 #pragma unroll
 		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
-#if defined(FLOOR_COMPUTE_CUDA)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
 			if(i >= device_info::simd_width())
 #endif
 			{

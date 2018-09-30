@@ -263,7 +263,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->max_image_2d_dim = { 16384, 16384 };
 				break;
 		}
-		device->local_mem_size = 16384;
+		device->local_mem_size = 16384; // fallback
+		if ([dev respondsToSelector:@selector(maxThreadgroupMemoryLength)]) {
+			device->local_mem_size = [dev maxThreadgroupMemoryLength]; // iOS 11.0+
+		}
 		device->max_total_local_size = 512;
 		device->max_global_size = { 0xFFFFFFFFu };
 		device->double_support = false; // double config is 0
@@ -381,6 +384,13 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		}
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
+		if (device->feature_set >= 10000 && (device->family > 1 ||
+											 (device->family == 1 && device->family_version >= 2))) {
+			device->max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
+		}
+		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
+			device->max_mem_alloc = [dev maxBufferLength]; // iOS 12.0+ / macOS 14.0+
+		}
 		device->max_group_size = { 0xFFFFFFFFu };
 		device->max_local_size = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
@@ -398,8 +408,9 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (Memory: %u MB): %s, feature set %u, family %u, family version %u",
-				  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
+		log_debug("GPU (global: %u MB, local: %u bytes): %s, feature set %u, family %u, family version %u",
+				  (uint32_t)(device->global_mem_size / 1024ull / 1024ull),
+				  device->local_mem_size,
 				  device->name,
 				  device->feature_set,
 				  device->family,
@@ -476,20 +487,20 @@ shared_ptr<compute_queue> metal_compute::get_device_internal_queue(const compute
 	return {};
 }
 
-shared_ptr<compute_buffer> metal_compute::create_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> metal_compute::create_buffer(compute_device& device,
 														const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														const uint32_t opengl_type) {
-	return make_shared<metal_buffer>((metal_device*)device.get(), size, flags, opengl_type);
+	return make_shared<metal_buffer>((metal_device*)&device, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> metal_compute::create_buffer(shared_ptr<compute_device> device,
+shared_ptr<compute_buffer> metal_compute::create_buffer(compute_device& device,
 														const size_t& size, void* data,
 														const COMPUTE_MEMORY_FLAG flags,
 														const uint32_t opengl_type) {
-	return make_shared<metal_buffer>((metal_device*)device.get(), size, data, flags, opengl_type);
+	return make_shared<metal_buffer>((metal_device*)&device, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_buffer> metal_compute::wrap_buffer(compute_device& device floor_unused,
 													  const uint32_t opengl_buffer floor_unused,
 													  const uint32_t opengl_type floor_unused,
 													  const COMPUTE_MEMORY_FLAG flags floor_unused) {
@@ -497,7 +508,7 @@ shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device>
 	return {};
 }
 
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_buffer> metal_compute::wrap_buffer(compute_device& device floor_unused,
 													  const uint32_t opengl_buffer floor_unused,
 													  const uint32_t opengl_type floor_unused,
 													  void* data floor_unused,

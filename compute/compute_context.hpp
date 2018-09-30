@@ -75,19 +75,48 @@ public:
 	// buffer creation
 	
 	//! constructs an uninitialized buffer of the specified size on the specified device
-	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+	virtual shared_ptr<compute_buffer> create_buffer(compute_device& device,
 													 const size_t& size,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 													 const uint32_t opengl_type = 0) = 0;
 	
+	//! constructs an uninitialized buffer of the specified size on the specified device
+	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+											 const size_t& size,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) {
+		return create_buffer(*device, size, flags, opengl_type);
+	}
+	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
-	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+	virtual shared_ptr<compute_buffer> create_buffer(compute_device& device,
 													 const size_t& size,
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 													 const uint32_t opengl_type = 0) = 0;
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
+	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+											 const size_t& size,
+											 void* data,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) {
+		return create_buffer(*device, size, data, flags, opengl_type);
+	}
+	
+	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
+	template <typename data_type>
+	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+											 const vector<data_type>& data,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) {
+		return create_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
+	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
@@ -96,7 +125,17 @@ public:
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) {
-		return create_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
+		return create_buffer(*device, sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
+	}
+	
+	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
+	template <typename data_type, size_t n>
+	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+											 const array<data_type, n>& data,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) {
+		return create_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
@@ -106,25 +145,46 @@ public:
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) {
-		return create_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
+		return create_buffer(*device, sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
 	}
 	
 	//! wraps an already existing opengl buffer, with the specified flags
 	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+	virtual shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
 												   const uint32_t opengl_buffer,
 												   const uint32_t opengl_type,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) = 0;
 	
+	//! wraps an already existing opengl buffer, with the specified flags
+	//! NOTE: OPENGL_SHARING flag is always implied
+	shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+										   const uint32_t opengl_buffer,
+										   const uint32_t opengl_type,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) {
+		return wrap_buffer(*device, opengl_buffer, opengl_type, flags);
+	}
+	
 	//! wraps an already existing opengl buffer, with the specified flags and backed by the specified host pointer
 	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+	virtual shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
 												   const uint32_t opengl_buffer,
 												   const uint32_t opengl_type,
 												   void* data,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) = 0;
+	
+	//! wraps an already existing opengl buffer, with the specified flags and backed by the specified host pointer
+	//! NOTE: OPENGL_SHARING flag is always implied
+	shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+										   const uint32_t opengl_buffer,
+										   const uint32_t opengl_type,
+										   void* data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) {
+		return wrap_buffer(*device, opengl_buffer, opengl_type, data, flags);
+	}
 	
 	//////////////////////////////////////////
 	// image creation

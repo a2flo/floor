@@ -61,10 +61,10 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 									  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 							continue;
 						}
-#if defined(FLOOR_DEBUG)
-						log_debug("%s (%s): max work-items: %u, simd width: %u",
+#if defined(FLOOR_DEBUG) || defined(FLOOR_IOS)
+						log_debug("%s (%s): max work-items: %u, simd width: %u, local mem: %u",
 								  info.name, prog.first->name,
-								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
+								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);
 #endif
 					}
 					

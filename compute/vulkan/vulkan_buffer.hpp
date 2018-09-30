@@ -80,8 +80,7 @@ FLOOR_POP_WARNINGS()
 	void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
 	void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
 	
-	void copy(shared_ptr<compute_queue> cqueue,
-			  shared_ptr<compute_buffer> src,
+	void copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
 	
 	void fill(shared_ptr<compute_queue> cqueue,

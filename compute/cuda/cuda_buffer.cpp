@@ -190,19 +190,18 @@ void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const
 				"failed to write memory to device");
 }
 
-void cuda_buffer::copy(shared_ptr<compute_queue> cqueue,
-					   shared_ptr<compute_buffer> src,
+void cuda_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == 0) return;
 	
 	// use min(src size, dst size) as the default size if no size is specified
-	const size_t src_size = src->get_size();
+	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_dtod_async(buffer + dst_offset,
-									 ((shared_ptr<cuda_buffer>&)src)->get_cuda_buffer() + src_offset,
+									 ((cuda_buffer*)&src)->get_cuda_buffer() + src_offset,
 									 copy_size, (cu_stream)cqueue->get_queue_ptr()),
 				"failed to copy memory on device");
 }
