@@ -44520,7 +44520,7 @@ index 40c3327a98d..566dd96eaa3 100644
    // except reserved size is not correctly aligned.
  }
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 032991a20cc..38c772db0ab 100644
+index 032991a20cc..21751d5cdf7 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -44582,7 +44582,7 @@ index 032991a20cc..38c772db0ab 100644
 +                             "Use PTX version 6.1">;
 +def PTX62 : SubtargetFeature<"ptx62", "PTXVersion", "62",
 +                             "Use PTX version 6.2">;
-+def PTX63 : SubtargetFeature<"ptx62", "PTXVersion", "63",
++def PTX63 : SubtargetFeature<"ptx63", "PTXVersion", "63",
 +                             "Use PTX version 6.3">;
  
  //===----------------------------------------------------------------------===//
