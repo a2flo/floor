@@ -373,7 +373,7 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 compute_buffer* arg) const {
+								 const compute_buffer* arg) const {
 	auto& write_desc = encoder->write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
@@ -395,8 +395,8 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 compute_image* arg) const {
-	auto vk_img = (vulkan_image*)arg;
+								 const compute_image* arg) const {
+	auto vk_img = static_cast<vulkan_image*>(const_cast<compute_image*>(arg));
 	
 	// transition image to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
@@ -517,8 +517,10 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 vector<compute_image*>& arg) const {
-	set_image_array_argument(encoder, entry, idx, arg, [](compute_image* img) { return (vulkan_image*)img; });
+								 vector<const compute_image*>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](const compute_image* img) {
+		return static_cast<vulkan_image*>(const_cast<compute_image*>(img));
+	});
 }
 
 #endif

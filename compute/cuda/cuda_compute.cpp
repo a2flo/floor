@@ -136,10 +136,11 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
 		device->l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
-		int max_total_local_size;
+		int max_total_local_size = 0, max_coop_total_local_size = 0;
 		int3 max_block_dim, max_grid_dim;
 		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_total_local_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_coop_total_local_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_MULTIPROCESSOR, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.y, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.z, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Z, cuda_dev));
@@ -147,6 +148,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev));
 		device->max_total_local_size = uint32_t(max_total_local_size);
+		device->max_coop_total_local_size = uint32_t(max_coop_total_local_size);
 		device->max_global_size = ulong3(max_block_dim) * ulong3(max_grid_dim);
 		device->max_local_size = uint3(max_block_dim);
 		

@@ -318,12 +318,12 @@ protected:
 	void set_argument(vulkan_encoder* encoder,
 					  const vulkan_kernel_entry& entry,
 					  idx_handler& idx,
-					  compute_buffer* arg) const;
+					  const compute_buffer* arg) const;
 	
 	void set_argument(vulkan_encoder* encoder,
 					  const vulkan_kernel_entry& entry,
 					  idx_handler& idx,
-					  compute_image* arg) const;
+					  const compute_image* arg) const;
 	
 	void set_argument(vulkan_encoder* encoder,
 					  const vulkan_kernel_entry& entry,
@@ -332,7 +332,7 @@ protected:
 	void set_argument(vulkan_encoder* encoder,
 					  const vulkan_kernel_entry& entry,
 					  idx_handler& idx,
-					  vector<compute_image*>& arg) const;
+					  vector<const compute_image*>& arg) const;
 	
 };
 
