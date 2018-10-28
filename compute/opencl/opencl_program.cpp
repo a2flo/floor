@@ -51,6 +51,9 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 					// retrieve max possible work-group size for this device for this kernel
 					entry.max_total_local_size = (uint32_t)cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first->device_id);
 					
+					// sanity check/override if reported local size > actual supported one (especially on Intel CPUs ...)
+					entry.max_total_local_size = min(entry.max_total_local_size, prog.first->max_total_local_size);
+					
 #if 0 // dump kernel + kernel args info
 					const auto arg_count = cl_get_info<CL_KERNEL_NUM_ARGS>(entry.kernel);
 					log_debug("kernel %s: arg count: %u", kernel_name, arg_count);

@@ -286,15 +286,11 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				device->simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
-			if(device->internal_type == CL_DEVICE_TYPE_CPU) {
-				// intel cpu is reporting 8192, but this isn't actually working on SSE cpus (unsure about avx, so leaving it for now)
-				// -> set it to 4096 as it is actually working
-				if(platform_vendor == COMPUTE_VENDOR::INTEL &&
-				   device->simd_width == 4 &&
-				   device->max_total_local_size >= 8192) {
-					device->max_total_local_size = 4096;
-					device->max_local_size.min(device->max_total_local_size);
-				}
+			// intel cpu is reporting 8192, but actually using this leads to segfaults in various cases
+			// -> limit to 1024 which is actually working properly
+			if(device->internal_type == CL_DEVICE_TYPE_CPU && platform_vendor == COMPUTE_VENDOR::INTEL) {
+				device->max_total_local_size = 1024;
+				device->max_local_size.min(device->max_total_local_size);
 			}
 			
 			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);

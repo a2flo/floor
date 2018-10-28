@@ -37,11 +37,8 @@ namespace ext {
 	template <typename T> struct is_floating_point :
 	public conditional_t<(is_same<remove_cv_t<T>, float>::value ||
 						  is_same<remove_cv_t<T>, double>::value ||
-						  is_same<remove_cv_t<T>, long double>::value
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
-						  || is_same<remove_cv_t<T>, half>::value
-#endif
-						  ), true_type, false_type> {};
+						  is_same<remove_cv_t<T>, long double>::value ||
+						  is_same<remove_cv_t<T>, half>::value), true_type, false_type> {};
 	
 	template <typename T> constexpr bool is_floating_point_v = ext::is_floating_point<T>::value;
 	
