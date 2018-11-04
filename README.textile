@@ -4,22 +4,22 @@
 *Requirements:*
 * OS:
 ** Windows: NT 6.0+ (VS: x86/32-bit and x64/64-bit, MinGW/MSYS2: x64/64-bit only)
-** OS X: 10.11+ (x64/64-bit only)
+** macOS: 10.11+ (x64/64-bit only)
 ** iOS: 9.0+ (32-bit and 64-bit)
 ** Linux: any current x64 distribution
 ** FreeBSD: 10.0+ (x64/64-bit only)
 ** other Unix: if x64 and other requirements are met
 * compiler/toolchain:
-** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 4.0+ and "libc++":http://libcxx.llvm.org 4.0+
-** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+
+** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 6.0+ and "libc++":http://libcxx.llvm.org 6.0+
+** macOS/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+
 ** Windows (VS): "VS2017":https://www.visualstudio.com with "Clang / LLVM for Windows":http://llvm.org/builds
-** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 4.0+ and libc++ 4.0+
+** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 6.0+ and libc++ 6.0+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
 ** (opt) CUDA: requires sm_20+/Fermi+ GPU and CUDA 7.5+ drivers (CUDA SDK not required!)
-** (opt) Metal: requires iOS 9.0+ and A7+ CPU/GPU, or OS X 10.11+ and appropriate GPU
+** (opt) Metal: requires iOS 9.0+ and A7+ CPU/GPU, or macOS 10.11+ and appropriate GPU
 ** (opt) Host Compute: requires just the compiler/toolchain that is stated above
 ** (opt) Vulkan: requires 1.0.24+ "Vulkan headers":https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/tree/master/include/vulkan and "ICD loader / SDK":https://vulkan.lunarg.com
 ** (opt) networking: requires "asio":http://think-async.com/Asio headers and "OpenSSL":https://www.openssl.org 1.0.1+
@@ -32,7 +32,7 @@
    define "FLOOR_NO_OPENCL" or "./build.sh no-opencl"
 ** to disable CUDA:
    define "FLOOR_NO_CUDA" or "./build.sh no-cuda"
-** to disable Metal (only affects iOS/OS X builds):
+** to disable Metal (only affects macOS/iOS builds):
    define "FLOOR_NO_METAL" or "./build.sh no-metal"
 ** to disable Host Compute:
    define "FLOOR_NO_HOST_COMPUTE" or "./build.sh no-host-compute"
@@ -47,7 +47,7 @@
 ** to build with libstdc++ instead of libc++:
    "./build.sh libstdc++"
 
-*Build Instructions (Xcode / OS X / iOS):*
+*Build Instructions (Xcode / macOS / iOS):*
 * open floor.xcodeproj and build
 * some notes:
 ** all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
@@ -86,12 +86,13 @@
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
 
 *Compute/Graphics Toolchain:*
-* automated builds for Linux, OS X and Windows can be found at: https://libfloor.org/builds/toolchain
+* automated builds for Linux, macOS and Windows can be found at: https://libfloor.org/builds/toolchain
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
 * NOTE: when building with GNU Make 4.2, use -j1 (jobserver changes in 4.2 broke *something*)
 * compile the toolchain:
 ** 4.0.0 toolchain: cd floor/etc/llvm40/ && ./build.sh
+** 8.0 toolchain: cd floor/etc/llvm80/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
