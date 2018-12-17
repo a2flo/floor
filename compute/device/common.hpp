@@ -202,12 +202,12 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #define FLOOR_CONST_SELECT_2(func_name, ce_func, rt_func, type_name, type_suffix) \
 	static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) asm("floor__std_" #func_name type_suffix ); \
 	static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
-	__attribute__((enable_if(!__builtin_constant_p(x), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(y), ""))) asm("floor__std_" #func_name type_suffix ); \
+	__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(&y), ""))) asm("floor__std_" #func_name type_suffix ); \
 	\
 	static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
-	__attribute__((enable_if(!__builtin_constant_p(x), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(y), ""))) { \
+	__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(&y), ""))) { \
 		return std:: ce_func (x, y); \
 	} \
 	static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) { \

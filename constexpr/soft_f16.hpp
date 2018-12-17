@@ -19,9 +19,12 @@
 #ifndef __FLOOR_SOFT_F16_HPP__
 #define __FLOOR_SOFT_F16_HPP__
 
+#if defined(FLOOR_COMPUTE_CUDA) && defined(FLOOR_TOOLCHAIN_VERSION) && FLOOR_TOOLCHAIN_VERSION > 40000
+#define FLOOR_CUDA_HAS_FP16 1
+#endif
+
 // we don't want/need soft_f16 on any of the non-host compute/graphics backends
-// TODO: cuda h/w half support
-#if /*!defined(FLOOR_COMPUTE_CUDA) &&*/ !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
+#if !defined(FLOOR_CUDA_HAS_FP16) && !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
 
 #include <type_traits>
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)

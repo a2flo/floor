@@ -189,6 +189,7 @@ namespace std {
 	const_func floor_inline_always uint8_t floor_rt_max(uint8_t a, uint8_t b) {
 		return (uint8_t)floor_rt_max(uint16_t(a), uint16_t(b));
 	}
+#if FLOOR_TOOLCHAIN_VERSION <= 40000
 	const_func floor_inline_always int32_t floor_rt_min(int32_t a, int32_t b) { return __nvvm_min_i(a, b); }
 	const_func floor_inline_always uint32_t floor_rt_min(uint32_t a, uint32_t b) { return __nvvm_min_ui(a, b); }
 	const_func floor_inline_always int64_t floor_rt_min(int64_t a, int64_t b) { return __nvvm_min_ll(a, b); }
@@ -201,6 +202,21 @@ namespace std {
 	const_func floor_inline_always uint64_t floor_rt_max(uint64_t a, uint64_t b) { return __nvvm_max_ull(a, b); }
 	const_func floor_inline_always float floor_rt_max(float a, float b) { return __nvvm_fmax_ftz_f(a, b); }
 	const_func floor_inline_always double floor_rt_max(double a, double b) { return __nvvm_fmax_d(a, b); }
+#else
+	// NOTE: these get optimized to min/max.s/u(16|32|64)
+	const_func floor_inline_always constexpr int32_t floor_rt_min(int32_t a, int32_t b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr uint32_t floor_rt_min(uint32_t a, uint32_t b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr int64_t floor_rt_min(int64_t a, int64_t b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr uint64_t floor_rt_min(uint64_t a, uint64_t b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr float floor_rt_min(float a, float b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr double floor_rt_min(double a, double b) { return (a < b ? a : b); }
+	const_func floor_inline_always constexpr int32_t floor_rt_max(int32_t a, int32_t b) { return (a > b ? a : b); }
+	const_func floor_inline_always constexpr uint32_t floor_rt_max(uint32_t a, uint32_t b) { return (a > b ? a : b); }
+	const_func floor_inline_always constexpr int64_t floor_rt_max(int64_t a, int64_t b) { return (a > b ? a : b); }
+	const_func floor_inline_always constexpr uint64_t floor_rt_max(uint64_t a, uint64_t b) { return (a > b ? a : b); }
+	const_func floor_inline_always constexpr float floor_rt_max(float a, float b) { return (a > b ? a : b); }
+	const_func floor_inline_always constexpr double floor_rt_max(double a, double b) { return (a > b ? a : b); }
+#endif
 	
 #if defined(PLATFORM_X64)
 	const_func floor_inline_always size_t floor_rt_min(size_t a, size_t b) {

@@ -332,7 +332,7 @@ namespace const_math {
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: only safe to call up to n = 67, after this results may no longer fit into 64-bit
 	__attribute__((pure, const)) constexpr uint64_t binomial(uint64_t n, uint64_t k)
-	__attribute__((enable_if(!__builtin_constant_p(n) || (__builtin_constant_p(n) && n <= 67), "64-bit range"))) {
+	__attribute__((enable_if(!__builtin_constant_p(&n) || (__builtin_constant_p(&n) && n <= 67), "64-bit range"))) {
 		if(k > n) return 0u;
 		if(k == 0u || k == n) return 1u;
 		
@@ -1298,8 +1298,8 @@ namespace math {
 	//    a combination of enable_if, __builtin_constant_p and asm labels is used to make
 	//    chained constexpr calls still constexpr evaluable if forced.
 	//    a run-time and a constexpr variant is still provided, but this time, the enable_if
-	//    on the constexpr function makes it only callable if "!__builtin_constant_p(val)"
-	//    evaluates to true. as mentioned before, __builtin_constant_p(val) will always
+	//    on the constexpr function makes it only callable if "!__builtin_constant_p(&val)"
+	//    evaluates to true. as mentioned before, __builtin_constant_p(&val) will always
 	//    evaluate to false if called with a constexpr function parameter (hence the negate).
 	//    as-is, clang would now always call/select the constexpr function, even for run-time
 	//    calls. therefore, an asm label with the exact same function name is applied to
@@ -1325,6 +1325,7 @@ namespace math {
 #define FLOOR_PAREN_LEFT (
 #define FLOOR_PAREN_RIGHT )
 #define FLOOR_COMMA ,
+#define FLOOR_AMP &
 	
 #define FLOOR_CONST_SELECT(ARG_EXPANDER, ENABLE_IF_EXPANDER, func_name, ce_func, rt_func, type, overload_suffix) \
 	/* direct call - run-time */ \
@@ -1342,12 +1343,12 @@ namespace math {
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	/* forwarded call prototype - constexpr */ \
 	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
-	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) \
+	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT FLOOR_AMP, FLOOR_PAREN_RIGHT &&)), ""))) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	\
 	/* forwarded call - constexpr */ \
 	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
-	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) { \
+	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT FLOOR_AMP, FLOOR_PAREN_RIGHT &&)), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* forwarded call - run-time */ \
@@ -1706,6 +1707,7 @@ namespace math {
 #undef FLOOR_PAREN_LEFT
 #undef FLOOR_PAREN_RIGHT
 #undef FLOOR_COMMA
+#undef FLOOR_AMP
 
 #undef FLOOR_CONST_SELECT
 #undef FLOOR_CONST_SELECT_1
