@@ -869,7 +869,14 @@ COMMON_FLAGS="${COMMON_FLAGS} -fparse-all-comments -fno-elide-type -fdiagnostics
 # includes + replace all "-I"s with "-isystem"s so that we don't get warnings in external headers
 COMMON_FLAGS="${COMMON_FLAGS} ${INCLUDES}"
 COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-I/-isystem /g")
-COMMON_FLAGS="${COMMON_FLAGS} -I../"
+
+# include libfloor itself (so that we can use <floor/...> includes)
+if [ -z "${FLOOR_SELF_INCL_DIR}" ]; then
+	# default: ../ -> finds ../floor
+	COMMON_FLAGS="${COMMON_FLAGS} -I../"
+else
+	COMMON_FLAGS="${COMMON_FLAGS} -I${FLOOR_SELF_INCL_DIR}"
+fi
 
 # mingw sdl fixes
 if [ $BUILD_OS == "mingw" ]; then
