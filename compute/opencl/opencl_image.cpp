@@ -195,7 +195,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 				CL_CALL_RET(clEnqueueWriteImage(queue_or_default_queue(cqueue), image, false,
 												level_origin.data(), level_region.data(), 0, 0, cpy_host_ptr,
 												0, nullptr, nullptr),
-							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false);
+							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false)
 				cpy_host_ptr += level_data_size;
 				return true;
 			});
@@ -402,7 +402,7 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	
 	for(const auto& mptr : iter->second.mapped_ptrs) {
 		CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), image, mptr, 0, nullptr, nullptr),
-					"failed to unmap buffer");
+					"failed to unmap buffer")
 	}
 	mappings.erase(mapped_ptr);
 	
@@ -425,9 +425,9 @@ bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	cl_event wait_evt;
 	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, &wait_evt),
-				"failed to acquire opengl image - opencl gl object acquire failed", false);
+				"failed to acquire opengl image - opencl gl object acquire failed", false)
 	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl image acquire failed", false);
+				"wait for opengl image acquire failed", false)
 	gl_object_state = false;
 	return true;
 }
@@ -444,9 +444,9 @@ bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	cl_event wait_evt;
 	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, &wait_evt),
-				"failed to release opengl image - opencl gl object release failed", false);
+				"failed to release opengl image - opencl gl object release failed", false)
 	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl image release failed", false);
+				"wait for opengl image release failed", false)
 	gl_object_state = true;
 	return true;
 }

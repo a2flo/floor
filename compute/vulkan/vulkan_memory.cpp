@@ -142,7 +142,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 			.queueFamilyIndexCount = 0,
 			.pQueueFamilyIndices = nullptr,
 		};
-		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr);
+		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 	
 		// allocate / back it up
 		VkMemoryRequirements mem_req;
@@ -154,8 +154,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 			.allocationSize = mem_req.size,
 			.memoryTypeIndex = device->host_mem_cached_index,
 		};
-		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr);
-		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr);
+		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
+		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr)
 	}
 	else {
 		mapping.buffer = (VkBuffer)*object;
@@ -179,7 +179,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 				.pInheritanceInfo = nullptr,
 			};
 			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer", nullptr);
+						"failed to begin command buffer", nullptr)
 			
 			if(!is_image) {
 				const VkBufferCopy region {
@@ -193,7 +193,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 				image_copy_dev_to_host(cmd_buffer.cmd_buffer, mapping.buffer);
 			}
 	
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr);
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
 			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
 		}
 		else {
@@ -206,7 +206,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 				.pInheritanceInfo = nullptr,
 			};
 			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer", nullptr);
+						"failed to begin command buffer", nullptr)
 			
 			const VkBufferMemoryBarrier buffer_barrier {
 				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -223,7 +223,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT,
 								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
 			
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr);
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
 			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
 		}
 	}
@@ -232,7 +232,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 	
 	// map the host buffer
 	void* __attribute__((aligned(128))) host_ptr { nullptr };
-	VK_CALL_RET(vkMapMemory(vulkan_dev, mapping.mem, host_buffer_offset, size, 0, &host_ptr), "failed to map host buffer", nullptr);
+	VK_CALL_RET(vkMapMemory(vulkan_dev, mapping.mem, host_buffer_offset, size, 0, &host_ptr), "failed to map host buffer", nullptr)
 	
 	// need to remember how much we mapped and where (so the host -> device write-back copies the right amount of bytes)
 	mappings.emplace(host_ptr, mapping);
@@ -268,7 +268,7 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 					.pInheritanceInfo = nullptr,
 				};
 				VK_CALL_BREAK(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-							  "failed to begin command buffer");
+							  "failed to begin command buffer")
 				
 				if(!is_image) {
 					const VkBufferCopy region {
@@ -282,7 +282,7 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 					image_copy_host_to_dev(cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
 				}
 				
-				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
 				((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);
 		}
@@ -306,7 +306,7 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 				.pInheritanceInfo = nullptr,
 			};
 			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer");
+						"failed to begin command buffer")
 			
 			const VkBufferMemoryBarrier buffer_barrier {
 				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -327,7 +327,7 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
 			
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
 			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 		}
 	}

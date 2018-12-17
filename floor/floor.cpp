@@ -990,7 +990,7 @@ bool floor::init_internal(const init_state& state) {
 			config.dpi = darwin_helper::get_dpi(window);
 #else
 			SDL_SysWMinfo wm_info;
-			SDL_VERSION(&wm_info.version);
+			SDL_VERSION(&wm_info.version)
 			if(SDL_GetWindowWMInfo(window, &wm_info) == 1) {
 #if defined(__WINDOWS__)
 				HDC hdc = wm_info.info.win.hdc;

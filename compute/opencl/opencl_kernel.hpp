@@ -146,7 +146,7 @@ protected:
 												 const compute_buffer* arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 								   &((const opencl_buffer*)arg)->get_cl_buffer()),
-					"failed to set buffer kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
+					"failed to set buffer kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
 		++arg_idx;
 	}
 	
@@ -155,7 +155,7 @@ protected:
 												 const compute_image* arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 								   &((const opencl_image*)arg)->get_cl_image()),
-					"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
+					"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
 		++arg_idx;
 		
 		// legacy s/w read/write image -> set it twice
@@ -163,7 +163,7 @@ protected:
 		   !handler->device->image_read_write_support) {
 			CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 									   &((const opencl_image*)arg)->get_cl_image()),
-						"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
+						"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
 			++arg_idx;
 		}
 	}

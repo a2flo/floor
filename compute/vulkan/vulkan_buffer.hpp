@@ -39,38 +39,38 @@ public:
 	
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-qual) // ignored for safe "const void*" -> "void*" cast here
-	vulkan_buffer(vulkan_device* device,
+	vulkan_buffer(vulkan_device* device_,
 				  const size_t& size_,
 				  const void* host_ptr_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0) :
-	vulkan_buffer(device, size_, (void*)host_ptr_, flags_, opengl_type_, external_gl_object_) {}
+	vulkan_buffer(device_, size_, (void*)host_ptr_, flags_, opengl_type_, external_gl_object_) {}
 FLOOR_POP_WARNINGS()
 	
-	vulkan_buffer(vulkan_device* device,
+	vulkan_buffer(vulkan_device* device_,
 				  const size_t& size_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(device, size_, (void*)nullptr, flags_, opengl_type_) {}
+	vulkan_buffer(device_, size_, (void*)nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
-	vulkan_buffer(vulkan_device* device,
+	vulkan_buffer(vulkan_device* device_,
 				  const vector<data_type>& data,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(device, sizeof(data_type) * data.size(), (const void*)&data[0], flags_, opengl_type_) {}
+	vulkan_buffer(device_, sizeof(data_type) * data.size(), (const void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
-	vulkan_buffer(vulkan_device* device,
+	vulkan_buffer(vulkan_device* device_,
 				  const array<data_type, n>& data,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(device, sizeof(data_type) * n, (const void*)&data[0], flags_, opengl_type_) {}
+	vulkan_buffer(device_, sizeof(data_type) * n, (const void*)&data[0], flags_, opengl_type_) {}
 	
 	~vulkan_buffer() override;
 

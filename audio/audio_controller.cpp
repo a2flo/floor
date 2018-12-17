@@ -65,12 +65,12 @@ void audio_controller::init() {
 	if(aux_sends > 0) {
 		AL_CLEAR_ERROR();
 		effect_slots.resize((size_t)aux_sends, 0);
-		AL(alGenAuxiliaryEffectSlots(aux_sends, &effect_slots[0]));
+		AL(alGenAuxiliaryEffectSlots(aux_sends, &effect_slots[0]))
 		AL_IS_ERROR();
 	}
 	
 	// use an exponential distance model for now
-	AL(alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED));
+	AL(alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED))
 	
 	// init store
 	audio_store::init();
@@ -89,7 +89,7 @@ void audio_controller::destroy() {
 	//
 	if(!effect_slots.empty()) {
 		AL_CLEAR_ERROR();
-		AL(alDeleteAuxiliaryEffectSlots((ALsizei)effect_slots.size(), &effect_slots[0]));
+		AL(alDeleteAuxiliaryEffectSlots((ALsizei)effect_slots.size(), &effect_slots[0]))
 		effect_slots.clear();
 	}
 	
@@ -109,12 +109,12 @@ void audio_controller::update(const float3& position,
 							  const float3& forward_vec,
 							  const float3& up_vec) {
 	acquire_context();
-	AL(alListener3f(AL_POSITION, position.x, position.y, position.z));
+	AL(alListener3f(AL_POSITION, position.x, position.y, position.z))
 	const ALfloat orientation[] {
 		forward_vec.x, forward_vec.y, forward_vec.z,
 		up_vec.x, up_vec.y, up_vec.z
 	};
-	AL(alListenerfv(AL_ORIENTATION, &orientation[0]));
+	AL(alListenerfv(AL_ORIENTATION, &orientation[0]))
 	release_context();
 }
 

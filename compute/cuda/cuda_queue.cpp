@@ -36,7 +36,7 @@ cuda_queue::~cuda_queue() {
 
 void cuda_queue::finish() const {
 	CU_CALL_RET(cu_stream_synchronize(queue),
-				"failed to finish (synchronize) queue");
+				"failed to finish (synchronize) queue")
 }
 
 void cuda_queue::flush() const {

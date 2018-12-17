@@ -475,7 +475,7 @@ void compute_image::update_gl_image_data(const void* data) {
 
 compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint32_t& opengl_image,
 																	  const uint32_t& opengl_target,
-																	  const COMPUTE_MEMORY_FLAG& flags) {
+																	  const COMPUTE_MEMORY_FLAG& flags_) {
 	if(opengl_image == 0) {
 		if(opengl_target == GL_RENDERBUFFER) {
 			log_error("the default renderbuffer can't be accessed by compute");
@@ -653,7 +653,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 	info.image_type |= format_iter->second;
 	
 	// handle read/write flags
-	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+	switch(flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		// if neither is set, r/w is assumed
 		default:
 		case COMPUTE_MEMORY_FLAG::READ_WRITE:

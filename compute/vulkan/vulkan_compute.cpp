@@ -109,7 +109,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		.enabledExtensionCount = (uint32_t)size(instance_extensions),
 		.ppEnabledExtensionNames = size(instance_extensions) > 0 ? instance_extensions.data() : nullptr,
 	};
-	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance");
+	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance")
 	
 #if defined(FLOOR_DEBUG)
 	// register debug callback
@@ -132,23 +132,23 @@ compute_context(), enable_renderer(enable_renderer_) {
 		.pUserData = this,
 	};
 	VK_CALL_RET(create_debug_report_callback(ctx, &debug_cb_info, nullptr, &debug_callback),
-				"failed to register debug callback");
+				"failed to register debug callback")
 #endif
 	
 	// get layers
 	uint32_t layer_count = 0;
-	VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, nullptr), "failed to retrieve instance layer properties count");
+	VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, nullptr), "failed to retrieve instance layer properties count")
 	vector<VkLayerProperties> layers(layer_count);
 	if(layer_count > 0) {
-		VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, layers.data()), "failed to retrieve instance layer properties");
+		VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, layers.data()), "failed to retrieve instance layer properties")
 	}
 	log_debug("found %u vulkan layer%s", layer_count, (layer_count == 1 ? "" : "s"));
 	
 	// get devices
 	uint32_t device_count = 0;
-	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, nullptr), "failed to retrieve device count");
+	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, nullptr), "failed to retrieve device count")
 	vector<VkPhysicalDevice> queried_devices(device_count);
-	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, queried_devices.data()), "failed to retrieve devices");
+	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, queried_devices.data()), "failed to retrieve devices")
 	log_debug("found %u vulkan device%s", device_count, (device_count == 1 ? "" : "s"));
 
 	auto gpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::GPU0;
@@ -248,7 +248,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		};
 		
 		VkDevice dev;
-		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"");
+		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"")
 		
 		// add device
 		auto device = make_shared<vulkan_device>();
@@ -568,7 +568,7 @@ bool vulkan_compute::init_renderer() {
 	
 	// query SDL window / video driver info that we need to create a vulkan surface
 	SDL_SysWMinfo wm_info;
-	SDL_VERSION(&wm_info.version);
+	SDL_VERSION(&wm_info.version)
 	if(!SDL_GetWindowWMInfo(floor::get_window(), &wm_info)) {
 		log_error("failed to retrieve window info: %s", SDL_GetError());
 		return false;
@@ -593,7 +593,7 @@ bool vulkan_compute::init_renderer() {
 		.window = wm_info.info.x11.window,
 	};
 	VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
-				"failed to create xlib surface", false);
+				"failed to create xlib surface", false)
 #else
 	log_error("unsupported video driver");
 	return false;
@@ -604,7 +604,7 @@ bool vulkan_compute::init_renderer() {
 	VkBool32 supported = false;
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceSupportKHR(vk_device->physical_device, vk_queue->get_family_index(),
 													 screen.surface, &supported),
-				"failed to query surface presentability", false);
+				"failed to query surface presentability", false)
 	if(!supported) {
 		log_error("surface is not presentable");
 		return false;
@@ -613,14 +613,14 @@ bool vulkan_compute::init_renderer() {
 	// query formats and try to use VK_FORMAT_B8G8R8A8_UNORM if possible
 	uint32_t format_count = 0;
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, nullptr),
-				"failed to query presentable surface formats count", false);
+				"failed to query presentable surface formats count", false)
 	if(format_count == 0) {
 		log_error("surface doesn't support any formats");
 		return false;
 	}
 	vector<VkSurfaceFormatKHR> formats(format_count);
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, formats.data()),
-				"failed to query presentable surface formats", false);
+				"failed to query presentable surface formats", false)
 	screen.format = formats[0].format;
 	screen.color_space = formats[0].colorSpace;
 	for(const auto& format : formats) {
@@ -635,7 +635,7 @@ bool vulkan_compute::init_renderer() {
 	//
 	VkSurfaceCapabilitiesKHR surface_caps;
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_device->physical_device, screen.surface, &surface_caps),
-				"failed to query surface capabilities", false);
+				"failed to query surface capabilities", false)
 	VkExtent2D surface_size = surface_caps.currentExtent;
 	if(surface_size.width == 0xFFFFFFFFu) {
 		surface_size.width = screen.size.x;
@@ -652,10 +652,10 @@ bool vulkan_compute::init_renderer() {
 	if(!floor::get_vsync()) {
 		uint32_t mode_count = 0;
 		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, nullptr),
-					"failed to query surface present mode count", false);
+					"failed to query surface present mode count", false)
 		vector<VkPresentModeKHR> present_modes(mode_count);
 		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, present_modes.data()),
-					"failed to query surface present modes", false);
+					"failed to query surface present modes", false)
 		if(find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != present_modes.end()) {
 			present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 		}
@@ -687,17 +687,17 @@ bool vulkan_compute::init_renderer() {
 		.oldSwapchain = nullptr,
 	};
 	VK_CALL_RET(vkCreateSwapchainKHR(vk_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
-				"failed to create swapchain", false);
+				"failed to create swapchain", false)
 	
 	// get all swapchain images + create views
 	screen.image_count = 0;
 	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, nullptr),
-				"failed to query swapchain image count", false);
+				"failed to query swapchain image count", false)
 	screen.swapchain_images.resize(screen.image_count);
 	screen.swapchain_image_views.resize(screen.image_count);
 	screen.render_semas.resize(screen.image_count);
 	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
-				"failed to retrieve swapchain images", false);
+				"failed to retrieve swapchain images", false)
 	
 	VkImageViewCreateInfo image_view_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -724,7 +724,7 @@ bool vulkan_compute::init_renderer() {
 	for(uint32_t i = 0; i < screen.image_count; ++i) {
 		image_view_create_info.image = screen.swapchain_images[i];
 		VK_CALL_RET(vkCreateImageView(vk_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
-					"image view creation failed", false);
+					"image view creation failed", false)
 	}
 	
 	return true;
@@ -759,11 +759,11 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 	};
 	VkSemaphore sema { nullptr };
 	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
-				"failed to create semaphore", { false, dummy_ret });
+				"failed to create semaphore", { false, dummy_ret })
 	
 	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
 									  nullptr, &screen.image_index),
-				"failed to acquire next presentable image", { false, dummy_ret });
+				"failed to acquire next presentable image", { false, dummy_ret })
 	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
@@ -776,7 +776,7 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 		.pInheritanceInfo = nullptr,
 	};
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", { false, dummy_ret });
+				"failed to begin command buffer", { false, dummy_ret })
 	
 	const VkImageMemoryBarrier image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -800,7 +800,7 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 						 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
 	
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-				"failed to end command buffer", { false, dummy_ret });
+				"failed to end command buffer", { false, dummy_ret })
 	vk_queue->submit_command_buffer(cmd_buffer, true, // TODO: don't block?
 									&screen.render_semas[screen.image_index], 1,
 									VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -858,7 +858,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 		.pInheritanceInfo = nullptr,
 	};
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", false);
+				"failed to begin command buffer", false)
 	
 	const VkImageMemoryBarrier present_image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -882,7 +882,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 						 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
 	
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-				"failed to end command buffer", false);
+				"failed to end command buffer", false)
 	vk_queue->submit_command_buffer(cmd_buffer, true); // TODO: don't block?
 	
 	// present
@@ -897,7 +897,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 		.pResults = nullptr,
 	};
 	VK_CALL_RET(vkQueuePresentKHR((VkQueue)vk_queue->get_queue_ptr(), &present_info),
-				"failed to present", false);
+				"failed to present", false)
 	
 	// cleanup
 	vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
@@ -1121,7 +1121,7 @@ vulkan_compute::create_vulkan_program_internal(vulkan_device* device,
 		};
 		VkShaderModule module { nullptr };
 		VK_CALL_RET(vkCreateShaderModule(device->device, &module_info, nullptr, &module),
-					"failed to create shader module (\"" + identifier + "\") for device \"" + device->name + "\"", ret);
+					"failed to create shader module (\"" + identifier + "\") for device \"" + device->name + "\"", ret)
 		ret.programs.emplace_back(module);
 	}
 
@@ -1153,7 +1153,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		
 		VkShaderModule module { nullptr };
 		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &module),
-					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"");
+					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"")
 		entry.programs.emplace_back(module);
 		entry.valid = true;
 		
@@ -1243,7 +1243,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			}
 			
 			VK_CALL_CONT(vkCreateSampler(vk_dev->device, &sampler_create_info, nullptr, &vk_dev->fixed_sampler_set[combination]),
-						 "failed to create sampler (#" + to_string(combination) + ")");
+						 "failed to create sampler (#" + to_string(combination) + ")")
 			
 			vk_dev->fixed_sampler_image_info[combination].sampler = vk_dev->fixed_sampler_set[combination];
 		}
@@ -1269,7 +1269,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		fixed_samplers_desc_set_layout.pImmutableSamplers = vk_dev->fixed_sampler_set.data();
 		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev->device, &desc_set_layout_info, nullptr,
 												 &vk_dev->fixed_sampler_desc_set_layout),
-					 "failed to create fixed sampler set descriptor set layout");
+					 "failed to create fixed sampler set descriptor set layout")
 		
 		// TODO: use device global desc pool allocation once this is in place
 		const VkDescriptorPoolSize desc_pool_size {
@@ -1285,7 +1285,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			.pPoolSizes = &desc_pool_size,
 		};
 		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev->device, &desc_pool_info, nullptr, &vk_dev->fixed_sampler_desc_pool),
-					 "failed to create fixed sampler set descriptor pool");
+					 "failed to create fixed sampler set descriptor pool")
 		
 		// allocate descriptor set
 		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
@@ -1296,7 +1296,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			.pSetLayouts = &vk_dev->fixed_sampler_desc_set_layout,
 		};
 		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev->device, &desc_set_alloc_info, &vk_dev->fixed_sampler_desc_set),
-					 "failed to allocate fixed sampler set descriptor set");
+					 "failed to allocate fixed sampler set descriptor set")
 	}
 	
 	// TODO: cleanup!

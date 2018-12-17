@@ -40,8 +40,8 @@ public:
 				   const size_t& size_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0) :
-	compute_buffer(device, size_, nullptr, flags_, opengl_type) {}
+				   const uint32_t opengl_type_ = 0) :
+	compute_buffer(device, size_, nullptr, flags_, opengl_type_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type>
@@ -49,8 +49,8 @@ public:
 				   const vector<data_type>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0) :
-	compute_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type) {}
+				   const uint32_t opengl_type_ = 0) :
+	compute_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
@@ -58,8 +58,8 @@ public:
 				   const array<data_type, n>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0) :
-	compute_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type) {}
+				   const uint32_t opengl_type_ = 0) :
+	compute_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
 	
 	virtual ~compute_buffer() = 0;
 	

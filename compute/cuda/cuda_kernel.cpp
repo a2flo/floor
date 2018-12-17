@@ -43,7 +43,7 @@ void cuda_kernel::execute_internal(compute_queue* queue,
 									   (cu_stream)queue->get_queue_ptr(),
 									   kernel_params,
 									   nullptr),
-					  "failed to execute kernel");
+					  "failed to execute kernel")
 }
 
 void cuda_kernel::execute_cooperative_internal(compute_queue* queue,
@@ -57,7 +57,7 @@ void cuda_kernel::execute_cooperative_internal(compute_queue* queue,
 												   0,
 												   (cu_stream)queue->get_queue_ptr(),
 												   kernel_params),
-					  "failed to execute cooperative kernel");
+					  "failed to execute cooperative kernel")
 }
 
 #endif

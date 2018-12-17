@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_image::vulkan_image(vulkan_device* device,
+vulkan_image::vulkan_image(vulkan_device* device_,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,
@@ -35,9 +35,9 @@ vulkan_image::vulkan_image(vulkan_device* device,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_,
 						   const opengl_image_info* gl_image_info) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(device_, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
-vulkan_memory(device, &image) {
+vulkan_memory(device_, &image) {
 	usage = 0;
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
@@ -302,7 +302,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.initialLayout = initial_layout,
 	};
 	VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
-				"image creation failed", false);
+				"image creation failed", false)
 	
 	// allocate / back it up
 	VkMemoryRequirements mem_req;
@@ -314,8 +314,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.allocationSize = mem_req.size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */),
 	};
-	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false);
-	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false);
+	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
+	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
 	
 	// create the view
 	VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -368,7 +368,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.subresourceRange = sub_rsrc_range,
 	};
 	VK_CALL_RET(vkCreateImageView(vulkan_dev, &image_view_create_info, nullptr, &image_view),
-				"image view creation failed", false);
+				"image view creation failed", false)
 	
 	// transition to general layout or color attachment layout (if render target)
 	cur_access_mask = 0; // TODO: ?
@@ -422,7 +422,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 				.subresourceRange = mip_sub_rsrc_range,
 			};
 			VK_CALL_RET(vkCreateImageView(vulkan_dev, &mip_image_view_create_info, nullptr, &mip_map_image_view[i]),
-						"mip-map image view creation failed", false);
+						"mip-map image view creation failed", false)
 			mip_map_image_info[i].imageView = mip_map_image_view[i];
 		}
 	}
@@ -640,13 +640,13 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 			.pInheritanceInfo = nullptr,
 		};
 		VK_CALL_RET(vkBeginCommandBuffer(cmd.cmd_buffer, &begin_info),
-					"failed to begin command buffer");
+					"failed to begin command buffer")
 		
 		vkCmdPipelineBarrier(cmd.cmd_buffer, src_stage_mask, dst_stage_mask,
 							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
 		
 		VK_CALL_RET(vkEndCommandBuffer(cmd.cmd_buffer),
-					"failed to end command buffer");
+					"failed to end command buffer")
 		vk_queue->submit_command_buffer(cmd);
 	}
 	else {

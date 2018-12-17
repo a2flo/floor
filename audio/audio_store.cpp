@@ -79,8 +79,8 @@ weak_ptr<audio_store::audio_data> audio_store::add_file(const string& filename,
 	audio_controller::acquire_context();
 	AL_CLEAR_ERROR(); // clear error code
 	ALuint buffer_data = 0;
-	AL(alGenBuffers(1, &buffer_data));
-	AL(alBufferData(buffer_data, format, audio_buffer, (ALsizei)audio_len, audio_spec.freq));
+	AL(alGenBuffers(1, &buffer_data))
+	AL(alBufferData(buffer_data, format, audio_buffer, (ALsizei)audio_len, audio_spec.freq))
 	
 	auto iter = store.emplace(identifier, make_shared<audio_data>(audio_data {
 		filename,
@@ -113,8 +113,8 @@ weak_ptr<audio_store::audio_data> audio_store::add_raw(const uint8_t* raw_data,
 	audio_controller::acquire_context();
 	AL_CLEAR_ERROR(); // clear error code
 	ALuint buffer_data = 0;
-	AL(alGenBuffers(1, &buffer_data));
-	AL(alBufferData(buffer_data, format, raw_data, raw_data_len, frequency));
+	AL(alGenBuffers(1, &buffer_data))
+	AL(alBufferData(buffer_data, format, raw_data, raw_data_len, frequency))
 	
 	auto iter = store.emplace(identifier, make_shared<audio_data>(audio_data {
 		"RAW:"+identifier,

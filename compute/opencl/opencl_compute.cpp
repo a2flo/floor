@@ -1031,7 +1031,7 @@ opencl_compute::create_opencl_program_internal(opencl_device* cl_dev,
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
 										 1, &cl_dev->device_id,
 										 build_options.c_str(), nullptr, nullptr),
-						  build_err, "failed to build opencl program", ret);
+						  build_err, "failed to build opencl program", ret)
 	
 	
 	// print out build log

@@ -21,13 +21,13 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
-compute_buffer::compute_buffer(compute_device* device,
+compute_buffer::compute_buffer(compute_device* device_,
 							   const size_t& size_,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
 							   const uint32_t external_gl_object_) :
-compute_memory(device, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)) {
+compute_memory(device_, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)) {
 	if(size == 0) {
 		log_error("can't allocate a buffer of size 0!");
 	}
@@ -80,8 +80,8 @@ bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
 }
 
 compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const uint32_t& opengl_buffer,
-																		  const uint32_t& opengl_type,
-																		  const COMPUTE_MEMORY_FLAG& flags floor_unused) {
+																		  const uint32_t& opengl_type_,
+																		  const COMPUTE_MEMORY_FLAG& flags_ floor_unused) {
 	if(opengl_buffer == 0) {
 		log_error("invalid opengl buffer");
 		return {};
@@ -124,7 +124,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	
 	// figure out the currently bound buffer object, so we can rebind/restore it at the end
 	GLint cur_bound_object = -1;
-	switch(opengl_type) {
+	switch(opengl_type_) {
 		// core opengl
 		case GL_ARRAY_BUFFER:
 			glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &cur_bound_object);
@@ -180,7 +180,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_COPY_WRITE_BUFFER:
 		case GL_PIXEL_PACK_BUFFER:
 		case GL_PIXEL_UNPACK_BUFFER:
-			log_error("can't create a buffer of opengl type %X!", opengl_type);
+			log_error("can't create a buffer of opengl type %X!", opengl_type_);
 			break;
 #endif
 		default:
@@ -191,8 +191,8 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	opengl_buffer_info info;
 	
 	GLint buffer_size = 0;
-	glBindBuffer(opengl_type, opengl_buffer);
-	glGetBufferParameteriv(opengl_type, GL_BUFFER_SIZE, &buffer_size);
+	glBindBuffer(opengl_type_, opengl_buffer);
+	glGetBufferParameteriv(opengl_type_, GL_BUFFER_SIZE, &buffer_size);
 	info.size = (uint32_t)buffer_size;
 	
 	// size check
@@ -201,7 +201,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	}
 	
 	// restore/rebind
-	if(cur_bound_object > 0) glBindBuffer(opengl_type, (GLuint)cur_bound_object);
+	if(cur_bound_object > 0) glBindBuffer(opengl_type_, (GLuint)cur_bound_object);
 	
 	info.valid = true;
 	return {};

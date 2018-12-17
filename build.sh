@@ -984,8 +984,8 @@ if [ ${BUILD_JSON} -gt 0 ]; then
 				;;
 		esac
 		# NOTE: we're not adding the header dependency list creation flags here
-		build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o"
-		cmds="${cmds}\t{\n\t\t\"directory\": \"${CUR_DIR}\",\n\t\t\"command\": \"${build_cmd}\",\n\t\t\"file\": \"${source_file}\"\n\t}"
+		build_cmd="${build_cmd} -c ${FLOOR_SRC_PREFIX_DIR}${source_file} -o ${BUILD_DIR}/${source_file}.o"
+		cmds="${cmds}\t{\n\t\t\"directory\": \"${CUR_DIR}\",\n\t\t\"command\": \"${build_cmd}\",\n\t\t\"file\": \"${FLOOR_SRC_PREFIX_DIR}${source_file}\"\n\t}"
 		if [ $file_counter -lt $file_count ]; then
 			cmds="${cmds},\n"
 		else
@@ -1090,7 +1090,7 @@ build_file() {
 
 	rebuild_file=$(needs_rebuild ${source_file})
 	if [ "${rebuild_file}" ]; then
-		info "building ${source_file} [${file_num}/${file_count}]"
+		info "building ${FLOOR_SRC_PREFIX_DIR}${source_file} [${file_num}/${file_count}]"
 		case ${source_file} in
 			*".cpp")
 				build_cmd="${CXX} -include-pch ${PCH_BIN_NAME} ${CXXFLAGS}"
@@ -1108,7 +1108,7 @@ build_file() {
 				error "unknown source file ending: ${source_file}"
 				;;
 		esac
-		build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
+		build_cmd="${build_cmd} -c ${FLOOR_SRC_PREFIX_DIR}${source_file} -o ${BUILD_DIR}/${source_file}.o -MD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
 		verbose "${build_cmd}"
 		eval ${build_cmd}
 
@@ -1116,7 +1116,7 @@ build_file() {
 		ret_code=$?
 		if [ ${ret_code} -ne 0 ]; then
 			kill -USR1 ${parent_pid}
-			error "compilation failed (${source_file})"
+			error "compilation failed (${FLOOR_SRC_PREFIX_DIR}${source_file})"
 		fi
 	fi
 }

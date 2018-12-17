@@ -55,7 +55,7 @@ void opencl_kernel::execute_internal(shared_ptr<arg_handler> handler,
 	
 	if(handler->needs_param_workaround && has_tmp_buffers) {
 		task::spawn([handler, wait_evt]() {
-			CL_CALL_IGNORE(clWaitForEvents(1, &wait_evt), "waiting for kernel execution failed");
+			CL_CALL_IGNORE(clWaitForEvents(1, &wait_evt), "waiting for kernel execution failed")
 			// NOTE: will hold onto all tmp buffers of handler until the end of this scope, then auto-destruct everything
 		}, "kernel cleanup");
 	}
@@ -73,7 +73,7 @@ void opencl_kernel::set_const_kernel_argument(uint32_t& total_idx, uint32_t& arg
 	// if param workaround isn't needed, just set the arg
 	if(!handler->needs_param_workaround) {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, arg_size, arg),
-					"failed to set generic kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
+					"failed to set generic kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
 		++arg_idx;
 		return;
 	}

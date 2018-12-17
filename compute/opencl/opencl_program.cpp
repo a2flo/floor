@@ -46,7 +46,7 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 					
 					CL_CALL_ERR_PARAM_CONT(entry.kernel = clCreateKernel(prog.second.program, kernel_name.c_str(),
 																		 &kernel_err), kernel_err,
-										   "failed to create kernel \"" + kernel_name + "\" for device \"" + prog.first->name + "\"");
+										   "failed to create kernel \"" + kernel_name + "\" for device \"" + prog.first->name + "\"")
 					
 					// retrieve max possible work-group size for this device for this kernel
 					entry.max_total_local_size = (uint32_t)cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first->device_id);

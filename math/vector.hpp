@@ -331,17 +331,17 @@ public:
 	
 	// assignments (note: these also work if scalar_type is a reference)
 	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
-		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
+		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON)
 		return *this;
 	}
 	
 	floor_inline_always constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept {
-		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
+		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON)
 		return *this;
 	}
 	
 	floor_inline_always constexpr vector_type& operator=(const decayed_scalar_type& val) noexcept {
-		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON);
+		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON)
 		return *this;
 	}
 	

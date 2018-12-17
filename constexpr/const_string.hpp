@@ -66,14 +66,6 @@ public:
 		return make_concat_array<n + count - 1>(n - 1, count, str, cstr.data()).data;
 	}
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	//! prints/writes the content of the const_string to an ostream (note that this is obviously a non-constexpr function)
-	template <size_t n> friend ostream& operator<<(ostream& output, const const_string<n>& cstr) {
-		output.write(&cstr.content.data[0], n);
-		return output;
-	}
-#endif
-	
 	//
 	template <size_t n> constexpr bool operator==(const const_string<n>& cstr) const {
 		if(n != count) return false;
@@ -139,30 +131,6 @@ public:
 #endif
 	
 	//
-	template <size_t len_0, size_t len_1> friend constexpr bool operator==(const char (&str)[len_0], const const_string<len_1>& cstr) {
-		return (cstr == str);
-	}
-	template <size_t len_0> friend constexpr bool operator==(const char* str, const const_string<len_0>& cstr) {
-		return (cstr == str);
-	}
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	template <size_t len_0> friend bool operator==(const string& str, const const_string<len_0>& cstr) {
-		return (cstr == str);
-	}
-#endif
-	template <size_t len_0, size_t len_1> friend constexpr bool operator!=(const char (&str)[len_0], const const_string<len_1>& cstr) {
-		return (cstr != str);
-	}
-	template <size_t len_0> friend constexpr bool operator!=(const char* str, const const_string<len_0>& cstr) {
-		return (cstr != str);
-	}
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	template <size_t len_0> friend bool operator!=(const string& str, const const_string<len_0>& cstr) {
-		return (cstr != str);
-	}
-#endif
-	
-	//
 	constexpr const char& operator[](const size_t& index) const {
 		return content.data[index];
 	}
@@ -216,7 +184,7 @@ public:
 				break;
 			
 			case 0: break;
-		};
+		}
 		
 		//----------
 		// finalization
@@ -259,6 +227,38 @@ protected:
 		return (x << r) | (x >> (32 - r));
 	}
 };
+
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+//! prints/writes the content of the const_string to an ostream (note that this is obviously a non-constexpr function)
+template <size_t n> ostream& operator<<(ostream& output, const const_string<n>& cstr) {
+	output.write(&cstr.content.data[0], n);
+	return output;
+}
+#endif
+
+//
+template <size_t len_0, size_t len_1> constexpr bool operator==(const char (&str)[len_0], const const_string<len_1>& cstr) {
+	return (cstr == str);
+}
+template <size_t len_0> constexpr bool operator==(const char* str, const const_string<len_0>& cstr) {
+	return (cstr == str);
+}
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+template <size_t len_0> bool operator==(const string& str, const const_string<len_0>& cstr) {
+	return (cstr == str);
+}
+#endif
+template <size_t len_0, size_t len_1> constexpr bool operator!=(const char (&str)[len_0], const const_string<len_1>& cstr) {
+	return (cstr != str);
+}
+template <size_t len_0> constexpr bool operator!=(const char* str, const const_string<len_0>& cstr) {
+	return (cstr != str);
+}
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+template <size_t len_0> bool operator!=(const string& str, const const_string<len_0>& cstr) {
+	return (cstr != str);
+}
+#endif
 
 //! creates a storage_array from a c string
 template <size_t size> static constexpr auto make_sized_array(const char* str) {

@@ -320,9 +320,9 @@ bool opencl_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	cl_event wait_evt;
 	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, &wait_evt),
-				"failed to acquire opengl buffer - opencl gl object acquire failed", false);
+				"failed to acquire opengl buffer - opencl gl object acquire failed", false)
 	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl buffer acquire failed", false);
+				"wait for opengl buffer acquire failed", false)
 	gl_object_state = false;
 	return true;
 }
@@ -339,9 +339,9 @@ bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	cl_event wait_evt;
 	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, &wait_evt),
-				"failed to release opengl buffer - opencl gl object release failed", false);
+				"failed to release opengl buffer - opencl gl object release failed", false)
 	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl buffer release failed", false);
+				"wait for opengl buffer release failed", false)
 	gl_object_state = true;
 	return true;
 }

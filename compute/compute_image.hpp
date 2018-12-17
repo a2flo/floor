@@ -33,13 +33,13 @@ public:
 	struct opengl_image_info;
 	
 	//! this sets the r/w flags in a COMPUTE_MEMORY_FLAG enum according to the ones in an COMPUTE_IMAGE_TYPE enum
-	static constexpr COMPUTE_MEMORY_FLAG infer_rw_flags(const COMPUTE_IMAGE_TYPE& image_type, COMPUTE_MEMORY_FLAG flags) {
+	static constexpr COMPUTE_MEMORY_FLAG infer_rw_flags(const COMPUTE_IMAGE_TYPE& image_type, COMPUTE_MEMORY_FLAG flags_) {
 		// clear existing r/w flags
-		flags &= ~COMPUTE_MEMORY_FLAG::READ_WRITE;
+		flags_ &= ~COMPUTE_MEMORY_FLAG::READ_WRITE;
 		// set r/w flags from specified image type
-		if(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) flags |= COMPUTE_MEMORY_FLAG::READ;
-		if(has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) flags |= COMPUTE_MEMORY_FLAG::WRITE;
-		return flags;
+		if(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) flags_ |= COMPUTE_MEMORY_FLAG::READ;
+		if(has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) flags_ |= COMPUTE_MEMORY_FLAG::WRITE;
+		return flags_;
 	}
 	
 	//! automatically sets/infers image_type flags when certain conditions are met

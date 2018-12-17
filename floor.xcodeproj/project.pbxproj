@@ -1169,7 +1169,7 @@
 /* Begin PBXLegacyTarget section */
 		5CBB61241D6367A000B09EEE /* floor_remote */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "floor_remote \"cd ~/floor && export FLOOR_DEV=1 && export FLOOR_SELF_INCL_DIR=/Users/flo/sync && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug -j16; else ./build.sh $(ACTION) -j16; fi\"";
+			buildArgumentsString = "floor_remote \"cd ~/floor && export FLOOR_DEV=1 && export FLOOR_SELF_INCL_DIR=/Users/flo/sync && export FLOOR_SRC_PREFIX_DIR=/Users/flo/sync/floor/ && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug -j4; else ./build.sh $(ACTION) -j4; fi\"";
 			buildConfigurationList = 5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */;
 			buildPhases = (
 			);

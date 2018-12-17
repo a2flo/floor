@@ -92,7 +92,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 	VK_CALL_RET(vkCreateComputePipelines(device->device, nullptr, 1, &pipeline_info, nullptr,
 										 &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
-				nullptr);
+				nullptr)
 	
 	auto spec_iter = specializations.insert(spec_key, spec_entry);
 	if(!spec_iter.first) return nullptr;
@@ -131,7 +131,7 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 			.pInheritanceInfo = nullptr,
 		};
 		VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-					"failed to begin command buffer", {});
+					"failed to begin command buffer", {})
 	}
 	else {
 		cmd_buffer = *(vulkan_queue::command_buffer*)cmd_buffer_;
@@ -239,7 +239,7 @@ void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 	vkCmdDispatch(encoder->cmd_buffer.cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
 	
 	// all done here, end + submit
-	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer");
+	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
 	((vulkan_queue*)queue)->submit_command_buffer(encoder->cmd_buffer,
 												  [encoder](const vulkan_queue::command_buffer&) {
 		// -> completion handler

@@ -923,7 +923,10 @@ void barrier() {
 // memory fence handling (all the same)
 // NOTE: compared to a barrier, a memory fence does not have to be encountered by all work-items (no context/fiber switching is necessary)
 void global_mem_fence() {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(atomic-implicit-seq-cst) // we still explicitly want this
 	__sync_synchronize();
+FLOOR_POP_WARNINGS()
 }
 void global_read_mem_fence() {
 	global_mem_fence();

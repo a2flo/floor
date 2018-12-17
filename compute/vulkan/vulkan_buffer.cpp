@@ -27,14 +27,14 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_buffer::vulkan_buffer(vulkan_device* device,
+vulkan_buffer::vulkan_buffer(vulkan_device* device_,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
-vulkan_memory(device, &buffer) {
+compute_buffer(device_, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
+vulkan_memory(device_, &buffer) {
 	if(size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
@@ -70,7 +70,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		.pQueueFamilyIndices = nullptr,
 	};
 	VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
-				"buffer creation failed", false);
+				"buffer creation failed", false)
 	
 	// allocate / back it up
 	VkMemoryRequirements mem_req;
@@ -82,8 +82,8 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		.allocationSize = mem_req.size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */),
 	};
-	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false);
-	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false);
+	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
+	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false)
 	
 	// update buffer desc info
 	buffer_info.buffer = buffer;
@@ -169,11 +169,11 @@ void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {
 		.pInheritanceInfo = nullptr,
 	};
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer");
+				"failed to begin command buffer")
 	
 	vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
 	
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
 	((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer);
 }
 

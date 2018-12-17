@@ -32,7 +32,7 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 		.flags = (VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT),
 		.queueFamilyIndex = family_index,
 	};
-	VK_CALL_RET(vkCreateCommandPool(((vulkan_device*)device.get())->device, &cmd_pool_info, nullptr, &cmd_pool), "failed to create command pool");
+	VK_CALL_RET(vkCreateCommandPool(((vulkan_device*)device.get())->device, &cmd_pool_info, nullptr, &cmd_pool), "failed to create command pool")
 	// TODO: vkDestroyCommandPool necessary in destructor? this will live as long as the context/instance does
 	
 	// allocate initial command buffers
@@ -45,7 +45,7 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = cmd_buffer_count,
 	};
-	VK_CALL_RET(vkAllocateCommandBuffers(((vulkan_device*)device.get())->device, &cmd_buffer_info, &cmd_buffers[0]), "failed to create command buffers");
+	VK_CALL_RET(vkAllocateCommandBuffers(((vulkan_device*)device.get())->device, &cmd_buffer_info, &cmd_buffers[0]), "failed to create command buffers")
 	cmd_buffers_in_use.reset();
 	
 	// create fences
@@ -56,14 +56,14 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 	};
 	for(uint32_t i = 0; i < fence_count; ++i) {
 		VK_CALL_RET(vkCreateFence(((vulkan_device*)device.get())->device, &fence_info, nullptr, &fences[i]),
-					"failed to create fence #" + to_string(i));
+					"failed to create fence #" + to_string(i))
 	}
 	fences_in_use.reset();
 }
 
 void vulkan_queue::finish() const {
 	GUARD(queue_lock);
-	VK_CALL_RET(vkQueueWaitIdle(queue), "queue finish failed");
+	VK_CALL_RET(vkQueueWaitIdle(queue), "queue finish failed")
 }
 
 void vulkan_queue::flush() const {
@@ -82,7 +82,7 @@ vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name)
 				// TODO: don't block
 				VK_CALL_RET(vkResetCommandBuffer(cmd_buffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT),
 							"failed to reset command buffer ("s + (name != nullptr ? name : "unknown") + ")",
-							{ nullptr, ~0u, nullptr });
+							{ nullptr, ~0u, nullptr })
 				cmd_buffers_in_use.set(i);
 				return { cmd_buffers[i], i, name };
 			}
@@ -116,7 +116,7 @@ pair<VkFence, uint32_t> vulkan_queue::acquire_fence() {
 
 void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) {
 	VK_CALL_RET(vkResetFences(dev, 1, &fence.first),
-				"failed to reset fence");
+				"failed to reset fence")
 	
 	GUARD(fence_lock);
 	fences_in_use.reset(fence.second);

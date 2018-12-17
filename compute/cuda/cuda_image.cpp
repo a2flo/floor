@@ -119,10 +119,10 @@ static bool cuda_memcpy(const void* host,
 	mcpy3d.depth = max(depth, 1u);
 	
 	if(!async) {
-		CU_CALL_RET(cu_memcpy_3d(&mcpy3d), "failed to copy memory", false);
+		CU_CALL_RET(cu_memcpy_3d(&mcpy3d), "failed to copy memory", false)
 	}
 	else {
-		CU_CALL_RET(cu_memcpy_3d_async(&mcpy3d, stream), "failed to copy memory", false);
+		CU_CALL_RET(cu_memcpy_3d_async(&mcpy3d, stream), "failed to copy memory", false)
 	}
 	return true;
 }
@@ -189,7 +189,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	// else: assume the correct context is already active
 	if(device->ctx != nullptr) {
 		CU_CALL_RET(cu_ctx_set_current(device->ctx),
-					"failed to make cuda context current");
+					"failed to make cuda context current")
 	}
 	
 	// actually create the image
@@ -352,18 +352,18 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				  need_surf, need_tex, dim_count, desc.dim, desc.channel_count, desc.flags, desc.format);
 		if(!is_mip_mapped) {
 			CU_CALL_RET(cu_array_3d_create(&image_array, &desc),
-						"failed to create cuda array/image", false);
+						"failed to create cuda array/image", false)
 			image = image_array;
 		}
 		else {
 			CU_CALL_RET(cu_mipmapped_array_create(&image_mipmap_array, &desc, mip_level_count),
-						"failed to create cuda mip-mapped array/image", false);
+						"failed to create cuda mip-mapped array/image", false)
 			image = image_mipmap_array;
 			
 			image_mipmap_arrays.resize(mip_level_count);
 			for(uint32_t level = 0; level < mip_level_count; ++level) {
 				CU_CALL_RET(cu_mipmapped_array_get_level(&image_mipmap_arrays[level], image_mipmap_array, level),
-							"failed to retrieve cuda mip-map level #" + to_string(level), false);
+							"failed to retrieve cuda mip-map level #" + to_string(level), false)
 			}
 		}
 		
@@ -491,7 +491,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		CU_CALL_RET(cu_graphics_gl_register_image(&rsrc,
 												  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
 												  opengl_type, cuda_gl_flags),
-					"failed to register opengl image with cuda", false);
+					"failed to register opengl image with cuda", false)
 		if(rsrc == nullptr) {
 			log_error("created cuda gl graphics resource is invalid!");
 			return false;
@@ -588,7 +588,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			
 			cu_tex_object new_texture = 0;
 			CU_CALL_RET(cu_tex_object_create(&new_texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
-						"failed to create texture object #" + to_string(i), false);
+						"failed to create texture object #" + to_string(i), false)
 			// we can do this, because cuda only tracks/returns the lower 32-bit of cu_tex_object
 			textures[i] = (cu_tex_only_object)new_texture;
 			
@@ -608,7 +608,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				rsrc_desc.array = image_mipmap_arrays[level];
 			}
 			CU_CALL_RET(cu_surf_object_create(&surfaces[level], &rsrc_desc),
-						"failed to create surface object", false);
+						"failed to create surface object", false)
 		}
 		
 		// since we don't want to carry around 64-bit values for all possible mip-levels for all images (15 * 8 == 120 bytes per image!),
@@ -641,13 +641,13 @@ cuda_image::~cuda_image() {
 	for(const auto& texture : textures) {
 		if(texture != 0) {
 			CU_CALL_NO_ACTION(cu_tex_object_destroy(texture),
-							  "failed to destroy texture object");
+							  "failed to destroy texture object")
 		}
 	}
 	for(const auto& surface : surfaces) {
 		if(surface != 0) {
 			CU_CALL_NO_ACTION(cu_surf_object_destroy(surface),
-							  "failed to destroy surface object");
+							  "failed to destroy surface object")
 		}
 	}
 	
@@ -655,11 +655,11 @@ cuda_image::~cuda_image() {
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		if(image_array != nullptr) {
 			CU_CALL_RET(cu_array_destroy(image_array),
-						"failed to free device memory");
+						"failed to free device memory")
 		}
 		if(image_mipmap_array != nullptr) {
 			CU_CALL_RET(cu_mipmapped_array_destroy(image_mipmap_array),
-						"failed to free device memory");
+						"failed to free device memory")
 		}
 	}
 	// -> opengl image
@@ -887,24 +887,24 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc,
 										  (cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to acquire opengl image - cuda resource mapping failed!", false);
+				"failed to acquire opengl image - cuda resource mapping failed!", false)
 	gl_object_state = false;
 	
 	// TODO: handle opengl array/layers
 	if(is_mip_mapped) {
 		CU_CALL_RET(cu_graphics_resource_get_mapped_mipmapped_array(&image_mipmap_array, rsrc),
-					"failed to retrieve mapped cuda mip-map image from opengl image!", false);
+					"failed to retrieve mapped cuda mip-map image from opengl image!", false)
 		image = image_mipmap_array;
 		
 		image_mipmap_arrays.resize(mip_level_count);
 		for(uint32_t level = 0; level < mip_level_count; ++level) {
 			CU_CALL_RET(cu_graphics_sub_resource_get_mapped_array(&image_mipmap_arrays[level], rsrc, 0, level),
-						"failed to retrieve mip-map level #" + to_string(level) + " from mapped opengl image!", false);
+						"failed to retrieve mip-map level #" + to_string(level) + " from mapped opengl image!", false)
 		}
 	}
 	else {
 		CU_CALL_RET(cu_graphics_sub_resource_get_mapped_array(&image_array, rsrc, 0, 0),
-					"failed to retrieve mapped cuda image from opengl image!", false);
+					"failed to retrieve mapped cuda image from opengl image!", false)
 		image = image_array;
 	}
 	
@@ -946,7 +946,7 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	image_mipmap_arrays.clear();
 	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc,
 											(cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to release opengl image - cuda resource unmapping failed!", false);
+				"failed to release opengl image - cuda resource unmapping failed!", false)
 	gl_object_state = true;
 	
 	return true;

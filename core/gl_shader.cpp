@@ -82,7 +82,7 @@ F(GL_UNSIGNED_INT_SAMPLER_2D_ARRAY)
 #define __FLOOR_DECLARE_GL_TYPE_CHECK(type) case type: return true;
 static bool is_gl_sampler_type(const GLenum& type) {
 	switch(type) {
-		FLOOR_GL_SHADER_SAMPLER_TYPES(__FLOOR_DECLARE_GL_TYPE_CHECK);
+		FLOOR_GL_SHADER_SAMPLER_TYPES(__FLOOR_DECLARE_GL_TYPE_CHECK)
 		default: break;
 	}
 	return false;
