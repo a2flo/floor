@@ -313,6 +313,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
+			if (toolchain_version >= 80000 && options.cuda.short_ptr) {
+				clang_cmd += " -fcuda-short-ptr -mllvm --nvptx-short-ptr";
+			}
 			libcxx_path += floor::get_cuda_base_path() + "libcxx";
 			clang_path += floor::get_cuda_base_path() + "clang";
 			floor_path += floor::get_cuda_base_path() + "floor";
@@ -774,6 +777,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
 			" -mcpu=sm_" + sm_version + " -mattr=ptx" + to_string(ptx_version) +
+			(toolchain_version >= 80000 && options.cuda.short_ptr ? " -nvptx-short-ptr" : "") +
 			" -o - " + compiled_file_or_code
 #if !defined(_MSC_VER)
 			+ " 2>&1"

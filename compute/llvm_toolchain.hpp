@@ -198,6 +198,9 @@ public:
 			//! sets the maximum amount of registers that may be used
 			//! if 0, the global config setting is used
 			uint32_t max_registers { 0u };
+			
+			//! use short/32-bit pointers for accessing non-global memory
+			bool short_ptr { true };
 		} cuda;
 	};
 	

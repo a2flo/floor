@@ -65,6 +65,10 @@ namespace cuda_image_support {
 		static bool did_init = false;
 		if(did_init) return;
 		did_init = true;
+		if (floor::get_renderer() != floor::RENDERER::OPENGL) {
+			// don't do anything when we've not actually created an opengl context
+			return;
+		}
 		
 		// compile internal shaders
 		const auto depth_to_color_shd = floor_compile_shader("BLIT_DEPTH_TO_COLOR", blit_vs_text, blit_to_color_fs_text);
