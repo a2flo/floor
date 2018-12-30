@@ -606,7 +606,8 @@ else
 	# build a shared/dynamic library
 	LDFLAGS="${LDFLAGS} -dynamiclib"
 	
-	# additional lib paths
+	# additional lib/framework paths
+	LDFLAGS="${LDFLAGS} -F/Library/Frameworks"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openssl/lib"
 	fi
