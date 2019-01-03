@@ -16,4 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/math/vector_lib_checks.hpp>
+#include <floor/math/vector_lib.hpp>
+
+// sizeof check
+#define FLOOR_VECTOR_SIZEOF_CHECK(pod_type, prefix, vec_width) \
+static_assert(sizeof(prefix##vec_width) == sizeof(pod_type) * vec_width, "invalid vector size");
+
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 1)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 2)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 3)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 4)

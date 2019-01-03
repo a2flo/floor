@@ -277,8 +277,8 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 // always include vector lib/types
 #if !defined(FLOOR_DEBUG)
 #include <floor/math/vector_lib.hpp>
-#else // .cpp file has a few more checks that might be useful in debug mode
-#include <floor/math/vector_lib.cpp>
+#else // vector_lib.hpp + a few more checks that might be useful in debug mode
+#include <floor/math/vector_lib_checks.hpp>
 #endif
 
 // image types / enum (+enum helpers as this depends on it)
