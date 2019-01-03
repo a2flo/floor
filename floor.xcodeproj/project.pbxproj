@@ -237,6 +237,7 @@
 		5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
 		5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */; };
 		5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCF37951C3D208D006D355B /* metal_post.hpp */; };
+		5CD1A37E21DE3767002D5CB1 /* vector_lib_checks.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */; };
 		5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
 		5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
 		5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2175419E985D80049D6AE /* cuda_compute.hpp */; };
@@ -513,6 +514,9 @@
 		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
+		5CD1A37B21DE15DD002D5CB1 /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm80/deploy_dev.sh; sourceTree = "<group>"; };
+		5CD1A37C21DE165A002D5CB1 /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm80/deploy_pkg.sh; sourceTree = "<group>"; };
+		5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vector_lib_checks.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
 		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
 		5CD2175619E985D80049D6AE /* opencl_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_compute.cpp; sourceTree = "<group>"; };
@@ -606,6 +610,7 @@
 				5CE797CF1C5338D0005AB753 /* rt_math.hpp */,
 				5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */,
 				5C0DF00A19B8C79200331AAC /* vector_lib.hpp */,
+				5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */,
 				5CE0BDCE19BA46E3000B28B3 /* vector.cpp */,
 				5C0DF00819B8C79200331AAC /* vector.hpp */,
 				5CC5980A201E724500D8D19F /* vector_1d.cpp */,
@@ -981,6 +986,8 @@
 				5CC1DB2521D6E3DC00EB2E52 /* 80_libcxx.patch */,
 				5CC1DB2621D6E3DD00EB2E52 /* 80_llvm.patch */,
 				5CC1DB2321D6E3DB00EB2E52 /* build.sh */,
+				5CD1A37B21DE15DD002D5CB1 /* deploy_dev.sh */,
+				5CD1A37C21DE165A002D5CB1 /* deploy_pkg.sh */,
 				5CC1DB2721D6E3DD00EB2E52 /* pkg.sh */,
 			);
 			name = llvm80;
@@ -1056,6 +1063,7 @@
 				5C3EA9D91D89632000EC932F /* vulkan_image.hpp in Headers */,
 				5C8FD0C81AD38F9700215230 /* opencl_image.hpp in Headers */,
 				5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */,
+				5CD1A37E21DE3767002D5CB1 /* vector_lib_checks.hpp in Headers */,
 				5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */,
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C5383ED1A641B1E007AEDD7 /* cuda_program.hpp in Headers */,

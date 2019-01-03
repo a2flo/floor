@@ -91,13 +91,16 @@
 * NOTE: the absolute build path must not contain spaces
 * NOTE: when building with GNU Make 4.2, use -j1 (jobserver changes in 4.2 broke *something*)
 * compile the toolchain:
-** 4.0.0 toolchain: cd floor/etc/llvm40/ && ./build.sh
 ** 8.0 toolchain: cd floor/etc/llvm80/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
-*** copy the toolchain folder as "toolchain" to /opt/floor/ (should then be /opt/floor/toolchain/{bin,clang,libcxx})
-*** inside /opt/floor/toolchain, add a symlink to the floor include folder: sudo ln -sf ../include floor
+*** automatic:
+**** development: run ./deploy_dev.sh from the floor/etc/llvm80/ folder (this will create symlinks to everything in floor and floor/etc/llvm80)
+**** release: run ./deploy_pkg.sh from inside the toolchain package folder (floor/etc/llvm80/toolchain_80000_*; this will copy everything)
+*** manual:
+**** copy the toolchain folder as "toolchain" to /opt/floor/ (should then be /opt/floor/toolchain/{bin,clang,libcxx})
+**** inside /opt/floor/toolchain, add a symlink to the floor include folder: sudo ln -sf ../include floor
 ** Windows:
 *** copy the toolchain folder as "toolchain" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/toolchain/{bin,clang,libcxx}")
 *** inside "%%ProgramFiles%%/floor/toolchain", copy the "floor" folder from the "include" folder above it into this folder
