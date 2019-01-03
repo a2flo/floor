@@ -146,8 +146,8 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		
 		// hard to make this forward compatible, there is no direct "get family" call
-		// -> just try the first 64 types, good enough for now
-		for(uint32_t i = 12; i > 0; --i) {
+		// -> just try the first 17 types, good enough for now
+		for(uint32_t i = 17; i > 0; --i) {
 			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
 				device->feature_set = i - 1;
 				break;
@@ -175,21 +175,28 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
 			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
 			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
+			case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
 				device->family = 1;
 				break;
 			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
 			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
 			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
 			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
+			case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
 				device->family = 2;
 				break;
 			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
 			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
 			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
+			case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
 				device->family = 3;
 				break;
 			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
+			case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
 				device->family = 4;
+				break;
+			case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
+				device->family = 5;
 				break;
 		}
 		
@@ -199,11 +206,13 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
 			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
 			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
+			case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
 				device->family_version = 1;
 				break;
 			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
 			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
 			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
+			case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
 				device->family_version = 2;
 				break;
 			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
@@ -213,7 +222,12 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
 			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
+			case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
 				device->family_version = 4;
+				break;
+			case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
+			case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
+				device->family_version = 5;
 				break;
 		}
 		
@@ -255,9 +269,17 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->max_image_2d_dim = { 16384, 16384 };
 				break;
 			
-			// A11
+			// A11 and A12
 			case 4:
 				device->units = 3; // Apple custom
+				device->mem_clock = 1600; // TODO: ram clock
+				device->max_image_1d_dim = { 16384 };
+				device->max_image_2d_dim = { 16384, 16384 };
+				break;
+			
+			// A12
+			case 5:
+				device->units = 4; // Apple custom
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
 				device->max_image_2d_dim = { 16384, 16384 };
