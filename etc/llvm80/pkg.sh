@@ -17,6 +17,7 @@ cp ../build/bin/llc bin/
 cp ../build/bin/llvm-dis bin/
 cp ../build/bin/llvm-as bin/
 cp ../build/bin/llvm-spirv bin/
+cp ../build/bin/metallib-dis bin/
 cp ../SPIRV-Tools/build/tools/spirv-as bin/
 cp ../SPIRV-Tools/build/tools/spirv-dis bin/
 cp ../SPIRV-Tools/build/tools/spirv-val bin/
