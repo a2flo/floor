@@ -2891,7 +2891,7 @@ index 05930ae9ee..a88417f122 100644
      default:
        return CCCR_Warning;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 52fc08de9b..cff6894a10 100644
+index 52fc08de9b..36d6a9ff89 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -41,9 +41,12 @@
@@ -2934,7 +2934,7 @@ index 52fc08de9b..cff6894a10 100644
  
    PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
    PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
-@@ -558,6 +567,46 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
+@@ -558,6 +567,47 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
  
    MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
  
@@ -2972,8 +2972,9 @@ index 52fc08de9b..cff6894a10 100644
 +  // only enable this for Vulkan/SPIR-V
 +  PMBuilder.EnableVulkanPasses = (PMBuilder.EnableSPIRPasses &&
 +                                  Triple(TheModule->getTargetTriple()).getEnvironment() == Triple::Vulkan);
-+  if (PMBuilder.EnableVulkanPasses) {
-+    // don't enable any vectorization for vulkan, this would lead to illegal pointer bitcasts
++
++  // don't enable any vectorization for Vulkan and Metal, this would lead to illegal pointer bitcasts and possibly unsupported vector dims
++  if (PMBuilder.EnableVulkanPasses || PMBuilder.EnableMetalPasses) {
 +    PMBuilder.SLPVectorize = false;
 +    PMBuilder.LoopVectorize = false;
 +  }
@@ -2981,7 +2982,7 @@ index 52fc08de9b..cff6894a10 100644
    if (TM)
      TM->adjustPassManager(PMBuilder);
  
-@@ -667,6 +716,10 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
+@@ -667,6 +717,10 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
    if (!CodeGenOpts.RewriteMapFiles.empty())
      addSymbolRewriterPass(CodeGenOpts, &MPM);
  
@@ -2992,7 +2993,7 @@ index 52fc08de9b..cff6894a10 100644
    if (Optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts)) {
      MPM.add(createGCOVProfilerPass(*Options));
      if (CodeGenOpts.getDebugInfo() == codegenoptions::NoDebugInfo)
-@@ -777,6 +830,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -777,6 +831,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
  
    bool UsesCodeGen = (Action != Backend_EmitNothing &&
                        Action != Backend_EmitBC &&
@@ -3004,7 +3005,7 @@ index 52fc08de9b..cff6894a10 100644
                        Action != Backend_EmitLL);
    CreateTargetMachine(UsesCodeGen);
  
-@@ -831,6 +889,26 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -831,6 +890,26 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
      }
      break;
  
@@ -3031,7 +3032,7 @@ index 52fc08de9b..cff6894a10 100644
    case Backend_EmitLL:
      PerModulePasses.add(
          createPrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
-@@ -1066,6 +1144,26 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
+@@ -1066,6 +1145,26 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
      }
      break;
  

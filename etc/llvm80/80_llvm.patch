@@ -4096,10 +4096,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..0ef69a094af
+index 00000000000..8070e2dc6d7
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,510 @@
+@@ -0,0 +1,534 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4439,6 +4439,7 @@ index 00000000000..0ef69a094af
 +  // gather entry point functions that we want to clone/emit
 +  vector<pair<const Function *, metallib_program_info::PROGRAM_TYPE>>
 +      functions;
++  unordered_set<string> function_set;
 +  for (uint32_t i = 0; i < 3; ++i) {
 +    const auto func_type = (metallib_program_info::PROGRAM_TYPE)i;
 +    const NamedMDNode *func_list = nullptr;
@@ -4465,6 +4466,7 @@ index 00000000000..0ef69a094af
 +      if (auto const_md = dyn_cast<ConstantAsMetadata>(op_0)) {
 +        if (auto func = dyn_cast<Function>(const_md->getValue())) {
 +          functions.emplace_back(func, func_type);
++          function_set.emplace(func->getName().str());
 +        }
 +      }
 +    }
@@ -4508,6 +4510,28 @@ index 00000000000..0ef69a094af
 +      }
 +      return false;
 +    });
++
++    // remove all unused functions and global vars, since CloneModule only sets
++    // unused vars to external linkage and unused funcs are declarations only
++    // NOTE: we won't remove entry points here, b/c metadata still references it and
++    //       the Metal backends actively need to remove them
++    for (auto I = cloned_mod->begin(), E = cloned_mod->end(); I != E;) {
++      Function &F = *I++;
++      if (F.isDeclaration() && F.use_empty() &&
++          // note that we use a string here, b/c pointers don't work across modules
++          function_set.count(F.getName().str()) == 0) {
++        F.eraseFromParent();
++        continue;
++      }
++    }
++
++    for (auto I = cloned_mod->global_begin(), E = cloned_mod->global_end(); I != E;) {
++      GlobalVariable &GV = *I++;
++      if (GV.isDeclaration() && GV.use_empty()) {
++        GV.eraseFromParent();
++        continue;
++      }
++    }
 +
 +    // write module / bitcode
 +    raw_string_ostream bitcode_stream{entry.bitcode_data};
