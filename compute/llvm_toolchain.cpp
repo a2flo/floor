@@ -264,6 +264,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
+				" -mllvm -slp-max-vec-dim=4" /* vector dims > 4 are unsupported */ \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" \
 				" -llvm-metallib" +
