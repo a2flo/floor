@@ -57532,6 +57532,63 @@ index 41f14a83461..5473cfad7ce 100644
      if (Metrics.NumInsts > MaxHeaderSize)
        return false;
    }
+diff --git a/lib/Transforms/Vectorize/SLPVectorizer.cpp b/lib/Transforms/Vectorize/SLPVectorizer.cpp
+index 87a861970d1..c114612a271 100644
+--- a/lib/Transforms/Vectorize/SLPVectorizer.cpp
++++ b/lib/Transforms/Vectorize/SLPVectorizer.cpp
+@@ -148,6 +148,10 @@ static cl::opt<bool>
+     ViewSLPTree("view-slp-tree", cl::Hidden,
+                 cl::desc("Display the SLP trees with Graphviz"));
+ 
++static cl::opt<uint32_t>
++MaxVectorDimSizeOption("slp-max-vec-dim", cl::init(~0u), cl::Hidden,
++    cl::desc("Limits the max vector dimension to be created to this value"));
++
+ // Limit the number of alias checks. The limit is chosen so that
+ // it has no negative effect on the llvm benchmarks.
+ static const unsigned AliasedCheckLimit = 10;
+@@ -504,6 +508,11 @@ public:
+       MinVecRegSize = MinVectorRegSizeOption;
+     else
+       MinVecRegSize = TTI->getMinVectorRegisterBitWidth();
++
++    if (MaxVectorDimSizeOption.getNumOccurrences())
++      MaxVecDimSize = MaxVectorDimSizeOption;
++    else
++      MaxVecDimSize = ~0u;
+   }
+ 
+   /// Vectorize the tree that starts with the elements in \p VL.
+@@ -592,6 +601,11 @@ public:
+     return MinVecRegSize;
+   }
+ 
++  // \returns maximum vector dimension size as set by cl::opt.
++  unsigned getMaxVecDimSize() const {
++    return MaxVecDimSize;
++  }
++
+   /// Check if ArrayType or StructType is isomorphic to some VectorType.
+   ///
+   /// \returns number of elements in vector if isomorphism exists, 0 otherwise.
+@@ -1226,6 +1240,7 @@ private:
+ 
+   unsigned MaxVecRegSize; // This is set by TTI or overridden by cl::opt.
+   unsigned MinVecRegSize; // Set by cl::opt (default: 128).
++  unsigned MaxVecDimSize; // Set by cl::opt (default: unlimited).
+ 
+   /// Instruction builder to construct the vectorized tree.
+   IRBuilder<> Builder;
+@@ -4871,7 +4886,9 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
+   Instruction *I0 = cast<Instruction>(S.OpValue);
+   unsigned Sz = R.getVectorElementSize(I0);
+   unsigned MinVF = std::max(2U, R.getMinVecRegSize() / Sz);
++  MinVF = std::min(R.getMaxVecDimSize(), MinVF);
+   unsigned MaxVF = std::max<unsigned>(PowerOf2Floor(VL.size()), MinVF);
++  MaxVF = std::min(R.getMaxVecDimSize(), MaxVF);
+   if (MaxVF < 2) {
+     R.getORE()->emit([&]() {
+       return OptimizationRemarkMissed(SV_NAME, "SmallVF", I0)
 diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
 index ddafc98d63b..aabe15de6d0 100644
 --- a/tools/CMakeLists.txt
@@ -57986,10 +58043,10 @@ index 00000000000..806634a078e
 +required_libraries = Analysis BitReader
 diff --git a/tools/metallib-dis/metallib-dis.cpp b/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 00000000000..02a90195fad
+index 00000000000..13605c4c73a
 --- /dev/null
 +++ b/tools/metallib-dis/metallib-dis.cpp
-@@ -0,0 +1,504 @@
+@@ -0,0 +1,502 @@
 +//===-- metallib-dis.cpp - The low-level MetalLib + LLVM disassembler -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -58106,8 +58163,7 @@ index 00000000000..02a90195fad
 +static_assert(sizeof(metallib_header) == 4 + sizeof(metallib_version) + sizeof(uint64_t) + sizeof(metallib_header_control), "invalid metallib header size");
 +
 +struct metallib_program_info {
-+	uint32_t count;
-+	uint32_t length; // including length itself, but not count
++	uint32_t length; // including length itself
 +	
 +	// NOTE: tag types are always 32-bit
 +	// NOTE: tag types are always followed by a uint16_t that specifies the length of the tag data
@@ -58298,11 +58354,10 @@ index 00000000000..02a90195fad
 +	}
 +	
 +	metallib_program_info info;
-+	auto program_ptr = &data[header.header_control.programs_offset];
-+	info.count = *(const uint32_t*)program_ptr; program_ptr += 4;
++	auto program_ptr = &data[header.header_control.programs_offset + 4];
 +	
-+	info.entries.resize(info.count);
-+	for(uint32_t i = 0; i < info.count; ++i) {
++	info.entries.resize(header.header_control.program_count);
++	for(uint32_t i = 0; i < header.header_control.program_count; ++i) {
 +		auto& entry = info.entries[i];
 +		
 +		entry.length = *(const uint32_t*)program_ptr; program_ptr += 4;
@@ -58363,7 +58418,7 @@ index 00000000000..02a90195fad
 +			program_ptr += tag_length;
 +		}
 +	}
-+	if(info.entries.size() != info.count) {
++	if(info.entries.size() != header.header_control.program_count) {
 +		return make_error<StringError>("invalid entry count", inconvertibleErrorCode());
 +	}
 +	
