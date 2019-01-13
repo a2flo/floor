@@ -5407,7 +5407,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..421c4def3c 100644
+index f012384f3d..e8a93303af 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -6699,7 +6699,7 @@ index f012384f3d..421c4def3c 100644
 +			// #0/1: render target location index
 +			rtt_info.push_back(llvm::MDString::get(Context, "air.render_target"));
 +			rtt_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(location)));
-+			if(CGM.getLangOpts().MetalVersion >= 200) {
++			if(CGM.getLangOpts().MetalVersion >= 120) {
 +				// NOTE: this isn't handled yet, so just always set it to 0
 +				rtt_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(0)));
 +			}
@@ -7312,7 +7312,7 @@ index f012384f3d..421c4def3c 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2345,71 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2345,76 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7334,6 +7334,11 @@ index f012384f3d..421c4def3c 100644
 +	  // only do this once
 +	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
 +	  if(AIRVersion->getNumOperands() > 0) return;
++	  
++	  // insert empty sampler state for Metal 2.0+, this will be filled in by MetalImage later on
++	  if (CGM.getLangOpts().MetalVersion >= 200) {
++		  CGM.getModule().getOrInsertNamedMetadata("air.sampler_states");
++	  }
 +	  
 +	  // figure out which metal versions we should emit
 +	  std::array<uint32_t, 3> metal_version;
@@ -7384,7 +7389,7 @@ index f012384f3d..421c4def3c 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2475,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2480,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7397,7 +7402,7 @@ index f012384f3d..421c4def3c 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2587,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2592,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7427,7 +7432,7 @@ index f012384f3d..421c4def3c 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2640,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2645,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7443,7 +7448,7 @@ index f012384f3d..421c4def3c 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2740,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2745,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7461,7 +7466,7 @@ index f012384f3d..421c4def3c 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2796,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2801,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7477,7 +7482,7 @@ index f012384f3d..421c4def3c 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +2947,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +2952,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7487,7 +7492,7 @@ index f012384f3d..421c4def3c 100644
    return ResTy;
  }
  
-@@ -1356,7 +3018,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3023,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&

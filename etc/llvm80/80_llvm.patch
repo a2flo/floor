@@ -4096,10 +4096,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..8070e2dc6d7
+index 00000000000..242aa856aba
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,534 @@
+@@ -0,0 +1,566 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4389,6 +4389,14 @@ index 00000000000..8070e2dc6d7
 +      if (instr->getParent()->getParent() == F) {
 +        return true;
 +      }
++    } else if (const auto const_expr = dyn_cast<ConstantExpr>(user)) {
++      for (const auto& ce_user : const_expr->users()) {
++        if (const auto ce_instr = dyn_cast<Instruction>(ce_user)) {
++          if (ce_instr->getParent()->getParent() == F) {
++            return true;
++          }
++        }
++      }
 +    }
 +  }
 +  return false;
@@ -4530,6 +4538,30 @@ index 00000000000..8070e2dc6d7
 +      if (GV.isDeclaration() && GV.use_empty()) {
 +        GV.eraseFromParent();
 +        continue;
++      }
++    }
++
++    // clean up metadata
++    if (auto sampler_states = cloned_mod->getNamedMetadata("air.sampler_states")) {
++      vector<MDNode*> kept_nodes;
++      for (auto op_iter = sampler_states->op_begin(); op_iter != sampler_states->op_end(); ++op_iter) {
++        MDNode* node = *op_iter;
++        if (node->getNumOperands() != 2 || node->getOperand(1).get() == nullptr) {
++          continue;
++        }
++        kept_nodes.emplace_back(node);
++      }
++
++      // need to drop all references to existing nodes, b/c we can't directly remove operands
++      sampler_states->dropAllReferences();
++      if (kept_nodes.empty()) {
++        // remove air.sampler_states altogether
++        sampler_states->eraseFromParent();
++      } else {
++        // now, only add ones we want to keep
++        for (auto node : kept_nodes) {
++          sampler_states->addOperand(node);
++        }
 +      }
 +    }
 +
@@ -50460,10 +50492,10 @@ index 00000000000..0abcbaca252
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 00000000000..4efb0dcbbd8
+index 00000000000..0f451d983a1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,512 @@
+@@ -0,0 +1,593 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -50526,6 +50558,8 @@ index 00000000000..4efb0dcbbd8
 +namespace {
 +	struct MetalImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
++		
++		static constexpr const uint32_t Metal_ConstantAS = 2;
 +		
 +		MetalImage(const uint32_t image_capabilities_ = 0) :
 +		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
@@ -50639,11 +50673,73 @@ index 00000000000..4efb0dcbbd8
 +			func_arg_types.push_back(img_handle_arg->getType());
 +			func_args.push_back(img_handle_arg);
 +			
++			// only add the sampler arg if this is a sample call
++			bool set_sampler_attrs = false;
++			uint32_t sampler_param_idx = 0;
 +			if(is_sample_call) {
-+				// only add the sampler arg if this is a sample call
-+				const auto sampler_arg = (const_sampler_arg == nullptr ? dyn_sampler_arg : const_sampler_arg);
-+				func_arg_types.push_back(sampler_arg->getType());
-+				func_args.push_back(sampler_arg);
++				// sampler handling with Metal 2.0+ is more complex
++				// -> need to transform sampler into a global constant
++				// -> need to add this constant to !air.sampler_states metadata
++				if (is_metal_2) {
++					if (dyn_sampler_arg == nullptr) {
++						ctx->emitError(&I, "sampler arg should be dynamic");
++						return;
++					}
++					
++					auto ce_sampler = dyn_cast<ConstantExpr>(dyn_sampler_arg);
++					if (ce_sampler == nullptr) {
++						ctx->emitError(&I, "sampler arg must be a constant expression");
++						return;
++					}
++					
++					if (!ce_sampler->isCast() || ce_sampler->getOpcode() != llvm::Instruction::IntToPtr) {
++						ctx->emitError(&I, "sampler arg must be a constant inttoptr expression");
++						return;
++					}
++					
++					auto sampler_constant_value = dyn_cast<ConstantInt>(ce_sampler->getOperand(0));
++					if (sampler_constant_value == nullptr) {
++						ctx->emitError(&I, "sampler arg must contain a constant value");
++						return;
++					}
++					
++					// create global sampler state
++					auto sampler_state = new GlobalVariable(*M,
++															sampler_constant_value->getType(),
++															true,
++															GlobalVariable::InternalLinkage,
++															sampler_constant_value,
++															"__air_sampler_state",
++															nullptr,
++															GlobalValue::NotThreadLocal,
++															Metal_ConstantAS);
++					sampler_state->setAlignment(8); // always 8-byte aligned
++					
++					// still need to bitcast to %struct._sampler_t*
++					auto sampler_type = dyn_cast<PointerType>(dyn_sampler_arg->getType());
++					auto cast_sampler_state = ConstantExpr::getBitCast(sampler_state, sampler_type);
++					
++					func_arg_types.push_back(cast_sampler_state->getType());
++					func_args.push_back(cast_sampler_state);
++					
++					set_sampler_attrs = true;
++					sampler_param_idx = func_args.size() - 1;
++					
++					// insert metadata
++					auto ctx = &M->getContext();
++					SmallVector<llvm::Metadata*, 2> sampler_md_info;
++					sampler_md_info.push_back(llvm::MDString::get(*ctx, "air.sampler_state"));
++					sampler_md_info.push_back(llvm::ConstantAsMetadata::get(sampler_state));
++					
++					auto samplers_md = M->getOrInsertNamedMetadata("air.sampler_states");
++					samplers_md->addOperand(llvm::MDNode::get(*ctx, sampler_md_info));
++				}
++				// Metal 1.x: just add the sampler arg
++				else {
++					const auto sampler_arg = (const_sampler_arg == nullptr ? dyn_sampler_arg : const_sampler_arg);
++					func_arg_types.push_back(sampler_arg->getType());
++					func_args.push_back(sampler_arg);
++				}
 +			}
 +			
 +			if(is_depth) {
@@ -50801,11 +50897,28 @@ index 00000000000..4efb0dcbbd8
 +			
 +			read_func_name += '.' + dtype;
 +			
++			AttrBuilder attr_builder;
++			attr_builder.addAttribute(llvm::Attribute::Convergent);
++			attr_builder.addAttribute(llvm::Attribute::ArgMemOnly);
++			attr_builder.addAttribute(llvm::Attribute::NoUnwind);
++			attr_builder.addAttribute(llvm::Attribute::ReadOnly);
++			auto func_attrs = AttributeList::get(*ctx, ~0, attr_builder);
++			
 +			// create the air call
 +			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
-+			llvm::CallInst* read_call = builder->CreateCall(M->getOrInsertFunction(read_func_name, func_type, nounwind_readnone_attr), func_args);
-+			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			llvm::CallInst* read_call = builder->CreateCall(M->getOrInsertFunction(read_func_name, func_type, func_attrs), func_args);
++			read_call->setConvergent();
++			read_call->setOnlyAccessesArgMemory();
++			read_call->setDoesNotThrow();
++			read_call->setOnlyReadsMemory(); // all reads are readonly (can be optimized away if unused)
++			read_call->setFast(true);
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			
++			// set sampler* cast attributes if necessary
++			if (set_sampler_attrs) {
++				read_call->addParamAttr(sampler_param_idx, Attribute::NoCapture);
++				read_call->addParamAttr(sampler_param_idx, Attribute::ReadOnly);
++			}
 +			
 +			// if this is a depth read/sample, the return type is a float -> create a float4
 +			llvm::Value* read_call_result = read_call;
@@ -58043,7 +58156,7 @@ index 00000000000..806634a078e
 +required_libraries = Analysis BitReader
 diff --git a/tools/metallib-dis/metallib-dis.cpp b/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 00000000000..13605c4c73a
+index 00000000000..fd9cf05527e
 --- /dev/null
 +++ b/tools/metallib-dis/metallib-dis.cpp
 @@ -0,0 +1,502 @@
@@ -58535,7 +58648,7 @@ index 00000000000..13605c4c73a
 +  }
 +
 +  Expected<bool> SuccessOrErr = openInputFile(Context, Out);
-+  if (!openInputFile(Context, Out)) {
++  if (!SuccessOrErr) {
 +    handleAllErrors(SuccessOrErr.takeError(), [&](ErrorInfoBase &EIB) {
 +      errs() << argv[0] << ": ";
 +      EIB.log(errs());
