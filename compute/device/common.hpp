@@ -292,7 +292,11 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 #if !defined(FLOOR_COMPUTE_METAL)
 #define buffer __attribute__((align_value(1024))) compute_global_buffer
 #else // align is not supported with metal
+#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1) // all global buffers are noalias/restrict with Metal 2.1+
+#define buffer __restrict compute_global_buffer
+#else
 #define buffer compute_global_buffer
+#endif
 #endif
 template <typename T> using compute_global_buffer = global T*;
 

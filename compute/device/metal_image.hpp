@@ -31,36 +31,43 @@ namespace metal_image {
 	// NOTE: only the constexpr version is supported right now
 	struct sampler {
 		enum ADDRESS_MODE {
-			CLAMP_TO_ZERO	= 0,
-			CLAMP_TO_EDGE	= 1,
-			REPEAT			= 2,
-			MIRRORED_REPEAT	= 3
+			CLAMP_TO_ZERO		= 0,
+			CLAMP_TO_EDGE		= 1,
+			REPEAT				= 2,
+			MIRRORED_REPEAT		= 3,
+			// Metal 1.2+ (macOS)
+			CLAMP_TO_BORDER		= 4
 		};
 		enum FILTER_MODE {
-			NEAREST			= 0,
-			LINEAR			= 1,
-			// metal 1.2+
-			BICUBIC			= 2,
+			NEAREST				= 0,
+			LINEAR				= 1,
+			// Metal 1.2+ (iOS)
+			BICUBIC				= 2,
 		};
 		enum MIP_FILTER_MODE {
-			MIP_NONE		= 0,
-			MIP_NEAREST		= 1,
-			MIP_LINEAR		= 2
+			MIP_NONE			= 0,
+			MIP_NEAREST			= 1,
+			MIP_LINEAR			= 2
 		};
 		enum COORD_MODE {
-			NORMALIZED		= 0,
-			PIXEL			= 1
+			NORMALIZED			= 0,
+			PIXEL				= 1
 		};
 		enum COMPARE_FUNCTION {
-			NONE			= 0,
-			LESS			= 1,
-			LESS_EQUAL		= 2,
-			GREATER			= 3,
-			GREATER_EQUAL	= 4,
-			EQUAL			= 5,
-			NOT_EQUAL		= 6,
-			ALWAYS			= 7,
-			NEVER			= 8
+			NONE				= 0,
+			LESS				= 1,
+			LESS_EQUAL			= 2,
+			GREATER				= 3,
+			GREATER_EQUAL		= 4,
+			EQUAL				= 5,
+			NOT_EQUAL			= 6,
+			ALWAYS				= 7,
+			NEVER				= 8
+		};
+		enum BORDER_COLOR {
+			TRANSPARENT_BLACK	= 0,
+			OPAQUE_BLACK		= 1,
+			OPAQUE_WHITE		= 2
 		};
 		
 		union {
@@ -81,15 +88,18 @@ namespace metal_image {
 				// compare function
 				uint64_t compare_function : 4;
 				
-				// metal 1.2+: anisotropic filtering (N - 1)
+				// Metal 1.2+ (iOS), 2.0+ (macOS): anisotropic filtering (N - 1)
 				uint64_t anisotropy : 4;
 				
-				// metal 1.2+: lod min/max clamping (half floats)
+				// Metal 1.2+ (iOS), 2.0+ (macOS): lod min/max clamping (half floats)
 				uint64_t lod_clamp_min : 16;
 				uint64_t lod_clamp_max : 16;
 				
+				// Metal 1.2+ (macOS): border color
+				uint64_t border_color : 2;
+				
 				// currently unused/reserved
-				uint64_t _unused : 7;
+				uint64_t _unused : 5;
 				
 				// constant sampler flag
 				uint64_t is_constant : 1;
@@ -102,7 +112,12 @@ namespace metal_image {
 						  const COORD_MODE coord_mode_ = PIXEL,
 						  const FILTER_MODE filter_mode = NEAREST,
 						  const MIP_FILTER_MODE mip_filter_mode = MIP_NONE,
-						  const COMPARE_FUNCTION compare_function_ = NONE) :
+#if FLOOR_COMPUTE_METAL_MAJOR >= 2
+						  const COMPARE_FUNCTION compare_function_ = NEVER
+#else
+						  const COMPARE_FUNCTION compare_function_ = NONE
+#endif
+						  ) :
 		s_address(address_mode), t_address(address_mode), r_address(address_mode),
 		coord_mode(coord_mode_),
 		mag_filter(filter_mode), min_filter(filter_mode),
@@ -110,6 +125,7 @@ namespace metal_image {
 		compare_function(compare_function_),
 		anisotropy(0),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
+		border_color(TRANSPARENT_BLACK),
 		_unused(0u), is_constant(1u) {}
 		
 		constexpr sampler(const sampler& s) :
@@ -119,6 +135,7 @@ namespace metal_image {
 		compare_function(s.compare_function),
 		anisotropy(0),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
+		border_color(TRANSPARENT_BLACK),
 		_unused(0u), is_constant(1u) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
