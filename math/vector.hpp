@@ -1359,6 +1359,12 @@ public:
 		return !FLOOR_VEC_EXPAND(||);
 	}
 	
+	//! explicit bool conversion/eval for vector*<bool>: returns true if all components are true
+	template <class B = scalar_type, enable_if_t<is_same<B, bool>::value>* = nullptr>
+	explicit constexpr operator bool() const {
+		return FLOOR_VEC_EXPAND(&&);
+	}
+	
 	//////////////////////////////////////////
 	// functional / algorithm
 #pragma mark functional / algorithm
