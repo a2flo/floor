@@ -95,6 +95,42 @@ namespace compute_algorithm {
 		return ::sub_group_reduce_max(lane_var);
 	}
 #endif
+	
+#elif defined(FLOOR_COMPUTE_METAL)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+	//! performs a butterfly reduction inside the sub-group using the specific operation/function
+	template <typename T, typename F, enable_if_t<is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>>* = nullptr>
+	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
+		// on Metal we only have a fixed+known SIMD-width at compile-time when we're specifically compiling for a device
+		if constexpr (device_info::has_fixed_known_simd_width()) {
+			T shfled_var;
+#pragma unroll
+			for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+				shfled_var = simd_shuffle_xor(lane_var, lane);
+				lane_var = op(lane_var, shfled_var);
+			}
+			return lane_var;
+		} else {
+			// dynamic version
+			T shfled_var;
+			for(uint32_t lane = sub_group_size / 2; lane > 0; lane >>= 1) {
+				shfled_var = simd_shuffle_xor(lane_var, lane);
+				lane_var = op(lane_var, shfled_var);
+			}
+			return lane_var;
+		}
+	}
+	
+	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
+		return sub_group_reduce(lane_var, plus<> {});
+	}
+	template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
+		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
+	}
+	template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
+		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
+	}
+#endif
 #endif
 	
 	//////////////////////////////////////////

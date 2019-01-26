@@ -143,6 +143,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	uint32_t bitness = device->bitness; // can be overwritten by target
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
+	bool disable_sub_groups = false; // in case something needs to override device capabilities
 	switch(options.target) {
 		case TARGET::SPIR:
 			toolchain_version = floor::get_opencl_toolchain_version();
@@ -194,6 +195,11 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 					default:
 						log_error("invalid force_version: %u", metal_force_version);
 						break;
+				}
+				
+				if (metal_version < METAL_VERSION::METAL_2_0) {
+					// no sub-group and shuffle support here
+					disable_sub_groups = true;
 				}
 			}
 			
@@ -463,31 +469,31 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
 	
 	// id/size ranges
-	uint2 global_id_range { 0u, 0xFFFFFFFFu };
-	uint2 global_size_range { 1u, 0xFFFFFFFFu };
+	// NOTE: ranges are specified as [min, max), i.e. min is inclusive, max is exclusive
+	uint2 global_id_range { 0u, ~0u };
+	uint2 global_size_range { 1u, ~0u };
 	// NOTE: nobody supports a local size > 2048 (or 1536) right now, if that changes, this needs to be updated
 	uint2 local_id_range { 0u, 2048u };
-	uint2 local_size_range { 1u, 2048u };
-	uint2 group_id_range { 0u, 0xFFFFFFFFu };
-	uint2 group_size_range { 1u, 0xFFFFFFFFu };
+	uint2 local_size_range { 1u, 2049u };
+	uint2 group_id_range { 0u, ~0u };
+	uint2 group_size_range { 1u, ~0u };
 	
 	// if the device has actual info about this, use that instead of the defaults
 	const auto max_global_size = device->max_global_size.max_element();
 	if(max_global_size > 0) {
-		const uint32_t max_global_size_u32 = (max_global_size > 0xFFFFFFFFull ? 0xFFFFFFFFu : uint32_t(max_global_size));
-		global_id_range.y = max_global_size_u32;
-		global_size_range.y = max_global_size_u32;
+		global_id_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size));
+		global_size_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size + 1));
 	}
 	
 	if(device->max_total_local_size != 0) {
 		local_id_range.y = device->max_total_local_size;
-		local_size_range.y = device->max_total_local_size;
+		local_size_range.y = device->max_total_local_size + 1;
 	}
 	
 	const auto max_group_size = device->max_group_size.max_element();
 	if(max_group_size > 0) {
 		group_id_range.y = max_group_size;
-		group_size_range.y = max_group_size;
+		group_size_range.y = (max_group_size != ~0u ? max_group_size + 1 : ~0u);
 	}
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN=" + to_string(global_id_range.x) + "u";
@@ -506,7 +512,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	// handle device simd width
 	uint32_t simd_width = device->simd_width;
 	uint2 simd_range = device->simd_range;
-	if(simd_width == 0) {
+	if(simd_width == 0 && !options.ignore_runtime_info) {
 		// try to figure out the simd width of the device if it's 0
 		if(device->is_gpu()) {
 			switch(device->vendor) {
@@ -518,7 +524,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				default: break;
 			}
 		}
-		else if(device->is_cpu() && !options.ignore_runtime_info) {
+		else if(device->is_cpu()) {
 			// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
 			simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			simd_range = { 1, simd_width };
@@ -530,15 +536,53 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_MAX="s + to_string(simd_range.y) + "u";
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
 	
+	if (device->sub_group_support && !disable_sub_groups) {
+		// sub-group range handling, now that we know local sizes and SIMD-width
+		// NOTE: no known device currently has a SIMD-width larger than 64
+		// NOTE: correspondence if a sub-group was a work-group:
+		//       sub-group local id ^= local id
+		//       sub-group size     ^= local size
+		//       sub-group id       ^= group id
+		//       num sub-groups     ^= group size
+		uint2 sub_group_local_id_range { 0u, 64u };
+		uint2 sub_group_size_range { 1u, local_size_range.y /* not larger than this */ };
+		uint2 sub_group_id_range { 0u, local_id_range.y /* not larger than this */ };
+		uint2 num_sub_groups_range { 1u, local_size_range.y /* not larger than this */ };
+		
+		if (device->simd_width > 1u) {
+			sub_group_local_id_range.y = device->simd_range.y; // [0, SIMD-width)
+			sub_group_size_range = { device->simd_range.x, device->simd_range.y + 1 }; // [min SIMD-width, max SIMD-width]
+			if (device->simd_range.x == device->simd_range.y) {
+				// device with constant SIMD-width
+				sub_group_id_range.y = (local_id_range.y / device->simd_range.y); // [0, max-local-size / max-SIMD-width)
+				num_sub_groups_range.y = local_id_range.y / device->simd_range.y + 1; // [1, max-local-size / max-SIMD-width + 1)
+			} else {
+				// device with variable SIMD-width
+				sub_group_id_range.y = (local_id_range.y / device->simd_range.x); // [0, max-local-size / min-SIMD-width)
+				num_sub_groups_range.y = local_id_range.y / device->simd_range.x + 1; // [1, max-local-size / min-SIMD-width + 1)
+			}
+		}
+		
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_ID_RANGE_MIN=" + to_string(sub_group_id_range.x) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_ID_RANGE_MAX=" + to_string(sub_group_id_range.y) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MIN=" + to_string(sub_group_local_id_range.x) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX=" + to_string(sub_group_local_id_range.y) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_SIZE_RANGE_MIN=" + to_string(sub_group_size_range.x) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_SUB_GROUP_SIZE_RANGE_MAX=" + to_string(sub_group_size_range.y) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MIN=" + to_string(num_sub_groups_range.x) + "u";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MAX=" + to_string(num_sub_groups_range.y) + "u";
+	}
+	
+	
 	// handle sub-group support
-	if(device->sub_group_support) {
+	if(device->sub_group_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=1 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_1";
 	} else {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=0 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_0";
 	}
 	
 	// handle sub-group shuffle support
-	if(device->sub_group_shuffle_support) {
+	if(device->sub_group_shuffle_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE=1 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE_1";
 	} else {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE=0 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE_0";

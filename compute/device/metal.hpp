@@ -188,6 +188,25 @@ FLOOR_GROUP_ID_RANGE_ATTR const_func uint32_t get_group_id(uint32_t dim) asm("fl
 FLOOR_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
 [[range(1u, 3u)]] const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 
+// Metal 2.0+ (macOS-only)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+FLOOR_SUB_GROUP_ID_RANGE_ATTR const_func uint32_t get_sub_group_id() asm("floor.get_sub_group_id.i32");
+FLOOR_SUB_GROUP_LOCAL_ID_RANGE_ATTR const_func uint32_t get_sub_group_local_id() asm("floor.get_sub_group_local_id.i32");
+FLOOR_SUB_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_sub_group_size() asm("floor.get_sub_group_size.i32");
+FLOOR_NUM_SUB_GROUPS_RANGE_ATTR const_func uint32_t get_num_sub_groups() asm("floor.get_num_sub_groups.i32");
+
+// TODO: sub_group_reduce_*/sub_group_scan_exclusive_*/sub_group_scan_inclusive_*
+#define SUB_GROUP_TYPES(F, P) F(int32_t, "s.i32", P) F(uint32_t, "u.i32", P) F(float, "f32", P)
+#define SUB_GROUP_FUNC(type, type_str, func) type func(type, uint16_t lane_idx_delta_or_mask) __attribute__((noduplicate)) asm("air." #func "." type_str);
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle_down)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle_up)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle_xor)
+#undef SUB_GROUP_TYPES
+#undef SUB_GROUP_FUNC
+
+#endif
+
 // barrier and mem_fence functionality
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)
 void air_wg_barrier(uint32_t mem_scope, int32_t sync_scope) __attribute__((noduplicate)) asm("air.wg.barrier");

@@ -409,6 +409,12 @@ namespace universal_binary {
 					mtl_dev.image_cube_array_support = true;
 					mtl_dev.image_cube_array_write_support = true;
 					
+					// sub-group/shuffle support on Metal 2.0+
+					if (mtl_dev.metal_version >= METAL_VERSION::METAL_2_0) {
+						mtl_dev.sub_group_support = true;
+						mtl_dev.sub_group_shuffle_support = true;
+					}
+					
 					// special vendor workarounds/settings + SIMD handling
 					switch (mtl_target.device_target) {
 						default:

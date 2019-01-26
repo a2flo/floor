@@ -295,7 +295,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->unified_memory = true;
 		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device->max_image_3d_dim = { 2048, 2048, 2048 };
-		device->simd_width = 32; // always 32 for powervr 6 and 7 series
+		device->simd_width = 32; // always 32 for powervr 6/7 series and apple A* series
 		device->simd_range = { device->simd_width, device->simd_width };
 		device->image_cube_write_support = false;
 #else
@@ -403,6 +403,12 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		}
 		else {
 			device->metal_version = METAL_VERSION::METAL_1_1;
+		}
+		
+		// Metal 2.0+ on macOS supports sub-groups and shuffle
+		if (device->metal_version >= METAL_VERSION::METAL_2_0) {
+			device->sub_group_support = true;
+			device->sub_group_shuffle_support = true;
 		}
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
