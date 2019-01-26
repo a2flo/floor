@@ -3349,7 +3349,7 @@ index eea9207a34..9dc1999123 100644
          break;
        }
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 64e18e171e..ceaf32e25d 100644
+index 64e18e171e..d5c39d2e01 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -60,8 +60,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3401,7 +3401,7 @@ index 64e18e171e..ceaf32e25d 100644
      const FunctionType *FT = FTy->getAs<FunctionType>();
      CGM.getTargetCodeGenInfo().setCUDAKernelCallingConvention(FT);
      FTy = FT->getCanonicalTypeUnqualified();
-@@ -431,6 +444,132 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
+@@ -431,6 +444,143 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
                                   ParamInfos, Required);
  }
  
@@ -3414,7 +3414,11 @@ index 64e18e171e..ceaf32e25d 100644
 +
 +  if (CGM.getLangOpts().Metal) {
 +    if (FD->hasAttr<ComputeKernelAttr>()) {
-+      return 6;
++	  if (CGM.getLangOpts().MetalVersion < 200 || CGM.getTriple().getOS() != llvm::Triple::OSType::MacOSX) {
++        return 6;
++	  } else {
++        return 10;
++      }
 +    } else if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
 +      return 1;
 +    } else if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
@@ -3490,6 +3494,13 @@ index 64e18e171e..ceaf32e25d 100644
 +      add_arg(int3_type, "__metal__local_size__");
 +      add_arg(int3_type, "__metal__group_id__");
 +      add_arg(int3_type, "__metal__group_size__");
++      if (CGM.getLangOpts().MetalVersion >= 200 && CGM.getTriple().getOS() == llvm::Triple::OSType::MacOSX) {
++        // SIMD-group / sub-group ids
++        add_arg(Ctx.IntTy, "__metal__sub_group_id__");
++        add_arg(Ctx.IntTy, "__metal__sub_group_local_id__");
++        add_arg(Ctx.IntTy, "__metal__sub_group_size__");
++        add_arg(Ctx.IntTy, "__metal__num_sub_groups__");
++      }
 +    } else if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
 +      // only vertex id for now:
 +      add_arg(Ctx.IntTy, "__metal__vertex_id__");
@@ -3534,7 +3545,7 @@ index 64e18e171e..ceaf32e25d 100644
  /// Arrange the argument and result information for the declaration or
  /// definition of the given function.
  const CGFunctionInfo &
-@@ -444,6 +583,8 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
+@@ -444,6 +594,8 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
    assert(isa<FunctionType>(FTy));
    setCUDAKernelCallingConvention(FTy, CGM, FD);
  
@@ -3543,7 +3554,7 @@ index 64e18e171e..ceaf32e25d 100644
    // When declaring a function without a prototype, always use a
    // non-variadic type.
    if (CanQual<FunctionNoProtoType> noProto = FTy.getAs<FunctionNoProtoType>()) {
-@@ -772,11 +913,14 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
+@@ -772,11 +924,14 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
    assert(inserted && "Recursively being processed?");
  
    // Compute ABI information.
@@ -3560,7 +3571,7 @@ index 64e18e171e..ceaf32e25d 100644
      swiftcall::computeABIInfo(CGM, *FI);
    } else {
      getABIInfo().computeInfo(*FI);
-@@ -853,6 +997,10 @@ struct TypeExpansion {
+@@ -853,6 +1008,10 @@ struct TypeExpansion {
      TEK_Record,
      // For complex types, real and imaginary parts are expanded recursively.
      TEK_Complex,
@@ -3571,7 +3582,7 @@ index 64e18e171e..ceaf32e25d 100644
      // All other types are not expandable.
      TEK_None
    };
-@@ -897,6 +1045,31 @@ struct ComplexExpansion : TypeExpansion {
+@@ -897,6 +1056,31 @@ struct ComplexExpansion : TypeExpansion {
    }
  };
  
@@ -3603,7 +3614,7 @@ index 64e18e171e..ceaf32e25d 100644
  struct NoExpansion : TypeExpansion {
    NoExpansion() : TypeExpansion(TEK_None) {}
    static bool classof(const TypeExpansion *TE) {
-@@ -906,12 +1079,61 @@ struct NoExpansion : TypeExpansion {
+@@ -906,12 +1090,61 @@ struct NoExpansion : TypeExpansion {
  }  // namespace
  
  static std::unique_ptr<TypeExpansion>
@@ -3667,7 +3678,7 @@ index 64e18e171e..ceaf32e25d 100644
      SmallVector<const CXXBaseSpecifier *, 1> Bases;
      SmallVector<const FieldDecl *, 1> Fields;
      const RecordDecl *RD = RT->getDecl();
-@@ -961,17 +1183,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
+@@ -961,17 +1194,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
    return llvm::make_unique<NoExpansion>();
  }
  
@@ -3697,7 +3708,7 @@ index 64e18e171e..ceaf32e25d 100644
      return Res;
    }
    if (isa<ComplexExpansion>(Exp.get()))
-@@ -982,17 +1211,30 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
+@@ -982,17 +1222,30 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
  
  void
  CodeGenTypes::getExpandedTypes(QualType Ty,
@@ -3733,7 +3744,7 @@ index 64e18e171e..ceaf32e25d 100644
    } else if (auto CExp = dyn_cast<ComplexExpansion>(Exp.get())) {
      llvm::Type *EltTy = ConvertType(CExp->EltTy);
      *TI++ = EltTy;
-@@ -1018,18 +1260,55 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
+@@ -1018,18 +1271,55 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
    }
  }
  
@@ -3793,7 +3804,7 @@ index 64e18e171e..ceaf32e25d 100644
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = LV.getAddress();
      for (const CXXBaseSpecifier *BS : RExp->Bases) {
-@@ -1040,12 +1319,12 @@ void CodeGenFunction::ExpandTypeFromArgs(
+@@ -1040,12 +1330,12 @@ void CodeGenFunction::ExpandTypeFromArgs(
        LValue SubLV = MakeAddrLValue(Base, BS->getType());
  
        // Recurse onto bases.
@@ -3808,7 +3819,7 @@ index 64e18e171e..ceaf32e25d 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      auto realValue = *AI++;
-@@ -1059,8 +1338,9 @@ void CodeGenFunction::ExpandTypeFromArgs(
+@@ -1059,8 +1349,9 @@ void CodeGenFunction::ExpandTypeFromArgs(
  
  void CodeGenFunction::ExpandTypeToArgs(
      QualType Ty, CallArg Arg, llvm::FunctionType *IRFuncTy,
@@ -3820,7 +3831,7 @@ index 64e18e171e..ceaf32e25d 100644
    if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
      Address Addr = Arg.hasLValue() ? Arg.getKnownLValue().getAddress()
                                     : Arg.getKnownRValue().getAggregateAddress();
-@@ -1070,8 +1350,41 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1070,8 +1361,41 @@ void CodeGenFunction::ExpandTypeToArgs(
                convertTempToRValue(EltAddr, CAExp->EltTy, SourceLocation()),
                CAExp->EltTy);
            ExpandTypeToArgs(CAExp->EltTy, EltArg, IRFuncTy, IRCallArgs,
@@ -3863,7 +3874,7 @@ index 64e18e171e..ceaf32e25d 100644
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = Arg.hasLValue() ? Arg.getKnownLValue().getAddress()
                                     : Arg.getKnownRValue().getAggregateAddress();
-@@ -1084,7 +1397,7 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1084,7 +1408,7 @@ void CodeGenFunction::ExpandTypeToArgs(
  
        // Recurse onto bases.
        ExpandTypeToArgs(BS->getType(), BaseArg, IRFuncTy, IRCallArgs,
@@ -3872,7 +3883,7 @@ index 64e18e171e..ceaf32e25d 100644
      }
  
      LValue LV = MakeAddrLValue(This, Ty);
-@@ -1092,7 +1405,7 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1092,7 +1416,7 @@ void CodeGenFunction::ExpandTypeToArgs(
        CallArg FldArg =
            CallArg(EmitRValueForField(LV, FD, SourceLocation()), FD->getType());
        ExpandTypeToArgs(FD->getType(), FldArg, IRFuncTy, IRCallArgs,
@@ -3881,7 +3892,7 @@ index 64e18e171e..ceaf32e25d 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      ComplexPairTy CV = Arg.getKnownRValue().getComplexVal();
-@@ -1386,11 +1699,11 @@ class ClangToLLVMArgMapping {
+@@ -1386,11 +1710,11 @@ class ClangToLLVMArgMapping {
    SmallVector<IRArgs, 8> ArgInfo;
  
  public:
@@ -3895,7 +3906,7 @@ index 64e18e171e..ceaf32e25d 100644
    }
  
    bool hasInallocaArg() const { return InallocaArgNo != InvalidIndex; }
-@@ -1425,12 +1738,13 @@ public:
+@@ -1425,12 +1749,13 @@ public:
    }
  
  private:
@@ -3910,7 +3921,7 @@ index 64e18e171e..ceaf32e25d 100644
                                        bool OnlyRequiredArgs) {
    unsigned IRArgNo = 0;
    bool SwapThisWithSRet = false;
-@@ -1478,7 +1792,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+@@ -1478,7 +1803,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
        IRArgs.NumberOfArgs = AI.getCoerceAndExpandTypeSequence().size();
        break;
      case ABIArgInfo::Expand:
@@ -3919,7 +3930,7 @@ index 64e18e171e..ceaf32e25d 100644
        break;
      }
  
-@@ -1586,7 +1900,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1586,7 +1911,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
      break;
    }
  
@@ -3928,7 +3939,7 @@ index 64e18e171e..ceaf32e25d 100644
    SmallVector<llvm::Type*, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
  
    // Add type for sret argument.
-@@ -1663,7 +1977,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1663,7 +1988,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
  
      case ABIArgInfo::Expand:
        auto ArgTypesIter = ArgTypes.begin() + FirstIRArg;
@@ -3937,7 +3948,7 @@ index 64e18e171e..ceaf32e25d 100644
        assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
        break;
      }
-@@ -1918,7 +2232,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1918,7 +2243,7 @@ void CodeGenModule::ConstructAttributeList(
      }
    }
  
@@ -3946,7 +3957,7 @@ index 64e18e171e..ceaf32e25d 100644
      if (getLangOpts().OpenCLVersion <= 120) {
        // OpenCL v1.2 Work groups are always uniform
        FuncAttrs.addAttribute("uniform-work-group-size", "true");
-@@ -1954,7 +2268,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1954,7 +2279,7 @@ void CodeGenModule::ConstructAttributeList(
      GetCPUAndFeaturesAttributes(CalleeInfo.getCalleeDecl(), FuncAttrs);
    }
  
@@ -3955,7 +3966,7 @@ index 64e18e171e..ceaf32e25d 100644
  
    QualType RetTy = FI.getReturnType();
    const ABIArgInfo &RetAI = FI.getReturnInfo();
-@@ -2244,7 +2558,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2244,7 +2569,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
    // FIXME: We no longer need the types from FunctionArgList; lift up and
    // simplify.
  
@@ -3964,7 +3975,7 @@ index 64e18e171e..ceaf32e25d 100644
    // Flattened function arguments.
    SmallVector<llvm::Value *, 16> FnArgs;
    FnArgs.reserve(IRFunctionArgs.totalIRArgs());
-@@ -2547,7 +2861,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2547,7 +2872,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
        ArgVals.push_back(ParamValue::forIndirect(Alloca));
  
        auto FnArgIter = FnArgs.begin() + FirstIRArg;
@@ -3973,7 +3984,7 @@ index 64e18e171e..ceaf32e25d 100644
        assert(FnArgIter == FnArgs.begin() + FirstIRArg + NumIRArgs);
        for (unsigned i = 0, e = NumIRArgs; i != e; ++i) {
          auto AI = FnArgs[FirstIRArg + i];
-@@ -3844,7 +4158,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3844,7 +4169,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      return Builder.CreateStructGEP(ArgMemory, FieldIndex, FieldOffset);
    };
  
@@ -3982,7 +3993,7 @@ index 64e18e171e..ceaf32e25d 100644
    SmallVector<llvm::Value *, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
  
    // If the call returns a temporary with struct return, create a temporary
-@@ -4046,9 +4360,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4046,9 +4371,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
          if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -4000,7 +4011,7 @@ index 64e18e171e..ceaf32e25d 100644
          IRCallArgs[FirstIRArg] = V;
          break;
        }
-@@ -4159,7 +4478,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4159,7 +4489,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
  
      case ABIArgInfo::Expand:
        unsigned IRArgPos = FirstIRArg;
@@ -4010,7 +4021,7 @@ index 64e18e171e..ceaf32e25d 100644
        assert(IRArgPos == FirstIRArg + NumIRArgs);
        break;
      }
-@@ -4259,9 +4579,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4259,9 +4590,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      if (IRFunctionArgs.hasInallocaArg() &&
          i == IRFunctionArgs.getInallocaArgNo())
        continue;
@@ -4030,7 +4041,7 @@ index 64e18e171e..ceaf32e25d 100644
  #endif
  
    // Update the largest vector width if any arguments have vector types.
-@@ -4482,6 +4811,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4482,6 +4822,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
              DestPtr = CreateMemTemp(RetTy, "agg.tmp");
              DestIsVolatile = false;
            }
@@ -4044,7 +4055,7 @@ index 64e18e171e..ceaf32e25d 100644
            BuildAggStore(*this, CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -4539,6 +4875,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4539,6 +4886,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      }
    }
  
@@ -5407,7 +5418,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..e8a93303af 100644
+index f012384f3d..ce1068f6c6 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -5420,7 +5431,7 @@ index f012384f3d..e8a93303af 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1764 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,1772 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6596,12 +6607,12 @@ index f012384f3d..e8a93303af 100644
 +	if(is_kernel) {
 +		// add id handling arg metadata
 +		// NOTE: the actual args are added by handleMetalVulkanEntryFunction + the order in here must match the order in there
-+		const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
++		const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name, const char* air_type) {
 +			SmallVector<llvm::Metadata*, 6> arg_info;
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
 +			arg_info.push_back(llvm::MDString::get(Context, air_name));
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+			arg_info.push_back(llvm::MDString::get(Context, "uint3"));
++			arg_info.push_back(llvm::MDString::get(Context, air_type));
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
 +			arg_info.push_back(llvm::MDString::get(Context, name));
 +			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
@@ -6609,12 +6620,20 @@ index f012384f3d..e8a93303af 100644
 +			// next llvm arg
 +			++arg_idx;
 +		};
-+		add_id_arg("__metal__global_id__", "air.thread_position_in_grid");
-+		add_id_arg("__metal__global_size__", "air.threads_per_grid");
-+		add_id_arg("__metal__local_id__", "air.thread_position_in_threadgroup");
-+		add_id_arg("__metal__local_size__", "air.threads_per_threadgroup");
-+		add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid");
-+		add_id_arg("__metal__group_size__", "air.threadgroups_per_grid");
++		
++		add_id_arg("__metal__global_id__", "air.thread_position_in_grid", "uint3");
++		add_id_arg("__metal__global_size__", "air.threads_per_grid", "uint3");
++		add_id_arg("__metal__local_id__", "air.thread_position_in_threadgroup", "uint3");
++		add_id_arg("__metal__local_size__", "air.threads_per_threadgroup", "uint3");
++		add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid", "uint3");
++		add_id_arg("__metal__group_size__", "air.threadgroups_per_grid", "uint3");
++		
++		if (CGM.getLangOpts().MetalVersion >= 200 && CGM.getTriple().getOS() == llvm::Triple::OSType::MacOSX) {
++			add_id_arg("__metal__sub_group_id__", "air.simdgroup_index_in_threadgroup", "uint");
++			add_id_arg("__metal__sub_group_local_id__", "air.thread_index_in_simdgroup", "uint");
++			add_id_arg("__metal__sub_group_size__", "air.threads_per_simdgroup", "uint");
++			add_id_arg("__metal__num_sub_groups__", "air.simdgroups_per_threadgroup", "uint");
++		}
 +	}
 +	else if(is_vertex) {
 +		// TODO: instance id
@@ -7312,7 +7331,7 @@ index f012384f3d..e8a93303af 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2345,76 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2353,76 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7389,7 +7408,7 @@ index f012384f3d..e8a93303af 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2480,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2488,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7402,7 +7421,7 @@ index f012384f3d..e8a93303af 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2592,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2600,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7432,7 +7451,7 @@ index f012384f3d..e8a93303af 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2645,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2653,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7448,7 +7467,7 @@ index f012384f3d..e8a93303af 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2745,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2753,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7466,7 +7485,7 @@ index f012384f3d..e8a93303af 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2801,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2809,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7482,7 +7501,7 @@ index f012384f3d..e8a93303af 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +2952,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +2960,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7492,7 +7511,7 @@ index f012384f3d..e8a93303af 100644
    return ResTy;
  }
  
-@@ -1356,7 +3023,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3031,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&

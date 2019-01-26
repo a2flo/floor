@@ -49513,10 +49513,10 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..0abcbaca252
+index 00000000000..6a654629792
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,973 @@
+@@ -0,0 +1,1016 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -49836,6 +49836,10 @@ index 00000000000..0abcbaca252
 +		Argument* local_size { nullptr };
 +		Argument* group_id { nullptr };
 +		Argument* group_size { nullptr };
++		Argument* sub_group_id { nullptr };
++		Argument* sub_group_local_id { nullptr };
++		Argument* sub_group_size { nullptr };
++		Argument* num_sub_groups { nullptr };
 +		
 +		// added vertex function args
 +		Argument* vertex_id { nullptr };
@@ -49938,14 +49942,8 @@ index 00000000000..0abcbaca252
 +		}
 +		
 +		enum METAL_KERNEL_ARG_REV_IDX : int32_t {
-+			METAL_GLOBAL_ID = -6,
-+			METAL_GLOBAL_SIZE = -5,
-+			METAL_LOCAL_ID = -4,
-+			METAL_LOCAL_SIZE = -3,
-+			METAL_GROUP_ID = -2,
-+			METAL_GROUP_SIZE = -1,
-+			
 +			METAL_KERNEL_ARG_COUNT = 6,
++			METAL_KERNEL_SUB_GROUPS_ARG_COUNT = 10,
 +		};
 +		
 +		enum METAL_VERTEX_ARG_REV_IDX : int32_t {
@@ -49977,22 +49975,44 @@ index 00000000000..0abcbaca252
 +				}
 +			}
 +			
-+			const auto get_arg_by_idx = [&F](const int32_t& rev_idx) -> llvm::Argument* {
++			const auto get_arg_by_idx = [&F](const int32_t rev_idx) -> llvm::Argument* {
 +				auto arg_iter = F.arg_end();
 +				std::advance(arg_iter, rev_idx);
 +				return &*arg_iter;
 +			};
 +			
++			// check for sub-group support
++			const auto triple = llvm::Triple(M->getTargetTriple());
++			bool has_sub_group_support = false;
++			if (triple.getArch() == Triple::ArchType::air64) {
++				uint32_t major_version = 0, minor_version = 0, micro_version = 0;
++				if (triple.getOS() == Triple::OSType::MacOSX) {
++					if (triple.getMacOSXVersion(major_version, minor_version, micro_version)) {
++						if (major_version > 10 || (major_version == 10 && minor_version >= 13)) {
++							// Metal 2.0+ on macOS
++							has_sub_group_support = true;
++						}
++					}
++				}
++			}
++			
 +			// get args if this is a kernel function
 +			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			if(is_kernel_func) {
-+				if (F.arg_size() >= METAL_KERNEL_ARG_COUNT) {
-+					global_id = get_arg_by_idx(METAL_GLOBAL_ID);
-+					global_size = get_arg_by_idx(METAL_GLOBAL_SIZE);
-+					local_id = get_arg_by_idx(METAL_LOCAL_ID);
-+					local_size = get_arg_by_idx(METAL_LOCAL_SIZE);
-+					group_id = get_arg_by_idx(METAL_GROUP_ID);
-+					group_size = get_arg_by_idx(METAL_GROUP_SIZE);
++				if (F.arg_size() >= (has_sub_group_support ? METAL_KERNEL_SUB_GROUPS_ARG_COUNT : METAL_KERNEL_ARG_COUNT)) {
++					int32_t rev_idx = -1;
++					if (has_sub_group_support) {
++						num_sub_groups = get_arg_by_idx(rev_idx--);
++						sub_group_size = get_arg_by_idx(rev_idx--);
++						sub_group_local_id = get_arg_by_idx(rev_idx--);
++						sub_group_id = get_arg_by_idx(rev_idx--);
++					}
++					group_size = get_arg_by_idx(rev_idx--);
++					group_id = get_arg_by_idx(rev_idx--);
++					local_size = get_arg_by_idx(rev_idx--);
++					local_id = get_arg_by_idx(rev_idx--);
++					global_size = get_arg_by_idx(rev_idx--);
++					global_id = get_arg_by_idx(rev_idx--);
 +				} else {
 +					errs() << "invalid kernel function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					global_id = nullptr;
@@ -50001,6 +50021,10 @@ index 00000000000..0abcbaca252
 +					local_size = nullptr;
 +					group_id = nullptr;
 +					group_size = nullptr;
++					sub_group_id = nullptr;
++					sub_group_local_id = nullptr;
++					sub_group_size = nullptr;
++					num_sub_groups = nullptr;
 +				}
 +			}
 +			
@@ -50076,23 +50100,42 @@ index 00000000000..0abcbaca252
 +			
 +			// figure out which one we need
 +			Argument* id;
++			bool get_from_vector = false;
 +			if(func_name == "floor.get_global_id.i32") {
 +				id = global_id;
++				get_from_vector = true;
 +			}
 +			else if(func_name == "floor.get_global_size.i32") {
 +				id = global_size;
++				get_from_vector = true;
 +			}
 +			else if(func_name == "floor.get_local_id.i32") {
 +				id = local_id;
++				get_from_vector = true;
 +			}
 +			else if(func_name == "floor.get_local_size.i32") {
 +				id = local_size;
++				get_from_vector = true;
 +			}
 +			else if(func_name == "floor.get_group_id.i32") {
 +				id = group_id;
++				get_from_vector = true;
 +			}
 +			else if(func_name == "floor.get_group_size.i32") {
 +				id = group_size;
++				get_from_vector = true;
++			}
++			else if(func_name == "floor.get_sub_group_id.i32") {
++				id = sub_group_id;
++			}
++			else if(func_name == "floor.get_sub_group_local_id.i32") {
++				id = sub_group_local_id;
++			}
++			else if(func_name == "floor.get_sub_group_size.i32") {
++				id = sub_group_size;
++			}
++			else if(func_name == "floor.get_num_sub_groups.i32") {
++				id = num_sub_groups;
 +			}
 +			else if(func_name == "floor.get_work_dim.i32") {
 +				if(group_size == nullptr) {
@@ -50141,7 +50184,7 @@ index 00000000000..0abcbaca252
 +			}
 +			
 +			// replace call with vector load / elem extraction from the appropriate vector
-+			I.replaceAllUsesWith(builder->CreateExtractElement(id, CS.getArgument(0)));
++			I.replaceAllUsesWith(get_from_vector ? builder->CreateExtractElement(id, CS.getArgument(0)) : id);
 +			I.eraseFromParent();
 +		}
 +		
