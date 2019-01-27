@@ -3349,7 +3349,7 @@ index eea9207a34..9dc1999123 100644
          break;
        }
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 64e18e171e..d5c39d2e01 100644
+index 64e18e171e..a6bc5b2a84 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -60,8 +60,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3414,9 +3414,9 @@ index 64e18e171e..d5c39d2e01 100644
 +
 +  if (CGM.getLangOpts().Metal) {
 +    if (FD->hasAttr<ComputeKernelAttr>()) {
-+	  if (CGM.getLangOpts().MetalVersion < 200 || CGM.getTriple().getOS() != llvm::Triple::OSType::MacOSX) {
++      if (CGM.getLangOpts().MetalVersion < 200 || CGM.getTriple().getOS() != llvm::Triple::OSType::MacOSX) {
 +        return 6;
-+	  } else {
++      } else {
 +        return 10;
 +      }
 +    } else if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
@@ -5418,7 +5418,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..ce1068f6c6 100644
+index f012384f3d..8f22bb4114 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -5431,7 +5431,7 @@ index f012384f3d..ce1068f6c6 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1772 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,1778 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6146,7 +6146,8 @@ index f012384f3d..ce1068f6c6 100644
 +														 const ImageAccessAttr* access_attr,
 +														 const FloorImageDataTypeAttr* data_type,
 +														 const std::string& name,
-+														 const uint32_t elem_count = 1) {
++														 const uint32_t elem_count = 1,
++														 const bool is_array = false) {
 +		std::string access_str = "read";
 +		if(access_attr && access_attr->isWriteOnly()) {
 +			access_str = "write";
@@ -6164,6 +6165,7 @@ index f012384f3d..ce1068f6c6 100644
 +		}
 +		
 +		stage_infos.push_back(llvm::MDString::get(Context, (prefix_arg + access_str +
++															(is_array ? ":array" : ":scalar") +
 +															":" + std::to_string(elem_count) +
 +															":" + sample_type_str)));
 +	};
@@ -6187,7 +6189,8 @@ index f012384f3d..ce1068f6c6 100644
 +							  array_image_info.first->getAttr<ImageAccessAttr>(),
 +							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
 +							  parm->getName().str(),
-+							  array_image_info.second);
++							  array_image_info.second,
++							  true /* always an array */);
 +			}
 +		}
 +		// aggregate image
@@ -6195,14 +6198,17 @@ index f012384f3d..ce1068f6c6 100644
 +			const auto agg_images = get_aggregate_image_fields(clang_type->getAsCXXRecordDecl());
 +			for(const auto& img : agg_images) {
 +				uint32_t elem_count = 1;
++				bool is_array = false;
 +				if(img->getType()->isPointerType()) {
 +					elem_count = ASTCtx.getAsConstantArrayType(img->getType()->getPointeeType())->getSize().getZExtValue();
++					is_array = true;
 +				}
 +				add_image_arg(img->getType(),
 +							  img->getAttr<ImageAccessAttr>(),
 +							  img->getAttr<FloorImageDataTypeAttr>(),
 +							  parm->getName().str(),
-+							  elem_count);
++							  elem_count,
++							  is_array);
 +				
 +				// next llvm arg
 +				++arg_idx;
@@ -7331,7 +7337,7 @@ index f012384f3d..ce1068f6c6 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2353,76 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2359,76 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7408,7 +7414,7 @@ index f012384f3d..ce1068f6c6 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2488,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2494,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7421,7 +7427,7 @@ index f012384f3d..ce1068f6c6 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2600,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2606,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7451,7 +7457,7 @@ index f012384f3d..ce1068f6c6 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2653,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2659,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7467,7 +7473,7 @@ index f012384f3d..ce1068f6c6 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2753,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2759,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7485,7 +7491,7 @@ index f012384f3d..ce1068f6c6 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2809,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2815,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7501,7 +7507,7 @@ index f012384f3d..ce1068f6c6 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +2960,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +2966,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7511,7 +7517,7 @@ index f012384f3d..ce1068f6c6 100644
    return ResTy;
  }
  
-@@ -1356,7 +3031,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3037,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&

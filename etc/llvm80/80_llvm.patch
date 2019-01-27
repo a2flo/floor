@@ -25313,10 +25313,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..1e5d77e9023
+index 00000000000..eca9d62da35
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3560 @@
+@@ -0,0 +1,3564 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -27345,12 +27345,16 @@ index 00000000000..1e5d77e9023
 +    }
 +    // -> images
 +    else {
-+      const auto split_pos = md_info.find(':');
-+      const auto access_type = md_info.substr(0, split_pos);
-+      const auto next_split_pos = md_info.find(':', split_pos + 1);
-+      const auto elem_count_str =
-+          md_info.substr(split_pos + 1, next_split_pos - split_pos - 1);
-+      const auto sample_type = md_info.substr(next_split_pos + 1);
++      const auto access_split_pos = md_info.find(':');
++      const auto array_or_scalar_split_pos = md_info.find(':', access_split_pos + 1);
++      const auto elem_count_split_pos = md_info.find(':', array_or_scalar_split_pos + 1);
++
++      const auto access_type = md_info.substr(0, access_split_pos);
++      const auto array_or_scalar_str = md_info.substr(access_split_pos + 1, array_or_scalar_split_pos - access_split_pos - 1);
++      const auto elem_count_str = md_info.substr(array_or_scalar_split_pos + 1, elem_count_split_pos - array_or_scalar_split_pos - 1);
++      const auto sample_type = md_info.substr(elem_count_split_pos + 1);
++
++      const bool is_array = (array_or_scalar_str == "array");
 +      const bool is_write = (access_type == "write");
 +
 +      if (is_write) {
@@ -27361,7 +27365,7 @@ index 00000000000..1e5d77e9023
 +      //
 +      const auto elem_count = (uint32_t)std::stoull(elem_count_str);
 +      llvm::Type *img_type = GV.getType();
-+      if (elem_count > 1) {
++      if (is_array) {
 +        // image array
 +        assert(isa<PointerType>(img_type) && "must be a pointer type");
 +        const auto img_array_type =
@@ -27381,7 +27385,7 @@ index 00000000000..1e5d77e9023
 +
 +      //
 +      auto ptr_img_type = transSPIRVImageTy;
-+      if (elem_count > 1) {
++      if (is_array) {
 +        ptr_img_type = BM->addArrayType(
 +            transSPIRVImageTy, BM->getLiteralAsConstant(elem_count, false));
 +      }
