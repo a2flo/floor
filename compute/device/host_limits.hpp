@@ -64,7 +64,7 @@ namespace host_limits {
 	
 	//! max work-items per work-group (max #fibers)
 	static constexpr const uint32_t max_total_local_size {
-		FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX
+		FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX
 	};
 	
 }
