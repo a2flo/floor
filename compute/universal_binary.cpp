@@ -404,6 +404,7 @@ namespace universal_binary {
 					mtl_dev.image_cube_write_support = false;
 					mtl_dev.simd_width = 32;
 					mtl_dev.simd_range = { mtl_dev.simd_width, mtl_dev.simd_width };
+					mtl_dev.max_total_local_size = 512; // family 1 - 3 (only 4+ supports 1024)
 				} else {
 					mtl_dev.image_cube_write_support = true;
 					mtl_dev.image_cube_array_support = true;

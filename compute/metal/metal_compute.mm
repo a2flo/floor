@@ -240,6 +240,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->mem_clock = 1600; // ram clock
 				device->max_image_1d_dim = { 8192 };
 				device->max_image_2d_dim = { 8192, 8192 };
+				device->max_total_local_size = 512;
 				break;
 			
 			// A8/A8X
@@ -253,6 +254,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->mem_clock = 1600; // ram clock
 				device->max_image_1d_dim = { 8192 };
 				device->max_image_2d_dim = { 8192, 8192 };
+				device->max_total_local_size = 512;
 				break;
 			
 			// A9/A9X and A10/A10X
@@ -267,6 +269,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
 				device->max_image_2d_dim = { 16384, 16384 };
+				device->max_total_local_size = 512;
 				break;
 			
 			// A11 and A12
@@ -275,6 +278,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
 				device->max_image_2d_dim = { 16384, 16384 };
+				device->max_total_local_size = 1024;
 				break;
 			
 			// A12
@@ -283,13 +287,13 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
 				device->max_image_2d_dim = { 16384, 16384 };
+				device->max_total_local_size = 1024;
 				break;
 		}
 		device->local_mem_size = 16384; // fallback
 		if ([dev respondsToSelector:@selector(maxThreadgroupMemoryLength)]) {
 			device->local_mem_size = [dev maxThreadgroupMemoryLength]; // iOS 11.0+
 		}
-		device->max_total_local_size = 512;
 		device->max_global_size = { 0xFFFFFFFFu };
 		device->double_support = false; // double config is 0
 		device->unified_memory = true;

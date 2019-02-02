@@ -44,6 +44,13 @@ metal_device::metal_device() : compute_device() {
 	// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
 	bitness = 64;
 	
+	// good default
+#if !defined(FLOOR_IOS)
+	max_total_local_size = 1024;
+#else
+	max_total_local_size = 512;
+#endif
+	
 	// for now (iOS9/OSX11 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
 	metal_version = METAL_VERSION::METAL_1_1;
 	driver_version_str = "1.1.0";
