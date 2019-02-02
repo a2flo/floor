@@ -4096,10 +4096,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..242aa856aba
+index 00000000000..4004d8cc636
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,566 @@
+@@ -0,0 +1,585 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4445,9 +4445,8 @@ index 00000000000..242aa856aba
 +  const auto &metal_version = *metal_versions.find(target_air_version);
 +
 +  // gather entry point functions that we want to clone/emit
-+  vector<pair<const Function *, metallib_program_info::PROGRAM_TYPE>>
-+      functions;
-+  unordered_set<string> function_set;
++  unordered_map<string, metallib_program_info::PROGRAM_TYPE> function_set;
++  // -> first pass to gather all entry points specified in metadata lists
 +  for (uint32_t i = 0; i < 3; ++i) {
 +    const auto func_type = (metallib_program_info::PROGRAM_TYPE)i;
 +    const NamedMDNode *func_list = nullptr;
@@ -4473,11 +4472,24 @@ index 00000000000..242aa856aba
 +      const auto &op_0 = op->getOperand(0);
 +      if (auto const_md = dyn_cast<ConstantAsMetadata>(op_0)) {
 +        if (auto func = dyn_cast<Function>(const_md->getValue())) {
-+          functions.emplace_back(func, func_type);
-+          function_set.emplace(func->getName().str());
++          function_set.emplace(func->getName().str(), func_type);
 +        }
 +      }
 +    }
++  }
++  // -> second pass to actually gather all functions
++  // NOTE: we do it this way so that we maintain the order of functions
++  vector<pair<const Function *, metallib_program_info::PROGRAM_TYPE>> functions;
++  for (const auto& func : M.functions()) {
++    if (!func.hasName()) {
++      continue;
++    }
++
++    const auto func_iter = function_set.find(func.getName().str());
++    if (func_iter == function_set.end()) {
++      continue; // not an entry point
++    }
++    functions.emplace_back(&func, func_iter->second);
 +  }
 +  const uint32_t function_count = uint32_t(functions.size());
 +
@@ -4631,18 +4643,19 @@ index 00000000000..242aa856aba
 +  // file length
 +  static const uint64_t header_size = sizeof(metallib_header);
 +  static const uint64_t initial_offset = header_size + entries_size;
-+  const uint64_t file_length = initial_offset + reflection_data_size +
++  static const uint64_t dummy_ENDT_size = sizeof(metallib_program_info::TAG_TYPE);
++  const uint64_t file_length = initial_offset + dummy_ENDT_size + reflection_data_size +
 +                               debug_data_size + bitcode_data_size;
 +  OS.write((const char *)&file_length, sizeof(uint64_t));
 +
 +  // header control
 +  ctrl.programs_offset = sizeof(metallib_header) - 4 /* header or count? */;
 +  ctrl.programs_length = entries_size;
-+  ctrl.reflection_offset = initial_offset;
++  ctrl.reflection_offset = initial_offset + dummy_ENDT_size;
 +  ctrl.reflection_length = reflection_data_size;
-+  ctrl.debug_offset = initial_offset + reflection_data_size;
++  ctrl.debug_offset = initial_offset + dummy_ENDT_size + reflection_data_size;
 +  ctrl.debug_length = debug_data_size;
-+  ctrl.bitcode_offset = initial_offset + reflection_data_size + debug_data_size;
++  ctrl.bitcode_offset = initial_offset + dummy_ENDT_size + reflection_data_size + debug_data_size;
 +  ctrl.bitcode_length = bitcode_data_size;
 +  OS.write((const char *)&ctrl, sizeof(metallib_header_control));
 +
@@ -4650,6 +4663,12 @@ index 00000000000..242aa856aba
 +  for (const auto &entry : prog_info.entries) {
 +    entry.write_header(OS);
 +  }
++
++  // write dummy ENDT
++  // NOTE: no idea why this is needed and this is definitively not included by the "programs_length",
++  //       but iOS 12.0+ requires it, so just write it like this
++  const auto dummy_ENDT = metallib_program_info::TAG_TYPE::END;
++  OS.write((const char*)&dummy_ENDT, sizeof(metallib_program_info::TAG_TYPE));
 +
 +  // write reflection data
 +  for (const auto &entry : prog_info.entries) {
