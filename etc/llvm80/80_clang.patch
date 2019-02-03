@@ -8479,7 +8479,7 @@ index 8e344e91b8..f782cce3f8 100644
    /// IsZeroInitializable - Return whether a type can be
    /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index ae080f5bbd..02c4beb269 100644
+index ae080f5bbd..bd286e5243 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -72,11 +72,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -8845,7 +8845,18 @@ index ae080f5bbd..02c4beb269 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -6384,6 +6443,207 @@ bool NVPTXTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
+@@ -6359,6 +6418,10 @@ void NVPTXTargetCodeGenInfo::setTargetAttributes(
+           // Create !{<func-ref>, metadata !"minctasm", i32 <val>} node
+           addNVVMMetadata(F, "minctasm", MinBlocks.getExtValue());
+       }
++    } else if (const ReqdWorkGroupSizeAttr *reg_local_size = FD->getAttr<ReqdWorkGroupSizeAttr>()) {
++      addNVVMMetadata(F, "reqntidx", reg_local_size->getXDim());
++      addNVVMMetadata(F, "reqntidy", reg_local_size->getYDim());
++      addNVVMMetadata(F, "reqntidz", reg_local_size->getZDim());
+     }
+   }
+ }
+@@ -6384,6 +6447,207 @@ bool NVPTXTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
  }
  }
  
@@ -9053,7 +9064,7 @@ index ae080f5bbd..02c4beb269 100644
  //===----------------------------------------------------------------------===//
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
-@@ -6457,7 +6717,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -6457,7 +6721,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
    return (Ty->isAnyComplexType() ||
            Ty->isVectorType() ||
@@ -9062,7 +9073,7 @@ index ae080f5bbd..02c4beb269 100644
  }
  
  bool SystemZABIInfo::isVectorArgumentType(QualType Ty) const {
-@@ -6971,7 +7231,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -6971,7 +7235,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::alignTo(Offset, Align);
    Offset = CurrOffset + llvm::alignTo(TySize, Align * 8) / 8;
  
@@ -9071,7 +9082,7 @@ index ae080f5bbd..02c4beb269 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -7056,7 +7316,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -7056,7 +7320,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -9080,7 +9091,7 @@ index ae080f5bbd..02c4beb269 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -7244,7 +7504,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
+@@ -7244,7 +7508,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
    llvm::Function *F = cast<llvm::Function>(GV);
  
    if (M.getLangOpts().OpenCL) {
@@ -9089,7 +9100,7 @@ index ae080f5bbd..02c4beb269 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -7324,7 +7584,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -7324,7 +7588,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -9098,7 +9109,7 @@ index ae080f5bbd..02c4beb269 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -7362,7 +7622,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -7362,7 +7626,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return getNaturalAlignIndirect(RetTy);
  
@@ -9107,7 +9118,7 @@ index ae080f5bbd..02c4beb269 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -7480,7 +7740,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
+@@ -7480,7 +7744,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
      }
    }
  
@@ -9116,7 +9127,7 @@ index ae080f5bbd..02c4beb269 100644
      // Structures with flexible arrays are always indirect.
      if (RT && RT->getDecl()->hasFlexibleArrayMember())
        return getIndirectResult(Ty, /*ByVal=*/true, State);
-@@ -7615,7 +7875,7 @@ void AMDGPUABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -7615,7 +7879,7 @@ void AMDGPUABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo AMDGPUABIInfo::classifyReturnType(QualType RetTy) const {
@@ -9125,7 +9136,7 @@ index ae080f5bbd..02c4beb269 100644
      // Records with non-trivial destructors/copy-constructors should not be
      // returned by value.
      if (!getRecordArgABI(RetTy, getCXXABI())) {
-@@ -7678,7 +7938,7 @@ ABIArgInfo AMDGPUABIInfo::classifyArgumentType(QualType Ty,
+@@ -7678,7 +7942,7 @@ ABIArgInfo AMDGPUABIInfo::classifyArgumentType(QualType Ty,
  
    Ty = useFirstFieldIfTransparentUnion(Ty);
  
@@ -9134,7 +9145,7 @@ index ae080f5bbd..02c4beb269 100644
      // Records with non-trivial destructors/copy-constructors should not be
      // passed by value.
      if (auto RAA = getRecordArgABI(Ty, getCXXABI()))
-@@ -7777,7 +8037,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
+@@ -7777,7 +8041,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
    const auto *ReqdWGS = M.getLangOpts().OpenCL ?
      FD->getAttr<ReqdWorkGroupSizeAttr>() : nullptr;
  
@@ -9143,7 +9154,7 @@ index ae080f5bbd..02c4beb269 100644
        (M.getTriple().getOS() == llvm::Triple::AMDHSA))
      F->addFnAttr("amdgpu-implicitarg-num-bytes", "48");
  
-@@ -7899,7 +8159,7 @@ bool AMDGPUTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
+@@ -7899,7 +8163,7 @@ bool AMDGPUTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
  void AMDGPUTargetCodeGenInfo::setCUDAKernelCallingConvention(
      const FunctionType *&FT) const {
    FT = getABIInfo().getContext().adjustFunctionType(
@@ -9152,7 +9163,7 @@ index ae080f5bbd..02c4beb269 100644
  }
  
  //===----------------------------------------------------------------------===//
-@@ -8111,7 +8371,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -8111,7 +8375,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend(Ty);
  
    // Other non-aggregates go in registers.
@@ -9161,7 +9172,7 @@ index ae080f5bbd..02c4beb269 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -8340,7 +8600,7 @@ ABIArgInfo ARCABIInfo::classifyArgumentType(QualType Ty,
+@@ -8340,7 +8604,7 @@ ABIArgInfo ARCABIInfo::classifyArgumentType(QualType Ty,
  
    auto SizeInRegs = llvm::alignTo(getContext().getTypeSize(Ty), 32) / 32;
  
@@ -9170,7 +9181,7 @@ index ae080f5bbd..02c4beb269 100644
      // Structures with flexible arrays are always indirect.
      if (RT && RT->getDecl()->hasFlexibleArrayMember())
        return getIndirectByValue(Ty);
-@@ -8670,33 +8930,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
+@@ -8670,33 +8934,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
    }
  }
  
@@ -9204,7 +9215,7 @@ index ae080f5bbd..02c4beb269 100644
  static bool appendType(SmallStringEnc &Enc, QualType QType,
                         const CodeGen::CodeGenModule &CGM,
                         TypeStringCache &TSC);
-@@ -9122,7 +9355,7 @@ ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty, bool IsFixed,
+@@ -9122,7 +9359,7 @@ ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty, bool IsFixed,
  
    ArgGPRsLeft -= NeededArgGPRs;
  
@@ -9213,7 +9224,7 @@ index ae080f5bbd..02c4beb269 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -9405,7 +9638,12 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -9405,7 +9642,12 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return SetCGInfo(new ARCTargetCodeGenInfo(Types));
    case llvm::Triple::spir:
    case llvm::Triple::spir64:
