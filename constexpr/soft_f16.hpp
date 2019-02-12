@@ -92,10 +92,14 @@ struct soft_f16 {
 	
 	//! construction from an integral value
 	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
-	constexpr soft_f16(const int_type& val) noexcept : value(from_float((float)val)) {}
+	constexpr soft_f16(const int_type& val) noexcept __attribute__((enable_if(val == 0, "constant zero special case"))) : value(0) {}
+	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	constexpr soft_f16(const int_type& val) noexcept __attribute__((enable_if(val == 1, "constant one special case"))) : value(0x3C00u) {}
+	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	soft_f16(const int_type& val) noexcept : value(from_float((float)val)) {}
 	//! assignment from an integral value
 	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
-	constexpr soft_f16& operator=(const int_type& val) noexcept {
+	soft_f16& operator=(const int_type& val) noexcept {
 		value = from_float((float)val);
 		return *this;
 	}
@@ -343,20 +347,20 @@ struct soft_f16 {
 	// TODO: implement this!
 #if FLOOR_HAS_NATIVE_FP16 != 1
 #define FLOOR_F16_OP(op) \
-	constexpr auto operator op (const soft_f16& val) const noexcept { \
+	soft_f16 operator op (const soft_f16& val) const noexcept { \
 		return value op val.value; \
 	} \
-	constexpr auto operator op##= (const soft_f16& val) noexcept { \
-		value op##= value op val.value; \
+	soft_f16& operator op##= (const soft_f16& val) noexcept { \
+		value = value op val.value; \
 		return *this; \
 	}
 #else
 #define FLOOR_F16_OP(op) \
-	constexpr auto operator op (const soft_f16& val) const noexcept { \
-		return float(value_fp16) op float(val.value_fp16); \
+	constexpr soft_f16 operator op (const soft_f16& val) const noexcept { \
+		return (float(value_fp16) op float(val.value_fp16)); \
 	} \
-	constexpr auto operator op##= (const soft_f16& val) noexcept { \
-		value_fp16 op##= float(value_fp16) op float(val.value_fp16); \
+	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
+		value_fp16 = __fp16(float(value_fp16) op float(val.value_fp16)); \
 		return *this; \
 	}
 #endif
