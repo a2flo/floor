@@ -219,8 +219,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device->ptx = { 6, 1 };
 		} else if (driver_version < 10000) {
 			device->ptx = { 6, 2 };
-		} else {
+		} else if (driver_version < 10010) {
 			device->ptx = { 6, 3 };
+		} else {
+			device->ptx = { 6, 4 };
 		}
 		
 		device->min_req_ptx = { 4, 3 };
@@ -232,8 +234,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			} else {
 				device->min_req_ptx = { 6, 3 };
 			}
+		} else if (device->sm.x == 8) {
+			device->min_req_ptx = { 6, 4 };
 		} else {
-			device->min_req_ptx = { 6, 3 };
+			device->min_req_ptx = { 6, 4 };
 		}
 		
 		// compute score and try to figure out which device is the fastest
@@ -257,8 +261,11 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					multiplier = (dev->sm.y == 0 ? 64 : 128);
 					break;
 				case 7:
-				default:
 					// sm_70/sm_72/sm_73/sm_75: 64 cores/sm
+					multiplier = 64;
+					break;
+				default:
+					// sm_82/sm_8x: 64 cores/sm (TODO)?
 					multiplier = 64;
 					break;
 			}
