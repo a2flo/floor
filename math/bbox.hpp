@@ -75,24 +75,37 @@ public:
 	}
 #endif
 	
+	static constexpr const float2 invalid_intersection { numeric_limits<float>::max(), -numeric_limits<float>::max() };
+	
+	//! intersects the specified ray with this bbox, returning the { min, max } intersection distances
+	//! how to interpret return values:
+	//!  * no intersection if min >= max
+	//!  * proper intersection if min < max && min >= 0
+	//!  * self-intersection if min < max && min < 0 && this->contains(r.origin)
 	constexpr float2 intersect(const ray& r) const {
-		float3 v1 = min, v2 = max;
-		const float3 bbox_eps { 0.0000001f };
+		// http://www.cs.utah.edu/~awilliam/box/box.pdf
+		// https://tavianator.com/fast-branchless-raybounding-box-intersections-part-2-nans
+		const auto inv_dir = 1.0f / r.direction;
+		const auto t1 = (min - r.origin) * inv_dir;
+		const auto t2 = (max - r.origin) * inv_dir;
 		
-		float3 div = r.direction;
-		div.set_if(div.abs() < bbox_eps, bbox_eps);
+		auto tmin = ::min(t1.x, t2.x);
+		auto tmax = ::max(t1.x, t2.x);
 		
-		float3 t1 = (v1 - r.origin) / div;
-		float3 t2 = (v2 - r.origin) / div;
+		tmin = ::max(tmin, ::min(::min(t1.y, t2.y), tmax));
+		tmax = ::min(tmax, ::max(::max(t1.y, t2.y), tmin));
 		
-		float3 tmin = t1.minned(t2);
-		float3 tmax = t1.maxed(t2);
+		tmin = ::max(tmin, ::min(::min(t1.z, t2.z), tmax));
+		tmax = ::min(tmax, ::max(::max(t1.z, t2.z), tmin));
 		
-		return { tmin.max_element(), tmax.min_element() };
+		return { tmin, tmax };
 	}
+	
+	//! returns true if the ray properly intersects this bbox
+	//! NOTE: self-intersection return false
 	constexpr bool is_intersection(const ray& r) const {
 		const auto ret = intersect(r);
-		return (ret.x <= ret.y);
+		return (ret.x < ret.y && ret.x >= 0.0f);
 	}
 	
 	constexpr bool contains(const float3& p) const {
@@ -112,7 +125,7 @@ public:
 	float3 pos;
 	matrix4f mview;
 	
-	constexpr extbbox() noexcept : pos(), mview() {}
+	constexpr extbbox() noexcept = default;
 	constexpr extbbox(const extbbox& ebox) noexcept : bbox(ebox), pos(ebox.pos), mview(ebox.mview) {}
 	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept :
 		bbox(bmin, bmax), pos(bpos), mview(bmview) {}
