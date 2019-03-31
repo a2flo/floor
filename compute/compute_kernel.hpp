@@ -23,8 +23,7 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_common.hpp>
-#include <floor/compute/compute_buffer.hpp>
-#include <floor/compute/compute_image.hpp>
+#include <floor/compute/compute_kernel_arg.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/flat_map.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
@@ -32,9 +31,13 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class compute_queue;
+class compute_buffer;
+class compute_image;
+
 class compute_kernel {
 public:
-	virtual ~compute_kernel() = 0;
+	virtual ~compute_kernel() = default;
 	
 	struct kernel_entry {
 		const llvm_toolchain::function_info* info { nullptr };
@@ -45,18 +48,12 @@ public:
 	virtual const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const = 0;
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	void execute(compute_queue* queue_ptr,
-				 work_size_type_global&& global_work_size,
-				 work_size_type_local&& local_work_size,
-				 Args&&... args);
-	
-	//! don't call this directly, call the execute_cooperative function in a compute_queue object instead!
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	void execute_cooperative(compute_queue* queue_ptr,
-							 work_size_type_global&& global_work_size,
-							 work_size_type_local&& local_work_size,
-							 Args&&... args);
+	virtual void execute(compute_queue* queue_ptr,
+						 const bool& is_cooperative,
+						 const uint32_t& dim,
+						 const uint3& global_work_size,
+						 const uint3& local_work_size,
+						 const vector<compute_kernel_arg>& args) = 0;
 	
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
@@ -73,104 +70,6 @@ protected:
 								const uint3& local_work_size) REQUIRES(!warn_map_lock);
 	
 };
-
-#include <floor/compute/cuda/cuda_kernel.hpp>
-#include <floor/compute/host/host_kernel.hpp>
-#include <floor/compute/metal/metal_kernel.hpp>
-#include <floor/compute/opencl/opencl_kernel.hpp>
-#include <floor/compute/vulkan/vulkan_kernel.hpp>
-
-#if (!defined(FLOOR_CUDA_KERNEL_IMPL) && \
-	 !defined(FLOOR_HOST_KERNEL_IMPL) && \
-	 !defined(FLOOR_OPENCL_KERNEL_IMPL) && \
-	 !defined(FLOOR_METAL_KERNEL_IMPL) && \
-	 !defined(FLOOR_VULKAN_KERNEL_IMPL))
-// forwarder to the actual kernel classes (disabled when included by them)
-template <typename... Args, class work_size_type_global, class work_size_type_local>
-void compute_kernel::execute(compute_queue* queue_ptr,
-							 work_size_type_global&& global_work_size,
-							 work_size_type_local&& local_work_size,
-							 Args&&... args) {
-	// get around the nightmare of the non-existence of virtual (variadic) template member functions ...
-	switch(get_compute_type()) {
-		case COMPUTE_TYPE::CUDA:
-#if !defined(FLOOR_NO_CUDA)
-			static_cast<cuda_kernel*>(this)->execute(queue_ptr,
-													 decay_t<work_size_type_global>::dim(),
-													 uint3 { global_work_size },
-													 uint3 { local_work_size },
-													 forward<Args>(args)...);
-#endif // else: nop
-			break;
-		case COMPUTE_TYPE::HOST:
-#if !defined(FLOOR_NO_HOST_COMPUTE)
-			static_cast<host_kernel*>(this)->execute(queue_ptr,
-													 decay_t<work_size_type_global>::dim(),
-													 uint3 { global_work_size },
-													 uint3 { local_work_size },
-													 forward<Args>(args)...);
-#endif // else: nop
-			break;
-		case COMPUTE_TYPE::METAL:
-#if !defined(FLOOR_NO_METAL)
-			static_cast<metal_kernel*>(this)->execute(queue_ptr,
-													  decay_t<work_size_type_global>::dim(),
-													  uint3 { global_work_size },
-													  uint3 { local_work_size },
-													  forward<Args>(args)...);
-#endif // else: nop
-			break;
-		case COMPUTE_TYPE::OPENCL:
-#if !defined(FLOOR_NO_OPENCL)
-			static_cast<opencl_kernel*>(this)->execute(queue_ptr,
-													   decay_t<work_size_type_global>::dim(),
-													   uint3 { global_work_size },
-													   uint3 { local_work_size },
-													   forward<Args>(args)...);
-#endif // else: nop
-			break;
-		case COMPUTE_TYPE::VULKAN:
-#if !defined(FLOOR_NO_VULKAN)
-			static_cast<vulkan_kernel*>(this)->execute(queue_ptr,
-													   decay_t<work_size_type_global>::dim(),
-													   uint3 { global_work_size },
-													   uint3 { local_work_size },
-													   forward<Args>(args)...);
-#endif // else: nop
-			break;
-		default: break;
-	}
-}
-
-#if !defined(FLOOR_IOS)
-template <typename... Args, class work_size_type_global, class work_size_type_local>
-void compute_kernel::execute_cooperative(compute_queue* queue_ptr,
-										 work_size_type_global&& global_work_size,
-										 work_size_type_local&& local_work_size,
-										 Args&&... args) {
-	// get around the nightmare of the non-existence of virtual (variadic) template member functions ...
-	switch(get_compute_type()) {
-		case COMPUTE_TYPE::CUDA:
-#if !defined(FLOOR_NO_CUDA)
-			static_cast<cuda_kernel*>(this)->execute_cooperative(queue_ptr,
-																 decay_t<work_size_type_global>::dim(),
-																 uint3 { global_work_size },
-																 uint3 { local_work_size },
-																 forward<Args>(args)...);
-#endif // else: nop
-			break;
-		case COMPUTE_TYPE::HOST:
-		case COMPUTE_TYPE::METAL:
-		case COMPUTE_TYPE::OPENCL:
-		case COMPUTE_TYPE::VULKAN:
-		default:
-			// not available or not implemented on these backends
-			break;
-	}
-}
-#endif
-
-#endif
 
 FLOOR_POP_WARNINGS()
 

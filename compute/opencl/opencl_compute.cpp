@@ -332,12 +332,13 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			
 			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
-			device->bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
-			device->max_global_size = (device->bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
-									   0xFFFF'FFFFull :
-									   (device->bitness == 64 ?
-										0xFFFF'FFFF'FFFF'FFFFull :
-										(1ull << uint64_t(device->bitness)) - 1ull)); // just in case "address bits" is something weird
+			const auto device_bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
+			if (device_bitness != 64) {
+				log_error("device \"%s\" has an unsupported bitness %u (must be 64)!", device->name, device_bitness);
+				devices.pop_back();
+				continue;
+			}
+			device->max_global_size = 0xFFFF'FFFF'FFFF'FFFFull; // range: sizeof(size_t) -> clEnqueueNDRangeKernel
 			device->unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
 			device->basic_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_base_atomics");
 			device->extended_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_extended_atomics");
@@ -357,7 +358,6 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				log_msg("supported sub-group sizes: %v", sub_group_sizes_str);
 			}
 			
-			log_msg("address space size: %u", device->bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",
 					device->max_mem_alloc,
 					device->max_mem_alloc / 1024ULL / 1024ULL);

@@ -35,12 +35,10 @@ compute_memory(device_, host_ptr_, flags_, opengl_type_, external_gl_object_), s
 		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
 				  min_multiple(), size, size_);
 	}
-#if defined(PLATFORM_X64)
 	else if(size > 0xFFFFFFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		log_error("using a buffer larger than 4GiB is not supported when using OpenGL sharing!");
 		size = 0xFFFFFFFFu;
 	}
-#endif
 }
 
 compute_buffer::~compute_buffer() {}
@@ -154,14 +152,12 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 			glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &cur_bound_object);
 			break;
 #endif
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
 		case GL_TRANSFORM_FEEDBACK_BUFFER:
 			glGetIntegerv(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &cur_bound_object);
 			break;
 		case GL_UNIFORM_BUFFER:
 			glGetIntegerv(GL_UNIFORM_BUFFER_BINDING, &cur_bound_object);
 			break;
-#endif
 		// extensions
 		case GL_PARAMETER_BUFFER_ARB:
 			glGetIntegerv(GL_PARAMETER_BUFFER_BINDING_ARB, &cur_bound_object);
@@ -174,7 +170,6 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_VIDEO_BUFFER_NV:
 			glGetIntegerv(GL_VIDEO_BUFFER_BINDING_NV, &cur_bound_object);
 			break;
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
 		// else
 		case GL_COPY_READ_BUFFER:
 		case GL_COPY_WRITE_BUFFER:
@@ -182,7 +177,6 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_PIXEL_UNPACK_BUFFER:
 			log_error("can't create a buffer of opengl type %X!", opengl_type_);
 			break;
-#endif
 		default:
 			// unknown buffer type, can't do anything here
 			break;

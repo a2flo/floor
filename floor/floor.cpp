@@ -21,6 +21,7 @@
 #include <floor/core/gl_support.hpp>
 #include <floor/audio/audio_controller.hpp>
 #include <floor/core/sig_handler.hpp>
+#include <floor/core/json.hpp>
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
@@ -793,15 +794,9 @@ bool floor::init_internal(const init_state& state) {
 		}
 #else
 		if(renderer == RENDERER::OPENGL) {
-#if defined(PLATFORM_X32)
-			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#else
 			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles3");
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-#endif
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		}
 		
@@ -913,16 +908,13 @@ bool floor::init_internal(const init_state& state) {
 			init_gl_funcs();
 #endif
 			
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
 			if(is_gl_version(3, 0)) {
 				// create and bind vao
 				glGenVertexArrays(1, &global_vao);
 				glBindVertexArray(global_vao);
 			}
-#endif
 			
 			// get supported opengl extensions
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
 #if !defined(__APPLE__)
 			if(glGetStringi != nullptr)
 #endif
@@ -933,12 +925,6 @@ bool floor::init_internal(const init_state& state) {
 					gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
 				}
 			}
-#else
-			const string exts = (const char*)glGetString(GL_EXTENSIONS);
-			for(size_t pos = 0; (pos = exts.find("GL_", pos)) != string::npos; pos++) {
-				gl_extensions.emplace(exts.substr(pos, exts.find(" ", pos) - pos));
-			}
-#endif
 			
 			// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
 			const char* gl_version = (const char*)glGetString(GL_VERSION);

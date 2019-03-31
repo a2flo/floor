@@ -34,7 +34,6 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
-#include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/floor/floor.hpp>

@@ -38,14 +38,8 @@ typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned long long int uint64_t;
-
-#if defined(PLATFORM_X32)
-typedef __SIZE_TYPE__ size_t;
-typedef int32_t ssize_t;
-#elif defined(PLATFORM_X64)
 typedef __SIZE_TYPE__ size_t;
 typedef int64_t ssize_t;
-#endif
 
 #endif
 

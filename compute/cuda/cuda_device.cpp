@@ -52,10 +52,4 @@ cuda_device::cuda_device() : compute_device() {
 	image_depth_compare_support = false; // supported in ptx, but not supported by cuda api (unless using internal api)
 	image_gather_support = true;
 	image_read_write_support = true;
-	
-#if defined(PLATFORM_X32)
-	bitness = 32;
-#elif defined(PLATFORM_X64)
-	bitness = 64;
-#endif
 }

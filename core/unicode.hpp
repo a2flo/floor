@@ -19,36 +19,31 @@
 #ifndef __FLOOR_UNICODE_HPP__
 #define __FLOOR_UNICODE_HPP__
 
-#include <floor/floor/floor.hpp>
+#include <vector>
+#include <string>
+#include <utility>
+#include <cstdint>
+using namespace std;
 
 //! unicode routines
-class unicode {
-public:
-	static vector<unsigned int> utf8_to_unicode(const string& str);
-	static string unicode_to_utf8(const vector<unsigned int>& codes);
+namespace unicode {
+	vector<unsigned int> utf8_to_unicode(const string& str);
+	string unicode_to_utf8(const vector<unsigned int>& codes);
 	
 	//! decodes a single multi-byte utf-8 character to a utf-32/32-bit uint,
 	//! returns <false, 0> if the utf-8 code point is invalid and <true, utf-32 code> if valid
 	//! NOTE: the specified 'iter' is advanced while doing this (will point to the last code point byte)
-	static pair<bool, uint32_t> decode_utf8_char(const char*& iter,
-												 const char* const& end_iter);
-	static pair<bool, uint32_t> decode_utf8_char(string::const_iterator& iter,
-												 const string::const_iterator& end_iter);
+	pair<bool, uint32_t> decode_utf8_char(const char*& iter, const char* const& end_iter);
+	pair<bool, uint32_t> decode_utf8_char(string::const_iterator& iter, const string::const_iterator& end_iter);
 	
 	//! checks if a string is a valid utf-8 string, returns <true, cend> if valid
 	//! and <false, iterator to invalid code sequence> if invalid
-	static pair<bool, string::const_iterator> validate_utf8_string(const string& str);
+	pair<bool, string::const_iterator> validate_utf8_string(const string& str);
 	
 #if defined(__APPLE__)
-	static string utf8_decomp_to_precomp(const string& str);
+	string utf8_decomp_to_precomp(const string& str);
 #endif
 	
-protected:
-	// static class
-	unicode(const unicode&) = delete;
-	~unicode() = delete;
-	unicode& operator=(const unicode&) = delete;
-	
-};
+} // unicode
 
 #endif

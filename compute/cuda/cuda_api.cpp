@@ -331,7 +331,6 @@ bool cuda_api_init(const bool use_internal_api) {
 		if(has_cuda_lib_data) {
 			// -> find the call to the device specific sampler creation/init function pointer
 			static const uint8_t pattern_start[] {
-#if defined(PLATFORM_X64)
 #if defined(__APPLE__) // os x
 				// mov  rax, qword ptr [r15 + $device_in_ctx]
 				0x49, 0x8B, 0x87, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
@@ -342,15 +341,8 @@ bool cuda_api_init(const bool use_internal_api) {
 				// mov  rax, qword ptr [r12 + $device_in_ctx]
 				0x49, 0x8B, 0x84, 0x24, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
 #endif
-#else // windows x86
-				// mov  edi, dword ptr [esp + 44]
-				// push dword ptr [esp + 36]
-				// mov  eax, dword ptr [edi + $device_in_ctx]
-				0x8B, 0x7C, 0x24, 0x2C, 0xFF, 0x74, 0x24, 0x24, 0x8B, 0x47, // 0x?? (ctx->device)
-#endif
 			};
 			static const uint8_t pattern_middle[] {
-#if defined(PLATFORM_X64)
 #if defined(__APPLE__) // os x
 				// mov  rdi, qword ptr [rbp - 48]
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
@@ -364,13 +356,8 @@ bool cuda_api_init(const bool use_internal_api) {
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
 				0x48, 0x8B, 0x7C, 0x24, 0x20, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
 #endif
-#else // windows x86
-				// mov  eax, dword ptr [eax + $sampler_init_func_ptr_offset]
-				0x8B, 0x80, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
-#endif
 			};
 			static const uint8_t pattern_end[] {
-#if defined(PLATFORM_X64)
 				// always followed by:
 #if defined(__APPLE__) // os x
 				// mov  r14d, eax
@@ -383,20 +370,11 @@ bool cuda_api_init(const bool use_internal_api) {
 				// test eax, eax
 				0x85, 0xC0,
 #endif
-#else // windows x86
-				// call eax
-				// mov  esi, eax
-				0xFF, 0xD0, 0x8B, 0xF0,
-#endif
 			};
 			
 			size_t offset = 0;
 			uint32_t device_sampler_func_offset = 0;
-#if defined(PLATFORM_X64)
 			uint32_t device_in_ctx_offset = 0;
-#else
-			uint8_t device_in_ctx_offset = 0;
-#endif
 			for(;;) {
 				offset = cuda_lib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
 				if(offset != string::npos) {

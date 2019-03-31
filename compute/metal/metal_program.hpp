@@ -29,6 +29,8 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class metal_device;
+
 class metal_program final : public compute_program {
 public:
 	//! stores a metal program + function infos for an individual device

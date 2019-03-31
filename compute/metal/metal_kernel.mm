@@ -29,14 +29,71 @@ struct metal_kernel::metal_encoder {
 	id <MTLComputeCommandEncoder> encoder { nil };
 };
 
+static unique_ptr<metal_kernel::metal_encoder> create_encoder(compute_queue* queue, const metal_kernel::metal_kernel_entry& entry) {
+	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)queue)->make_command_buffer();
+	auto ret = make_unique<metal_kernel::metal_encoder>(metal_kernel::metal_encoder { cmd_buffer, [cmd_buffer computeCommandEncoder] });
+	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
+	return ret;
+}
+
 metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-metal_kernel::~metal_kernel() {}
-
-void metal_kernel::execute_internal(shared_ptr<metal_encoder> encoder,
-									const uint3& grid_dim,
-									const uint3& block_dim) {
+void metal_kernel::execute(compute_queue* queue_ptr,
+						   const bool& is_cooperative,
+						   const uint32_t& dim,
+						   const uint3& global_work_size,
+						   const uint3& local_work_size,
+						   const vector<compute_kernel_arg>& args) {
+	// no cooperative support yet
+	if (is_cooperative) {
+		log_error("cooperative kernel execution is not supported for Metal");
+		return;
+	}
+	
+	// find entry for queue device
+	const auto kernel_iter = get_kernel(queue_ptr);
+	if(kernel_iter == kernels.cend()) {
+		log_error("no kernel for this compute queue/device exists!");
+		return;
+	}
+	
+	// check work size (NOTE: will set elements to at least 1)
+	const auto block_dim = check_local_work_size(kernel_iter->second, local_work_size);
+	
+	//
+	auto encoder = create_encoder(queue_ptr, kernel_iter->second);
+	
+	// set and handle kernel arguments
+	uint32_t total_idx = 0, buffer_idx = 0, texture_idx = 0;
+	const kernel_entry& entry = kernel_iter->second;
+	for (const auto& arg : args) {
+		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+			set_kernel_argument(total_idx, buffer_idx, texture_idx, *encoder, entry, *buf_ptr);
+		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+			set_kernel_argument(total_idx, buffer_idx, texture_idx, *encoder, entry, *img_ptr);
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+			set_kernel_argument(total_idx, buffer_idx, texture_idx, *encoder, entry, **vec_img_ptrs);
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+			set_kernel_argument(total_idx, buffer_idx, texture_idx, *encoder, entry, **vec_img_sptrs);
+		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+			set_const_argument(*encoder, buffer_idx, *generic_arg_ptr, arg.size);
+		} else {
+			log_error("encountered invalid arg");
+			return;
+		}
+		++total_idx;
+	}
+	
+	// run
+	const uint3 grid_dim_overflow {
+		dim >= 1 && global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
+		dim >= 2 && global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
+		dim >= 3 && global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
+	};
+	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
+	grid_dim.max(1u);
+	
 	// TODO/NOTE: guarantee that all buffers have finished their prior processing
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
@@ -49,43 +106,34 @@ typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(
 	return kernels.find((metal_device*)queue->get_device().get());
 }
 
-shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue, const metal_kernel_entry& entry) const {
-	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)queue)->make_command_buffer();
-	auto ret = make_shared<metal_encoder>(metal_encoder {
-		cmd_buffer, [cmd_buffer computeCommandEncoder]
-	});
-	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
-	return ret;
-}
-
-void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& idx,
-									   const void* ptr, const size_t& size) const {
-	[encoder->encoder setBytes:ptr length:size atIndex:idx];
+void metal_kernel::set_const_argument(metal_encoder& encoder, uint32_t& buffer_idx,
+									  const void* ptr, const size_t& size) const {
+	[encoder.encoder setBytes:ptr length:size atIndex:buffer_idx++];
 }
 
 void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
-									   metal_encoder* encoder, const kernel_entry&,
+									   metal_encoder& encoder, const kernel_entry&,
 									   const compute_buffer* arg) const {
-	[encoder->encoder setBuffer:((const metal_buffer*)arg)->get_metal_buffer()
-						 offset:0
-						atIndex:buffer_idx++];
+	[encoder.encoder setBuffer:((const metal_buffer*)arg)->get_metal_buffer()
+						offset:0
+					   atIndex:buffer_idx++];
 }
 
 void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t& texture_idx,
-									   metal_encoder* encoder, const kernel_entry& entry,
+									   metal_encoder& encoder, const kernel_entry& entry,
 									   const compute_image* arg) const {
-	[encoder->encoder setTexture:((const metal_image*)arg)->get_metal_image()
-						 atIndex:texture_idx++];
+	[encoder.encoder setTexture:((const metal_image*)arg)->get_metal_image()
+						atIndex:texture_idx++];
 	
 	// if this is a read/write image, add it again (one is read-only, the other is write-only)
 	if(entry.info->args[total_idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		[encoder->encoder setTexture:((const metal_image*)arg)->get_metal_image()
-							 atIndex:texture_idx++];
+		[encoder.encoder setTexture:((const metal_image*)arg)->get_metal_image()
+							atIndex:texture_idx++];
 	}
 }
 
 void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_idx,
-									   metal_encoder* encoder, const kernel_entry&,
+									   metal_encoder& encoder, const kernel_entry&,
 									   const vector<shared_ptr<compute_image>>& arg) const {
 	const auto count = arg.size();
 	if(count < 1) return;
@@ -95,13 +143,13 @@ void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_i
 		mtl_img_array[i] = ((metal_image*)arg[i].get())->get_metal_image();
 	}
 	
-	[encoder->encoder setTextures:mtl_img_array.data()
-						withRange:NSRange { texture_idx, count }];
+	[encoder.encoder setTextures:mtl_img_array.data()
+					   withRange:NSRange { texture_idx, count }];
 	texture_idx += count;
 }
 
 void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_idx,
-									   metal_encoder* encoder, const kernel_entry&,
+									   metal_encoder& encoder, const kernel_entry&,
 									   const vector<compute_image*>& arg) const {
 	const auto count = arg.size();
 	if(count < 1) return;
@@ -111,8 +159,8 @@ void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_i
 		mtl_img_array[i] = ((metal_image*)arg[i])->get_metal_image();
 	}
 	
-	[encoder->encoder setTextures:mtl_img_array.data()
-						withRange:NSRange { texture_idx, count }];
+	[encoder.encoder setTextures:mtl_img_array.data()
+					   withRange:NSRange { texture_idx, count }];
 	texture_idx += count;
 }
 

@@ -45,13 +45,10 @@ namespace device_info {
 		return VENDOR::FLOOR_COMPUTE_INFO_PLATFORM_VENDOR;
 	}
 	
-	//! device bitness (32 or 64)
+	//! device bitness
+	//! NOTE: we only support 64-bit now
 	constexpr uint32_t bitness() {
-#if defined(PLATFORM_X32)
-		return 32u;
-#elif defined(PLATFORM_X64)
 		return 64u;
-#endif
 	}
 	
 	//! device hardware types
@@ -113,11 +110,7 @@ namespace device_info {
 	
 	//! returns true if the device supports atomic operations on pointer types
 	constexpr bool has_pointer_atomics() {
-#if defined(PLATFORM_X32)
-		return true; // always true
-#elif defined(PLATFORM_X64)
-		return has_64_bit_atomics(); // must support 64-bit atomics otherwise
-#endif
+		return has_64_bit_atomics(); // must support 64-bit atomics
 	}
 	
 	//! returns true if the device has dedicated local memory h/w

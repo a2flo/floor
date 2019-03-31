@@ -551,11 +551,7 @@ bool core::cpu_has_fma() {
 	__cpuid(1, eax, ebx, ecx, edx);
 	return (ecx & bit_FMA) > 0;
 #else
-#if defined(PLATFORM_X64)
 	return true; // armv8
-#else
-	return false; // armv7
-#endif
 #endif
 }
 

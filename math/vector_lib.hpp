@@ -54,10 +54,8 @@ F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #elif defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)
-// remove size_t, ssize_t and long double when compiling for compute platforms
+// remove long double / double when compiling for compute platforms
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-// remove *int64_t if not supported
-#if !defined(FLOOR_NO_INT64_SUPPORT)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -70,20 +68,7 @@ F(uint32_t, uint, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
-#else // disable *int64_t support
-#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
-F(float, float, vec_width) \
-F(double, double, vec_width) \
-F(int8_t, char, vec_width) \
-F(uint8_t, uchar, vec_width) \
-F(int16_t, short, vec_width) \
-F(uint16_t, ushort, vec_width) \
-F(int32_t, int, vec_width) \
-F(uint32_t, uint, vec_width) \
-F(bool, bool, vec_width)
-#endif
-#else // disable double support
-#if !defined(FLOOR_NO_INT64_SUPPORT)
+#else // disable double support as well
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(int8_t, char, vec_width) \
@@ -95,17 +80,6 @@ F(uint32_t, uint, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
-#else // disable *int64_t support
-#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
-F(float, float, vec_width) \
-F(int8_t, char, vec_width) \
-F(uint8_t, uchar, vec_width) \
-F(int16_t, short, vec_width) \
-F(uint16_t, ushort, vec_width) \
-F(int32_t, int, vec_width) \
-F(uint32_t, uint, vec_width) \
-F(bool, bool, vec_width)
-#endif
 #endif
 #else
 // remove size_t and ssize_t when not compiling on osx/ios
@@ -143,7 +117,6 @@ FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 4)
 
 // necessary non-osx/ios aliases
 #if !defined(__APPLE__) || (defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST))
-#if defined(PLATFORM_X64)
 typedef ulong1 size1;
 typedef ulong2 size2;
 typedef ulong3 size3;
@@ -152,16 +125,6 @@ typedef long1 ssize1;
 typedef long2 ssize2;
 typedef long3 ssize3;
 typedef long4 ssize4;
-#elif defined(PLATFORM_X32)
-typedef uint1 size1;
-typedef uint2 size2;
-typedef uint3 size3;
-typedef uint4 size4;
-typedef int1 ssize1;
-typedef int2 ssize2;
-typedef int3 ssize3;
-typedef int4 ssize4;
-#endif
 #endif
 
 // implementation for each vector width

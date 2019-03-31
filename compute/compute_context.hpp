@@ -27,7 +27,6 @@
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
 #include <floor/compute/compute_device.hpp>
-#include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/compute_program.hpp>
 

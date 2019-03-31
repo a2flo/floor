@@ -24,6 +24,9 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/compute_context.hpp>
+#include <floor/threading/thread_safety.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
+
 class metal_program;
 
 class metal_compute final : public compute_context {

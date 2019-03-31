@@ -22,6 +22,8 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
+namespace unicode {
+
 template <typename iter_type>
 static pair<bool, uint32_t> gen_iter_decode_utf8_char(iter_type& iter, const iter_type& end_iter) {
 	// figure out how long the utf-8 char is (how many bytes)
@@ -65,17 +67,15 @@ static pair<bool, uint32_t> gen_iter_decode_utf8_char(iter_type& iter, const ite
 	return { true, cur_code };
 }
 
-pair<bool, uint32_t> unicode::decode_utf8_char(const char*& iter,
-											   const char* const& end_iter) {
+pair<bool, uint32_t> decode_utf8_char(const char*& iter, const char* const& end_iter) {
 	return gen_iter_decode_utf8_char(iter, end_iter);
 }
 
-pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter,
-											   const string::const_iterator& end_iter) {
+pair<bool, uint32_t> decode_utf8_char(string::const_iterator& iter, const string::const_iterator& end_iter) {
 	return gen_iter_decode_utf8_char(iter, end_iter);
 }
 
-vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
+vector<unsigned int> utf8_to_unicode(const string& str) {
 	vector<unsigned int> ret;
 	
 	const auto end_iter = str.cend();
@@ -88,7 +88,7 @@ vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
 	return ret;
 }
 
-string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
+string unicode_to_utf8(const vector<unsigned int>& codes) {
 	string ret = "";
 	for(const auto& code : codes) {
 		if((code & 0xFFFFFF80) == 0) {
@@ -129,7 +129,7 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 	return ret;
 }
 
-pair<bool, string::const_iterator> unicode::validate_utf8_string(const string& str) {
+pair<bool, string::const_iterator> validate_utf8_string(const string& str) {
 	const auto end_iter = str.cend();
 	for(auto iter = str.cbegin(); iter != end_iter; ++iter) {
 		const auto code = decode_utf8_char(iter, end_iter);
@@ -141,7 +141,9 @@ pair<bool, string::const_iterator> unicode::validate_utf8_string(const string& s
 }
 
 #if defined(__APPLE__)
-string unicode::utf8_decomp_to_precomp(const string& str) {
+string utf8_decomp_to_precomp(const string& str) {
 	return darwin_helper::utf8_decomp_to_precomp(str);
 }
 #endif
+
+} // unicode

@@ -41,9 +41,6 @@ metal_device::metal_device() : compute_device() {
 	image_depth_compare_support = true;
 	image_gather_support = true;
 	
-	// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
-	bitness = 64;
-	
 	// good default
 #if !defined(FLOOR_IOS)
 	max_total_local_size = 1024;

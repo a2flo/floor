@@ -102,8 +102,6 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-vulkan_kernel::~vulkan_kernel() {}
-
 typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue* queue) {
 	return kernels.find((vulkan_device*)queue->get_device().get());
 }
@@ -206,13 +204,73 @@ VkPipeline vulkan_kernel::get_pipeline_spec(vulkan_device* device, vulkan_kernel
 	return spec_entry->pipeline;
 }
 
-
-void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
-									 compute_queue* queue,
-									 const vulkan_kernel_entry& entry,
-									 const uint32_t&,
-									 const uint3& grid_dim) const {
-	auto vk_dev = (vulkan_device*)queue->get_device().get();
+void vulkan_kernel::execute(compute_queue* queue_ptr,
+							const bool& is_cooperative,
+							const uint32_t& dim floor_unused,
+							const uint3& global_work_size,
+							const uint3& local_work_size_,
+							const vector<compute_kernel_arg>& args) {
+	// no cooperative support yet
+	if (is_cooperative) {
+		log_error("cooperative kernel execution is not supported for Vulkan");
+		return;
+	}
+	
+	// find entry for queue device
+	const auto kernel_iter = get_kernel(queue_ptr);
+	if(kernel_iter == kernels.cend()) {
+		log_error("no kernel for this compute queue/device exists!");
+		return;
+	}
+	
+	// check work size
+	const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
+	
+	const uint3 grid_dim_overflow {
+		global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
+		global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
+		global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
+	};
+	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
+	grid_dim.max(1u);
+	
+	// create command buffer ("encoder") for this kernel execution
+	const vector<const vulkan_kernel_entry*> shader_entries {
+		&kernel_iter->second
+	};
+	bool encoder_success = false;
+	auto encoder = create_encoder(queue_ptr, nullptr,
+								  get_pipeline_spec(kernel_iter->first, kernel_iter->second, block_dim),
+								  kernel_iter->second.pipeline_layout,
+								  shader_entries, encoder_success);
+	if(!encoder_success) {
+		log_error("failed to create vulkan encoder / command buffer for kernel \"%s\"", kernel_iter->second.info->name);
+		return;
+	}
+	
+	// set and handle arguments
+	idx_handler idx;
+	for (const auto& arg : args) {
+		auto entry = arg_pre_handler(shader_entries, idx);
+		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+			set_argument(encoder.get(), *entry, idx, *buf_ptr);
+		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+			set_argument(encoder.get(), *entry, idx, *img_ptr);
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+			set_argument(encoder.get(), *entry, idx, **vec_img_ptrs);
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+			set_argument(encoder.get(), *entry, idx, **vec_img_sptrs);
+		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+			set_argument(encoder.get(), *entry, idx, *generic_arg_ptr, arg.size);
+		} else {
+			log_error("encountered invalid arg");
+			return;
+		}
+	}
+	
+	// run
+	const auto& entry = kernel_iter->second;
+	auto vk_dev = (vulkan_device*)queue_ptr->get_device().get();
 	
 	// set/write/update descriptors
 	vkUpdateDescriptorSets(vk_dev->device,
@@ -240,13 +298,13 @@ void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
-	((vulkan_queue*)queue)->submit_command_buffer(encoder->cmd_buffer,
-												  [encoder](const vulkan_queue::command_buffer&) {
-		// -> completion handler
-		
-		// kill constant buffers after the kernel has finished execution
-		encoder->constant_buffers.clear();
-	});
+	((vulkan_queue*)queue_ptr)->submit_command_buffer(encoder->cmd_buffer,
+													  [encoder](const vulkan_queue::command_buffer&) {
+														  // -> completion handler
+														  
+														  // kill constant buffers after the kernel has finished execution
+														  encoder->constant_buffers.clear();
+													  });
 }
 
 void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,

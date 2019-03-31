@@ -22,13 +22,15 @@
 #include <string>
 #include <vector>
 #include <floor/math/vector_lib.hpp>
-
-#include <floor/compute/compute_kernel.hpp>
+#include <floor/compute/compute_kernel_arg.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
 class compute_device;
+class compute_memory;
+class compute_kernel;
+
 class compute_queue {
 protected:
 	//! argument type validity specializations, with pretty error messages
@@ -75,7 +77,7 @@ protected:
 	
 public:
 	compute_queue(shared_ptr<compute_device> device_) : device(device_) {}
-	virtual ~compute_queue() = 0;
+	virtual ~compute_queue() = default;
 	
 	//! blocks until all currently scheduled work in this queue has been executed
 	virtual void finish() const = 0;
@@ -96,8 +98,8 @@ public:
 	void execute(shared_ptr<compute_kernel> kernel,
 				 work_size_type_global&& global_work_size,
 				 work_size_type_local&& local_work_size,
-				 Args&&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel->execute(this, global_work_size, local_work_size, forward<Args>(args)...);
+				 const Args&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, { args... });
 	}
 	
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
@@ -105,7 +107,7 @@ public:
 							is_same<decay_t<work_size_type_global>, uint2>::value ||
 							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
-	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
+	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS)
@@ -118,8 +120,8 @@ public:
 	void execute_cooperative(shared_ptr<compute_kernel> kernel,
 							 work_size_type_global&& global_work_size,
 							 work_size_type_local&& local_work_size,
-							 Args&&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel->execute_cooperative(this, global_work_size, local_work_size, forward<Args>(args)...);
+							 const Args&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, { args... });
 	}
 	
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
@@ -127,7 +129,7 @@ public:
 							is_same<decay_t<work_size_type_global>, uint2>::value ||
 							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
-	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
+	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	
@@ -148,6 +150,20 @@ public:
 protected:
 	shared_ptr<compute_device> device;
 	uint64_t us_prof_start { 0 };
+	
+	//! internal forwarders to the actual kernel execution implementations
+	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+								  const bool is_cooperative,
+								  const uint1& global_size, const uint1& local_size,
+								  const vector<compute_kernel_arg>& args);
+	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+								  const bool is_cooperative,
+								  const uint2& global_size, const uint2& local_size,
+								  const vector<compute_kernel_arg>& args);
+	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+								  const bool is_cooperative,
+								  const uint3& global_size, const uint3& local_size,
+								  const vector<compute_kernel_arg>& args);
 	
 };
 

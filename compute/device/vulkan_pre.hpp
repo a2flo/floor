@@ -29,9 +29,8 @@
 #pragma OPENCL EXTENSION vk_capability_int16 : enable
 #endif
 
-#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
+// 64-bit support is required
 #pragma OPENCL EXTENSION vk_capability_int64 : enable
-#endif
 
 #if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT_1)
 #pragma OPENCL EXTENSION vk_capability_float16 : enable

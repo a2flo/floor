@@ -23,11 +23,14 @@
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/core/event.hpp>
-#include <floor/core/json.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/matrix4.hpp>
-#include <floor/core/unicode.hpp>
 #include <floor/compute/compute_context.hpp>
+
+// forward decls
+namespace json {
+	struct document;
+}
 
 class floor {
 public:

@@ -89,9 +89,6 @@ public:
 	//! feature support: can use 16-bit int types in SPIR-V
 	bool int16_support { false };
 	
-	//! feature support: can use 64-bit int types in SPIR-V
-	bool int64_support { false };
-	
 	//! feature support: can use 16-bit float types in SPIR-V
 	bool float16_support { false };
 	

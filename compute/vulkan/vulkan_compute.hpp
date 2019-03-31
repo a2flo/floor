@@ -27,10 +27,10 @@
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
-#include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <floor/compute/vulkan/vulkan_program.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/spirv_handler.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 class vulkan_compute final : public compute_context {
 public:

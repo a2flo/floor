@@ -27,7 +27,6 @@
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_device.hpp>
-#include <floor/compute/host/host_kernel.hpp>
 #include <floor/compute/host/host_program.hpp>
 #include <floor/compute/host/host_queue.hpp>
 

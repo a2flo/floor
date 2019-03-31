@@ -27,6 +27,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/threading/task.hpp>
+#include <floor/compute/compute_kernel.hpp>
 
 // host compute exeuction model, choose wisely:
 
@@ -44,24 +45,17 @@
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
 #define FLOOR_HOST_COMPUTE_MT_GROUP 1
 
-// the amount of macro voodoo is too damn high ...
-#define FLOOR_HOST_KERNEL_IMPL 1
-#include <floor/compute/compute_kernel.hpp>
-#undef FLOOR_HOST_KERNEL_IMPL
-
 class host_kernel final : public compute_kernel {
 public:
 	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
-	~host_kernel() override;
+	~host_kernel() override = default;
 	
-	template <typename... Args> void execute(compute_queue* queue,
-											 const uint32_t work_dim,
-											 const uint3 global_work_size,
-											 const uint3 local_work_size,
-											 Args&&... args) {
-		execute_internal(queue, work_dim, global_work_size, check_local_work_size(entry, local_work_size),
-						 [this, args...] { (*kernel)(handle_kernel_arg(args)...); });
-	}
+	void execute(compute_queue* queue_ptr,
+				 const bool& is_cooperative,
+				 const uint32_t& dim,
+				 const uint3& global_work_size,
+				 const uint3& local_work_size,
+				 const vector<compute_kernel_arg>& args) override;
 	
 	const kernel_entry* get_kernel_entry(shared_ptr<compute_device>) const override {
 		return &entry; // can't really check if the device is correct here
@@ -74,14 +68,6 @@ protected:
 	const compute_kernel::kernel_entry entry;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
-	
-	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
-	void* handle_kernel_arg(T&& obj) const { return (void*)&obj; }
-	
-	void* handle_kernel_arg(shared_ptr<compute_buffer> buffer) const;
-	void* handle_kernel_arg(shared_ptr<compute_image> image) const;
-	void* handle_kernel_arg(const compute_buffer* buffer) const;
-	void* handle_kernel_arg(const compute_image* image) const;
 	
 	void execute_internal(compute_queue* queue,
 						  const uint32_t work_dim,

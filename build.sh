@@ -117,7 +117,7 @@ BUILD_ARCH_SIZE="x64"
 BUILD_ARCH=$(${CC} -dumpmachine | sed "s/-.*//")
 case $BUILD_ARCH in
 	"i386"|"i486"|"i586"|"i686"|"arm7"*|"armv7"*)
-		BUILD_ARCH_SIZE="x32"
+		error "32-bit builds are not supported"
 		;;
 	"x86_64"|"amd64"|"arm64")
 		BUILD_ARCH_SIZE="x64"
@@ -152,8 +152,6 @@ for arg in "$@"; do
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
-			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
-			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo "	native             optimize and specifically build for the host cpu"
 			echo ""
 			echo "sanitizers:"
@@ -232,12 +230,6 @@ for arg in "$@"; do
 			;;
 		"libstdc++")
 			BUILD_CONF_LIBSTDCXX=1
-			;;
-		"x32")
-			BUILD_ARCH_SIZE="x32"
-			;;
-		"x64")
-			BUILD_ARCH_SIZE="x64"
 			;;
 		"native")
 			BUILD_CONF_NATIVE=1
@@ -432,13 +424,9 @@ if [ -z "${AR}" ]; then
 	AR=ar
 fi
 
-# set the correct 32/64-bit linker flag (use the default on mingw)
+# set the correct 64-bit linker flag (use the default on mingw)
 if [ $BUILD_OS != "mingw" ]; then
-	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-		LDFLAGS="${LDFLAGS} -m32"
-	else
-		LDFLAGS="${LDFLAGS} -m64"
-	fi
+	LDFLAGS="${LDFLAGS} -m64"
 fi
 
 # handle clang/llvm sanitizers
@@ -540,20 +528,12 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 			if [ ! -z "${AMDAPPSDKROOT}" ]; then
 				# use amd opencl sdk
 				AMDAPPSDKROOT_FIXED=$(echo ${AMDAPPSDKROOT} | sed -E "s/\\\\/\//g")
-				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-					LDFLAGS="${LDFLAGS} -L\"${AMDAPPSDKROOT_FIXED}lib/x86\""
-				else
-					LDFLAGS="${LDFLAGS} -L\"${AMDAPPSDKROOT_FIXED}lib/x86_64\""
-				fi
+				LDFLAGS="${LDFLAGS} -L\"${AMDAPPSDKROOT_FIXED}lib/x86_64\""
 				INCLUDES="${INCLUDES} -isystem \"${AMDAPPSDKROOT_FIXED}include\""
 			elif [ ! -z "${INTELOCLSDKROOT}" ]; then
 				# use intel opencl sdk
 				INTELOCLSDKROOT_FIXED=$(echo ${INTELOCLSDKROOT} | sed -E "s/\\\\/\//g")
-				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-					LDFLAGS="${LDFLAGS} -L\"${INTELOCLSDKROOT_FIXED}lib/x86\""
-				else
-					LDFLAGS="${LDFLAGS} -L\"${INTELOCLSDKROOT_FIXED}lib/x64\""
-				fi
+				LDFLAGS="${LDFLAGS} -L\"${INTELOCLSDKROOT_FIXED}lib/x64\""
 				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
 			else
 				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel or AMD OpenCL SDK!"
@@ -563,11 +543,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
 			if [ ! -z "${VK_SDK_PATH}" ]; then
 				VK_SDK_PATH_FIXED=$(echo ${VK_SDK_PATH} | sed -E "s/\\\\/\//g")
-				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-					LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin32\""
-				else
-					LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin\""
-				fi
+				LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin\""
 				INCLUDES="${INCLUDES} -isystem \"${VK_SDK_PATH_FIXED}/Include\""
 			else
 				error "Vulkan SDK not installed (VK_SDK_PATH not set)"
@@ -730,41 +706,19 @@ if [ $BUILD_OS == "mingw" ]; then
 	CXXFLAGS="${CXXFLAGS} -pthread"
 fi
 
-# arch handling (use -arch on osx/ios and -m32/-m64 everywhere else, except for mingw)
+# arch handling (use -arch on osx/ios and -m64 everywhere else, except for mingw)
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
-	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-		case $BUILD_ARCH in
-			"i386"|"i486"|"i586"|"i686")
-				COMMON_FLAGS="${COMMON_FLAGS} -arch $BUILD_ARCH"
-				;;
-			"x86_64"|"amd64")
-				COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
-				;;
-			"arm"*)
-				COMMON_FLAGS="${COMMON_FLAGS} -arch armv7"
-				;;
-			*)
-				warning "unknown arch (${BUILD_ARCH}) - building for arch i686!"
-				COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
-				;;
-		esac
-	else
-		case $BUILD_ARCH in
-			"arm"*)
-				COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
-				;;
-			*)
-				COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
-				;;
-		esac
-	fi
+	case $BUILD_ARCH in
+		"arm"*)
+			COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
+			;;
+		*)
+			COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
+			;;
+	esac
 elif [ $BUILD_OS != "mingw" ]; then
 	# NOTE: mingw will/should/has to use the compiler default
-	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-		COMMON_FLAGS="${COMMON_FLAGS} -m32"
-	else
-		COMMON_FLAGS="${COMMON_FLAGS} -m64"
-	fi
+	COMMON_FLAGS="${COMMON_FLAGS} -m64"
 fi
 
 # c++ and c flags that apply to all build configurations
@@ -808,12 +762,6 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 fi
 
 # defines:
-# set platform size define
-if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X32"
-else
-	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X64"
-fi
 if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 	# common windows "unix environment" flag
 	COMMON_FLAGS="${COMMON_FLAGS} -DWIN_UNIXENV"
@@ -855,10 +803,6 @@ WARNINGS="${WARNINGS} -Wno-nested-anon-types"
 WARNINGS="${WARNINGS} -Wno-partial-availability"
 # enable thread-safety warnings
 WARNINGS="${WARNINGS} -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
-if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-	# ignore warnings about required alignment increases on 32-bit platforms (won't and can't fix)
-	WARNINGS="${WARNINGS} -Wno-cast-align"
-fi
 # ignore "explicit move to avoid copying on older compilers" warning
 WARNINGS="${WARNINGS} -Wno-return-std-move-in-c++11"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"

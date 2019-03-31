@@ -24,7 +24,6 @@
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_queue.hpp>
-#include <floor/compute/opencl/opencl_kernel.hpp>
 
 class opencl_queue final : public compute_queue {
 public:

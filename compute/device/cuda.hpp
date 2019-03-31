@@ -218,14 +218,12 @@ namespace std {
 	const_func floor_inline_always constexpr double floor_rt_max(double a, double b) { return (a > b ? a : b); }
 #endif
 	
-#if defined(PLATFORM_X64)
 	const_func floor_inline_always size_t floor_rt_min(size_t a, size_t b) {
 		return (size_t)floor_rt_min(uint64_t(a), uint64_t(b));
 	}
 	const_func floor_inline_always size_t floor_rt_max(size_t a, size_t b) {
 		return (size_t)floor_rt_max(uint64_t(a), uint64_t(b));
 	}
-#endif
 	
 	const_func floor_inline_always uint32_t floor_rt_permute(const uint32_t low, const uint32_t high, const uint32_t select) {
 		return __nvvm_prmt(low, high, select);

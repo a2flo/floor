@@ -3,12 +3,13 @@
 
 *Requirements:*
 * OS:
-** Windows: NT 6.0+ (VS: x86/32-bit and x64/64-bit, MinGW/MSYS2: x64/64-bit only)
-** macOS: 10.11+ (x64/64-bit only)
-** iOS: 9.0+ (32-bit and 64-bit)
-** Linux: any current x64 distribution
-** FreeBSD: 10.0+ (x64/64-bit only)
-** other Unix: if x64 and other requirements are met
+** only AMD64/Intel64/ARM64 is supported
+** Windows: NT 6.0+
+** macOS: 10.11+
+** iOS: 9.0+
+** Linux: any current distribution
+** FreeBSD: 10.0+
+** other Unix: if other requirements are met
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 6.0+ and "libc++":http://libcxx.llvm.org 6.0+
 ** macOS/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+

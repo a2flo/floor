@@ -27,13 +27,10 @@
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
-
-// the amount of macro voodoo is too damn high ...
-#define FLOOR_VULKAN_KERNEL_IMPL 1
 #include <floor/compute/compute_kernel.hpp>
-#undef FLOOR_VULKAN_KERNEL_IMPL
 
 class vulkan_device;
+
 class vulkan_kernel final : public compute_kernel {
 public:
 	// don't want to include vulkan_queue here
@@ -86,52 +83,14 @@ public:
 	};
 	
 	vulkan_kernel(kernel_map_type&& kernels);
-	~vulkan_kernel() override;
+	~vulkan_kernel() override = default;
 	
-	template <typename... Args> void execute(compute_queue* queue,
-											 const uint32_t work_dim,
-											 const uint3 global_work_size,
-											 const uint3 local_work_size_,
-											 Args&&... args) {
-		// find entry for queue device
-		const auto kernel_iter = get_kernel(queue);
-		if(kernel_iter == kernels.cend()) {
-			log_error("no kernel for this compute queue/device exists!");
-			return;
-		}
-		
-		// check work size
-		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
-		
-		const uint3 grid_dim_overflow {
-			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
-			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
-			global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
-		};
-		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
-		grid_dim.max(1u);
-		
-		// create command buffer ("encoder") for this kernel execution
-		const vector<const vulkan_kernel_entry*> shader_entries {
-			&kernel_iter->second
-		};
-		bool encoder_success = false;
-		auto encoder = create_encoder(queue, nullptr,
-									  get_pipeline_spec(kernel_iter->first, kernel_iter->second, block_dim),
-									  kernel_iter->second.pipeline_layout,
-									  shader_entries, encoder_success);
-		if(!encoder_success) {
-			log_error("failed to create vulkan encoder / command buffer for kernel \"%s\"", kernel_iter->second.info->name);
-			return;
-		}
-		
-		// set and handle arguments
-		idx_handler idx;
-		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
-		
-		// run
-		execute_internal(encoder, queue, kernel_iter->second, work_dim, grid_dim);
-	}
+	void execute(compute_queue* queue_ptr,
+				 const bool& is_cooperative,
+				 const uint32_t& dim,
+				 const uint3& global_work_size,
+				 const uint3& local_work_size,
+				 const vector<compute_kernel_arg>& args) override;
 	
 	//! NOTE: very wip/temporary
 	struct multi_draw_entry {
@@ -253,12 +212,6 @@ protected:
 								 vulkan_kernel_entry& entry,
 								 const uint3& work_group_size);
 	
-	void execute_internal(shared_ptr<vulkan_encoder> encoder,
-						  compute_queue* queue,
-						  const vulkan_kernel_entry& entry,
-						  const uint32_t& work_dim,
-						  const uint3& grid_dim) const;
-	
 	void draw_internal(shared_ptr<vulkan_encoder> encoder,
 					   compute_queue* queue,
 					   const vulkan_kernel_entry* vs_entry,
@@ -297,9 +250,9 @@ protected:
 	}
 	
 	void set_argument(vulkan_encoder* encoder,
-							 const vulkan_kernel_entry& entry,
-							 idx_handler& idx,
-							 const void* ptr, const size_t& size) const;
+					  const vulkan_kernel_entry& entry,
+					  idx_handler& idx,
+					  const void* ptr, const size_t& size) const;
 	
 	floor_inline_always void set_argument(vulkan_encoder* encoder,
 										  const vulkan_kernel_entry& entry,

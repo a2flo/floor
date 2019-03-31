@@ -285,25 +285,6 @@ uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 		return 326;
 	}
 	else {
-		// ipad: this is trickier: ipad2 has 132 dpi, ipad 3+ have 264 dpi, ipad mini has 163 dpi, ipad mini retina has 326 dpi
-#if defined(PLATFORM_X32)
-		// ipad 2, 3, 4 or ipad mini
-		if([[UIScreen mainScreen] scale] == 1.0f) {
-			// ipad 2 or ipad mini
-			string machine(8, 0);
-			size_t size = machine.size() - 1;
-			sysctlbyname("hw.machine", &machine[0], &size, nullptr, 0);
-			machine.back() = 0;
-			if(machine == "iPad2,5" || machine == "iPad2,6" || machine == "iPad2,7") {
-				// ipad mini
-				return 163;
-			}
-			// else: ipad 2
-			return 132;
-		}
-		// else: ipad 3 or 4
-		else return 264;
-#else // PLATFORM_X64
 		// TODO: there seems to be a way to get the product-name via iokit (arm device -> product -> product-name)
 		// ipad air/5+ or ipad mini retina
 		constexpr const size_t max_machine_len { 10u };
@@ -320,7 +301,6 @@ uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 		}
 		// else: ipad air/5+ (for now ...)
 		return 264;
-#endif
 	}
 #endif
 }
@@ -476,7 +456,7 @@ void* darwin_helper::get_eagl_sharegroup() {
 }
 
 void darwin_helper::compile_shaders() {
-#if defined(PLATFORM_X64) // glsl es 3.00
+	// glsl es 3.00
 	static constexpr const char blit_vs_text[] { u8R"RAWSTR(
 		in vec2 in_vertex;
 		out lowp vec2 tex_coord;
@@ -493,23 +473,6 @@ void darwin_helper::compile_shaders() {
 			frag_color = texture(tex, tex_coord);
 		}
 	)RAWSTR"};
-#else // glsl es 1.00
-	static constexpr const char blit_vs_text[] { u8R"RAWSTR(
-		attribute vec2 in_vertex;
-		varying lowp vec2 tex_coord;
-		void main() {
-			gl_Position = vec4(in_vertex.x, in_vertex.y, 0.0, 1.0);
-			tex_coord = in_vertex * 0.5 + 0.5;
-		}
-	)RAWSTR"};
-	static constexpr const char blit_fs_text[] { u8R"RAWSTR(
-		uniform sampler2D tex;
-		varying lowp vec2 tex_coord;
-		void main() {
-			gl_FragColor = texture2D(tex, tex_coord);
-		}
-	)RAWSTR"};
-#endif
 	
 	const auto blit_shd = floor_compile_shader("BLIT", blit_vs_text, blit_fs_text);
 	if(!blit_shd.first) {

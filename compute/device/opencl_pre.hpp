@@ -21,6 +21,10 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
+#if !defined(__SPIR64__)
+#error "only 64-bit device compilation is supported"
+#endif
+
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 #pragma OPENCL EXTENSION cl_khr_gl_msaa_sharing : enable
@@ -48,13 +52,8 @@ typedef unsigned short int ushort;
 typedef unsigned int uint;
 typedef unsigned long int ulong;
 
-#if defined(__SPIR32__)
-typedef uint size_t;
-typedef int ssize_t;
-#elif defined (__SPIR64__)
 typedef unsigned long int size_t;
 typedef long int ssize_t;
-#endif
 
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)

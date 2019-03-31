@@ -46,6 +46,7 @@
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
+		5C15E35D223E797E001F53A2 /* compute_kernel_arg.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */; };
 		5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */; };
 		5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */; };
 		5C20C8C31B4139260005F5EA /* host_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B41B4139260005F5EA /* host_buffer.cpp */; };
@@ -155,7 +156,6 @@
 		5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E41A641B1E007AEDD7 /* cuda_queue.cpp */; };
 		5C5383EF1A641B1E007AEDD7 /* cuda_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5383E51A641B1E007AEDD7 /* cuda_queue.hpp */; };
 		5C5419021CD1C915003BD2CA /* host_limits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5419011CD1C915003BD2CA /* host_limits.hpp */; };
-		5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */; };
 		5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AA1AB6D69700BC7012 /* common.hpp */; };
 		5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AC1AB6D6D200BC7012 /* cuda.hpp */; };
 		5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AD1AB6D6D200BC7012 /* metal.hpp */; };
@@ -356,6 +356,7 @@
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
 		5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_pre.hpp; path = device/cuda_pre.hpp; sourceTree = "<group>"; };
 		5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_pre.hpp; path = device/metal_pre.hpp; sourceTree = "<group>"; };
+		5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel_arg.hpp; sourceTree = "<group>"; };
 		5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = serializer_storage.hpp; sourceTree = "<group>"; };
 		5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_compat.hpp; path = device/atomic_compat.hpp; sourceTree = "<group>"; };
 		5C20C8B41B4139260005F5EA /* host_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_buffer.cpp; path = host/host_buffer.cpp; sourceTree = "<group>"; };
@@ -429,7 +430,6 @@
 		5C5383E41A641B1E007AEDD7 /* cuda_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_queue.cpp; sourceTree = "<group>"; };
 		5C5383E51A641B1E007AEDD7 /* cuda_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_queue.hpp; sourceTree = "<group>"; };
 		5C5419011CD1C915003BD2CA /* host_limits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_limits.hpp; path = device/host_limits.hpp; sourceTree = "<group>"; };
-		5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_i128.hpp; sourceTree = "<group>"; };
 		5C6008AA1AB6D69700BC7012 /* common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = common.hpp; path = device/common.hpp; sourceTree = "<group>"; };
 		5C6008AC1AB6D6D200BC7012 /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda.hpp; path = device/cuda.hpp; sourceTree = "<group>"; };
 		5C6008AD1AB6D6D200BC7012 /* metal.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal.hpp; path = device/metal.hpp; sourceTree = "<group>"; };
@@ -814,7 +814,6 @@
 				5CE2D906209FDA5F00180D47 /* sha_256.hpp */,
 				5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */,
 				5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */,
-				5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */,
 			);
 			path = constexpr;
 			sourceTree = "<group>";
@@ -906,6 +905,7 @@
 				5C8FD0C11AD38F8B00215230 /* compute_image.hpp */,
 				5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */,
 				5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */,
+				5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */,
 				5C8FD0D41AD3983000215230 /* compute_memory.cpp */,
 				5C8FD0D21AD3947200215230 /* compute_memory.hpp */,
 				5CEEA6D41A4EE171005239DA /* compute_program.cpp */,
@@ -1061,6 +1061,7 @@
 			files = (
 				5C20C8C91B4139260005F5EA /* host_device.hpp in Headers */,
 				5C3EA9D91D89632000EC932F /* vulkan_image.hpp in Headers */,
+				5C15E35D223E797E001F53A2 /* compute_kernel_arg.hpp in Headers */,
 				5C8FD0C81AD38F9700215230 /* opencl_image.hpp in Headers */,
 				5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */,
 				5CD1A37E21DE3767002D5CB1 /* vector_lib_checks.hpp in Headers */,
@@ -1078,7 +1079,6 @@
 				5C5383EF1A641B1E007AEDD7 /* cuda_queue.hpp in Headers */,
 				5C5383DB1A61FEF5007AEDD7 /* cuda_common.hpp in Headers */,
 				5C8FD0C41AD38F8B00215230 /* compute_image.hpp in Headers */,
-				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
 				5C6B6D901EC7381C00342E50 /* serializer.hpp in Headers */,
 				5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */,
 				5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */,
@@ -1265,6 +1265,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 5C10915517D114BC007F536E;
@@ -1770,14 +1771,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					PLATFORM_X64,
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "FLOOR_DEBUG=1";
 				HEADER_SEARCH_PATHS = (
 					../,
 					"/usr/local/opt/openal-soft/include",
@@ -1807,13 +1806,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					PLATFORM_X64,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,
@@ -1898,22 +1894,6 @@
 					FLOOR_NO_OPENCL,
 					FLOOR_NO_OPENAL,
 				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
-					"$(inherited)",
-					PLATFORM_X64,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7]" = (
-					"$(inherited)",
-					PLATFORM_X32,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7s]" = (
-					"$(inherited)",
-					PLATFORM_X32,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
-					"$(inherited)",
-					PLATFORM_X64,
-				);
 				HEADER_SEARCH_PATHS = (
 					../,
 					ios/deps/include,
@@ -1953,18 +1933,6 @@
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
 					FLOOR_NO_OPENAL,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
-					"$(inherited)",
-					PLATFORM_X64,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7]" = (
-					"$(inherited)",
-					PLATFORM_X32,
-				);
-				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7s]" = (
-					"$(inherited)",
-					PLATFORM_X32,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,

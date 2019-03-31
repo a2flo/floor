@@ -24,7 +24,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/compute_queue.hpp>
-#include <floor/compute/metal/metal_kernel.hpp>
+#include <floor/threading/thread_safety.hpp>
 #include <Metal/Metal.h>
 
 class metal_queue final : public compute_queue {

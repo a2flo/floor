@@ -22,10 +22,11 @@
 #include <string>
 #include <vector>
 #include <floor/math/vector_lib.hpp>
-#include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/universal_binary.hpp>
+#include <floor/core/flat_map.hpp>
 
+class compute_kernel;
 class compute_program {
 public:
 	virtual ~compute_program() = 0;

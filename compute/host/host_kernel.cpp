@@ -62,7 +62,7 @@ static const function<void()>* cur_kernel_function { nullptr };
 extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
-#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 #if defined(__AVX512F__) && defined(__AVX512DQ__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
@@ -209,7 +209,7 @@ extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
 struct alignas(128) fiber_context {
 	typedef void (*init_func_type)(const uint32_t);
 
-#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
 	static constexpr const size_t min_stack_size { 8192 };
 	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
@@ -306,19 +306,14 @@ struct alignas(128) fiber_context {
 		}
 	}
 
-//#elif defined(PLATFORM_X64) && defined(FLOOR_IOS)
+//#elif defined(FLOOR_IOS)
 	// TODO: aarch64/armv8 implementation
-//#elif defined(PLATFORM_X32) && defined(FLOOR_IOS)
-	// TODO: armv7 implementation
 #elif defined(__WINDOWS__)
 	static constexpr const size_t min_stack_size { 4096 };
 
 	// the windows fiber context
 	void* ctx { nullptr };
 
-#if defined(PLATFORM_X32)
-	__stdcall
-#endif
 	static void fiber_run(void* data) {
 		auto this_ctx = (fiber_context*)data;
 		(*this_ctx->init_func)(this_ctx->init_arg);
@@ -459,7 +454,7 @@ struct alignas(128) fiber_context {
 	uint32_t init_arg { 0 };
 	
 };
-#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 // make sure member variables are at the right offsets when using the sysv abi fiber approach
 static_assert(offsetof(fiber_context, init_func) == 0x50);
 static_assert(offsetof(fiber_context, exit_ctx) == 0x58);
@@ -552,22 +547,103 @@ host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_
 kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(move(entry_)) {
 }
 
-host_kernel::~host_kernel() {}
+void host_kernel::execute(compute_queue* queue_ptr,
+						  const bool& is_cooperative,
+						  const uint32_t& dim,
+						  const uint3& global_work_size,
+						  const uint3& local_work_size,
+						  const vector<compute_kernel_arg>& args) {
+	// no cooperative support yet
+	if (is_cooperative) {
+		log_error("cooperative kernel execution is not supported for Host-Compute");
+		return;
+	}
+	
+	vector<const void*> vptr_args;
+	vptr_args.reserve(args.size());
+	for (const auto& arg : args) {
+		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr());
+		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info());
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+			log_error("array of images is not supported for Host-Compute");
+			return;
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+			log_error("array of images is not supported for Host-Compute");
+			return;
+		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+			vptr_args.emplace_back(*generic_arg_ptr);
+		} else {
+			log_error("encountered invalid arg");
+			return;
+		}
+	}
+	
+	function<void()> kernel_func;
+	switch (vptr_args.size()) {
+		case 0: kernel_func = [this]() { (*kernel)(); }; break;
 
-void* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) const {
-	return ((host_buffer*)buffer.get())->get_host_buffer_ptr();
-}
-
-void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) const {
-	return ((host_image*)image.get())->get_host_image_program_info();
-}
-
-void* host_kernel::handle_kernel_arg(const compute_buffer* buffer) const {
-	return ((const host_buffer*)buffer)->get_host_buffer_ptr();
-}
-
-void* host_kernel::handle_kernel_arg(const compute_image* image) const {
-	return ((const host_image*)image)->get_host_image_program_info();
+#define EXPAND_1(var, offset) var[0 + offset]
+#define EXPAND_2(var, offset) var[0 + offset], var[1 + offset]
+#define EXPAND_3(var, offset) var[0 + offset], var[1 + offset], var[2 + offset]
+#define EXPAND_4(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset]
+#define EXPAND_5(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset]
+#define EXPAND_6(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset]
+#define EXPAND_7(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset]
+#define EXPAND_8(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset], var[7 + offset]
+		
+		case 1: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_1(vptr_args, 0)); }; break;
+		case 2: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_2(vptr_args, 0)); }; break;
+		case 3: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_3(vptr_args, 0)); }; break;
+		case 4: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_4(vptr_args, 0)); }; break;
+		case 5: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_5(vptr_args, 0)); }; break;
+		case 6: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_6(vptr_args, 0)); }; break;
+		case 7: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_7(vptr_args, 0)); }; break;
+		case 8: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0)); }; break;
+		
+		case 9: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
+		case 10: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
+		case 11: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
+		case 12: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
+		case 13: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
+		case 14: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
+		case 15: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
+		case 16: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
+		
+		case 17: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
+		case 18: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
+		case 19: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
+		case 20: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
+		case 21: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
+		case 22: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
+		case 23: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
+		case 24: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
+		
+		case 25: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
+		case 26: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
+		case 27: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
+		case 28: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
+		case 29: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
+		case 30: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
+		case 31: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
+		case 32: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
+		
+#undef EXPAND_1
+#undef EXPAND_2
+#undef EXPAND_3
+#undef EXPAND_4
+#undef EXPAND_5
+#undef EXPAND_6
+#undef EXPAND_7
+#undef EXPAND_8
+		
+		default:
+			log_error("amount of kernel parameters is too large (only up to 32 parameters are supported)");
+			return;
+	}
+	
+	execute_internal(queue_ptr, dim, global_work_size, check_local_work_size(entry, local_work_size), kernel_func);
 }
 
 void host_kernel::execute_internal(compute_queue* queue,

@@ -484,13 +484,6 @@ bool file_io::read_file(stringstream& buffer) {
 	auto size_ll = get_filesize();
 	if(size_ll < 0) return false;
 	
-#if defined(PLATFORM_X32)
-	if(size_ll > 0x7FFFFFFF) {
-		log_error("file size %u is too large for this platform - will only read 2GB now!", size_ll);
-		size_ll = 0x7FFFFFFF;
-	}
-#endif
-	
 	const unsigned long long int size = (unsigned long long int)size_ll;
 	auto data = make_unique<char[]>(size_t(size + 1u));
 	if(data == nullptr) return false;

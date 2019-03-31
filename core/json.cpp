@@ -26,7 +26,9 @@
 #include <floor/lang/lang_context.hpp>
 #include <floor/lang/grammar.hpp>
 
-json::json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
+namespace json {
+
+json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
 	switch(value_type) {
 		case VALUE_TYPE::NULL_VALUE:
 		case VALUE_TYPE::TRUE_VALUE:
@@ -46,10 +48,10 @@ json::json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
 			break;
 	}
 }
-json::json_value::json_value(json_value&& val) {
+json_value::json_value(json_value&& val) {
 	*this = move(val);
 }
-json::json_value& json::json_value::operator=(json::json_value&& val) {
+json_value& json_value::operator=(json_value&& val) {
 	type = val.type;
 	switch(type) {
 		case VALUE_TYPE::NULL_VALUE:
@@ -75,10 +77,10 @@ json::json_value& json::json_value::operator=(json::json_value&& val) {
 	}
 	return *this;
 }
-json::json_value::json_value(const json_value& val) {
+json_value::json_value(const json_value& val) {
 	*this = val;
 }
-json::json_value& json::json_value::operator=(const json::json_value& val) {
+json_value& json_value::operator=(const json_value& val) {
 	type = val.type;
 	switch(type) {
 		case VALUE_TYPE::NULL_VALUE:
@@ -104,7 +106,7 @@ json::json_value& json::json_value::operator=(const json::json_value& val) {
 	}
 	return *this;
 }
-json::json_value::~json_value() {
+json_value::~json_value() {
 	switch(type) {
 		case VALUE_TYPE::NULL_VALUE:
 		case VALUE_TYPE::TRUE_VALUE:
@@ -124,7 +126,7 @@ json::json_value::~json_value() {
 			break;
 	}
 }
-void json::json_value::print(const uint32_t depth) const {
+void json_value::print(const uint32_t depth) const {
 	switch(type) {
 		case VALUE_TYPE::NULL_VALUE:
 			cout << "null";
@@ -648,9 +650,9 @@ struct json_grammar {
 		json_node(const JSON_NODE_TYPE& type_) : type(type_) {}
 	};
 	struct value_node : json_node {
-		json::json_value value;
-		value_node(json::json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(move(value_)) {}
-		value_node(nullptr_t) : json_node(JSON_NODE_TYPE::VALUE), value(json::json_value::VALUE_TYPE::NULL_VALUE) {}
+		json_value value;
+		value_node(json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(move(value_)) {}
+		value_node(nullptr_t) : json_node(JSON_NODE_TYPE::VALUE), value(json_value::VALUE_TYPE::NULL_VALUE) {}
 	};
 	struct member_node : json_node {
 		string name;
@@ -671,7 +673,7 @@ struct json_grammar {
 	};
 	
 	//! current document that is being constructed
-	json::document* document { nullptr };
+	document* doc { nullptr };
 	
 	json_grammar() {
 		// fixed token type matchers:
@@ -719,8 +721,8 @@ struct json_grammar {
 				return {};
 			}
 			
-			if(document != nullptr) {
-				document->root = move(((value_node*)matches[0].ast_node.get())->value);
+			if(doc != nullptr) {
+				doc->root = move(((value_node*)matches[0].ast_node.get())->value);
 			}
 			return {};
 		});
@@ -740,32 +742,32 @@ struct json_grammar {
 							   token_str.find('e') != string::npos ||
 							   token_str.find('E') != string::npos) {
 								// floating point value
-								json::json_value val { json::json_value::VALUE_TYPE::FP_NUMBER };
+								json_value val { json_value::VALUE_TYPE::FP_NUMBER };
 								val.fp_number = stod(token_str);
 								return { make_unique<value_node>(move(val)) };
 							}
 							else {
 								// integer value
-								json::json_value val { json::json_value::VALUE_TYPE::INT_NUMBER };
+								json_value val { json_value::VALUE_TYPE::INT_NUMBER };
 								val.int_number = stoll(token_str);
 								return { make_unique<value_node>(move(val)) };
 							}
 						}
 						case SOURCE_TOKEN_TYPE::IDENTIFIER: {
 							const auto token_str = token->second.to_string();
-							json::json_value::VALUE_TYPE type;
-							if(token_str == "null") type = json::json_value::VALUE_TYPE::NULL_VALUE;
-							else if(token_str == "true") type = json::json_value::VALUE_TYPE::TRUE_VALUE;
-							else if(token_str == "false") type = json::json_value::VALUE_TYPE::FALSE_VALUE;
+							json_value::VALUE_TYPE type;
+							if(token_str == "null") type = json_value::VALUE_TYPE::NULL_VALUE;
+							else if(token_str == "true") type = json_value::VALUE_TYPE::TRUE_VALUE;
+							else if(token_str == "false") type = json_value::VALUE_TYPE::FALSE_VALUE;
 							else {
 								log_error("invalid IDENTIFIER: %s", token_str);
 								return { make_unique<value_node>(nullptr) };
 							}
-							json::json_value val { type };
+							json_value val { type };
 							return { make_unique<value_node>(move(val)) };
 						}
 						case SOURCE_TOKEN_TYPE::STRING_LITERAL: {
-							json::json_value val { json::json_value::VALUE_TYPE::STRING };
+							json_value val { json_value::VALUE_TYPE::STRING };
 							val.str = token->second.to_string();
 							// remove " from front and back
 							val.str.erase(val.str.begin());
@@ -781,7 +783,7 @@ struct json_grammar {
 					auto jnode = (json_node*)matches[0].ast_node.get();
 					switch(jnode->type) {
 						case json_node::JSON_NODE_TYPE::OBJECT: {
-							json::json_value val { json::json_value::VALUE_TYPE::OBJECT };
+							json_value val { json_value::VALUE_TYPE::OBJECT };
 							auto onode = (object_node*)jnode;
 							for(auto& obj : onode->objects) {
 								val.object.members.emplace_back(move(((member_node*)obj.get())->name),
@@ -791,7 +793,7 @@ struct json_grammar {
 							return { make_unique<value_node>(move(val)) };
 						}
 						case json_node::JSON_NODE_TYPE::ARRAY: {
-							json::json_value val { json::json_value::VALUE_TYPE::ARRAY };
+							json_value val { json_value::VALUE_TYPE::ARRAY };
 							auto anode = (array_node*)jnode;
 							for(auto& elem : anode->values) {
 								val.array.values.emplace_back(move(((value_node*)elem.get())->value));
@@ -860,9 +862,9 @@ struct json_grammar {
 		element_list.on_match(push_to_parent_even);
 	}
 	
-	bool parse(parser_context& ctx, json::document& doc) {
+	bool parse(parser_context& ctx, document& doc_) {
 		// parse
-		document = &doc;
+		doc = &doc_;
 		json_text.match(ctx);
 		
 		// if the end hasn't been reached, we have an error
@@ -884,12 +886,12 @@ struct json_grammar {
 		}
 		
 		// done
-		doc.valid = true;
+		doc->valid = true;
 		return true;
 	}
 };
 
-json::document json::create_document(const string& filename) {
+document create_document(const string& filename) {
 	string json_data = "";
 	if(!file_io::file_to_string(filename, json_data)) {
 		log_error("failed to read json file \"%s\"!", filename);
@@ -898,7 +900,7 @@ json::document json::create_document(const string& filename) {
 	return create_document_from_string(json_data, filename);
 }
 
-json::document json::create_document_from_string(const string& json_data, const string identifier) {
+document create_document_from_string(const string& json_data, const string identifier) {
 	const auto is_valid_utf8 = unicode::validate_utf8_string(json_data);
 	if(!is_valid_utf8.first) {
 		log_error("JSON data \"%s\" is not UTF-8 encoded or contains invalid UTF-8 code points!",
@@ -929,7 +931,7 @@ json::document json::create_document_from_string(const string& json_data, const 
 	return doc;
 }
 
-template <typename T> static pair<bool, T> extract_value(const json::document& doc, const string& path) {
+template <typename T> static pair<bool, T> extract_value(const document& doc, const string& path) {
 	// empty path -> return root value
 	if(path.empty()) {
 		const auto ret = doc.root.get<T>();
@@ -938,14 +940,14 @@ template <typename T> static pair<bool, T> extract_value(const json::document& d
 	}
 	
 	// check if root is actually an object that we can traverse
-	if(doc.root.type != json::json_value::VALUE_TYPE::OBJECT) {
+	if(doc.root.type != json_value::VALUE_TYPE::OBJECT) {
 		log_error("root value is not an object!");
 		return { false, T {} };
 	}
 	
 	// tokenize input path, then traverse
 	const auto path_stack = core::tokenize(path, '.');
-	const json::json_value* cur_node = &doc.root;
+	const json_value* cur_node = &doc.root;
 	for(size_t i = 0, count = path_stack.size(); i < count; ++i) {
 		const auto& key = path_stack[i];
 		bool found = false;
@@ -972,7 +974,7 @@ template <typename T> static pair<bool, T> extract_value(const json::document& d
 		}
 		
 		// check if child node is actually a json object
-		if(cur_node->type != json::json_value::VALUE_TYPE::OBJECT) {
+		if(cur_node->type != json_value::VALUE_TYPE::OBJECT) {
 			log_error("found child node (%s) is not a json object (path: %s)!", key, path);
 			return { false, T {} };
 		}
@@ -980,43 +982,45 @@ template <typename T> static pair<bool, T> extract_value(const json::document& d
 	return { false, T {} };
 }
 
-template<> string json::document::get<string>(const string& path, const string default_value) const {
+template<> string document::get<string>(const string& path, const string default_value) const {
 	const auto ret = extract_value<string>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> float json::document::get<float>(const string& path, const float default_value) const {
+template<> float document::get<float>(const string& path, const float default_value) const {
 	const auto ret = extract_value<float>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> double json::document::get<double>(const string& path, const double default_value) const {
+template<> double document::get<double>(const string& path, const double default_value) const {
 	const auto ret = extract_value<double>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> uint64_t json::document::get<uint64_t>(const string& path, const uint64_t default_value) const {
+template<> uint64_t document::get<uint64_t>(const string& path, const uint64_t default_value) const {
 	const auto ret = extract_value<uint64_t>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> int64_t json::document::get<int64_t>(const string& path, const int64_t default_value) const {
+template<> int64_t document::get<int64_t>(const string& path, const int64_t default_value) const {
 	const auto ret = extract_value<int64_t>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> uint32_t json::document::get<uint32_t>(const string& path, const uint32_t default_value) const {
+template<> uint32_t document::get<uint32_t>(const string& path, const uint32_t default_value) const {
 	const auto ret = extract_value<uint32_t>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> int32_t json::document::get<int32_t>(const string& path, const int32_t default_value) const {
+template<> int32_t document::get<int32_t>(const string& path, const int32_t default_value) const {
 	const auto ret = extract_value<int32_t>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> bool json::document::get<bool>(const string& path, const bool default_value) const {
+template<> bool document::get<bool>(const string& path, const bool default_value) const {
 	const auto ret = extract_value<bool>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> json::json_object json::document::get<json::json_object>(const string& path, const json::json_object default_value) const {
-	const auto ret = extract_value<json::json_object>(*this, path);
+template<> json_object document::get<json_object>(const string& path, const json_object default_value) const {
+	const auto ret = extract_value<json_object>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
-template<> json::json_array json::document::get<vector<json::json_value>>(const string& path, const json::json_array default_value) const {
-	const auto ret = extract_value<json::json_array>(*this, path);
+template<> json_array document::get<vector<json_value>>(const string& path, const json_array default_value) const {
+	const auto ret = extract_value<json_array>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
+
+} // json

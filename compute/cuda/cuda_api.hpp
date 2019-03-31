@@ -352,14 +352,14 @@ enum class CU_MEM_HOST_ALLOC : uint32_t {
 	DEVICE_MAP = 2,
 	WRITE_COMBINED = 4
 };
-floor_global_enum_ext(CU_MEM_HOST_ALLOC)
+floor_global_enum_no_hash_ext(CU_MEM_HOST_ALLOC)
 
 enum class CU_MEM_HOST_REGISTER : uint32_t {
 	PORTABLE = 1,
 	DEVICE_MAP = 2,
 	IO_MEMORY = 4
 };
-floor_global_enum_ext(CU_MEM_HOST_REGISTER)
+floor_global_enum_no_hash_ext(CU_MEM_HOST_REGISTER)
 
 enum class CU_GRAPHICS_REGISTER_FLAGS : uint32_t {
 	NONE = 0,
@@ -368,7 +368,7 @@ enum class CU_GRAPHICS_REGISTER_FLAGS : uint32_t {
 	SURFACE_LOAD_STORE = 4,
 	TEXTURE_GATHER = 8
 };
-floor_global_enum_ext(CU_GRAPHICS_REGISTER_FLAGS)
+floor_global_enum_no_hash_ext(CU_GRAPHICS_REGISTER_FLAGS)
 
 enum class CU_CONTEXT_FLAGS : uint32_t {
 	SCHEDULE_AUTO = 0,
@@ -378,7 +378,7 @@ enum class CU_CONTEXT_FLAGS : uint32_t {
 	MAP_HOST = 8,
 	LMEM_RESIZE_TO_MAX = 16,
 };
-floor_global_enum_ext(CU_CONTEXT_FLAGS)
+floor_global_enum_no_hash_ext(CU_CONTEXT_FLAGS)
 
 enum class CU_STREAM_FLAGS : uint32_t {
 	DEFAULT = 0,
@@ -394,7 +394,7 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	DEPTH_TEXTURE __attribute__((unavailable("unsupported"))) = 16,
 	COLOR_ATTACHMENT __attribute__((unavailable("unsupported"))) = 32,
 };
-floor_global_enum_ext(CU_ARRAY_3D_FLAGS)
+floor_global_enum_no_hash_ext(CU_ARRAY_3D_FLAGS)
 
 enum class CU_TEXTURE_FLAGS : uint32_t {
 	NONE = 0,
@@ -402,7 +402,7 @@ enum class CU_TEXTURE_FLAGS : uint32_t {
 	NORMALIZED_COORDINATES = 2,
 	SRGB = 16,
 };
-floor_global_enum_ext(CU_TEXTURE_FLAGS)
+floor_global_enum_no_hash_ext(CU_TEXTURE_FLAGS)
 
 enum class CU_EVENT_FLAGS : uint32_t {
 	DEFAULT 		= 0u,

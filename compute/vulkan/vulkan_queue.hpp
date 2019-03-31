@@ -24,7 +24,6 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/compute/compute_queue.hpp>
-#include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <bitset>
 
 class vulkan_queue final : public compute_queue {
@@ -74,11 +73,7 @@ protected:
 	mutable safe_mutex cmd_buffers_lock;
 	static constexpr const uint32_t cmd_buffer_count {
 		// make use of optimized bitset
-#if defined(PLATFORM_X64)
 		64
-#else
-		32
-#endif
 	};
 	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
 	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);

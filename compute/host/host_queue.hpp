@@ -24,7 +24,6 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
 #include <floor/compute/compute_queue.hpp>
-#include <floor/compute/host/host_kernel.hpp>
 #include <floor/compute/host/host_device.hpp>
 
 class host_queue final : public compute_queue {

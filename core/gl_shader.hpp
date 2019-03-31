@@ -48,11 +48,7 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 #if !defined(FLOOR_IOS)
 													 const uint32_t glsl_version = 150, // glsl 1.50 core
 #else
-#if defined(PLATFORM_X64)
 													 const uint32_t glsl_version = 300, // glsl es 3.00
-#else
-													 const uint32_t glsl_version = 100, // glsl es 1.00
-#endif
 #endif
 													 const vector<pair<string, int32_t>> options = {});
 
@@ -62,11 +58,7 @@ floor_inline_always pair<bool, floor_shader_object> floor_compile_shader(const c
 #if !defined(FLOOR_IOS)
 																		 const uint32_t glsl_version = 150, // glsl 1.50 core
 #else
-#if defined(PLATFORM_X64)
 																		 const uint32_t glsl_version = 300, // glsl es 3.00
-#else
-																		 const uint32_t glsl_version = 100, // glsl es 1.00
-#endif
 #endif
 																		 const vector<pair<string, int32_t>> options = {}) {
 	return floor_compile_shader(name, vs_text, nullptr, fs_text, glsl_version, options);

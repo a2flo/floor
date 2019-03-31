@@ -21,8 +21,7 @@
 
 #include <floor/core/cpp_headers.hpp>
 
-class json {
-public:
+namespace json {
 	struct json_member;
 	struct json_value;
 	typedef vector<json_member> json_object;
@@ -198,20 +197,13 @@ public:
 	};
 	
 	//! reads the json file specified by 'filename' and creates a json document from it
-	static document create_document(const string& filename);
+	document create_document(const string& filename);
 	
 	//! creates a json document from the in-memory json data
 	//! 'identifier' is used for error reporting/identification
-	static document create_document_from_string(const string& json_data,
-												const string identifier = "");
-	
-protected:
-	// static class
-	json(const json&) = delete;
-	~json() = delete;
-	json& operator=(const json&) = delete;
+	document create_document_from_string(const string& json_data, const string identifier = "");
 
-};
+} // json
 
 
 // explicit specializations of the json document getters

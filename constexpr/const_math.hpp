@@ -32,7 +32,6 @@
 #endif
 #endif
 #include <floor/core/essentials.hpp>
-#include <floor/constexpr/soft_i128.hpp>
 #include <floor/constexpr/soft_f16.hpp>
 #include <floor/constexpr/ext_traits.hpp>
 #include <floor/math/constants.hpp>
@@ -353,7 +352,7 @@ namespace const_math {
 		}
 	}
 	
-#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32) // no 128-bit types
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) // no 128-bit types
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
 	__attribute__((pure, const)) constexpr __uint128_t binomial_128(__uint128_t n, __uint128_t k) {
@@ -1502,7 +1501,6 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int32_t)
 	
-#if !defined(FLOOR_NO_INT64_SUPPORT)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int64_t)
@@ -1513,7 +1511,6 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int64_t)
-#endif
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint8_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint8_t)
@@ -1548,7 +1545,6 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint32_t)
 	
-#if !defined(FLOOR_NO_INT64_SUPPORT)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint64_t)
@@ -1559,7 +1555,6 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint64_t)
-#endif
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, bool)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, bool)
@@ -1608,8 +1603,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, ssize_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, ssize_t)
 #endif
-#if defined(__APPLE__) || \
-    (defined(FLOOR_COMPUTE_CUDA) && defined(PLATFORM_X64))
+#if defined(__APPLE__) || defined(FLOOR_COMPUTE_CUDA)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, size_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, size_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)

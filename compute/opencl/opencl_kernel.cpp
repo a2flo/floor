@@ -27,24 +27,65 @@
 opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-opencl_kernel::~opencl_kernel() {}
-
 typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue* queue) const {
 	return kernels.find((opencl_device*)queue->get_device().get());
 }
 
-void opencl_kernel::execute_internal(shared_ptr<arg_handler> handler,
-									 compute_queue* queue,
-									 const opencl_kernel_entry& entry,
-									 const uint32_t& work_dim,
-									 const uint3& global_work_size,
-									 const uint3& local_work_size) const {
+void opencl_kernel::execute(compute_queue* queue_ptr,
+							const bool& is_cooperative,
+							const uint32_t& work_dim,
+							const uint3& global_work_size,
+							const uint3& local_work_size_,
+							const vector<compute_kernel_arg>& args) REQUIRES(!args_lock) {
+	// no cooperative support yet
+	if (is_cooperative) {
+		log_error("cooperative kernel execution is not supported for OpenCL");
+		return;
+	}
+	
+	// find entry for queue device
+	const auto kernel_iter = get_kernel(queue_ptr);
+	if(kernel_iter == kernels.cend()) {
+		log_error("no kernel for this compute queue/device exists!");
+		return;
+	}
+	
+	// check work size
+	const uint3 local_work_size = check_local_work_size(kernel_iter->second, local_work_size_);
+	
+	// create arg handler (needed if param workaround is necessary)
+	auto handler = create_arg_handler(queue_ptr);
+	
+	// need to make sure that only one thread is setting kernel arguments at a time
+	GUARD(args_lock);
+	
+	// set and handle kernel arguments
+	uint32_t total_idx = 0, arg_idx = 0;
+	const opencl_kernel_entry& entry = kernel_iter->second;
+	for (const auto& arg : args) {
+		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+			set_kernel_argument(total_idx, arg_idx, handler.get(), entry, *buf_ptr);
+		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+			set_kernel_argument(total_idx, arg_idx, handler.get(), entry, *img_ptr);
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+			log_error("array of images is not supported for OpenCL");
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+			log_error("array of images is not supported for OpenCL");
+		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+			set_const_kernel_argument(total_idx, arg_idx, handler.get(), entry, const_cast<void*>(*generic_arg_ptr) /* non-const b/c OpenCL */, arg.size);
+		} else {
+			log_error("encountered invalid arg");
+			return;
+		}
+		++total_idx;
+	}
+	
+	// run
 	const size3 global_ws { global_work_size };
 	const size3 local_ws { local_work_size };
-	
 	const bool has_tmp_buffers = !handler->args.empty();
 	cl_event wait_evt = nullptr;
-	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
+	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)queue_ptr->get_queue_ptr(),
 									   entry.kernel, work_dim, nullptr,
 									   global_ws.data(), local_ws.data(),
 									   0, nullptr,
@@ -85,6 +126,33 @@ void opencl_kernel::set_const_kernel_argument(uint32_t& total_idx, uint32_t& arg
 	handler->args.emplace_back(param_buf);
 	
 	set_kernel_argument(total_idx, arg_idx, nullptr, entry, (const compute_buffer*)param_buf.get());
+}
+
+void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, arg_handler*,
+										const opencl_kernel_entry& entry,
+										const compute_buffer* arg) const {
+	CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
+							   &((const opencl_buffer*)arg)->get_cl_buffer()),
+				"failed to set buffer kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
+	++arg_idx;
+}
+
+void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, arg_handler* handler,
+										const opencl_kernel_entry& entry,
+										const compute_image* arg) const {
+	CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
+							   &((const opencl_image*)arg)->get_cl_image()),
+				"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
+	++arg_idx;
+	
+	// legacy s/w read/write image -> set it twice
+	if(entry.info->args[total_idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE &&
+	   !handler->device->image_read_write_support) {
+		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
+								   &((const opencl_image*)arg)->get_cl_image()),
+					"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
+		++arg_idx;
+	}
 }
 
 #endif

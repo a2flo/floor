@@ -30,9 +30,11 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_toolchain::create_floor_function_info(const string& ffi_file_name,
-												vector<llvm_toolchain::function_info>& functions,
-												const uint32_t toolchain_version floor_unused) {
+namespace llvm_toolchain {
+
+bool create_floor_function_info(const string& ffi_file_name,
+								vector<function_info>& functions,
+								const uint32_t toolchain_version floor_unused) {
 	string ffi = "";
 	if(!file_io::file_to_string(ffi_file_name, ffi)) {
 		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
@@ -93,22 +95,17 @@ bool llvm_toolchain::create_floor_function_info(const string& ffi_file_name,
 				log_error("invalid arg info (in %s): %s", ffi_file_name, tokens[i]);
 			}
 			
-			info.args.emplace_back(llvm_toolchain::function_info::arg_info {
+			info.args.emplace_back(function_info::arg_info {
 				.size			= (uint32_t)
-				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::ARG_SIZE_MASK)) >>
-				 uint64_t(llvm_toolchain::FLOOR_METADATA::ARG_SIZE_SHIFT)),
-				.address_space	= (llvm_toolchain::function_info::ARG_ADDRESS_SPACE)
-				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
-				 uint64_t(llvm_toolchain::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-				.image_type		= (llvm_toolchain::function_info::ARG_IMAGE_TYPE)
-				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
-				 uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-				.image_access	= (llvm_toolchain::function_info::ARG_IMAGE_ACCESS)
-				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
-				 uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-				.special_type	= (llvm_toolchain::function_info::SPECIAL_TYPE)
-				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
-				 uint64_t(llvm_toolchain::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
+				((data & uint64_t(FLOOR_METADATA::ARG_SIZE_MASK)) >> uint64_t(FLOOR_METADATA::ARG_SIZE_SHIFT)),
+				.address_space	= (function_info::ARG_ADDRESS_SPACE)
+				((data & uint64_t(FLOOR_METADATA::ADDRESS_SPACE_MASK)) >> uint64_t(FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
+				.image_type		= (function_info::ARG_IMAGE_TYPE)
+				((data & uint64_t(FLOOR_METADATA::IMAGE_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
+				.image_access	= (function_info::ARG_IMAGE_ACCESS)
+				((data & uint64_t(FLOOR_METADATA::IMAGE_ACCESS_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
+				.special_type	= (function_info::SPECIAL_TYPE)
+				((data & uint64_t(FLOOR_METADATA::SPECIAL_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
 			});
 		}
 		
@@ -118,29 +115,28 @@ bool llvm_toolchain::create_floor_function_info(const string& ffi_file_name,
 	return true;
 }
 
-llvm_toolchain::program_data llvm_toolchain::compile_program(shared_ptr<compute_device> device,
-															 const string& code,
-															 const compile_options options) {
+program_data compile_program(shared_ptr<compute_device> device,
+							 const string& code,
+							 const compile_options options) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	return compile_input("-", printable_code, device, options);
 }
 
-llvm_toolchain::program_data llvm_toolchain::compile_program_file(shared_ptr<compute_device> device,
-																  const string& filename,
-																  const compile_options options) {
+program_data compile_program_file(shared_ptr<compute_device> device,
+								  const string& filename,
+								  const compile_options options) {
 	return compile_input("\"" + filename + "\"", "", device, options);
 }
 
-llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
-														   const string& cmd_prefix,
-														   shared_ptr<compute_device> device,
-														   const compile_options options) {
+program_data compile_input(const string& input,
+						   const string& cmd_prefix,
+						   shared_ptr<compute_device> device,
+						   const compile_options options) {
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
 	uint32_t ptx_version = max(43u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 4.3)
-	uint32_t bitness = device->bitness; // can be overwritten by target
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
@@ -150,7 +146,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
-				" -target " + (bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -target spir64-unknown-unknown" \
 				" -llvm-bc-32" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -255,7 +251,6 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
-				// NOTE: always compiling to 64-bit here, because 32-bit never existed
 				" -x metal -std=" + metal_std + " -target air64-apple-" + os_target +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
@@ -318,7 +313,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
-				" -target " + (bitness == 32 ? "i386--" : "x86_64--") +
+				" -target x86_64--" +
 				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
@@ -332,7 +327,6 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		} break;
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
-			bitness = 32; // always 32-bit for now
 			output_file_type = "spvc";
 			
 			// still compiling this as opencl for now
@@ -340,7 +334,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x vulkan -std=vulkan1.0" \
 				" -llvm-spirv-container" \
-				" -target spir-unknown-unknown-vulkan" +
+				" -target spir64-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -370,7 +364,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
 				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
-				" -target " + (bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -target spir64-unknown-unknown" \
 				" -llvm-spirv" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -696,18 +690,11 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		case TARGET::SPIRV_VULKAN: {
 			const auto vk_device = (const vulkan_device*)device.get();
 			const auto has_int16_support = to_string(vk_device->int16_support);
-			const auto has_int64_support = to_string(vk_device->int64_support);
 			const auto has_float16_support = to_string(vk_device->float16_support);
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT="s + has_int16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_"s + has_int16_support;
-			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT="s + has_int64_support;
-			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_"s + has_int64_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT="s + has_float16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT_"s + has_float16_support;
-
-			if(!vk_device->int64_support) {
-				clang_cmd += " -DFLOOR_NO_INT64_SUPPORT";
-			}
 			break;
 		}
 		default: break;
@@ -760,9 +747,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		" -mllvm -rotation-max-header-size=64" +
 		(options.enable_warnings ? warning_flags : " ") +
 		options.cli +
-		// compile to the right device bitness
-		(bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
-		" -emit-llvm -c -o " + compiled_file_or_code + " " + input
+		" -m64 -emit-llvm -c -o " + compiled_file_or_code + " " + input
 	};
 	
 	// on sane systems, redirect errors to stdout so that we can grab them
@@ -894,3 +879,5 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	
 	return { true, compiled_file_or_code, functions, options };
 }
+
+} // llvm_toolchain

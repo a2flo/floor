@@ -38,9 +38,7 @@ static size_t compute_kernel_args_size(const llvm_toolchain::function_info& info
 			ret += sizeof(uint64_t) * 1 /* surface */;
 			ret += sizeof(cu_device_ptr) * 1 /* surfaces lod buffer */;
 			ret += sizeof(COMPUTE_IMAGE_TYPE);
-#if defined(PLATFORM_X64)
 			ret += 4 /* padding */;
-#endif
 		}
 		else ret += sizeof(void*);
 	}

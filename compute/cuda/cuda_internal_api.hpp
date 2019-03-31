@@ -164,17 +164,10 @@ using cu_texture_ref_75 = cu_texture_ref_template<7050>;
 using cu_texture_ref_80 = cu_texture_ref_template<8000>;
 
 // check if sizes/offsets are correct
-#if defined(PLATFORM_X64)
 static_assert(sizeof(cu_texture_ref_75) == 0x1B0, "invalid cu_texture_ref size");
 static_assert(sizeof(cu_texture_ref_80) == 0x1C0, "invalid cu_texture_ref size");
 static_assert(offsetof(cu_texture_ref_75, sampler_enum) == 352, "invalid sampler enum offset");
 static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 368, "invalid sampler enum offset");
-#else
-static_assert(sizeof(cu_texture_ref_75) == 0x158, "invalid cu_texture_ref size");
-static_assert(sizeof(cu_texture_ref_80) == 0x168, "invalid cu_texture_ref size");
-static_assert(offsetof(cu_texture_ref_75, sampler_enum) == 284, "invalid sampler enum offset");
-static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 300, "invalid sampler enum offset");
-#endif
 
 #endif
 

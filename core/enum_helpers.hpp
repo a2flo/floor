@@ -102,4 +102,10 @@ enum_class_bitwise_complement_global(enum_class) \
 enum_class_hash(enum_class) \
 enum_class_has_flag(enum_class)
 
+#define floor_global_enum_no_hash_ext(enum_class) \
+enum_class_bitwise_or_global(enum_class) \
+enum_class_bitwise_and_global(enum_class) \
+enum_class_bitwise_complement_global(enum_class) \
+enum_class_has_flag(enum_class)
+
 #endif

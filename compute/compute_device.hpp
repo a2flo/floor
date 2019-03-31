@@ -134,8 +134,6 @@ public:
 	uint3 max_image_3d_dim;
 	//! max amount of mip-levels that can exist
 	uint32_t max_mip_levels { 1 };
-	//! bitness of the device (32 or 64)
-	uint32_t bitness { 32u };
 	
 	//! true if the device supports double precision floating point computation
 	bool double_support { false };

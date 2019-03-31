@@ -41,7 +41,4 @@ vulkan_device::vulkan_device() : compute_device() {
 	image_depth_compare_support = true;
 	image_gather_support = false; // for now (needs floor support)
 	image_read_write_support = false;
-	
-	// for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
-	bitness = 32;
 }

@@ -23,8 +23,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <memory>
 
-class llvm_toolchain {
-public:
+namespace llvm_toolchain {
 	//! compilation target platform
 	enum class TARGET {
 		//! OpenCL SPIR 1.2
@@ -166,7 +165,7 @@ public:
 		GATHER					= (1u << 21u),
 		READ_WRITE				= (1u << 22u),
 	};
-	floor_enum_ext(IMAGE_CAPABILITY)
+	floor_global_enum_no_hash_ext(IMAGE_CAPABILITY)
 	
 	//! compilation options that will either be passed through to the compiler or enable/disable internal behavior
 	struct compile_options {
@@ -221,32 +220,26 @@ public:
 	};
 	
 	//! compiles a program from a source code string
-	static program_data compile_program(shared_ptr<compute_device> device,
-										const string& code,
-										const compile_options options);
+	program_data compile_program(shared_ptr<compute_device> device,
+								 const string& code,
+								 const compile_options options);
 	//! compiles a program from a source file
-	static program_data compile_program_file(shared_ptr<compute_device> device,
-											 const string& filename,
-											 const compile_options options);
+	program_data compile_program_file(shared_ptr<compute_device> device,
+									  const string& filename,
+									  const compile_options options);
 	
 	//! compiles a program from the specified input file/handle and prefixes the compiler call with "cmd_prefix"
-	static program_data compile_input(const string& input,
-									  const string& cmd_prefix,
-									  shared_ptr<compute_device> device,
-									  const compile_options options);
+	program_data compile_input(const string& input,
+							   const string& cmd_prefix,
+							   shared_ptr<compute_device> device,
+							   const compile_options options);
 	
 	//! creates the internal floor function info representation from the specified floor function info,
 	//! returns true on success
-	static bool create_floor_function_info(const string& ffi_file_name,
-										   vector<llvm_toolchain::function_info>& functions,
-										   const uint32_t toolchain_version);
-	
-protected:
-	// static class
-	llvm_toolchain(const llvm_toolchain&) = delete;
-	~llvm_toolchain() = delete;
-	llvm_toolchain& operator=(const llvm_toolchain&) = delete;
-	
-};
+	bool create_floor_function_info(const string& ffi_file_name,
+									vector<function_info>& functions,
+									const uint32_t toolchain_version);
+
+} // llvm_toolchain
 
 #endif

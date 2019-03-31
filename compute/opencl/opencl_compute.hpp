@@ -27,9 +27,9 @@
 #include <floor/compute/opencl/opencl_buffer.hpp>
 #include <floor/compute/opencl/opencl_image.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
-#include <floor/compute/opencl/opencl_kernel.hpp>
 #include <floor/compute/opencl/opencl_program.hpp>
 #include <floor/compute/opencl/opencl_queue.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 class opencl_compute final : public compute_context {
 public:

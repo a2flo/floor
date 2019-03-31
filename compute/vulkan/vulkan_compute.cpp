@@ -173,11 +173,17 @@ compute_context(), enable_renderer(enable_renderer_) {
 			if(!found) continue;
 		}
 		
+		// devices must support int64
+		if (!features.shaderInt64) {
+			log_error("device %s does not support shaderInt64", props.deviceName);
+			continue;
+		}
+		
 		// handle device queue info + create queue info, we're going to create as many queues as are allowed by the device
 		uint32_t queue_family_count = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, nullptr);
 		if(queue_family_count == 0) {
-			log_error("device supports no queue families");
+			log_error("device %s supports no queue families", props.deviceName);
 			continue;
 		}
 		
@@ -190,7 +196,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 			max_queue_count = max(max_queue_count, dev_queue_family_props[i].queueCount);
 		}
 		if(max_queue_count == 0) {
-			log_error("device supports no queues");
+			log_error("device %s supports no queues", props.deviceName);
 			continue;
 		}
 		const vector<float> priorities(max_queue_count, 0.0f);
@@ -369,7 +375,6 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device->max_anisotropy = (device->anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
 		
 		device->int16_support = features.shaderInt16;
-		device->int64_support = features.shaderInt64;
 		//device->float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
 		device->double_support = features.shaderFloat64;
 

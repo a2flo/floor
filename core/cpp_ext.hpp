@@ -37,19 +37,9 @@ floor_inline_always static uint32_t stou(const string& str, size_t* pos = nullpt
 #endif
 // same for size_t
 #if !defined(FLOOR_NO_STOSIZE)
-#if defined(PLATFORM_X32)
-floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
-	const auto ret = stoull(str, pos, base);
-	if(ret > 0xFFFFFFFFull) {
-		return (size_t)numeric_limits<uint32_t>::max();
-	}
-	return (unsigned int)ret;
-}
-#elif defined(PLATFORM_X64)
 floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
 	return (size_t)stoull(str, pos, base);
 }
-#endif
 #endif
 // and for bool
 #if !defined(FLOOR_NO_STOB)

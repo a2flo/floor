@@ -27,9 +27,9 @@
 #include <floor/compute/cuda/cuda_buffer.hpp>
 #include <floor/compute/cuda/cuda_image.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
-#include <floor/compute/cuda/cuda_kernel.hpp>
 #include <floor/compute/cuda/cuda_program.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 class cuda_compute final : public compute_context {
 public:

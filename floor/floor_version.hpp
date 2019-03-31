@@ -30,8 +30,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 3
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xa9
-#define FLOOR_DEV_STAGE_VERSION_STR "a9"
+#define FLOOR_DEV_STAGE_VERSION 0xaA
+#define FLOOR_DEV_STAGE_VERSION_STR "a10"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -79,9 +79,9 @@
 #endif
 
 #if !defined(FLOOR_IOS)
-#define FLOOR_PLATFORM (sizeof(void*) == 4 ? "x86" : (sizeof(void*) == 8 ? "x64" : "unknown"))
+#define FLOOR_PLATFORM (sizeof(void*) == 8 ? "x64" : "unknown")
 #else
-#define FLOOR_PLATFORM (sizeof(void*) == 4 ? "ARM32" : (sizeof(void*) == 8 ? "ARM64" : "unknown"))
+#define FLOOR_PLATFORM (sizeof(void*) == 8 ? "ARM64" : "unknown")
 #endif
 
 #define FLOOR_VERSION_STRING (string("floor ")+FLOOR_PLATFORM+FLOOR_DEBUG_STR \
@@ -102,8 +102,8 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 4) || (__clang_major__ == 4 && __clang_minor__ < 0)
-#error "Sorry, but you need Clang 4.0+ to compile floor"
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 6) || (__clang_major__ == 6 && __clang_minor__ < 0)
+#error "Sorry, but you need Clang 6.0+ to compile floor"
 #endif
 
 // gcc check

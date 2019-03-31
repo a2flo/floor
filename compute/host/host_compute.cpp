@@ -33,7 +33,6 @@
 
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/universal_binary.hpp>
-#include <floor/floor/floor.hpp>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
 #include <sys/types.h>
@@ -81,11 +80,7 @@ host_compute::host_compute() : compute_context() {
 	// TODO: cpuid from elsewhere?
 #else // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
 	// -> hardcode the name for now
-#if defined(PLATFORM_X32)
-	cpu_name = "Apple ARMv7";
-#else
 	cpu_name = "Apple ARMv8";
-#endif
 #endif
 	
 	// now onto getting the cpu clock speed:
@@ -103,11 +98,7 @@ host_compute::host_compute() : compute_context() {
 #endif
 	
 #elif (defined(__APPLE__) && defined(FLOOR_IOS)) // can't query this on ios, hardcore it with somewhat accurate values
-#if defined(PLATFORM_X32)
-	cpu_clock = 800; // at least
-#else
 	cpu_clock = 1300; // at least
-#endif
 	
 #elif defined(__OpenBSD__) // also sysctl, but different
 	uint32_t cpu_clock_32 = 0;

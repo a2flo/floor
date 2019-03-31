@@ -287,8 +287,6 @@ namespace universal_binary {
 					cl_dev.simd_range = { cl_dev.simd_width, cl_dev.simd_width };
 				}
 				
-				cl_dev.bitness = 64; // TODO: add option for this?
-				
 				// device type
 				switch (cl_target.device_target) {
 					case decltype(cl_target.device_target)::GENERIC:
@@ -373,7 +371,6 @@ namespace universal_binary {
 				options.cuda.max_registers = cuda_target.max_registers;
 				
 				cuda_dev.image_depth_compare_support = cuda_target.image_depth_compare_support;
-				cuda_dev.bitness = 64;
 				
 				// NOTE: other fixed device info is already set in the cuda_device constructor
 				
@@ -396,7 +393,6 @@ namespace universal_binary {
 				mtl_dev.family = 1; // can't be overwritten right now
 				mtl_dev.family_version = 1; // can't be overwritten right now
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
-				mtl_dev.bitness = 64;
 				mtl_dev.double_support = false; // always disabled for now
 				
 				// overwrite compute_device/metal_device defaults
@@ -463,7 +459,6 @@ namespace universal_binary {
 				options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 				vlk_dev.vulkan_version = vulkan_version_from_uint(vlk_target.vulkan_major, vlk_target.vulkan_minor);
 				vlk_dev.spirv_version = spirv_version_from_uint(vlk_target.spirv_major, vlk_target.spirv_minor);
-				vlk_dev.bitness = 32; // always 32-bit for now
 				vlk_dev.platform_vendor = COMPUTE_VENDOR::KHRONOS;
 				vlk_dev.type = compute_device::TYPE::GPU0;
 				

@@ -24,7 +24,6 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_queue.hpp>
-#include <floor/compute/cuda/cuda_kernel.hpp>
 
 class cuda_queue final : public compute_queue {
 public:

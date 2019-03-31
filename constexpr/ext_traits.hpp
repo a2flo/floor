@@ -28,7 +28,6 @@
 #endif
 
 #include <floor/core/essentials.hpp>
-#include <floor/constexpr/soft_i128.hpp>
 #include <floor/constexpr/soft_f16.hpp>
 using namespace std;
 
