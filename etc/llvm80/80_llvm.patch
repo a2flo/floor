@@ -49549,10 +49549,10 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..6a654629792
+index 00000000000..a9260fc922b
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,1016 @@
+@@ -0,0 +1,1048 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -49883,6 +49883,9 @@ index 00000000000..6a654629792
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		
++		// any function args
++		Argument* soft_printf { nullptr };
++		
 +		MetalFinal(const bool enable_intel_workarounds_ = false,
 +				   const bool enable_nvidia_workarounds_ = false) :
 +		FunctionPass(ID),
@@ -50032,10 +50035,16 @@ index 00000000000..6a654629792
 +				}
 +			}
 +			
++			// check for soft-printf
++			bool has_soft_printf = false;
++			if (auto soft_printf_meta = M->getNamedMetadata("floor.metal_soft_printf")) {
++				has_soft_printf = true;
++			}
++			
 +			// get args if this is a kernel function
 +			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			if(is_kernel_func) {
-+				if (F.arg_size() >= (has_sub_group_support ? METAL_KERNEL_SUB_GROUPS_ARG_COUNT : METAL_KERNEL_ARG_COUNT)) {
++				if (F.arg_size() >= (has_sub_group_support ? METAL_KERNEL_SUB_GROUPS_ARG_COUNT : METAL_KERNEL_ARG_COUNT) + (has_soft_printf ? 1 : 0)) {
 +					int32_t rev_idx = -1;
 +					if (has_sub_group_support) {
 +						num_sub_groups = get_arg_by_idx(rev_idx--);
@@ -50049,6 +50058,9 @@ index 00000000000..6a654629792
 +					local_id = get_arg_by_idx(rev_idx--);
 +					global_size = get_arg_by_idx(rev_idx--);
 +					global_id = get_arg_by_idx(rev_idx--);
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(rev_idx--);
++					}
 +				} else {
 +					errs() << "invalid kernel function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					global_id = nullptr;
@@ -50061,30 +50073,39 @@ index 00000000000..6a654629792
 +					sub_group_local_id = nullptr;
 +					sub_group_size = nullptr;
 +					num_sub_groups = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
 +			// get args if this is a vertex function
 +			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
 +			if(is_vertex_func) {
-+				if (F.arg_size() >= METAL_VERTEX_ARG_COUNT) {
++				if (F.arg_size() >= METAL_VERTEX_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					vertex_id = get_arg_by_idx(METAL_VERTEX_ID);
 +					// TODO: this should be optional / only happen on request
 +					// TODO: handle instance id
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(-(METAL_VERTEX_ARG_COUNT + 1));
++					}
 +				} else {
 +					errs() << "invalid vertex function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					vertex_id = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
 +			// get args if this is a fragment function
 +			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
 +			if(is_fragment_func) {
-+				if (F.arg_size() >= METAL_FRAGMENT_ARG_COUNT) {
++				if (F.arg_size() >= METAL_FRAGMENT_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					point_coord = get_arg_by_idx(METAL_POINT_COORD);
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(-(METAL_FRAGMENT_ARG_COUNT + 1));
++					}
 +				} else {
 +					errs() << "invalid fragment function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					point_coord = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
@@ -50208,6 +50229,17 @@ index 00000000000..6a654629792
 +				}
 +			
 +				I.replaceAllUsesWith(point_coord);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_printf_buffer") {
++				if(soft_printf == nullptr) {
++					DBG(printf("failed to get printf_buffer arg, probably not in a kernel/vertex/fragment function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				// special case
++				I.replaceAllUsesWith(soft_printf);
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -50571,10 +50603,10 @@ index 00000000000..6a654629792
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 00000000000..0f451d983a1
+index 00000000000..ec4c69ae9fa
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,593 @@
+@@ -0,0 +1,592 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -50990,7 +51022,6 @@ index 00000000000..0f451d983a1
 +			read_call->setOnlyAccessesArgMemory();
 +			read_call->setDoesNotThrow();
 +			read_call->setOnlyReadsMemory(); // all reads are readonly (can be optimized away if unused)
-+			read_call->setFast(true);
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
 +			// set sampler* cast attributes if necessary
