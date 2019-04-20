@@ -29,7 +29,7 @@
 class host_device;
 class host_image final : public compute_image {
 public:
-	host_image(host_device* device,
+	host_image(const compute_queue& cqueue,
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   void* host_ptr = nullptr,
@@ -40,17 +40,15 @@ public:
 	
 	~host_image() override;
 	
-	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(const compute_queue* cqueue) override;
+	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	void zero(shared_ptr<compute_queue> cqueue) override;
+	void zero(const compute_queue& cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags =
-											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns a direct pointer to the internal host image buffer
 	uint8_t* __attribute__((aligned(128))) get_host_image_buffer_ptr() const {
@@ -80,7 +78,7 @@ protected:
 	} program_info;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 };
 

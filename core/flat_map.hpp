@@ -28,8 +28,17 @@ using namespace std;
 //! technically O(n) lookup and insert, but usually faster than unordered_map or map for small maps
 template <typename key_type, typename value_type> class flat_map {
 public:
+	//! returns true if the key is a reference
+	static constexpr bool is_ref_key() {
+		return is_lvalue_reference_v<key_type>;
+	}
+	
+	//! if key_type is a reference, we can't actually store it -> use a reference_wrapper for it,
+	//! otherwise: storage_key_type == key_type
+	using storage_key_type = conditional_t<is_ref_key(), reference_wrapper<remove_reference_t<key_type>>, key_type>;
+	
 	//! single <key, value> entry in this map
-	typedef pair<key_type, value_type> entry_type;
+	using entry_type = pair<storage_key_type, value_type>;
 	
 protected:
 	//! map storage
@@ -37,10 +46,28 @@ protected:
 	
 	//! removes all duplicate entries for each unique key in this map
 	void unique() {
-		const auto end_iter = unique(begin(), end(), [](const key_type& kv_1, const value_type& kv_2) {
+		const auto end_iter = unique(begin(), end(), [](const entry_type& kv_1, const entry_type& kv_2) {
 			return (kv_1.first == kv_2.first);
 		});
 		data.erase(end_iter, end());
+	}
+	
+	//! helper function to get the underlying key type from the storage_key_type
+	static const key_type& get_key(const storage_key_type& skey) {
+		if constexpr (is_ref_key()) {
+			return skey.get();
+		} else {
+			return skey;
+		}
+	}
+	
+	//! helper function to get the underlying key type from the storage_key_type
+	static key_type& get_key(storage_key_type& skey) {
+		if constexpr (is_ref_key()) {
+			return skey.get();
+		} else {
+			return skey;
+		}
 	}
 	
 public:
@@ -153,14 +180,14 @@ public:
 	//! returns an iterator to the <key, value> pair corresponding to 'key', returns end() if not found
 	iterator find(const key_type& key) {
 		return find_if(data.begin(), data.end(), [&key](const entry_type& entry) {
-			return (entry.first == key);
+			return (get_key(entry.first) == key);
 		});
 	}
 	
 	//! returns a const_iterator to the <key, value> pair corresponding to 'key', returns end() if not found
 	const_iterator find(const key_type& key) const {
 		return find_if(data.cbegin(), data.cend(), [&key](const entry_type& entry) {
-			return (entry.first == key);
+			return (get_key(entry.first) == key);
 		});
 	}
 	

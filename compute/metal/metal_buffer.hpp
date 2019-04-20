@@ -31,40 +31,40 @@ class metal_device;
 class compute_device;
 class metal_buffer final : public compute_buffer {
 public:
-	metal_buffer(metal_device* device,
+	metal_buffer(const compute_queue& cqueue,
 				 const size_t& size_,
 				 void* host_ptr,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0,
 				 const uint32_t external_gl_object_ = 0) :
-	metal_buffer(false, device, size_, host_ptr, flags_, opengl_type_, external_gl_object_) {}
+	metal_buffer(false, cqueue, size_, host_ptr, flags_, opengl_type_, external_gl_object_) {}
 	
-	metal_buffer(metal_device* device,
+	metal_buffer(const compute_queue& cqueue,
 				 const size_t& size_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(false, device, size_, nullptr, flags_, opengl_type_) {}
+	metal_buffer(false, cqueue, size_, nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
-	metal_buffer(metal_device* device,
+	metal_buffer(const compute_queue& cqueue,
 				 const vector<data_type>& data,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(false, device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+	metal_buffer(false, cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
-	metal_buffer(metal_device* device,
+	metal_buffer(const compute_queue& cqueue,
 				 const array<data_type, n>& data,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(false, device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+	metal_buffer(false, cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
 	
 	//! wraps an already existing metal buffer, with the specified flags and backed by the specified host pointer
-	metal_buffer(shared_ptr<compute_device> device,
+	metal_buffer(const compute_queue& cqueue,
 				 id <MTLBuffer> external_buffer,
 				 void* host_ptr = nullptr,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
@@ -72,38 +72,36 @@ public:
 	
 	~metal_buffer() override;
 	
-	void read(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
+	void read(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
+	void read(const compute_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
 	
-	void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
+	void write(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
+	void write(const compute_queue& cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
 	
-	void copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
+	void copy(const compute_queue& cqueue, const compute_buffer& src,
 			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
 	
-	void fill(shared_ptr<compute_queue> cqueue,
+	void fill(const compute_queue& cqueue,
 			  const void* pattern, const size_t& pattern_size,
 			  const size_t size = 0, const size_t offset = 0) override;
 	
-	void zero(shared_ptr<compute_queue> cqueue) override;
+	void zero(const compute_queue& cqueue) override;
 	
-	bool resize(shared_ptr<compute_queue> cqueue,
+	bool resize(const compute_queue& cqueue,
 				const size_t& size,
 				const bool copy_old_data = false,
 				const bool copy_host_data = false,
 				void* new_host_ptr = nullptr) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags =
-											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-											 COMPUTE_MEMORY_MAP_FLAG::BLOCK),
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),
 											const size_t size = 0,
 											const size_t offset = 0) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
-	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(const compute_queue* cqueue) override;
+	bool release_opengl_object(const compute_queue* cqueue) override;
 	
 	//! returns the metal specific buffer object
 	id <MTLBuffer> get_metal_buffer() const { return buffer; }
@@ -112,12 +110,12 @@ public:
 	MTLResourceOptions get_metal_resource_options() const { return options; }
 	
 	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
-	static void sync_metal_resource(shared_ptr<compute_queue> cqueue, id <MTLResource> rsrc);
+	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc);
 	
 protected:
 	//! protected constructor so that we can decide whether a staging buffer is created
 	metal_buffer(const bool is_staging_buffer_,
-				 metal_device* device,
+				 const compute_queue& cqueue,
 				 const size_t& size_,
 				 void* host_ptr,
 				 const COMPUTE_MEMORY_FLAG flags_,
@@ -143,7 +141,7 @@ protected:
 	unordered_map<void*, metal_mapping> mappings;
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 };
 

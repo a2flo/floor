@@ -46,65 +46,65 @@ public:
 	//////////////////////////////////////////
 	// device functions
 	
-	shared_ptr<compute_queue> create_queue(shared_ptr<compute_device> dev) override;
+	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
 	//////////////////////////////////////////
 	// buffer creation
 	
-	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) override;
+											 const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 void* data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) override;
+											 const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   void* data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation
 	
-	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) override;
+										   const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   void* data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) override;
+										   const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
 										 const uint32_t opengl_image,
 										 const uint32_t opengl_target,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
-	shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
 										 const uint32_t opengl_image,
 										 const uint32_t opengl_target,
 										 void* data,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
@@ -126,15 +126,15 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_toolchain::function_info>& functions) override;
 	
-	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
+	shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																	llvm_toolchain::program_data program,
 																	const llvm_toolchain::TARGET target) override;
 	
 	//////////////////////////////////////////
 	// host specific functions
 	
-	shared_ptr<compute_queue> get_main_queue() {
-		return main_queue;
+	const compute_queue& get_main_queue() {
+		return *main_queue;
 	}
 	
 protected:

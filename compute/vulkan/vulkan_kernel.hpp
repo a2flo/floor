@@ -58,10 +58,10 @@ public:
 		static uint64_t make_spec_key(const uint3& work_group_size);
 		
 		//! specializes/builds a compute pipeline for the specified work-group size
-		vulkan_kernel_entry::spec_entry* specialize(vulkan_device* device,
+		vulkan_kernel_entry::spec_entry* specialize(const vulkan_device& device,
 													const uint3& work_group_size);
 	};
-	typedef flat_map<vulkan_device*, vulkan_kernel_entry> kernel_map_type;
+	typedef flat_map<const vulkan_device&, vulkan_kernel_entry> kernel_map_type;
 	
 	struct idx_handler {
 		// actual argument index (directly corresponding to the c++ source code)
@@ -85,12 +85,12 @@ public:
 	vulkan_kernel(kernel_map_type&& kernels);
 	~vulkan_kernel() override = default;
 	
-	void execute(compute_queue* queue_ptr,
+	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) override;
+				 const vector<compute_kernel_arg>& args) const override;
 	
 	//! NOTE: very wip/temporary
 	struct multi_draw_entry {
@@ -111,7 +111,7 @@ public:
 	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	//! NOTE: 'fragment_shader' can be nullptr when only running a vertex shader
-	template <typename... Args> void multi_draw(compute_queue* queue,
+	template <typename... Args> void multi_draw(const compute_queue& cqueue,
 												// NOTE: this is a vulkan_queue::command_buffer*
 												void* cmd_buffer,
 												const VkPipeline pipeline,
@@ -121,7 +121,7 @@ public:
 												// NOTE: current workaround for not directly submitting cmd buffers
 												vector<shared_ptr<compute_buffer>>& retained_buffers,
 												const vector<multi_draw_entry>& draw_entries,
-												Args&&... args) {
+												Args&&... args) const {
 		if(vertex_shader == nullptr) {
 			log_error("must specify a vertex shader!");
 			return;
@@ -132,7 +132,7 @@ public:
 		const vector<const vulkan_kernel_entry*> shader_entries {
 			vertex_shader, fragment_shader
 		};
-		auto encoder = create_encoder(queue, cmd_buffer, pipeline, pipeline_layout,
+		auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
 									  shader_entries, encoder_success);
 		if(!encoder_success) {
 			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
@@ -145,14 +145,14 @@ public:
 		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
-		draw_internal(encoder, queue, vertex_shader, fragment_shader, retained_buffers,
+		draw_internal(encoder, cqueue, vertex_shader, fragment_shader, retained_buffers,
 					  &draw_entries, nullptr);
 	}
 	
 	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	//! NOTE: 'fragment_shader' can be nullptr when only running a vertex shader
-	template <typename... Args> void multi_draw_indexed(compute_queue* queue,
+	template <typename... Args> void multi_draw_indexed(const compute_queue& cqueue,
 														// NOTE: this is a vulkan_queue::command_buffer*
 														void* cmd_buffer,
 														const VkPipeline pipeline,
@@ -162,7 +162,7 @@ public:
 														// NOTE: current workaround for not directly submitting cmd buffers
 														vector<shared_ptr<compute_buffer>>& retained_buffers,
 														const vector<multi_draw_indexed_entry>& draw_entries,
-														Args&&... args) {
+														Args&&... args) const {
 		if(vertex_shader == nullptr) {
 			log_error("must specify a vertex shader!");
 			return;
@@ -173,7 +173,7 @@ public:
 		const vector<const vulkan_kernel_entry*> shader_entries {
 			vertex_shader, fragment_shader
 		};
-		auto encoder = create_encoder(queue, cmd_buffer, pipeline, pipeline_layout,
+		auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
 									  shader_entries, encoder_success);
 		if(!encoder_success) {
 			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
@@ -186,34 +186,31 @@ public:
 		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
-		draw_internal(encoder, queue, vertex_shader, fragment_shader, retained_buffers,
+		draw_internal(encoder, cqueue, vertex_shader, fragment_shader, retained_buffers,
 					  nullptr, &draw_entries);
 	}
 	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
-		const auto ret = kernels.get((vulkan_device*)dev.get());
-		return !ret.first ? nullptr : &ret.second->second;
-	}
+	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
 	
 protected:
 	mutable kernel_map_type kernels;
 	
-	typename kernel_map_type::iterator get_kernel(const compute_queue* queue);
+	typename kernel_map_type::iterator get_kernel(const compute_queue& queue) const;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 	
-	shared_ptr<vulkan_encoder> create_encoder(compute_queue* queue,
+	shared_ptr<vulkan_encoder> create_encoder(const compute_queue& queue,
 											  void* cmd_buffer,
 											  const VkPipeline pipeline,
 											  const VkPipelineLayout pipeline_layout,
 											  const vector<const vulkan_kernel_entry*>& entries,
-											  bool& success);
-	VkPipeline get_pipeline_spec(vulkan_device* device,
+											  bool& success) const;
+	VkPipeline get_pipeline_spec(const vulkan_device& device,
 								 vulkan_kernel_entry& entry,
-								 const uint3& work_group_size);
+								 const uint3& work_group_size) const;
 	
 	void draw_internal(shared_ptr<vulkan_encoder> encoder,
-					   compute_queue* queue,
+					   const compute_queue& cqueue,
 					   const vulkan_kernel_entry* vs_entry,
 					   const vulkan_kernel_entry* fs_entry,
 					   vector<shared_ptr<compute_buffer>>& retained_buffers,

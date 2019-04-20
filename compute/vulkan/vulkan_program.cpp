@@ -37,18 +37,18 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 		for(const auto& prog : programs) {
 			if(!prog.second.valid) continue;
 			
-			const auto max_mip_levels = prog.first->max_mip_levels;
+			const auto max_mip_levels = prog.first.get().max_mip_levels;
 			for(const auto& info : prog.second.functions) {
 				if(info.name == func_name) {
 					vulkan_kernel::vulkan_kernel_entry entry;
 					entry.info = &info;
 					
 					if(!info.has_valid_local_size()) {
-						entry.max_local_size = prog.first->max_local_size;
+						entry.max_local_size = prog.first.get().max_local_size;
 						
 						// always assume that we can execute this with the max possible work-group size,
 						// i.e. use this as the initial default
-						entry.max_total_local_size = prog.first->max_total_local_size;
+						entry.max_total_local_size = prog.first.get().max_total_local_size;
 					}
 					else {
 						// a required local size/dim is specified -> use it
@@ -102,7 +102,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
 										if(is_image_array) {
 											log_error("read/write image array not supported");
-											valid_desc = false;
+											//valid_desc = false;
 											return;
 										}
 										
@@ -162,7 +162,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						++binding_idx;
 					}
 					if(!valid_desc) {
-						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", func_name, prog.first->name);
+						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", func_name, prog.first.get().name);
 						continue;
 					}
 					
@@ -177,7 +177,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.bindingCount = (uint32_t)bindings.size(),
 						.pBindings = (!bindings.empty() ? bindings.data() : nullptr),
 					};
-					VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
+					VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first.get().device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
 								 "failed to create descriptor set layout (" + func_name + ")")
 					// TODO: vkDestroyDescriptorSetLayout cleanup
 					
@@ -216,7 +216,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.poolSizeCount = pool_count,
 							.pPoolSizes = pool_sizes.data(),
 						};
-						VK_CALL_CONT(vkCreateDescriptorPool(prog.first->device, &desc_pool_info, nullptr, &entry.desc_pool),
+						VK_CALL_CONT(vkCreateDescriptorPool(prog.first.get().device, &desc_pool_info, nullptr, &entry.desc_pool),
 									 "failed to create descriptor pool (" + func_name + ")")
 						
 						// allocate descriptor set
@@ -227,7 +227,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.descriptorSetCount = 1,
 							.pSetLayouts = &entry.desc_set_layout,
 						};
-						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first->device, &desc_set_alloc_info, &entry.desc_set),
+						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first.get().device, &desc_set_alloc_info, &entry.desc_set),
 									 "failed to allocate descriptor set (" + func_name + ")")
 					}
 					// else: no descriptors entry.desc_* already nullptr
@@ -255,7 +255,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					if(info.type == llvm_toolchain::function_info::FUNCTION_TYPE::KERNEL) {
 						// create the pipeline layout
 						const VkDescriptorSetLayout layouts[2] {
-							prog.first->fixed_sampler_desc_set_layout,
+							prog.first.get().fixed_sampler_desc_set_layout,
 							entry.desc_set_layout,
 						};
 						const VkPipelineLayoutCreateInfo pipeline_layout_info {
@@ -267,13 +267,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.pushConstantRangeCount = 0,
 							.pPushConstantRanges = nullptr,
 						};
-						VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
+						VK_CALL_CONT(vkCreatePipelineLayout(prog.first.get().device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 									 "failed to create pipeline layout (" + func_name + ")")
 						
 						const uint3 work_group_size = (info.has_valid_local_size() ?
 													   info.local_size :
 													   uint3 { entry.max_total_local_size, 1, 1 });
-						if(entry.specialize(prog.first, work_group_size) == nullptr) {
+						if(entry.specialize(prog.first.get(), work_group_size) == nullptr) {
 							// NOTE: if specialization failed, this will have already printed an error
 							continue;
 						}

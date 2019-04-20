@@ -107,38 +107,38 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_ctx_set_current(ctx))
 		
 		//
-		auto device = make_shared<cuda_device>();
-		devices.emplace_back(device);
+		devices.emplace_back(make_unique<cuda_device>());
+		auto& device = (cuda_device&)*devices.back();
 		
 		// set initial/fixed attributes
-		device->ctx = ctx;
-		device->context = this;
-		device->device_id = cuda_dev;
-		device->sm = uint2(cc);
-		device->type = (compute_device::TYPE)gpu_counter++;
-		device->name = dev_name;
-		device->version_str = to_string(cc.x) + "." + to_string(cc.y);
-		device->driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
+		device.ctx = ctx;
+		device.context = this;
+		device.device_id = cuda_dev;
+		device.sm = uint2(cc);
+		device.type = (compute_device::TYPE)gpu_counter++;
+		device.name = dev_name;
+		device.version_str = to_string(cc.x) + "." + to_string(cc.y);
+		device.driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
 
 		// get all the attributes!
 		size_t global_mem_size = 0;
 		CU_CALL_IGNORE(cu_device_total_mem(&global_mem_size, cuda_dev))
-		device->global_mem_size = (uint64_t)global_mem_size;
+		device.global_mem_size = (uint64_t)global_mem_size;
 		
 		int const_mem, local_mem, l2_cache_size;
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->vendor_id, CU_DEVICE_ATTRIBUTE::PCI_DEVICE_ID, cuda_dev))
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->units, CU_DEVICE_ATTRIBUTE::MULTIPROCESSOR_COUNT, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.vendor_id, CU_DEVICE_ATTRIBUTE::PCI_DEVICE_ID, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.units, CU_DEVICE_ATTRIBUTE::MULTIPROCESSOR_COUNT, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&const_mem, CU_DEVICE_ATTRIBUTE::TOTAL_CONSTANT_MEMORY, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&local_mem, CU_DEVICE_ATTRIBUTE::MAX_SHARED_MEMORY_PER_BLOCK, cuda_dev))
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->max_registers_per_block, CU_DEVICE_ATTRIBUTE::MAX_REGISTERS_PER_BLOCK, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.max_registers_per_block, CU_DEVICE_ATTRIBUTE::MAX_REGISTERS_PER_BLOCK, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE::L2_CACHE_SIZE, cuda_dev))
-		device->constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
-		device->local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
-		device->l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
+		device.constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
+		device.local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
+		device.l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
 		int max_total_local_size = 0, max_coop_total_local_size = 0;
 		int3 max_block_dim, max_grid_dim;
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_total_local_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_coop_total_local_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_MULTIPROCESSOR, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_X, cuda_dev))
@@ -147,10 +147,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_X, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Y, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev))
-		device->max_total_local_size = uint32_t(max_total_local_size);
-		device->max_coop_total_local_size = uint32_t(max_coop_total_local_size);
-		device->max_global_size = ulong3(max_block_dim) * ulong3(max_grid_dim);
-		device->max_local_size = uint3(max_block_dim);
+		device.max_total_local_size = uint32_t(max_total_local_size);
+		device.max_coop_total_local_size = uint32_t(max_coop_total_local_size);
+		device.max_global_size = ulong3(max_block_dim) * ulong3(max_grid_dim);
+		device.max_local_size = uint3(max_block_dim);
 		
 		int max_image_1d, max_image_1d_buffer, max_image_1d_mip_map;
 		int2 max_image_2d, max_image_2d_mip_map;
@@ -165,20 +165,20 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mip_map.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_WIDTH, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mip_map.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_HEIGHT, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d_mip_map, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_MIPMAPPED_WIDTH, cuda_dev))
-		device->max_image_1d_dim = uint32_t(max_image_1d);
-		device->max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
-		device->max_image_2d_dim = uint2(max_image_2d);
-		device->max_image_3d_dim = uint3(max_image_3d);
+		device.max_image_1d_dim = uint32_t(max_image_1d);
+		device.max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
+		device.max_image_2d_dim = uint2(max_image_2d);
+		device.max_image_3d_dim = uint3(max_image_3d);
 		// -> image_mip_level_count
-		device->max_mip_levels = image_mip_level_count_from_max_dim(uint32_t(std::max(max_image_2d_mip_map.max_element(),
-																					  max_image_1d_mip_map)));
+		device.max_mip_levels = image_mip_level_count_from_max_dim(uint32_t(std::max(max_image_2d_mip_map.max_element(),
+																					 max_image_1d_mip_map)));
 		
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev))
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev))
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->mem_bus_width, CU_DEVICE_ATTRIBUTE::GLOBAL_MEMORY_BUS_WIDTH, cuda_dev))
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->async_engine_count, CU_DEVICE_ATTRIBUTE::ASYNC_ENGINE_COUNT, cuda_dev))
-		device->clock /= 1000; // to MHz
-		device->mem_clock /= 1000;
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_bus_width, CU_DEVICE_ATTRIBUTE::GLOBAL_MEMORY_BUS_WIDTH, cuda_dev))
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.async_engine_count, CU_DEVICE_ATTRIBUTE::ASYNC_ENGINE_COUNT, cuda_dev))
+		device.clock /= 1000; // to MHz
+		device.mem_clock /= 1000;
 		
 		int exec_timeout, overlap, map_host_memory, integrated, concurrent, ecc, tcc, unified_memory, coop_launch;
 		CU_CALL_IGNORE(cu_device_get_attribute(&exec_timeout, CU_DEVICE_ATTRIBUTE::KERNEL_EXEC_TIMEOUT, cuda_dev))
@@ -190,63 +190,102 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&tcc, CU_DEVICE_ATTRIBUTE::TCC_DRIVER, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&unified_memory, CU_DEVICE_ATTRIBUTE::UNIFIED_ADDRESSING, cuda_dev))
 		CU_CALL_IGNORE(cu_device_get_attribute(&coop_launch, CU_DEVICE_ATTRIBUTE::COOPERATIVE_LAUNCH_SUPPORTED, cuda_dev))
-		device->unified_memory = (unified_memory != 0);
-		device->cooperative_kernel_support = (coop_launch != 0);
+		device.unified_memory = (unified_memory != 0);
+		device.cooperative_kernel_support = (coop_launch != 0);
 		
-		device->sub_group_shuffle_support = (device->sm.x >= 3); // supported with sm_30+
-		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
+		device.sub_group_shuffle_support = (device.sm.x >= 3); // supported with sm_30+
+		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
 		
 		// enable h/w depth compare when using the internal api and everything is alright
 		if(cuda_can_use_internal_api()) {
 			log_msg("using internal api");
-			device->image_depth_compare_support = true;
+			device.image_depth_compare_support = true;
 			
 			// exchange the device sampler init function with our own + store the driver function in the device for later use
-			auto device_ptr = *(void**)(uintptr_t(device->ctx) + cuda_device_in_ctx_offset);
+			auto device_ptr = *(void**)(uintptr_t(device.ctx) + cuda_device_in_ctx_offset);
 			auto sampler_func_ptr = (void**)(uintptr_t(device_ptr) + cuda_device_sampler_func_offset);
-			(void*&)device->sampler_init_func_ptr = *sampler_func_ptr;
+			(void*&)device.sampler_init_func_ptr = *sampler_func_ptr;
 			*sampler_func_ptr = (void*)&cuda_image::internal_device_sampler_init;
 		}
 		
 		// set max supported PTX version and min required PTX version
 		if (driver_version >= 7050 && driver_version < 8000) {
-			device->ptx = { 4, 3 };
+			device.ptx = { 4, 3 };
 		} else if (driver_version < 9000) {
-			device->ptx = { 5, 0 };
+			device.ptx = { 5, 0 };
 		} else if (driver_version < 9010) {
-			device->ptx = { 6, 0 };
+			device.ptx = { 6, 0 };
 		} else if (driver_version < 9020) {
-			device->ptx = { 6, 1 };
+			device.ptx = { 6, 1 };
 		} else if (driver_version < 10000) {
-			device->ptx = { 6, 2 };
+			device.ptx = { 6, 2 };
 		} else if (driver_version < 10010) {
-			device->ptx = { 6, 3 };
+			device.ptx = { 6, 3 };
 		} else {
-			device->ptx = { 6, 4 };
+			device.ptx = { 6, 4 };
 		}
 		
-		device->min_req_ptx = { 4, 3 };
-		if (device->sm.x == 6) {
-			device->min_req_ptx = { 5, 0 };
-		} else if (device->sm.x == 7) {
-			if (device->sm.y < 5) {
-				device->min_req_ptx = { 6, 0 };
+		device.min_req_ptx = { 4, 3 };
+		if (device.sm.x == 6) {
+			device.min_req_ptx = { 5, 0 };
+		} else if (device.sm.x == 7) {
+			if (device.sm.y < 5) {
+				device.min_req_ptx = { 6, 0 };
 			} else {
-				device->min_req_ptx = { 6, 3 };
+				device.min_req_ptx = { 6, 3 };
 			}
-		} else if (device->sm.x == 8) {
-			device->min_req_ptx = { 6, 4 };
+		} else if (device.sm.x == 8) {
+			device.min_req_ptx = { 6, 4 };
 		} else {
-			device->min_req_ptx = { 6, 4 };
+			device.min_req_ptx = { 6, 4 };
 		}
 		
+		// additional info
+		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+				device.global_mem_size / 1024ULL / 1024ULL,
+				device.local_mem_size / 1024ULL,
+				device.constant_mem_size / 1024ULL);
+		log_msg("host unified memory: %u", device.unified_memory);
+		log_msg("coop kernels: %u", device.cooperative_kernel_support);
+		log_msg("max total local size: %u", device.max_total_local_size);
+		log_msg("max local size: %v", device.max_local_size);
+		log_msg("max global size: %v", device.max_global_size);
+		log_msg("max cuda grid-dim: %u", max_grid_dim);
+		log_msg("max mip-levels: %u", device.max_mip_levels);
+		
+		size_t printf_buffer_size = 0;
+		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);
+		log_msg("printf buffer size: %u bytes / %u MB",
+				printf_buffer_size,
+				printf_buffer_size / 1024ULL / 1024ULL);
+		
+		//
+		log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, SM %s / CUDA %s",
+				  device.units,
+				  device.clock,
+				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
+				  device.vendor_name,
+				  device.name,
+				  device.version_str,
+				  device.driver_version_str);
+	}
+	
+	// if absolutely no devices are supported, return (supported is still false)
+	if(devices.empty()) {
+		return;
+	}
+	// else: init successful, set supported to true
+	supported = true;
+	
+	// figure out the fastest device
+	for (const auto& device : devices) {
 		// compute score and try to figure out which device is the fastest
-		const auto compute_gpu_score = [](shared_ptr<cuda_device> dev) -> unsigned int {
-			unsigned int multiplier = 1;
-			switch(dev->sm.x) {
+		const auto compute_gpu_score = [](const cuda_device& dev) -> uint32_t {
+			uint32_t multiplier = 1;
+			switch(dev.sm.x) {
 				case 2:
 					// sm_20: 32 cores/sm, sm_21: 48 cores/sm
-					multiplier = (dev->sm.y == 0 ? 32 : 48);
+					multiplier = (dev.sm.y == 0 ? 32 : 48);
 					break;
 				case 3:
 					// sm_3x: 192 cores/sm
@@ -258,7 +297,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					break;
 				case 6:
 					// sm_60: 64 cores/sm, sm_61/sm_62: 128 cores/sm
-					multiplier = (dev->sm.y == 0 ? 64 : 128);
+					multiplier = (dev.sm.y == 0 ? 64 : 128);
 					break;
 				case 7:
 					// sm_70/sm_72/sm_73/sm_75: 64 cores/sm
@@ -269,57 +308,20 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					multiplier = 64;
 					break;
 			}
-			return multiplier * (dev->units * dev->clock);
+			return multiplier * (dev.units * dev.clock);
 		};
 		
-		if(fastest_gpu_device == nullptr) {
-			fastest_gpu_device = device;
-			fastest_gpu_score = compute_gpu_score(device);
-		}
-		else {
-			const auto gpu_score = compute_gpu_score(device);
-			if(gpu_score > fastest_gpu_score) {
-				fastest_gpu_device = device;
+		if (fastest_gpu_device == nullptr) {
+			fastest_gpu_device = device.get();
+			fastest_gpu_score = compute_gpu_score((const cuda_device&)*device);
+		} else {
+			const auto gpu_score = compute_gpu_score((const cuda_device&)*device);
+			if (gpu_score > fastest_gpu_score) {
+				fastest_gpu_device = device.get();
 				fastest_gpu_score = gpu_score;
 			}
 		}
-		
-		// additional info
-		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
-				device->global_mem_size / 1024ULL / 1024ULL,
-				device->local_mem_size / 1024ULL,
-				device->constant_mem_size / 1024ULL);
-		log_msg("host unified memory: %u", device->unified_memory);
-		log_msg("coop kernels: %u", device->cooperative_kernel_support);
-		log_msg("max total local size: %u", device->max_total_local_size);
-		log_msg("max local size: %v", device->max_local_size);
-		log_msg("max global size: %v", device->max_global_size);
-		log_msg("max cuda grid-dim: %u", max_grid_dim);
-		log_msg("max mip-levels: %u", device->max_mip_levels);
-		
-		size_t printf_buffer_size = 0;
-		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);
-		log_msg("printf buffer size: %u bytes / %u MB",
-				printf_buffer_size,
-				printf_buffer_size / 1024ULL / 1024ULL);
-		
-		//
-		log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, SM %s / CUDA %s",
-				  device->units,
-				  device->clock,
-				  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
-				  device->vendor_name,
-				  device->name,
-				  device->version_str,
-				  device->driver_version_str);
 	}
-	
-	// if absolutely no devices are supported, return (supported is still false)
-	if(devices.empty()) {
-		return;
-	}
-	// else: init successful, set supported to true
-	supported = true;
 	
 	//
 	if(fastest_gpu_device != nullptr) {
@@ -329,24 +331,19 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		fastest_device = fastest_gpu_device;
 		
 		// make context of fastest device current
-		CU_CALL_IGNORE(cu_ctx_set_current(((cuda_device*)fastest_gpu_device.get())->ctx))
+		CU_CALL_IGNORE(cu_ctx_set_current(((const cuda_device*)fastest_gpu_device)->ctx))
 	}
 	
 	// create a default queue for each device
 	for(const auto& dev : devices) {
-		default_queues.insert(dev.get(), create_queue(dev));
+		default_queues.insert(*dev, create_queue(*dev));
 	}
 	
 	// init shaders in cuda_image
 	cuda_image::init_internal(this);
 }
 
-shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) {
-		log_error("nullptr is not a valid device!");
-		return {};
-	}
-	
+shared_ptr<compute_queue> cuda_compute::create_queue(const compute_device& dev) const {
 	cu_stream stream;
 	CU_CALL_RET(cu_stream_create(&stream, CU_STREAM_FLAGS::NON_BLOCKING),
 				"failed to create cuda stream", {})
@@ -356,98 +353,94 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 	return ret;
 }
 
-shared_ptr<compute_queue> cuda_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
-	return get_device_default_queue(dev.get());
-}
-
-shared_ptr<compute_queue> cuda_compute::get_device_default_queue(const compute_device* dev) const {
+const compute_queue* cuda_compute::get_device_default_queue(const compute_device& dev) const {
 	const auto def_queue = default_queues.get(dev);
 	if(def_queue.first) {
-		return def_queue.second->second;
+		return def_queue.second->second.get();
 	}
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
-	return {};
+	return nullptr;
 }
 
-shared_ptr<compute_buffer> cuda_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<cuda_buffer>((cuda_device*)&device, size, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<cuda_buffer>(cqueue, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> cuda_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<cuda_buffer>((cuda_device*)&device, size, data, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<cuda_buffer>(cqueue, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>((cuda_device*)&device, info.size, nullptr,
+	return make_shared<cuda_buffer>(cqueue, info.size, nullptr,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
 													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>((cuda_device*)&device, info.size, data,
+	return make_shared<cuda_buffer>(cqueue, info.size, data,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_image> cuda_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) {
-	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
+													 const uint32_t opengl_type) const {
+	return make_shared<cuda_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
 }
 
-shared_ptr<compute_image> cuda_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) {
-	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
+													 const uint32_t opengl_type) const {
+	return make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> cuda_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const uint32_t opengl_image,
 												   const uint32_t opengl_target,
-												   const COMPUTE_MEMORY_FLAG flags) {
+												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_image>((cuda_device*)device.get(), info.image_dim, info.image_type, nullptr,
+	return make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, nullptr,
 								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 								   opengl_target, opengl_image, &info);
 }
 
-shared_ptr<compute_image> cuda_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const uint32_t opengl_image,
 												   const uint32_t opengl_target,
 												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags) {
+												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_image>((cuda_device*)device.get(), info.image_dim, info.image_type, data,
+	return make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, data,
 								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 								   opengl_target, opengl_image, &info);
 }
 
 shared_ptr<compute_program> cuda_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
 		log_error("failed to load universal binary: %s", file_name);
 		return {};
@@ -457,7 +450,7 @@ shared_ptr<compute_program> cuda_compute::add_universal_binary(const string& fil
 	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto cuda_dev = (cuda_device*)devices[i].get();
+		const auto& cuda_dev = (const cuda_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		// TODO: handle CUBIN
@@ -497,9 +490,9 @@ shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_na
 	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
-		const auto cuda_dev = (cuda_device*)dev.get();
+		const auto& cuda_dev = (const cuda_device&)*dev;
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program_file(dev, file_name, options)));
+								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
@@ -517,14 +510,14 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
-		const auto cuda_dev = (cuda_device*)dev.get();
+		const auto& cuda_dev = (const cuda_device&)*dev;
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program(dev, source_code, options)));
+								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
-cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_device* device,
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_device& device,
 																   llvm_toolchain::program_data program) {
 	if(!program.valid) {
 		return {};
@@ -535,20 +528,20 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 										program.options.silence_debug_output);
 }
 
-cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(const cuda_device* device,
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(const cuda_device& device,
 																			const void* program_data,
 																			const size_t& program_size,
 																			const vector<llvm_toolchain::function_info>& functions,
 																			const uint32_t& max_registers,
 																			const bool& silence_debug_output) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
-	const auto& sm = device->sm;
+	const auto& sm = device.sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cuda_program::cuda_program_entry ret;
 	ret.functions = functions;
 	
 	// must make the device ctx current for this thread (if it isn't already)
-	CU_CALL_RET(cu_ctx_set_current(device->ctx),
+	CU_CALL_RET(cu_ctx_set_current(device.ctx),
 				"failed to make cuda context current", {})
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
@@ -686,10 +679,10 @@ shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const str
 	return {};
 }
 
-shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device,
+shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(const compute_device& device,
 																			  llvm_toolchain::program_data program,
 																			  const llvm_toolchain::TARGET) {
-	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program((cuda_device*)device.get(), program));
+	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program((const cuda_device&)device, program));
 }
 
 #endif

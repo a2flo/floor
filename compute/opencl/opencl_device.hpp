@@ -31,8 +31,6 @@ class opencl_compute;
 
 class opencl_device final : public compute_device {
 public:
-	~opencl_device() override {}
-	
 	//! opencl version of the device
 	OPENCL_VERSION cl_version { OPENCL_VERSION::NONE };
 	
@@ -55,6 +53,11 @@ public:
 	
 	//! true if the device supports cl_intel_required_subgroup_size
 	bool required_size_sub_group_support { false };
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const opencl_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

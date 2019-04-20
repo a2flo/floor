@@ -18,15 +18,14 @@
 
 #include <floor/compute/compute_context.hpp>
 
-compute_context::~compute_context() {}
-
-shared_ptr<compute_device> compute_context::get_device(const compute_device::TYPE type) const {
+const compute_device* compute_context::get_device(const compute_device::TYPE type) const {
 	switch(type) {
 		case compute_device::TYPE::ANY:
 			// just return the first valid device if one exists
-			return (!devices.empty() ? devices[0] : nullptr);
+			return (!devices.empty() ? devices[0].get() : nullptr);
 		case compute_device::TYPE::FASTEST:
-			return fastest_device; // note, no check here, b/c the result would be the same
+			if(fastest_device) return fastest_device;
+			break;
 		case compute_device::TYPE::FASTEST_GPU:
 			if(fastest_gpu_device) return fastest_gpu_device;
 			break;
@@ -39,7 +38,7 @@ shared_ptr<compute_device> compute_context::get_device(const compute_device::TYP
 		case compute_device::TYPE::ALL_GPU:
 		case compute_device::TYPE::ALL_DEVICES:
 			log_warn("shouldn't use type %X to get a device!", type);
-			return (!devices.empty() ? devices[0] : nullptr);
+			return (!devices.empty() ? devices[0].get() : nullptr);
 		default: break;
 	}
 	
@@ -49,7 +48,7 @@ shared_ptr<compute_device> compute_context::get_device(const compute_device::TYP
 		const enum_type num = (enum_type)type - (enum_type)compute_device::TYPE::GPU0;
 		for(const auto& dev : devices) {
 			if(((enum_type)dev->type & (enum_type)compute_device::TYPE::GPU) != 0) {
-				if(num == counter) return dev;
+				if(num == counter) return dev.get();
 				++counter;
 			}
 		}
@@ -58,12 +57,20 @@ shared_ptr<compute_device> compute_context::get_device(const compute_device::TYP
 		const enum_type num = (enum_type)type - (enum_type)compute_device::TYPE::CPU0;
 		for(const auto& dev : devices) {
 			if(((enum_type)dev->type & (enum_type)compute_device::TYPE::CPU) != 0) {
-				if(num == counter) return dev;
+				if(num == counter) return dev.get();
 				++counter;
 			}
 		}
 	}
 	// else: didn't find any or type is a weird mixture
 	log_error("couldn't find a device matching the specified type %X, returning the first device instead!", type);
-	return (!devices.empty() ? devices[0] : nullptr);
+	return (!devices.empty() ? devices[0].get() : nullptr);
+}
+
+vector<const compute_device*> compute_context::get_devices() const {
+	vector<const compute_device*> ret;
+	for (const auto& dev : devices) {
+		ret.emplace_back(dev.get());
+	}
+	return ret;
 }

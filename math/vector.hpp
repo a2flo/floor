@@ -150,7 +150,7 @@ public:
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
-	static constexpr size_t dim() { return FLOOR_VECTOR_WIDTH; }
+	static constexpr uint32_t dim() { return FLOOR_VECTOR_WIDTH; }
 	
 	//! returns true if the vector type has a corresponding clang vector type
 	static constexpr bool has_clang_vector_type() {
@@ -369,7 +369,7 @@ public:
 	//! const subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
-	const scalar_type& operator[](const size_t& index) const {
+	const scalar_type& operator[](const uint32_t& index) const {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
 		return ((const scalar_type*)this)[index];
 	}
@@ -377,64 +377,64 @@ public:
 	//! subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
-	scalar_type& operator[](const size_t& index) {
+	scalar_type& operator[](const uint32_t& index) {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
 		return ((scalar_type*)this)[index];
 	}
 
 #if !defined(_MSC_VER) // duplicate name mangling issues
 	//! constexpr subscript access, with index == 0
-	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
+	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
 		return x;
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! constexpr subscript access, with index == 1
-	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 1, "index is const"))) {
+	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 1, "index is const"))) {
 		return y;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
 	//! constexpr subscript access, with index == 2
-	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 2, "index is const"))) {
+	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 2, "index is const"))) {
 		return z;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
 	//! constexpr subscript access, with index == 3
-	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 3, "index is const"))) {
+	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 3, "index is const"))) {
 		return w;
 	}
 #endif
 	
 	//! constexpr subscript access, with index == 0
-	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 0, "index is const"))) {
+	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 0, "index is const"))) {
 		return x;
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! constexpr subscript access, with index == 1
-	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 1, "index is const"))) {
+	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 1, "index is const"))) {
 		return y;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
 	//! constexpr subscript access, with index == 2
-	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 2, "index is const"))) {
+	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 2, "index is const"))) {
 		return z;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
 	//! constexpr subscript access, with index == 3
-	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 3, "index is const"))) {
+	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 3, "index is const"))) {
 		return w;
 	}
 #endif
 #endif
 	
 	//! constexpr subscript access, with index out of bounds
-	constexpr const scalar_type& operator[](const size_t& index) const
+	constexpr const scalar_type& operator[](const uint32_t& index) const
 	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	//! constexpr subscript access, with index out of bounds
-	constexpr scalar_type& operator[](const size_t& index)
+	constexpr scalar_type& operator[](const uint32_t& index)
 	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! c array style access (not enabled if scalar_type is a reference)
@@ -450,7 +450,7 @@ public:
 	}
 	
 	//! constexpr helper function to get a const& to a vector component from an index
-	template <size_t index>
+	template <uint32_t index>
 	static constexpr const scalar_type& component_select(const vector_type& vec) {
 		static_assert(index < FLOOR_VECTOR_WIDTH, "invalid index");
 		switch(index) {
@@ -468,15 +468,15 @@ public:
 	}
 	
 	//! swizzles this vector, according to the specified component indices
-	template <size_t c0
+	template <uint32_t c0
 #if FLOOR_VECTOR_WIDTH >= 2
-			  , size_t c1
+			  , uint32_t c1
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			  , size_t c2
+			  , uint32_t c2
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			  , size_t c3
+			  , uint32_t c3
 #endif
 			 >
 	constexpr vector_type& swizzle() {
@@ -495,15 +495,15 @@ public:
 	}
 	
 	//! returns a swizzled version of this vector, according to the specified component indices
-	template <size_t c0
+	template <uint32_t c0
 #if FLOOR_VECTOR_WIDTH >= 2
-			  , size_t c1
+			  , uint32_t c1
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			  , size_t c2
+			  , uint32_t c2
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			  , size_t c3
+			  , uint32_t c3
 #endif
 			 >
 	constexpr vector_type swizzled() const {
@@ -522,7 +522,7 @@ public:
 	}
 	
 	//! returns the corresponding index to the specified component char/name
-	template <char c> static constexpr size_t char_to_index() {
+	template <char c> static constexpr uint32_t char_to_index() {
 		switch(c) {
 			case 'x':
 			case 'r':
@@ -553,14 +553,14 @@ public:
 	//! e.g.: <0, 1, 2, ~0u> -> vector3; <0, ~0u, 1, 2> -> vector1; ...
 	//! this will also fail when trying to access a component/index that is invalid for the vector width of this type
 	//! -> trying to use index 2 / component .z if this is a vector2 or vector1 will fail
-	template <size_t i0, size_t i1, size_t i2, size_t i3>
+	template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3>
 	struct vector_ref_type_from_indices {
 		static_assert(i0 < FLOOR_VECTOR_WIDTH, "invalid index - first component must be valid!");
 		static_assert(i1 < FLOOR_VECTOR_WIDTH || i1 == ~0u, "invalid index");
 		static_assert(i2 < FLOOR_VECTOR_WIDTH || i2 == ~0u, "invalid index");
 		static_assert(i3 < FLOOR_VECTOR_WIDTH || i3 == ~0u, "invalid index");
 		
-		static constexpr size_t valid_components() {
+		static constexpr uint32_t valid_components() {
 			if(i0 >= FLOOR_VECTOR_WIDTH) return 0; // shouldn't happen, but just in case (static_assert should trigger first)
 			if(i1 >= FLOOR_VECTOR_WIDTH) return 1;
 			if(i2 >= FLOOR_VECTOR_WIDTH) return 2;
@@ -575,22 +575,22 @@ public:
 	};
 	
 	//! don't use this, use ref or ref_idx instead!
-	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 1, int> = 0>
+	template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t valid_components, enable_if_t<valid_components == 1, int> = 0>
 	constexpr vector1<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0] };
 	}
 	//! don't use this, use ref or ref_idx instead!
-	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 2, int> = 0>
+	template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t valid_components, enable_if_t<valid_components == 2, int> = 0>
 	constexpr vector2<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1] };
 	}
 	//! don't use this, use ref or ref_idx instead!
-	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 3, int> = 0>
+	template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t valid_components, enable_if_t<valid_components == 3, int> = 0>
 	constexpr vector3<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1], (*this)[i2] };
 	}
 	//! don't use this, use ref or ref_idx instead!
-	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 4, int> = 0>
+	template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t valid_components, enable_if_t<valid_components == 4, int> = 0>
 	constexpr vector4<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1], (*this)[i2], (*this)[i3] };
 	}
@@ -599,10 +599,10 @@ public:
 	//! components are specified via their name ('x', 'w', 'r', etc.)
 	//! NOTE: opencl/glsl style vectors referencing the same component multiple types can be created!
 	template <char c0, char c1 = '_', char c2 = '_', char c3 = '_',
-			  size_t i0 = char_to_index<c0>(), size_t i1 = char_to_index<c1>(),
-			  size_t i2 = char_to_index<c2>(), size_t i3 = char_to_index<c3>(),
+			  uint32_t i0 = char_to_index<c0>(), uint32_t i1 = char_to_index<c1>(),
+			  uint32_t i2 = char_to_index<c2>(), uint32_t i3 = char_to_index<c3>(),
 			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
-			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
+			  uint32_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
 	constexpr vec_return_type ref() {
 		static_assert(!is_same<vec_return_type, void>::value, "invalid index");
 		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
@@ -611,9 +611,9 @@ public:
 	//! creates a vector with components referencing the components of this vector in an arbitrary order
 	//! components are specified via their index (0, 1, 2 or 3)
 	//! NOTE: opencl/glsl style vectors referencing the same component multiple types can be created!
-	template <size_t i0, size_t i1 = ~0u, size_t i2 = ~0u, size_t i3 = ~0u,
+	template <uint32_t i0, uint32_t i1 = ~0u, uint32_t i2 = ~0u, uint32_t i3 = ~0u,
 			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
-			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
+			  uint32_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
 	constexpr vec_return_type ref_idx() {
 		static_assert(!is_same<vec_return_type, void>::value, "invalid index");
 		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
@@ -1506,8 +1506,8 @@ public:
 	}
 	
 	//! returns the number of components that are equal to value
-	constexpr size_t count(const scalar_type& value) const {
-		size_t ret = 0;
+	constexpr uint32_t count(const scalar_type& value) const {
+		uint32_t ret = 0;
 		if(x == value) ++ret;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(y == value) ++ret;
@@ -1522,8 +1522,8 @@ public:
 	}
 	
 	//! returns the number of components for which the unary function returns true
-	template <typename unary_function> constexpr size_t count(unary_function uf) const {
-		size_t ret = 0;
+	template <typename unary_function> constexpr uint32_t count(unary_function uf) const {
+		uint32_t ret = 0;
 		if(uf(x)) ++ret;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(uf(y)) ++ret;
@@ -1694,7 +1694,7 @@ public:
 #endif
 	
 	//! returns the index of the smallest component
-	constexpr size_t min_element_index() const {
+	constexpr uint32_t min_element_index() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return 0u;
 #elif FLOOR_VECTOR_WIDTH == 2
@@ -1708,7 +1708,7 @@ public:
 #endif
 	}
 	//! returns the index of the largest component
-	constexpr size_t max_element_index() const {
+	constexpr uint32_t max_element_index() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return 0u;
 #elif FLOOR_VECTOR_WIDTH == 2
@@ -1723,7 +1723,7 @@ public:
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! returns <index minimal component, index maximal component>
-	constexpr vector2<size_t> minmax_element_index() const {
+	constexpr vector2<uint32_t> minmax_element_index() const {
 		return { min_element_index(), max_element_index() };
 	}
 #endif

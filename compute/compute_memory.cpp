@@ -17,6 +17,7 @@
  */
 
 #include <floor/compute/compute_memory.hpp>
+#include <floor/compute/compute_queue.hpp>
 #include <floor/core/logger.hpp>
 
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
@@ -51,12 +52,12 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 	return flags;
 }
 
-compute_memory::compute_memory(compute_device* device,
+compute_memory::compute_memory(const compute_queue& cqueue,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
 							   const uint32_t external_gl_object_) :
-dev(device), host_ptr(host_ptr_), flags(handle_memory_flags(flags_, opengl_type_)),
+dev(cqueue.get_device()), host_ptr(host_ptr_), flags(handle_memory_flags(flags_, opengl_type_)),
 has_external_gl_object(external_gl_object_ != 0), opengl_type(opengl_type_),
 gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
@@ -68,12 +69,10 @@ gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	}
 }
 
-compute_memory::~compute_memory() {}
-
-void compute_memory::_lock() {
+void compute_memory::_lock() const {
 	lock.lock();
 }
 
-void compute_memory::_unlock() {
+void compute_memory::_unlock() const {
 	lock.unlock();
 }

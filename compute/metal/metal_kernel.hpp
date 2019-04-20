@@ -41,45 +41,42 @@ public:
 		const void* kernel { nullptr };
 		const void* kernel_state { nullptr };
 	};
-	typedef flat_map<metal_device*, metal_kernel_entry> kernel_map_type;
+	typedef flat_map<const metal_device&, metal_kernel_entry> kernel_map_type;
 	
 	metal_kernel(kernel_map_type&& kernels);
 	~metal_kernel() override = default;
 	
-	void execute(compute_queue* queue_ptr,
+	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) override;
+				 const vector<compute_kernel_arg>& args) const override;
 	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
-		const auto ret = kernels.get((metal_device*)dev.get());
-		return !ret.first ? nullptr : &ret.second->second;
-	}
+	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
 	
 protected:
 	const kernel_map_type kernels;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
-	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue& queue) const;
 	
 	//! actual kernel argument setters
 	void set_const_argument(metal_encoder& encoder, uint32_t& buffer_idx,
 							const void* ptr, const size_t& size) const;
 	
-	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder& encoder, const kernel_entry& entry,
 							 const compute_buffer* arg) const;
-	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder& encoder, const kernel_entry& entry,
 							 const compute_image* arg) const;
 	
-	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder& encoder, const kernel_entry& entry,
 							 const vector<shared_ptr<compute_image>>& arg) const;
-	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder& encoder, const kernel_entry& entry,
 							 const vector<compute_image*>& arg) const;
 	

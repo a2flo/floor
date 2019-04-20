@@ -46,7 +46,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding metal program for multiple devices
-	typedef flat_map<metal_device*, metal_program_entry> program_map_type;
+	typedef flat_map<const metal_device&, metal_program_entry> program_map_type;
 	
 	metal_program(program_map_type&& programs);
 	

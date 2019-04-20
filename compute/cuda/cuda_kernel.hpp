@@ -38,41 +38,38 @@ public:
 		cu_function kernel { nullptr };
 		size_t kernel_args_size;
 	};
-	typedef flat_map<cuda_device*, cuda_kernel_entry> kernel_map_type;
+	typedef flat_map<const cuda_device&, cuda_kernel_entry> kernel_map_type;
 	
 	cuda_kernel(kernel_map_type&& kernels);
 	~cuda_kernel() override = default;
 	
-	void execute(compute_queue* queue_ptr,
+	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) override;
+				 const vector<compute_kernel_arg>& args) const override;
 	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
-		const auto ret = kernels.get((cuda_device*)dev.get());
-		return !ret.first ? nullptr : &ret.second->second;
-	}
+	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
 	
 protected:
 	const kernel_map_type kernels;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
 	
-	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue& cqueue) const;
 	
-	void execute_internal(compute_queue* queue,
+	void execute_internal(const compute_queue& cqueue,
 						  const cuda_kernel_entry& entry,
 						  const uint3& grid_dim,
 						  const uint3& block_dim,
-						  void** kernel_params);
+						  void** kernel_params) const;
 	
-	void execute_cooperative_internal(compute_queue* queue,
+	void execute_cooperative_internal(const compute_queue& cqueue,
 									  const cuda_kernel_entry& entry,
 									  const uint3& grid_dim,
 									  const uint3& block_dim,
-									  void** kernel_params);
+									  void** kernel_params) const;
 	
 };
 

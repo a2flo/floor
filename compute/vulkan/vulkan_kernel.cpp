@@ -25,7 +25,8 @@
 
 struct vulkan_kernel::vulkan_encoder {
 	vulkan_queue::command_buffer cmd_buffer;
-	vulkan_device* device;
+	const vulkan_queue& cqueue;
+	const vulkan_device& device;
 	vector<VkWriteDescriptorSet> write_descs;
 	vector<shared_ptr<compute_buffer>> constant_buffers;
 	vector<uint32_t> dyn_offsets;
@@ -46,7 +47,7 @@ uint64_t vulkan_kernel::vulkan_kernel_entry::make_spec_key(const uint3& work_gro
 			uint64_t(work_group_size.z));
 }
 
-vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(vulkan_device* device,
+vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(const vulkan_device& device,
 																							   const uint3& work_group_size) {
 	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
 	const auto iter = specializations.find(spec_key);
@@ -89,7 +90,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		.basePipelineIndex = 0,
 	};
 	log_debug("specializing %s for %v ...", info->name, work_group_size); logger::flush();
-	VK_CALL_RET(vkCreateComputePipelines(device->device, nullptr, 1, &pipeline_info, nullptr,
+	VK_CALL_RET(vkCreateComputePipelines(device.device, nullptr, 1, &pipeline_info, nullptr,
 										 &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
 				nullptr)
@@ -102,23 +103,23 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue* queue) {
-	return kernels.find((vulkan_device*)queue->get_device().get());
+typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue& cqueue) const {
+	return kernels.find((const vulkan_device&)cqueue.get_device());
 }
 
-shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue,
+shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cqueue,
 																		void* cmd_buffer_,
 																		const VkPipeline pipeline,
 																		const VkPipelineLayout pipeline_layout,
 																		const vector<const vulkan_kernel_entry*>& entries,
-																		bool& success) {
+																		bool& success) const {
 	success = false;
 	if(entries.empty()) return {};
 	
 	// create a command buffer if none was specified
 	vulkan_queue::command_buffer cmd_buffer;
 	if(cmd_buffer_ == nullptr) {
-		cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer("encoder");
+		cmd_buffer = ((const vulkan_queue&)cqueue).make_command_buffer("encoder");
 		if(cmd_buffer.cmd_buffer == nullptr) return {}; // just abort
 		
 		// begin recording
@@ -140,9 +141,10 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 					  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
 					  pipeline);
 	
-	auto vk_dev = (vulkan_device*)queue->get_device().get();
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = cmd_buffer,
+		.cqueue = (const vulkan_queue&)cqueue,
 		.device = vk_dev,
 		.pipeline = pipeline,
 		.pipeline_layout = pipeline_layout,
@@ -172,12 +174,12 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 		auto& write_desc = encoder->write_descs[0];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
-		write_desc.dstSet = vk_dev->fixed_sampler_desc_set;
+		write_desc.dstSet = vk_dev.fixed_sampler_desc_set;
 		write_desc.dstBinding = 0;
 		write_desc.dstArrayElement = 0;
-		write_desc.descriptorCount = (uint32_t)vk_dev->fixed_sampler_set.size();
+		write_desc.descriptorCount = (uint32_t)vk_dev.fixed_sampler_set.size();
 		write_desc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-		write_desc.pImageInfo = vk_dev->fixed_sampler_image_info.data();
+		write_desc.pImageInfo = vk_dev.fixed_sampler_image_info.data();
 		write_desc.pBufferInfo = nullptr;
 		write_desc.pTexelBufferView = nullptr;
 	}
@@ -186,7 +188,9 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 	return encoder;
 }
 
-VkPipeline vulkan_kernel::get_pipeline_spec(vulkan_device* device, vulkan_kernel_entry& entry, const uint3& work_group_size) {
+VkPipeline vulkan_kernel::get_pipeline_spec(const vulkan_device& device,
+											vulkan_kernel_entry& entry,
+											const uint3& work_group_size) const {
 	// try to find a pipeline that has already been built/specialized for this work-group size
 	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
 	const auto iter = entry.specializations.find(spec_key);
@@ -204,12 +208,12 @@ VkPipeline vulkan_kernel::get_pipeline_spec(vulkan_device* device, vulkan_kernel
 	return spec_entry->pipeline;
 }
 
-void vulkan_kernel::execute(compute_queue* queue_ptr,
+void vulkan_kernel::execute(const compute_queue& cqueue,
 							const bool& is_cooperative,
 							const uint32_t& dim floor_unused,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
-							const vector<compute_kernel_arg>& args) {
+							const vector<compute_kernel_arg>& args) const {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Vulkan");
@@ -217,7 +221,7 @@ void vulkan_kernel::execute(compute_queue* queue_ptr,
 	}
 	
 	// find entry for queue device
-	const auto kernel_iter = get_kernel(queue_ptr);
+	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
 		log_error("no kernel for this compute queue/device exists!");
 		return;
@@ -239,7 +243,7 @@ void vulkan_kernel::execute(compute_queue* queue_ptr,
 		&kernel_iter->second
 	};
 	bool encoder_success = false;
-	auto encoder = create_encoder(queue_ptr, nullptr,
+	auto encoder = create_encoder(cqueue, nullptr,
 								  get_pipeline_spec(kernel_iter->first, kernel_iter->second, block_dim),
 								  kernel_iter->second.pipeline_layout,
 								  shader_entries, encoder_success);
@@ -270,17 +274,17 @@ void vulkan_kernel::execute(compute_queue* queue_ptr,
 	
 	// run
 	const auto& entry = kernel_iter->second;
-	auto vk_dev = (vulkan_device*)queue_ptr->get_device().get();
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	// set/write/update descriptors
-	vkUpdateDescriptorSets(vk_dev->device,
+	vkUpdateDescriptorSets(vk_dev.device,
 						   (uint32_t)encoder->write_descs.size(), encoder->write_descs.data(),
 						   // never copy (bad for performance)
 						   0, nullptr);
 	
 	// final desc set binding after all parameters have been updated/set
 	const VkDescriptorSet desc_sets[2] {
-		vk_dev->fixed_sampler_desc_set,
+		vk_dev.fixed_sampler_desc_set,
 		entry.desc_set,
 	};
 	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
@@ -298,26 +302,26 @@ void vulkan_kernel::execute(compute_queue* queue_ptr,
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
-	((vulkan_queue*)queue_ptr)->submit_command_buffer(encoder->cmd_buffer,
-													  [encoder](const vulkan_queue::command_buffer&) {
-														  // -> completion handler
-														  
-														  // kill constant buffers after the kernel has finished execution
-														  encoder->constant_buffers.clear();
-													  });
+	((const vulkan_queue&)cqueue).submit_command_buffer(encoder->cmd_buffer,
+														[encoder](const vulkan_queue::command_buffer&) {
+															// -> completion handler
+															
+															// kill constant buffers after the kernel has finished execution
+															encoder->constant_buffers.clear();
+														});
 }
 
 void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
-								  compute_queue* queue,
+								  const compute_queue& cqueue,
 								  const vulkan_kernel_entry* vs_entry,
 								  const vulkan_kernel_entry* fs_entry,
 								  vector<shared_ptr<compute_buffer>>& retained_buffers,
 								  const vector<multi_draw_entry>* draw_entries,
 								  const vector<multi_draw_indexed_entry>* draw_indexed_entries) const {
-	auto vk_dev = (vulkan_device*)queue->get_device().get();
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	// set/write/update descriptors
-	vkUpdateDescriptorSets(vk_dev->device,
+	vkUpdateDescriptorSets(vk_dev.device,
 						   (uint32_t)encoder->write_descs.size(), encoder->write_descs.data(),
 						   // never copy (bad for performance)
 						   0, nullptr);
@@ -330,7 +334,7 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 	const bool discontiguous = (!has_vs_desc && has_fs_desc);
 	
 	const array<VkDescriptorSet, 3> desc_sets {{
-		vk_dev->fixed_sampler_desc_set,
+		vk_dev.fixed_sampler_desc_set,
 		vs_entry->desc_set,
 		has_fs_desc ? fs_entry->desc_set : nullptr,
 	}};
@@ -421,10 +425,10 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const void* ptr, const size_t& size) const {
 	// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
 	// TODO: current limitation of this is that size must be a multiple of 4
-	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->device, size, ptr,
+	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->cqueue, size, ptr,
 																			COMPUTE_MEMORY_FLAG::READ |
 																			COMPUTE_MEMORY_FLAG::HOST_WRITE);
-	encoder->constant_buffers.push_back(constant_buffer);
+	encoder->constant_buffers.emplace_back(constant_buffer);
 	set_argument(encoder, entry, idx, constant_buffer.get());
 }
 
@@ -460,12 +464,12 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	const auto img_access = entry.info->args[idx.arg].image_access;
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		vk_img->transition_write(encoder->cmd_buffer.cmd_buffer,
+		vk_img->transition_write(encoder->cqueue, encoder->cmd_buffer.cmd_buffer,
 								 // also readable?
 								 img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 	}
 	else { // READ
-		vk_img->transition_read(encoder->cmd_buffer.cmd_buffer);
+		vk_img->transition_read(encoder->cqueue, encoder->cmd_buffer.cmd_buffer);
 	}
 	
 	// read image desc/obj
@@ -523,14 +527,14 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
-			image_accessor(img)->transition_write(encoder->cmd_buffer.cmd_buffer,
+			image_accessor(img)->transition_write(encoder->cqueue, encoder->cmd_buffer.cmd_buffer,
 												  // also readable?
 												  img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 		}
 	}
 	else { // READ
 		for(auto& img : image_array) {
-			image_accessor(img)->transition_read(encoder->cmd_buffer.cmd_buffer);
+			image_accessor(img)->transition_read(encoder->cqueue, encoder->cmd_buffer.cmd_buffer);
 		}
 	}
 	
@@ -579,6 +583,11 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	set_image_array_argument(encoder, entry, idx, arg, [](const compute_image* img) {
 		return static_cast<vulkan_image*>(const_cast<compute_image*>(img));
 	});
+}
+
+const compute_kernel::kernel_entry* vulkan_kernel::get_kernel_entry(const compute_device& dev) const {
+	const auto ret = kernels.get((const vulkan_device&)dev);
+	return !ret.first ? nullptr : &ret.second->second;
 }
 
 #endif

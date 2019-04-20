@@ -27,7 +27,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_buffer : public compute_memory {
 public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
-	compute_buffer(compute_device* device,
+	compute_buffer(const compute_queue& cqueue,
 				   const size_t& size_,
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
@@ -36,95 +36,86 @@ public:
 				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an uninitialized buffer of the specified size
-	compute_buffer(compute_device* device,
+	compute_buffer(const compute_queue& cqueue,
 				   const size_t& size_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(device, size_, nullptr, flags_, opengl_type_) {}
+	compute_buffer(cqueue, size_, nullptr, flags_, opengl_type_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type>
-	compute_buffer(compute_device* device,
+	compute_buffer(const compute_queue& cqueue,
 				   const vector<data_type>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+	compute_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
-	compute_buffer(compute_device* device,
+	compute_buffer(const compute_queue& cqueue,
 				   const array<data_type, n>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+	compute_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
 	
-	virtual ~compute_buffer() = 0;
+	virtual ~compute_buffer() = default;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
-	virtual void read(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) = 0;
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the specified "dst" pointer
-	virtual void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(const compute_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! reads sizeof("dst") bytes from "offset" onwards to "dst"
-	template <typename T>
-	floor_inline_always void read_to(T& dst, shared_ptr<compute_queue> cqueue, const size_t offset = 0) {
-		read(cqueue, &dst, sizeof(T), offset);
+	template <typename T> floor_inline_always void read_to(T& dst, const compute_queue& cqueue, const size_t offset_ = 0) {
+		read(cqueue, &dst, sizeof(T), offset_);
 	}
 	
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the previously specified host pointer to this buffer
-	virtual void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void write(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) = 0;
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the specified "src" pointer to this buffer
-	virtual void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void write(const compute_queue& cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
 	//! writes all of "src" to this buffer, from "offset" on onwards
 	template <typename data_type>
-	void write(shared_ptr<compute_queue> cqueue, const vector<data_type>& src, const size_t offset = 0) {
-		write(cqueue, (const void*)&src[0], sizeof(data_type) * src.size(), offset);
+	void write(const compute_queue& cqueue, const vector<data_type>& src, const size_t offset_ = 0) {
+		write(cqueue, (const void*)&src[0], sizeof(data_type) * src.size(), offset_);
 	}
 	//! writes all of "src" to this buffer, from "offset" on onwards
 	template <typename data_type, size_t n>
-	void write(shared_ptr<compute_queue> cqueue, const array<data_type, n>& src, const size_t offset = 0) {
-		write(cqueue, (const void*)&src[0], sizeof(data_type) * n, offset);
+	void write(const compute_queue& cqueue, const array<data_type, n>& src, const size_t offset_ = 0) {
+		write(cqueue, (const void*)&src[0], sizeof(data_type) * n, offset_);
 	}
 	
 	//! writes sizeof("src") bytes from "src" to "offset" onwards to this buffer
-	template <typename T>
-	floor_inline_always void write_from(const T& src, shared_ptr<compute_queue> cqueue, const size_t offset = 0) {
-		write(cqueue, &src, sizeof(T), offset);
+	template <typename T> floor_inline_always void write_from(const T& src, const compute_queue& cqueue, const size_t offset_ = 0) {
+		write(cqueue, &src, sizeof(T), offset_);
 	}
 	
 	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
 	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer
-	virtual void copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
+	virtual void copy(const compute_queue& cqueue, const compute_buffer& src,
 					  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) = 0;
 	
-	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
-	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer
-	void copy(shared_ptr<compute_queue> cqueue, shared_ptr<compute_buffer> src,
-			  const size_t size_ = 0, const size_t src_offset_ = 0, const size_t dst_offset_ = 0) {
-		return copy(cqueue, *src, size_, src_offset_, dst_offset_);
-	}
-	
 	//! clones this buffer, optionally copying its contents as well
-	virtual shared_ptr<compute_buffer> clone(shared_ptr<compute_queue> cqueue, const bool copy_contents = false,
+	virtual shared_ptr<compute_buffer> clone(const compute_queue& cqueue, const bool copy_contents = false,
 											 const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE);
 	
 	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes)
 	//! NOTE: filling the buffer with patterns that are 1 byte, 2 bytes or 4 bytes in size might be faster than other sizes
-	virtual void fill(shared_ptr<compute_queue> cqueue,
+	virtual void fill(const compute_queue& cqueue,
 					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
 	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
 	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
-	virtual bool resize(shared_ptr<compute_queue> cqueue,
+	virtual bool resize(const compute_queue& cqueue,
 						const size_t& size,
 						const bool copy_old_data = false,
 						const bool copy_host_data = false,
@@ -133,10 +124,8 @@ public:
 	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset"
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-													const COMPUTE_MEMORY_MAP_FLAG flags =
-													(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-													 COMPUTE_MEMORY_MAP_FLAG::BLOCK),
+	virtual void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+													const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),
 													const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset",
@@ -144,18 +133,16 @@ public:
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	template <typename data_type, size_t n>
-	array<data_type, n>* map(shared_ptr<compute_queue> cqueue,
-							 const COMPUTE_MEMORY_MAP_FLAG flags_ =
-							 (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-							  COMPUTE_MEMORY_MAP_FLAG::BLOCK),
-							 const size_t size_ = 0, const size_t offset = 0) {
-		return (array<data_type, n>*)map(cqueue, flags_, size_, offset);
+	array<data_type, n>* map(const compute_queue& cqueue,
+							 const COMPUTE_MEMORY_MAP_FLAG flags_ = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),
+							 const size_t size_ = 0, const size_t offset_ = 0) {
+		return (array<data_type, n>*)map(cqueue, flags_, size_, offset_);
 	}
 	
 	//! unmaps a previously mapped memory pointer
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
 	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }

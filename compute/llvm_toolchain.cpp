@@ -48,13 +48,13 @@ bool create_floor_function_info(const string& ffi_file_name,
 		const auto tokens = core::tokenize(line, ',');
 		
 		// at least 7 w/o any args:
-		// <version>,<func_name>,<type>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
+		// <version>,<func_name>,<type>,<flags>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
 		if(tokens.size() < 7) {
 			log_error("invalid function info entry: %s", line);
 			return false;
 		}
 		
-		static constexpr const char floor_functions_version[] { "3" };
+		static constexpr const char floor_functions_version[] { "4" };
 		if(tokens[0] != floor_functions_version) {
 			log_error("invalid floor function info version, expected %u, got %u!",
 					  floor_functions_version, tokens[0]);
@@ -76,17 +76,20 @@ bool create_floor_function_info(const string& ffi_file_name,
 			return false;
 		}
 		
+		const auto func_flags = (function_info::FUNCTION_FLAGS)strtoull(tokens[3].c_str(), nullptr, 10);
+		
 		function_info info {
 			.name = tokens[1],
 			.type = func_type,
+			.flags = func_flags,
 			.local_size = {
-				(uint32_t)strtoull(tokens[3].c_str(), nullptr, 10),
 				(uint32_t)strtoull(tokens[4].c_str(), nullptr, 10),
 				(uint32_t)strtoull(tokens[5].c_str(), nullptr, 10),
+				(uint32_t)strtoull(tokens[6].c_str(), nullptr, 10),
 			}
 		};
 		
-		for(size_t i = 6, count = tokens.size(); i < count; ++i) {
+		for(size_t i = 7, count = tokens.size(); i < count; ++i) {
 			if(tokens[i].empty()) continue;
 			// function arg info: #elem_idx size, address space, image type, image access
 			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);
@@ -115,14 +118,14 @@ bool create_floor_function_info(const string& ffi_file_name,
 	return true;
 }
 
-program_data compile_program(shared_ptr<compute_device> device,
+program_data compile_program(const compute_device& device,
 							 const string& code,
 							 const compile_options options) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	return compile_input("-", printable_code, device, options);
 }
 
-program_data compile_program_file(shared_ptr<compute_device> device,
+program_data compile_program_file(const compute_device& device,
 								  const string& filename,
 								  const compile_options options) {
 	return compile_input("\"" + filename + "\"", "", device, options);
@@ -130,7 +133,7 @@ program_data compile_program_file(shared_ptr<compute_device> device,
 
 program_data compile_input(const string& input,
 						   const string& cmd_prefix,
-						   shared_ptr<compute_device> device,
+						   const compute_device& device,
 						   const compile_options options) {
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
@@ -158,10 +161,10 @@ program_data compile_input(const string& input,
 				" -DFLOOR_COMPUTE_SPIR" \
 				" -DFLOOR_COMPUTE_OPENCL_MAJOR=1" \
 				" -DFLOOR_COMPUTE_OPENCL_MINOR=2" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(floor::get_opencl_verify_spir() ? " -Xclang -cl-verify-spir" : "") +
-				(device->platform_vendor == COMPUTE_VENDOR::INTEL &&
-				 device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "")
+				(device.platform_vendor == COMPUTE_VENDOR::INTEL &&
+				 device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -171,8 +174,8 @@ program_data compile_input(const string& input,
 			toolchain_version = floor::get_metal_toolchain_version();
 			output_file_type = "metallib";
 			
-			const auto mtl_dev = (metal_device*)device.get();
-			auto metal_version = mtl_dev->metal_version;
+			const auto& mtl_dev = (const metal_device&)device;
+			auto metal_version = mtl_dev.metal_version;
 			const auto metal_force_version = (!options.ignore_runtime_info ? floor::get_metal_force_version() : 0);
 			if (metal_force_version != 0) {
 				switch (metal_force_version) {
@@ -200,7 +203,7 @@ program_data compile_input(const string& input,
 			}
 			
 			string os_target;
-			if(mtl_dev->feature_set < 10000) {
+			if(mtl_dev.feature_set < 10000) {
 				// -> iOS 9.0+
 				switch(metal_version) {
 					default:
@@ -249,18 +252,26 @@ program_data compile_input(const string& input,
 				default: break;
 			}
 			
+			bool soft_printf = false;
+			if (options.metal.soft_printf) {
+				soft_printf = *options.metal.soft_printf;
+			} else {
+				soft_printf = floor::get_metal_soft_printf();
+			}
+			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				" -x metal -std=" + metal_std + " -target air64-apple-" + os_target +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
-				(device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
+				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
 				// enable nvidia workarounds on osx 10.12+ (array load/store problems)
 				(!options.ignore_runtime_info &&
-				 device->vendor == COMPUTE_VENDOR::NVIDIA &&
+				 device.vendor == COMPUTE_VENDOR::NVIDIA &&
 				 darwin_helper::get_system_version() >= 101200 ?
 				 " -Xclang -metal-nvidia-workarounds" : "") +
 #endif
+				(soft_printf ? " -Xclang -metal-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
@@ -278,12 +289,13 @@ program_data compile_input(const string& input,
 		} break;
 		case TARGET::PTX: {
 			// handle sm version
+			const auto& cuda_dev = (const cuda_device&)device;
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
-			const auto& sm = ((cuda_device*)device.get())->sm;
+			const auto& sm = cuda_dev.sm;
 			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
 
 			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_7x < 75, 6.3 for sm_75+, 6.4 for sm_8x+)
-			switch(((cuda_device*)device.get())->sm.x) {
+			switch(cuda_dev.sm.x) {
 				case 2:
 				case 3:
 				case 5:
@@ -293,7 +305,7 @@ program_data compile_input(const string& input,
 					ptx_version = max(50u, ptx_version);
 					break;
 				case 7:
-					ptx_version = max(((cuda_device*)device.get())->sm.y < 5 ? 60u : 63u, ptx_version);
+					ptx_version = max(cuda_dev.sm.y < 5 ? 60u : 63u, ptx_version);
 					break;
 				case 8:
 					ptx_version = max(64u, ptx_version);
@@ -345,7 +357,7 @@ program_data compile_input(const string& input,
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
 				// TODO: fix Vulkan double support
-				//(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				//(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -354,8 +366,8 @@ program_data compile_input(const string& input,
 		case TARGET::SPIRV_OPENCL:
 			toolchain_version = floor::get_opencl_toolchain_version();
 			output_file_type = "spv";
-			const auto cl_device = (const opencl_device*)device.get();
-			if(cl_device->spirv_version == SPIRV_VERSION::NONE) {
+			const auto& cl_device = (const opencl_device&)device;
+			if(cl_device.spirv_version == SPIRV_VERSION::NONE) {
 				log_error("SPIR-V is not supported by this device!");
 				return {};
 			}
@@ -363,7 +375,7 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
-				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
+				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
 				" -target spir64-unknown-unknown" \
 				" -llvm-spirv" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
@@ -374,9 +386,9 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIRV" \
-				" -DFLOOR_COMPUTE_OPENCL_MAJOR=" + cl_major_version_to_string(cl_device->cl_version) +
-				" -DFLOOR_COMPUTE_OPENCL_MINOR=" + cl_minor_version_to_string(cl_device->cl_version) +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				" -DFLOOR_COMPUTE_OPENCL_MAJOR=" + cl_major_version_to_string(cl_device.cl_version) +
+				" -DFLOOR_COMPUTE_OPENCL_MINOR=" + cl_minor_version_to_string(cl_device.cl_version) +
+				(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -392,9 +404,9 @@ program_data compile_input(const string& input,
 	
 	// add device information
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
-	const auto vendor_str = compute_vendor_to_string(device->vendor);
-	const auto platform_vendor_str = compute_vendor_to_string(device->platform_vendor);
-	const auto type_str = (device->is_gpu() ? "GPU" : (device->is_cpu() ? "CPU" : "UNKNOWN"));
+	const auto vendor_str = compute_vendor_to_string(device.vendor);
+	const auto platform_vendor_str = compute_vendor_to_string(device.platform_vendor);
+	const auto type_str = (device.is_gpu() ? "GPU" : (device.is_cpu() ? "CPU" : "UNKNOWN"));
 	string os_str;
 	if (!options.ignore_runtime_info) {
 		os_str = (options.target != TARGET::AIR ?
@@ -417,7 +429,7 @@ program_data compile_input(const string& input,
 				  "UNKNOWN"
 #endif
 				  // metal/air specific handling, target os is dependent on feature set
-				  : (((metal_device*)device.get())->feature_set < 10000 ? "IOS" : "OSX"));
+				  : (((const metal_device&)device).feature_set < 10000 ? "IOS" : "OSX"));
 	} else {
 		os_str = "UNKNOWN";
 	}
@@ -443,8 +455,8 @@ program_data compile_input(const string& input,
 	clang_cmd += os_version_str;
 	
 	// assume all gpus have fma support
-	bool has_fma = device->is_gpu();
-	if(device->is_cpu() && !options.ignore_runtime_info) {
+	bool has_fma = device.is_gpu();
+	if(device.is_cpu() && !options.ignore_runtime_info) {
 		// if device is a cpu, need to check cpuid on x86, or check if cpu is armv8
 		has_fma = core::cpu_has_fma();
 	}
@@ -453,15 +465,15 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_FMA_"s + has_fma_str;
 	
 	// base and extended 64-bit atomics support
-	const auto has_base_64_bit_atomics_str = to_string(device->basic_64_bit_atomics_support);
-	const auto has_extended_64_bit_atomics_str = to_string(device->extended_64_bit_atomics_support);
+	const auto has_base_64_bit_atomics_str = to_string(device.basic_64_bit_atomics_support);
+	const auto has_extended_64_bit_atomics_str = to_string(device.extended_64_bit_atomics_support);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS="s + has_base_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_"s + has_base_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS="s + has_extended_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_"s + has_extended_64_bit_atomics_str;
 	
 	// has device actual dedicated local memory
-	const auto has_dedicated_local_memory_str = to_string(device->local_mem_dedicated);
+	const auto has_dedicated_local_memory_str = to_string(device.local_mem_dedicated);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
 	
@@ -476,18 +488,18 @@ program_data compile_input(const string& input,
 	uint2 group_size_range { 1u, ~0u };
 	
 	// if the device has actual info about this, use that instead of the defaults
-	const auto max_global_size = device->max_global_size.max_element();
+	const auto max_global_size = device.max_global_size.max_element();
 	if(max_global_size > 0) {
 		global_id_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size));
 		global_size_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size + 1));
 	}
 	
-	if(device->max_total_local_size != 0) {
-		local_id_range.y = device->max_total_local_size;
-		local_size_range.y = device->max_total_local_size + 1;
+	if(device.max_total_local_size != 0) {
+		local_id_range.y = device.max_total_local_size;
+		local_size_range.y = device.max_total_local_size + 1;
 	}
 	
-	const auto max_group_size = device->max_group_size.max_element();
+	const auto max_group_size = device.max_group_size.max_element();
 	if(max_group_size > 0) {
 		group_id_range.y = max_group_size;
 		group_size_range.y = (max_group_size != ~0u ? max_group_size + 1 : ~0u);
@@ -507,12 +519,12 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MAX=" + to_string(group_size_range.y) + "u";
 	
 	// handle device simd width
-	uint32_t simd_width = device->simd_width;
-	uint2 simd_range = device->simd_range;
+	uint32_t simd_width = device.simd_width;
+	uint2 simd_range = device.simd_range;
 	if(simd_width == 0 && !options.ignore_runtime_info) {
 		// try to figure out the simd width of the device if it's 0
-		if(device->is_gpu()) {
-			switch(device->vendor) {
+		if(device.is_gpu()) {
+			switch(device.vendor) {
 				case COMPUTE_VENDOR::NVIDIA: simd_width = 32; simd_range = { simd_width, simd_width }; break;
 				case COMPUTE_VENDOR::AMD: simd_width = 64; simd_range = { simd_width, simd_width }; break;
 				case COMPUTE_VENDOR::INTEL: simd_width = 16; simd_range = { 8, 32 }; break;
@@ -521,7 +533,7 @@ program_data compile_input(const string& input,
 				default: break;
 			}
 		}
-		else if(device->is_cpu()) {
+		else if(device.is_cpu()) {
 			// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
 			simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			simd_range = { 1, simd_width };
@@ -533,7 +545,7 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_MAX="s + to_string(simd_range.y) + "u";
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
 	
-	if (device->sub_group_support && !disable_sub_groups) {
+	if (device.sub_group_support && !disable_sub_groups) {
 		// sub-group range handling, now that we know local sizes and SIMD-width
 		// NOTE: no known device currently has a SIMD-width larger than 64
 		// NOTE: correspondence if a sub-group was a work-group:
@@ -546,17 +558,17 @@ program_data compile_input(const string& input,
 		uint2 sub_group_id_range { 0u, local_id_range.y /* not larger than this */ };
 		uint2 num_sub_groups_range { 1u, local_size_range.y /* not larger than this */ };
 		
-		if (device->simd_width > 1u) {
-			sub_group_local_id_range.y = device->simd_range.y; // [0, SIMD-width)
-			sub_group_size_range = { device->simd_range.x, device->simd_range.y + 1 }; // [min SIMD-width, max SIMD-width]
-			if (device->simd_range.x == device->simd_range.y) {
+		if (device.simd_width > 1u) {
+			sub_group_local_id_range.y = device.simd_range.y; // [0, SIMD-width)
+			sub_group_size_range = { device.simd_range.x, device.simd_range.y + 1 }; // [min SIMD-width, max SIMD-width]
+			if (device.simd_range.x == device.simd_range.y) {
 				// device with constant SIMD-width
-				sub_group_id_range.y = (local_id_range.y / device->simd_range.y); // [0, max-local-size / max-SIMD-width)
-				num_sub_groups_range.y = local_id_range.y / device->simd_range.y + 1; // [1, max-local-size / max-SIMD-width + 1)
+				sub_group_id_range.y = (local_id_range.y / device.simd_range.y); // [0, max-local-size / max-SIMD-width)
+				num_sub_groups_range.y = local_id_range.y / device.simd_range.y + 1; // [1, max-local-size / max-SIMD-width + 1)
 			} else {
 				// device with variable SIMD-width
-				sub_group_id_range.y = (local_id_range.y / device->simd_range.x); // [0, max-local-size / min-SIMD-width)
-				num_sub_groups_range.y = local_id_range.y / device->simd_range.x + 1; // [1, max-local-size / min-SIMD-width + 1)
+				sub_group_id_range.y = (local_id_range.y / device.simd_range.x); // [0, max-local-size / min-SIMD-width)
+				num_sub_groups_range.y = local_id_range.y / device.simd_range.x + 1; // [1, max-local-size / min-SIMD-width + 1)
 			}
 		}
 		
@@ -572,45 +584,45 @@ program_data compile_input(const string& input,
 	
 	
 	// handle sub-group support
-	if(device->sub_group_support && !disable_sub_groups) {
+	if(device.sub_group_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=1 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_1";
 	} else {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=0 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_0";
 	}
 	
 	// handle sub-group shuffle support
-	if(device->sub_group_shuffle_support && !disable_sub_groups) {
+	if(device.sub_group_shuffle_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE=1 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE_1";
 	} else {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE=0 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE_0";
 	}
 	
 	// handle cooperative kernel support
-	if(device->cooperative_kernel_support) {
+	if(device.cooperative_kernel_support) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL=1 -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL_1";
 	} else {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL=0 -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL_0";
 	}
 	
 	// handle image support
-	const auto has_image_support = to_string(device->image_support);
-	const auto has_image_depth_support = to_string(device->image_depth_support);
-	const auto has_image_depth_write_support = to_string(device->image_depth_write_support);
-	const auto has_image_msaa_support = to_string(device->image_msaa_support);
-	const auto has_image_msaa_write_support = to_string(device->image_msaa_write_support);
-	const auto has_image_msaa_array_support = to_string(device->image_msaa_array_support);
-	const auto has_image_msaa_array_write_support = to_string(device->image_msaa_array_write_support);
-	const auto has_image_cube_support = to_string(device->image_cube_support);
-	const auto has_image_cube_write_support = to_string(device->image_cube_write_support);
-	const auto has_image_cube_array_support = to_string(device->image_cube_array_support);
-	const auto has_image_cube_array_write_support = to_string(device->image_cube_array_write_support);
-	const auto has_image_mipmap_support = to_string(device->image_mipmap_support);
-	const auto has_image_mipmap_write_support = to_string(device->image_mipmap_write_support);
-	const auto has_image_offset_read_support = to_string(device->image_offset_read_support);
-	const auto has_image_offset_write_support = to_string(device->image_offset_write_support);
-	const auto has_image_depth_compare_support = to_string(device->image_depth_compare_support);
-	const auto has_image_gather_support = to_string(device->image_gather_support);
-	const auto has_image_read_write_support = to_string(device->image_read_write_support);
+	const auto has_image_support = to_string(device.image_support);
+	const auto has_image_depth_support = to_string(device.image_depth_support);
+	const auto has_image_depth_write_support = to_string(device.image_depth_write_support);
+	const auto has_image_msaa_support = to_string(device.image_msaa_support);
+	const auto has_image_msaa_write_support = to_string(device.image_msaa_write_support);
+	const auto has_image_msaa_array_support = to_string(device.image_msaa_array_support);
+	const auto has_image_msaa_array_write_support = to_string(device.image_msaa_array_write_support);
+	const auto has_image_cube_support = to_string(device.image_cube_support);
+	const auto has_image_cube_write_support = to_string(device.image_cube_write_support);
+	const auto has_image_cube_array_support = to_string(device.image_cube_array_support);
+	const auto has_image_cube_array_write_support = to_string(device.image_cube_array_write_support);
+	const auto has_image_mipmap_support = to_string(device.image_mipmap_support);
+	const auto has_image_mipmap_write_support = to_string(device.image_mipmap_write_support);
+	const auto has_image_offset_read_support = to_string(device.image_offset_read_support);
+	const auto has_image_offset_write_support = to_string(device.image_offset_write_support);
+	const auto has_image_depth_compare_support = to_string(device.image_depth_compare_support);
+	const auto has_image_gather_support = to_string(device.image_gather_support);
+	const auto has_image_read_write_support = to_string(device.image_read_write_support);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT="s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT_"s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT="s + has_image_depth_support;
@@ -649,30 +661,30 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT_"s + has_image_read_write_support;
 	
 	IMAGE_CAPABILITY img_caps { IMAGE_CAPABILITY::NONE };
-	if(device->image_support) img_caps |= IMAGE_CAPABILITY::BASIC;
-	if(device->image_depth_support) img_caps |= IMAGE_CAPABILITY::DEPTH_READ;
-	if(device->image_depth_write_support) img_caps |= IMAGE_CAPABILITY::DEPTH_WRITE;
-	if(device->image_msaa_support) img_caps |= IMAGE_CAPABILITY::MSAA_READ;
-	if(device->image_msaa_write_support) img_caps |= IMAGE_CAPABILITY::MSAA_WRITE;
-	if(device->image_msaa_array_support) img_caps |= IMAGE_CAPABILITY::MSAA_ARRAY_READ;
-	if(device->image_msaa_array_write_support) img_caps |= IMAGE_CAPABILITY::MSAA_ARRAY_WRITE;
-	if(device->image_cube_support) img_caps |= IMAGE_CAPABILITY::CUBE_READ;
-	if(device->image_cube_write_support) img_caps |= IMAGE_CAPABILITY::CUBE_WRITE;
-	if(device->image_cube_array_support) img_caps |= IMAGE_CAPABILITY::CUBE_ARRAY_READ;
-	if(device->image_cube_array_write_support) img_caps |= IMAGE_CAPABILITY::CUBE_ARRAY_WRITE;
-	if(device->image_mipmap_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_READ;
-	if(device->image_mipmap_write_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_WRITE;
-	if(device->image_offset_read_support) img_caps |= IMAGE_CAPABILITY::OFFSET_READ;
-	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
-	if(device->image_depth_compare_support) img_caps |= IMAGE_CAPABILITY::DEPTH_COMPARE;
-	if(device->image_gather_support) img_caps |= IMAGE_CAPABILITY::GATHER;
-	if(device->image_read_write_support) img_caps |= IMAGE_CAPABILITY::READ_WRITE;
+	if(device.image_support) img_caps |= IMAGE_CAPABILITY::BASIC;
+	if(device.image_depth_support) img_caps |= IMAGE_CAPABILITY::DEPTH_READ;
+	if(device.image_depth_write_support) img_caps |= IMAGE_CAPABILITY::DEPTH_WRITE;
+	if(device.image_msaa_support) img_caps |= IMAGE_CAPABILITY::MSAA_READ;
+	if(device.image_msaa_write_support) img_caps |= IMAGE_CAPABILITY::MSAA_WRITE;
+	if(device.image_msaa_array_support) img_caps |= IMAGE_CAPABILITY::MSAA_ARRAY_READ;
+	if(device.image_msaa_array_write_support) img_caps |= IMAGE_CAPABILITY::MSAA_ARRAY_WRITE;
+	if(device.image_cube_support) img_caps |= IMAGE_CAPABILITY::CUBE_READ;
+	if(device.image_cube_write_support) img_caps |= IMAGE_CAPABILITY::CUBE_WRITE;
+	if(device.image_cube_array_support) img_caps |= IMAGE_CAPABILITY::CUBE_ARRAY_READ;
+	if(device.image_cube_array_write_support) img_caps |= IMAGE_CAPABILITY::CUBE_ARRAY_WRITE;
+	if(device.image_mipmap_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_READ;
+	if(device.image_mipmap_write_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_WRITE;
+	if(device.image_offset_read_support) img_caps |= IMAGE_CAPABILITY::OFFSET_READ;
+	if(device.image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
+	if(device.image_depth_compare_support) img_caps |= IMAGE_CAPABILITY::DEPTH_COMPARE;
+	if(device.image_gather_support) img_caps |= IMAGE_CAPABILITY::GATHER;
+	if(device.image_read_write_support) img_caps |= IMAGE_CAPABILITY::READ_WRITE;
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_MIP_LEVELS="s + to_string(device->max_mip_levels) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_MIP_LEVELS="s + to_string(device.max_mip_levels) + "u";
 	
 	// set param workaround define
-	if(device->param_workaround) {
+	if(device.param_workaround) {
 		clang_cmd += " -DFLOOR_COMPUTE_PARAM_WORKAROUND=1";
 	}
 	
@@ -688,9 +700,9 @@ program_data compile_input(const string& input,
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_PTX=" + to_string(ptx_version);
 			break;
 		case TARGET::SPIRV_VULKAN: {
-			const auto vk_device = (const vulkan_device*)device.get();
-			const auto has_int16_support = to_string(vk_device->int16_support);
-			const auto has_float16_support = to_string(vk_device->float16_support);
+			const auto& vk_device = (const vulkan_device&)device;
+			const auto has_int16_support = to_string(vk_device.int16_support);
+			const auto has_float16_support = to_string(vk_device.float16_support);
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT="s + has_int16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_"s + has_int16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT="s + has_float16_support;

@@ -29,13 +29,13 @@
 // TODO: proper error (return) value handling everywhere
 
 metal_buffer::metal_buffer(const bool is_staging_buffer_,
-						   metal_device* device,
+						   const compute_queue& cqueue,
 						   const size_t& size_,
 						   void* host_ptr_,
 						   const COMPUTE_MEMORY_FLAG flags_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
@@ -65,7 +65,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 			// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
 			// that we'll use to copy memory to and from the private storage buffer
 			options |= MTLResourceStorageModePrivate;
-			staging_buffer = unique_ptr<metal_buffer>(new metal_buffer(true /* staging */, device, size, nullptr,
+			staging_buffer = unique_ptr<metal_buffer>(new metal_buffer(true /* staging */, cqueue, size, nullptr,
 																	   COMPUTE_MEMORY_FLAG::READ_WRITE |
 																	   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0));
 		}
@@ -83,16 +83,16 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	// TODO: handle the remaining flags + host ptr
 	
 	// actually create the buffer
-	if(!create_internal(true)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-metal_buffer::metal_buffer(shared_ptr<compute_device> device,
+metal_buffer::metal_buffer(const compute_queue& cqueue,
 						   id <MTLBuffer> external_buffer,
 						   void* host_ptr_,
 						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_buffer(device.get(), [external_buffer length], host_ptr_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
+compute_buffer(cqueue, [external_buffer length], host_ptr_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
 	// size _has_ to match and be valid/compatible (compute_buffer will try to fix the size, but it's obviously an external object)
 	// -> detect size mismatch and bail out
 	if(size != [external_buffer length]) {
@@ -102,7 +102,7 @@ compute_buffer(device.get(), [external_buffer length], host_ptr_, flags_, 0, 0),
 	if(size < min_multiple()) return;
 	
 	// device must match
-	if(((metal_device*)device.get())->device != [external_buffer device]) {
+	if(((const metal_device&)cqueue.get_device()).device != [external_buffer device]) {
 		log_error("specified metal device does not match the device set in the external buffer");
 		return;
 	}
@@ -135,7 +135,9 @@ FLOOR_POP_WARNINGS()
 #endif
 }
 
-bool metal_buffer::create_internal(const bool copy_host_data) {
+bool metal_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+	const auto& mtl_dev = (const metal_device&)cqueue.get_device();
+	
 	// should not be called under that condition, but just to be safe
 	if(is_external) {
 		log_error("buffer is external!");
@@ -144,7 +146,7 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 	
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		buffer = [((metal_device*)dev)->device newBufferWithBytesNoCopy:host_ptr length:size options:options
+		buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_ptr length:size options:options
 															deallocator:^(void*, NSUInteger) { /* nop */ }];
 	}
 	// -> alloc and use device memory
@@ -155,23 +157,23 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			// can't use "newBufferWithBytes" with private storage memory
 			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-				auto cqueue = ((metal_compute*)dev->context)->get_device_internal_queue(dev);
-				
 				// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
 				//    if available), then blit from the host memory buffer
-				buffer = [((metal_device*)dev)->device newBufferWithLength:size options:options];
+				buffer = [mtl_dev.device newBufferWithLength:size options:options];
 				if (staging_buffer == nullptr) {
 #if !defined(FLOOR_IOS)
-					auto buffer_with_host_mem = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size
-																						 options:(MTLResourceStorageModeManaged |
-																								  MTLCPUCacheModeWriteCombined)];
+					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
+																			length:size
+																		   options:(MTLResourceStorageModeManaged |
+																					MTLCPUCacheModeWriteCombined)];
 #else
-					auto buffer_with_host_mem = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size
-																						 options:(MTLResourceStorageModeShared |
-																								  MTLCPUCacheModeWriteCombined)];
+					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
+																			length:size
+																		   options:(MTLResourceStorageModeShared |
+																					MTLCPUCacheModeWriteCombined)];
 #endif
 					
-					id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 					[blit_encoder copyFromBuffer:buffer_with_host_mem
 									sourceOffset:0
@@ -189,12 +191,12 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 			}
 			else {
 				// all other storage modes can just use it
-				buffer = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size options:options];
+				buffer = [mtl_dev.device newBufferWithBytes:host_ptr length:size options:options];
 			}
 		}
 		// else: just create a buffer of the specified size
 		else {
-			buffer = [((metal_device*)dev)->device newBufferWithLength:size options:options];
+			buffer = [mtl_dev.device newBufferWithLength:size options:options];
 		}
 	}
 	return true;
@@ -205,11 +207,11 @@ metal_buffer::~metal_buffer() {
 	buffer = nil;
 }
 
-void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void metal_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused_on_ios, void* dst, const size_t size_, const size_t offset) {
+void metal_buffer::read(const compute_queue& cqueue floor_unused_on_ios, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
@@ -231,11 +233,11 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused_on_ios, vo
 	memcpy(dst, (uint8_t*)[buffer contents] + offset, read_size);
 }
 
-void metal_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void metal_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused_on_ios, const void* src,
+void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const void* src,
 						 const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
@@ -258,11 +260,11 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused_on_ios, c
 #endif
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, compute_buffer& src,
+void metal_buffer::copy(const compute_queue& cqueue floor_unused_on_ios, const compute_buffer& src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;
 	
-	auto src_mtl_buffer = (metal_buffer*)&src;
+	const auto& src_mtl_buffer = (const metal_buffer&)src;
 	const size_t src_size = src.get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
@@ -271,11 +273,11 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, co
 	
 #if !defined(FLOOR_IOS)
 	// if either source or destination uses private storage, we need to perform a blit copy
-	if((src_mtl_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+	if((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
 	   (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		[blit_encoder copyFromBuffer:src_mtl_buffer->get_metal_buffer()
+		[blit_encoder copyFromBuffer:src_mtl_buffer.get_metal_buffer()
 						sourceOffset:src_offset
 							toBuffer:buffer
 				   destinationOffset:dst_offset
@@ -286,8 +288,8 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, co
 		return;
 	}
 	
-	if((src_mtl_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_resource(cqueue, src_mtl_buffer->get_metal_buffer());
+	if((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, src_mtl_buffer.get_metal_buffer());
 	}
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		sync_metal_resource(cqueue, buffer);
@@ -295,7 +297,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, co
 #endif
 	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
-		   (uint8_t*)[src_mtl_buffer->get_metal_buffer() contents] + src_offset,
+		   (uint8_t*)[src_mtl_buffer.get_metal_buffer() contents] + src_offset,
 		   copy_size);
 	
 #if !defined(FLOOR_IOS)
@@ -305,7 +307,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios, co
 #endif
 }
 
-void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
+void metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
@@ -322,7 +324,7 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 #if !defined(FLOOR_IOS)
 			// can use fillBuffer directly on the private storage buffer
 			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-				id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+				id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 				id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 				[blit_encoder fillBuffer:buffer
 								   range:NSRange { offset, offset + fill_size }
@@ -365,12 +367,12 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 #endif
 }
 
-void metal_buffer::zero(shared_ptr<compute_queue> cqueue) {
+void metal_buffer::zero(const compute_queue& cqueue) {
 	const uint8_t zero_pattern = 0u;
 	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
-bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
+bool metal_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
 						  const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
 						  void* new_host_ptr floor_unused) {
 	if(buffer == nil) return false;
@@ -379,7 +381,7 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const s
 	return false;
 }
 
-void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
+void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueue floor_unused_on_ios,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_,
 													  const size_t size_, const size_t offset) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return nullptr;
@@ -462,7 +464,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 #endif
 }
 
-void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
+void metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return;
 	if(mapped_ptr == nullptr) return;
@@ -514,19 +516,19 @@ void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 }
 
 // NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
-bool metal_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool metal_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
 	return true;
 }
 
 // NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
-bool metal_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool metal_buffer::release_opengl_object(const compute_queue* cqueue floor_unused) {
 	return true;
 }
 
-void metal_buffer::sync_metal_resource(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
+void metal_buffer::sync_metal_resource(const compute_queue& cqueue floor_unused_on_ios,
 									   id <MTLResource> rsrc floor_unused_on_ios) {
 #if !defined(FLOOR_IOS)
-	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	[blit_encoder synchronizeResource:rsrc];
 	[blit_encoder endEncoding];

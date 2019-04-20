@@ -27,12 +27,12 @@
 
 class host_program final : public compute_program {
 public:
-	host_program(shared_ptr<compute_device> device);
+	host_program(const compute_device& device);
 	
 	shared_ptr<compute_kernel> get_kernel(const string& func_name) const override;
 	
 protected:
-	shared_ptr<compute_device> device;
+	const compute_device& device;
 	
 };
 

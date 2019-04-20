@@ -42,17 +42,17 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 				if(info.name == kernel_name) {
 					opencl_kernel::opencl_kernel_entry entry;
 					entry.info = &info;
-					entry.max_local_size = prog.first->max_local_size;
+					entry.max_local_size = prog.first.get().max_local_size;
 					
 					CL_CALL_ERR_PARAM_CONT(entry.kernel = clCreateKernel(prog.second.program, kernel_name.c_str(),
 																		 &kernel_err), kernel_err,
-										   "failed to create kernel \"" + kernel_name + "\" for device \"" + prog.first->name + "\"")
+										   "failed to create kernel \"" + kernel_name + "\" for device \"" + prog.first.get().name + "\"")
 					
 					// retrieve max possible work-group size for this device for this kernel
-					entry.max_total_local_size = (uint32_t)cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first->device_id);
+					entry.max_total_local_size = (uint32_t)cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first.get().device_id);
 					
 					// sanity check/override if reported local size > actual supported one (especially on Intel CPUs ...)
-					entry.max_total_local_size = min(entry.max_total_local_size, prog.first->max_total_local_size);
+					entry.max_total_local_size = min(entry.max_total_local_size, prog.first.get().max_total_local_size);
 					
 #if 0 // dump kernel + kernel args info
 					const auto arg_count = cl_get_info<CL_KERNEL_NUM_ARGS>(entry.kernel);

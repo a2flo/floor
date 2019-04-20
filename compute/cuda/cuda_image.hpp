@@ -31,7 +31,7 @@ class cuda_compute;
 class cuda_buffer;
 class cuda_image final : public compute_image {
 public:
-	cuda_image(cuda_device* device,
+	cuda_image(const compute_queue& cqueue,
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   void* host_ptr = nullptr,
@@ -42,17 +42,17 @@ public:
 	
 	~cuda_image() override;
 	
-	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(const compute_queue* cqueue) override;
+	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	void zero(shared_ptr<compute_queue> cqueue) override;
+	void zero(const compute_queue& cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags =
 											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
 											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the cuda specific image pointer (array or mip-mapped array)
 	const void* get_cuda_image() const { return image; }
@@ -104,7 +104,7 @@ protected:
 	unordered_map<void*, cuda_mapping> mappings;
 	
 	//! separate create image function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 	//
 	uint32_t depth_compat_tex { 0u };

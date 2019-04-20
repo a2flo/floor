@@ -257,79 +257,79 @@ compute_context(), enable_renderer(enable_renderer_) {
 		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"")
 		
 		// add device
-		auto device = make_shared<vulkan_device>();
-		devices.emplace_back(device);
+		devices.emplace_back(make_unique<vulkan_device>());
+		auto& device = (vulkan_device&)*devices.back();
 		physical_devices.emplace_back(phys_dev);
 		logical_devices.emplace_back(dev);
-		device->context = this;
-		device->physical_device = phys_dev;
-		device->device = dev;
-		device->name = props.deviceName;
-		device->platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
-		device->version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
-							   to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
-							   to_string(VK_VERSION_PATCH(props.apiVersion)));
-		device->driver_version_str = to_string(props.driverVersion);
-		device->extensions = device_extensions;
+		device.context = this;
+		device.physical_device = phys_dev;
+		device.device = dev;
+		device.name = props.deviceName;
+		device.platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
+		device.version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
+							  to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
+							  to_string(VK_VERSION_PATCH(props.apiVersion)));
+		device.driver_version_str = to_string(props.driverVersion);
+		device.extensions = device_extensions;
 		
 		// TODO: determine context/platform vulkan version
-		device->vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
-		if (device->vulkan_version == VULKAN_VERSION::VULKAN_1_0) {
-			device->spirv_version = SPIRV_VERSION::SPIRV_1_0;
-		} else if (device->vulkan_version >= VULKAN_VERSION::VULKAN_1_1) {
+		device.vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
+		if (device.vulkan_version == VULKAN_VERSION::VULKAN_1_0) {
+			device.spirv_version = SPIRV_VERSION::SPIRV_1_0;
+		} else if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_1) {
 			// "A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V"
-			device->spirv_version = SPIRV_VERSION::SPIRV_1_3;
+			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
 		}
 		
 		if(props.vendorID < 0x10000) {
 			switch(props.vendorID) {
 				case 0x1002:
-					device->vendor = COMPUTE_VENDOR::AMD;
-					device->vendor_name = "AMD";
-					device->driver_version_str = to_string(VK_VERSION_MAJOR(props.driverVersion)) + ".";
-					device->driver_version_str += to_string(VK_VERSION_MINOR(props.driverVersion)) + ".";
-					device->driver_version_str += to_string(VK_VERSION_PATCH(props.driverVersion));
+					device.vendor = COMPUTE_VENDOR::AMD;
+					device.vendor_name = "AMD";
+					device.driver_version_str = to_string(VK_VERSION_MAJOR(props.driverVersion)) + ".";
+					device.driver_version_str += to_string(VK_VERSION_MINOR(props.driverVersion)) + ".";
+					device.driver_version_str += to_string(VK_VERSION_PATCH(props.driverVersion));
 					break;
 				case 0x10DE:
-					device->vendor = COMPUTE_VENDOR::NVIDIA;
-					device->vendor_name = "NVIDIA";
-					device->driver_version_str = to_string((props.driverVersion >> 22u) & 0x3FF) + ".";
-					device->driver_version_str += to_string((props.driverVersion >> 14u) & 0xFF) + ".";
-					device->driver_version_str += to_string((props.driverVersion >> 6u) & 0xFF);
+					device.vendor = COMPUTE_VENDOR::NVIDIA;
+					device.vendor_name = "NVIDIA";
+					device.driver_version_str = to_string((props.driverVersion >> 22u) & 0x3FF) + ".";
+					device.driver_version_str += to_string((props.driverVersion >> 14u) & 0xFF) + ".";
+					device.driver_version_str += to_string((props.driverVersion >> 6u) & 0xFF);
 					break;
 				case 0x8086:
-					device->vendor = COMPUTE_VENDOR::INTEL;
-					device->vendor_name = "INTEL";
+					device.vendor = COMPUTE_VENDOR::INTEL;
+					device.vendor_name = "INTEL";
 					break;
 				default:
-					device->vendor = COMPUTE_VENDOR::UNKNOWN;
-					device->vendor_name = "UNKNOWN";
+					device.vendor = COMPUTE_VENDOR::UNKNOWN;
+					device.vendor_name = "UNKNOWN";
 					break;
 			}
 		}
 		else {
 			// khronos assigned vendor id (not handling this for now)
-			device->vendor = COMPUTE_VENDOR::KHRONOS;
-			device->vendor_name = "Khronos assigned vendor";
+			device.vendor = COMPUTE_VENDOR::KHRONOS;
+			device.vendor_name = "Khronos assigned vendor";
 		}
 		
-		device->internal_type = props.deviceType;
+		device.internal_type = props.deviceType;
 		switch(props.deviceType) {
 			// TODO: differentiate these?
 			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
 			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-				device->type = (compute_device::TYPE)gpu_counter;
+				device.type = (compute_device::TYPE)gpu_counter;
 				++gpu_counter;
 				if(fastest_gpu_device == nullptr) {
-					fastest_gpu_device = device;
+					fastest_gpu_device = &device;
 				}
 				break;
 			case VK_PHYSICAL_DEVICE_TYPE_CPU:
-				device->type = (compute_device::TYPE)cpu_counter;
+				device.type = (compute_device::TYPE)cpu_counter;
 				++cpu_counter;
 				if(fastest_cpu_device == nullptr) {
-					fastest_cpu_device = device;
+					fastest_cpu_device = &device;
 				}
 				break;
 			case VK_PHYSICAL_DEVICE_TYPE_OTHER:
@@ -339,140 +339,140 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		
 		// queue count info
-		device->queue_counts.resize(queue_family_count);
+		device.queue_counts.resize(queue_family_count);
 		for(uint32_t i = 0; i < queue_family_count; ++i) {
-			device->queue_counts[i] = dev_queue_family_props[i].queueCount;
+			device.queue_counts[i] = dev_queue_family_props[i].queueCount;
 		}
 		
 		// limits
 		const auto& limits = props.limits;
-		device->constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
-		device->local_mem_size = limits.maxComputeSharedMemorySize;
+		device.constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
+		device.local_mem_size = limits.maxComputeSharedMemorySize;
 		
-		device->max_total_local_size = limits.maxComputeWorkGroupInvocations;
-		device->max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
-		device->max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
-		device->max_global_size = device->max_local_size * device->max_group_size;
-		device->max_push_constants_size = limits.maxPushConstantsSize;
+		device.max_total_local_size = limits.maxComputeWorkGroupInvocations;
+		device.max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
+		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
+		device.max_global_size = device.max_local_size * device.max_group_size;
+		device.max_push_constants_size = limits.maxPushConstantsSize;
 		
-		device->max_image_1d_dim = limits.maxImageDimension1D;
-		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
-		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
-		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
-		device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
-																					  device->max_image_3d_dim.max_element()),
-																			 device->max_image_1d_dim));
+		device.max_image_1d_dim = limits.maxImageDimension1D;
+		device.max_image_1d_buffer_dim = limits.maxTexelBufferElements;
+		device.max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
+		device.max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
+		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
+																					  device.max_image_3d_dim.max_element()),
+																			 device.max_image_1d_dim));
 		log_debug("max img / mip: %v, %v, %v -> %u",
-				  device->max_image_1d_dim, device->max_image_2d_dim, device->max_image_3d_dim,
-				  device->max_mip_levels);
+				  device.max_image_1d_dim, device.max_image_2d_dim, device.max_image_3d_dim,
+				  device.max_mip_levels);
 		
-		device->image_msaa_array_support = features.shaderStorageImageMultisample;
-		device->image_msaa_array_write_support = device->image_msaa_array_support;
-		device->image_cube_array_support = features.imageCubeArray;
-		device->image_cube_array_write_support = device->image_cube_array_support;
+		device.image_msaa_array_support = features.shaderStorageImageMultisample;
+		device.image_msaa_array_write_support = device.image_msaa_array_support;
+		device.image_cube_array_support = features.imageCubeArray;
+		device.image_cube_array_write_support = device.image_cube_array_support;
 		
-		device->anisotropic_support = features.samplerAnisotropy;
-		device->max_anisotropy = (device->anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
+		device.anisotropic_support = features.samplerAnisotropy;
+		device.max_anisotropy = (device.anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
 		
-		device->int16_support = features.shaderInt16;
-		//device->float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
-		device->double_support = features.shaderFloat64;
+		device.int16_support = features.shaderInt16;
+		//device.float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
+		device.double_support = features.shaderFloat64;
 
 		// retrieve memory info
-		device->mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
-		vkGetPhysicalDeviceMemoryProperties(phys_dev, device->mem_props.get());
+		device.mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
+		vkGetPhysicalDeviceMemoryProperties(phys_dev, device.mem_props.get());
 		
 		// global memory (heap with local bit)
 		// for now, just assume the correct data is stored in the heap flags
-		auto& mem_props = *device->mem_props.get();
+		auto& mem_props = *device.mem_props.get();
 		for(uint32_t i = 0; i < mem_props.memoryHeapCount; ++i) {
 			if(mem_props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device->global_mem_size = mem_props.memoryHeaps[i].size;
-				device->max_mem_alloc = mem_props.memoryHeaps[i].size; // TODO: min(gpu heap, host heap)?
+				device.global_mem_size = mem_props.memoryHeaps[i].size;
+				device.max_mem_alloc = mem_props.memoryHeaps[i].size; // TODO: min(gpu heap, host heap)?
 				break;
 			}
 		}
 		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
 			// preferred index handling
-			if(device->device_mem_index == ~0u &&
+			if(device.device_mem_index == ~0u &&
 			   mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device->device_mem_index = i;
-				log_msg("using memory type #%u for device allocations", device->device_mem_index);
+				device.device_mem_index = i;
+				log_msg("using memory type #%u for device allocations", device.device_mem_index);
 			}
 			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 				// we preferably want to allocate both cached and uncached host visible memory,
 				// but if this isn't possible, just stick with the one that works at all
 				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-					device->host_mem_cached_index = i;
+					device.host_mem_cached_index = i;
 				}
 				else {
-					device->host_mem_uncached_index = i;
+					device.host_mem_uncached_index = i;
 				}
 			}
 			
 			// handling of all available indices
 			// NOTE: some drivers contain multiple entries of the same type and do actually require specific ones from that set
 			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device->device_mem_indices.emplace(i);
+				device.device_mem_indices.emplace(i);
 			}
 			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-					device->host_mem_cached_indices.emplace(i);
+					device.host_mem_cached_indices.emplace(i);
 				}
 				else {
-					device->host_mem_uncached_indices.emplace(i);
+					device.host_mem_uncached_indices.emplace(i);
 				}
 			}
 		}
-		if(device->device_mem_index == ~0u) {
+		if(device.device_mem_index == ~0u) {
 			log_error("no device memory found");
 		}
-		if(device->host_mem_cached_index == ~0u &&
-		   device->host_mem_uncached_index == ~0u) {
+		if(device.host_mem_cached_index == ~0u &&
+		   device.host_mem_uncached_index == ~0u) {
 			log_error("no host-visible memory found");
 		}
 		else {
 			// fallback if either isn't available (see above)
-			if(device->host_mem_cached_index == ~0u) {
-				device->host_mem_cached_index = device->host_mem_uncached_index;
+			if(device.host_mem_cached_index == ~0u) {
+				device.host_mem_cached_index = device.host_mem_uncached_index;
 			}
-			else if(device->host_mem_uncached_index == ~0u) {
-				device->host_mem_uncached_index = device->host_mem_cached_index;
+			else if(device.host_mem_uncached_index == ~0u) {
+				device.host_mem_uncached_index = device.host_mem_cached_index;
 			}
-			log_msg("using memory type #%u for cached host-visible allocations", device->host_mem_cached_index);
-			log_msg("using memory type #%u for uncached host-visible allocations", device->host_mem_uncached_index);
+			log_msg("using memory type #%u for cached host-visible allocations", device.host_mem_cached_index);
+			log_msg("using memory type #%u for uncached host-visible allocations", device.host_mem_uncached_index);
 		}
-		if(device->device_mem_index == device->host_mem_cached_index ||
-		   device->device_mem_index == device->host_mem_uncached_index) {
-			//device->unified_memory = true; // TODO: -> vulkan_memory.cpp
+		if(device.device_mem_index == device.host_mem_cached_index ||
+		   device.device_mem_index == device.host_mem_uncached_index) {
+			//device.unified_memory = true; // TODO: -> vulkan_memory.cpp
 		}
 		
 		log_msg("max mem alloc: %u bytes / %u MB",
-				device->max_mem_alloc,
-				device->max_mem_alloc / 1024ULL / 1024ULL);
+				device.max_mem_alloc,
+				device.max_mem_alloc / 1024ULL / 1024ULL);
 		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
-				device->global_mem_size / 1024ULL / 1024ULL,
-				device->local_mem_size / 1024ULL,
-				device->constant_mem_size / 1024ULL);
+				device.global_mem_size / 1024ULL / 1024ULL,
+				device.local_mem_size / 1024ULL,
+				device.constant_mem_size / 1024ULL);
 		
-		log_msg("max total local size: %u", device->max_total_local_size);
-		log_msg("max local size: %v", device->max_local_size);
-		log_msg("max global size: %v", device->max_global_size);
-		log_msg("max group size: %v", device->max_group_size);
+		log_msg("max total local size: %u", device.max_total_local_size);
+		log_msg("max local size: %v", device.max_local_size);
+		log_msg("max global size: %v", device.max_global_size);
+		log_msg("max group size: %v", device.max_group_size);
 		log_msg("queue families: %u", queue_family_count);
-		log_msg("max queues (family #0): %u", device->queue_counts[0]);
+		log_msg("max queues (family #0): %u", device.queue_counts[0]);
 		
 		// TODO: other device flags
 		// TODO: fastest device selection, tricky to do without a unit count
 		
 		// done
 		log_debug("%s (Memory: %u MB): %s %s, API: %s, driver: %s",
-				  (device->is_gpu() ? "GPU" : (device->is_cpu() ? "CPU" : "UNKNOWN")),
-				  (uint32_t)(device->global_mem_size / 1024ull / 1024ull),
-				  device->vendor_name,
-				  device->name,
-				  device->version_str,
-				  device->driver_version_str);
+				  (device.is_gpu() ? "GPU" : (device.is_cpu() ? "CPU" : "UNKNOWN")),
+				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
+				  device.vendor_name,
+				  device.name,
+				  device.version_str,
+				  device.driver_version_str);
 	}
 	
 	// if there are no devices left, init has failed
@@ -483,18 +483,18 @@ compute_context(), enable_renderer(enable_renderer_) {
 	
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
-	for(const auto& dev : devices) {
-		default_queues.emplace_back(dev, create_queue(dev));
+	for(auto& dev : devices) {
+		default_queues.insert(*dev, create_queue(*dev));
 		
 		// reset idx to 0 so that the first user request gets the same queue
-		((vulkan_device*)dev.get())->cur_queue_idx = 0;
+		((vulkan_device&)*dev).cur_queue_idx = 0;
 	}
 	
 	// create fixed sampler sets for all devices
 	create_fixed_sampler_set();
 	
 	// workaround non-existent fastest device selection
-	fastest_device = devices[0];
+	fastest_device = devices[0].get();
 	
 	// init renderer
 	if(enable_renderer) {
@@ -543,9 +543,8 @@ bool vulkan_compute::init_renderer() {
 	
 	// will always use the "fastest" device for now
 	// TODO: config option to select the rendering device
-	auto vk_device = (vulkan_device*)fastest_device.get();
-	auto vk_queue = (vulkan_queue*)get_device_default_queue(vk_device).get();
-	screen.render_device = vk_device;
+	const auto& vk_queue = (const vulkan_queue&)*get_device_default_queue(*fastest_device);
+	screen.render_device = (const vulkan_device*)fastest_device;
 	
 	// with X11 forwarding we can't do any of this, because DRI* is not available
 	// -> emulate the behavior
@@ -553,7 +552,7 @@ bool vulkan_compute::init_renderer() {
 		screen.image_count = 1;
 		screen.format = VK_FORMAT_B8G8R8A8_UNORM;
 		screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		screen.x11_screen = static_pointer_cast<vulkan_image>(create_image(fastest_device, screen.size,
+		screen.x11_screen = static_pointer_cast<vulkan_image>(create_image(vk_queue, screen.size,
 																		   COMPUTE_IMAGE_TYPE::IMAGE_2D |
 																		   COMPUTE_IMAGE_TYPE::BGRA8UI_NORM |
 																		   COMPUTE_IMAGE_TYPE::READ_WRITE |
@@ -599,15 +598,14 @@ bool vulkan_compute::init_renderer() {
 	};
 	VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
 				"failed to create xlib surface", false)
-#else
-	log_error("unsupported video driver");
-	return false;
 #endif
+	
+#if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(SDL_VIDEO_DRIVER_X11)
 	// TODO: vkGetPhysicalDeviceXlibPresentationSupportKHR/vkGetPhysicalDeviceWin32PresentationSupportKHR
 	
 	// verify if surface is actually usable
 	VkBool32 supported = false;
-	VK_CALL_RET(vkGetPhysicalDeviceSurfaceSupportKHR(vk_device->physical_device, vk_queue->get_family_index(),
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceSupportKHR(screen.render_device->physical_device, vk_queue.get_family_index(),
 													 screen.surface, &supported),
 				"failed to query surface presentability", false)
 	if(!supported) {
@@ -617,14 +615,14 @@ bool vulkan_compute::init_renderer() {
 	
 	// query formats and try to use VK_FORMAT_B8G8R8A8_UNORM if possible
 	uint32_t format_count = 0;
-	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, nullptr),
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(screen.render_device->physical_device, screen.surface, &format_count, nullptr),
 				"failed to query presentable surface formats count", false)
 	if(format_count == 0) {
 		log_error("surface doesn't support any formats");
 		return false;
 	}
 	vector<VkSurfaceFormatKHR> formats(format_count);
-	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, formats.data()),
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(screen.render_device->physical_device, screen.surface, &format_count, formats.data()),
 				"failed to query presentable surface formats", false)
 	screen.format = formats[0].format;
 	screen.color_space = formats[0].colorSpace;
@@ -639,7 +637,7 @@ bool vulkan_compute::init_renderer() {
 	
 	//
 	VkSurfaceCapabilitiesKHR surface_caps;
-	VK_CALL_RET(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_device->physical_device, screen.surface, &surface_caps),
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(screen.render_device->physical_device, screen.surface, &surface_caps),
 				"failed to query surface capabilities", false)
 	VkExtent2D surface_size = surface_caps.currentExtent;
 	if(surface_size.width == 0xFFFFFFFFu) {
@@ -656,10 +654,10 @@ bool vulkan_compute::init_renderer() {
 	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	if(!floor::get_vsync()) {
 		uint32_t mode_count = 0;
-		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, nullptr),
+		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(screen.render_device->physical_device, screen.surface, &mode_count, nullptr),
 					"failed to query surface present mode count", false)
 		vector<VkPresentModeKHR> present_modes(mode_count);
-		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, present_modes.data()),
+		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(screen.render_device->physical_device, screen.surface, &mode_count, present_modes.data()),
 					"failed to query surface present modes", false)
 		if(find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != present_modes.end()) {
 			present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -691,17 +689,17 @@ bool vulkan_compute::init_renderer() {
 		.clipped = false,
 		.oldSwapchain = nullptr,
 	};
-	VK_CALL_RET(vkCreateSwapchainKHR(vk_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
+	VK_CALL_RET(vkCreateSwapchainKHR(screen.render_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
 				"failed to create swapchain", false)
 	
 	// get all swapchain images + create views
 	screen.image_count = 0;
-	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, nullptr),
+	VK_CALL_RET(vkGetSwapchainImagesKHR(screen.render_device->device, screen.swapchain, &screen.image_count, nullptr),
 				"failed to query swapchain image count", false)
 	screen.swapchain_images.resize(screen.image_count);
 	screen.swapchain_image_views.resize(screen.image_count);
 	screen.render_semas.resize(screen.image_count);
-	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
+	VK_CALL_RET(vkGetSwapchainImagesKHR(screen.render_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
 				"failed to retrieve swapchain images", false)
 	
 	VkImageViewCreateInfo image_view_create_info {
@@ -728,16 +726,23 @@ bool vulkan_compute::init_renderer() {
 	};
 	for(uint32_t i = 0; i < screen.image_count; ++i) {
 		image_view_create_info.image = screen.swapchain_images[i];
-		VK_CALL_RET(vkCreateImageView(vk_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
+		VK_CALL_RET(vkCreateImageView(screen.render_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
 					"image view creation failed", false)
 	}
 	
 	return true;
+#else
+	log_error("unsupported video driver");
+	return false;
+#endif
 }
 
 pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
+	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+	const auto& vk_queue = (const vulkan_queue&)dev_queue;
+	
 	if(screen.x11_forwarding) {
-		screen.x11_screen->transition(nullptr /* create a cmd buffer */,
+		screen.x11_screen->transition(dev_queue, nullptr /* create a cmd buffer */,
 									  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 									  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 		return {
@@ -772,8 +777,7 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
-	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
-	auto cmd_buffer = vk_queue->make_command_buffer("image drawable transition");
+	auto cmd_buffer = vk_queue.make_command_buffer("image drawable transition");
 	const VkCommandBufferBeginInfo begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -806,9 +810,9 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 	
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
 				"failed to end command buffer", { false, dummy_ret })
-	vk_queue->submit_command_buffer(cmd_buffer, true, // TODO: don't block?
-									&screen.render_semas[screen.image_index], 1,
-									VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	vk_queue.submit_command_buffer(cmd_buffer, true, // TODO: don't block?
+								   &screen.render_semas[screen.image_index], 1,
+								   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	
 	return {
 		true,
@@ -821,11 +825,11 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 }
 
 bool vulkan_compute::present_image(const drawable_image_info& drawable) {
-	auto dev_queue = get_device_default_queue(screen.render_device);
-	auto vk_queue = (vulkan_queue*)dev_queue.get();
+	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
 	if(screen.x11_forwarding) {
-		screen.x11_screen->transition(nullptr /* create a cmd buffer */,
+		screen.x11_screen->transition(dev_queue, nullptr /* create a cmd buffer */,
 									  VK_ACCESS_TRANSFER_READ_BIT,
 									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 									  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
@@ -855,7 +859,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	}
 	
 	// transition to present mode
-	auto cmd_buffer = vk_queue->make_command_buffer("image present transition");
+	auto cmd_buffer = vk_queue.make_command_buffer("image present transition");
 	const VkCommandBufferBeginInfo begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -888,7 +892,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
 				"failed to end command buffer", false)
-	vk_queue->submit_command_buffer(cmd_buffer, true); // TODO: don't block?
+	vk_queue.submit_command_buffer(cmd_buffer, true); // TODO: don't block?
 	
 	// present
 	const VkPresentInfoKHR present_info {
@@ -901,7 +905,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 		.pImageIndices = &drawable.index,
 		.pResults = nullptr,
 	};
-	VK_CALL_RET(vkQueuePresentKHR((VkQueue)vk_queue->get_queue_ptr(), &present_info),
+	VK_CALL_RET(vkQueuePresentKHR((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), &present_info),
 				"failed to present", false)
 	
 	// cleanup
@@ -911,23 +915,19 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	return true;
 }
 
-shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) {
-		log_error("nullptr is not a valid device!");
-		return {};
-	}
-	auto vulkan_dev = (vulkan_device*)dev.get();
+shared_ptr<compute_queue> vulkan_compute::create_queue(const compute_device& dev) const {
+	const auto& vulkan_dev = (const vulkan_device&)dev;
 	
 	// can only create a certain amount of queues per device with vulkan, so handle this + handle the queue index
-	if(vulkan_dev->cur_queue_idx >= vulkan_dev->queue_counts[0]) {
-		log_warn("too many queues were created (max: %u), wrapping around to #0 again", vulkan_dev->queue_counts[0]);
-		vulkan_dev->cur_queue_idx = 0;
+	if(vulkan_dev.cur_queue_idx >= vulkan_dev.queue_counts[0]) {
+		log_warn("too many queues were created (max: %u), wrapping around to #0 again", vulkan_dev.queue_counts[0]);
+		vulkan_dev.cur_queue_idx = 0;
 	}
-	const auto next_queue_index = vulkan_dev->cur_queue_idx++;
+	const auto next_queue_index = vulkan_dev.cur_queue_idx++;
 	
 	VkQueue queue_obj;
 	const uint32_t family_index = 0; // always family #0 for now
-	vkGetDeviceQueue(vulkan_dev->device, family_index, next_queue_index, &queue_obj);
+	vkGetDeviceQueue(vulkan_dev.device, family_index, next_queue_index, &queue_obj);
 	if(queue_obj == nullptr) {
 		log_error("failed to retrieve vulkan device queue");
 		return {};
@@ -938,77 +938,73 @@ shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device
 	return ret;
 }
 
-shared_ptr<compute_queue> vulkan_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
-	return get_device_default_queue(dev.get());
-}
-
-shared_ptr<compute_queue> vulkan_compute::get_device_default_queue(const compute_device* dev) const {
+const compute_queue* vulkan_compute::get_device_default_queue(const compute_device& dev) const {
 	for(const auto& default_queue : default_queues) {
 		if(default_queue.first.get() == dev) {
-			return default_queue.second;
+			return default_queue.second.get();
 		}
 	}
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
-	return {};
+	return nullptr;
 }
 
-shared_ptr<compute_buffer> vulkan_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<vulkan_buffer>((vulkan_device*)&device, size, flags, opengl_type);
+														 const uint32_t opengl_type) const {
+	return make_shared<vulkan_buffer>(cqueue, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> vulkan_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, void* data,
 														 const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<vulkan_buffer>((vulkan_device*)&device, size, data, flags, opengl_type);
+														 const uint32_t opengl_type) const {
+	return make_shared<vulkan_buffer>(cqueue, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(compute_device&, const uint32_t, const uint32_t,
-													   const COMPUTE_MEMORY_FLAG) {
+shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(const compute_queue&, const uint32_t, const uint32_t,
+													   const COMPUTE_MEMORY_FLAG) const {
 	log_error("not supported by vulkan_compute!");
 	return {};
 }
 
-shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(compute_device&, const uint32_t, const uint32_t,
-													   void*, const COMPUTE_MEMORY_FLAG) {
+shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(const compute_queue&, const uint32_t, const uint32_t,
+													   void*, const COMPUTE_MEMORY_FLAG) const {
 	log_error("not supported by vulkan_compute!");
 	return {};
 }
 
-shared_ptr<compute_image> vulkan_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<vulkan_image>((vulkan_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<vulkan_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
 }
 
-shared_ptr<compute_image> vulkan_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<vulkan_image>((vulkan_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> vulkan_compute::wrap_image(shared_ptr<compute_device>, const uint32_t, const uint32_t,
-													 const COMPUTE_MEMORY_FLAG) {
+shared_ptr<compute_image> vulkan_compute::wrap_image(const compute_queue&, const uint32_t, const uint32_t,
+													 const COMPUTE_MEMORY_FLAG) const {
 	log_error("not supported by vulkan_compute!");
 	return {};
 }
 
-shared_ptr<compute_image> vulkan_compute::wrap_image(shared_ptr<compute_device>, const uint32_t, const uint32_t,
-													 void*, const COMPUTE_MEMORY_FLAG) {
+shared_ptr<compute_image> vulkan_compute::wrap_image(const compute_queue&, const uint32_t, const uint32_t,
+													 void*, const COMPUTE_MEMORY_FLAG) const {
 	log_error("not supported by vulkan_compute!");
 	return {};
 }
 
 shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
 		log_error("failed to load universal binary: %s", file_name);
 		return {};
@@ -1018,7 +1014,7 @@ shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& f
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto vlk_dev = (vulkan_device*)devices[i].get();
+		const auto& vlk_dev = (const vulkan_device&)devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		
@@ -1058,8 +1054,8 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_toolchain::compile_program_file(dev, file_name, options)));
+		prog_map.insert_or_assign((const vulkan_device&)*dev,
+								  create_vulkan_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
@@ -1077,13 +1073,13 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_toolchain::compile_program(dev, source_code, options)));
+		prog_map.insert_or_assign((const vulkan_device&)*dev,
+								  create_vulkan_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
-vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
+vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(const compute_device& device,
 																		   llvm_toolchain::program_data program) {
 	if(!program.valid) {
 		return {};
@@ -1096,12 +1092,12 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	}
 	if(!container.valid) return {}; // already prints an error
 	
-	return create_vulkan_program_internal((vulkan_device*)device.get(), container, program.functions,
+	return create_vulkan_program_internal((const vulkan_device&)device, container, program.functions,
 										  program.data_or_filename);
 }
 
 vulkan_program::vulkan_program_entry
-vulkan_compute::create_vulkan_program_internal(vulkan_device* device,
+vulkan_compute::create_vulkan_program_internal(const vulkan_device& device,
 											   const spirv_handler::container& container,
 											   const vector<llvm_toolchain::function_info>& functions,
 											   const string& identifier) {
@@ -1125,8 +1121,8 @@ vulkan_compute::create_vulkan_program_internal(vulkan_device* device,
 			.pCode = &container.spirv_data[entry.data_offset],
 		};
 		VkShaderModule module { nullptr };
-		VK_CALL_RET(vkCreateShaderModule(device->device, &module_info, nullptr, &module),
-					"failed to create shader module (\"" + identifier + "\") for device \"" + device->name + "\"", ret)
+		VK_CALL_RET(vkCreateShaderModule(device.device, &module_info, nullptr, &module),
+					"failed to create shader module (\"" + identifier + "\") for device \"" + device.name + "\"", ret)
 		ret.programs.emplace_back(module);
 	}
 
@@ -1157,20 +1153,20 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		entry.functions = functions;
 		
 		VkShaderModule module { nullptr };
-		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &module),
+		VK_CALL_CONT(vkCreateShaderModule(((const vulkan_device&)dev).device, &module_info, nullptr, &module),
 					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"")
 		entry.programs.emplace_back(module);
 		entry.valid = true;
 		
-		prog_map.insert_or_assign((vulkan_device*)dev.get(), entry);
+		prog_map.insert_or_assign((const vulkan_device&)*dev, entry);
 	}
 	return add_program(move(prog_map));
 }
 
-shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,
+shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(const compute_device& device,
 																				llvm_toolchain::program_data program,
 																				const llvm_toolchain::TARGET) {
-	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program));
+	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program((const vulkan_device&)device, program));
 }
 
 void vulkan_compute::create_fixed_sampler_set() const {
@@ -1203,10 +1199,10 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	static constexpr const uint32_t max_combinations { 32 };
 	
 	for(auto& dev : devices) {
-		auto vk_dev = (vulkan_device*)dev.get();
-		vk_dev->fixed_sampler_set.resize(max_combinations, nullptr);
-		vk_dev->fixed_sampler_image_info.resize(max_combinations,
-												VkDescriptorImageInfo { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED });
+		auto& vk_dev = (vulkan_device&)*dev;
+		vk_dev.fixed_sampler_set.resize(max_combinations, nullptr);
+		vk_dev.fixed_sampler_image_info.resize(max_combinations,
+											   VkDescriptorImageInfo { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED });
 	}
 
 	// create the samplers for all devices
@@ -1241,16 +1237,16 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		};
 		
 		for(auto& dev : devices) {
-			auto vk_dev = (vulkan_device*)dev.get();
+			auto& vk_dev = (vulkan_device&)*dev;
 			if(sampler_create_info.anisotropyEnable) {
-				sampler_create_info.anisotropyEnable = vk_dev->anisotropic_support;
-				sampler_create_info.maxAnisotropy = vk_dev->max_anisotropy;
+				sampler_create_info.anisotropyEnable = vk_dev.anisotropic_support;
+				sampler_create_info.maxAnisotropy = vk_dev.max_anisotropy;
 			}
 			
-			VK_CALL_CONT(vkCreateSampler(vk_dev->device, &sampler_create_info, nullptr, &vk_dev->fixed_sampler_set[combination]),
+			VK_CALL_CONT(vkCreateSampler(vk_dev.device, &sampler_create_info, nullptr, &vk_dev.fixed_sampler_set[combination]),
 						 "failed to create sampler (#" + to_string(combination) + ")")
 			
-			vk_dev->fixed_sampler_image_info[combination].sampler = vk_dev->fixed_sampler_set[combination];
+			vk_dev.fixed_sampler_image_info[combination].sampler = vk_dev.fixed_sampler_set[combination];
 		}
 	}
 	
@@ -1270,10 +1266,10 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		.pBindings = &fixed_samplers_desc_set_layout,
 	};
 	for(auto& dev : devices) {
-		auto vk_dev = (vulkan_device*)dev.get();
-		fixed_samplers_desc_set_layout.pImmutableSamplers = vk_dev->fixed_sampler_set.data();
-		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev->device, &desc_set_layout_info, nullptr,
-												 &vk_dev->fixed_sampler_desc_set_layout),
+		auto& vk_dev = (vulkan_device&)*dev;
+		fixed_samplers_desc_set_layout.pImmutableSamplers = vk_dev.fixed_sampler_set.data();
+		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
+												 &vk_dev.fixed_sampler_desc_set_layout),
 					 "failed to create fixed sampler set descriptor set layout")
 		
 		// TODO: use device global desc pool allocation once this is in place
@@ -1289,18 +1285,18 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			.poolSizeCount = 1,
 			.pPoolSizes = &desc_pool_size,
 		};
-		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev->device, &desc_pool_info, nullptr, &vk_dev->fixed_sampler_desc_pool),
+		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &vk_dev.fixed_sampler_desc_pool),
 					 "failed to create fixed sampler set descriptor pool")
 		
 		// allocate descriptor set
 		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 			.pNext = nullptr,
-			.descriptorPool = vk_dev->fixed_sampler_desc_pool,
+			.descriptorPool = vk_dev.fixed_sampler_desc_pool,
 			.descriptorSetCount = 1,
-			.pSetLayouts = &vk_dev->fixed_sampler_desc_set_layout,
+			.pSetLayouts = &vk_dev.fixed_sampler_desc_set_layout,
 		};
-		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev->device, &desc_set_alloc_info, &vk_dev->fixed_sampler_desc_set),
+		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &vk_dev.fixed_sampler_desc_set),
 					 "failed to allocate fixed sampler set descriptor set")
 	}
 	

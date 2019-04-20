@@ -28,7 +28,7 @@
 static HMODULE exe_module { nullptr };
 #endif
 
-host_program::host_program(shared_ptr<compute_device> device_) : device(device_) {
+host_program::host_program(const compute_device& device_) : device(device_) {
 }
 
 shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
@@ -60,8 +60,8 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	compute_kernel::kernel_entry entry;
-	entry.max_total_local_size = device->max_total_local_size;
-	entry.max_local_size = device->max_local_size;
+	entry.max_total_local_size = device.max_total_local_size;
+	entry.max_local_size = device.max_local_size;
 	
 	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name, move(entry));
 	kernels.emplace_back(kernel);

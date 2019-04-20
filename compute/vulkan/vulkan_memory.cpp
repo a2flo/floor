@@ -25,30 +25,24 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 
-vulkan_memory::vulkan_memory(const vulkan_device* device_, const uint64_t* object_, const bool is_image_) noexcept :
+vulkan_memory::vulkan_memory(const vulkan_device& device_, const uint64_t* object_, const bool is_image_) noexcept :
 device(device_), object(object_), is_image(is_image_) {
 }
 
 vulkan_memory::~vulkan_memory() noexcept {
 	if(mem != nullptr) {
-		vkFreeMemory(device->device, mem, nullptr);
+		vkFreeMemory(device.device, mem, nullptr);
 		mem = nullptr;
 	}
 }
 
-shared_ptr<compute_queue> vulkan_memory::queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const {
-	if(cqueue != nullptr) return cqueue;
-	return ((vulkan_compute*)device->context)->get_device_default_queue(device);
-}
-
-bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, const void* data, const size_t& size, const size_t& offset,
+bool vulkan_memory::write_memory_data(const compute_queue& cqueue, const void* data, const size_t& size, const size_t& offset,
 									  const size_t non_shim_input_size, const char* error_msg_on_failure) {
 	// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
-	auto map_queue = queue_or_default_compute_queue(cqueue);
-	auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
+	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
 	if(mapped_ptr != nullptr) {
 		memcpy(mapped_ptr, data, (non_shim_input_size == 0 ? size : non_shim_input_size));
-		unmap(map_queue, mapped_ptr);
+		unmap(cqueue, mapped_ptr);
 	}
 	else {
 		if(error_msg_on_failure == nullptr) {
@@ -60,13 +54,12 @@ bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, const vo
 	return true;
 }
 
-bool vulkan_memory::read_memory_data(shared_ptr<compute_queue> cqueue, void* data, const size_t& size, const size_t& offset,
+bool vulkan_memory::read_memory_data(const compute_queue& cqueue, void* data, const size_t& size, const size_t& offset,
 									 const size_t non_shim_input_size, const char* error_msg_on_failure) {
-	auto map_queue = queue_or_default_compute_queue(cqueue);
-	auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
+	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
 	if(mapped_ptr != nullptr) {
 		memcpy(data, mapped_ptr, (non_shim_input_size == 0 ? size : non_shim_input_size));
-		unmap(map_queue, mapped_ptr);
+		unmap(cqueue, mapped_ptr);
 	}
 	else {
 		if(error_msg_on_failure == nullptr) {
@@ -78,7 +71,7 @@ bool vulkan_memory::read_memory_data(shared_ptr<compute_queue> cqueue, void* dat
 	return true;
 }
 
-void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cqueue,
 													   const COMPUTE_MEMORY_MAP_FLAG flags,
 													   const size_t size, const size_t offset) {
 	if(*object == 0) return nullptr;
@@ -124,9 +117,9 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 		.flags = flags,
 	};
 	size_t host_buffer_offset = offset;
-	auto vulkan_dev = device->device;
+	auto vulkan_dev = device.device;
 	// TODO: make sure this is cleaned up properly on failure
-	if(!device->unified_memory || is_image) { // TODO: or already created host-visible (-> create_internal)
+	if(!device.unified_memory || is_image) { // TODO: or already created host-visible (-> create_internal)
 		// we're only creating a buffer that is large enough + start from the offset
 		host_buffer_offset = 0;
 		
@@ -152,7 +145,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 			.pNext = nullptr,
 			.allocationSize = mem_req.size,
-			.memoryTypeIndex = device->host_mem_cached_index,
+			.memoryTypeIndex = device.host_mem_cached_index,
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
 		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr)
@@ -163,15 +156,16 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 	}
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	if(!write_only) {
 		if(blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
-			cqueue->finish();
+			cqueue.finish();
 		}
 		
 		// device -> host buffer copy
-		if(!device->unified_memory || is_image) {
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("dev -> host memory copy"); // TODO: should probably abstract this a little
+		if(!device.unified_memory || is_image) {
+			auto cmd_buffer = vk_queue.make_command_buffer("dev -> host memory copy"); // TODO: should probably abstract this a little
 			const VkCommandBufferBeginInfo begin_info {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				.pNext = nullptr,
@@ -190,15 +184,15 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 				vkCmdCopyBuffer(cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
 			}
 			else {
-				image_copy_dev_to_host(cmd_buffer.cmd_buffer, mapping.buffer);
+				image_copy_dev_to_host(cqueue, cmd_buffer.cmd_buffer, mapping.buffer);
 			}
 	
 			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
-			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
+			vk_queue.submit_command_buffer(cmd_buffer, blocking_map);
 		}
 		else {
 			// TODO: make this actually work
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("dev -> host memory barrier");
+			auto cmd_buffer = vk_queue.make_command_buffer("dev -> host memory barrier");
 			const VkCommandBufferBeginInfo begin_info {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				.pNext = nullptr,
@@ -224,7 +218,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
 			
 			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
-			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
+			vk_queue.submit_command_buffer(cmd_buffer, blocking_map);
 		}
 	}
 	
@@ -240,11 +234,12 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 	return host_ptr;
 }
 
-void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(*object == 0) return;
 	if(mapped_ptr == nullptr) return;
 	
-	auto vulkan_dev = device->device;
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	auto vulkan_dev = device.device;
 	
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
@@ -256,11 +251,11 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		if(!device->unified_memory || is_image) {
+		if(!device.unified_memory || is_image) {
 			do {
 				// host -> device copy
 				// TODO: sync ...
-				auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev memory copy"); // TODO: should probably abstract this a little
+				auto cmd_buffer = vk_queue.make_command_buffer("host -> dev memory copy"); // TODO: should probably abstract this a little
 				const VkCommandBufferBeginInfo begin_info {
 					.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 					.pNext = nullptr,
@@ -279,11 +274,11 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 					vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
 				}
 				else {
-					image_copy_host_to_dev(cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
+					image_copy_host_to_dev(cqueue, cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
 				}
 				
 				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-				((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+				vk_queue.submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);
 		}
 	}
@@ -297,8 +292,8 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	// TODO: make this actually work
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		if(device->unified_memory && !is_image) {
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev memory barrier");
+		if(device.unified_memory && !is_image) {
+			auto cmd_buffer = vk_queue.make_command_buffer("host -> dev memory barrier");
 			const VkCommandBufferBeginInfo begin_info {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				.pNext = nullptr,
@@ -328,12 +323,12 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
 			
 			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+			vk_queue.submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 		}
 	}
 	
 	// delete host buffer
-	if(!device->unified_memory || is_image) {
+	if(!device.unified_memory || is_image) {
 		if(iter->second.buffer != nullptr) {
 			vkDestroyBuffer(vulkan_dev, iter->second.buffer, nullptr);
 		}
@@ -371,16 +366,16 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 	
 	// if device memory is wanted, try this first
 	if(want_device_memory) {
-		const auto ret = find_index(device->device_mem_indices, device->device_mem_index, memory_type_bits);
+		const auto ret = find_index(device.device_mem_indices, device.device_mem_index, memory_type_bits);
 		if(ret.first) return ret.second;
 	}
 	
 	// check cached first, then uncached
-	auto ret = find_index(device->host_mem_cached_indices, device->host_mem_cached_index, memory_type_bits);
+	auto ret = find_index(device.host_mem_cached_indices, device.host_mem_cached_index, memory_type_bits);
 	if(ret.first) return ret.second;
 	
 	// check cached first, then uncached
-	ret = find_index(device->host_mem_uncached_indices, device->host_mem_uncached_index, memory_type_bits);
+	ret = find_index(device.host_mem_uncached_indices, device.host_mem_uncached_index, memory_type_bits);
 	if(ret.first) return ret.second;
 	
 	// no memory found for this

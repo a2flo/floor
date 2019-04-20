@@ -32,7 +32,7 @@ static constexpr const uint8_t protection_byte { 0xA5 };
 static constexpr const size_t protection_size { 0u };
 #endif
 
-host_image::host_image(host_device* device,
+host_image::host_image(const compute_queue& cqueue,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   void* host_ptr_,
@@ -40,15 +40,15 @@ host_image::host_image(host_device* device,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
 	// actually create the image
-	if(!create_internal(true, ((host_compute*)device->context)->get_main_queue())) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool host_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	image = new uint8_t[image_data_size_mip_maps + protection_size] alignas(1024);
 	program_info.buffer = image;
 	program_info.runtime_image_type = image_type;
@@ -111,7 +111,7 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 #endif
 		
 		// acquire for use with the host
-		acquire_opengl_object(cqueue);
+		acquire_opengl_object(&cqueue);
 	}
 	
 	return true;
@@ -134,25 +134,25 @@ host_image::~host_image() {
 	}
 }
 
-void host_image::zero(shared_ptr<compute_queue> cqueue) {
+void host_image::zero(const compute_queue& cqueue) {
 	if(image == nullptr) return;
 	
-	cqueue->finish();
+	cqueue.finish();
 	memset(image, 0, image_data_size_mip_maps);
 }
 
-void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) host_image::map(const compute_queue& cqueue,
 													const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;
 	
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(blocking_map) {
-		cqueue->finish();
+		cqueue.finish();
 	}
 	return image;
 }
 
-void host_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void host_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
@@ -162,7 +162,7 @@ void host_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((al
 	}
 }
 
-bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
 #if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
@@ -227,7 +227,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 #endif
 }
 
-bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused) {
 #if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
 	if(image == nullptr) return false;

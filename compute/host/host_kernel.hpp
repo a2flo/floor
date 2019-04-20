@@ -50,14 +50,14 @@ public:
 	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
 	~host_kernel() override = default;
 	
-	void execute(compute_queue* queue_ptr,
+	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) override;
+				 const vector<compute_kernel_arg>& args) const override;
 	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device>) const override {
+	const kernel_entry* get_kernel_entry(const compute_device&) const override {
 		return &entry; // can't really check if the device is correct here
 	}
 	
@@ -69,11 +69,10 @@ protected:
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
-	void execute_internal(compute_queue* queue,
+	void execute_internal(const compute_queue& cqueue,
 						  const uint32_t work_dim,
 						  const uint3 global_work_size,
-						  const uint3 local_work_size,
-						  const function<void()>& kernel_func);
+						  const uint3 local_work_size) const;
 	
 };
 

@@ -26,8 +26,6 @@
 safe_mutex compute_image::minify_programs_mtx;
 unordered_map<compute_context*, unique_ptr<compute_image::minify_program>> compute_image::minify_programs;
 
-compute_image::~compute_image() {}
-
 #if !defined(FLOOR_IOS)
 void compute_image::delete_gl_image() {
 	if(has_external_gl_object) return;
@@ -802,7 +800,7 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 
 void compute_image::build_mip_map_minification_program() const {
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
-	task::spawn([this, ctx = dev->context]() {
+	task::spawn([this, ctx = dev.context]() {
 		auto prog = make_unique<minify_program>();
 		const llvm_toolchain::compile_options options {
 			// suppress any debug output for this, we only want to have console/log output if something goes wrong
@@ -846,8 +844,8 @@ void compute_image::build_mip_map_minification_program() const {
 		};
 		
 		// drop depth image kernel (handling) if there is no depth image support
-		if(!dev->image_depth_support ||
-		   !dev->image_depth_write_support ||
+		if(!dev.image_depth_support ||
+		   !dev.image_depth_write_support ||
 		   // TODO: vulkan support
 		   ctx->get_compute_type() == COMPUTE_TYPE::VULKAN) {
 			minify_kernels.erase(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH | COMPUTE_IMAGE_TYPE::FLOAT);
@@ -871,9 +869,7 @@ void compute_image::build_mip_map_minification_program() const {
 	}, "minify build");
 }
 
-void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
-	if(cqueue == nullptr) return;
-	
+void compute_image::generate_mip_map_chain(const compute_queue& cqueue) {
 	for(uint32_t try_out = 0; ; ++try_out) {
 		if(try_out == 100) {
 			log_error("mip-map minify kernel compilation is stuck?");
@@ -885,11 +881,11 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 		
 		// get the compiled program for this context
 		minify_programs_mtx.lock();
-		const auto iter = minify_programs.find(dev->context);
+		const auto iter = minify_programs.find(dev.context);
 		if(iter == minify_programs.end()) {
 			// kick off build + insert nullptr value to signal build has started
 			build_mip_map_minification_program();
-			minify_programs.emplace(dev->context, nullptr);
+			minify_programs.emplace(dev.context, nullptr);
 			
 			minify_programs_mtx.unlock();
 			continue;
@@ -915,10 +911,10 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 		const auto dim_count = image_dim_count(image_type);
 		uint3 lsize;
 		switch(dim_count) {
-			case 1: lsize = { dev->max_total_local_size, 1, 1 }; break;
-			case 2: lsize = { (dev->max_total_local_size > 256 ? 32 : 16), (dev->max_total_local_size > 512 ? 32 : 16), 1 }; break;
+			case 1: lsize = { dev.max_total_local_size, 1, 1 }; break;
+			case 2: lsize = { (dev.max_total_local_size > 256 ? 32 : 16), (dev.max_total_local_size > 512 ? 32 : 16), 1 }; break;
 			default:
-			case 3: lsize = { (dev->max_total_local_size > 512 ? 32 : 16), (dev->max_total_local_size > 256 ? 16 : 8), 2 }; break;
+			case 3: lsize = { (dev.max_total_local_size > 512 ? 32 : 16), (dev.max_total_local_size > 256 ? 16 : 8), 2 }; break;
 		}
 		for(uint32_t layer = 0; layer < layer_count; ++layer) {
 			uint3 level_size {
@@ -930,8 +926,8 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 			for(uint32_t level = 0; level < mip_level_count;
 				++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
 				if(level == 0) continue;
-				cqueue->execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
-								(compute_image*)this, level_size, inv_prev_level_size, level, layer);
+				cqueue.execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
+							   (compute_image*)this, level_size, inv_prev_level_size, level, layer);
 			}
 		}
 		

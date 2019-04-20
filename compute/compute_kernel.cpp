@@ -18,7 +18,7 @@
 
 #include <floor/compute/compute_kernel.hpp>
 
-uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& entry, const uint3& local_work_size) {
+uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& entry, const uint3& local_work_size) const {
 	// make sure all elements are always at least 1
 	uint3 ret = local_work_size.maxed(1u);
 	

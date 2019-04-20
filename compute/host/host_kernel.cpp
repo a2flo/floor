@@ -547,17 +547,21 @@ host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_
 kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(move(entry_)) {
 }
 
-void host_kernel::execute(compute_queue* queue_ptr,
+void host_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
 						  const uint32_t& dim,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
-						  const vector<compute_kernel_arg>& args) {
+						  const vector<compute_kernel_arg>& args) const {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Host-Compute");
 		return;
 	}
+	
+	// only a single kernel can be active/executed at one time
+	static safe_mutex exec_lock {};
+	GUARD(exec_lock);
 	
 	vector<const void*> vptr_args;
 	vptr_args.reserve(args.size());
@@ -580,7 +584,7 @@ void host_kernel::execute(compute_queue* queue_ptr,
 		}
 	}
 	
-	function<void()> kernel_func;
+	static function<void()> kernel_func;
 	switch (vptr_args.size()) {
 		case 0: kernel_func = [this]() { (*kernel)(); }; break;
 
@@ -639,30 +643,26 @@ void host_kernel::execute(compute_queue* queue_ptr,
 #undef EXPAND_8
 		
 		default:
-			log_error("amount of kernel parameters is too large (only up to 32 parameters are supported)");
+			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");
 			return;
 	}
 	
-	execute_internal(queue_ptr, dim, global_work_size, check_local_work_size(entry, local_work_size), kernel_func);
+	cur_kernel_function = &kernel_func;
+	execute_internal(cqueue, dim, global_work_size, check_local_work_size(entry, local_work_size));
+	cur_kernel_function = nullptr;
 }
 
-void host_kernel::execute_internal(compute_queue* queue,
+void host_kernel::execute_internal(const compute_queue& cqueue,
 								   const uint32_t work_dim,
 								   const uint3 global_work_size,
-								   const uint3 local_work_size,
-								   const function<void()>& kernel_func) {
-	// only a single kernel can be active/executed at one time
-	static safe_mutex exec_lock {};
-	GUARD(exec_lock);
-	
+								   const uint3 local_work_size) const {
 	// init max thread count (once!)
 	if(floor_max_thread_count == 0) {
 		floor_max_thread_count = core::get_hw_thread_count();
 	}
 	
 	//
-	cur_kernel_function = &kernel_func;
-	const auto cpu_count = queue->get_device()->units;
+	const auto cpu_count = cqueue.get_device().units;
 	// device cpu count must be <= h/w thread count, b/c local memory is only allocated for such many threads
 	if(cpu_count > floor_max_thread_count) {
 		log_error("device cpu count exceeds h/w count");

@@ -29,7 +29,6 @@ class cuda_compute;
 class cuda_device final : public compute_device {
 public:
 	cuda_device();
-	~cuda_device() override {}
 	
 	//! compute capability (aka sm_xx)
 	uint2 sm { 2, 0 };
@@ -72,6 +71,11 @@ public:
 	int32_t _device_id { 0u };
 	void* _sampler_init_func_ptr { nullptr };
 #endif
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const cuda_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

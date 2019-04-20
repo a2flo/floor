@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-metal_image::metal_image(metal_device* floor_nonnull device,
+metal_image::metal_image(const compute_queue& cqueue,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
 						 void* floor_nullable host_ptr_,
@@ -35,7 +35,7 @@ metal_image::metal_image(metal_device* floor_nonnull device,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
 						 const opengl_image_info* floor_nullable gl_image_info) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
 	// introduced with os x 10.11 / ios 9.0, kernel/shader access flags can actually be set
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -88,7 +88,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	}
 	
 	// actually create the image
-	if(!create_internal(true, device)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
@@ -240,14 +240,14 @@ FLOOR_POP_WARNINGS()
 	return type;
 }
 
-metal_image::metal_image(shared_ptr<compute_device> device,
+metal_image::metal_image(const compute_queue& cqueue,
 						 id <MTLTexture> floor_nonnull external_image,
 						 void* floor_nullable host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(device.get(), compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
+compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
 			  host_ptr_, flags_, 0, 0, nullptr), image(external_image), is_external(true) {
 	// device must match
-	if(((metal_device*)device.get())->device != [external_image device]) {
+	if(((const metal_device&)dev).device != [external_image device]) {
 		log_error("specified metal device does not match the device set in the external image");
 		return;
 	}
@@ -286,8 +286,9 @@ FLOOR_POP_WARNINGS()
 	shim_image_type = image_type;
 }
 
-bool metal_image::create_internal(const bool copy_host_data, const metal_device* floor_nonnull device) {
+bool metal_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// NOTE: opengl sharing flag is ignored, because there is no metal/opengl sharing and metal can interop with itself w/o explicit sharing
+	const auto& mtl_dev = (const metal_device&)cqueue.get_device();
 	
 	// should not be called under that condition, but just to be safe
 	if(is_external) {
@@ -303,7 +304,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
 	const bool is_compressed = image_compressed(image_type);
-	auto mtl_device = device->device;
+	auto mtl_device = mtl_dev.device;
 	if(is_msaa && is_array) {
 		log_error("msaa array image not supported by metal!");
 		return false;
@@ -477,11 +478,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	
 	// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 	if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		// figure out where we're getting our command queue from
-		metal_queue* mqueue = (metal_queue*)device->internal_queue;
-		
 		// copy to device memory must go through a blit command
-		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		
 		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
@@ -561,10 +559,10 @@ metal_image::~metal_image() {
 	}
 }
 
-void metal_image::zero(shared_ptr<compute_queue> cqueue) {
+void metal_image::zero(const compute_queue& cqueue) {
 	if(image == nil) return;
 	
-	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 	const bool is_compressed = image_compressed(image_type);
@@ -605,7 +603,7 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	[cmd_buffer waitUntilCompleted];
 }
 
-void* floor_nullable __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
+void* floor_nullable __attribute__((aligned(128))) metal_image::map(const compute_queue& cqueue,
 																	const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nil) return nullptr;
 	
@@ -646,7 +644,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(shared_ptr<c
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
 		// must finish up all current work before we can properly read from the current image
-		cqueue->finish();
+		cqueue.finish();
 		
 #if !defined(FLOOR_IOS)
 		// need to sync image (resource) before being able to read it
@@ -656,7 +654,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(shared_ptr<c
 #endif
 		
 		// copy image data to the host
-		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
 		
@@ -712,7 +710,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(shared_ptr<c
 	return host_buffer;
 }
 
-void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
+void metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nil) return;
 	if(mapped_ptr == nullptr) return;
 	
@@ -727,7 +725,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* floor_nullable _
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		// copy host memory to device memory
-		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
 		const auto dim_count = image_dim_count(image_type);
@@ -786,7 +784,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* floor_nullable _
 	mappings.erase(mapped_ptr);
 }
 
-bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool metal_image::acquire_opengl_object(const compute_queue* floor_nullable cqueue floor_unused) {
 	if(image == nil) return false;
 	if(gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
@@ -798,7 +796,7 @@ bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	return true;
 }
 
-bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool metal_image::release_opengl_object(const compute_queue* floor_nullable cqueue floor_unused) {
 	if(image == nil) return false;
 	if(!gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
@@ -810,11 +808,11 @@ bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	return true;
 }
 
-void metal_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
+void metal_image::generate_mip_map_chain(const compute_queue& cqueue) {
 	// nothing to do here
 	if([image mipmapLevelCount] == 1) return;
 	
-	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	[blit_encoder generateMipmapsForTexture:image];
 	[blit_encoder endEncoding];

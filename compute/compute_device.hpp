@@ -31,8 +31,6 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_context;
 class compute_device {
 public:
-	virtual ~compute_device() = 0;
-	
 	//! device types for device selection
 	enum class TYPE : uint32_t {
 		// sub-types
@@ -208,6 +206,11 @@ public:
 	
 	//! associated compute_context this device is part of
 	compute_context* context { nullptr };
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const compute_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

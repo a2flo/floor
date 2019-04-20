@@ -21,13 +21,13 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
-compute_buffer::compute_buffer(compute_device* device_,
+compute_buffer::compute_buffer(const compute_queue& cqueue,
 							   const size_t& size_,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
 							   const uint32_t external_gl_object_) :
-compute_memory(device_, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)) {
+compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)) {
 	if(size == 0) {
 		log_error("can't allocate a buffer of size 0!");
 	}
@@ -40,8 +40,6 @@ compute_memory(device_, host_ptr_, flags_, opengl_type_, external_gl_object_), s
 		size = 0xFFFFFFFFu;
 	}
 }
-
-compute_buffer::~compute_buffer() {}
 
 void compute_buffer::delete_gl_buffer() {
 	if(has_external_gl_object) return;
@@ -201,9 +199,9 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	return {};
 }
 
-shared_ptr<compute_buffer> compute_buffer::clone(shared_ptr<compute_queue> cqueue, const bool copy_contents,
+shared_ptr<compute_buffer> compute_buffer::clone(const compute_queue& cqueue, const bool copy_contents,
 												 const COMPUTE_MEMORY_FLAG flags_override) {
-	if (dev == nullptr || dev->context == nullptr) {
+	if (dev.context == nullptr) {
 		log_error("invalid buffer/device state");
 		return {};
 	}
@@ -214,7 +212,7 @@ shared_ptr<compute_buffer> compute_buffer::clone(shared_ptr<compute_queue> cqueu
 		clone_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 	}
 	
-	auto ret = dev->context->create_buffer(*dev, size, host_ptr, clone_flags, opengl_type);
+	auto ret = dev.context->create_buffer(cqueue, size, host_ptr, clone_flags, opengl_type);
 	if (ret == nullptr) {
 		return {};
 	}

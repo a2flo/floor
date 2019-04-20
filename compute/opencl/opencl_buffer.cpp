@@ -27,13 +27,13 @@
 
 // TODO: proper error (return) value handling everywhere
 
-opencl_buffer::opencl_buffer(opencl_device* device,
+opencl_buffer::opencl_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -73,18 +73,19 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 	
 	// actually create the buffer
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool opencl_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// TODO: handle the remaining flags + host ptr
+	const auto& cl_dev = (const opencl_device&)cqueue.get_device();
 	cl_int create_err = CL_SUCCESS;
 	
 	// -> normal opencl buffer
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, size, host_ptr, &create_err);
+		buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_ptr, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create buffer: %u: %s", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
@@ -97,14 +98,14 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		
 		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		buffer = clCreateFromGLBuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
+		buffer = clCreateFromGLBuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create shared opengl/opencl buffer: %u: %s", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
 			return false;
 		}
 		// acquire for use with opencl
-		acquire_opengl_object(cqueue);
+		acquire_opengl_object(&cqueue);
 	}
 	
 	return true;
@@ -125,37 +126,37 @@ opencl_buffer::~opencl_buffer() {
 	}
 }
 
-void opencl_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void opencl_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void opencl_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
+void opencl_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 	
 	// TODO: blocking flag
-	clEnqueueReadBuffer(queue_or_default_queue(cqueue), buffer, true, offset, read_size, dst,
+	clEnqueueReadBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, true, offset, read_size, dst,
 						0, nullptr, nullptr);
 }
 
-void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void opencl_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
+void opencl_buffer::write(const compute_queue& cqueue, const void* src, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset, flags)) return;
 	
 	// TODO: blocking flag
-	clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, true, offset, write_size, src,
+	clEnqueueWriteBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, true, offset, write_size, src,
 						 0, nullptr, nullptr);
 }
 
-void opencl_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
+void opencl_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 	
@@ -165,12 +166,12 @@ void opencl_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	// TODO: blocking flag?
-	clEnqueueCopyBuffer(queue_or_default_queue(cqueue),
-						((opencl_buffer&)src).get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
+	clEnqueueCopyBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()),
+						((const opencl_buffer&)src).get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
 						0, nullptr, nullptr);
 }
 
-void opencl_buffer::fill(shared_ptr<compute_queue> cqueue,
+void opencl_buffer::fill(const compute_queue& cqueue,
 						 const void* pattern, const size_t& pattern_size,
 						 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
@@ -179,20 +180,20 @@ void opencl_buffer::fill(shared_ptr<compute_queue> cqueue,
 	if(!fill_check(size, fill_size, pattern_size, offset)) return;
 	
 	// NOTE: opencl spec says that this ignores kernel/host read/write flags
-	clEnqueueFillBuffer(queue_or_default_queue(cqueue), buffer, pattern, pattern_size, offset, fill_size,
+	clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, pattern, pattern_size, offset, fill_size,
 						0, nullptr, nullptr);
 }
 
-void opencl_buffer::zero(shared_ptr<compute_queue> cqueue) {
+void opencl_buffer::zero(const compute_queue& cqueue) {
 	if(buffer == nullptr) return;
 	
 	// TODO: figure out the fastest way to do this here (write 8-bit, 16-bit, 32-bit, ...?)
 	static constexpr const uint32_t zero_pattern { 0u };
-	clEnqueueFillBuffer(queue_or_default_queue(cqueue), buffer, &zero_pattern, sizeof(zero_pattern),
+	clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, &zero_pattern, sizeof(zero_pattern),
 						0, size, 0, nullptr, nullptr);
 }
 
-bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
+bool opencl_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 						   const bool copy_old_data, const bool copy_host_data,
 						   void* new_host_ptr) {
 	if(buffer == nullptr) return false;
@@ -241,12 +242,12 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 		// can only copy as many bytes as there are bytes
 		const size_t copy_size = std::min(size, new_size); // >= 4, established above
 		
-		clEnqueueCopyBuffer(queue_or_default_queue(cqueue), old_buffer, buffer, 0, 0, copy_size,
+		clEnqueueCopyBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), old_buffer, buffer, 0, 0, copy_size,
 							0, nullptr, nullptr);
 	}
 	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
 		// TODO: blocking flag
-		clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, true, 0, size, host_ptr,
+		clEnqueueWriteBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, true, 0, size, host_ptr,
 							 0, nullptr, nullptr);
 	}
 	
@@ -258,7 +259,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 	return true;
 }
 
-void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) opencl_buffer::map(const compute_queue& cqueue,
 													   const COMPUTE_MEMORY_MAP_FLAG flags_,
 													   const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
@@ -291,7 +292,7 @@ void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue>
 	
 	//
 	cl_int map_err = CL_SUCCESS;
-	auto ret_ptr = clEnqueueMapBuffer(queue_or_default_queue(cqueue),
+	auto ret_ptr = clEnqueueMapBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()),
 									  buffer, blocking_map, map_flags, offset, map_size,
 									  0, nullptr, nullptr, &map_err);
 	if(map_err != CL_SUCCESS) {
@@ -301,15 +302,15 @@ void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue>
 	return ret_ptr;
 }
 
-void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void opencl_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(buffer == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), buffer, mapped_ptr, 0, nullptr, nullptr),
+	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, mapped_ptr, 0, nullptr, nullptr),
 				"failed to unmap buffer")
 }
 
-bool opencl_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool opencl_buffer::acquire_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
@@ -327,7 +328,7 @@ bool opencl_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool opencl_buffer::release_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(buffer == nullptr) return false;
 	if(gl_object_state) {
@@ -346,9 +347,9 @@ bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-cl_command_queue opencl_buffer::queue_or_default_queue(shared_ptr<compute_queue> cqueue) const {
-	if(cqueue != nullptr) return (cl_command_queue)cqueue->get_queue_ptr();
-	return (cl_command_queue)((opencl_compute*)dev->context)->get_device_default_queue((const opencl_device*)dev)->get_queue_ptr();
+cl_command_queue opencl_buffer::queue_or_default_queue(const compute_queue* cqueue) const {
+	if(cqueue != nullptr) return (cl_command_queue)const_cast<void*>(cqueue->get_queue_ptr());
+	return (cl_command_queue)const_cast<void*>(((const opencl_compute&)*dev.context).get_device_default_queue((const opencl_device&)dev)->get_queue_ptr());
 }
 
 #endif

@@ -24,7 +24,7 @@
 #include <floor/core/cpp_ext.hpp>
 #include <tuple>
 
-#if (!defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN))
+#if (!defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)) || defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
 
 // silence clang warnings about non-literal format strings - while it might be right that
 // these aren't proper c string literals, this whole thing wouldn't work if the input literals weren't
@@ -432,13 +432,13 @@ public:
 	}
 	
 	// final call: forward to printf
-#if !defined(FLOOR_COMPUTE_CUDA)
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
 		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
-#elif defined(FLOOR_COMPUTE_CUDA)
-	// need a slightly different approach for cuda, because printf type can't be infered,
+#elif defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
+	// need a slightly different approach for cuda and soft-printf, because printf type can't be infered,
 	// because it's a variadic template and not a variadic c function
 	template<typename Tuple, size_t... I>
 	static constexpr auto _log_final(Tuple&& args, index_sequence<I...>) {
@@ -450,8 +450,8 @@ public:
 		return _log_final(forward<Tuple>(args), Indices());
 	}
 	
-	template <typename... Args>
-	static void log(const constant char* format, Args&&... args) {
+	template <size_t format_N, typename... Args>
+	static void log(const constant char (&format)[format_N], Args&&... args) {
 		_log_fwd(tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
 #endif

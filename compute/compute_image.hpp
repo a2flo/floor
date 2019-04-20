@@ -59,7 +59,7 @@ public:
 	}
 	
 	// TODO: anisotropic value (must be present at init, or need to recreate image later)
-	compute_image(compute_device* device,
+	compute_image(const compute_queue& cqueue,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
 				  void* host_ptr_ = nullptr,
@@ -67,7 +67,7 @@ public:
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0,
 				  const opengl_image_info* gl_image_info = nullptr) :
-	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
+	compute_memory(cqueue, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
@@ -103,7 +103,7 @@ public:
 		// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
 	}
 	
-	virtual ~compute_image() = 0;
+	virtual ~compute_image() = default;
 	
 	// TODO: read, write, copy, fill
 	// TODO: map with dim size and dim coords/offset
@@ -111,27 +111,23 @@ public:
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-													const COMPUTE_MEMORY_MAP_FLAG flags =
-													(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-													 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) = 0;
+	virtual void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+													const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) = 0;
 	
 	//! maps device memory into host accessible memory,
 	//! returning the mapped pointer as an array<> of "data_type" with "n" elements
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	template <typename data_type, size_t n>
-	array<data_type, n>* map(shared_ptr<compute_queue> cqueue,
-							 const COMPUTE_MEMORY_MAP_FLAG flags_ =
-							 (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-							  COMPUTE_MEMORY_MAP_FLAG::BLOCK)) {
+	array<data_type, n>* map(const compute_queue& cqueue,
+							 const COMPUTE_MEMORY_MAP_FLAG flags_ = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) {
 		return (array<data_type, n>*)map(cqueue, flags_);
 	}
 	
 	//! unmaps a previously mapped memory pointer
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
 	//! return struct of get_opengl_image_info
 	struct opengl_image_info {
@@ -271,7 +267,7 @@ protected:
 	void build_mip_map_minification_program() const;
 	
 	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
-	virtual void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
+	virtual void generate_mip_map_chain(const compute_queue& cqueue);
 	
 };
 

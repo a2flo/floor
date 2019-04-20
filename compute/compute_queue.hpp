@@ -76,7 +76,7 @@ protected:
 	}
 	
 public:
-	compute_queue(shared_ptr<compute_device> device_) : device(device_) {}
+	explicit compute_queue(const compute_device& device_) : device(device_) {}
 	virtual ~compute_queue() = default;
 	
 	//! blocks until all currently scheduled work in this queue has been executed
@@ -98,7 +98,7 @@ public:
 	void execute(shared_ptr<compute_kernel> kernel,
 				 work_size_type_global&& global_work_size,
 				 work_size_type_local&& local_work_size,
-				 const Args&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, { args... });
 	}
 	
@@ -107,7 +107,7 @@ public:
 							is_same<decay_t<work_size_type_global>, uint2>::value ||
 							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
-	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...)
+	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS)
@@ -120,7 +120,7 @@ public:
 	void execute_cooperative(shared_ptr<compute_kernel> kernel,
 							 work_size_type_global&& global_work_size,
 							 work_size_type_local&& local_work_size,
-							 const Args&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, { args... });
 	}
 	
@@ -129,12 +129,12 @@ public:
 							is_same<decay_t<work_size_type_global>, uint2>::value ||
 							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
-	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...)
+	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	
 	//! returns the compute device associated with this queue
-	shared_ptr<compute_device> get_device() const { return device; }
+	const compute_device& get_device() const { return device; }
 	
 	//! returns true if this queue has profiling support
 	virtual bool has_profiling_support() const {
@@ -148,22 +148,22 @@ public:
 	virtual uint64_t stop_profiling();
 	
 protected:
-	shared_ptr<compute_device> device;
+	const compute_device& device;
 	uint64_t us_prof_start { 0 };
 	
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
 								  const bool is_cooperative,
 								  const uint1& global_size, const uint1& local_size,
-								  const vector<compute_kernel_arg>& args);
+								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
 								  const bool is_cooperative,
 								  const uint2& global_size, const uint2& local_size,
-								  const vector<compute_kernel_arg>& args);
+								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
 								  const bool is_cooperative,
 								  const uint3& global_size, const uint3& local_size,
-								  const vector<compute_kernel_arg>& args);
+								  const vector<compute_kernel_arg>& args) const;
 	
 };
 

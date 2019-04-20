@@ -21,51 +21,52 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/cuda/cuda_device.hpp>
 
 cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue* queue) const {
-	return kernels.find((cuda_device*)queue->get_device().get());
+typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue& cqueue) const {
+	return kernels.find((const cuda_device&)cqueue.get_device());
 }
 
-void cuda_kernel::execute_internal(compute_queue* queue,
+void cuda_kernel::execute_internal(const compute_queue& cqueue,
 								   const cuda_kernel_entry& entry,
 								   const uint3& grid_dim,
 								   const uint3& block_dim,
-								   void** kernel_params) {
+								   void** kernel_params) const {
 	CU_CALL_NO_ACTION(cu_launch_kernel(entry.kernel,
 									   grid_dim.x, grid_dim.y, grid_dim.z,
 									   block_dim.x, block_dim.y, block_dim.z,
 									   0,
-									   (cu_stream)queue->get_queue_ptr(),
+									   (const_cu_stream)cqueue.get_queue_ptr(),
 									   kernel_params,
 									   nullptr),
 					  "failed to execute kernel")
 }
 
-void cuda_kernel::execute_cooperative_internal(compute_queue* queue,
+void cuda_kernel::execute_cooperative_internal(const compute_queue& cqueue,
 											   const cuda_kernel_entry& entry,
 											   const uint3& grid_dim,
 											   const uint3& block_dim,
-											   void** kernel_params) {
+											   void** kernel_params) const {
 	CU_CALL_NO_ACTION(cu_launch_cooperative_kernel(entry.kernel,
 												   grid_dim.x, grid_dim.y, grid_dim.z,
 												   block_dim.x, block_dim.y, block_dim.z,
 												   0,
-												   (cu_stream)queue->get_queue_ptr(),
+												   (const_cu_stream)cqueue.get_queue_ptr(),
 												   kernel_params),
 					  "failed to execute cooperative kernel")
 }
 
-void cuda_kernel::execute(compute_queue* queue_ptr,
+void cuda_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
 						  const uint32_t& dim floor_unused,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
-						  const vector<compute_kernel_arg>& args) {
+						  const vector<compute_kernel_arg>& args) const {
 	// find entry for queue device
-	const auto kernel_iter = get_kernel(queue_ptr);
+	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
 		log_error("no kernel for this compute queue/device exists!");
 		return;
@@ -190,10 +191,15 @@ void cuda_kernel::execute(compute_queue* queue_ptr,
 	grid_dim.max(1u);
 	
 	if (!is_cooperative) {
-		execute_internal(queue_ptr, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		execute_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	} else {
-		execute_cooperative_internal(queue_ptr, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		execute_cooperative_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	}
+}
+
+const compute_kernel::kernel_entry* cuda_kernel::get_kernel_entry(const compute_device& dev) const {
+	const auto ret = kernels.get((const cuda_device&)dev);
+	return !ret.first ? nullptr : &ret.second->second;
 }
 
 #endif

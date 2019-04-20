@@ -28,7 +28,7 @@
 
 class vulkan_queue final : public compute_queue {
 public:
-	vulkan_queue(shared_ptr<compute_device> device, VkQueue queue, const uint32_t family_index);
+	explicit vulkan_queue(const compute_device& device, VkQueue queue, const uint32_t family_index);
 	
 	void finish() const override REQUIRES(!queue_lock);
 	void flush() const override;
@@ -50,19 +50,19 @@ public:
 		uint32_t index { ~0u };
 		const char* name { nullptr };
 	};
-	command_buffer make_command_buffer(const char* name = nullptr) REQUIRES(!cmd_buffers_lock);
+	command_buffer make_command_buffer(const char* name = nullptr) const REQUIRES(!cmd_buffers_lock);
 	
 	void submit_command_buffer(command_buffer cmd_buffer,
 							   const bool blocking = true,
 							   const VkSemaphore* wait_semas = nullptr,
 							   const uint32_t wait_sema_count = 0,
-							   const VkPipelineStageFlags wait_stage_flags = 0) REQUIRES(!cmd_buffers_lock, !queue_lock);
+							   const VkPipelineStageFlags wait_stage_flags = 0) const REQUIRES(!cmd_buffers_lock, !queue_lock);
 	void submit_command_buffer(command_buffer cmd_buffer,
 							   function<void(const command_buffer&)> completion_handler,
 							   const bool blocking = true,
 							   const VkSemaphore* wait_semas = nullptr,
 							   const uint32_t wait_sema_count = 0,
-							   const VkPipelineStageFlags wait_stage_flags = 0) REQUIRES(!cmd_buffers_lock, !queue_lock);
+							   const VkPipelineStageFlags wait_stage_flags = 0) const REQUIRES(!cmd_buffers_lock, !queue_lock);
 	
 protected:
 	VkQueue queue GUARDED_BY(queue_lock);
@@ -75,15 +75,15 @@ protected:
 		// make use of optimized bitset
 		64
 	};
-	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
-	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);
+	mutable array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	mutable bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);
 	
 	static constexpr const uint32_t fence_count { 32 };
 	mutable safe_mutex fence_lock;
-	array<VkFence, fence_count> fences GUARDED_BY(fence_lock);
-	bitset<fence_count> fences_in_use GUARDED_BY(fence_lock);
-	pair<VkFence, uint32_t> acquire_fence() REQUIRES(!fence_lock);
-	void release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) REQUIRES(!fence_lock);
+	mutable array<VkFence, fence_count> fences GUARDED_BY(fence_lock);
+	mutable bitset<fence_count> fences_in_use GUARDED_BY(fence_lock);
+	pair<VkFence, uint32_t> acquire_fence() const REQUIRES(!fence_lock);
+	void release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) const REQUIRES(!fence_lock);
 	
 };
 

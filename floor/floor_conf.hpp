@@ -35,6 +35,7 @@
 #if !__has_include(<floor/floor/vulkan_testing.hpp>)
 #define FLOOR_NO_VULKAN 1
 #else
+#define FLOOR_VULKAN_TESTING 1
 #include <floor/floor/vulkan_testing.hpp>
 #endif
 #define FLOOR_NO_OPENCL 1
@@ -50,7 +51,9 @@
 //#define FLOOR_NO_OPENCL 1
 
 // if defined, this disables vulkan support
-//#define FLOOR_NO_VULKAN 1
+#if !defined(FLOOR_VULKAN_TESTING)
+#define FLOOR_NO_VULKAN 1
+#endif
 
 // if defined, this disables metal support
 #if defined(__APPLE__)

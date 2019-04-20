@@ -26,13 +26,13 @@
 
 // TODO: proper error (return) value handling everywhere
 
-cuda_buffer::cuda_buffer(cuda_device* device,
+cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -62,18 +62,19 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
-	if(device->ctx != nullptr) {
-		CU_CALL_RET(cu_ctx_set_current(device->ctx),
+	const auto& cuda_dev = (const cuda_device&)cqueue.get_device();
+	if(cuda_dev.ctx != nullptr) {
+		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
 					"failed to make cuda context current")
 	}
 	
 	// actually create the buffer
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cu_mem_host_register(host_ptr, size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
@@ -121,7 +122,7 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 				return false;
 			}
 			// acquire for use with cuda
-			acquire_opengl_object(cqueue);
+			acquire_opengl_object(&cqueue);
 		}
 	}
 	return true;
@@ -160,37 +161,37 @@ cuda_buffer::~cuda_buffer() {
 	}
 }
 
-void cuda_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void cuda_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void cuda_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
+void cuda_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 	
 	// TODO: blocking flag
-	CU_CALL_RET(cu_memcpy_dtoh_async(dst, buffer + offset, read_size, (cu_stream)cqueue->get_queue_ptr()),
+	CU_CALL_RET(cu_memcpy_dtoh_async(dst, buffer + offset, read_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to read memory from device")
 }
 
-void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void cuda_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
+void cuda_buffer::write(const compute_queue& cqueue, const void* src, const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset, flags)) return;
 	
 	// TODO: blocking flag
-	CU_CALL_RET(cu_memcpy_htod_async(buffer + offset, src, write_size, (cu_stream)cqueue->get_queue_ptr()),
+	CU_CALL_RET(cu_memcpy_htod_async(buffer + offset, src, write_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to write memory to device")
 }
 
-void cuda_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
+void cuda_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == 0) return;
 	
@@ -201,12 +202,12 @@ void cuda_buffer::copy(shared_ptr<compute_queue> cqueue, compute_buffer& src,
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_dtod_async(buffer + dst_offset,
-									 ((cuda_buffer*)&src)->get_cuda_buffer() + src_offset,
-									 copy_size, (cu_stream)cqueue->get_queue_ptr()),
+									 ((const cuda_buffer&)src).get_cuda_buffer() + src_offset,
+									 copy_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to copy memory on device")
 }
 
-void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
+void cuda_buffer::fill(const compute_queue& cqueue,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
@@ -218,15 +219,15 @@ void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
-			CU_CALL_RET(cu_memset_d8_async(buffer + offset, *(const uint8_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d8_async(buffer + offset, *(const uint8_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
 						"failed to fill device memory (8-bit memset)")
 			break;
 		case 2:
-			CU_CALL_RET(cu_memset_d16_async(buffer + offset, *(const uint16_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d16_async(buffer + offset, *(const uint16_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
 						"failed to fill device memory (16-bit memset)")
 			break;
 		case 4:
-			CU_CALL_RET(cu_memset_d32_async(buffer + offset, *(const uint32_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d32_async(buffer + offset, *(const uint32_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
 						"failed to fill device memory (32-bit memset)")
 			break;
 		default:
@@ -245,13 +246,13 @@ void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
 	}
 }
 
-void cuda_buffer::zero(shared_ptr<compute_queue> cqueue) {
+void cuda_buffer::zero(const compute_queue& cqueue) {
 	if(buffer == 0) return;
 	static constexpr const uint32_t zero_pattern { 0u };
 	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
-bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
+bool cuda_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 						 const bool copy_old_data, const bool copy_host_data,
 						 void* new_host_ptr) {
 	if(buffer == 0) return false;
@@ -322,7 +323,7 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	}
 	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
 		// can be done async, because the new host pointer continues to exist
-		CU_CALL_RET(cu_memcpy_htod_async(buffer, host_ptr, size, (cu_stream)cqueue->get_queue_ptr()),
+		CU_CALL_RET(cu_memcpy_htod_async(buffer, host_ptr, size, (const_cu_stream)cqueue.get_queue_ptr()),
 					"failed to copy host data to new buffer while resizing buffer", false)
 	}
 	
@@ -339,7 +340,7 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	return true;
 }
 
-void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue,
 													 const COMPUTE_MEMORY_MAP_FLAG flags_,
 													 const size_t size_, const size_t offset) {
 	if(buffer == 0) return nullptr;
@@ -377,13 +378,13 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	if(!write_only) {
 		if(blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
-			cqueue->finish();
+			cqueue.finish();
 			
 			CU_CALL_NO_ACTION(cu_memcpy_dtoh(host_buffer, buffer + offset, map_size),
 							  "failed to copy device memory to host")
 		}
 		else {
-			CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer, buffer + offset, map_size, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer, buffer + offset, map_size, (const_cu_stream)cqueue.get_queue_ptr()),
 							  "failed to copy device memory to host")
 		}
 	}
@@ -394,7 +395,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	return host_buffer;
 }
 
-void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+void cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
 						void* __attribute__((aligned(128))) mapped_ptr) {
 	if(buffer == 0) return;
 	if(mapped_ptr == nullptr) return;
@@ -418,7 +419,7 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	mappings.erase(mapped_ptr);
 }
 
-bool cuda_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool cuda_buffer::acquire_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
 	if(!gl_object_state) {
@@ -428,8 +429,7 @@ bool cuda_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 		return true;
 	}
 	
-	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc,
-										  (cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
+	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc, (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to acquire opengl buffer - cuda resource mapping failed!", false)
 	gl_object_state = false;
 	
@@ -449,7 +449,7 @@ bool cuda_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool cuda_buffer::release_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(buffer == 0) return false;
 	if(rsrc == nullptr) return false;
@@ -461,8 +461,7 @@ bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	}
 	
 	buffer = 0; // reset buffer pointer, this is no longer valid
-	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc,
-											(cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
+	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc, (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to release opengl buffer - cuda resource unmapping failed!", false)
 	gl_object_state = true;
 	

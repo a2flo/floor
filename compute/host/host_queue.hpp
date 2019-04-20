@@ -28,7 +28,7 @@
 
 class host_queue final : public compute_queue {
 public:
-	host_queue(shared_ptr<compute_device> device);
+	explicit host_queue(const compute_device& device);
 	
 	void finish() const override;
 	void flush() const override;

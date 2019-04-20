@@ -22,11 +22,10 @@
 #include <floor/core/essentials.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 
-class spirv_handler {
-public:
+namespace spirv_handler {
 	//! loads a spir-v binary from the file specified by file_name,
 	//! returning the read code + setting code_size to the amount of bytes
-	static unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size);
+	unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size);
 	
 	// #### SPIR-V container file format ####
 	// ## header
@@ -60,17 +59,11 @@ public:
 	static constexpr const uint32_t container_version { 2u };
 	
 	//! loads a SPIR-V container file and processes it into a usable 'container' object
-	static container load_container(const string& file_name);
-	static container load_container_from_memory(const uint8_t* data_ptr,
-												const size_t& data_size,
-												const string identifier = "");
-	
-protected:
-	// static class
-	spirv_handler(const spirv_handler&) = delete;
-	~spirv_handler() = delete;
-	spirv_handler& operator=(const spirv_handler&) = delete;
-	
-};
+	container load_container(const string& file_name);
+	container load_container_from_memory(const uint8_t* data_ptr,
+										 const size_t& data_size,
+										 const string identifier = "");
+
+} // spirv_handler
 
 #endif

@@ -28,7 +28,7 @@
 class opencl_device;
 class opencl_image final : public compute_image {
 public:
-	opencl_image(opencl_device* device,
+	opencl_image(const compute_queue& cqueue,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 void* host_ptr = nullptr,
@@ -39,17 +39,15 @@ public:
 	
 	~opencl_image() override;
 	
-	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(const compute_queue* cqueue) override;
+	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	void zero(shared_ptr<compute_queue> cqueue) override;
+	void zero(const compute_queue& cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags =
-											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the opencl specific image object/pointer
 	const cl_mem& get_cl_image() const {
@@ -64,12 +62,10 @@ protected:
 	const uint32_t mip_origin_idx;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 	//! if cqueue isn't nullptr, returns its cl_command_queue, otherwise returns the devices default queue
-	cl_command_queue queue_or_default_queue(shared_ptr<compute_queue> cqueue) const;
-	//! if cqueue isn't nullptr, returns cqueue, otherwise returns the devices default compute_queue
-	shared_ptr<compute_queue> queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const;
+	cl_command_queue queue_or_default_queue(const compute_queue* cqueue) const;
 	
 	struct opencl_mapping {
 		const COMPUTE_MEMORY_MAP_FLAG flags;

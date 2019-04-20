@@ -29,7 +29,7 @@
 class vulkan_device;
 class vulkan_image final : public compute_image, vulkan_memory {
 public:
-	vulkan_image(vulkan_device* device,
+	vulkan_image(const compute_queue& cqueue,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 void* host_ptr = nullptr,
@@ -40,21 +40,20 @@ public:
 	
 	~vulkan_image() override;
 	
-	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(const compute_queue* cqueue) override;
+	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	void zero(shared_ptr<compute_queue> cqueue) override;
+	void zero(const compute_queue& cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags =
-											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! transitions this image into a new 'layout', with specified 'access', at src/dst stage
 	//! NOTE: if cmd_buffer is nullptr, a new one will be created and enqueued/submitted in the end
-	void transition(VkCommandBuffer cmd_buffer,
+	void transition(const compute_queue& cqueue,
+					VkCommandBuffer cmd_buffer,
 					const VkAccessFlags dst_access,
 					const VkImageLayout new_layout,
 					const VkPipelineStageFlags src_stage_mask,
@@ -62,10 +61,10 @@ public:
 					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
 	
 	//! transition for shader or attachment read (if not already in this mode)
-	void transition_read(VkCommandBuffer cmd_buffer);
+	void transition_read(const compute_queue& cqueue, VkCommandBuffer cmd_buffer);
 	//! transition for shader or attachment write (if not already in this mode)
 	//! if 'read_write' is set, will also make the image readable
-	void transition_write(VkCommandBuffer cmd_buffer, const bool read_write = false);
+	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, const bool read_write = false);
 	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
@@ -107,10 +106,12 @@ protected:
 	void update_mip_map_info();
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
-	void image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
-	void image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) override;
+	void image_copy_dev_to_host(const compute_queue& cqueue,
+								VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
+	void image_copy_host_to_dev(const compute_queue& cqueue,
+								VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) override;
 	
 };
 

@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-opencl_image::opencl_image(opencl_device* device,
+opencl_image::opencl_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,
@@ -35,7 +35,7 @@ opencl_image::opencl_image(opencl_device* device,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_,
 						   const opengl_image_info* gl_image_info) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
 mip_origin_idx(!is_mip_mapped ? 0 :
 			   (image_dim_count(image_type) + (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? 1 : 0))) {
@@ -76,12 +76,13 @@ mip_origin_idx(!is_mip_mapped ? 0 :
 	}
 	
 	// actually create the image
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool opencl_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+	const auto& cl_dev = (const opencl_device&)cqueue.get_device();
 	cl_int create_err = CL_SUCCESS;
 	
 	cl_image_format cl_img_format;
@@ -173,7 +174,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	
 	// -> normal opencl image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		image = clCreateImage(((opencl_device*)dev)->ctx, cl_flags, &cl_img_format, &cl_img_desc,
+		image = clCreateImage(cl_dev.ctx, cl_flags, &cl_img_format, &cl_img_desc,
 							  (copy_host_data && !is_mip_mapped ? host_ptr : nullptr), &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create image: %s", cl_error_to_string(create_err));
@@ -192,14 +193,14 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 				const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
 				size4 level_origin;
 				level_origin[mip_origin_idx] = level;
-				CL_CALL_RET(clEnqueueWriteImage(queue_or_default_queue(cqueue), image, false,
+				CL_CALL_RET(clEnqueueWriteImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, false,
 												level_origin.data(), level_region.data(), 0, 0, cpy_host_ptr,
 												0, nullptr, nullptr),
 							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false)
 				cpy_host_ptr += level_data_size;
 				return true;
 			});
-			queue_or_default_compute_queue(cqueue)->finish();
+			cqueue.finish();
 		}
 	}
 	// -> shared opencl/opengl image
@@ -209,11 +210,11 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
 		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-			image = clCreateFromGLTexture(((opencl_device*)dev)->ctx, cl_flags, opengl_type,
+			image = clCreateFromGLTexture(cl_dev.ctx, cl_flags, opengl_type,
 										  is_mip_mapped ? -1 : 0, gl_object, &create_err);
 		}
 		else {
-			image = clCreateFromGLRenderbuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
+			image = clCreateFromGLRenderbuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
 		}
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create image from opengl object: %s", cl_error_to_string(create_err));
@@ -221,14 +222,14 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			return false;
 		}
 		// acquire for use with opencl
-		acquire_opengl_object(cqueue);
+		acquire_opengl_object(&cqueue);
 	}
 	
 	// manually create mip-map chain
 	if(generate_mip_maps &&
 	   // when using gl sharing: just acquired the opengl image, so no need to do this
 	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+		generate_mip_map_chain(cqueue);
 	}
 	
 	return true;
@@ -249,13 +250,13 @@ opencl_image::~opencl_image() {
 	}
 }
 
-void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
+void opencl_image::zero(const compute_queue& cqueue) {
 	if(image == nullptr) return;
 	
 	const float4 black { 0.0f }; // bit identical to uint4(0) and int4(0), so format doesn't matter here
 	const size4 origin { 0, 0, 0, 0 };
 	const size4 region { image_dim.xyz.maxed(1), 1 };
-	CL_CALL_RET(clEnqueueFillImage(queue_or_default_queue(cqueue), image,
+	CL_CALL_RET(clEnqueueFillImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image,
 								   (const void*)&black, origin.data(), region.data(),
 								   0, nullptr, nullptr),
 				"failed to zero image")
@@ -279,7 +280,7 @@ void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
 			const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
 			size4 level_origin;
 			level_origin[mip_origin_idx] = level;
-			CL_CALL_RET(clEnqueueWriteImage(queue_or_default_queue(cqueue), image, false,
+			CL_CALL_RET(clEnqueueWriteImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, false,
 											level_origin.data(), level_region.data(), 0, 0, zero_buffer.get(),
 											0, nullptr, nullptr),
 						"failed to zero image (mip-level #" + to_string(level) + ")", false)
@@ -287,11 +288,11 @@ void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
 		});
 		
 		// block until all have been written
-		queue_or_default_compute_queue(cqueue)->finish();
+		cqueue.finish();
 	}
 }
 
-void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
+void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;
 	
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_) || generate_mip_maps;
@@ -335,7 +336,7 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 		
 		size_t image_row_pitch = 0, image_slice_pitch = 0; // must not be nullptr
 		cl_int map_err = CL_SUCCESS;
-		auto mapped_ptr = clEnqueueMapImage(queue_or_default_queue(cqueue),
+		auto mapped_ptr = clEnqueueMapImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()),
 											image, blocking_map, map_flags,
 											origin.data(), region.data(),
 											&image_row_pitch, &image_slice_pitch,
@@ -374,7 +375,7 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 	return ret_ptr;
 }
 
-void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
@@ -401,7 +402,7 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	}
 	
 	for(const auto& mptr : iter->second.mapped_ptrs) {
-		CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), image, mptr, 0, nullptr, nullptr),
+		CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, mptr, 0, nullptr, nullptr),
 					"failed to unmap buffer")
 	}
 	mappings.erase(mapped_ptr);
@@ -410,11 +411,11 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	if(generate_mip_maps &&
 	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
-		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+		generate_mip_map_chain(cqueue);
 	}
 }
 
-bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool opencl_image::acquire_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
@@ -432,7 +433,7 @@ bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool opencl_image::release_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(image == nullptr) return false;
 	if(gl_object_state) {
@@ -451,13 +452,9 @@ bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-shared_ptr<compute_queue> opencl_image::queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const {
-	if(cqueue != nullptr) return cqueue;
-	return ((opencl_compute*)dev->context)->get_device_default_queue(dev);
-}
-
-cl_command_queue opencl_image::queue_or_default_queue(shared_ptr<compute_queue> cqueue) const {
-	return (cl_command_queue)queue_or_default_compute_queue(cqueue)->get_queue_ptr();
+cl_command_queue opencl_image::queue_or_default_queue(const compute_queue* cqueue) const {
+	if(cqueue != nullptr) return (cl_command_queue)const_cast<void*>(cqueue->get_queue_ptr());
+	return (cl_command_queue)const_cast<void*>(((const opencl_compute&)*dev.context).get_device_default_queue((const opencl_device&)dev)->get_queue_ptr());
 }
 
 #endif

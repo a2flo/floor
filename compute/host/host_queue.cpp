@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
-host_queue::host_queue(shared_ptr<compute_device> device_) : compute_queue(device_) {
+host_queue::host_queue(const compute_device& device_) : compute_queue(device_) {
 }
 
 void host_queue::finish() const {

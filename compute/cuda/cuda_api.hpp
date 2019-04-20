@@ -416,22 +416,51 @@ enum class CU_EVENT_FLAGS : uint32_t {
 #define CU_LAUNCH_PARAM_END nullptr
 
 // these are all external opaque types
-typedef struct _cu_context* cu_context;
-typedef struct _cu_texture_ref* cu_texture_ref;
-typedef struct _cu_array* cu_array;
-typedef struct _cu_mip_mapped_array* cu_mip_mapped_array;
-typedef struct _cu_stream* cu_stream;
-typedef struct _cu_module* cu_module;
-typedef struct _cu_function* cu_function;
-typedef struct _cu_graphics_resource* cu_graphics_resource;
-typedef struct _cu_link_state* cu_link_state;
-typedef struct _cu_event* cu_event;
+struct _cu_context;
+using cu_context = _cu_context*;
+using const_cu_context = const _cu_context*;
 
-typedef int32_t cu_device;
-typedef size_t cu_device_ptr;
-typedef uint64_t cu_surf_object;
-typedef uint64_t cu_tex_object;
-typedef uint32_t cu_tex_only_object;
+struct _cu_texture_ref;
+using cu_texture_ref = _cu_texture_ref*;
+using const_cu_texture_ref = const _cu_texture_ref*;
+
+struct _cu_array;
+using cu_array = _cu_array*;
+using const_cu_array = _cu_array*;
+
+struct _cu_mip_mapped_array;
+using cu_mip_mapped_array = _cu_mip_mapped_array*;
+using const_cu_mip_mapped_array = const _cu_mip_mapped_array*;
+
+struct _cu_stream;
+using cu_stream = _cu_stream*;
+using const_cu_stream = const _cu_stream*;
+
+struct _cu_module;
+using cu_module = _cu_module*;
+using const_cu_module = const _cu_module*;
+
+struct _cu_function;
+using cu_function = _cu_function*;
+using const_cu_function = const _cu_function*;
+
+struct _cu_graphics_resource;
+using cu_graphics_resource = _cu_graphics_resource*;
+using const_cu_graphics_resource = const _cu_graphics_resource*;
+
+struct _cu_link_state;
+using cu_link_state = _cu_link_state*;
+using const_cu_link_state = const _cu_link_state*;
+
+struct _cu_event;
+using cu_event = _cu_event*;
+using const_cu_event = const _cu_event*;
+
+using cu_device = int32_t;
+using cu_device_ptr = size_t;
+using cu_surf_object = uint64_t;
+using cu_tex_object = uint64_t;
+using cu_tex_only_object = uint32_t;
 typedef size_t (CU_API *cu_occupancy_b2d_size)(int32_t block_size);
 
 // structs that can actually be filled by the user
@@ -554,21 +583,21 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*event_create)(cu_event* evt, CU_EVENT_FLAGS flags);
 	CU_API CU_RESULT (*event_destroy)(cu_event evt);
 	CU_API CU_RESULT (*event_elapsed_time)(float* milli_seconds, cu_event start_evt, cu_event end_evt);
-	CU_API CU_RESULT (*event_record)(cu_event evt, cu_stream stream);
+	CU_API CU_RESULT (*event_record)(cu_event evt, const_cu_stream stream);
 	CU_API CU_RESULT (*event_synchronize)(cu_event evt);
 	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
 	CU_API CU_RESULT (*graphics_gl_register_image)(cu_graphics_resource* p_cuda_resource, GLuint image, GLenum target, CU_GRAPHICS_REGISTER_FLAGS flags);
-	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
+	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, const_cu_stream h_stream);
 	CU_API CU_RESULT (*graphics_resource_get_mapped_mipmapped_array)(cu_mip_mapped_array* handle, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_sub_resource_get_mapped_array)(cu_array* p_array, cu_graphics_resource resource, uint32_t array_index, uint32_t mip_level);
-	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
+	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, const_cu_stream h_stream);
 	CU_API CU_RESULT (*init)(uint32_t flags);
-	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params, void** extra);
-	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params);
+	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params, void** extra);
+	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params);
 	CU_API CU_RESULT (*launch_cooperative_kernel_multi_device)(cu_launch_params* launch_params, uint32_t num_devices, uint32_t flags);
 	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, const void* data, size_t size, const char* name, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
 	CU_API CU_RESULT (*link_complete)(cu_link_state state, void** cubin_out, size_t* size_out);
@@ -580,19 +609,19 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*mem_host_register)(void* p, size_t bytesize, CU_MEM_HOST_REGISTER flags);
 	CU_API CU_RESULT (*mem_host_unregister)(void* p);
 	CU_API CU_RESULT (*memcpy_3d)(const cu_memcpy_3d_descriptor* p_copy);
-	CU_API CU_RESULT (*memcpy_3d_async)(const cu_memcpy_3d_descriptor* p_copy, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_3d_async)(const cu_memcpy_3d_descriptor* p_copy, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memcpy_dtod)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count);
-	CU_API CU_RESULT (*memcpy_dtod_async)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_dtod_async)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memcpy_dtoh)(void* dst_host, cu_device_ptr src_device, size_t byte_count);
-	CU_API CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memcpy_htod)(cu_device_ptr dst_device, const void* src_host, size_t byte_count);
-	CU_API CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memset_d16)(cu_device_ptr dst_device, uint16_t us, size_t n);
 	CU_API CU_RESULT (*memset_d32)(cu_device_ptr dst_device, uint32_t ui, size_t n);
 	CU_API CU_RESULT (*memset_d8)(cu_device_ptr dst_device, unsigned char uc, size_t n);
-	CU_API CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, cu_stream h_stream);
-	CU_API CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, cu_stream h_stream);
-	CU_API CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, const_cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, const_cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, const_cu_stream h_stream);
 	CU_API CU_RESULT (*mipmapped_array_create)(cu_mip_mapped_array* handle, const cu_array_3d_descriptor* desc, uint32_t num_mipmap_levels);
 	CU_API CU_RESULT (*mipmapped_array_destroy)(cu_mip_mapped_array handle);
 	CU_API CU_RESULT (*mipmapped_array_get_level)(cu_array* level_array, cu_mip_mapped_array mipmapped_array, uint32_t level);
@@ -604,7 +633,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size_with_flags)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit, uint32_t flags);
 	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
-	CU_API CU_RESULT (*stream_synchronize)(cu_stream h_stream);
+	CU_API CU_RESULT (*stream_synchronize)(const_cu_stream h_stream);
 	CU_API CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
 	CU_API CU_RESULT (*surf_object_destroy)(cu_surf_object surf_object);
 	CU_API CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);

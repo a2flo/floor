@@ -42,13 +42,13 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 				if(info.name == kernel_name) {
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
-					entry.max_local_size = prog.first->max_local_size;
+					entry.max_local_size = prog.first.get().max_local_size;
 					
 					//
 					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
 					id <MTLFunction> func = [prog.second.program newFunctionWithName:func_name];
 					if(!func) {
-						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first->name);
+						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first.get().name);
 						continue;
 					}
 					
@@ -57,13 +57,13 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					if([func functionType] == MTLFunctionTypeKernel) {
 						kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:func error:&err];
 						if(!kernel_state) {
-							log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first->name,
+							log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first.get().name,
 									  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 							continue;
 						}
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS)
 						log_debug("%s (%s): max work-items: %u, simd width: %u, local mem: %u",
-								  info.name, prog.first->name,
+								  info.name, prog.first.get().name,
 								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);
 #endif
 					}
@@ -75,7 +75,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					if(kernel_state != nil) {
 						entry.max_total_local_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
 					}
-					kernel_map.insert_or_assign(prog.first, entry);
+					kernel_map.insert_or_assign(prog.first.get(), entry);
 					break;
 				}
 			}

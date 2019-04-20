@@ -45,29 +45,29 @@ public:
 		uint3 max_local_size;
 	};
 	//! returns the internal kernel entry for the specified device
-	virtual const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const = 0;
+	virtual const kernel_entry* get_kernel_entry(const compute_device& dev) const = 0;
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!
-	virtual void execute(compute_queue* queue_ptr,
+	virtual void execute(const compute_queue& cqueue,
 						 const bool& is_cooperative,
 						 const uint32_t& dim,
 						 const uint3& global_work_size,
 						 const uint3& local_work_size,
-						 const vector<compute_kernel_arg>& args) = 0;
+						 const vector<compute_kernel_arg>& args) const = 0;
 	
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
 	
-	atomic_spin_lock warn_map_lock;
+	mutable atomic_spin_lock warn_map_lock;
 	//! used to prevent console/log spam by remembering if a warning/error has already been printed for a kernel
-	flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
+	mutable flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
 	
 	//! checks the specified local work size against the max local work size in the kernel_entry,
 	//! and will compute a proper local work size if the specified one is invalid
 	//! NOTE: will only warn/error once per kernel per device
 	uint3 check_local_work_size(const kernel_entry& entry,
-								const uint3& local_work_size) REQUIRES(!warn_map_lock);
+								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
 	
 };
 

@@ -38,7 +38,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding opencl program for multiple devices
-	typedef flat_map<opencl_device*, opencl_program_entry> program_map_type;
+	typedef flat_map<const opencl_device&, opencl_program_entry> program_map_type;
 	
 	opencl_program(program_map_type&& programs);
 	

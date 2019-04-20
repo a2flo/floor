@@ -23,20 +23,21 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/opencl/opencl_common.hpp>
 #include <floor/compute/opencl/opencl_buffer.hpp>
+#include <floor/compute/opencl/opencl_device.hpp>
 
 opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
-typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue* queue) const {
-	return kernels.find((opencl_device*)queue->get_device().get());
+typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue& queue) const {
+	return kernels.find((const opencl_device&)queue.get_device());
 }
 
-void opencl_kernel::execute(compute_queue* queue_ptr,
+void opencl_kernel::execute(const compute_queue& cqueue,
 							const bool& is_cooperative,
 							const uint32_t& work_dim,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
-							const vector<compute_kernel_arg>& args) REQUIRES(!args_lock) {
+							const vector<compute_kernel_arg>& args) const REQUIRES(!args_lock) {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for OpenCL");
@@ -44,7 +45,7 @@ void opencl_kernel::execute(compute_queue* queue_ptr,
 	}
 	
 	// find entry for queue device
-	const auto kernel_iter = get_kernel(queue_ptr);
+	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
 		log_error("no kernel for this compute queue/device exists!");
 		return;
@@ -54,7 +55,7 @@ void opencl_kernel::execute(compute_queue* queue_ptr,
 	const uint3 local_work_size = check_local_work_size(kernel_iter->second, local_work_size_);
 	
 	// create arg handler (needed if param workaround is necessary)
-	auto handler = create_arg_handler(queue_ptr);
+	auto handler = create_arg_handler(cqueue);
 	
 	// need to make sure that only one thread is setting kernel arguments at a time
 	GUARD(args_lock);
@@ -85,7 +86,7 @@ void opencl_kernel::execute(compute_queue* queue_ptr,
 	const size3 local_ws { local_work_size };
 	const bool has_tmp_buffers = !handler->args.empty();
 	cl_event wait_evt = nullptr;
-	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)queue_ptr->get_queue_ptr(),
+	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()),
 									   entry.kernel, work_dim, nullptr,
 									   global_ws.data(), local_ws.data(),
 									   0, nullptr,
@@ -102,9 +103,10 @@ void opencl_kernel::execute(compute_queue* queue_ptr,
 	}
 }
 
-shared_ptr<opencl_kernel::arg_handler> opencl_kernel::create_arg_handler(compute_queue* queue) const {
+shared_ptr<opencl_kernel::arg_handler> opencl_kernel::create_arg_handler(const compute_queue& cqueue) const {
 	auto handler = make_shared<arg_handler>();
-	handler->device = queue->get_device().get();
+	handler->cqueue = &cqueue;
+	handler->device = &cqueue.get_device();
 	handler->needs_param_workaround = handler->device->param_workaround;
 	return handler;
 }
@@ -121,7 +123,7 @@ void opencl_kernel::set_const_kernel_argument(uint32_t& total_idx, uint32_t& arg
 	
 	// if it is needed, create a tmp buffer, copy the arg data into it and set it as the kernel argument
 	// TODO: alignment?
-	auto param_buf = make_shared<opencl_buffer>((opencl_device*)handler->device, arg_size, arg,
+	auto param_buf = make_shared<opencl_buffer>(*handler->cqueue, arg_size, arg,
 												COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 	handler->args.emplace_back(param_buf);
 	
@@ -153,6 +155,11 @@ void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, 
 					"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")")
 		++arg_idx;
 	}
+}
+
+const compute_kernel::kernel_entry* opencl_kernel::get_kernel_entry(const compute_device& dev) const {
+	const auto ret = kernels.get((const opencl_device&)dev);
+	return !ret.first ? nullptr : &ret.second->second;
 }
 
 #endif

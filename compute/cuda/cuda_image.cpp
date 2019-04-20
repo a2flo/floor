@@ -92,7 +92,7 @@ static bool cuda_memcpy(const void* host,
 						const uint32_t height,
 						const uint32_t depth,
 						bool async = false,
-						cu_stream stream = nullptr) {
+						const_cu_stream stream = nullptr) {
 	static_assert((src == CU_MEMORY_TYPE::HOST || src == CU_MEMORY_TYPE::ARRAY) &&
 				  (dst == CU_MEMORY_TYPE::HOST || dst == CU_MEMORY_TYPE::ARRAY),
 				  "invalid src/dst memory type");
@@ -143,7 +143,7 @@ void cuda_image::init_internal(cuda_compute* ctx) {
 }
 
 static safe_mutex device_sampler_mtx;
-static cuda_device* cur_device { nullptr };
+static const cuda_device* cur_device { nullptr };
 static bool apply_sampler_modifications { false };
 static CU_SAMPLER_TYPE cuda_sampler_or { .low = 0, .high = 0 };
 CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
@@ -174,7 +174,7 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 
 // TODO: proper error (return) value handling everywhere
 
-cuda_image::cuda_image(cuda_device* device,
+cuda_image::cuda_image(const compute_queue& cqueue,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   void* host_ptr_,
@@ -182,7 +182,7 @@ cuda_image::cuda_image(cuda_device* device,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
 	// TODO: handle the remaining flags + host ptr
 	
@@ -191,18 +191,19 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
-	if(device->ctx != nullptr) {
-		CU_CALL_RET(cu_ctx_set_current(device->ctx),
+	const auto& cuda_dev = (const cuda_device&)cqueue.get_device();
+	if(cuda_dev.ctx != nullptr) {
+		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
 					"failed to make cuda context current")
 	}
 	
 	// actually create the image
-	if(!create_internal(true, ((cuda_compute*)device->context)->get_device_default_queue(device))) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool cuda_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// image handling in cuda/ptx is somewhat complicated:
 	// when using a texture object, you can only read from it, but with sampler support,
 	// when using a surface object, you can read _and_ write from/to it, but without sampler support.
@@ -501,7 +502,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			return false;
 		}
 		// acquire for use with cuda
-		acquire_opengl_object(cqueue);
+		acquire_opengl_object(&cqueue);
 	}
 	
 	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
@@ -555,13 +556,13 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			// no variable anisotropy yet
 			tex_desc.max_anisotropy = 16;
 			tex_desc.min_mip_map_level_clamp = 0;
-			tex_desc.max_mip_map_level_clamp = (is_mip_mapped ? dev->max_mip_levels : 0);
+			tex_desc.max_mip_map_level_clamp = (is_mip_mapped ? dev.max_mip_levels : 0);
 			
 			// at this point, the device function pointer that initializes/creates the sampler state
 			// has been overwritten/hijacked by our own function (if the internal api is used/enabled)
 			// -> set the sampler state that we want to have
 			GUARD(device_sampler_mtx); // necessary, b/c we don't know which device is calling us in internal_device_sampler_init
-			cur_device = (cuda_device*)dev;
+			cur_device = (const cuda_device*)&dev;
 			cuda_sampler_or.low = 0;
 			cuda_sampler_or.high = 0;
 			const auto compare_function = cuda_sampler::get_compare_function(i);
@@ -618,7 +619,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		// since we don't want to carry around 64-bit values for all possible mip-levels for all images (15 * 8 == 120 bytes per image!),
 		// store all mip-map level surface "objects"/ids in a separate buffer, which we will access if lod write is actually being used
 		if(is_mip_mapped) {
-			surfaces_lod_buffer = make_shared<cuda_buffer>((cuda_device*)dev, surfaces,
+			surfaces_lod_buffer = make_shared<cuda_buffer>(cqueue, surfaces,
 														   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 		}
 	}
@@ -690,7 +691,7 @@ cuda_image::~cuda_image() {
 	}
 }
 
-void cuda_image::zero(shared_ptr<compute_queue> cqueue) {
+void cuda_image::zero(const compute_queue& cqueue) {
 	if(image == nullptr) return;
 	
 	// NOTE: when using mip-mapping, we can reuse the zero data ptr from the first level (all levels will be smaller than the first)
@@ -713,10 +714,10 @@ void cuda_image::zero(shared_ptr<compute_queue> cqueue) {
 		return true;
 	});
 	
-	cqueue->finish();
+	cqueue.finish();
 }
 
-void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
+void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;
 	
 	// TODO: parameter origin + region
@@ -755,15 +756,15 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	if(!write_only) {
 		if(blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
-			cqueue->finish();
+			cqueue.finish();
 		}
 		
 		auto cpy_host_ptr = host_buffer;
 		apply_on_levels([this, &cpy_host_ptr, &blocking_map,
-						 stream = (cu_stream)cqueue->get_queue_ptr()](const uint32_t& level,
-																	  const uint4& mip_image_dim,
-																	  const uint32_t& slice_data_size,
-																	  const uint32_t& level_data_size) {
+						 stream = (const_cu_stream)cqueue.get_queue_ptr()](const uint32_t& level,
+																		   const uint4& mip_image_dim,
+																		   const uint32_t& slice_data_size,
+																		   const uint32_t& level_data_size) {
 			if(!cuda_memcpy<CU_MEMORY_TYPE::ARRAY, CU_MEMORY_TYPE::HOST>(cpy_host_ptr,
 																		 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
@@ -783,7 +784,7 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	return host_buffer;
 }
 
-void cuda_image::unmap(shared_ptr<compute_queue> cqueue,
+void cuda_image::unmap(const compute_queue& cqueue,
 					   void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
@@ -867,7 +868,7 @@ floor_inline_always static void copy_depth_texture(const uint32_t& depth_copy_fb
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)cur_fbo);
 }
 
-bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool cuda_image::acquire_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
 	if(!gl_object_state) {
@@ -890,7 +891,7 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	}
 	
 	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc,
-										  (cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
+										  (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to acquire opengl image - cuda resource mapping failed!", false)
 	gl_object_state = false;
 	
@@ -920,7 +921,7 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool cuda_image::release_opengl_object(const compute_queue* cqueue) {
 	if(gl_object == 0) return false;
 	if(image == nullptr) return false;
 	if(rsrc == nullptr) return false;
@@ -949,7 +950,7 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	image_mipmap_array = nullptr;
 	image_mipmap_arrays.clear();
 	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc,
-											(cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
+											(cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to release opengl image - cuda resource unmapping failed!", false)
 	gl_object_state = true;
 	

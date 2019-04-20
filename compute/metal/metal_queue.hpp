@@ -29,7 +29,7 @@
 
 class metal_queue final : public compute_queue {
 public:
-	metal_queue(shared_ptr<compute_device> device, id <MTLCommandQueue> queue);
+	explicit metal_queue(const compute_device& device, id <MTLCommandQueue> queue);
 	
 	void finish() const override REQUIRES(!cmd_buffers_lock);
 	void flush() const override REQUIRES(!cmd_buffers_lock);
@@ -37,8 +37,8 @@ public:
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;
 	
-	id <MTLCommandQueue> get_queue();
-	id <MTLCommandBuffer> make_command_buffer() REQUIRES(!cmd_buffers_lock);
+	id <MTLCommandQueue> get_queue() const;
+	id <MTLCommandBuffer> make_command_buffer() const REQUIRES(!cmd_buffers_lock);
 	
 	bool has_profiling_support() const override {
 		return true;
@@ -50,11 +50,11 @@ protected:
 	id <MTLCommandQueue> queue { nil };
 	
 	mutable safe_recursive_mutex cmd_buffers_lock;
-	vector<pair<id <MTLCommandBuffer>, bool>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	mutable vector<pair<id <MTLCommandBuffer>, bool>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
 	
 	bool can_do_profiling { false };
 	atomic<bool> is_profiling { false };
-	atomic<uint64_t> profiling_sum { 0 };
+	mutable atomic<uint64_t> profiling_sum { 0 };
 	
 };
 

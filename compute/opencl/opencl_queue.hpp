@@ -27,7 +27,7 @@
 
 class opencl_queue final : public compute_queue {
 public:
-	opencl_queue(shared_ptr<compute_device> device, const cl_command_queue queue);
+	explicit opencl_queue(const compute_device& device, const cl_command_queue queue);
 	
 	void finish() const override;
 	void flush() const override;

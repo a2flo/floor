@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_image::vulkan_image(vulkan_device* device_,
+vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,
@@ -35,9 +35,9 @@ vulkan_image::vulkan_image(vulkan_device* device_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_,
 						   const opengl_image_info* gl_image_info) :
-compute_image(device_, image_dim_, image_type_, host_ptr_, flags_,
+compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
-vulkan_memory(device_, &image) {
+vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 	usage = 0;
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
@@ -72,13 +72,13 @@ vulkan_memory(device_, &image) {
 	usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	
 	// actually create the image
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+bool vulkan_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+	auto vulkan_dev = ((const vulkan_device&)dev).device;
 	const auto dim_count = image_dim_count(image_type);
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
@@ -373,7 +373,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	// transition to general layout or color attachment layout (if render target)
 	cur_access_mask = 0; // TODO: ?
 	image_info.imageLayout = initial_layout;
-	transition(nullptr, dst_access_flags, final_layout, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	transition(cqueue, nullptr, dst_access_flags, final_layout, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	
 	// update image desc info
 	image_info.sampler = nullptr;
@@ -384,10 +384,10 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	// we need to create a per-level image view, so that kernels/shaders can actually write to each mip-map level
 	// (Vulkan doesn't support this at this point, although SPIR-V does)
 	if(is_mip_mapped && (generate_mip_maps || has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))) {
-		mip_map_image_info.resize(device->max_mip_levels);
-		mip_map_image_view.resize(device->max_mip_levels);
+		mip_map_image_info.resize(device.max_mip_levels);
+		mip_map_image_view.resize(device.max_mip_levels);
 		const auto last_level = mip_level_count - 1;
-		for(uint32_t i = 0; i < device->max_mip_levels; ++i) {
+		for(uint32_t i = 0; i < device.max_mip_levels; ++i) {
 			mip_map_image_info[i].sampler = nullptr;
 			
 			// fill unused views with the last (1x1 level) view
@@ -427,8 +427,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		}
 	}
 	else {
-		mip_map_image_info.resize(device->max_mip_levels, image_info);
-		mip_map_image_view.resize(device->max_mip_levels, image_view);
+		mip_map_image_info.resize(device.max_mip_levels, image_info);
+		mip_map_image_view.resize(device.max_mip_levels, image_view);
 	}
 	update_mip_map_info();
 	
@@ -451,14 +451,14 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	
 	// manually create mip-map chain
 	if(generate_mip_maps) {
-		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+		generate_mip_map_chain(cqueue);
 	}
 	
 	return false;
 }
 
 vulkan_image::~vulkan_image() {
-	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+	auto vulkan_dev = ((const vulkan_device&)dev).device;
 	
 	if(image_view != nullptr) {
 		vkDestroyImageView(vulkan_dev, image_view, nullptr);
@@ -479,18 +479,18 @@ vulkan_image::~vulkan_image() {
 	}
 }
 
-void vulkan_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
+void vulkan_image::zero(const compute_queue& cqueue floor_unused) {
 	if(image == nullptr) return;
 	// TODO: implement this
 }
 
-void* __attribute__((aligned(128))) vulkan_image::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	return vulkan_memory::map(cqueue, flags_, (image_type == shim_image_type ?
 											   image_data_size : shim_image_data_size), 0);
 }
 
-void vulkan_image::unmap(shared_ptr<compute_queue> cqueue,
+void vulkan_image::unmap(const compute_queue& cqueue,
 						 void* __attribute__((aligned(128))) mapped_ptr) {
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
@@ -504,11 +504,11 @@ void vulkan_image::unmap(shared_ptr<compute_queue> cqueue,
 	if(generate_mip_maps &&
 	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
-		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+		generate_mip_map_chain(cqueue);
 	}
 }
 
-void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
+void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
 	// TODO: mip-mapping, array/layer support, depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
 	const VkImageSubresourceLayers img_sub_rsrc_layers {
@@ -530,19 +530,19 @@ void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer h
 		},
 	};
 	// transition to src-optimal, b/c of perf
-	transition(cmd_buffer,
+	transition(cqueue, cmd_buffer,
 			   VK_ACCESS_TRANSFER_READ_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
-void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) {
+void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) {
 	// TODO: depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
 	
 	// transition to dst-optimal, b/c of perf
-	transition(cmd_buffer,
+	transition(cqueue, cmd_buffer,
 			   VK_ACCESS_TRANSFER_WRITE_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
@@ -585,17 +585,18 @@ void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer h
 						   (uint32_t)regions.size(), regions.data());
 }
 
-bool vulkan_image::acquire_opengl_object(shared_ptr<compute_queue>) {
+bool vulkan_image::acquire_opengl_object(const compute_queue*) {
 	log_error("not supported by vulkan");
 	return false;
 }
 
-bool vulkan_image::release_opengl_object(shared_ptr<compute_queue>) {
+bool vulkan_image::release_opengl_object(const compute_queue*) {
 	log_error("not supported by vulkan");
 	return false;
 }
 
-void vulkan_image::transition(VkCommandBuffer cmd_buffer,
+void vulkan_image::transition(const compute_queue& cqueue,
+							  VkCommandBuffer cmd_buffer,
 							  const VkAccessFlags dst_access,
 							  const VkImageLayout new_layout,
 							  const VkPipelineStageFlags src_stage_mask,
@@ -630,9 +631,8 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 	};
 	
 	if(cmd_buffer == nullptr) {
-		auto dev_queue = queue_or_default_compute_queue(nullptr);
-		auto vk_queue = (vulkan_queue*)dev_queue.get();
-		auto cmd = vk_queue->make_command_buffer("image transition");
+		const auto& vk_queue = (const vulkan_queue&)cqueue;
+		auto cmd = vk_queue.make_command_buffer("image transition");
 		const VkCommandBufferBeginInfo begin_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.pNext = nullptr,
@@ -647,7 +647,7 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 		
 		VK_CALL_RET(vkEndCommandBuffer(cmd.cmd_buffer),
 					"failed to end command buffer")
-		vk_queue->submit_command_buffer(cmd);
+		vk_queue.submit_command_buffer(cmd);
 	}
 	else {
 		vkCmdPipelineBarrier(cmd_buffer, src_stage_mask, dst_stage_mask,
@@ -659,7 +659,8 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 	update_mip_map_info();
 }
 
-void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
+void vulkan_image::transition_read(const compute_queue& cqueue,
+								   VkCommandBuffer cmd_buffer) {
 	// normal images
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		const VkAccessFlags access_flags = VK_ACCESS_SHADER_READ_BIT;
@@ -667,7 +668,7 @@ void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
 		   cur_access_mask == access_flags) {
 			return;
 		}
-		transition(cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 	// attachments / render-targets
@@ -687,12 +688,13 @@ void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
 			return;
 		}
 		
-		transition(cmd_buffer, access_flags, layout,
+		transition(cqueue, cmd_buffer, access_flags, layout,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 }
 
-void vulkan_image::transition_write(VkCommandBuffer cmd_buffer, const bool read_write) {
+void vulkan_image::transition_write(const compute_queue& cqueue,
+									VkCommandBuffer cmd_buffer, const bool read_write) {
 	// normal images
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		VkAccessFlags access_flags = VK_ACCESS_SHADER_WRITE_BIT;
@@ -702,7 +704,7 @@ void vulkan_image::transition_write(VkCommandBuffer cmd_buffer, const bool read_
 		   cur_access_mask == access_flags) {
 			return;
 		}
-		transition(cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
+		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 	// attachments / render-targets
@@ -723,7 +725,7 @@ void vulkan_image::transition_write(VkCommandBuffer cmd_buffer, const bool read_
 		}
 		if(image_info.imageLayout == layout) return;
 		
-		transition(cmd_buffer, access_flags, layout,
+		transition(cqueue, cmd_buffer, access_flags, layout,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 }

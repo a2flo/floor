@@ -22,6 +22,7 @@
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <memory>
+#include <optional>
 
 namespace llvm_toolchain {
 	//! compilation target platform
@@ -62,6 +63,14 @@ namespace llvm_toolchain {
 			TESSELLATION_EVALUATION			= (6u),
 		};
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
+		
+		enum class FUNCTION_FLAGS : uint32_t {
+			NONE							= (0u),
+			//! function makes use of soft-printf
+			USES_SOFT_PRINTF				= (1u << 0u),
+		};
+		floor_enum_ext(FUNCTION_FLAGS)
+		FUNCTION_FLAGS flags { FUNCTION_FLAGS::NONE };
 		
 		enum class ARG_ADDRESS_SPACE : uint32_t {
 			UNKNOWN							= (0u),
@@ -201,6 +210,13 @@ namespace llvm_toolchain {
 			//! use short/32-bit pointers for accessing non-global memory
 			bool short_ptr { true };
 		} cuda;
+		
+		//! metal specific options
+		struct {
+			//! if true, enable soft-printf support
+			//! if unset, use the global floor option
+			optional<bool> soft_printf;
+		} metal;
 	};
 	
 	//! contains all information about a compiled compute/graphics program
@@ -220,18 +236,18 @@ namespace llvm_toolchain {
 	};
 	
 	//! compiles a program from a source code string
-	program_data compile_program(shared_ptr<compute_device> device,
+	program_data compile_program(const compute_device& device,
 								 const string& code,
 								 const compile_options options);
 	//! compiles a program from a source file
-	program_data compile_program_file(shared_ptr<compute_device> device,
+	program_data compile_program_file(const compute_device& device,
 									  const string& filename,
 									  const compile_options options);
 	
 	//! compiles a program from the specified input file/handle and prefixes the compiler call with "cmd_prefix"
 	program_data compile_input(const string& input,
 							   const string& cmd_prefix,
-							   shared_ptr<compute_device> device,
+							   const compute_device& device,
 							   const compile_options options);
 	
 	//! creates the internal floor function info representation from the specified floor function info,

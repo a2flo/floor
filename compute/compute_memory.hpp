@@ -105,7 +105,7 @@ public:
 	// TODO: memory migration: copy / move
 	
 	//! constructs an incomplete memory object
-	compute_memory(compute_device* device,
+	compute_memory(const compute_queue& cqueue,
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -113,14 +113,14 @@ public:
 				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an incomplete memory object
-	compute_memory(compute_device* device,
+	compute_memory(const compute_queue& cqueue,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type_ = 0,
 				   const uint32_t external_gl_object_ = 0) :
-	compute_memory(device, nullptr, flags_, opengl_type_, external_gl_object_) {}
+	compute_memory(cqueue, nullptr, flags_, opengl_type_, external_gl_object_) {}
 	
-	virtual ~compute_memory() = 0;
+	virtual ~compute_memory() = default;
 	
 	//! memory size must always be a multiple of this
 	static constexpr size_t min_multiple() { return 4u; }
@@ -137,7 +137,7 @@ public:
 	const COMPUTE_MEMORY_FLAG& get_flags() const { return flags; }
 	
 	//! returns the associated device
-	const void* get_device() const { return dev; }
+	const compute_device& get_device() const { return dev; }
 	
 	//! returns the associated opengl buffer/image object (if this memory object was created with OPENGL_SHARING)
 	const uint32_t& get_opengl_object() const {
@@ -145,21 +145,21 @@ public:
 	}
 	
 	//! acquires the associated opengl object for use with compute (-> release from opengl use)
-	virtual bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) = 0;
+	virtual bool acquire_opengl_object(const compute_queue* cqueue) = 0;
 	//! releases the associated opengl object from use with compute (-> acquire for opengl use)
-	virtual bool release_opengl_object(shared_ptr<compute_queue> cqueue) = 0;
+	virtual bool release_opengl_object(const compute_queue* cqueue) = 0;
 	
 	//! zeros/clears the complete memory object
-	virtual void zero(shared_ptr<compute_queue> cqueue) = 0;
+	virtual void zero(const compute_queue& cqueue) = 0;
 	//! zeros/clears the complete memory object
-	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
+	void clear(const compute_queue& cqueue) { zero(cqueue); }
 	
 	//! NOTE: for debugging/development purposes only
-	void _lock() ACQUIRE(lock) REQUIRES(!lock);
-	void _unlock() RELEASE(lock);
+	void _lock() const ACQUIRE(lock) REQUIRES(!lock);
+	void _unlock() const RELEASE(lock);
 	
 protected:
-	compute_device* dev { nullptr };
+	const compute_device& dev;
 	void* host_ptr { nullptr };
 	const COMPUTE_MEMORY_FLAG flags { COMPUTE_MEMORY_FLAG::NONE };
 	
@@ -168,7 +168,7 @@ protected:
 	uint32_t gl_object { 0u };
 	bool gl_object_state { true }; // false: compute use, true: opengl use
 	
-	safe_recursive_mutex lock;
+	mutable safe_recursive_mutex lock;
 	
 };
 

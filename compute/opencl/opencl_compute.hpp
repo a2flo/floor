@@ -49,65 +49,65 @@ public:
 	//////////////////////////////////////////
 	// device functions
 	
-	shared_ptr<compute_queue> create_queue(shared_ptr<compute_device> dev) override;
+	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
 	//////////////////////////////////////////
 	// buffer creation
 	
-	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) override;
+											 const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_buffer> create_buffer(compute_device& device,
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 void* data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) override;
+											 const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
-	shared_ptr<compute_buffer> wrap_buffer(compute_device& device,
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   void* data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation
 	
-	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) override;
+										   const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   void* data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) override;
+										   const uint32_t opengl_type = 0) const override;
 	
-	shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
 										 const uint32_t opengl_image,
 										 const uint32_t opengl_target,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
-	shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
 										 const uint32_t opengl_image,
 										 const uint32_t opengl_target,
 										 void* data,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) override;
+																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
@@ -130,14 +130,14 @@ public:
 															 const vector<llvm_toolchain::function_info>& functions) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
-	opencl_program::opencl_program_entry create_opencl_program(shared_ptr<compute_device> device,
+	opencl_program::opencl_program_entry create_opencl_program(const compute_device& device,
 															   llvm_toolchain::program_data program,
 															   const llvm_toolchain::TARGET& target);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<opencl_program> add_program(opencl_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
-	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
+	shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																	llvm_toolchain::program_data program,
 																	const llvm_toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
@@ -148,8 +148,7 @@ public:
 		return ctx;
 	}
 	
-	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
-	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
+	shared_ptr<compute_queue> get_device_default_queue(const compute_device& dev) const;
 	
 	// for compat with clGetKernelSubGroupInfo(KHR) and misc sub-group extensions
 	cl_int get_kernel_sub_group_info(cl_kernel kernel,
@@ -165,8 +164,8 @@ protected:
 	cl_context ctx { nullptr };
 	vector<cl_device_id> ctx_devices;
 	
-	vector<pair<shared_ptr<compute_device>, shared_ptr<opencl_queue>>> default_queues;
-	unordered_map<shared_ptr<compute_device>, bool> default_queues_user_accessed;
+	mutable flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
+	mutable flat_map<const compute_device&, bool> default_queues_user_accessed;
 	
 	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::NONE };
 	
@@ -176,7 +175,7 @@ protected:
 	vector<shared_ptr<opencl_program>> programs GUARDED_BY(programs_lock);
 	
 	opencl_program::opencl_program_entry
-	create_opencl_program_internal(opencl_device* cl_dev,
+	create_opencl_program_internal(const opencl_device& cl_dev,
 								   const void* program_data,
 								   const size_t& program_size,
 								   const vector<llvm_toolchain::function_info>& functions,

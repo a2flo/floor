@@ -47,9 +47,9 @@ host_compute::host_compute() : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//
-	auto device = make_shared<host_device>();
-	devices.emplace_back(device);
-	device->context = this;
+	devices.emplace_back(make_unique<host_device>());
+	auto& device = (host_device&)*devices.back();
+	device.context = this;
 	
 	// gather "device"/cpu information, this is very platform dependent
 	string cpu_name = "";
@@ -137,136 +137,134 @@ host_compute::host_compute() : compute_context() {
 #endif
 	if(cpu_name == "") cpu_name = "UNKNOWN CPU";
 	
-	device->name = cpu_name;
-	device->units = core::get_hw_thread_count();
-	device->clock = uint32_t(cpu_clock);
-	device->global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
-	device->max_mem_alloc = device->global_mem_size;
-	device->constant_mem_size = device->global_mem_size; // not different from normal ram
+	device.name = cpu_name;
+	device.units = core::get_hw_thread_count();
+	device.clock = uint32_t(cpu_clock);
+	device.global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
+	device.max_mem_alloc = device.global_mem_size;
+	device.constant_mem_size = device.global_mem_size; // not different from normal ram
 	
-	const auto lc_cpu_name = core::str_to_lower(device->name);
+	const auto lc_cpu_name = core::str_to_lower(device.name);
 	if(lc_cpu_name.find("intel") != string::npos) {
-		device->vendor = COMPUTE_VENDOR::INTEL;
-		device->vendor_name = "Intel";
+		device.vendor = COMPUTE_VENDOR::INTEL;
+		device.vendor_name = "Intel";
 	}
 	else if(lc_cpu_name.find("amd") != string::npos) {
-		device->vendor = COMPUTE_VENDOR::AMD;
-		device->vendor_name = "AMD";
+		device.vendor = COMPUTE_VENDOR::AMD;
+		device.vendor_name = "AMD";
 	}
 	else if(lc_cpu_name.find("apple") != string::npos) {
-		device->vendor = COMPUTE_VENDOR::APPLE;
-		device->vendor_name = "Apple";
+		device.vendor = COMPUTE_VENDOR::APPLE;
+		device.vendor_name = "Apple";
 	}
 	// TODO: ARM cpu names?
 	else {
-		device->vendor = COMPUTE_VENDOR::HOST;
-		device->vendor_name = "Host";
+		device.vendor = COMPUTE_VENDOR::HOST;
+		device.vendor_name = "Host";
 	}
 	
 #if 0 // mt-item
-	device->max_total_local_size = device->units;
-	device->max_local_size = { device->units, device->units, device->units };
+	device.max_total_local_size = device.units;
+	device.max_local_size = { device.units, device.units, device.units };
 #else // mt-group
-	device->max_total_local_size = host_limits::max_total_local_size;
-	device->max_local_size = { host_limits::max_total_local_size };
+	device.max_total_local_size = host_limits::max_total_local_size;
+	device.max_local_size = { host_limits::max_total_local_size };
 #endif
-	device->max_image_1d_buffer_dim = { (size_t)std::min(device->max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
+	device.max_image_1d_buffer_dim = { (size_t)std::min(device.max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	
 	//
 	supported = true;
-	fastest_cpu_device = devices[0];
+	fastest_cpu_device = devices[0].get();
 	fastest_device = fastest_cpu_device;
-	if(fastest_cpu_device != nullptr) {
-		log_debug("CPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s",
-				  fastest_cpu_device->units,
-				  fastest_cpu_device->clock,
-				  (unsigned int)(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
-				  fastest_cpu_device->name);
-		log_debug("fastest CPU device: %s, %s (score: %u)",
-				  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_device->units * fastest_cpu_device->clock);
-	}
+	
+	log_debug("CPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s",
+			  fastest_cpu_device->units,
+			  fastest_cpu_device->clock,
+			  (unsigned int)(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
+			  fastest_cpu_device->name);
+	log_debug("fastest CPU device: %s, %s (score: %u)",
+			  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_device->units * fastest_cpu_device->clock);
 	
 	// for now: only maintain a single queue
-	main_queue = make_shared<host_queue>(fastest_cpu_device);
+	main_queue = make_shared<host_queue>(*fastest_cpu_device);
 }
 
-shared_ptr<compute_queue> host_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) return {};
+shared_ptr<compute_queue> host_compute::create_queue(const compute_device& dev floor_unused) const {
 	return main_queue;
 }
 
-shared_ptr<compute_buffer> host_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> host_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<host_buffer>((host_device*)&device, size, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<host_buffer>(cqueue, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> host_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> host_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<host_buffer>((host_device*)&device, size, data, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<host_buffer>(cqueue, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<host_buffer>((host_device*)&device, info.size, nullptr,
+	return make_shared<host_buffer>(cqueue, info.size, nullptr,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
 													 const uint32_t opengl_buffer,
 													 const uint32_t opengl_type,
 													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<host_buffer>((host_device*)&device, info.size, data,
+	return make_shared<host_buffer>(cqueue, info.size, data,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_image> host_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) {
-	return make_shared<host_image>((host_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
+													 const uint32_t opengl_type) const {
+	return make_shared<host_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
 }
 
-shared_ptr<compute_image> host_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) {
-	return make_shared<host_image>((host_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
+													 const uint32_t opengl_type) const {
+	return make_shared<host_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 												   const uint32_t opengl_image,
 												   const uint32_t opengl_target,
-												   const COMPUTE_MEMORY_FLAG flags) {
+												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<host_image>((host_device*)device.get(), info.image_dim, info.image_type, nullptr,
+	return make_shared<host_image>(cqueue, info.image_dim, info.image_type, nullptr,
 								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 								   opengl_target, opengl_image, &info);
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 												   const uint32_t opengl_image,
 												   const uint32_t opengl_target,
 												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags) {
+												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<host_image>((host_device*)device.get(), info.image_dim, info.image_type, data,
+	return make_shared<host_image>(cqueue, info.image_dim, info.image_type, data,
 								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 								   opengl_target, opengl_image, &info);
 }
@@ -279,22 +277,22 @@ shared_ptr<compute_program> host_compute::add_universal_binary(const string& fil
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
 														   const string additional_options floor_unused) {
-	return make_shared<host_program>(fastest_device);
+	return make_shared<host_program>(*fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
 														   compile_options options floor_unused) {
-	return make_shared<host_program>(fastest_device);
+	return make_shared<host_program>(*fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
 															 const string additional_options floor_unused) {
-	return make_shared<host_program>(fastest_device);
+	return make_shared<host_program>(*fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
 															 compile_options options floor_unused) {
-	return make_shared<host_program>(fastest_device);
+	return make_shared<host_program>(*fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,
@@ -303,7 +301,7 @@ shared_ptr<compute_program> host_compute::add_precompiled_program_file(const str
 	return {};
 }
 
-shared_ptr<compute_program::program_entry> host_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_program::program_entry> host_compute::create_program_entry(const compute_device& device floor_unused,
 																			  llvm_toolchain::program_data program,
 																			  const llvm_toolchain::TARGET) {
 	return make_shared<compute_program::program_entry>(compute_program::program_entry { {}, program.functions, true });

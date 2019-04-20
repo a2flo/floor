@@ -22,7 +22,7 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/threading/task.hpp>
 
-vulkan_queue::vulkan_queue(shared_ptr<compute_device> device_, const VkQueue queue_, const uint32_t family_index_) :
+vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_) :
 compute_queue(device_), queue(queue_), family_index(family_index_) {
 	// create command pool for this queue + device
 	const VkCommandPoolCreateInfo cmd_pool_info {
@@ -32,7 +32,7 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 		.flags = (VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT),
 		.queueFamilyIndex = family_index,
 	};
-	VK_CALL_RET(vkCreateCommandPool(((vulkan_device*)device.get())->device, &cmd_pool_info, nullptr, &cmd_pool), "failed to create command pool")
+	VK_CALL_RET(vkCreateCommandPool(((const vulkan_device&)device).device, &cmd_pool_info, nullptr, &cmd_pool), "failed to create command pool")
 	// TODO: vkDestroyCommandPool necessary in destructor? this will live as long as the context/instance does
 	
 	// allocate initial command buffers
@@ -45,7 +45,7 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = cmd_buffer_count,
 	};
-	VK_CALL_RET(vkAllocateCommandBuffers(((vulkan_device*)device.get())->device, &cmd_buffer_info, &cmd_buffers[0]), "failed to create command buffers")
+	VK_CALL_RET(vkAllocateCommandBuffers(((const vulkan_device&)device).device, &cmd_buffer_info, &cmd_buffers[0]), "failed to create command buffers")
 	cmd_buffers_in_use.reset();
 	
 	// create fences
@@ -55,7 +55,7 @@ compute_queue(device_), queue(queue_), family_index(family_index_) {
 		.flags = 0,
 	};
 	for(uint32_t i = 0; i < fence_count; ++i) {
-		VK_CALL_RET(vkCreateFence(((vulkan_device*)device.get())->device, &fence_info, nullptr, &fences[i]),
+		VK_CALL_RET(vkCreateFence(((const vulkan_device&)device).device, &fence_info, nullptr, &fences[i]),
 					"failed to create fence #" + to_string(i))
 	}
 	fences_in_use.reset();
@@ -74,7 +74,7 @@ static const char* cmd_buffer_name(const vulkan_queue::command_buffer& cmd_buffe
 	return (cmd_buffer.name != nullptr ? cmd_buffer.name : "unknown");
 }
 
-vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name) {
+vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name) const {
 	GUARD(cmd_buffers_lock);
 	if(!cmd_buffers_in_use.all()) {
 		for(uint32_t i = 0; i < cmd_buffer_count; ++i) {
@@ -94,7 +94,7 @@ vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name)
 	return {};
 }
 
-pair<VkFence, uint32_t> vulkan_queue::acquire_fence() {
+pair<VkFence, uint32_t> vulkan_queue::acquire_fence() const {
 	for(uint32_t trial = 0, limiter = 10; trial < limiter; ++trial) {
 		{
 			GUARD(fence_lock);
@@ -114,7 +114,7 @@ pair<VkFence, uint32_t> vulkan_queue::acquire_fence() {
 	return { nullptr, ~0u };
 }
 
-void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) {
+void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) const {
 	VK_CALL_RET(vkResetFences(dev, 1, &fence.first),
 				"failed to reset fence")
 	
@@ -126,7 +126,7 @@ void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer,
 										 const bool blocking,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
-										 const VkPipelineStageFlags wait_stage_flags) {
+										 const VkPipelineStageFlags wait_stage_flags) const {
 	submit_command_buffer(cmd_buffer, [](const command_buffer&){}, blocking,
 						  wait_semas, wait_sema_count, wait_stage_flags);
 }
@@ -136,10 +136,10 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 										 const bool blocking,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
-										 const VkPipelineStageFlags wait_stage_flags) {
+										 const VkPipelineStageFlags wait_stage_flags) const {
 	const auto submit_func = [this, cmd_buffer, completion_handler,
 							  wait_semas, wait_sema_count, wait_stage_flags,
-							  dev = ((vulkan_device*)device.get())->device]() {
+							  dev = ((const vulkan_device&)device).device]() {
 		// must sync/lock queue
 		auto fence = acquire_fence();
 		if(fence.first == nullptr) return;

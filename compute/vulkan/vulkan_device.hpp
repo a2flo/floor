@@ -35,7 +35,6 @@ class vulkan_compute;
 class vulkan_device final : public compute_device {
 public:
 	vulkan_device();
-	~vulkan_device() override {}
 	
 	//! supported Vulkan version
 	VULKAN_VERSION vulkan_version { VULKAN_VERSION::NONE };
@@ -63,7 +62,7 @@ public:
 	vector<uint32_t> queue_counts {};
 	
 	//! for internal purposes, do not change this
-	uint32_t cur_queue_idx { 0 };
+	mutable uint32_t cur_queue_idx { 0 };
 	
 	//! max push constants size
 	uint32_t max_push_constants_size { 0u };
@@ -116,6 +115,11 @@ public:
 	struct _dummy_desc_img_info { void* _a; void* _b; uint32_t _c; };
 	vector<_dummy_desc_img_info> _fixed_sampler_image_info;
 #endif
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const vulkan_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

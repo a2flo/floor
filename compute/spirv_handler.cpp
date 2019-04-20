@@ -20,7 +20,9 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
 
-unique_ptr<uint32_t[]> spirv_handler::load_binary(const string& file_name, size_t& code_size) {
+namespace spirv_handler {
+
+unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size) {
 	unique_ptr<uint32_t[]> code;
 	
 	file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
@@ -46,7 +48,7 @@ unique_ptr<uint32_t[]> spirv_handler::load_binary(const string& file_name, size_
 	return code;
 }
 
-spirv_handler::container spirv_handler::load_container(const string& file_name) {
+spirv_handler::container load_container(const string& file_name) {
 	string data { "" };
 	if(!file_io::file_to_string(file_name, data)) {
 		log_error("failed to load spir-v container (\"%s\")", file_name);
@@ -55,9 +57,9 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 	return load_container_from_memory((const uint8_t*)data.data(), data.size(), file_name);
 }
 
-spirv_handler::container spirv_handler::load_container_from_memory(const uint8_t* data_ptr_,
-																   const size_t& data_size_,
-																   const string identifier) {
+spirv_handler::container load_container_from_memory(const uint8_t* data_ptr_,
+													const size_t& data_size_,
+													const string identifier) {
 	// reasonable size assumption
 	if(data_size_ >= 0x80000000) {
 		log_error("container too large");
@@ -168,3 +170,5 @@ spirv_handler::container spirv_handler::load_container_from_memory(const uint8_t
 	ret.valid = true;
 	return ret;
 }
+
+} // spirv_handler

@@ -30,7 +30,11 @@ class compute_context;
 class host_device final : public compute_device {
 public:
 	host_device();
-	~host_device() override {}
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const host_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

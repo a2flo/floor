@@ -33,7 +33,6 @@ class compute_queue;
 class metal_device final : public compute_device {
 public:
 	metal_device();
-	~metal_device() override {}
 	
 	// metal version which this device supports
 	METAL_VERSION metal_version;
@@ -56,6 +55,11 @@ public:
 #else
 	void* _device { nullptr };
 #endif
+	
+	//! returns true if the specified object is the same object as this
+	bool operator==(const metal_device& dev) const {
+		return (this == &dev);
+	}
 	
 };
 

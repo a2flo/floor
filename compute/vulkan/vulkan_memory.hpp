@@ -32,23 +32,23 @@ class compute_queue;
 //! helper class for common code between vulkan_buffer and vulkan_image
 class vulkan_memory {
 public:
-	vulkan_memory(const vulkan_device* device,
+	vulkan_memory(const vulkan_device& device,
 				  const uint64_t* object,
 				  // if false: is buffer
 				  const bool is_image) noexcept;
 
-	vulkan_memory(const vulkan_device* device_,
+	vulkan_memory(const vulkan_device& device_,
 				  const VkBuffer* buffer) noexcept :
 	vulkan_memory(device_, (const uint64_t*)buffer, false) {}
 
-	vulkan_memory(const vulkan_device* device_,
+	vulkan_memory(const vulkan_device& device_,
 				  const VkImage* image) noexcept :
 	vulkan_memory(device_, (const uint64_t*)image, true) {}
 
 	virtual ~vulkan_memory() noexcept;
 	
 protected:
-	const vulkan_device* device;
+	const vulkan_device& device;
 	const uint64_t* object { nullptr };
 	VkDeviceMemory mem { nullptr };
 	const bool is_image { false };
@@ -63,28 +63,25 @@ protected:
 	// stores all mapped pointers and the mapped buffer
 	unordered_map<void*, vulkan_mapping> mappings;
 	
-	//! if cqueue isn't nullptr, returns cqueue, otherwise returns the devices default compute_queue
-	shared_ptr<compute_queue> queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const;
-	
 	//! overwrites memory data with the host data pointed to by data, with the specified size/offset
-	bool write_memory_data(shared_ptr<compute_queue> cqueue,
+	bool write_memory_data(const compute_queue& cqueue,
 						   const void* data, const size_t& size, const size_t& offset,
 						   const size_t non_shim_input_size = 0,
 						   const char* error_msg_on_failure = nullptr);
 	//! reads memory from the device with the specified size/offset and writes it to the specified host pointer
-	bool read_memory_data(shared_ptr<compute_queue> cqueue,
+	bool read_memory_data(const compute_queue& cqueue,
 						  void* data, const size_t& size, const size_t& offset,
 						  const size_t non_shim_input_size = 0,
 						  const char* error_msg_on_failure = nullptr);
 	
-	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags,
 											const size_t size = 0, const size_t offset = 0);
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr);
+	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr);
 	
-	virtual void image_copy_dev_to_host(VkCommandBuffer, VkBuffer) {}
-	virtual void image_copy_host_to_dev(VkCommandBuffer, VkBuffer, void*) {}
+	virtual void image_copy_dev_to_host(const compute_queue&, VkCommandBuffer, VkBuffer) {}
+	virtual void image_copy_host_to_dev(const compute_queue&, VkCommandBuffer, VkBuffer, void*) {}
 	
 	//! based on the specified/supported memory type bits and "wants device memory" flag,
 	//! this tries to find the best matching memory type index (heap / location)

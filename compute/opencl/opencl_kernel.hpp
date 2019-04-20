@@ -35,38 +35,36 @@ class opencl_kernel final : public compute_kernel {
 protected:
 	struct arg_handler {
 		bool needs_param_workaround { false };
-		compute_device* device;
+		const compute_queue* cqueue;
+		const compute_device* device;
 		vector<shared_ptr<opencl_buffer>> args;
 	};
-	shared_ptr<arg_handler> create_arg_handler(compute_queue* queue) const;
+	shared_ptr<arg_handler> create_arg_handler(const compute_queue& cqueue) const;
 	
 public:
 	struct opencl_kernel_entry : kernel_entry {
 		cl_kernel kernel { nullptr };
 	};
-	typedef flat_map<opencl_device*, opencl_kernel_entry> kernel_map_type;
+	typedef flat_map<const opencl_device&, opencl_kernel_entry> kernel_map_type;
 	
 	opencl_kernel(kernel_map_type&& kernels);
 	~opencl_kernel() override = default;
 	
-	void execute(compute_queue* queue_ptr,
+	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) override;
+				 const vector<compute_kernel_arg>& args) const override;
 	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
-		const auto ret = kernels.get((opencl_device*)dev.get());
-		return !ret.first ? nullptr : &ret.second->second;
-	}
+	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
 	
 protected:
 	const kernel_map_type kernels;
 	
-	atomic_spin_lock args_lock;
+	mutable atomic_spin_lock args_lock;
 	
-	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue& cqueue) const;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
 	

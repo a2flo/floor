@@ -25,22 +25,22 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
 
-host_buffer::host_buffer(host_device* device,
+host_buffer::host_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 
 	// actually create the buffer
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool host_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool host_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// TODO: handle the remaining flags + host ptr
 	
 	// always allocate host memory (even with opengl, memory needs to be copied somewhere)
@@ -60,7 +60,7 @@ bool host_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 		if(!create_gl_buffer(copy_host_data)) return false;
 		
 		// acquire for use with the host
-		acquire_opengl_object(cqueue);
+		acquire_opengl_object(&cqueue);
 	}
 
 	return true;
@@ -82,11 +82,11 @@ host_buffer::~host_buffer() {
 	}
 }
 
-void host_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void host_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void host_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
+void host_buffer::read(const compute_queue& cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 
 	const size_t read_size = (size_ == 0 ? size : size_);
@@ -96,11 +96,11 @@ void host_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst,
 	memcpy(dst, buffer + offset, read_size);
 }
 
-void host_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void host_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void host_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
+void host_buffer::write(const compute_queue& cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 
 	const size_t write_size = (size_ == 0 ? size : size_);
@@ -110,7 +110,7 @@ void host_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const voi
 	memcpy(buffer + offset, src, write_size);
 }
 
-void host_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_buffer& src,
+void host_buffer::copy(const compute_queue& cqueue floor_unused, const compute_buffer& src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 
@@ -122,13 +122,13 @@ void host_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_bu
 	src._lock();
 	_lock();
 	
-	memcpy(buffer + dst_offset, ((host_buffer*)&src)->get_host_buffer_ptr() + src_offset, copy_size);
+	memcpy(buffer + dst_offset, ((const host_buffer*)&src)->get_host_buffer_ptr() + src_offset, copy_size);
 	
 	_unlock();
 	src._unlock();
 }
 
-void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
+void host_buffer::fill(const compute_queue& cqueue floor_unused,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
@@ -167,14 +167,14 @@ void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	}
 }
 
-void host_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused) {
+void host_buffer::zero(const compute_queue& cqueue floor_unused) {
 	if(buffer == nullptr) return;
 
 	GUARD(lock);
 	memset(buffer, 0, size);
 }
 
-bool host_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
+bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 						 const bool copy_old_data, const bool copy_host_data,
 						 void* new_host_ptr) {
 	if(buffer == nullptr) return false;
@@ -236,7 +236,7 @@ bool host_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	return true;
 }
 
-void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) host_buffer::map(const compute_queue& cqueue,
 													 const COMPUTE_MEMORY_MAP_FLAG flags_,
 													 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
@@ -246,7 +246,7 @@ void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> c
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 
 	if(blocking_map) {
-		cqueue->finish();
+		cqueue.finish();
 	}
 	
 	// NOTE: this is returning a raw pointer to the internal buffer memory and specifically not creating+copying a new buffer
@@ -255,14 +255,14 @@ void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> c
 	return buffer + offset;
 }
 
-void host_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
+void host_buffer::unmap(const compute_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(buffer == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 
 	// nop
 }
 
-bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool host_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
@@ -294,7 +294,7 @@ bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	return true;
 }
 
-bool host_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+bool host_buffer::release_opengl_object(const compute_queue* cqueue floor_unused) {
 	if(gl_object == 0) return false;
 	if(buffer == nullptr) return false;
 	if(gl_object_state) {

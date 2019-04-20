@@ -17,5 +17,3 @@
  */
 
 #include <floor/compute/compute_device.hpp>
-
-compute_device::~compute_device() {}

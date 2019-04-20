@@ -249,107 +249,107 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		for(size_t j = 0; j < ctx_devices.size(); ++j) {
 			auto& cl_dev = ctx_devices[j];
 			
-			auto device = make_shared<opencl_device>();
-			devices.emplace_back(device);
+			devices.emplace_back(make_unique<opencl_device>());
+			auto& device = (opencl_device&)*devices.back();
 			dev_type_str = "";
 			
-			device->ctx = ctx;
-			device->context = this;
-			device->device_id = cl_dev;
-			device->internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
-			device->units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
-			device->clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
-			device->global_mem_size = cl_get_info<CL_DEVICE_GLOBAL_MEM_SIZE>(cl_dev);
-			device->local_mem_size = cl_get_info<CL_DEVICE_LOCAL_MEM_SIZE>(cl_dev);
-			device->local_mem_dedicated = (cl_get_info<CL_DEVICE_LOCAL_MEM_TYPE>(cl_dev) == CL_LOCAL);
-			device->constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
-			device->name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
-			device->vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
-			device->version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
-			device->cl_version = extract_cl_version(device->version_str, "OpenCL ").second;
-			device->driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
-			device->extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
+			device.ctx = ctx;
+			device.context = this;
+			device.device_id = cl_dev;
+			device.internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
+			device.units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
+			device.clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
+			device.global_mem_size = cl_get_info<CL_DEVICE_GLOBAL_MEM_SIZE>(cl_dev);
+			device.local_mem_size = cl_get_info<CL_DEVICE_LOCAL_MEM_SIZE>(cl_dev);
+			device.local_mem_dedicated = (cl_get_info<CL_DEVICE_LOCAL_MEM_TYPE>(cl_dev) == CL_LOCAL);
+			device.constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
+			device.name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
+			device.vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
+			device.version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
+			device.cl_version = extract_cl_version(device.version_str, "OpenCL ").second;
+			device.driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
+			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
-			device->max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
-			device->max_total_local_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
+			device.max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
+			device.max_total_local_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
 			const auto max_local_size = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
 			if(max_local_size.size() != 3) {
 				log_warn("max local size dim != 3: %u", max_local_size.size());
 			}
-			if(max_local_size.size() >= 1) device->max_local_size.x = (uint32_t)max_local_size[0];
-			if(max_local_size.size() >= 2) device->max_local_size.y = (uint32_t)max_local_size[1];
-			if(max_local_size.size() >= 3) device->max_local_size.z = (uint32_t)max_local_size[2];
+			if(max_local_size.size() >= 1) device.max_local_size.x = (uint32_t)max_local_size[0];
+			if(max_local_size.size() >= 2) device.max_local_size.y = (uint32_t)max_local_size[1];
+			if(max_local_size.size() >= 3) device.max_local_size.z = (uint32_t)max_local_size[2];
 			
 			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
-			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
 				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx2, 16-wide if avx-512
-				device->simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
 			// intel cpu is reporting 8192, but actually using this leads to segfaults in various cases
 			// -> limit to 1024 which is actually working properly
-			if(device->internal_type == CL_DEVICE_TYPE_CPU && platform_vendor == COMPUTE_VENDOR::INTEL) {
-				device->max_total_local_size = 1024;
-				device->max_local_size.min(device->max_total_local_size);
+			if(device.internal_type == CL_DEVICE_TYPE_CPU && platform_vendor == COMPUTE_VENDOR::INTEL) {
+				device.max_total_local_size = 1024;
+				device.max_local_size.min(device.max_total_local_size);
 			}
 			
-			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
-			if(!device->image_support) {
-				log_error("device \"%s\" does not have basic image support, removing it!", device->name);
+			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
+			if(!device.image_support) {
+				log_error("device \"%s\" does not have basic image support, removing it!", device.name);
 				devices.pop_back();
 				continue;
 			}
 			
-			device->image_depth_support = core::contains(device->extensions, "cl_khr_depth_images");
-			device->image_depth_write_support = device->image_depth_support;
-			device->image_msaa_support = core::contains(device->extensions, "cl_khr_gl_msaa_sharing");
-			device->image_msaa_write_support = false; // always false
-			device->image_msaa_array_support = device->image_msaa_support;
-			device->image_msaa_array_write_support = false; // always false
-			device->image_cube_support = false; // nope
-			device->image_cube_write_support = false;
-			device->image_cube_array_support = false;
-			device->image_cube_array_write_support = false;
-			device->image_mipmap_support = core::contains(device->extensions, "cl_khr_mipmap_image");
-			device->image_mipmap_write_support = core::contains(device->extensions, "cl_khr_mipmap_image_writes");
-			device->image_offset_read_support = false; // never
-			device->image_offset_write_support = false;
+			device.image_depth_support = core::contains(device.extensions, "cl_khr_depth_images");
+			device.image_depth_write_support = device.image_depth_support;
+			device.image_msaa_support = core::contains(device.extensions, "cl_khr_gl_msaa_sharing");
+			device.image_msaa_write_support = false; // always false
+			device.image_msaa_array_support = device.image_msaa_support;
+			device.image_msaa_array_write_support = false; // always false
+			device.image_cube_support = false; // nope
+			device.image_cube_write_support = false;
+			device.image_cube_array_support = false;
+			device.image_cube_array_write_support = false;
+			device.image_mipmap_support = core::contains(device.extensions, "cl_khr_mipmap_image");
+			device.image_mipmap_write_support = core::contains(device.extensions, "cl_khr_mipmap_image_writes");
+			device.image_offset_read_support = false; // never
+			device.image_offset_write_support = false;
 			const auto read_write_images = cl_get_info<CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS>(cl_dev);
-			device->image_read_write_support = (read_write_images > 0);
+			device.image_read_write_support = (read_write_images > 0);
 			log_msg("read/write images: %u", read_write_images);
 			
-			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
-			device->max_image_1d_dim = (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
-			device->max_image_2d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
-										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
-			device->max_image_3d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
-										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
-										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
-			if(device->image_mipmap_support) {
-				device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
-																							  device->max_image_3d_dim.max_element()),
-																					 device->max_image_1d_dim));
+			device.max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
+			device.max_image_1d_dim = (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
+			device.max_image_2d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
+										(uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
+			device.max_image_3d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
+										(uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
+										(uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
+			if(device.image_mipmap_support) {
+				device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
+																							  device.max_image_3d_dim.max_element()),
+																					 device.max_image_1d_dim));
 			}
 			
-			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
+			device.double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
 			const auto device_bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
 			if (device_bitness != 64) {
-				log_error("device \"%s\" has an unsupported bitness %u (must be 64)!", device->name, device_bitness);
+				log_error("device \"%s\" has an unsupported bitness %u (must be 64)!", device.name, device_bitness);
 				devices.pop_back();
 				continue;
 			}
-			device->max_global_size = 0xFFFF'FFFF'FFFF'FFFFull; // range: sizeof(size_t) -> clEnqueueNDRangeKernel
-			device->unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
-			device->basic_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_base_atomics");
-			device->extended_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_extended_atomics");
-			device->sub_group_support = (core::contains(device->extensions, "cl_khr_subgroups") ||
-										 core::contains(device->extensions, "cl_intel_subgroups") ||
-										 (device->cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
-			if(device->sub_group_support) {
+			device.max_global_size = 0xFFFF'FFFF'FFFF'FFFFull; // range: sizeof(size_t) -> clEnqueueNDRangeKernel
+			device.unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
+			device.basic_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_base_atomics");
+			device.extended_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_extended_atomics");
+			device.sub_group_support = (core::contains(device.extensions, "cl_khr_subgroups") ||
+										core::contains(device.extensions, "cl_intel_subgroups") ||
+										(device.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
+			if(device.sub_group_support) {
 				check_sub_group_support = true;
 			}
-			device->required_size_sub_group_support = core::contains(device->extensions, "cl_intel_required_subgroup_size");
-			if(device->required_size_sub_group_support) {
+			device.required_size_sub_group_support = core::contains(device.extensions, "cl_intel_required_subgroup_size");
+			if(device.required_size_sub_group_support) {
 				const auto sub_group_sizes = cl_get_info<CL_DEVICE_SUB_GROUP_SIZES>(cl_dev);
 				string sub_group_sizes_str = "";
 				for(const auto& sg_size : sub_group_sizes) {
@@ -359,21 +359,21 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			
 			log_msg("max mem alloc: %u bytes / %u MB",
-					device->max_mem_alloc,
-					device->max_mem_alloc / 1024ULL / 1024ULL);
+					device.max_mem_alloc,
+					device.max_mem_alloc / 1024ULL / 1024ULL);
 			log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
-					device->global_mem_size / 1024ULL / 1024ULL,
-					device->local_mem_size / 1024ULL,
-					device->constant_mem_size / 1024ULL);
+					device.global_mem_size / 1024ULL / 1024ULL,
+					device.local_mem_size / 1024ULL,
+					device.constant_mem_size / 1024ULL);
 			log_msg("mem base address alignment: %u", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
 			log_msg("min data type alignment size: %u", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
-			log_msg("host unified memory: %u", device->unified_memory);
-			log_msg("max total local size: %u", device->max_total_local_size);
-			log_msg("max local size: %v", device->max_local_size);
-			log_msg("max global size: %v", device->max_global_size);
+			log_msg("host unified memory: %u", device.unified_memory);
+			log_msg("max total local size: %u", device.max_total_local_size);
+			log_msg("max local size: %v", device.max_local_size);
+			log_msg("max global size: %v", device.max_global_size);
 			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
-			log_msg("double support: %b", device->double_support);
-			log_msg("image support: %b", device->image_support);
+			log_msg("double support: %b", device.double_support);
+			log_msg("image support: %b", device.image_support);
 			if(// pocl has no support for this yet
 			   platform_vendor != COMPUTE_VENDOR::POCL) {
 				const unsigned long long int printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
@@ -385,58 +385,58 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
-			device->platform_vendor = platform_vendor;
-			device->vendor = COMPUTE_VENDOR::UNKNOWN;
-			string vendor_str = core::str_to_lower(device->vendor_name);
+			device.platform_vendor = platform_vendor;
+			device.vendor = COMPUTE_VENDOR::UNKNOWN;
+			string vendor_str = core::str_to_lower(device.vendor_name);
 			if(strstr(vendor_str.c_str(), "nvidia") != nullptr) {
-				device->vendor = COMPUTE_VENDOR::NVIDIA;
-				device->simd_width = 32;
-				device->simd_range = { device->simd_width, device->simd_width };
+				device.vendor = COMPUTE_VENDOR::NVIDIA;
+				device.simd_width = 32;
+				device.simd_range = { device.simd_width, device.simd_width };
 			}
 			else if(strstr(vendor_str.c_str(), "intel") != nullptr) {
-				device->vendor = COMPUTE_VENDOR::INTEL;
-				device->simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
-				device->simd_range = { 8, 32 };
+				device.vendor = COMPUTE_VENDOR::INTEL;
+				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
+				device.simd_range = { 8, 32 };
 				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "apple") != nullptr) {
-				device->vendor = COMPUTE_VENDOR::APPLE;
+				device.vendor = COMPUTE_VENDOR::APPLE;
 				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "amd") != nullptr ||
 					strstr(vendor_str.c_str(), "advanced micro devices") != nullptr ||
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
-				device->vendor = COMPUTE_VENDOR::AMD;
-				device->simd_width = 64;
-				device->simd_range = { device->simd_width, device->simd_width };
+				device.vendor = COMPUTE_VENDOR::AMD;
+				device.simd_width = 64;
+				device.simd_range = { device.simd_width, device.simd_width };
 				// -> cpu simd width later
 			}
 			
 			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
-			if(device->version_str.find("pocl") != string::npos) {
-				device->vendor = COMPUTE_VENDOR::POCL;
+			if(device.version_str.find("pocl") != string::npos) {
+				device.vendor = COMPUTE_VENDOR::POCL;
 				
 				// device unit count on pocl is 0 -> figure out how many logical cpus actually exist
-				if(device->units == 0) {
-					device->units = core::get_hw_thread_count();
+				if(device.units == 0) {
+					device.units = core::get_hw_thread_count();
 				}
 			}
 			
-			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
-				device->type = (compute_device::TYPE)cpu_counter;
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+				device.type = (compute_device::TYPE)cpu_counter;
 				cpu_counter++;
 				dev_type_str += "CPU ";
 			}
-			if(device->internal_type & CL_DEVICE_TYPE_GPU) {
-				device->type = (compute_device::TYPE)gpu_counter;
+			if(device.internal_type & CL_DEVICE_TYPE_GPU) {
+				device.type = (compute_device::TYPE)gpu_counter;
 				gpu_counter++;
 				dev_type_str += "GPU ";
 			}
-			if(device->internal_type & CL_DEVICE_TYPE_ACCELERATOR) {
+			if(device.internal_type & CL_DEVICE_TYPE_ACCELERATOR) {
 				dev_type_str += "Accelerator ";
 			}
-			if(device->internal_type & CL_DEVICE_TYPE_DEFAULT) {
+			if(device.internal_type & CL_DEVICE_TYPE_DEFAULT) {
 				dev_type_str += "Default ";
 			}
 			
@@ -445,12 +445,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			if(!extracted_cl_c_version.first) {
 				log_error("invalid opencl c version string: %s", cl_c_version_str);
 			}
-			device->c_version = extracted_cl_c_version.second;
+			device.c_version = extracted_cl_c_version.second;
 			
 			// pocl doesn't support spir, but can apparently handle llvm bitcode files
-			if(!core::contains(device->extensions, "cl_khr_spir") &&
-			   device->vendor != COMPUTE_VENDOR::POCL) {
-				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device->name);
+			if(!core::contains(device.extensions, "cl_khr_spir") &&
+			   device.vendor != COMPUTE_VENDOR::POCL) {
+				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
 				devices.pop_back();
 				continue;
 			}
@@ -458,7 +458,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			
 			// check spir-v support (core, extension, or forced for testing purposes)
 			if((platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
-				core::contains(device->extensions, "cl_khr_il_program") ||
+				core::contains(device.extensions, "cl_khr_il_program") ||
 				floor::get_opencl_force_spirv_check()) &&
 			   // disable takes prio over force-check
 			   !floor::get_opencl_disable_spirv()) {
@@ -499,8 +499,8 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 								}
 								break;
 						}
-						if(spirv_version > device->spirv_version) {
-							device->spirv_version = spirv_version;
+						if(spirv_version > device.spirv_version) {
+							device.spirv_version = spirv_version;
 						}
 					}
 				}
@@ -508,43 +508,43 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			
 			if(floor::get_opencl_force_spirv_check() &&
 			   !floor::get_opencl_disable_spirv() &&
-			   device->spirv_version == SPIRV_VERSION::NONE) {
-				device->spirv_version = SPIRV_VERSION::SPIRV_1_0;
+			   device.spirv_version == SPIRV_VERSION::NONE) {
+				device.spirv_version = SPIRV_VERSION::SPIRV_1_0;
 			}
 			
 			//
 			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
 					  dev_type_str,
-					  device->units,
-					  device->clock,
-					  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
-					  device->vendor_name,
-					  device->name,
-					  device->version_str,
-					  device->driver_version_str,
+					  device.units,
+					  device.clock,
+					  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
+					  device.vendor_name,
+					  device.name,
+					  device.version_str,
+					  device.driver_version_str,
 					  cl_c_version_str);
 			
 			// compute score and try to figure out which device is the fastest
-			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
 				if(fastest_cpu_device == nullptr) {
-					fastest_cpu_device = device;
-					fastest_cpu_score = device->units * device->clock;
+					fastest_cpu_device = &device;
+					fastest_cpu_score = device.units * device.clock;
 				}
 				else {
-					cpu_score = device->units * device->clock;
+					cpu_score = device.units * device.clock;
 					if(cpu_score > fastest_cpu_score) {
-						fastest_cpu_device = device;
+						fastest_cpu_device = &device;
 						fastest_cpu_score = cpu_score;
 					}
 				}
 			}
-			else if(device->internal_type & CL_DEVICE_TYPE_GPU) {
-				const auto compute_gpu_score = [](shared_ptr<compute_device> dev) -> unsigned int {
+			else if(device.internal_type & CL_DEVICE_TYPE_GPU) {
+				const auto compute_gpu_score = [](const compute_device& dev) -> uint32_t {
 					unsigned int multiplier = 1;
-					switch(dev->vendor) {
+					switch(dev.vendor) {
 						case COMPUTE_VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024
-							multiplier = (dev->max_total_local_size >= 1024 ? 32 : 8);
+							multiplier = (dev.max_total_local_size >= 1024 ? 32 : 8);
 							break;
 						case COMPUTE_VENDOR::AMD:
 							multiplier = 16;
@@ -552,17 +552,17 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 						// none for INTEL
 						default: break;
 					}
-					return multiplier * (dev->units * dev->clock);
+					return multiplier * (dev.units * dev.clock);
 				};
 				
 				if(fastest_gpu_device == nullptr) {
-					fastest_gpu_device = device;
+					fastest_gpu_device = &device;
 					fastest_gpu_score = compute_gpu_score(device);
 				}
 				else {
 					gpu_score = compute_gpu_score(device);
 					if(gpu_score > fastest_gpu_score) {
-						fastest_gpu_device = device;
+						fastest_gpu_device = &device;
 						fastest_gpu_score = gpu_score;
 					}
 				}
@@ -616,7 +616,7 @@ FLOOR_POP_WARNINGS()
 				
 				// disable spir-v on all devices
 				for(auto& dev : devices) {
-					((opencl_device*)dev.get())->spirv_version = SPIRV_VERSION::NONE;
+					((opencl_device&)*dev).spirv_version = SPIRV_VERSION::NONE;
 				}
 			}
 		}
@@ -625,7 +625,7 @@ FLOOR_POP_WARNINGS()
 		// (this is necessary, because struct parameters in spir-v are currently bugged)
 		if(floor::get_opencl_spirv_param_workaround()) {
 			for(auto& dev : devices) {
-				if(((opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE) {
+				if(((opencl_device&)*dev).spirv_version != SPIRV_VERSION::NONE) {
 					dev->param_workaround = true;
 				}
 			}
@@ -660,7 +660,7 @@ FLOOR_POP_WARNINGS()
 				// disable sub-group support on all devices
 				for(auto& dev : devices) {
 					dev->sub_group_support = false;
-					((opencl_device*)dev.get())->required_size_sub_group_support = false;
+					((opencl_device&)*dev).required_size_sub_group_support = false;
 				}
 			}
 		}
@@ -706,7 +706,7 @@ FLOOR_POP_WARNINGS()
 	else {
 		// pocl has too many issues and doesn't have full image support
 		// -> disable it and don't get any "supported" image formats
-		for(const auto& dev : devices) {
+		for(auto& dev : devices) {
 			dev->image_support = false;
 		}
 	}
@@ -714,18 +714,16 @@ FLOOR_POP_WARNINGS()
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
 	for(const auto& dev : devices) {
-		create_queue(dev);
+		create_queue(*dev);
 	}
 }
 
-shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) return {};
-	
+shared_ptr<compute_queue> opencl_compute::create_queue(const compute_device& dev) const {
 	// has a default queue already been created for this device?
 	bool has_default_queue = false;
-	shared_ptr<opencl_queue> dev_default_queue;
+	shared_ptr<compute_queue> dev_default_queue;
 	for(const auto& default_queue : default_queues) {
-		if(default_queue.first == dev) {
+		if(default_queue.first.get() == dev) {
 			has_default_queue = true;
 			dev_default_queue = default_queue.second;
 			break;
@@ -744,7 +742,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 		// -> return the default queue
 		if(!user_accessed) {
 			// signal that the user has accessed the default queue, any subsequent create_queue calls will actually create a new queue
-			default_queues_user_accessed.emplace(dev, true);
+			default_queues_user_accessed.insert(dev, true);
 			return dev_default_queue;
 		}
 	}
@@ -753,14 +751,14 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	cl_int create_err = CL_SUCCESS;
 #if /*defined(CL_VERSION_2_0) ||*/ 0 // TODO: should only be enabled if platform (and device?) support opencl 2.0+
 	const cl_queue_properties properties[] { 0 };
-	cl_command_queue cl_queue = clCreateCommandQueueWithProperties(ctx, ((opencl_device*)dev.get())->device_id,
+	cl_command_queue cl_queue = clCreateCommandQueueWithProperties(ctx, ((const opencl_device&)dev).device_id,
 																   properties, &create_err);
 #else
 	
 FLOOR_PUSH_WARNINGS() // silence "clCreateCommandQueue" is deprecated warning
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
-	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id, 0, &create_err);
+	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((const opencl_device&)dev).device_id, 0, &create_err);
 	
 FLOOR_POP_WARNINGS()
 #endif
@@ -774,17 +772,13 @@ FLOOR_POP_WARNINGS()
 	
 	// set the default queue if it hasn't been set yet
 	if(!has_default_queue) {
-		default_queues.emplace_back(dev, ret);
+		default_queues.insert(dev, ret);
 	}
 	
 	return ret;
 }
 
-shared_ptr<compute_queue> opencl_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
-	return get_device_default_queue(dev.get());
-}
-
-shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute_device* dev) const {
+shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute_device& dev) const {
 	for(const auto& default_queue : default_queues) {
 		if(default_queue.first.get() == dev) {
 			return default_queue.second;
@@ -795,84 +789,84 @@ shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute
 	return {};
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<opencl_buffer>((opencl_device*)&device, size, flags, opengl_type);
+														 const uint32_t opengl_type) const {
+	return make_shared<opencl_buffer>(cqueue, size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(compute_device& device,
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, void* data,
 														 const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<opencl_buffer>((opencl_device*)&device, size, data, flags, opengl_type);
+														 const uint32_t opengl_type) const {
+	return make_shared<opencl_buffer>(cqueue, size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> opencl_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
 													   const uint32_t opengl_buffer,
 													   const uint32_t opengl_type,
-													   const COMPUTE_MEMORY_FLAG flags) {
+													   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_buffer>((opencl_device*)&device, info.size, nullptr,
+	return make_shared<opencl_buffer>(cqueue, info.size, nullptr,
 									  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									  opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_buffer> opencl_compute::wrap_buffer(compute_device& device,
+shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
 													   const uint32_t opengl_buffer,
 													   const uint32_t opengl_type,
 													   void* data,
-													   const COMPUTE_MEMORY_FLAG flags) {
+													   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_buffer>((opencl_device*)&device, info.size, data,
+	return make_shared<opencl_buffer>(cqueue, info.size, data,
 									  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									  opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<opencl_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
 }
 
-shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) {
-	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
+													   const uint32_t opengl_type) const {
+	return make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
 													 const uint32_t opengl_image,
 													 const uint32_t opengl_target,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_image>((opencl_device*)device.get(), info.image_dim, info.image_type, nullptr,
+	return make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, nullptr,
 									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									 opengl_target, opengl_image, &info);
 }
 
-shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> device,
+shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
 													 const uint32_t opengl_image,
 													 const uint32_t opengl_target,
 													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) {
+													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_image>((opencl_device*)device.get(), info.image_dim, info.image_type, data,
+	return make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, data,
 									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									 opengl_target, opengl_image, &info);
 }
 
 shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, devices);
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
 		log_error("failed to load universal binary: %s", file_name);
 		return {};
@@ -882,7 +876,7 @@ shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& f
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto cl_dev = (opencl_device*)devices[i].get();
+		const auto& cl_dev = (const opencl_device&)devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		
@@ -923,10 +917,10 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+		options.target = (((const opencl_device&)*dev).spirv_version != SPIRV_VERSION::NONE ?
 						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
-		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_toolchain::compile_program_file(dev, file_name, options),
+		prog_map.insert_or_assign((const opencl_device&)*dev,
+								  create_opencl_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options),
 														options.target));
 	}
 	return add_program(move(prog_map));
@@ -944,16 +938,16 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+		options.target = (((const opencl_device&)*dev).spirv_version != SPIRV_VERSION::NONE ?
 						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
-		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_toolchain::compile_program(dev, source_code, options),
+		prog_map.insert_or_assign((const opencl_device&)*dev,
+								  create_opencl_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options),
 														options.target));
 	}
 	return add_program(move(prog_map));
 }
 
-opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
+opencl_program::opencl_program_entry opencl_compute::create_opencl_program(const compute_device& device,
 																		   llvm_toolchain::program_data program,
 																		   const llvm_toolchain::TARGET& target) {
 	if(!program.valid) {
@@ -970,13 +964,13 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 		}
 		if (spirv_binary == nullptr) return {}; // already prints an error
 		
-		return create_opencl_program_internal((opencl_device*)device.get(),
+		return create_opencl_program_internal((const opencl_device&)device,
 											  (const void*)spirv_binary.get(), spirv_binary_size,
 											  program.functions, target,
 											  program.options.silence_debug_output);
 	} else {
 		// SPIR binary, alreay in memory
-		return create_opencl_program_internal((opencl_device*)device.get(),
+		return create_opencl_program_internal((const opencl_device&)device,
 											  (const void*)program.data_or_filename.data(),
 											  program.data_or_filename.size(),
 											  program.functions, target,
@@ -986,7 +980,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 }
 
 opencl_program::opencl_program_entry
-opencl_compute::create_opencl_program_internal(opencl_device* cl_dev,
+opencl_compute::create_opencl_program_internal(const opencl_device& cl_dev,
 											   const void* program_data,
 											   const size_t& program_size,
 											   const vector<llvm_toolchain::function_info>& functions,
@@ -1001,7 +995,7 @@ opencl_compute::create_opencl_program_internal(opencl_device* cl_dev,
 		// opencl api handling
 		cl_int binary_status = CL_SUCCESS;
 		
-		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
+		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev.device_id,
 												&program_size, (const unsigned char**)&program_data,
 												&binary_status, &create_err);
 		if(create_err != CL_SUCCESS) {
@@ -1029,21 +1023,21 @@ opencl_compute::create_opencl_program_internal(opencl_device* cl_dev,
 		(target == llvm_toolchain::TARGET::SPIR ? " -x spir -spir-std=1.2" : "")
 	};
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
-										 1, &cl_dev->device_id,
+										 1, &cl_dev.device_id,
 										 build_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", ret)
 	
 	
 	// print out build log
 	if(!silence_debug_output) {
-		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
+		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev.device_id));
 	}
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
 	if(floor::get_toolchain_log_binaries()) {
 		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(ret.program);
 		if(binaries.size() > 0 && !binaries[0].empty()) {
-			file_io::string_to_file("binary_" + core::to_file_name(cl_dev->name) + ".bin", binaries[0]);
+			file_io::string_to_file("binary_" + core::to_file_name(cl_dev.name) + ".bin", binaries[0]);
 		}
 		else {
 			log_error("failed to retrieve compiled binary");
@@ -1061,7 +1055,7 @@ shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const s
 	return {};
 }
 
-shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
+shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(const compute_device& device,
 																				llvm_toolchain::program_data program,
 																				const llvm_toolchain::TARGET target) {
 	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program, target));
@@ -1094,8 +1088,8 @@ cl_int opencl_compute::get_kernel_sub_group_info(cl_kernel kernel,
 	if(cl_get_kernel_sub_group_info == nullptr) return CL_INVALID_VALUE;
 	
 	for(const auto& dev : devices) {
-		const auto cl_dev = (const opencl_device*)dev.get();
-		if(cl_dev->device_id == device) {
+		const auto& cl_dev = (const opencl_device&)*dev;
+		if(cl_dev.device_id == device) {
 			switch(param_name) {
 				// opencl 2.1+ or cl_khr_subgroups or cl_intel_subgroups
 				case CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE:
@@ -1115,7 +1109,7 @@ cl_int opencl_compute::get_kernel_sub_group_info(cl_kernel kernel,
 					
 				// cl_intel_required_subgroup_size
 				case CL_KERNEL_COMPILE_SUB_GROUP_SIZE:
-					if(cl_dev->required_size_sub_group_support) {
+					if(cl_dev.required_size_sub_group_support) {
 						return cl_get_kernel_sub_group_info(kernel, device, param_name, input_value_size, input_value,
 															param_value_size, param_value, param_value_size_ret);
 					}

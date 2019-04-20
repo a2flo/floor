@@ -27,14 +27,14 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_buffer::vulkan_buffer(vulkan_device* device_,
+vulkan_buffer::vulkan_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
-compute_buffer(device_, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
-vulkan_memory(device_, &buffer) {
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
+vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer) {
 	if(size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
@@ -43,13 +43,13 @@ vulkan_memory(device_, &buffer) {
 	}
 	
 	// actually create the buffer
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
-bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+	const auto& vulkan_dev = ((const vulkan_device&)cqueue.get_device()).device;
 	
 	// create the buffer
 	const VkBufferCreateInfo buffer_create_info {
@@ -105,17 +105,17 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 
 vulkan_buffer::~vulkan_buffer() {
 	if(buffer != nullptr) {
-		vkDestroyBuffer(((const vulkan_device*)dev)->device, buffer, nullptr);
+		vkDestroyBuffer(((const vulkan_device&)dev).device, buffer, nullptr);
 		buffer = nullptr;
 	}
 	buffer_info = { nullptr, 0, 0 };
 }
 
-void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void vulkan_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, void* dst,
+void vulkan_buffer::read(const compute_queue& cqueue, void* dst,
 						 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
@@ -126,11 +126,11 @@ void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, void* dst,
 	read_memory_data(cqueue, dst, read_size, offset, 0, "failed to read buffer");
 }
 
-void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+void vulkan_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src,
+void vulkan_buffer::write(const compute_queue& cqueue, const void* src,
 						  const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
@@ -141,7 +141,7 @@ void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src,
 	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");
 }
 
-void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_buffer& src floor_unused,
+void vulkan_buffer::copy(const compute_queue& cqueue floor_unused, const compute_buffer& src floor_unused,
 						 const size_t size_ floor_unused, const size_t src_offset floor_unused, const size_t dst_offset floor_unused) {
 	if(buffer == nullptr) return;
 	
@@ -149,7 +149,7 @@ void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused, compute_
 	log_error("vulkan_buffer::copy not implemented yet");
 }
 
-void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
+void vulkan_buffer::fill(const compute_queue& cqueue floor_unused,
 						 const void* pattern floor_unused, const size_t& pattern_size floor_unused,
 						 const size_t size_ floor_unused, const size_t offset floor_unused) {
 	if(buffer == nullptr) return;
@@ -158,10 +158,10 @@ void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	log_error("vulkan_buffer::fill not implemented yet");
 }
 
-void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {
+void vulkan_buffer::zero(const compute_queue& cqueue) {
 	if(buffer == nullptr) return;
 	
-	auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("buffer zero"); // TODO: abstract
+	auto cmd_buffer = ((const vulkan_queue&)cqueue).make_command_buffer("buffer zero"); // TODO: abstract
 	const VkCommandBufferBeginInfo begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -174,17 +174,17 @@ void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {
 	vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
 	
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-	((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer);
+	((const vulkan_queue&)cqueue).submit_command_buffer(cmd_buffer);
 }
 
-bool vulkan_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
+bool vulkan_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
 						   const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
 						   void* new_host_ptr floor_unused) {
 	// TODO: implement this
 	return false;
 }
 
-void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) vulkan_buffer::map(const compute_queue& cqueue,
 													   const COMPUTE_MEMORY_MAP_FLAG flags_,
 													   const size_t size_, const size_t offset) {
 	const size_t map_size = (size_ == 0 ? size : size_);
@@ -192,16 +192,16 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 	return vulkan_memory::map(cqueue, flags_, map_size, offset);
 }
 
-void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void vulkan_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	return vulkan_memory::unmap(cqueue, mapped_ptr);
 }
 
-bool vulkan_buffer::acquire_opengl_object(shared_ptr<compute_queue>) {
+bool vulkan_buffer::acquire_opengl_object(const compute_queue*) {
 	log_error("not supported by vulkan");
 	return false;
 }
 
-bool vulkan_buffer::release_opengl_object(shared_ptr<compute_queue>) {
+bool vulkan_buffer::release_opengl_object(const compute_queue*) {
 	log_error("not supported by vulkan");
 	return false;
 }
