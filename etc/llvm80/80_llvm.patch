@@ -8456,10 +8456,10 @@ index 00000000000..b20e51c328b
 +}
 diff --git a/lib/Bitcode/Writer35/BitcodeWriter35.cpp b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
 new file mode 100644
-index 00000000000..9d80ccf1c01
+index 00000000000..a96c91a086f
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
-@@ -0,0 +1,2660 @@
+@@ -0,0 +1,2665 @@
 +//===--- Bitcode/Writer35/BitcodeWriter35.cpp - Bitcode 3.5 Writer --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -10115,6 +10115,11 @@ index 00000000000..9d80ccf1c01
 +          union { float F; uint32_t I; };
 +          F = CDS->getElementAsFloat(i);
 +          Record.push_back(I);
++        }
++      } else if (EltTy->isHalfTy()) {
++        for (unsigned i = 0, e = CDS->getNumElements(); i != e; ++i) {
++          // write half as is done with newer LLVM
++          Record.push_back(CDS->getElementAsAPFloat(i).bitcastToAPInt().getLimitedValue());
 +        }
 +      } else {
 +        assert(EltTy->isDoubleTy() && "Unknown ConstantData element type");
