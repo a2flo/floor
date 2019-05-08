@@ -38,7 +38,10 @@ namespace core {
 	
 	// random functions
 	void set_random_seed(const unsigned int& seed);
-	
+
+	//! for internal uses only
+	mt19937& _get_gen();
+
 	//! random number in [0, max]
 	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static inline int_type rand(int_type max = numeric_limits<int_type>::max()) {
@@ -205,9 +208,6 @@ namespace core {
 	bool cpu_has_avx2();
 	//! returns true if the cpu has avx-512 instruction support
 	bool cpu_has_avx512();
-	
-	//! for internal uses only
-	mt19937& _get_gen();
 
 }
 
