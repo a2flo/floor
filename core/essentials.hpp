@@ -196,6 +196,8 @@
 #define _HAS_STD_BYTE 0
 #endif
 
+#endif
+
 // on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros
 #if defined(__WINDOWS__) && !defined(MINGW)
 #if defined(FLOOR_DLL_EXPORT)
@@ -207,6 +209,4 @@
 #endif
 #else
 #define FLOOR_DLL_API /* nop */
-#endif
-
 #endif
