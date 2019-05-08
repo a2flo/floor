@@ -18,8 +18,6 @@
 
 #include <floor/core/gl_support.hpp>
 
-gl_api_ptrs gl_api;
-
 #if defined(__APPLE__)
 #include <floor/core/logger.hpp>
 #if !defined(FLOOR_IOS)
@@ -29,7 +27,9 @@ void glCopyImageSubData(GLuint, GLenum, GLint, GLint, GLint, GLint,
 	log_error("glCopyImageSubData is not supported!");
 }
 #endif
-#else
+#else // !__APPLE__
+gl_api_ptrs gl_api;
+
 #define glGetProcAddress(x) SDL_GL_GetProcAddress(x)
 
 void init_gl_funcs() {
