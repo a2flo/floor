@@ -13,7 +13,7 @@
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 6.0+ and "libc++":http://libcxx.llvm.org 6.0+
 ** macOS/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+
-** Windows (VS): "VS2017":https://www.visualstudio.com with "Clang / LLVM for Windows":http://llvm.org/builds
+** Windows (VS): "VS2019":https://visualstudio.microsoft.com/vs/preview with "Clang / LLVM for Windows":http://llvm.org/builds
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 6.0+ and libc++ 6.0+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
@@ -57,16 +57,20 @@
 ** on iOS, either copy dependencies into your iPhoneOS and iPhoneSimulator SDK, or floor/ios/deps/{include,lib}
 ** iOS linker flags for a depending project: -lSDL2 -lfloor -lcrypto -lssl
 
-*Build Instructions (Visual Studio / Windows):*
-* open floor.sln and build (lib and include paths might need to be modified)
-* some notes:
-** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
-** SDL2 is a required dependency
-** either the AMD or Intel OpenCL SDK must be installed
-** the Vulkan SDK must be installed
-** it is necessary to add the parent directory of where floor is located to the include paths
-** audio (openal) and use of exceptions are disabled by default (and not supported)
-** networking (asio/openssl) is supported optionally and can be enabled through using the "_net" build configurations
+*Build Instructions (Visual Studio 2019 / CMake / vcpkg / Windows):*
+* install "VS2019 16.1+":https://visualstudio.microsoft.com/vs/preview
+* install "Clang / LLVM for Windows":http://llvm.org/builds
+* install "Vulkan SDK":https://vulkan.lunarg.com/sdk/home
+* install vcpkg (somewhere, not within libfloor):
+** ==git clone https://github.com/Microsoft/vcpkg.git ==
+** ==cd vcpkg==
+** ==.\bootstrap-vcpkg.bat==
+** ==.\vcpkg integrate install==
+* install vcpkg packages:
+** ==vcpkg --triplet x64-windows install sdl2 opengl opengl-registry OpenCL vulkan openssl-windows asio openal-soft==
+* in Visual Studio 2019: open folder "floor" (wait a little until build files are generated)
+* select "Debug" or "Release" configuration and build
+** NOTE: all dependencies (optional parts) are enabled here
 
 *Installation (Unix):*
 * mkdir -p /opt/floor/include
@@ -77,7 +81,11 @@
 *Installation (Windows):*
 * create a "%%ProgramFiles%%/floor" folder (C:/Program Files/floor)
 * inside this folder:
-** create a "lib" folder and copy floor.lib/floord.lib/floor64.lib/floord64.lib (VS) / libfloor_static.a/libfloord_static.a (MinGW/MSYS2) there
+** create a "lib" folder
+** VS2019:
+*** copy everything from bin/ in there (dlls/lib/exp)
+** MinGW/MSYS2:
+*** copy libfloor_static.a/libfloord_static.a there
 ** create an "include" folder and copy the original "floor" folder in there (containing all floor source code)
 
 *Misc Hints:*

@@ -33,6 +33,7 @@
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
 #include <floor/compute/device/host_limits.hpp>
+#include <floor/compute/device/host_id.hpp>
 
 //#define FLOOR_HOST_KERNEL_ENABLE_TIMING 1
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
@@ -489,9 +490,11 @@ uint3 floor_local_work_size;
 static uint32_t floor_linear_local_work_size;
 uint3 floor_group_size;
 static uint32_t floor_linear_group_size;
+#if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
 _Thread_local uint3 floor_global_idx;
 _Thread_local uint3 floor_local_idx;
 _Thread_local uint3 floor_group_idx;
+#endif
 // will be initialized to "max h/w threads", note that this is stored in a global var,
 // so that core::get_hw_thread_count() doesn't have to called over and over again, and
 // so this is actually a consistent value (bad things will happen if it isn't)
@@ -521,8 +524,10 @@ static bool local_memory_exceeded { false };
 static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr };
 
 // extern in host_kernel.hpp and common.hpp
+#if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
 _Thread_local uint32_t floor_thread_idx { 0 };
 _Thread_local uint32_t floor_thread_local_memory_offset { 0 };
+#endif
 
 // stack memory management
 // 4k - 8k stack should be enough, considering this runs on gpus (min 32k with ucontext)

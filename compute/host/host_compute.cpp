@@ -128,9 +128,9 @@ host_compute::host_compute() : compute_context() {
 #elif defined(__WINDOWS__)
 	// registry fun
 	uint32_t cpu_clock_32 = 0;
-	const uint32_t val_size = sizeof(uint32_t);
+	DWORD val_size = sizeof(uint32_t);
 	RegGetValue(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\\"), TEXT("~MHz"),
-				RRF_RT_DWORD, nullptr, (LPBYTE)&cpu_clock_32, (LPDWORD)&val_size); // note: don't care about failure/return val
+				RRF_RT_DWORD, nullptr, (LPBYTE)&cpu_clock_32, &val_size); // note: don't care about failure/return val
 	cpu_clock = cpu_clock_32;
 #else
 #error "unsupported platform"

@@ -24,6 +24,7 @@
 #include <floor/compute/opencl/opencl_common.hpp>
 #include <floor/compute/opencl/opencl_buffer.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
+#include <floor/threading/task.hpp>
 
 opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }

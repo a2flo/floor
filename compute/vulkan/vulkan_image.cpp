@@ -286,7 +286,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.pNext = nullptr,
 		// TODO: might want VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT later on
-		.flags = (is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0),
+		.flags = VkImageCreateFlags(is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : VkImageCreateFlagBits(0u)),
 		.imageType = vk_image_type,
 		.format = vk_format,
 		.extent = extent,

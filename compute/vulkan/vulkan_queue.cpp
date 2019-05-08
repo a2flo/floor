@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/core/logger.hpp>
 #include <floor/threading/task.hpp>
 
 vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_) :

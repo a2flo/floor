@@ -232,9 +232,6 @@ bool floor::init(const init_state& state) {
 	frame_time_counter = 0;
 	new_fps_count = false;
 	
-	// init core (atm this only initializes the rng on windows)
-	core::init();
-	
 	// load config
 #if !defined(_MSC_VER)
 	const auto floor_sys_path = [](const string& str) {

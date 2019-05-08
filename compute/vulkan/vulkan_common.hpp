@@ -20,6 +20,7 @@
 #define __FLOOR_VULKAN_COMMON_HPP__
 
 #include <floor/core/essentials.hpp>
+#include <cstdint>
 
 //! vulkan version of the platform/driver/device
 enum class VULKAN_VERSION : uint32_t {

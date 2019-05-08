@@ -29,18 +29,18 @@
 #include <cpuid.h>
 #endif
 
-// TODO: add thread safety for gen and rd?
-random_device core::rd;
-mt19937 core::gen(core::rd());
-
-void core::init() {
+namespace core {
+static random_device rd {};
+static mt19937 gen { rd() };
+mt19937& _get_gen() {
+	return gen;
 }
 
 /*! converts (projects) a 3d vertex to a 2d screen position
  *  @param v the 3d vertex
  *  @param p the 2d screen position
  */
-int2 core::get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
+int2 get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
 	// transform vector (*TMVP)
 	const float3 mview_vec = vec * mview; // save tmp result, needed later
 	float3 proj_vec = mview_vec * mproj;
@@ -59,7 +59,7 @@ int2 core::get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix
 	};
 }
 
-float3 core::get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
+float3 get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
 	const matrix4f ipm((mview * mproj).invert());
 	const float3 wnd_vec((((p.x - float(viewport[0])) * 2.0f) / float(viewport[2])) - 1.0f,
 						 (((p.y - float(viewport[1])) * 2.0f) / float(viewport[3])) - 1.0f,
@@ -67,13 +67,13 @@ float3 core::get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4
 	return (wnd_vec * ipm);
 }
 
-string core::find_and_replace(const string& str, const string& find, const string& repl) {
+string find_and_replace(const string& str, const string& find, const string& repl) {
 	string ret = str;
 	find_and_replace(ret, find, repl);
 	return ret;
 }
 
-void core::find_and_replace(string& str, const string& find, const string& repl) {
+void find_and_replace(string& str, const string& find, const string& repl) {
 	// consecutive search and replace routine
 	const size_t find_len = find.size();
 	const size_t replace_len = repl.size();
@@ -86,13 +86,13 @@ void core::find_and_replace(string& str, const string& find, const string& repl)
 	}
 }
 
-string core::find_and_replace_once(const string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
+string find_and_replace_once(const string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
 	string ret = str;
 	find_and_replace_once(ret, find_str, repl_str, start_pos);
 	return ret;
 }
 
-void core::find_and_replace_once(string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
+void find_and_replace_once(string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
 	const size_t find_len = find_str.size();
 	const size_t replace_len = repl_str.size();
 	if(find_len == 0) return;
@@ -117,38 +117,38 @@ if(src.find(delim, pos) != string::npos) { \
 else dst.emplace_back(src); \
 return dst;
 
-vector<string> core::tokenize(const string& src, const char& delim) {
+vector<string> tokenize(const string& src, const char& delim) {
 	tokenize_algorithm(1)
 }
 
-vector<string> core::tokenize(const string& src, const string& delim) {
+vector<string> tokenize(const string& src, const string& delim) {
 	const size_t delim_size = delim.size();
 	tokenize_algorithm(delim_size)
 }
 
-void core::str_to_lower_inplace(string& str) {
+void str_to_lower_inplace(string& str) {
 	transform(str.begin(), str.end(), str.begin(), ::tolower);
 }
 
-void core::str_to_upper_inplace(string& str) {
+void str_to_upper_inplace(string& str) {
 	transform(str.begin(), str.end(), str.begin(), ::toupper);
 }
 
-string core::str_to_lower(const string& str) {
+string str_to_lower(const string& str) {
 	string ret;
 	ret.resize(str.length());
 	transform(str.begin(), str.end(), ret.begin(), ::tolower);
 	return ret;
 }
 
-string core::str_to_upper(const string& str) {
+string str_to_upper(const string& str) {
 	string ret;
 	ret.resize(str.length());
 	transform(str.begin(), str.end(), ret.begin(), ::toupper);
 	return ret;
 }
 
-string core::strip_path(const string& in_path) {
+string strip_path(const string& in_path) {
 	string path = in_path;
 	size_t pos = 0, erase_pos;
 	while((pos = path.find("../", 0)) != string::npos && pos != 0) {
@@ -186,7 +186,7 @@ string core::strip_path(const string& in_path) {
 	return path;
 }
 
-string core::strip_filename(const string& in_path) {
+string strip_filename(const string& in_path) {
 	string filename = in_path;
 	const auto slash_pos = in_path.rfind('/');
 	if(slash_pos != string::npos) {
@@ -203,7 +203,7 @@ string core::strip_filename(const string& in_path) {
 	return filename;
 }
 
-string core::trim(const string& str) {
+string trim(const string& str) {
 	if(str.length() == 0) return "";
 	
 	string ret = str;
@@ -222,7 +222,7 @@ string core::trim(const string& str) {
 	return ret;
 }
 
-string core::escape_string(const string& str) {
+string escape_string(const string& str) {
 	if(str.size() == 0) return str;
 	
 	string ret = str;
@@ -235,9 +235,9 @@ string core::escape_string(const string& str) {
 	return ret;
 }
 
-map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
-													const string file_extension,
-													const bool always_get_folders) {
+map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
+											  const string file_extension,
+											  const bool always_get_folders) {
 	map<string, file_io::FILE_TYPE> file_list;
 	string dir_str = directory;
 	size_t pos;
@@ -310,7 +310,7 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
  *  @param v3 the third vertex
  *  @param normal the "output" normal
  */
-void core::compute_normal(const float3& v1, const float3& v2, const float3& v3, float3& normal) {
+void compute_normal(const float3& v1, const float3& v2, const float3& v3, float3& normal) {
 	normal = (v2 - v1).cross(v3 - v1);
 	normal.normalize();
 }
@@ -327,9 +327,9 @@ void core::compute_normal(const float3& v1, const float3& v2, const float3& v3, 
  *  @param t2 the second texture coordinate
  *  @param t3 the third texture coordinate
  */
-void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
-										   float3& normal, float3& binormal, float3& tangent,
-										   const float2& t1, const float2& t2, const float2& t3) {
+void compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
+									 float3& normal, float3& binormal, float3& tangent,
+									 const float2& t1, const float2& t2, const float2& t3) {
 	// compute deltas
 	const float delta_x1 = t2.x - t1.x;
 	const float delta_y1 = t2.y - t1.y;
@@ -358,12 +358,12 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 	else binormal *= -1.0f;
 }
 
-void core::system(const string& cmd) {
+void system(const string& cmd) {
 	string str_dump;
 	core::system(cmd, str_dump);
 }
 
-void core::system(const string& cmd, string& output) {
+void system(const string& cmd, string& output) {
 	static constexpr size_t buffer_size = 8192;
 	char buffer[buffer_size+1];
 	memset(&buffer, 0, buffer_size+1);
@@ -386,11 +386,11 @@ void core::system(const string& cmd, string& output) {
 	pclose(sys_pipe);
 }
 
-void core::set_random_seed(const unsigned int& seed) {
+void set_random_seed(const unsigned int& seed) {
 	gen.seed(seed);
 }
 
-string core::encode_url(const string& url) {
+string encode_url(const string& url) {
 	stringstream result;
 	for(auto citer = url.begin(); citer != url.end(); citer++) {
 		switch(*citer) {
@@ -444,7 +444,7 @@ static inline char bits_to_hex(const uint8_t& bits) {
 	return '0';
 }
 
-string core::str_hex_escape(const string& str) {
+string str_hex_escape(const string& str) {
 	string ret = "";
 	ret.reserve(str.size() * 4);
 	
@@ -459,7 +459,7 @@ string core::str_hex_escape(const string& str) {
 	return ret;
 }
 
-string core::cptr_hex_escape(const char* data, const size_t size) {
+string cptr_hex_escape(const char* data, const size_t size) {
 	string ret = "";
 	const uint8_t* ch_ptr = (const uint8_t*)data;
 	if(size != 0) {
@@ -482,19 +482,19 @@ string core::cptr_hex_escape(const char* data, const size_t size) {
 	return ret;
 }
 
-uint32_t core::unix_timestamp() {
+uint32_t unix_timestamp() {
 	return (uint32_t)chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
-uint64_t core::unix_timestamp_ms() {
+uint64_t unix_timestamp_ms() {
 	return (uint32_t)chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
-uint64_t core::unix_timestamp_us() {
+uint64_t unix_timestamp_us() {
 	return (uint32_t)chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
-uint32_t core::get_hw_thread_count() {
+uint32_t get_hw_thread_count() {
 	uint32_t hw_thread_count = 1; // default to 1
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
 	size_t size = sizeof(hw_thread_count);
@@ -518,11 +518,11 @@ uint32_t core::get_hw_thread_count() {
 	return hw_thread_count;
 }
 
-void core::set_current_thread_name(const string&
+void set_current_thread_name(const string&
 #if defined(_PTHREAD_H) // suppress unused warning
-								   thread_name
+							 thread_name
 #endif
-								   ) {
+							 ) {
 #if defined(_PTHREAD_H)
 	// pthreads restricts name sizes to 15 characters (+one \0)
 	const string name = (thread_name.size() > 15 ? thread_name.substr(0, 15) : thread_name);
@@ -534,7 +534,7 @@ void core::set_current_thread_name(const string&
 #endif
 }
 
-string core::get_current_thread_name() {
+string get_current_thread_name() {
 #if defined(_PTHREAD_H)
 	char thread_name[16];
 	pthread_getname_np(pthread_self(), thread_name, sizeof(thread_name));
@@ -545,7 +545,7 @@ string core::get_current_thread_name() {
 #endif
 }
 
-bool core::cpu_has_fma() {
+bool cpu_has_fma() {
 #if !defined(FLOOR_IOS)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
@@ -555,7 +555,7 @@ bool core::cpu_has_fma() {
 #endif
 }
 
-bool core::cpu_has_avx() {
+bool cpu_has_avx() {
 #if !defined(FLOOR_IOS)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
@@ -565,7 +565,7 @@ bool core::cpu_has_avx() {
 #endif
 }
 
-bool core::cpu_has_avx2() {
+bool cpu_has_avx2() {
 #if !defined(FLOOR_IOS)
 	int eax, ebx, ecx, edx;
 	__cpuid(0, eax, ebx, ecx, edx);
@@ -577,7 +577,7 @@ bool core::cpu_has_avx2() {
 #endif
 }
 
-bool core::cpu_has_avx512() {
+bool cpu_has_avx512() {
 #if !defined(FLOOR_IOS)
 	int eax, ebx, ecx, edx;
 	__cpuid(0, eax, ebx, ecx, edx);
@@ -589,7 +589,7 @@ bool core::cpu_has_avx512() {
 #endif
 }
 
-string core::create_tmp_file_name(const string prefix, const string suffix) {
+string create_tmp_file_name(const string prefix, const string suffix) {
 	seed_seq seed {
 		rd(),
 		(uint32_t)(uintptr_t)&prefix,
@@ -622,7 +622,7 @@ string core::create_tmp_file_name(const string prefix, const string suffix) {
 	return ret;
 }
 
-string core::to_file_name(const string& str) {
+string to_file_name(const string& str) {
 	string ret = str;
 	for(auto& ch : ret) {
 		if((ch >= 'A' && ch <= 'Z') ||
@@ -641,7 +641,7 @@ string core::to_file_name(const string& str) {
 	return ret;
 }
 
-string core::expand_path_with_env(const string& in) {
+string expand_path_with_env(const string& in) {
 #if defined(__WINDOWS__)
 	static thread_local char expanded_path[32768]; // 32k is the max
 	const auto expanded_size = ExpandEnvironmentStringsA(in.c_str(), expanded_path, 32767);
@@ -654,3 +654,5 @@ string core::expand_path_with_env(const string& in) {
 	return in;
 #endif
 }
+
+} // namespace core

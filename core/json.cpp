@@ -19,6 +19,8 @@
 #include <floor/core/json.hpp>
 #include <floor/core/unicode.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/file_io.hpp>
+#include <floor/core/core.hpp>
 
 //#define FLOOR_DEBUG_PARSER 1
 //#define FLOOR_DEBUG_PARSER_SET_NAMES 1

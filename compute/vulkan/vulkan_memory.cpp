@@ -129,8 +129,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 			.pNext = nullptr,
 			.flags = 0,
 			.size = size,
-			.usage = ((does_write ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
-					  (does_read ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0)),
+			.usage = VkBufferUsageFlags((does_write ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : VkBufferUsageFlagBits(0u)) |
+										(does_read ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : VkBufferUsageFlagBits(0u))),
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 			.queueFamilyIndexCount = 0,
 			.pQueueFamilyIndices = nullptr,
@@ -206,7 +206,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 				.pNext = nullptr,
 				.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : 0),
+				.dstAccessMask = VkAccessFlags(VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : VkAccessFlagBits(0u))),
 				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.buffer = mapping.buffer,
@@ -306,8 +306,8 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 			const VkBufferMemoryBarrier buffer_barrier {
 				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 				.pNext = nullptr,
-				.srcAccessMask = (VK_ACCESS_HOST_WRITE_BIT |
-								  (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : 0)),
+				.srcAccessMask = VkAccessFlags(VK_ACCESS_HOST_WRITE_BIT |
+											   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
 				.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
 								  VK_ACCESS_MEMORY_WRITE_BIT |
 								  VK_ACCESS_SHADER_READ_BIT |

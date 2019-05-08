@@ -319,10 +319,6 @@ template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0> us
 // NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
 #define local_buffer static compute_local_buffer
 
-// defined and set in host_kernel.cpp, must be extern so to avoid an opaque function call (which would kill vectorization)
-extern _Thread_local uint32_t floor_thread_idx;
-extern _Thread_local uint32_t floor_thread_local_memory_offset;
-
 template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0>
 class compute_local_buffer {
 protected:

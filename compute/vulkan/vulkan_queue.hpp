@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/threading/thread_safety.hpp>
 #include <bitset>
 
 class vulkan_queue final : public compute_queue {

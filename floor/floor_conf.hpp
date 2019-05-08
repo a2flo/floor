@@ -19,15 +19,6 @@
 #ifndef __FLOOR_CONF_HPP__
 #define __FLOOR_CONF_HPP__
 
-// when building on windows, always disable these for now
-#if defined(_MSC_VER)
-#define FLOOR_NO_OPENAL 1
-#define FLOOR_NO_EXCEPTIONS 1
-#if !defined(FLOOR_MSVC_NET) // optional, must be enabled explicitly
-#define FLOOR_NO_NET 1
-#endif
-#endif
-
 // when building on osx/ios, always disable opencl
 // for vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
 // highlighting/completion when vulkan headers are installed (will build, but won't link though)
@@ -50,9 +41,9 @@
 // if defined, this disables opencl support
 //#define FLOOR_NO_OPENCL 1
 
-// if defined, this disables vulkan support
 #if !defined(FLOOR_VULKAN_TESTING)
-#define FLOOR_NO_VULKAN 1
+// if defined, this disables vulkan support
+//#define FLOOR_NO_VULKAN 1
 #endif
 
 // if defined, this disables metal support
@@ -74,8 +65,7 @@
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 // NOTE: don't enable this for compute (these won't compile the necessary .cpp files)
-//       also disable this for C2, because it runs into linker issues with extern templates
-#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(__c2__)
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST))
 #define FLOOR_EXPORT 1
 #endif
 

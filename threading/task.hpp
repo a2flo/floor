@@ -19,9 +19,11 @@
 #ifndef __FLOOR_TASK_HPP__
 #define __FLOOR_TASK_HPP__
 
+#include <floor/core/essentials.hpp>
 #include <thread>
 #include <atomic>
 #include <string>
+#include <functional>
 #include <floor/threading/thread_safety.hpp>
 using namespace std;
 

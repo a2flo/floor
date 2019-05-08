@@ -34,7 +34,7 @@
 #endif
 
 #if defined(_MSC_VER)
-#include <windows.h>
+#include <Windows.h>
 #include <winnt.h>
 #include <direct.h>
 #include <io.h>

@@ -24,10 +24,35 @@ error() {
 	exit -1
 }
 
+# check on which platform we're deploying
+DEPLOY_PLATFORM=$(uname | tr [:upper:] [:lower:])
+DEPLOY_OS="unix"
+case ${DEPLOY_PLATFORM} in
+	"darwin"|"linux"|"freebsd"|"openbsd")
+		DEPLOY_OS="unix"
+		;;
+	"cygwin"*|"mingw"*)
+		DEPLOY_OS="windows"
+		;;
+	*)
+		warning "unknown platform - trying to continue! ${DEPLOY_PLATFORM}"
+		;;
+esac
+
+if [ $DEPLOY_OS == "windows" ]; then
+	id -G | grep -qE "\<(114|544)\>"
+	if [ $? -ne 0 ]; then
+		error "must run as root/Administrator on Windows"
+	fi
+fi
+
 ##########################################
 # arg handling / default args
 DEPLOY_TOOLCHAIN_FOLDER="toolchain"
 DEPLOY_FLOOR_ROOT_FOLDER="/opt/floor"
+if [ $DEPLOY_OS == "windows" ]; then
+	DEPLOY_FLOOR_ROOT_FOLDER="${ProgramW6432}/floor"
+fi
 DEPLOY_FLOOR_INCLUDE_FOLDER="../include"
 DEPLOY_LLVM_BUILD_FOLDER="build"
 DEPLOY_SPIRV_TOOLS_BUILD_FOLDER="SPIRV-Tools/build"
@@ -109,19 +134,43 @@ done
 
 # make absolute collapsed paths
 collapse_path() {
-	echo $(cd $1 2>/dev/null && pwd)
+	if [ $DEPLOY_OS != "windows" ]; then
+		echo "$(cd "$1" 2>/dev/null && pwd)"
+	else
+		echo "$1"
+	fi
+}
+make_win_path() {
+	if [ ${1::1} == '/' ]; then
+		# on Windows: replace /letter/ with Letter:/
+		win_path=$(echo "$1" | sed -E "s/\/([a-zA-Z]+)\/(.*)/\1:\/\2/")
+		echo "$win_path"
+		exit 0
+	fi
+	echo "$1"
 }
 make_abs_path() {
 	if [ "${#1}" -eq 0 ]; then # just in case
-		echo $(pwd)"/"
+		echo "$(pwd)/"
 		exit 0
 	fi
 
 	if [ ${1::1} == '/' ]; then
+		if [ $DEPLOY_OS != "windows" ]; then
+			# assume this is already an absolute path
+			echo "$1"
+		else
+			echo $(make_win_path "$1")
+		fi
+	elif [ $DEPLOY_OS == "windows" -a \( ${1:1:2} == ":\\" -o ${1:1:2} == ":/" \) ]; then
 		# assume this is already an absolute path
 		echo $1
 	else
-		echo $(pwd)"/"$1
+		if [ $DEPLOY_OS != "windows" ]; then
+			echo "$(pwd)/$1"
+		else
+			echo $(make_win_path "$(pwd)/$1")
+		fi
 	fi
 }
 
@@ -130,7 +179,7 @@ DEPLOY_LLVM_BUILD_FOLDER=$(make_abs_path "${DEPLOY_LLVM_BUILD_FOLDER}")
 DEPLOY_SPIRV_TOOLS_BUILD_FOLDER=$(make_abs_path "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}")
 DEPLOY_LIBCXX_INCLUDE_FOLDER=$(make_abs_path "${DEPLOY_LIBCXX_INCLUDE_FOLDER}")
 
-DEPLOY_FLOOR_ROOT_FOLDER=$(collapse_path $(make_abs_path "${DEPLOY_FLOOR_ROOT_FOLDER}"))
+DEPLOY_FLOOR_ROOT_FOLDER=$(collapse_path "$(make_abs_path "${DEPLOY_FLOOR_ROOT_FOLDER}")")
 DEPLOY_TARGET="${DEPLOY_FLOOR_ROOT_FOLDER}/${DEPLOY_TOOLCHAIN_FOLDER}"
 if [ ${#DEPLOY_TARGET} -eq 0 ]; then
 	error "empty or non-existing deploy target path"
@@ -155,16 +204,16 @@ info "deploying ..."
 
 if [ ${DEPLOY_DRY_RUN} -eq 0 ]; then
 	# remove existing toolchain
-	if [ -e ${DEPLOY_TARGET} ]; then
+	if [[ -e "${DEPLOY_TARGET}" ]]; then
 		info "removing existing toolchain at ${DEPLOY_TARGET} ..."
-		rm -R ${DEPLOY_TARGET}
+		rm -R "${DEPLOY_TARGET}"
 	fi
-	if [ -e ${DEPLOY_TARGET} ]; then
+	if [[ -e "${DEPLOY_TARGET}" ]]; then
 		error "failed to remove existing toolchain - maybe run with sudo?"
 	fi
 
 	# create target path
-	mkdir -p ${DEPLOY_TARGET}/bin
+	mkdir -p "${DEPLOY_TARGET}/bin"
 	if [ $? -ne 0 ]; then
 		error "failed to create target folder - maybe run with sudo?"
 	fi
@@ -172,10 +221,14 @@ fi
 
 deploy_file() {
 	cmd=""
-	if [ ${DEPLOY_SYMLINK} -eq 1 ]; then
-		cmd="ln -sf $2/$1 ${DEPLOY_TARGET}/$3/$1"
+	if [[ $3 -eq 1 ]]; then
+		if [ $DEPLOY_OS != "windows" ]; then
+			cmd="ln -sf $2/$1 ${DEPLOY_TARGET}/$3/$1"
+		else
+			cmd="cmd <<< 'mklink \"${DEPLOY_TARGET}/$3/$1.exe\" \"$2/$1.exe\"'"
+		fi
 	else
-		cmd="cp $2/$1 ${DEPLOY_TARGET}/$3/$1"
+		cmd="cp \"$2/$1\" \"${DEPLOY_TARGET}/$3/$1\""
 	fi
 	info "${cmd}"
 	if [ ${DEPLOY_DRY_RUN} -eq 0 ]; then
@@ -184,10 +237,14 @@ deploy_file() {
 }
 deploy_folder() {
 	cmd=""
-	if [ $3 -eq 1 ]; then
-		cmd="ln -sf $1 $2"
+	if [[ $3 -eq 1 ]]; then
+		if [ $DEPLOY_OS != "windows" ]; then
+			cmd="ln -sf $1 $2"
+		else
+			cmd="cmd <<< 'mklink /D \"$2\" \"$1\"'"
+		fi
 	else
-		cmd="cp -R $1 $2"
+		cmd="cp -R \"$1\" \"$2\""
 	fi
 	info "${cmd}"
 	if [ ${DEPLOY_DRY_RUN} -eq 0 ]; then
@@ -195,18 +252,29 @@ deploy_folder() {
 	fi
 }
 
-deploy_file "clang" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "llc" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "llvm-as" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "llvm-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "llvm-spirv" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "metallib-dis" "{DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin"
-deploy_file "spirv-as" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin"
-deploy_file "spirv-dis" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin"
-deploy_file "spirv-val" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin"
+deploy_file "clang" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "llc" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "llvm-as" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "llvm-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "llvm-spirv" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "metallib-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "spirv-as" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
+deploy_file "spirv-dis" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
+deploy_file "spirv-val" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
 
 deploy_folder "${DEPLOY_LLVM_BUILD_FOLDER}/lib/clang/${RELEASE}/include" "${DEPLOY_TARGET}/clang" ${DEPLOY_SYMLINK}
 deploy_folder "${DEPLOY_LIBCXX_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/libcxx" ${DEPLOY_SYMLINK}
 deploy_folder "${DEPLOY_FLOOR_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/floor" ${DEPLOY_SYMLINK_FLOOR_INCLUDE}
+
+# on Windows, also deploy/copy required dlls
+if [ $DEPLOY_OS == "windows" ]; then
+	DEPLOY_DEP_AS_BIN=1
+	deploy_file "libgcc_s_seh-1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+	deploy_file "libstdc++-6.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+	deploy_file "libwinpthread-1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+	deploy_file "zlib1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+	deploy_file "libz3.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+	deploy_file "libgomp-1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
+fi
 
 info "done"

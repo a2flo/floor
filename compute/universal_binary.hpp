@@ -63,22 +63,26 @@ namespace universal_binary {
 			uint32_t version : 4;
 			//! the compute/graphics backend type, i.e. the main target
 			COMPUTE_TYPE type : 4;
+		};
+		struct __attribute__((packed)) {
 			//! sub-target information (56-bit)
 			//! this corresponds to "type" and only one can be active
 			union __attribute__((packed)) {
 				struct __attribute__((packed)) {
+					uint64_t _target_version_and_type : 8; // see top
+
 					//! major OpenCL target version
-					uint32_t major : 6;
+					uint64_t major : 6;
 					//! minor OpenCL target version
-					uint32_t minor : 4;
+					uint64_t minor : 4;
 					
 					//! if true, this is a SPIR LLVM binary
 					//! if false, this is a SPIR-V binary
-					uint32_t is_spir : 1;
+					uint64_t is_spir : 1;
 					
 					//! special device target to enable special workarounds/features
 					//! NOTE: this may interact with the OpenCL target version and whether SPIR or SPIR-V is targeted
-					enum DEVICE_TARGET : uint32_t {
+					enum DEVICE_TARGET : uint64_t {
 						//! fully generic target
 						GENERIC			= 0u,
 						//! target CPU-specific code
@@ -97,61 +101,65 @@ namespace universal_binary {
 					DEVICE_TARGET device_target : 4u;
 					
 					//! optional capabilities
-					uint32_t image_depth_support : 1; // implies image_depth_write_support
-					uint32_t image_msaa_support : 1; // implies image_msaa_array_support
-					uint32_t image_mipmap_support : 1;
-					uint32_t image_mipmap_write_support : 1;
-					uint32_t image_read_write_support : 1;
-					uint32_t double_support : 1;
-					uint32_t basic_64_bit_atomics_support : 1;
-					uint32_t extended_64_bit_atomics_support : 1;
-					uint32_t sub_group_support : 1;
+					uint64_t image_depth_support : 1; // implies image_depth_write_support
+					uint64_t image_msaa_support : 1; // implies image_msaa_array_support
+					uint64_t image_mipmap_support : 1;
+					uint64_t image_mipmap_write_support : 1;
+					uint64_t image_read_write_support : 1;
+					uint64_t double_support : 1;
+					uint64_t basic_64_bit_atomics_support : 1;
+					uint64_t extended_64_bit_atomics_support : 1;
+					uint64_t sub_group_support : 1;
 					
 					//! required device SIMD width
 					//! if 0, no width is assumed
-					uint32_t simd_width : 8;
+					uint64_t simd_width : 8;
 					
 					uint64_t _unused : 24;
 				} opencl;
 				
 				struct __attribute__((packed)) {
+					uint64_t _target_version_and_type : 8; // see top
+
 					//! major sm/cc target version
-					uint32_t sm_major : 6;
+					uint64_t sm_major : 6;
 					//! minor sm/cc target version
-					uint32_t sm_minor : 4;
+					uint64_t sm_minor : 4;
 					
 					//! major PTX ISA target version
-					uint32_t ptx_isa_major : 6;
+					uint64_t ptx_isa_major : 6;
 					//! minor PTX ISA target version
-					uint32_t ptx_isa_minor : 4;
+					uint64_t ptx_isa_minor : 4;
 					
 					//! if true, this is semi-generic PTX
 					//! if false, this is a CUBIN
-					uint32_t is_ptx : 1;
+					uint64_t is_ptx : 1;
 					
 					//! requires use of internal CUDA API,
 					//! if 0, this is done in software
-					uint32_t image_depth_compare_support : 1;
+					uint64_t image_depth_compare_support : 1;
 					
 					//! if != 0 and PTX, this restricts/specifies how many registers
 					//! can be used when jitting the PTX code
-					uint32_t max_registers : 8;
+					uint64_t max_registers : 8;
 					
 					uint64_t _unused : 26;
 				} cuda;
 				
 				struct __attribute__((packed)) {
+					uint64_t _target_version_and_type : 8; // see top
+
 					//! major Metal target version
-					uint32_t major : 6;
+					uint64_t major : 6;
 					//! minor Metal target version
-					uint32_t minor : 4;
+					uint64_t minor : 4;
 					
 					//! if true, this target iOS
 					//! if false, this target macOS/OS X
-					uint32_t is_ios : 1;
+					uint64_t is_ios : 1;
 					
 					//! special device target to enable special workarounds/features
-					enum DEVICE_TARGET : uint32_t {
+					enum DEVICE_TARGET : uint64_t {
 						//! fully generic target
 						//! NOTE: iOS is always GENERIC
 						GENERIC		= 0u,
@@ -166,14 +174,16 @@ namespace universal_binary {
 					
 					//! required device SIMD width
 					//! if 0, no width is assumed
-					uint32_t simd_width : 8;
+					uint64_t simd_width : 8;
 					
 					uint64_t _unused : 33;
 				} metal;
 				
 				struct __attribute__((packed)) {
+					uint64_t _target_version_and_type : 8; // see top
+
 					//! CPU architecture target
-					enum CPU_TARGET : uint32_t {
+					enum CPU_TARGET : uint64_t {
 						//! aka AMD64/Intel64
 						X64		= 0u,
 						//! aka ARMv8-A
@@ -184,7 +194,7 @@ namespace universal_binary {
 					//! vector extension support
 					//! NOTE: x64 with SSE2 is the minimum requirement
 					//! TODO: ARM NEON?
-					enum VECTOR_TARGET : uint32_t {
+					enum VECTOR_TARGET : uint64_t {
 						SSE2	= 0u,
 						SSE3	= 1u,
 						SSSE3	= 2u,
@@ -202,18 +212,20 @@ namespace universal_binary {
 				} host;
 				
 				struct __attribute__((packed)) {
+					uint64_t _target_version_and_type : 8; // see top
+
 					//! major Vulkan target version
-					uint32_t vulkan_major : 6;
+					uint64_t vulkan_major : 6;
 					//! minor Vulkan target version
-					uint32_t vulkan_minor : 4;
+					uint64_t vulkan_minor : 4;
 					
 					//! major SPIR-V target version
-					uint32_t spirv_major : 6;
+					uint64_t spirv_major : 6;
 					//! minor SPIR-V target version
-					uint32_t spirv_minor : 4;
+					uint64_t spirv_minor : 4;
 					
 					//! special device target to enable special workarounds/features
-					enum DEVICE_TARGET : uint32_t {
+					enum DEVICE_TARGET : uint64_t {
 						//! fully generic target
 						GENERIC		= 0u,
 						//! target NVIDIA GPUs
@@ -226,9 +238,9 @@ namespace universal_binary {
 					DEVICE_TARGET device_target : 4u;
 					
 					//! optional capabilities
-					uint32_t double_support : 1;
-					uint32_t basic_64_bit_atomics_support : 1;
-					uint32_t extended_64_bit_atomics_support : 1;
+					uint64_t double_support : 1;
+					uint64_t basic_64_bit_atomics_support : 1;
+					uint64_t extended_64_bit_atomics_support : 1;
 					
 					uint64_t _unused : 29;
 				} vulkan;

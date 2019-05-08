@@ -19,6 +19,7 @@
 #ifndef __FLOOR_LOGGER_HPP__
 #define __FLOOR_LOGGER_HPP__
 
+#include <floor/core/essentials.hpp>
 #include <string>
 #include <sstream>
 #include <type_traits>

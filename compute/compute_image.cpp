@@ -22,6 +22,7 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/threading/task.hpp>
 
 safe_mutex compute_image::minify_programs_mtx;
 unordered_map<compute_context*, unique_ptr<compute_image::minify_program>> compute_image::minify_programs;

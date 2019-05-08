@@ -43,12 +43,9 @@ FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is alway
 #if !defined(FLOOR_VECTOR_RAND)
 #define FLOOR_VECTOR_RAND
 //! for internal use only
-struct floor_vector_rand {
-	//! for internal use only
-	static random_device vec_rd;
-	//! for internal use only
-	static mt19937 vec_gen;
-};
+namespace floor_vector_rand {
+	mt19937& get_vec_gen();
+} // floor_vector_rand
 #endif
 #endif
 
@@ -154,14 +151,8 @@ public:
 	
 	//! returns true if the vector type has a corresponding clang vector type
 	static constexpr bool has_clang_vector_type() {
-#if !defined(_MSC_VER)
 		return !is_same<decayed_scalar_type, bool>();
-#else
-		// msvc/llvm can't mangle clang vector types yet
-		return false;
-#endif
 	}
-#if !defined(_MSC_VER)
 	template <typename vec_type, typename = void> struct clang_vector_type_spec {};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<vec_type::has_clang_vector_type()>> {
 		// special handling for half/fp16 types
@@ -187,9 +178,6 @@ public:
 	
 	//! corresponding clang vector type
 	typedef typename clang_vector_type_spec<vector_type>::clang_vector_type clang_vector_type;
-#else
-	typedef FLOOR_VECNAME<int> clang_vector_type;
-#endif
 	
 	//! type of the scalar interpolator when doing linear/cubic/catmull-rom interpolation
 	//! NOTE: defaults to float for all non-floating-point types
@@ -1983,25 +1971,25 @@ public:
 	template <typename int_type = scalar_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static vector_type random(const scalar_type max = numeric_limits<int_type>::max()) {
 		uniform_int_distribution<int_type> dist((int_type)0, max);
-		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::get_vec_gen()) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [min, max]
 	template <typename int_type = scalar_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static vector_type random(const scalar_type min, const scalar_type max) {
 		uniform_int_distribution<int_type> dist(min, max);
-		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::get_vec_gen()) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [0, max)
 	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static vector_type random(const scalar_type max = (scalar_type)1) {
 		uniform_real_distribution<fp_type> dist((fp_type)0, max);
-		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::get_vec_gen()) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [min, max)
 	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static vector_type random(const scalar_type min, const scalar_type max) {
 		uniform_real_distribution<fp_type> dist(min, max);
-		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::get_vec_gen()) FLOOR_COMMA) };
 	}
 #endif
 	

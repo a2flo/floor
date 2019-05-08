@@ -177,3 +177,36 @@
 #if defined(INTEL)
 #undef INTEL
 #endif
+
+// MSVC workarounds
+#if defined(_MSC_VER)
+
+#if !defined(_WIN32_WINNT)
+#define _WIN32_WINNT 0x0601
+#endif
+#if !defined(WIN32_LEAN_AND_MEAN)
+#define WIN32_LEAN_AND_MEAN
+#endif
+#if !defined(NOMINMAX)
+#define NOMINMAX
+#endif
+
+// disable std::byte with the MS STL, because it conflicts with another "byte" typedef in Windows headers ...
+#if !defined(_HAS_STD_BYTE)
+#define _HAS_STD_BYTE 0
+#endif
+
+// on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros
+#if defined(__WINDOWS__) && !defined(MINGW)
+#if defined(FLOOR_DLL_EXPORT)
+#pragma warning(disable: 4251)
+#define FLOOR_DLL_API __declspec(dllexport)
+#else
+#pragma warning(disable: 4251)
+#define FLOOR_DLL_API __declspec(dllimport)
+#endif
+#else
+#define FLOOR_DLL_API /* nop */
+#endif
+
+#endif

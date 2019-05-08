@@ -19,6 +19,7 @@
 #ifndef __FLOOR_THREAD_BASE_HPP__
 #define __FLOOR_THREAD_BASE_HPP__
 
+#include <floor/core/essentials.hpp>
 #include <thread>
 #include <mutex>
 #include <string>

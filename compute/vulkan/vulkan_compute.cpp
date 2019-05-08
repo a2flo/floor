@@ -587,7 +587,7 @@ bool vulkan_compute::init_renderer() {
 		.hwnd = wm_info.info.win.window,
 	};
 	VK_CALL_RET(vkCreateWin32SurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
-				"failed to create win32 surface", false);
+				"failed to create win32 surface", false)
 #elif defined(SDL_VIDEO_DRIVER_X11)
 	const VkXlibSurfaceCreateInfoKHR surf_create_info {
 		.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,

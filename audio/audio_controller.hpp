@@ -25,6 +25,7 @@
 
 #include <floor/audio/audio_headers.hpp>
 #include <floor/audio/audio_source.hpp>
+#include <mutex>
 
 class audio_controller {
 public:

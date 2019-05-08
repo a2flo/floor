@@ -25,13 +25,7 @@
 #include <floor/math/vector_lib.hpp>
 
 // id handling
-extern uint32_t floor_work_dim;
-extern uint3 floor_global_work_size;
-extern uint3 floor_local_work_size;
-extern uint3 floor_group_size;
-extern _Thread_local uint3 floor_global_idx;
-extern _Thread_local uint3 floor_local_idx;
-extern _Thread_local uint3 floor_group_idx;
+#include <floor/compute/device/host_id.hpp>
 
 floor_inline_always __attribute__((const)) static uint32_t get_global_id(uint32_t dim) {
 	if(dim >= floor_work_dim) return 0;

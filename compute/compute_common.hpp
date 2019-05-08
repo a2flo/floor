@@ -20,6 +20,7 @@
 #define __FLOOR_COMPUTE_COMMON_HPP__
 
 #include <floor/core/essentials.hpp>
+#include <cstdint>
 
 //! used to differentiate between the different compute implementations
 enum class COMPUTE_TYPE : uint32_t {

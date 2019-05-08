@@ -116,7 +116,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 															 .binding = binding_idx,
 															 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 															 .descriptorCount = max_mip_levels,
-															 .stageFlags = stage,
+															 .stageFlags = VkShaderStageFlags(stage),
 															 .pImmutableSamplers = nullptr,
 														 });
 										++read_image_desc;

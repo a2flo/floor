@@ -20,6 +20,8 @@
 #define __FLOOR_SERIALIZER_HPP__
 
 #include <floor/core/cpp_headers.hpp>
+#include <floor/constexpr/ext_traits.hpp>
+#include <floor/math/vector_lib.hpp>
 
 //! set this in-class with member variables that should be serializable
 //! NOTE: the class must be constructible with the specified member variables, in the specified order

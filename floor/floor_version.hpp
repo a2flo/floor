@@ -54,10 +54,11 @@
 #endif
 
 #if defined(_MSC_VER)
+#define FLOOR_MSC_VERSION_STR FLOOR_VERSION_EVAL(_MSC_FULL_VER)
 #if defined(__clang__)
-#define FLOOR_COMPILER "Clang " __clang_version__ " / VS " _MSC_VER
+#define FLOOR_COMPILER "Clang " __clang_version__ " / VS " FLOOR_MSC_VERSION_STR
 #else
-#define FLOOR_COMPILER "VC++ " _MSC_VER
+#define FLOOR_COMPILER "VC++ " FLOOR_MSC_VERSION_STR
 #endif
 #elif (defined(__GNUC__) && !defined(__llvm__) && !defined(__clang__))
 #define FLOOR_COMPILER "GCC " __VERSION__
@@ -74,6 +75,8 @@
 #define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX "libc++ " FLOOR_VERSION_EVAL(_LIBCPP_VERSION)
 #elif defined(__GLIBCXX__)
 #define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX "libstdc++ " FLOOR_VERSION_EVAL(__GLIBCXX__)
+#elif defined(_MSVC_STL_VERSION) && defined(_MSVC_STL_UPDATE)
+#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX "MSVC-STL " FLOOR_VERSION_EVAL(_MSVC_STL_VERSION) "-" FLOOR_VERSION_EVAL(_MSVC_STL_UPDATE)
 #else
 #define FLOOR_LIBCXX ""
 #endif
@@ -96,8 +99,8 @@
 #if defined(_MSC_VER)
 #if !defined(__clang__)
 #error "Sorry, you need clang/llvm and VS2015 to compile floor (http://llvm.org/builds/)"
-#elif (_MSC_VER < 1900)
-#error "Sorry, but you need VS2015 to compile floor"
+#elif (_MSC_VER < 1920)
+#error "Sorry, but you need VS2019 to compile floor"
 #endif
 
 // clang check
@@ -118,8 +121,8 @@
 #error "You need to install libc++ 6.0+ to compile floor"
 #endif
 
-#if !SDL_VERSION_ATLEAST(2, 0, 2)
-#error "You need to install SDL 2.0.2+ to compile floor"
+#if !SDL_VERSION_ATLEAST(2, 0, 4)
+#error "You need to install SDL 2.0.4+ to compile floor"
 #endif
 
 #if !defined(FLOOR_NO_NET)
