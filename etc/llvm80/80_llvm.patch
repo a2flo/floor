@@ -25337,10 +25337,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..eca9d62da35
+index 00000000000..c345170498d
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3564 @@
+@@ -0,0 +1,3645 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -25555,6 +25555,7 @@ index 00000000000..eca9d62da35
 +  std::vector<SPIRVValue *> transArguments(CallInst *, SPIRVBasicBlock *);
 +  std::vector<SPIRVWord> transArguments(CallInst *, SPIRVBasicBlock *,
 +                                        SPIRVEntry *);
++  bool transVulkanVersion();
 +  bool transSourceLanguage();
 +  bool transExtension();
 +  bool transBuiltinSet();
@@ -25763,7 +25764,7 @@ index 00000000000..eca9d62da35
 +  if (!oclIsBuiltin(OrigName, &DemangledName))
 +    return false;
 +  LLVM_DEBUG(dbgs() << "[oclIsBuiltinTransToExtInst] CallInst: demangled name: "
-+               << DemangledName << '\n');
++                    << DemangledName << '\n');
 +  StringRef S = DemangledName;
 +  if (!S.startswith(kSPIRVName::Prefix))
 +    return false;
@@ -26358,8 +26359,9 @@ index 00000000000..eca9d62da35
 +                                               SPIRVBasicBlock *BB) {
 +  // in LLVM (fneg x) is represented as (fsub +/-0 x) -> special case this to
 +  // produce OpFNegate instead
-+  Value* fneg_val;
-+  if (PatternMatch::match(B, PatternMatch::m_FNeg(PatternMatch::m_Value(fneg_val)))) { // TODO: check this
++  Value *fneg_val;
++  if (PatternMatch::match(B, PatternMatch::m_FNeg(PatternMatch::m_Value(
++                                 fneg_val)))) { // TODO: check this
 +    return BM->addUnaryInst(spv::OpFNegate, transType(B->getType()),
 +                            transValue(B->getOperand(1), BB), BB);
 +  }
@@ -26617,13 +26619,14 @@ index 00000000000..eca9d62da35
 +        Lit.push_back(CaseValue >> 32);
 +
 +      Pairs.push_back(
-+          std::make_pair(Lit, static_cast<SPIRVBasicBlock *>(
-+                                  transValue(Case.getCaseSuccessor(), nullptr))));
++          std::make_pair(Lit, static_cast<SPIRVBasicBlock *>(transValue(
++                                  Case.getCaseSuccessor(), nullptr))));
 +    }
 +
 +    return mapValue(
-+        V, BM->addSwitchInst(Select, static_cast<SPIRVBasicBlock *>(transValue(
-+                                         Switch->getDefaultDest(), nullptr)),
++        V, BM->addSwitchInst(Select,
++                             static_cast<SPIRVBasicBlock *>(
++                                 transValue(Switch->getDefaultDest(), nullptr)),
 +                             Pairs, BB));
 +  }
 +
@@ -27370,12 +27373,18 @@ index 00000000000..eca9d62da35
 +    // -> images
 +    else {
 +      const auto access_split_pos = md_info.find(':');
-+      const auto array_or_scalar_split_pos = md_info.find(':', access_split_pos + 1);
-+      const auto elem_count_split_pos = md_info.find(':', array_or_scalar_split_pos + 1);
++      const auto array_or_scalar_split_pos =
++          md_info.find(':', access_split_pos + 1);
++      const auto elem_count_split_pos =
++          md_info.find(':', array_or_scalar_split_pos + 1);
 +
 +      const auto access_type = md_info.substr(0, access_split_pos);
-+      const auto array_or_scalar_str = md_info.substr(access_split_pos + 1, array_or_scalar_split_pos - access_split_pos - 1);
-+      const auto elem_count_str = md_info.substr(array_or_scalar_split_pos + 1, elem_count_split_pos - array_or_scalar_split_pos - 1);
++      const auto array_or_scalar_str =
++          md_info.substr(access_split_pos + 1,
++                         array_or_scalar_split_pos - access_split_pos - 1);
++      const auto elem_count_str =
++          md_info.substr(array_or_scalar_split_pos + 1,
++                         elem_count_split_pos - array_or_scalar_split_pos - 1);
 +      const auto sample_type = md_info.substr(elem_count_split_pos + 1);
 +
 +      const bool is_array = (array_or_scalar_str == "array");
@@ -28045,19 +28054,23 @@ index 00000000000..eca9d62da35
 +            global_type.set_location = true;
 +            global_type.location = input_location++;
 +
-+            auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
-+                                             SPIRAS_Input, global_type, md_info);
++            auto repl_var =
++                emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
++                                 SPIRAS_Input, global_type, md_info);
 +            // only emit load if there actually is a user
 +            if (arg.getNumUses() > 0) {
-+              LoadInst *load_repl_var =
-+                  new LoadInst(repl_var, arg_name, false, &*(F->front().begin()));
++              LoadInst *load_repl_var = new LoadInst(repl_var, arg_name, false,
++                                                     &*(F->front().begin()));
 +              arg.replaceAllUsesWith(load_repl_var);
 +            }
 +          } else {
 +            // builtin input -> must be ignored
 +            if (arg.getNumUses() != 0) {
-+              errs() << "stage input should not have any users (must use built-ins)\n";
-+			  assert(false && "stage input should not have any users (must use built-ins)");
++              errs() << "stage input should not have any users (must use "
++                        "built-ins)\n";
++              assert(
++                  false &&
++                  "stage input should not have any users (must use built-ins)");
 +            }
 +          }
 +        } else {
@@ -28280,9 +28293,76 @@ index 00000000000..eca9d62da35
 +  }
 +}
 +
++bool LLVMToSPIRV::transVulkanVersion() {
++  SrcLang = std::get<0>(getSPIRVSource(M));
++  if (SrcLang != SourceLanguageGLSL) {
++    return true;
++  }
++
++  const llvm::NamedMDNode *VulkanVersion =
++      M->getNamedMetadata("vulkan.version");
++  if (VulkanVersion == nullptr || VulkanVersion->getNumOperands() != 1) {
++    return false;
++  }
++
++  const MDNode *vulkan_version_md = VulkanVersion->getOperand(0);
++  if (vulkan_version_md->getNumOperands() < 2) {
++    return false;
++  }
++
++  uint64_t version_major = 0, version_minor = 0;
++
++  const MDOperand &version_major_op = vulkan_version_md->getOperand(0);
++  if (const ConstantAsMetadata *version_major_md =
++          dyn_cast_or_null<ConstantAsMetadata>(version_major_op.get())) {
++    if (const ConstantInt *version_major_int =
++            dyn_cast_or_null<ConstantInt>(version_major_md->getValue())) {
++      version_major = version_major_int->getZExtValue();
++    } else {
++      return false;
++    }
++  } else {
++    return false;
++  }
++
++  const MDOperand &version_minor_op = vulkan_version_md->getOperand(1);
++  if (const ConstantAsMetadata *version_minor_md =
++          dyn_cast_or_null<ConstantAsMetadata>(version_minor_op.get())) {
++    if (const ConstantInt *version_minor_int =
++            dyn_cast_or_null<ConstantInt>(version_minor_md->getValue())) {
++      version_minor = version_minor_int->getZExtValue();
++    } else {
++      return false;
++    }
++  } else {
++    return false;
++  }
++
++  switch (version_major) {
++  case 1:
++    switch (version_minor) {
++    case 0:
++      BM->setSPIRVVersion(SPIRV_1_0);
++      break;
++    case 1:
++      BM->setSPIRVVersion(SPIRV_1_3);
++      break;
++    default:
++      return false;
++    }
++    break;
++  default:
++    return false;
++  }
++
++  return true;
++}
++
 +bool LLVMToSPIRV::translate() {
 +  BM->setGeneratorVer(kTranslatorVer);
 +
++  if (!transVulkanVersion())
++    return false;
 +  if (!transSourceLanguage())
 +    return false;
 +  if (!transExtension())
@@ -28588,7 +28668,8 @@ index 00000000000..eca9d62da35
 +
 +      // create the sampled image
 +      std::vector<SPIRVWord> sampled_img_ops{
-+          loaded_img->getId(), loaded_sampler->getId(),
++          loaded_img->getId(),
++          loaded_sampler->getId(),
 +      };
 +      img = BM->addInstTemplate(OpSampledImage, sampled_img_ops, BB,
 +                                BM->addSampledImageType(spirv_img_type));
@@ -28857,7 +28938,7 @@ index 00000000000..eca9d62da35
 +    return SPIRVLinkageTypeKind::LinkageTypeInternal;
 +  return SPIRVLinkageTypeKind::LinkageTypeExport;
 +}
-+} // end of SPIRV namespace
++} // namespace SPIRV
 +
 +char LLVMToSPIRV::ID = 0;
 +
@@ -31747,10 +31828,10 @@ index 00000000000..eaf98d52056
 +#endif /* SPIRVENTRY_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 new file mode 100644
-index 00000000000..73503e69ac5
+index 00000000000..ae9e7aa7429
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
-@@ -0,0 +1,414 @@
+@@ -0,0 +1,417 @@
 +//===- SPIRVEnum.h - SPIR-V enums -------------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -31816,7 +31897,10 @@ index 00000000000..73503e69ac5
 +
 +enum SPIRVVersion : SPIRVWord {
 +  SPIRV_1_0 = 0x00010000,
-+  SPIRV_1_1 = 0x00010100
++  SPIRV_1_1 = 0x00010100,
++  SPIRV_1_2 = 0x00010200,
++  SPIRV_1_3 = 0x00010300,
++  SPIRV_1_4 = 0x00010400
 +};
 +
 +enum SPIRVGeneratorKind {

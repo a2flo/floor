@@ -921,20 +921,24 @@ index 2e84f5fedf..31cbd97ba5 100644
  def err_opencl_kernel_attr :
    Error<"attribute %0 can only be applied to an OpenCL kernel function">;
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
-index be4491d512..12da96e142 100644
+index be4491d512..171c88e60c 100644
 --- a/include/clang/Basic/LangOptions.def
 +++ b/include/clang/Basic/LangOptions.def
-@@ -189,6 +189,9 @@ ENUM_LANGOPT(DefaultCallingConv, DefaultCallingConvention, 3, DCC_None, "default
+@@ -189,8 +189,12 @@ ENUM_LANGOPT(DefaultCallingConv, DefaultCallingConvention, 3, DCC_None, "default
  
  LANGOPT(ShortEnums        , 1, 0, "short enum types")
  
 +LANGOPT(Metal             , 1, 0, "Metal")
-+LANGOPT(MetalVersion      , 32, 0, "Metal version")
++LANGOPT(MetalVersion      , 32, 110, "Metal version")
 +LANGOPT(Vulkan            , 1, 0, "Vulkan")
++LANGOPT(VulkanVersion     , 32, 100, "Vulkan version")
  LANGOPT(OpenCL            , 1, 0, "OpenCL")
- LANGOPT(OpenCLVersion     , 32, 0, "OpenCL C version")
+-LANGOPT(OpenCLVersion     , 32, 0, "OpenCL C version")
++LANGOPT(OpenCLVersion     , 32, 120, "OpenCL C version")
  LANGOPT(OpenCLCPlusPlus   , 1, 0, "OpenCL C++")
-@@ -314,6 +317,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
+ LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "OpenCL C++ version")
+ LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
+@@ -314,6 +318,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
  
  LANGOPT(RegisterStaticDestructors, 1, 1, "Register C++ static destructors")
  
@@ -1419,10 +1423,10 @@ index 92191ebd12..2ac5e23ce4 100644
      RenderScript,
      HIP,
 diff --git a/include/clang/Frontend/LangStandards.def b/include/clang/Frontend/LangStandards.def
-index 0fdd35f320..5c4b57e320 100644
+index 0fdd35f320..1e83e645e7 100644
 --- a/include/clang/Frontend/LangStandards.def
 +++ b/include/clang/Frontend/LangStandards.def
-@@ -144,36 +144,54 @@ LANGSTANDARD(gnucxx2a, "gnu++2a",
+@@ -144,36 +144,57 @@ LANGSTANDARD(gnucxx2a, "gnu++2a",
               CPlusPlus2a | Digraphs | HexFloat | GNUMode)
  
  // OpenCL
@@ -1481,6 +1485,9 @@ index 0fdd35f320..5c4b57e320 100644
 +// Vulkan C++
 +LANGSTANDARD(vulkan10, "vulkan1.0",
 +             Vulkan, "Vulkan C++ 1.0",
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++LANGSTANDARD(vulkan11, "vulkan1.1",
++             Vulkan, "Vulkan C++ 1.1",
 +             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
  
  // CUDA
@@ -5479,7 +5486,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..dd34c9eba2 100644
+index f012384f3d..24b4bc7be9 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -7437,7 +7444,7 @@ index f012384f3d..dd34c9eba2 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2398,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2398,104 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7515,11 +7522,34 @@ index f012384f3d..dd34c9eba2 100644
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
 +												llvm::MDString::get(Context, "air.compile.native_double_disable")));
 +  }
++
++  // additional vulkan info
++  if(CGM.getLangOpts().Vulkan) {
++	  // only do this once
++	  llvm::NamedMDNode *VulkanVersion = CGM.getModule().getOrInsertNamedMetadata("vulkan.version");
++	  if(VulkanVersion->getNumOperands() > 0) return;
++	  
++	  // figure out which vulkan versions we should emit
++	  std::array<uint32_t, 2> vulkan_version;
++	  if(CGM.getLangOpts().VulkanVersion == 110) {
++		  // Vulkan 1.1
++		  vulkan_version = {{ 1, 1 }};
++	  } else {
++		  // Vulkan 1.0
++		  vulkan_version = {{ 1, 0 }};
++	  }
++	  
++	  SmallVector <llvm::Metadata*, 2> vulkan_version_md;
++	  vulkan_version_md.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(vulkan_version[0])));
++	  vulkan_version_md.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(vulkan_version[1])));
++	  VulkanVersion->addOperand(llvm::MDNode::get(Context, vulkan_version_md));
++  }
++
 +  // NOTE: additional/global opencl metadata is handled in CGSPIRMetadataAdder
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2538,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2561,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7532,7 +7562,7 @@ index f012384f3d..dd34c9eba2 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2650,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2673,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7562,7 +7592,7 @@ index f012384f3d..dd34c9eba2 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2703,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2726,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7578,7 +7608,7 @@ index f012384f3d..dd34c9eba2 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2803,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2826,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7596,7 +7626,7 @@ index f012384f3d..dd34c9eba2 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2859,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2882,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7612,7 +7642,7 @@ index f012384f3d..dd34c9eba2 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3010,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3033,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7622,7 +7652,7 @@ index f012384f3d..dd34c9eba2 100644
    return ResTy;
  }
  
-@@ -1356,7 +3081,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3104,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -9638,7 +9668,7 @@ index f666745354..cd892defac 100644
      return InputKind::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index d491f35769..91ff0f11ea 100644
+index d491f35769..4e8691ee9f 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -86,6 +86,7 @@
@@ -9748,7 +9778,7 @@ index d491f35769..91ff0f11ea 100644
      case InputKind::CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -2134,9 +2174,40 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2134,9 +2174,47 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -9780,16 +9810,23 @@ index d491f35769..91ff0f11ea 100644
 +  }
 +
 +  // as Vulkan is largely compiled as OpenCL, also enable + init opencl
-+  if (LangStd == LangStandard::lang_vulkan10 || IK.getLanguage() == InputKind::Vulkan) {
++  if (LangStd == LangStandard::lang_vulkan10 ||
++      LangStd == LangStandard::lang_vulkan11 ||
++      IK.getLanguage() == InputKind::Vulkan) {
 +    Opts.Vulkan = 1;
 +    Opts.OpenCL = 1;
 +    Opts.OpenCLVersion = 200;
++
++    if (LangStd == LangStandard::lang_vulkan10)
++      Opts.VulkanVersion = 100;
++    else if (LangStd == LangStandard::lang_vulkan11)
++      Opts.VulkanVersion = 110;
 +  }
 +
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -2145,18 +2216,23 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2145,18 +2223,23 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPC_On);
      Opts.NativeHalfType = 1;
      Opts.NativeHalfArgsAndReturns = 1;
@@ -9815,7 +9852,7 @@ index d491f35769..91ff0f11ea 100644
  
    Opts.RenderScript = IK.getLanguage() == InputKind::RenderScript;
    if (Opts.RenderScript) {
-@@ -2167,8 +2243,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2167,8 +2250,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    // OpenCL and C++ both have bool, true, false keywords.
    Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
  
@@ -9826,7 +9863,7 @@ index d491f35769..91ff0f11ea 100644
  
    // C++ has wchar_t keyword.
    Opts.WChar = Opts.CPlusPlus;
-@@ -2215,6 +2291,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -2215,6 +2298,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
    case InputKind::OpenCL:
      return S.getLanguage() == InputKind::OpenCL;
  
@@ -9839,7 +9876,7 @@ index d491f35769..91ff0f11ea 100644
    case InputKind::CXX:
    case InputKind::ObjCXX:
      return S.getLanguage() == InputKind::CXX;
-@@ -2251,6 +2333,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -2251,6 +2340,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case InputKind::OpenCL:
      return "OpenCL";
@@ -9850,7 +9887,7 @@ index d491f35769..91ff0f11ea 100644
    case InputKind::CUDA:
      return "CUDA";
    case InputKind::RenderScript:
-@@ -2338,6 +2424,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2338,6 +2431,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -9859,7 +9896,7 @@ index d491f35769..91ff0f11ea 100644
          .Case("c++", LangStandard::lang_openclcpp)
          .Default(LangStandard::lang_unspecified);
  
-@@ -2364,6 +2452,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2364,6 +2459,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -9891,7 +9928,7 @@ index d491f35769..91ff0f11ea 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2577,7 +2690,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2577,7 +2697,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -9900,7 +9937,7 @@ index d491f35769..91ff0f11ea 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
  
-@@ -2830,7 +2943,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2830,7 +2950,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
@@ -9909,7 +9946,7 @@ index d491f35769..91ff0f11ea 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -2926,6 +3039,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2926,6 +3046,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -9930,7 +9967,7 @@ index d491f35769..91ff0f11ea 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -3018,6 +3145,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -3018,6 +3152,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
