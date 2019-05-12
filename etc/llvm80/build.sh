@@ -191,7 +191,7 @@ info "using ${BUILD_JOB_COUNT} build jobs"
 cd SPIRV-Tools
 mkdir build
 cd build
-cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF ../
+cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF -DSPIRV_SKIP_TESTS=ON ../
 make -j ${BUILD_JOB_COUNT}
 make_ret_code=$?
 
