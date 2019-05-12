@@ -337,14 +337,26 @@ program_data compile_input(const string& input,
 			clang_path += floor::get_cuda_base_path() + "clang";
 			floor_path += floor::get_cuda_base_path() + "floor";
 		} break;
-		case TARGET::SPIRV_VULKAN:
+		case TARGET::SPIRV_VULKAN: {
 			toolchain_version = floor::get_vulkan_toolchain_version();
 			output_file_type = "spvc";
+			
+			const auto& vk_device = (const vulkan_device&)device;
+			string vulkan_std = "vulkan1.0";
+			switch(vk_device.vulkan_version) {
+				case VULKAN_VERSION::VULKAN_1_0:
+					vulkan_std = "vulkan1.0";
+					break;
+				case VULKAN_VERSION::VULKAN_1_1:
+					vulkan_std = "vulkan1.1";
+					break;
+				default: break;
+			}
 			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
-				" -x vulkan -std=vulkan1.0" \
+				" -x vulkan -std=" + vulkan_std +
 				" -llvm-spirv-container" \
 				" -target spir64-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
@@ -362,8 +374,8 @@ program_data compile_input(const string& input,
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
 			floor_path += floor::get_vulkan_base_path() + "floor";
-			break;
-		case TARGET::SPIRV_OPENCL:
+		} break;
+		case TARGET::SPIRV_OPENCL: {
 			toolchain_version = floor::get_opencl_toolchain_version();
 			output_file_type = "spv";
 			const auto& cl_device = (const opencl_device&)device;
@@ -393,7 +405,7 @@ program_data compile_input(const string& input,
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
-			break;
+		} break;
 	}
 	libcxx_path += "\"";
 	clang_path += "\"";

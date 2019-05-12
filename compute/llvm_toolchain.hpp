@@ -33,9 +33,9 @@ namespace llvm_toolchain {
 		PTX,
 		//! Metal Apple-IR 1.1+
 		AIR,
-		//! Vulkan SPIR-V 1.0
+		//! Vulkan SPIR-V 1.0+
 		SPIRV_VULKAN,
-		//! OpenCL SPIR-V 1.0
+		//! OpenCL SPIR-V 1.0+
 		SPIRV_OPENCL,
 	};
 	
