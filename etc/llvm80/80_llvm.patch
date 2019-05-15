@@ -25337,10 +25337,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..c345170498d
+index 00000000000..6acbc4f3427
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3645 @@
+@@ -0,0 +1,3676 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -26403,8 +26403,39 @@ index 00000000000..c345170498d
 +  }
 +
 +  auto Op = transValue(U->getOperand(0), BB);
-+  return BM->addUnaryInst(transBoolOpCode(Op, BOC), transType(U->getType()), Op,
-+                          BB);
++
++  // take care of signed/unsigned type conversion mismatches,
++  // as stated above this should be done properly at some point
++  // -> fixup superficial stuff caused by unary int conversion translation
++  const auto type = transType(U->getType());
++  const auto is_int = type->isTypeInt();
++  const auto is_sint = (is_int ? ((SPIRVTypeInt *)type)->isSigned() : false);
++  const auto is_uint = (is_int ? !((SPIRVTypeInt *)type)->isSigned() : false);
++  switch (BOC) {
++  case spv::OpUConvert:
++    if (is_sint) {
++      BOC = OpSConvert;
++    }
++    break;
++  case spv::OpSConvert:
++    if (is_uint) {
++      BOC = OpUConvert;
++    }
++    break;
++  case spv::OpConvertFToU:
++    if (is_sint) {
++      BOC = OpConvertFToS;
++    }
++    break;
++  case spv::OpConvertFToS:
++    if (is_uint) {
++      BOC = OpConvertFToU;
++    }
++    break;
++  default:
++    break;
++  }
++  return BM->addUnaryInst(transBoolOpCode(Op, BOC), type, Op, BB);
 +}
 +
 +/// An instruction may use an instruction from another BB which has not been
@@ -46013,7 +46044,7 @@ index 54ce23876e6..95898d6414e 100644
 -required_libraries = AggressiveInstCombine Analysis BitReader BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = AggressiveInstCombine Analysis BitReader BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index e625433a8e4..9c70f7593bc 100644
+index e625433a8e4..48e710c8202 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -42,6 +42,7 @@
@@ -46153,7 +46184,7 @@ index e625433a8e4..9c70f7593bc 100644
    if (RunPartialInlining)
      MPM.add(createPartialInliningPass());
  
-@@ -743,6 +817,59 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -743,6 +817,60 @@ void PassManagerBuilder::populateModulePassManager(
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
  
@@ -46185,26 +46216,27 @@ index e625433a8e4..9c70f7593bc 100644
 +    MPM.add(createVulkanFinalPass());
 +    MPM.add(createVulkanFinalModuleCleanupPass());
 +  }
-+  if(EnableMetalPasses) {
++  if (EnableMetalPasses) {
 +    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
 +    MPM.add(createMetalFinalModuleCleanupPass());
 +  }
 +
 +    // cleanup
-+  if(EnableMetalPasses || EnableCUDAPasses || (EnableSPIRPasses && !EnableVulkanPasses)) {
++  if (EnableMetalPasses || EnableCUDAPasses || (EnableSPIRPasses && !EnableVulkanPasses)) {
 +    MPM.add(createTailCallEliminationPass());
-+      MPM.add(createCFGSimplificationPass());
++    MPM.add(createCFGSimplificationPass());
 +    MPM.add(createInstructionCombiningPass());
-+      MPM.add(createGVNPass());
++    MPM.add(createGVNPass());
 +    MPM.add(createAggressiveDCEPass());
-+    }
-+  if(EnableVulkanPasses) {
++  }
++  if (EnableVulkanPasses) {
 +    // certain cleanup / post-final passes are disabled for vulkan, because we don't
 +    // want to change the CFG or introduce "invalid" instructions
 +    MPM.add(createFMACombinerPass());
 +    MPM.add(createTailCallEliminationPass());
 +    MPM.add(createInstructionCombiningPass(true, true /* vulkan */));
-+    MPM.add(createGVNPass());
++    // NOTE: use new GVN here, b/c it doesn't change basic blocks
++    MPM.add(createNewGVNPass());
 +    MPM.add(createAggressiveDCEPass());
 +  }
 +
