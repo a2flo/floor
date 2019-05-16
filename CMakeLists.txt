@@ -11,6 +11,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 add_compile_definitions(__WINDOWS__)
 add_compile_definitions(_ENABLE_EXTENDED_ALIGNED_STORAGE)
 add_compile_definitions(FLOOR_DLL_EXPORT)
+add_compile_options("$<$<CONFIG:DEBUG>:-DFLOOR_DEBUG>")
 
 ## warnings
 # let's start with everything

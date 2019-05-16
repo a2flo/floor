@@ -595,12 +595,21 @@ bool vulkan_image::release_opengl_object(const compute_queue*) {
 	return false;
 }
 
+static VkPipelineStageFlags stage_mask_from_access(const VkAccessFlags& access_mask_in, const VkPipelineStageFlags& stage_mask_in) {
+	switch (access_mask_in) {
+		case VK_PIPELINE_STAGE_TRANSFER_BIT:
+			return VK_PIPELINE_STAGE_TRANSFER_BIT;
+		default: break;
+	}
+	return stage_mask_in;
+}
+
 void vulkan_image::transition(const compute_queue& cqueue,
 							  VkCommandBuffer cmd_buffer,
 							  const VkAccessFlags dst_access,
 							  const VkImageLayout new_layout,
-							  const VkPipelineStageFlags src_stage_mask,
-							  const VkPipelineStageFlags dst_stage_mask,
+							  const VkPipelineStageFlags src_stage_mask_in,
+							  const VkPipelineStageFlags dst_stage_mask_in,
 							  const uint32_t dst_queue_idx) {
 	VkImageAspectFlags aspect_mask = 0;
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
@@ -610,6 +619,9 @@ void vulkan_image::transition(const compute_queue& cqueue,
 		}
 	}
 	else aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkPipelineStageFlags src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in);
+	VkPipelineStageFlags dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in);
 	
 	const VkImageMemoryBarrier image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,

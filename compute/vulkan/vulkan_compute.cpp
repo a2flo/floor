@@ -70,6 +70,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 #if defined(FLOOR_DEBUG)
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
+		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
 	if(enable_renderer && !screen.x11_forwarding) {
 		instance_extensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -78,6 +79,10 @@ compute_context(), enable_renderer(enable_renderer_) {
 #elif defined(SDL_VIDEO_DRIVER_X11)
 		// SDL only supports xlib
 		instance_extensions.emplace_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif
+
+#if defined(SDL_VIDEO_DRIVER_WINDOWS) // seems to only exist on windows (and android) right now
+		instance_extensions.emplace_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 #endif
 	}
 	
@@ -218,10 +223,77 @@ compute_context(), enable_renderer(enable_renderer_) {
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
 		};
-		vector<string> device_extensions;
-		if(enable_renderer && !screen.x11_forwarding) {
-			device_extensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+		uint32_t dev_ext_count = 0;
+		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, nullptr);
+		vector<VkExtensionProperties> supported_dev_exts(dev_ext_count);
+		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, supported_dev_exts.data());
+		set<string> device_supported_extensions_set;
+		set<string> device_extensions_set;
+		static constexpr const array filtered_exts{
+			"VK_KHR_external_",
+			"VK_KHR_device_group",
+			"VK_KHR_win32_keyed_mutex",
+		};
+		for (const auto& ext : supported_dev_exts) {
+			string ext_name = ext.extensionName;
+			device_supported_extensions_set.emplace(ext_name);
+
+			// only add all KHR by default
+			if (ext_name.find("VK_KHR_") == string::npos) {
+				continue;
+			}
+			// filter out certain extensions that we don't want
+			bool is_filtered = false;
+			for (const auto& filtered_ext : filtered_exts) {
+				if (ext_name.find(filtered_ext) != string::npos) {
+					is_filtered = true;
+					break;
+				}
+			}
+			// also filter out any swapchain exts when no direct rendering is used
+			if (!enable_renderer || screen.x11_forwarding) {
+				if (ext_name.find("VK_KHR_swapchain" /* _* */) != string::npos) {
+					continue;
+				}
+			}
+			if (is_filtered) continue;
+			device_extensions_set.emplace(ext_name);
 		}
+
+		// add other required or optional extensions
+		//device_extensions_set.emplace(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME); // NOTE: will be required in the future
+		//device_extensions_set.emplace(VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME); // NOTE: will be required in the future
+		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
+			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+		}
+		if (device_supported_extensions_set.count(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME)) { // NOTE: will be required in the future
+			device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+		}
+		if (enable_renderer && !screen.x11_forwarding) {
+			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
+				device_extensions_set.emplace(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+			}
+		}
+
+		// deal with swapchain ext
+		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		if (enable_renderer && !screen.x11_forwarding) {
+			if (swapchain_ext_iter == device_extensions_set.end()) {
+				log_error("%s extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+				continue;
+			}
+		} else {
+			if (swapchain_ext_iter != device_extensions_set.end()) {
+				// remove again, since we don't want/need it
+				device_extensions_set.erase(swapchain_ext_iter);
+			}
+		}
+
+		// set -> vector
+		vector<string> device_extensions;
+		device_extensions.reserve(device_extensions_set.size());
+		device_extensions.assign(begin(device_extensions_set), end(device_extensions_set));
 		
 		string dev_exts_str = "", dev_layers_str = "";
 		for(const auto& ext : device_extensions) {
