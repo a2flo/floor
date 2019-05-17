@@ -78,13 +78,6 @@ else
 	error "only clang is currently supported - please set CXX/CC to clang++/clang and try again!"
 fi
 
-# try using lld if it is available, otherwise fall back to using clangs default
-if [ -z "${LD}" ]; then
-	if [[ -n $(command -v ld.lld) ]]; then
-		LDFLAGS="${LDFLAGS} -fuse-ld=lld"
-	fi
-fi
-
 ##########################################
 # arg handling
 BUILD_MODE="release"
@@ -295,12 +288,12 @@ case ${BUILD_PLATFORM} in
 	"cygwin"*)
 		# untested
 		BUILD_OS="cygwin"
-		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([:digit:]*)/\1/g')
+		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([[:digit:]]*)/\1/g')
 		warning "cygwin support is untested and unsupported!"
 		;;
 	"mingw"*)
 		BUILD_OS="mingw"
-		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([:digit:]*)/\1/g')
+		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([[:digit:]]*)/\1/g')
 		;;
 	*)
 		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
@@ -360,6 +353,16 @@ fi
 # disable metal support on non-iOS/-OS X targets
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	BUILD_CONF_METAL=0
+fi
+
+# try using lld if it is available, otherwise fall back to using clangs default
+# NOTE: msys2/mingw lld is not supported
+if [ -z "${LD}" ]; then
+	if [ $BUILD_OS != "mingw" -a $BUILD_OS != "cygwin" ]; then
+		if [[ -n $(command -v ld.lld) ]]; then
+			LDFLAGS="${LDFLAGS} -fuse-ld=lld"
+		fi
+	fi
 fi
 
 ##########################################
@@ -500,8 +503,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
 		if [ $BUILD_OS != "mingw" ]; then
 			UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan"
-		else
-			UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan-1"
 		fi
 	fi
 
@@ -541,12 +542,18 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		fi
 		
 		if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
-			if [ ! -z "${VK_SDK_PATH}" ]; then
+			if [ "$(pkg-config --exists vulkan && echo $?)" == "0" ]; then
+				# use MSYS2/MinGW package
+				LIBS="${LIBS} $(pkg-config --libs vulkan)"
+				COMMON_FLAGS="${COMMON_FLAGS} $(pkg-config --cflags vulkan)"
+			elif [ ! -z "${VK_SDK_PATH}" ]; then
+				# use official SDK
+				UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan-1"
 				VK_SDK_PATH_FIXED=$(echo ${VK_SDK_PATH} | sed -E "s/\\\\/\//g")
 				LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin\""
 				INCLUDES="${INCLUDES} -isystem \"${VK_SDK_PATH_FIXED}/Include\""
 			else
-				error "Vulkan SDK not installed (VK_SDK_PATH not set)"
+				error "Vulkan SDK not installed (install official SDK or mingw-w64-x86_64-vulkan)"
 			fi
 		fi
 	fi
@@ -835,6 +842,11 @@ if [ $BUILD_OS == "mingw" ]; then
 	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-lm //g")
 fi
 
+# mingw: create import lib and export everything
+if [ $BUILD_OS == "mingw" ]; then
+	LDFLAGS="${LDFLAGS} -Wl,--export-all-symbols -Wl,-no-undefined -Wl,--enable-runtime-pseudo-reloc -Wl,--out-implib,${BIN_DIR}/${TARGET_BIN_NAME}.a"
+fi
+
 # finally: add all common c++ and c flags/options
 CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS}"
 CFLAGS="${CFLAGS} ${COMMON_FLAGS}"
@@ -977,7 +989,7 @@ needs_rebuild() {
 		info "rebuild because >${BUILD_DIR}/${source_file}.d< doesn't exist or BUILD_REBUILD $BUILD_REBUILD"
 		rebuild_file=1
 	else
-		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//"  | sed -E "s/${ESC_CUR_DIR}\/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
+		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//"  | sed -E "s/${ESC_CUR_DIR}\/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g"  | sed -E "s/\.\.\\\\floor\//${ESC_CUR_DIR}\//g" | sed -E "s/([^[:space:]]*)$/\"\0\"/g")
 		if [ "${dep_list}" ]; then
 			file_time=$(file_mod_time "${bin_file_name}")
 			dep_times=$(file_mod_time ${dep_list})
@@ -1070,7 +1082,7 @@ job_count() {
 }
 handle_build_errors() {
 	# abort on build errors
-	if [ ${build_error} == "true" ]; then
+	if [ "${build_error}" == "true" ]; then
 		# wait until all build jobs have finished (all error output has been written)
 		wait
 		exit -1
@@ -1141,14 +1153,11 @@ if [ $relink_any -eq 0 -a ${BUILD_REBUILD} -eq 0 ]; then
 	done
 fi
 
-# don't create/link dll on mingw
-if [ $BUILD_OS != "mingw" ]; then
-	if [ $relink_target -gt 0  ]; then
-		info "linking ..."
-		linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
-		verbose "${linker_cmd}"
-		eval ${linker_cmd}
-	fi
+if [ $relink_target -gt 0  ]; then
+	info "linking ..."
+	linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+	verbose "${linker_cmd}"
+	eval ${linker_cmd}
 fi
 
 if [ $relink_static_target -gt 0 -a $BUILD_STATIC -gt 0 ]; then
