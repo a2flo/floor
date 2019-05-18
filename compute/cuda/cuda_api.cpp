@@ -36,7 +36,8 @@ static bool cuda_internal_api_functional { false };
 #define load_symbol(lib_handle, symbol_name) dlsym(lib_handle, symbol_name)
 typedef void* lib_handle_type;
 #else
-#include <Windows.h>
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
 #define open_dynamic_library(file_name) LoadLibrary(file_name)
 #define load_symbol(lib_handle, symbol_name) (void*)GetProcAddress(lib_handle, symbol_name)
 typedef HMODULE lib_handle_type;

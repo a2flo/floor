@@ -34,10 +34,6 @@
 #endif
 
 #if defined(_MSC_VER)
-#include <Windows.h>
-#include <winnt.h>
-#include <direct.h>
-#include <io.h>
 
 #undef getcwd
 #define getcwd _getcwd
@@ -53,26 +49,20 @@
 #endif
 
 #if !defined(ssize_t)
-#define ssize_t SSIZE_T
+#define ssize_t ptrdiff_t
 #endif
 
 #define setenv(var_name, var_value, x) SetEnvironmentVariable(var_name, var_value)
 
 #define FLOOR_OS_DIR_SLASH "\\"
 
-#if defined(MINGW)
-#include <dirent.h>
-#endif
-
 // Mac OS X
 #elif defined(__APPLE__)
-#include <dirent.h>
 #define FLOOR_OS_DIR_SLASH "/"
 
 // everything else (Linux, *BSD, ...)
 #else
 #define FLOOR_OS_DIR_SLASH "/"
-#include <dirent.h>
 
 #endif // Windows
 
@@ -83,7 +73,6 @@
 #include <SDL2/SDL_thread.h>
 #include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
-#include <SDL2/SDL_syswm.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>
@@ -93,14 +82,12 @@
 #include <SDL2/SDL_thread.h>
 #include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
-#include <SDL2/SDL_syswm.h>
 
 #else
 #include <SDL.h>
 #include <SDL_thread.h>
 #include <SDL_cpuinfo.h>
 #include <SDL_platform.h>
-#include <SDL_syswm.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>

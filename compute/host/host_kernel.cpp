@@ -55,6 +55,9 @@
 static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
 #endif
 
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
+
 // ignore warnings about deprecated functions
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 

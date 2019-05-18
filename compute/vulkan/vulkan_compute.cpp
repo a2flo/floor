@@ -32,6 +32,28 @@
 #include <floor/floor/floor_version.hpp>
 #include <floor/compute/device/sampler.hpp>
 
+
+#include <floor/core/platform_windows.hpp>
+
+#if defined(__WINDOWS__) || defined(__APPLE__)
+#include <SDL2/SDL_syswm.h>
+#else
+#include <SDL_syswm.h>
+#endif
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#elif defined(SDL_VIDEO_DRIVER_X11)
+#define VK_USE_PLATFORM_XLIB_KHR 1
+#endif
+
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+#include <vulkan/vulkan_win32.h>
+#elif defined(SDL_VIDEO_DRIVER_X11)
+#include <vulkan/vulkan_xlib.h
+#endif
+
+#include <floor/core/essentials.hpp> // cleanup
+
 #if defined(FLOOR_DEBUG)
 static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugReportFlagsEXT flags floor_unused,
 															VkDebugReportObjectTypeEXT object_type floor_unused,

@@ -25,10 +25,6 @@
 #include <wchar.h>
 #endif
 
-#if defined(__WINDOWS__) || defined(MINGW)
-#include <Windows.h>
-#endif
-
 #include <iostream>
 #include <fstream>
 #include <string>

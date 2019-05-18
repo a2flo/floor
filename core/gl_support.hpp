@@ -49,9 +49,11 @@ extern "C" {
 #include <floor/core/platform.hpp>
 
 #if defined(MINGW)
-#define GL3_PROTOTYPES
+#define GL3_PROTOTYPES // old glcorearb.h
+#define GL_GLEXT_PROTOTYPES // new glcorearb.h
 #endif
 #if !defined(_MSC_VER)
+#define _WINDOWS_
 #include <GL/glcorearb.h>
 #include <GL/glext.h>
 #else

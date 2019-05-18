@@ -531,6 +531,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 				AMDAPPSDKROOT_FIXED=$(echo ${AMDAPPSDKROOT} | sed -E "s/\\\\/\//g")
 				LDFLAGS="${LDFLAGS} -L\"${AMDAPPSDKROOT_FIXED}lib/x86_64\""
 				INCLUDES="${INCLUDES} -isystem \"${AMDAPPSDKROOT_FIXED}include\""
+			elif [ ! -z "${OCL_ROOT}" ]; then
+				# use new amd opencl sdk
+				OCL_ROOT_FIXED=$(echo ${OCL_ROOT} | sed -E "s/\\\\/\//g")
+				LDFLAGS="${LDFLAGS} -L\"${OCL_ROOT_FIXED}/lib/x86_64\""
+				INCLUDES="${INCLUDES} -isystem \"${OCL_ROOT_FIXED}/include\""
 			elif [ ! -z "${INTELOCLSDKROOT}" ]; then
 				# use intel opencl sdk
 				INTELOCLSDKROOT_FIXED=$(echo ${INTELOCLSDKROOT} | sed -E "s/\\\\/\//g")

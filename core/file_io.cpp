@@ -18,9 +18,25 @@
 
 #include <floor/core/file_io.hpp>
 
+#if defined(__WINDOWS__)
 #if defined(MINGW)
 #include <sys/stat.h>
 #include <errno.h>
+#endif
+
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
+
+#if defined(_MSC_VER)
+#include <direct.h>
+#include <io.h>
+#include <fileapi.h>
+#else
+#include <dirent.h>
+#endif
+
+#else // !__WINDOWS__
+#include <dirent.h>
 #endif
 
 /*! there is no function currently

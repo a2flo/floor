@@ -18,7 +18,7 @@
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
-** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
+** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases)
 ** (opt) CUDA: requires sm_20+/Fermi+ GPU and CUDA 7.5+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 9.0+ and A7+ CPU/GPU, or macOS 10.11+ and appropriate GPU
 ** (opt) Host Compute: requires just the compiler/toolchain that is stated above

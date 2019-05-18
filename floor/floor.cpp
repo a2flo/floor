@@ -32,6 +32,15 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
+#if defined(__WINDOWS__)
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
+
+#if defined(_MSC_VER)
+#include <direct.h>
+#endif
+#endif
+
 //// init statics
 struct floor::floor_config floor::config;
 json::document floor::config_doc;
@@ -762,6 +771,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// disable hidpi mode?
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
+		SDL_SetHint("SDL_HINT_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
 		
 		if(renderer == RENDERER::OPENGL) {

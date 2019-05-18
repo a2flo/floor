@@ -166,7 +166,7 @@ case ${BUILD_PLATFORM} in
 		;;
 	"mingw"*)
 		BUILD_OS="mingw"
-		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([:digit:]*)/\1/g')
+		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([[:digit:]]*)/\1/g')
 		BUILD_CXX=g++
 		BUILD_CC=gcc
 		;;

@@ -139,6 +139,19 @@
 #define __builtin_assume(expr)
 #endif
 
+// on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros
+#if defined(__WINDOWS__) && !defined(MINGW)
+#if defined(FLOOR_DLL_EXPORT)
+#pragma warning(disable: 4251)
+#define FLOOR_DLL_API __declspec(dllexport)
+#else
+#pragma warning(disable: 4251)
+#define FLOOR_DLL_API __declspec(dllimport)
+#endif
+#else
+#define FLOOR_DLL_API /* nop */
+#endif
+
 #endif // __FLOOR_ESSENTIALS_HPP__
 
 // -> keep these outside the header guard
@@ -196,17 +209,4 @@
 #define _HAS_STD_BYTE 0
 #endif
 
-#endif
-
-// on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros
-#if defined(__WINDOWS__) && !defined(MINGW)
-#if defined(FLOOR_DLL_EXPORT)
-#pragma warning(disable: 4251)
-#define FLOOR_DLL_API __declspec(dllexport)
-#else
-#pragma warning(disable: 4251)
-#define FLOOR_DLL_API __declspec(dllimport)
-#endif
-#else
-#define FLOOR_DLL_API /* nop */
-#endif
+#endif // _MSC_VER

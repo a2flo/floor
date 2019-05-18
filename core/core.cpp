@@ -29,6 +29,18 @@
 #include <cpuid.h>
 #endif
 
+#if defined(__WINDOWS__)
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
+
+#if defined(_MSC_VER)
+#include <direct.h>
+#include <io.h>
+#else
+#include <dirent.h>
+#endif
+#endif
+
 namespace core {
 static random_device rd {};
 static mt19937 gen { rd() };

@@ -25,6 +25,8 @@
 #if !defined(__WINDOWS__)
 #include <dlfcn.h>
 #else
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
 static HMODULE exe_module { nullptr };
 #endif
 

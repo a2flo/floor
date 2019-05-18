@@ -31,6 +31,9 @@
 #include <floor/compute/universal_binary.hpp>
 #include <floor/floor/floor.hpp>
 
+#include <floor/core/platform_windows.hpp>
+#include <floor/core/essentials.hpp> // cleanup
+
 opencl_compute::opencl_compute(const uint32_t platform_index_,
 							   const bool gl_sharing_,
 							   const vector<string> whitelist) : compute_context() {

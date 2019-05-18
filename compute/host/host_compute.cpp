@@ -43,6 +43,12 @@
 #include <cpuid.h>
 #endif
 
+#if defined(__WINDOWS__)
+#include <floor/core/platform_windows.hpp>
+#include <winreg.h>
+#include <floor/core/essentials.hpp> // cleanup
+#endif
+
 host_compute::host_compute() : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	

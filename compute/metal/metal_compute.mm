@@ -16,14 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_METAL)
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/core/platform.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
-
-#if !defined(FLOOR_NO_METAL)
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>

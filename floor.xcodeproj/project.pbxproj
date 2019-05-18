@@ -303,6 +303,7 @@
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 		5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */; };
+		5CFB8CC922906D6500BF387F /* platform_windows.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CFB8CC822906D6200BF387F /* platform_windows.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -573,6 +574,7 @@
 		5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_queue.cpp; sourceTree = "<group>"; };
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
 		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
+		5CFB8CC822906D6200BF387F /* platform_windows.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = platform_windows.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -672,6 +674,7 @@
 				5C10917717D1153E007F536E /* logger.hpp */,
 				5C515D661ACDB75D002FB38F /* option_handler.hpp */,
 				5C10917A17D1153E007F536E /* platform.hpp */,
+				5CFB8CC822906D6200BF387F /* platform_windows.hpp */,
 				5C6B6D8C1EC7381C00342E50 /* serializer.cpp */,
 				5C6B6D8D1EC7381C00342E50 /* serializer.hpp */,
 				5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */,
@@ -1099,6 +1102,7 @@
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
+				5CFB8CC922906D6500BF387F /* platform_windows.hpp in Headers */,
 				5CDEB85E1D81AC0200A8CD9B /* vulkan_memory.hpp in Headers */,
 				5C2B87D61C73893E00F11EA5 /* vulkan_kernel.hpp in Headers */,
 				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
