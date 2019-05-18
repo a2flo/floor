@@ -36,9 +36,11 @@
 #if defined(_MSC_VER)
 #include <direct.h>
 #include <io.h>
-#else
-#include <dirent.h>
 #endif
+#endif
+
+#if !defined(__WINDOWS__)
+#include <dirent.h>
 #endif
 
 namespace core {

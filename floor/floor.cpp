@@ -34,11 +34,16 @@
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
+#include <SDL2/SDL_syswm.h>
 #include <floor/core/essentials.hpp> // cleanup
 
 #if defined(_MSC_VER)
 #include <direct.h>
 #endif
+#elif defined(__APPLE__)
+#include <SDL2/SDL_syswm.h>
+#else // !__WINDOWS__ && !__APPLE__
+#include <SDL_syswm.h>
 #endif
 
 //// init statics

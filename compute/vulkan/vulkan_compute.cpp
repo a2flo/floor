@@ -40,16 +40,11 @@
 #else
 #include <SDL_syswm.h>
 #endif
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
-#define VK_USE_PLATFORM_WIN32_KHR 1
-#elif defined(SDL_VIDEO_DRIVER_X11)
-#define VK_USE_PLATFORM_XLIB_KHR 1
-#endif
 
-#if defined(VK_USE_PLATFORM_WIN32_KHR)
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
 #include <vulkan/vulkan_win32.h>
 #elif defined(SDL_VIDEO_DRIVER_X11)
-#include <vulkan/vulkan_xlib.h
+#include <vulkan/vulkan_xlib.h>
 #endif
 
 #include <floor/core/essentials.hpp> // cleanup
