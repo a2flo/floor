@@ -582,6 +582,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# add all libs to LDFLAGS
 	LDFLAGS="${LDFLAGS} ${LIBS}"
 else
+	# aligned allocation is only available with macOS 10.14+, so disable it while we're still targeting 10.11+
+	COMMON_FLAGS="${COMMON_FLAGS} -fno-aligned-allocation"
+
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
