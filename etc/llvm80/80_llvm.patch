@@ -25337,10 +25337,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..6acbc4f3427
+index 00000000000..17a2c243cd0
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3676 @@
+@@ -0,0 +1,3711 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -26367,9 +26367,42 @@ index 00000000000..6acbc4f3427
 +  }
 +
 +  unsigned LLVMOC = B->getOpcode();
++  Op BOC = OpCodeMap::map(LLVMOC);
 +  auto Op0 = transValue(B->getOperand(0), BB);
++
++  // take care of signed/unsigned type conversion mismatches,
++  // TODO: as with unary instructions, we need to do this properly at some point
++  const auto type = transType(B->getType());
++  const auto is_int = type->isTypeInt();
++  const auto is_sint = (is_int ? ((SPIRVTypeInt *)type)->isSigned() : false);
++  const auto is_uint = (is_int ? !((SPIRVTypeInt *)type)->isSigned() : false);
++  switch (BOC) {
++  case spv::OpUMod:
++    if (is_sint) {
++      BOC = OpSMod;
++    }
++    break;
++  case spv::OpSMod:
++    if (is_uint) {
++      BOC = OpUMod;
++    }
++    break;
++  case spv::OpUDiv:
++    if (is_sint) {
++      BOC = OpSDiv;
++    }
++    break;
++  case spv::OpSDiv:
++    if (is_uint) {
++      BOC = OpUDiv;
++    }
++    break;
++  default:
++    break;
++  }
++
 +  SPIRVInstruction *BI = BM->addBinaryInst(
-+      transBoolOpCode(Op0, OpCodeMap::map(LLVMOC)), transType(B->getType()),
++      transBoolOpCode(Op0, BOC), type,
 +      Op0, transValue(B->getOperand(1), BB), BB);
 +  return BI;
 +}
@@ -27503,9 +27536,11 @@ index 00000000000..6acbc4f3427
 +  if (global_type.is_uniform && !global_type.is_image) {
 +    if (global_type.is_read_only || global_type.is_constant) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonWritable, BVar));
++#if 0 // NOTE: the NVIDIA driver/compiler can't deal with this if we're using a SSBO -> disable for now
 +      if (global_type.is_constant) {
 +        BVar->addDecorate(new SPIRVDecorate(DecorationUniform, BVar));
 +      }
++#endif
 +    } else if (global_type.is_write_only) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonReadable, BVar));
 +    }
