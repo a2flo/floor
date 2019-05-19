@@ -101,9 +101,9 @@ namespace universal_binary {
 		
 		// verify targets
 		for (const auto& target : ar->header.targets) {
-			if (target.version != target_format_version) {
+			if (target.common.version != target_format_version) {
 				log_error("universal binary %s: unsupported target version, expected %u, got %u",
-						  file_name, target_format_version, target.version);
+						  file_name, target_format_version, target.common.version);
 				return {};
 			}
 		}
@@ -257,7 +257,7 @@ namespace universal_binary {
 		
 		uint32_t toolchain_version = 0;
 		shared_ptr<compute_device> dev;
-		switch (build_target.type) {
+		switch (build_target.common.type) {
 			case COMPUTE_TYPE::OPENCL: {
 				dev = make_shared<opencl_device>();
 				const auto& cl_target = build_target.opencl;
@@ -520,7 +520,7 @@ namespace universal_binary {
 		deque<pair<size_t, target>> remaining_targets;
 		for (size_t i = 0; i < target_count; ++i) {
 			auto target = targets_in[i];
-			switch (target.type) {
+			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE:
 					log_error("invalid target type");
 					return false;
@@ -750,10 +750,10 @@ namespace universal_binary {
 		size_t best_target_idx = ~size_t(0);
 		for (size_t i = 0, count = ar.header.targets.size(); i < count; ++i) {
 			const auto& target = ar.header.targets[i];
-			if (target.type != type) continue;
+			if (target.common.type != type) continue;
 			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v2) continue;
 			
-			switch (target.type) {
+			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE: continue;
 				case COMPUTE_TYPE::OPENCL: {
 					const auto& cl_target = target.opencl;

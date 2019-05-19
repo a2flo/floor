@@ -281,6 +281,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		// add other required or optional extensions
 		//device_extensions_set.emplace(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME); // NOTE: will be required in the future
 		//device_extensions_set.emplace(VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME); // NOTE: will be required in the future
+		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
 		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
 			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
 		}

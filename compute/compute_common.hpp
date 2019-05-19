@@ -23,7 +23,7 @@
 #include <cstdint>
 
 //! used to differentiate between the different compute implementations
-enum class COMPUTE_TYPE : uint32_t {
+enum class COMPUTE_TYPE : uint64_t {
 	NONE	= 0u,
 	OPENCL	= 1u,
 	CUDA	= 2u,

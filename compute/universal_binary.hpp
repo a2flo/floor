@@ -58,195 +58,200 @@ namespace universal_binary {
 	//! NOTE: right now this is still subject to change until said otherwise!
 	//!       -> can change without version update
 	union __attribute__((packed)) target_v2 {
-		struct __attribute__((packed)) {
-			//! target format version
-			uint32_t version : 4;
-			//! the compute/graphics backend type, i.e. the main target
+		
+		//! NOTE: due to bitfield and alignment restrictions/requirements, these common variables can't simply be
+		//!       put into a base struct or a surrounding union/struct -> put them into every struct manually
+#define FLOOR_FUBAR_VERSION_AND_TYPE \
+			/*! target format version */ \
+			uint64_t version : 4; \
+			/*! the compute/graphics backend type, i.e. the main target */ \
 			COMPUTE_TYPE type : 4;
-		};
+
 		struct __attribute__((packed)) {
-			//! sub-target information (56-bit)
-			//! this corresponds to "type" and only one can be active
-			union __attribute__((packed)) {
-				struct __attribute__((packed)) {
-					uint64_t _target_version_and_type : 8; // see top
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
+		} common;
+		
+		struct __attribute__((packed)) {
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
 
-					//! major OpenCL target version
-					uint64_t major : 6;
-					//! minor OpenCL target version
-					uint64_t minor : 4;
-					
-					//! if true, this is a SPIR LLVM binary
-					//! if false, this is a SPIR-V binary
-					uint64_t is_spir : 1;
-					
-					//! special device target to enable special workarounds/features
-					//! NOTE: this may interact with the OpenCL target version and whether SPIR or SPIR-V is targeted
-					enum DEVICE_TARGET : uint64_t {
-						//! fully generic target
-						GENERIC			= 0u,
-						//! target CPU-specific code
-						GENERIC_CPU		= 1u,
-						//! target GPU-specific code
-						GENERIC_GPU		= 2u,
-						//! target Intel CPUs
-						INTEL_CPU		= 3u,
-						//! target Intel GPUs
-						INTEL_GPU		= 4u,
-						//! target AMD CPUs
-						AMD_CPU			= 5u,
-						//! target AMD GPUs
-						AMD_GPU			= 6u,
-					};
-					DEVICE_TARGET device_target : 4u;
-					
-					//! optional capabilities
-					uint64_t image_depth_support : 1; // implies image_depth_write_support
-					uint64_t image_msaa_support : 1; // implies image_msaa_array_support
-					uint64_t image_mipmap_support : 1;
-					uint64_t image_mipmap_write_support : 1;
-					uint64_t image_read_write_support : 1;
-					uint64_t double_support : 1;
-					uint64_t basic_64_bit_atomics_support : 1;
-					uint64_t extended_64_bit_atomics_support : 1;
-					uint64_t sub_group_support : 1;
-					
-					//! required device SIMD width
-					//! if 0, no width is assumed
-					uint64_t simd_width : 8;
-					
-					uint64_t _unused : 24;
-				} opencl;
-				
-				struct __attribute__((packed)) {
-					uint64_t _target_version_and_type : 8; // see top
-
-					//! major sm/cc target version
-					uint64_t sm_major : 6;
-					//! minor sm/cc target version
-					uint64_t sm_minor : 4;
-					
-					//! major PTX ISA target version
-					uint64_t ptx_isa_major : 6;
-					//! minor PTX ISA target version
-					uint64_t ptx_isa_minor : 4;
-					
-					//! if true, this is semi-generic PTX
-					//! if false, this is a CUBIN
-					uint64_t is_ptx : 1;
-					
-					//! requires use of internal CUDA API,
-					//! if 0, this is done in software
-					uint64_t image_depth_compare_support : 1;
-					
-					//! if != 0 and PTX, this restricts/specifies how many registers
-					//! can be used when jitting the PTX code
-					uint64_t max_registers : 8;
-					
-					uint64_t _unused : 26;
-				} cuda;
-				
-				struct __attribute__((packed)) {
-					uint64_t _target_version_and_type : 8; // see top
-
-					//! major Metal target version
-					uint64_t major : 6;
-					//! minor Metal target version
-					uint64_t minor : 4;
-					
-					//! if true, this target iOS
-					//! if false, this target macOS/OS X
-					uint64_t is_ios : 1;
-					
-					//! special device target to enable special workarounds/features
-					enum DEVICE_TARGET : uint64_t {
-						//! fully generic target
-						//! NOTE: iOS is always GENERIC
-						GENERIC		= 0u,
-						//! target NVIDIA GPUs
-						NVIDIA		= 1u,
-						//! target AMD GPUs
-						AMD			= 2u,
-						//! target Intel GPUs
-						INTEL		= 3u,
-					};
-					DEVICE_TARGET device_target : 4u;
-					
-					//! required device SIMD width
-					//! if 0, no width is assumed
-					uint64_t simd_width : 8;
-					
-					uint64_t _unused : 33;
-				} metal;
-				
-				struct __attribute__((packed)) {
-					uint64_t _target_version_and_type : 8; // see top
-
-					//! CPU architecture target
-					enum CPU_TARGET : uint64_t {
-						//! aka AMD64/Intel64
-						X64		= 0u,
-						//! aka ARMv8-A
-						ARM64	= 1u,
-					};
-					CPU_TARGET cpu_target : 4u;
-					
-					//! vector extension support
-					//! NOTE: x64 with SSE2 is the minimum requirement
-					//! TODO: ARM NEON?
-					enum VECTOR_TARGET : uint64_t {
-						SSE2	= 0u,
-						SSE3	= 1u,
-						SSSE3	= 2u,
-						SSE4_1	= 3u,
-						SSE4_2	= 4u,
-						AVX		= 5u,
-						//! NOTE: implies FMA3 and F16C support
-						AVX2	= 6u,
-						//! NOTE: implies F, CD, VL, DQ, BW support
-						AVX_512	= 7u,
-					};
-					VECTOR_TARGET vector_target : 8;
-					
-					uint64_t _unused : 44;
-				} host;
-				
-				struct __attribute__((packed)) {
-					uint64_t _target_version_and_type : 8; // see top
-
-					//! major Vulkan target version
-					uint64_t vulkan_major : 6;
-					//! minor Vulkan target version
-					uint64_t vulkan_minor : 4;
-					
-					//! major SPIR-V target version
-					uint64_t spirv_major : 6;
-					//! minor SPIR-V target version
-					uint64_t spirv_minor : 4;
-					
-					//! special device target to enable special workarounds/features
-					enum DEVICE_TARGET : uint64_t {
-						//! fully generic target
-						GENERIC		= 0u,
-						//! target NVIDIA GPUs
-						NVIDIA		= 1u,
-						//! target AMD GPUs
-						AMD			= 2u,
-						//! target Intel GPUs
-						INTEL		= 3u,
-					};
-					DEVICE_TARGET device_target : 4u;
-					
-					//! optional capabilities
-					uint64_t double_support : 1;
-					uint64_t basic_64_bit_atomics_support : 1;
-					uint64_t extended_64_bit_atomics_support : 1;
-					
-					uint64_t _unused : 29;
-				} vulkan;
+			//! major OpenCL target version
+			uint64_t major : 6;
+			//! minor OpenCL target version
+			uint64_t minor : 4;
+			
+			//! if true, this is a SPIR LLVM binary
+			//! if false, this is a SPIR-V binary
+			uint64_t is_spir : 1;
+			
+			//! special device target to enable special workarounds/features
+			//! NOTE: this may interact with the OpenCL target version and whether SPIR or SPIR-V is targeted
+			enum DEVICE_TARGET : uint64_t {
+				//! fully generic target
+				GENERIC			= 0u,
+				//! target CPU-specific code
+				GENERIC_CPU		= 1u,
+				//! target GPU-specific code
+				GENERIC_GPU		= 2u,
+				//! target Intel CPUs
+				INTEL_CPU		= 3u,
+				//! target Intel GPUs
+				INTEL_GPU		= 4u,
+				//! target AMD CPUs
+				AMD_CPU			= 5u,
+				//! target AMD GPUs
+				AMD_GPU			= 6u,
 			};
-		};
+			DEVICE_TARGET device_target : 4u;
+			
+			//! optional capabilities
+			uint64_t image_depth_support : 1; // implies image_depth_write_support
+			uint64_t image_msaa_support : 1; // implies image_msaa_array_support
+			uint64_t image_mipmap_support : 1;
+			uint64_t image_mipmap_write_support : 1;
+			uint64_t image_read_write_support : 1;
+			uint64_t double_support : 1;
+			uint64_t basic_64_bit_atomics_support : 1;
+			uint64_t extended_64_bit_atomics_support : 1;
+			uint64_t sub_group_support : 1;
+			
+			//! required device SIMD width
+			//! if 0, no width is assumed
+			uint64_t simd_width : 8;
+			
+			uint64_t _unused : 24;
+		} opencl;
+		
+		struct __attribute__((packed)) {
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
+
+			//! major sm/cc target version
+			uint64_t sm_major : 6;
+			//! minor sm/cc target version
+			uint64_t sm_minor : 4;
+			
+			//! major PTX ISA target version
+			uint64_t ptx_isa_major : 6;
+			//! minor PTX ISA target version
+			uint64_t ptx_isa_minor : 4;
+			
+			//! if true, this is semi-generic PTX
+			//! if false, this is a CUBIN
+			uint64_t is_ptx : 1;
+			
+			//! requires use of internal CUDA API,
+			//! if 0, this is done in software
+			uint64_t image_depth_compare_support : 1;
+			
+			//! if != 0 and PTX, this restricts/specifies how many registers
+			//! can be used when jitting the PTX code
+			uint64_t max_registers : 8;
+			
+			uint64_t _unused : 26;
+		} cuda;
+		
+		struct __attribute__((packed)) {
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
+
+			//! major Metal target version
+			uint64_t major : 6;
+			//! minor Metal target version
+			uint64_t minor : 4;
+			
+			//! if true, this target iOS
+			//! if false, this target macOS/OS X
+			uint64_t is_ios : 1;
+			
+			//! special device target to enable special workarounds/features
+			enum DEVICE_TARGET : uint64_t {
+				//! fully generic target
+				//! NOTE: iOS is always GENERIC
+				GENERIC		= 0u,
+				//! target NVIDIA GPUs
+				NVIDIA		= 1u,
+				//! target AMD GPUs
+				AMD			= 2u,
+				//! target Intel GPUs
+				INTEL		= 3u,
+			};
+			DEVICE_TARGET device_target : 4u;
+			
+			//! required device SIMD width
+			//! if 0, no width is assumed
+			uint64_t simd_width : 8;
+			
+			uint64_t _unused : 33;
+		} metal;
+		
+		struct __attribute__((packed)) {
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
+
+			//! CPU architecture target
+			enum CPU_TARGET : uint64_t {
+				//! aka AMD64/Intel64
+				X64		= 0u,
+				//! aka ARMv8-A
+				ARM64	= 1u,
+			};
+			CPU_TARGET cpu_target : 4u;
+			
+			//! vector extension support
+			//! NOTE: x64 with SSE2 is the minimum requirement
+			//! TODO: ARM NEON?
+			enum VECTOR_TARGET : uint64_t {
+				SSE2	= 0u,
+				SSE3	= 1u,
+				SSSE3	= 2u,
+				SSE4_1	= 3u,
+				SSE4_2	= 4u,
+				AVX		= 5u,
+				//! NOTE: implies FMA3 and F16C support
+				AVX2	= 6u,
+				//! NOTE: implies F, CD, VL, DQ, BW support
+				AVX_512	= 7u,
+			};
+			VECTOR_TARGET vector_target : 8;
+			
+			uint64_t _unused : 44;
+		} host;
+		
+		struct __attribute__((packed)) {
+			FLOOR_FUBAR_VERSION_AND_TYPE // see top
+
+			//! major Vulkan target version
+			uint64_t vulkan_major : 6;
+			//! minor Vulkan target version
+			uint64_t vulkan_minor : 4;
+			
+			//! major SPIR-V target version
+			uint64_t spirv_major : 6;
+			//! minor SPIR-V target version
+			uint64_t spirv_minor : 4;
+			
+			//! special device target to enable special workarounds/features
+			enum DEVICE_TARGET : uint64_t {
+				//! fully generic target
+				GENERIC		= 0u,
+				//! target NVIDIA GPUs
+				NVIDIA		= 1u,
+				//! target AMD GPUs
+				AMD			= 2u,
+				//! target Intel GPUs
+				INTEL		= 3u,
+			};
+			DEVICE_TARGET device_target : 4u;
+			
+			//! optional capabilities
+			uint64_t double_support : 1;
+			uint64_t basic_64_bit_atomics_support : 1;
+			uint64_t extended_64_bit_atomics_support : 1;
+			
+			uint64_t _unused : 29;
+		} vulkan;
+
+		//! packed value
 		uint64_t value;
+		
+#undef FLOOR_FUBAR_VERSION_AND_TYPE // cleanup
 	};
 	static_assert(sizeof(target_v2) == sizeof(uint64_t));
 	

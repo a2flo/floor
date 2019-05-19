@@ -293,8 +293,8 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 							0,
 							(entry.desc_set != nullptr ? 2 : 1),
 							desc_sets,
-							(uint32_t)encoder->dyn_offsets.size(),
-							encoder->dyn_offsets.data());
+							encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
+							encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
 	
 	// set dims + pipeline
 	// TODO: check if grid_dim matches compute shader defintion
@@ -346,8 +346,8 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 							(discontiguous || !has_vs_desc) ? 1 : (!has_fs_desc ? 2 : 3),
 							desc_sets.data(),
 							// don't want to set dyn offsets when only binding the fixed sampler set
-							discontiguous ? 0 : uint32_t(encoder->dyn_offsets.size()),
-							discontiguous ? nullptr : encoder->dyn_offsets.data());
+							discontiguous || encoder->dyn_offsets.empty() ? 0 : uint32_t(encoder->dyn_offsets.size()),
+							discontiguous || encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
 	
 	// bind fs set
 	if(discontiguous) {
@@ -357,8 +357,8 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 								2,
 								1,
 								&fs_entry->desc_set,
-								(uint32_t)encoder->dyn_offsets.size(),
-								encoder->dyn_offsets.data());
+								encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
+								encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
 	}
 	
 	if(draw_entries != nullptr) {
@@ -448,8 +448,8 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	write_desc.pBufferInfo = ((const vulkan_buffer*)arg)->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
 	
-	// always offset 0 for now
-	encoder->dyn_offsets.emplace_back(0);
+	// TODO/NOTE: use dynamic offset if we ever need it
+	//encoder->dyn_offsets.emplace_back(...);
 	
 	idx.next();
 }

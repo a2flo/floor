@@ -139,7 +139,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								// NOTE: uniforms/param and buffers are always SSBOs - uniforms/param could technically be
 								//       Block/uniform variables, but these have insane alignment/offset requirements,
 								//       so always make them SSBOs, which have less restrictions
-								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 								++ssbo_desc;
 								break;
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::LOCAL:
@@ -193,7 +193,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						vector<VkDescriptorPoolSize> pool_sizes(pool_count);
 						uint32_t pool_index = 0;
 						if(ssbo_desc > 0 || pool_count == 0) {
-							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
 							++pool_index;
 						}
