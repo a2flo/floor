@@ -627,10 +627,10 @@ index fa031ce09f..c3a9fb5df7 100644
  BUILTIN(__builtin_powif, "ffi"  , "Fnc")
  BUILTIN(__builtin_powil, "LdLdi", "Fnc")
 diff --git a/include/clang/Basic/CodeGenOptions.def b/include/clang/Basic/CodeGenOptions.def
-index 952aa588b6..fd041bfcd9 100644
+index 952aa588b6..b001a966ee 100644
 --- a/include/clang/Basic/CodeGenOptions.def
 +++ b/include/clang/Basic/CodeGenOptions.def
-@@ -75,6 +75,11 @@ CODEGENOPT(EmitVersionIdentMetadata , 1, 1) ///< Emit compiler version metadata.
+@@ -75,6 +75,13 @@ CODEGENOPT(EmitVersionIdentMetadata , 1, 1) ///< Emit compiler version metadata.
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
@@ -639,10 +639,12 @@ index 952aa588b6..fd041bfcd9 100644
 +CODEGENOPT(MetalNoArrayImage , 1, 0) ///< Disable native array of images support.
 +CODEGENOPT(MetalSoftPrintf , 1, 0) ///< Enables support of software printf emulation.
 +CODEGENOPT(SPIRIntelWorkarounds , 1, 0) ///< Enable Intel SPIR specific fixes and workarounds.
++VALUE_CODEGENOPT(VulkanIUBSize, 32, 256) ///< max supported size of Vulkan inline uniform blocks
++VALUE_CODEGENOPT(VulkanIUBCount, 32, 4) ///< max supported count of Vulkan inline uniform blocks
  CODEGENOPT(EmulatedTLS       , 1, 0) ///< Set by default or -f[no-]emulated-tls.
  CODEGENOPT(ExplicitEmulatedTLS , 1, 0) ///< Set if -f[no-]emulated-tls is used.
  /// Embed Bitcode mode (off/all/bitcode/marker).
-@@ -230,6 +235,11 @@ CODEGENOPT(VectorizeLoop     , 1, 0) ///< Run loop vectorizer.
+@@ -230,6 +237,11 @@ CODEGENOPT(VectorizeLoop     , 1, 0) ///< Run loop vectorizer.
  CODEGENOPT(VectorizeSLP      , 1, 0) ///< Run SLP vectorizer.
  CODEGENOPT(ProfileSampleAccurate, 1, 0) ///< Sample profile is accurate.
  
@@ -1252,7 +1254,7 @@ index 5a18a9de03..790235c4cc 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index 9d2d2df7d2..54c6a26c93 100644
+index 9d2d2df7d2..4f6270e54d 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -568,6 +568,12 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -1303,7 +1305,7 @@ index 9d2d2df7d2..54c6a26c93 100644
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -822,6 +853,23 @@ def fcuda_allow_variadic_functions : Flag<["-"], "fcuda-allow-variadic-functions
+@@ -822,6 +853,29 @@ def fcuda_allow_variadic_functions : Flag<["-"], "fcuda-allow-variadic-functions
  def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr">,
    HelpText<"Don't treat unattributed constexpr functions as __host__ __device__.">;
  
@@ -1323,6 +1325,12 @@ index 9d2d2df7d2..54c6a26c93 100644
 +//===----------------------------------------------------------------------===//
 +// Vulkan Options
 +//===----------------------------------------------------------------------===//
++
++def vulkan_iub_size_EQ : Joined<["-"], "vulkan-iub-size=">,
++  HelpText<"Sets the Vulkan inline uniform block size">;
++
++def vulkan_iub_count_EQ : Joined<["-"], "vulkan-iub-count=">,
++  HelpText<"Sets the Vulkan inline uniform block count">;
 +
  //===----------------------------------------------------------------------===//
  // OpenMP Options
@@ -5486,7 +5494,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..24b4bc7be9 100644
+index f012384f3d..ad596ced53 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -5499,7 +5507,7 @@ index f012384f3d..24b4bc7be9 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1817 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,1862 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6066,7 +6074,7 @@ index f012384f3d..24b4bc7be9 100644
 -    Fn->setMetadata("kernel_arg_name",
 -                    llvm::MDNode::get(Context, argNames));
 +static void GenVulkanMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-+                              CodeGenModule &CGM,llvm::LLVMContext &Context,
++                              CodeGenModule &CGM, llvm::LLVMContext &Context,
 +                              CGBuilderTy& Builder, ASTContext &ASTCtx) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
@@ -6078,6 +6086,7 @@ index f012384f3d..24b4bc7be9 100644
 +	static const std::string prefix_builtin = "builtin:";
 +	static const std::string prefix_stage = "stage:";
 +	static const std::string prefix_arg = "arg:";
++	static const std::string prefix_iub = "iub:";
 +	
 +	//
 +	const auto handle_stage_input_output = [&Context, &CGM, &stage_infos,
@@ -6238,11 +6247,35 @@ index f012384f3d..24b4bc7be9 100644
 +															":" + sample_type_str)));
 +	};
 +	
-+	unsigned int arg_idx = 0;
++	uint32_t arg_idx = 0;
++	uint32_t iub_count = 0;
 +	for(const auto& parm : FD->parameters()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = std::next(Fn->arg_begin(), arg_idx)->getType();
 +		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
++		
++		// TODO: put into static func
++		const auto compute_type_size = [&parm, &Fn, &CGM](llvm::Type* type) {
++			if(!type->isSized()) {
++				auto err_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Fatal, "%0");
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), err_diagID) << "parameter uses a type with an unknown size (NOTE: this can happen when internal vector/array type conversion/replacement has failed)";
++				
++				auto param_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM type: %0");
++				std::string param_type = "";
++				llvm::raw_string_ostream param_type_stream(param_type);
++				type->print(param_type_stream);
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), param_note_diagID) << param_type_stream.str();
++				
++				auto func_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM function type: %0");
++				std::string fun_type = "";
++				llvm::raw_string_ostream fun_type_stream(fun_type);
++				Fn->getFunctionType()->print(fun_type_stream);
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), func_note_diagID) << fun_type_stream.str();
++				
++				return uint64_t(0);
++			}
++			return CGM.getDataLayout().getTypeStoreSize(type);
++		};
 +		
 +		// stage input
 +		if(parm->hasAttr<GraphicsStageInputAttr>()) {
@@ -6283,6 +6316,14 @@ index f012384f3d..24b4bc7be9 100644
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
++		}
++		// make parameters a IUB if their size is <= the size limit and we are still below the IUB count limit
++		else if(clang_type->isReferenceType() &&
++				clang_type->getPointeeType().getAddressSpace() == LangAS::opencl_global &&
++				compute_type_size(llvm_type->getPointerElementType()) <= CGM.getCodeGenOpts().VulkanIUBSize &&
++				iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
++			stage_infos.push_back(llvm::MDString::get(Context, prefix_iub + std::to_string(iub_count)));
++			++iub_count;
 +		}
 +		// anything else
 +		else {
@@ -6996,6 +7037,7 @@ index f012384f3d..24b4bc7be9 100644
 +	// (which is why it iterates over the original clang list!)
 +	unsigned int arg_idx = 0;
 +	auto abi_arg_info_iter = FnInfo.arg_begin();
++	uint32_t vulkan_iub_count = 0;
 +	for(const auto& parm : FD->parameters()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = std::next(Fn->arg_begin(), arg_idx)->getType();
@@ -7048,6 +7090,7 @@ index f012384f3d..24b4bc7be9 100644
 +			PUSH_CONSTANT				= (2ull << __SPECIAL_TYPE_SHIFT),
 +			SSBO						= (3ull << __SPECIAL_TYPE_SHIFT),
 +			IMAGE_ARRAY					= (4ull << __SPECIAL_TYPE_SHIFT),
++			IUB							= (5ull << __SPECIAL_TYPE_SHIFT),
 +		};
 +		static const auto to_fas = [](const LangAS& addr_space) {
 +			if(addr_space == LangAS::opencl_global) {
@@ -7172,7 +7215,8 @@ index f012384f3d..24b4bc7be9 100644
 +			const auto clang_pointee_type = clang_type->getPointeeType();
 +			const auto pointee_type = llvm_type->getPointerElementType();
 +			
-+			uint64_t arg_info = compute_type_size(pointee_type);
++			const uint64_t arg_size = compute_type_size(pointee_type);
++			uint64_t arg_info = arg_size;
 +			if(getLangOpts().OpenCL) {
 +				arg_info |= (uint64_t)to_fas(clang_pointee_type.getAddressSpace());
 +			}
@@ -7187,6 +7231,15 @@ index f012384f3d..24b4bc7be9 100644
 +				if(!clang_type->isReferenceType() &&
 +				   clang_pointee_type.getAddressSpace() == LangAS::opencl_global) {
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::SSBO;
++				}
++				
++				// make parameters a IUB if their size is <= the size limit and we are still below the IUB count limit
++				if(clang_type->isReferenceType() &&
++				   clang_pointee_type.getAddressSpace() == LangAS::opencl_global &&
++				   arg_size <= CGM.getCodeGenOpts().VulkanIUBSize &&
++				   vulkan_iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IUB;
++					++vulkan_iub_count;
 +				}
 +			}
 +			info << arg_info << ",";
@@ -7444,7 +7497,7 @@ index f012384f3d..24b4bc7be9 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2398,104 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2443,104 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7549,7 +7602,7 @@ index f012384f3d..24b4bc7be9 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2561,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2606,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7562,7 +7615,7 @@ index f012384f3d..24b4bc7be9 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2673,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2718,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7592,7 +7645,7 @@ index f012384f3d..24b4bc7be9 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2726,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2771,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7608,7 +7661,7 @@ index f012384f3d..24b4bc7be9 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2826,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2871,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7626,7 +7679,7 @@ index f012384f3d..24b4bc7be9 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2882,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2927,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7642,7 +7695,7 @@ index f012384f3d..24b4bc7be9 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3033,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3078,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7652,7 +7705,7 @@ index f012384f3d..24b4bc7be9 100644
    return ResTy;
  }
  
-@@ -1356,7 +3104,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3149,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -9668,7 +9721,7 @@ index f666745354..cd892defac 100644
      return InputKind::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index d491f35769..4e8691ee9f 100644
+index d491f35769..9cca645dfb 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -86,6 +86,7 @@
@@ -9710,7 +9763,7 @@ index d491f35769..4e8691ee9f 100644
  
    if (const Arg *A = Args.getLastArg(OPT_fcf_protection_EQ)) {
      StringRef Name = A->getValue();
-@@ -1057,6 +1064,19 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1057,6 +1064,23 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      }
    }
  
@@ -9726,11 +9779,15 @@ index d491f35769..4e8691ee9f 100644
 +  Opts.MetalNoArrayImage = Args.hasArg(OPT_metal_no_array_image);
 +  Opts.MetalSoftPrintf = Args.hasArg(OPT_metal_soft_printf);
 +  Opts.SPIRIntelWorkarounds = Args.hasArg(OPT_cl_spir_intel_workarounds);
++  Opts.VulkanIUBSize = uint32_t(std::min(uint64_t(~0u),
++      getLastArgUInt64Value(Args, OPT_vulkan_iub_size_EQ, 256)));
++  Opts.VulkanIUBCount = uint32_t(std::min(uint64_t(~0u),
++      getLastArgUInt64Value(Args, OPT_vulkan_iub_count_EQ, 4)));
 +
    Opts.RelaxELFRelocations = Args.hasArg(OPT_mrelax_relocations);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    for (auto *A :
-@@ -1183,6 +1203,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1183,6 +1207,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      }
    }
  
@@ -9739,7 +9796,7 @@ index d491f35769..4e8691ee9f 100644
    if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
      StringRef Val = A->getValue();
      if (Val == "ieee")
-@@ -1606,6 +1628,16 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1606,6 +1632,16 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        Opts.ProgramAction = frontend::EmitAssembly; break;
      case OPT_emit_llvm_bc:
        Opts.ProgramAction = frontend::EmitBC; break;
@@ -9756,7 +9813,7 @@ index d491f35769..4e8691ee9f 100644
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1821,6 +1853,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1821,6 +1857,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(XValue)
                  .Case("c", InputKind::C)
                  .Case("cl", InputKind::OpenCL)
@@ -9765,7 +9822,7 @@ index d491f35769..4e8691ee9f 100644
                  .Case("cuda", InputKind::CUDA)
                  .Case("hip", InputKind::HIP)
                  .Case("c++", InputKind::CXX)
-@@ -2069,6 +2103,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2069,6 +2107,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case InputKind::OpenCL:
        LangStd = LangStandard::lang_opencl10;
        break;
@@ -9778,7 +9835,7 @@ index d491f35769..4e8691ee9f 100644
      case InputKind::CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -2134,9 +2174,47 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2134,9 +2178,47 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -9826,7 +9883,7 @@ index d491f35769..4e8691ee9f 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -2145,18 +2223,23 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2145,18 +2227,23 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPC_On);
      Opts.NativeHalfType = 1;
      Opts.NativeHalfArgsAndReturns = 1;
@@ -9852,7 +9909,7 @@ index d491f35769..4e8691ee9f 100644
  
    Opts.RenderScript = IK.getLanguage() == InputKind::RenderScript;
    if (Opts.RenderScript) {
-@@ -2167,8 +2250,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2167,8 +2254,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    // OpenCL and C++ both have bool, true, false keywords.
    Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
  
@@ -9863,7 +9920,7 @@ index d491f35769..4e8691ee9f 100644
  
    // C++ has wchar_t keyword.
    Opts.WChar = Opts.CPlusPlus;
-@@ -2215,6 +2298,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -2215,6 +2302,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
    case InputKind::OpenCL:
      return S.getLanguage() == InputKind::OpenCL;
  
@@ -9876,7 +9933,7 @@ index d491f35769..4e8691ee9f 100644
    case InputKind::CXX:
    case InputKind::ObjCXX:
      return S.getLanguage() == InputKind::CXX;
-@@ -2251,6 +2340,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -2251,6 +2344,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case InputKind::OpenCL:
      return "OpenCL";
@@ -9887,7 +9944,7 @@ index d491f35769..4e8691ee9f 100644
    case InputKind::CUDA:
      return "CUDA";
    case InputKind::RenderScript:
-@@ -2338,6 +2431,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2338,6 +2435,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -9896,7 +9953,7 @@ index d491f35769..4e8691ee9f 100644
          .Case("c++", LangStandard::lang_openclcpp)
          .Default(LangStandard::lang_unspecified);
  
-@@ -2364,6 +2459,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2364,6 +2463,31 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -9928,7 +9985,7 @@ index d491f35769..4e8691ee9f 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2577,7 +2697,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2577,7 +2701,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -9937,7 +9994,7 @@ index d491f35769..4e8691ee9f 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
  
-@@ -2830,7 +2950,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2830,7 +2954,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
@@ -9946,7 +10003,7 @@ index d491f35769..4e8691ee9f 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -2926,6 +3046,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2926,6 +3050,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -9967,7 +10024,7 @@ index d491f35769..4e8691ee9f 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -3018,6 +3152,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -3018,6 +3156,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:

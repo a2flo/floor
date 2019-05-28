@@ -25337,10 +25337,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..17a2c243cd0
+index 00000000000..224ca418e3e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3711 @@
+@@ -0,0 +1,3724 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -25681,6 +25681,7 @@ index 00000000000..17a2c243cd0
 +  struct spirv_global_io_type {
 +    bool is_constant{false};
 +    bool is_uniform{false};
++    bool is_iub{false};
 +    bool is_input{false};
 +    bool is_builtin{false};
 +    bool is_image{false};
@@ -27395,7 +27396,7 @@ index 00000000000..17a2c243cd0
 +    assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
 +    auto elem_type = GV.getType()->getPointerElementType();
 +
-+    // -> uniform blocks or SSBOs
++    // -> uniform blocks, SSBOs or IUBs
 +    if (!global_type.is_image) {
 +      auto spirv_elem_type = transType(elem_type);
 +      if (!global_type.is_constant) {
@@ -27429,8 +27430,13 @@ index 00000000000..17a2c243cd0
 +        mapped_type = transType(GV.getType());
 +
 +        // deco
-+        spirv_elem_type->addDecorate(
++        if (global_type.is_iub) {
++          spirv_elem_type->addDecorate(
++            new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++        } else {
++          spirv_elem_type->addDecorate(
 +            new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
++        }
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
 +    }
@@ -27541,6 +27547,10 @@ index 00000000000..17a2c243cd0
 +        BVar->addDecorate(new SPIRVDecorate(DecorationUniform, BVar));
 +      }
 +#endif
++      // IUB is always uniform
++      if (global_type.is_constant && global_type.is_iub) {
++        BVar->addDecorate(new SPIRVDecorate(DecorationUniform, BVar));
++      }
 +    } else if (global_type.is_write_only) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonReadable, BVar));
 +    }
@@ -27984,6 +27994,9 @@ index 00000000000..17a2c243cd0
 +          global_type.is_constant = true;
 +          global_type.is_uniform = true;
 +          global_type.is_read_only = true;
++          if (md_prefix == "iub") {
++            global_type.is_iub = true;
++          }
 +          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
 +                                     SPIRAS_Uniform, global_type, md_info,
 +                                     &uniform_var);
