@@ -71,6 +71,8 @@ public:
 		uint32_t write_desc { 1 };
 		// binding index in the resp. descriptor set
 		uint32_t binding { 0 };
+		// IUB index in the resp. descriptor set
+		uint32_t iub { 0 };
 		// current kernel/shader entry
 		uint32_t entry { 0 };
 		

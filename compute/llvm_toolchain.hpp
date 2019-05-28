@@ -117,6 +117,8 @@ namespace llvm_toolchain {
 			SSBO							= (3u),
 			//! array of images
 			IMAGE_ARRAY						= (4u),
+			//! vulkan-only: inline uniform block
+			IUB								= (5u),
 		};
 		
 		struct arg_info {

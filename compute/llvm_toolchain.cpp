@@ -364,7 +364,9 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
-				" -Xclang -cl-finite-math-only" \
+				" -Xclang -cl-finite-math-only" +
+				" -Xclang -vulkan-iub-size=" + to_string(vk_device.max_inline_uniform_block_size) +
+				" -Xclang -vulkan-iub-count=" + to_string(vk_device.max_inline_uniform_block_count) +
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
@@ -878,7 +880,9 @@ program_data compile_input(const string& input,
 		// run spirv-val if specified
 		if(validate) {
 			const string spirv_validator_cmd {
-				"\"" + validator + "\" " + compiled_file_or_code
+				"\"" + validator + "\" " +
+				(options.target == TARGET::SPIRV_VULKAN ? "--uniform-buffer-standard-layout --scalar-block-layout " : "") +
+				compiled_file_or_code
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif

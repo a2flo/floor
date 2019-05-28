@@ -466,6 +466,10 @@ namespace universal_binary {
 				vlk_dev.basic_64_bit_atomics_support = vlk_target.basic_64_bit_atomics_support;
 				vlk_dev.extended_64_bit_atomics_support = vlk_target.extended_64_bit_atomics_support;
 				
+				// assume minimum required support for now
+				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
+				vlk_dev.max_inline_uniform_block_count = vulkan_device::min_required_inline_uniform_block_count;
+				
 				// special vendor workarounds/settings
 				switch (vlk_target.device_target) {
 					default: break;

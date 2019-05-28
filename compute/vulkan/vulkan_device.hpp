@@ -91,6 +91,12 @@ public:
 	//! feature support: can use 16-bit float types in SPIR-V
 	bool float16_support { false };
 	
+	//! max per-IUB size in bytes
+	uint32_t max_inline_uniform_block_size { 0 };
+	
+	//! max number of IUBs that can be used per function
+	uint32_t max_inline_uniform_block_count { 0 };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set
@@ -115,6 +121,14 @@ public:
 	struct _dummy_desc_img_info { void* _a; void* _b; uint32_t _c; };
 	vector<_dummy_desc_img_info> _fixed_sampler_image_info;
 #endif
+	
+	//! minimum required inline uniform block size that must be supported by a device
+	//! NOTE: supported by NVIDIA and Intel (AMD is higher)
+	static constexpr const uint32_t min_required_inline_uniform_block_size { 256 };
+	
+	//! minimum required inline uniform block count that must be supported by a device
+	//! NOTE: supported by Intel (AMD and NVIDIA are higher)
+	static constexpr const uint32_t min_required_inline_uniform_block_count { 4 };
 	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const vulkan_device& dev) const {

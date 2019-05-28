@@ -65,7 +65,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// create function + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
 					vector<VkDescriptorType> descriptor_types(info.args.size());
-					uint32_t ssbo_desc = 0, read_image_desc = 0, write_image_desc = 0;
+					uint32_t ssbo_desc = 0, iub_desc = 0, read_image_desc = 0, write_image_desc = 0;
+					uint32_t max_iub_size = 0;
 					bool valid_desc = true;
 					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i) {
 						bindings[binding_idx].binding = binding_idx;
@@ -133,14 +134,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							// buffer and param (there are no proper constant parameters)
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::GLOBAL:
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::CONSTANT:
-								// TODO/NOTE: for now, this is always a buffer, later on it might make sense to fit as much as possible
-								//            into push constants (will require compiler support of course + device specific binary)
-								// NOTE: min push constants size is at least 128 bytes
-								// NOTE: uniforms/param and buffers are always SSBOs - uniforms/param could technically be
-								//       Block/uniform variables, but these have insane alignment/offset requirements,
-								//       so always make them SSBOs, which have less restrictions
-								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-								++ssbo_desc;
+								// NOTE: buffers are always SSBOs
+								// NOTE: uniforms/param can either be SSBOs or IUBs, dpending on their size and device support
+								// TODO: support push constants as well (size is at least 128 bytes)
+								if (info.args[i].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::IUB) {
+									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+									// descriptor count == size, which must be a multiple of 4
+									const uint32_t arg_size_4 = ((info.args[i].size + 3u) / 4u) * 4u;
+									max_iub_size = max(arg_size_4, max_iub_size);
+									bindings[binding_idx].descriptorCount = arg_size_4;
+									++iub_desc;
+								} else {
+									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+									++ssbo_desc;
+								}
 								break;
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::LOCAL:
 								log_error("arg with a local address space is not supported (#%u in %s)", i, func_name);
@@ -188,6 +195,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						//          then create new ones if allocation fails (due to fragmentation)
 						//          DO NOT use VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
 						const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
+													 (iub_desc > 0 ? 1 : 0) +
 													 (read_image_desc > 0 ? 1 : 0) +
 													 (write_image_desc > 0 ? 1 : 0));
 						vector<VkDescriptorPoolSize> pool_sizes(pool_count);
@@ -195,6 +203,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						if(ssbo_desc > 0 || pool_count == 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
+							++pool_index;
+						}
+						if(iub_desc > 0) {
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+							// amount of bytes to allocate for descriptors of this type
+							// -> use max arg size here
+							pool_sizes[pool_index].descriptorCount = max_iub_size;
 							++pool_index;
 						}
 						if(read_image_desc > 0) {
@@ -207,7 +222,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							pool_sizes[pool_index].descriptorCount = write_image_desc;
 							++pool_index;
 						}
-						const VkDescriptorPoolCreateInfo desc_pool_info {
+						VkDescriptorPoolCreateInfo desc_pool_info {
 							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 							.pNext = nullptr,
 							.flags = 0,
@@ -216,6 +231,15 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.poolSizeCount = pool_count,
 							.pPoolSizes = pool_sizes.data(),
 						};
+						VkDescriptorPoolInlineUniformBlockCreateInfoEXT iub_pool_info;
+						if (iub_desc > 0) {
+							desc_pool_info.pNext = &iub_pool_info;
+							iub_pool_info = {
+								.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO_EXT,
+								.pNext = nullptr,
+								.maxInlineUniformBlockBindings = iub_desc,
+							};
+						}
 						VK_CALL_CONT(vkCreateDescriptorPool(prog.first.get().device, &desc_pool_info, nullptr, &entry.desc_pool),
 									 "failed to create descriptor pool (" + func_name + ")")
 						

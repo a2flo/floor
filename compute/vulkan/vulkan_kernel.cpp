@@ -28,6 +28,7 @@ struct vulkan_kernel::vulkan_encoder {
 	const vulkan_queue& cqueue;
 	const vulkan_device& device;
 	vector<VkWriteDescriptorSet> write_descs;
+	vector<VkWriteDescriptorSetInlineUniformBlockEXT> iub_descs;
 	vector<shared_ptr<compute_buffer>> constant_buffers;
 	vector<uint32_t> dyn_offsets;
 	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
@@ -151,8 +152,9 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(const co
 	});
 	
 	// allocate #args write descriptor sets + 1 for the fixed sampler set
+	// + allocate #IUBs additional IUB write descriptor sets
 	// NOTE: any stage_input arguments have to be ignored
-	size_t arg_count = 1;
+	size_t arg_count = 1, iub_count = 0;
 	for(const auto& entry : entries) {
 		if(entry == nullptr) continue;
 		for(const auto& arg : entry->info->args) {
@@ -164,10 +166,18 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(const co
 				   arg.image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 					++arg_count;
 				}
+				
+				// handle IUBs
+				if(arg.special_type == llvm_toolchain::function_info::SPECIAL_TYPE::IUB) {
+					++iub_count;
+				}
 			}
 		}
 	}
 	encoder->write_descs.resize(arg_count);
+	if (iub_count > 0) {
+		encoder->iub_descs.resize(iub_count);
+	}
 	
 	// fixed sampler set
 	{
@@ -412,6 +422,7 @@ const vulkan_kernel::vulkan_kernel_entry* vulkan_kernel::arg_pre_handler(const v
 			// reset
 			idx.arg = 0;
 			idx.binding = 0;
+			idx.iub = 0;
 			continue;
 		}
 		break;
@@ -423,13 +434,40 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
 								 const void* ptr, const size_t& size) const {
-	// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
-	// TODO: current limitation of this is that size must be a multiple of 4
-	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->cqueue, size, ptr,
-																			COMPUTE_MEMORY_FLAG::READ |
-																			COMPUTE_MEMORY_FLAG::HOST_WRITE);
-	encoder->constant_buffers.emplace_back(constant_buffer);
-	set_argument(encoder, entry, idx, constant_buffer.get());
+	// -> inline uniform buffer
+	if (entry.info->args[idx.arg].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::IUB) {
+		// TODO: size must be a multiple of 4
+		auto& iub_write_desc = encoder->iub_descs[idx.iub];
+		iub_write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT;
+		iub_write_desc.pNext = nullptr;
+		iub_write_desc.dataSize = uint32_t(size);
+		iub_write_desc.pData = ptr;
+		
+		auto& write_desc = encoder->write_descs[idx.write_desc];
+		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write_desc.pNext = &iub_write_desc;
+		write_desc.dstSet = entry.desc_set;
+		write_desc.dstBinding = idx.binding;
+		write_desc.dstArrayElement = 0;
+		write_desc.descriptorCount = uint32_t(size);
+		write_desc.descriptorType = entry.desc_types[idx.binding];
+		write_desc.pImageInfo = nullptr;
+		write_desc.pBufferInfo = nullptr;
+		write_desc.pTexelBufferView = nullptr;
+		
+		idx.next();
+		++idx.iub;
+	}
+	// -> plain old SSBO
+	else {
+		// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
+		// TODO: current limitation of this is that size must be a multiple of 4
+		shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->cqueue, size, ptr,
+																				COMPUTE_MEMORY_FLAG::READ |
+																				COMPUTE_MEMORY_FLAG::HOST_WRITE);
+		encoder->constant_buffers.emplace_back(constant_buffer);
+		set_argument(encoder, entry, idx, constant_buffer.get());
+	}
 }
 
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,

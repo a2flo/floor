@@ -234,6 +234,53 @@ compute_context(), enable_renderer(enable_renderer_) {
 			queue_info.pQueuePriorities = priorities.data();
 		}
 		
+		// query other device features
+		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
+			.pNext = nullptr,
+			.inlineUniformBlock = false,
+			.descriptorBindingInlineUniformBlockUpdateAfterBind = false
+		};
+		VkPhysicalDeviceFeatures2 features_2 {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+			.pNext = &inline_uniform_block_features
+		};
+		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
+		
+		VkPhysicalDeviceInlineUniformBlockPropertiesEXT inline_uniform_block_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT,
+			.pNext = nullptr,
+			.maxInlineUniformBlockSize = 0,
+			.maxPerStageDescriptorInlineUniformBlocks = 0,
+			.maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks = 0,
+			.maxDescriptorSetInlineUniformBlocks = 0,
+			.maxDescriptorSetUpdateAfterBindInlineUniformBlocks = 0,
+		};
+		VkPhysicalDeviceProperties2 props_2 {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+			.pNext = &inline_uniform_block_props,
+		};
+		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
+		
+		if (inline_uniform_block_features.inlineUniformBlock == 0) {
+			log_error("inline uniform blocks are not supported by %s", props.deviceName);
+			continue;
+		}
+		
+		// check IUB limits
+		if (inline_uniform_block_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
+			log_error("max inline uniform block size of %u is below the required limit of %u",
+					  props.deviceName, inline_uniform_block_props.maxInlineUniformBlockSize,
+					  vulkan_device::min_required_inline_uniform_block_size);
+			continue;
+		}
+		if (inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks < vulkan_device::min_required_inline_uniform_block_count) {
+			log_error("max inline uniform block count of %u is below the required limit of %u",
+					  props.deviceName, inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks,
+					  vulkan_device::min_required_inline_uniform_block_count);
+			continue;
+		}
+		
 		// create device
 		const vector<const char*> device_layers {
 #if defined(FLOOR_DEBUG)
@@ -282,11 +329,11 @@ compute_context(), enable_renderer(enable_renderer_) {
 		//device_extensions_set.emplace(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME); // NOTE: will be required in the future
 		//device_extensions_set.emplace(VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME); // NOTE: will be required in the future
 		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+		// TODO: use VK_KHR_uniform_buffer_standard_layout macro once headers are current everywhere
+		device_extensions_set.emplace("VK_KHR_uniform_buffer_standard_layout");
 		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
 			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-		}
-		if (device_supported_extensions_set.count(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME)) { // NOTE: will be required in the future
-			device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 		}
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
@@ -467,6 +514,12 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device.int16_support = features.shaderInt16;
 		//device.float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
 		device.double_support = features.shaderFloat64;
+		
+		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
+		device.max_inline_uniform_block_count = inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks;
+		log_msg("inline uniform block: max size %u, max IUBs %u",
+				device.max_inline_uniform_block_size,
+				device.max_inline_uniform_block_count);
 
 		// retrieve memory info
 		device.mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
