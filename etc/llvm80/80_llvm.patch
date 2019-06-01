@@ -1913,10 +1913,10 @@ index d94472ce1be..0ceda168c7e 100644
  private:
    // Internal implementation details.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 206089cf3a8..5f594aa5a01 100644
+index 206089cf3a8..766c56be56b 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -408,6 +408,25 @@ void initializeWriteBitcodePassPass(PassRegistry&);
+@@ -408,6 +408,26 @@ void initializeWriteBitcodePassPass(PassRegistry&);
  void initializeWriteThinLTOBitcodePass(PassRegistry&);
  void initializeXRayInstrumentationPass(PassRegistry&);
  
@@ -1934,6 +1934,7 @@ index 206089cf3a8..5f594aa5a01 100644
 +void initializeCFGStructurizationPass(PassRegistry&);
 +void initializeVulkanImagePass(PassRegistry&);
 +void initializeVulkanFinalPass(PassRegistry&);
++void initializeVulkanBuiltinParamHandlingPass(PassRegistry&);
 +void initializeVulkanPreFinalPass(PassRegistry&);
 +void initializeVulkanFinalModuleCleanupPass(PassRegistry&);
 +void initializePropagateRangeInfoPass(PassRegistry&);
@@ -3295,10 +3296,10 @@ index ab25fe08553..d038a1ef399 100644
  
  #endif
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 6df2f9a379a..19fc757f823 100644
+index 6df2f9a379a..313b7154f52 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -29,6 +29,109 @@ class PassInfo;
+@@ -29,6 +29,116 @@ class PassInfo;
  class TargetLowering;
  class TargetMachine;
  
@@ -3378,6 +3379,13 @@ index 6df2f9a379a..19fc757f823 100644
 +// VulkanFinal - This pass fixes Vulkan/SPIR-V issues.
 +//
 +FunctionPass *createVulkanFinalPass();
++
++//===----------------------------------------------------------------------===//
++//
++// VulkanBuiltinParamHandling - This pass handles builtin -> parameter
++// replacement for Vulkan.
++//
++FunctionPass *createVulkanBuiltinParamHandlingPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -25337,10 +25345,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..224ca418e3e
+index 00000000000..9c8fc96af9d
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3724 @@
+@@ -0,0 +1,3746 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -26402,9 +26410,9 @@ index 00000000000..224ca418e3e
 +    break;
 +  }
 +
-+  SPIRVInstruction *BI = BM->addBinaryInst(
-+      transBoolOpCode(Op0, BOC), type,
-+      Op0, transValue(B->getOperand(1), BB), BB);
++  SPIRVInstruction *BI =
++      BM->addBinaryInst(transBoolOpCode(Op0, BOC), type, Op0,
++                        transValue(B->getOperand(1), BB), BB);
 +  return BI;
 +}
 +
@@ -27125,6 +27133,27 @@ index 00000000000..224ca418e3e
 +      }
 +
 +      return BM->addExtInst(ret_type, SPIRVEIS_GLSL, ext_op->second, args, BB);
++    } else if (MangledName.startswith("floor.bitcast.")) {
++      auto args = transArguments(CI, BB);
++      if (args.size() != 1) {
++        errs() << "invalid arg count for bitcast call: " << MangledName << "\n";
++        return nullptr;
++      }
++      transType(CI->getType());
++      if (MangledName == "floor.bitcast.f32.i32") {
++        return BM->addUnaryInst(spv::OpBitcast, BM->addIntegerType(32, true),
++                                args[0], BB);
++      } else if (MangledName == "floor.bitcast.f32.u32") {
++        return BM->addUnaryInst(spv::OpBitcast, BM->addIntegerType(32, false),
++                                args[0], BB);
++      } else if (MangledName == "floor.bitcast.i32.f32") {
++        return BM->addUnaryInst(spv::OpBitcast, BM->addFloatType(32), args[0],
++                                BB);
++      } else if (MangledName == "floor.bitcast.u32.f32") {
++        return BM->addUnaryInst(spv::OpBitcast, BM->addFloatType(32), args[0],
++                                BB);
++      }
++      // else: fallthrough
 +    }
 +    errs() << "unhandled floor func: " << MangledName << "\n";
 +  }
@@ -27432,10 +27461,10 @@ index 00000000000..224ca418e3e
 +        // deco
 +        if (global_type.is_iub) {
 +          spirv_elem_type->addDecorate(
-+            new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +        } else {
 +          spirv_elem_type->addDecorate(
-+            new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
++              new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
 +        }
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
@@ -27542,7 +27571,8 @@ index 00000000000..224ca418e3e
 +  if (global_type.is_uniform && !global_type.is_image) {
 +    if (global_type.is_read_only || global_type.is_constant) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonWritable, BVar));
-+#if 0 // NOTE: the NVIDIA driver/compiler can't deal with this if we're using a SSBO -> disable for now
++#if 0 // NOTE: the NVIDIA driver/compiler can't deal with this if we're using a
++      // SSBO -> disable for now
 +      if (global_type.is_constant) {
 +        BVar->addDecorate(new SPIRVDecorate(DecorationUniform, BVar));
 +      }
@@ -46092,7 +46122,7 @@ index 54ce23876e6..95898d6414e 100644
 -required_libraries = AggressiveInstCombine Analysis BitReader BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = AggressiveInstCombine Analysis BitReader BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index e625433a8e4..48e710c8202 100644
+index e625433a8e4..1463502a2c6 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -42,6 +42,7 @@
@@ -46232,7 +46262,7 @@ index e625433a8e4..48e710c8202 100644
    if (RunPartialInlining)
      MPM.add(createPartialInliningPass());
  
-@@ -743,6 +817,60 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -743,6 +817,63 @@ void PassManagerBuilder::populateModulePassManager(
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
  
@@ -46253,6 +46283,9 @@ index e625433a8e4..48e710c8202 100644
 +    MPM.add(createNaryReassociatePass());
 +    MPM.add(createEarlyCSEPass());
 +#endif
++
++    // builtin -> parameter replacement
++    MPM.add(createVulkanBuiltinParamHandlingPass());
 +
 +    // "pre-final" vulkanization (prior to cfg structurization)
 +    MPM.add(createVulkanPreFinalPass());
@@ -49718,7 +49751,7 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..a9260fc922b
+index 00000000000..a255ddc4f67
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
 @@ -0,0 +1,1048 @@
@@ -50206,7 +50239,7 @@ index 00000000000..a9260fc922b
 +			
 +			// check for soft-printf
 +			bool has_soft_printf = false;
-+			if (auto soft_printf_meta = M->getNamedMetadata("floor.metal_soft_printf")) {
++			if (auto soft_printf_meta = M->getNamedMetadata("floor.soft_printf")) {
 +				has_soft_printf = true;
 +			}
 +			
@@ -50401,7 +50434,7 @@ index 00000000000..a9260fc922b
 +				I.eraseFromParent();
 +				return;
 +			}
-+			else if(func_name == "floor.get_printf_buffer") {
++			else if(func_name == "floor.builtin.get_printf_buffer") {
 +				if(soft_printf == nullptr) {
 +					DBG(printf("failed to get printf_buffer arg, probably not in a kernel/vertex/fragment function?\n"); fflush(stdout);)
 +					return;
@@ -52567,10 +52600,10 @@ index 00000000000..5eec930f074
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index 976daf4c78c..7444336b514 100644
+index 976daf4c78c..d4f2b324d26 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -118,6 +118,70 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -118,6 +118,74 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -52620,6 +52653,10 @@ index 976daf4c78c..7444336b514 100644
 +
 +void LLVMAddVulkanFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createVulkanFinalPass());
++}
++
++void LLVMAddVulkanBuiltinParamHandlingPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createVulkanBuiltinParamHandlingPass());
 +}
 +
 +void LLVMAddVulkanPreFinalPass(LLVMPassManagerRef PM) {
@@ -55770,10 +55807,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..50eefc594fc
+index 00000000000..49f96c3954e
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1373 @@
+@@ -0,0 +1,1475 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -55854,9 +55891,9 @@ index 00000000000..50eefc594fc
 +	//static const uint32_t SPIRAS_Input = 6;
 +	static const uint32_t SPIRAS_Output = 7;
 +	
-+	// VulkanFinal
-+	struct VulkanFinal : public FunctionPass, InstVisitor<VulkanFinal> {
-+		friend class InstVisitor<VulkanFinal>;
++	// VulkanBuiltinParamHandling
++	struct VulkanBuiltinParamHandling : public FunctionPass, InstVisitor<VulkanBuiltinParamHandling> {
++		friend class InstVisitor<VulkanBuiltinParamHandling>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
 +		
@@ -55883,9 +55920,12 @@ index 00000000000..50eefc594fc
 +		Argument* point_coord { nullptr };
 +		Argument* frag_coord { nullptr };
 +		
-+		VulkanFinal() :
++		// any function args
++		Argument* soft_printf { nullptr };
++		
++		VulkanBuiltinParamHandling() :
 +		FunctionPass(ID) {
-+			initializeVulkanFinalPass(*PassRegistry::getPassRegistry());
++			initializeVulkanBuiltinParamHandlingPass(*PassRegistry::getPassRegistry());
 +		}
 +		
 +		void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -55940,86 +55980,67 @@ index 00000000000..50eefc594fc
 +				return &*arg_iter;
 +			};
 +			
++			// check for soft-printf
++			bool has_soft_printf = false;
++			if (auto soft_printf_meta = M->getNamedMetadata("floor.soft_printf")) {
++				has_soft_printf = true;
++			}
++			
 +			DBG(errs() << "> adding built-in args ...\n";)
 +			// add args if this is a kernel function
 +			if(is_kernel_func) {
-+				if (F.arg_size() >= VULKAN_KERNEL_ARG_COUNT) {
++				if (F.arg_size() >= VULKAN_KERNEL_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					global_id = get_arg_by_idx(VULKAN_GLOBAL_ID);
 +					local_id = get_arg_by_idx(VULKAN_LOCAL_ID);
 +					group_id = get_arg_by_idx(VULKAN_GROUP_ID);
 +					group_size = get_arg_by_idx(VULKAN_GROUP_SIZE);
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(-(VULKAN_KERNEL_ARG_COUNT + 1));
++					}
 +				} else {
 +					errs() << "invalid kernel function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					global_id = nullptr;
 +					local_id = nullptr;
 +					group_id = nullptr;
 +					group_size = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
 +			// add args if this is a vertex function
 +			if(is_vertex_func) {
-+				if (F.arg_size() >= VULKAN_VERTEX_ARG_COUNT) {
++				if (F.arg_size() >= VULKAN_VERTEX_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					vertex_id = get_arg_by_idx(VULKAN_VERTEX_ID);
 +					// TODO: this should be optional / only happen on request
 +					// TODO: handle instance id
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(-(VULKAN_VERTEX_ARG_COUNT + 1));
++					}
 +				} else {
 +					errs() << "invalid vertex function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					vertex_id = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
 +			// add args if this is a fragment function
 +			if(is_fragment_func) {
-+				if (F.arg_size() >= VULKAN_FRAGMENT_ARG_COUNT) {
++				if (F.arg_size() >= VULKAN_FRAGMENT_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					point_coord = get_arg_by_idx(VULKAN_POINT_COORD);
 +					frag_coord = get_arg_by_idx(VULKAN_FRAG_COORD);
++					if (has_soft_printf) {
++						soft_printf = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + 1));
++					}
 +				} else {
 +					errs() << "invalid fragment function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					point_coord = nullptr;
++					frag_coord = nullptr;
++					soft_printf = nullptr;
 +				}
 +			}
 +			
-+			// handle return value / output
-+			DBG(errs() << "> handling return values ...\n";)
-+			if(is_vertex_func || is_fragment_func) {
-+				const auto emit_output_var = [this](const std::string& var_name,
-+													llvm::Type* global_type,
-+													uint32_t address_space,
-+													bool is_constant,
-+													Constant* initializer) {
-+					auto GV = new GlobalVariable(*M,
-+												 global_type,
-+												 is_constant,
-+												 GlobalVariable::InternalLinkage,
-+												 initializer,
-+												 var_name,
-+												 nullptr,
-+												 GlobalValue::NotThreadLocal,
-+												 address_space);
-+					return GV;
-+				};
-+				
-+				const auto ret_type = F.getReturnType();
-+				const auto func_name = F.getName().str();
-+				uint32_t return_idx = 0;
-+				if(ret_type->isStructTy()) {
-+					const auto st_type = cast<llvm::StructType>(ret_type);
-+					for(const auto& elem : st_type->elements()) {
-+						emit_output_var(func_name + ".vulkan_output." + std::to_string(return_idx++),
-+										elem, SPIRAS_Output, false, nullptr);
-+					}
-+				}
-+				else if(ret_type->isArrayTy()) {
-+					emit_output_var(func_name + ".vulkan_output.0", ret_type, SPIRAS_Output, false, nullptr);
-+				}
-+				else if(!ret_type->isVoidTy()) {
-+					emit_output_var(func_name + ".vulkan_output.0", ret_type, SPIRAS_Output, false, nullptr);
-+				}
-+				// else: nothing/passthrough
-+			}
-+			else if(is_kernel_func) {
-+				// emit work-group size variable for this function (initialized externally at "run-time" / SPIR-V spec)
++			// emit work-group size variable for this function (initialized externally at "run-time" / SPIR-V spec)
++			if(is_kernel_func) {
 +				auto workgroup_size_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
 +				workgroup_size = new GlobalVariable(*M,
 +													workgroup_size_type,
@@ -56037,74 +56058,15 @@ index 00000000000..50eefc594fc
 +			DBG(errs() << "> handling instructions ...\n";)
 +			visit(F);
 +			
-+			DBG(errs() << "> updating function signature / parameters ...\n";)
-+			{
-+				// update function signature / param list
-+				// NOTE: this always changes the return type to void (vs/fs returns have already been modified)
-+				// NOTE: must be called after visiting rets and other ret type/val users
-+				std::vector<Type*> param_types;
-+				for(auto& arg : F.args()) {
-+					auto arg_type = arg.getType();
-+					
-+					// fix non-struct uniforms by enclosing them in a struct
-+					// NOTE: only fix direct args here (uniforms, not SSBOs, those will be fixed later)
-+					if(arg.onlyReadsMemory() &&
-+					   (arg.hasAttribute(Attribute::Dereferenceable) ||
-+						arg.hasAttribute(Attribute::DereferenceableOrNull))) {
-+					   if(auto ptr_type = dyn_cast<llvm::PointerType>(arg_type)) {
-+						   auto elem_type = ptr_type->getElementType();
-+						   if(ptr_type->getAddressSpace() == SPIRAS_Uniform &&
-+							  !elem_type->isStructTy()) {
-+							   llvm::Type* st_elems[] { elem_type };
-+							   auto enclosing_type = llvm::StructType::create(*ctx, st_elems, "enclose." + arg.getName().str());
-+							   auto new_arg_type = enclosing_type->getPointerTo(SPIRAS_Uniform);
-+							   arg_type = new_arg_type;
-+							   arg.mutateType(new_arg_type);
-+							   
-+							   // replace, should usually only have one load
-+							   llvm::Value* idx_list[] {
-+								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
-+								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
-+							   };
-+							   
-+							   std::vector<User*> users;
-+							   for(auto* user : arg.users()) {
-+								   users.emplace_back(user);
-+							   }
-+							   for(auto& user : users) {
-+								   if(auto instr = dyn_cast<Instruction>(user)) {
-+									   if(isa<LoadInst>(instr)) {
-+										   auto elem_gep = llvm::GetElementPtrInst::CreateInBounds(&arg, idx_list, "", instr);
-+										   auto repl_instr = new LoadInst(elem_gep, instr->getName(), false, instr);
-+										   repl_instr->setDebugLoc(instr->getDebugLoc());
-+										   instr->replaceAllUsesWith(repl_instr);
-+										   instr->eraseFromParent();
-+									   }
-+									   // TODO: ?
-+									   else errs() << "unhandled arg user: " << *instr << "\n";
-+								   }
-+								   else errs() << "arg user is not an instruction\n";
-+							   }
-+						   }
-+					   }
-+					}
-+					
-+					param_types.push_back(arg_type);
-+				}
-+				auto new_func_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), param_types, false);
-+				F.mutateType(PointerType::get(new_func_type, 0));
-+				F.mutateFunctionType(new_func_type);
-+			}
-+			
 +			// always modified
 +			DBG(errs() << "> " << F.getName() << " done\n";)
 +			return true;
 +		}
 +		
 +		// InstVisitor overrides...
-+		using InstVisitor<VulkanFinal>::visit;
++		using InstVisitor<VulkanBuiltinParamHandling>::visit;
 +		void visit(Instruction& I) {
-+			InstVisitor<VulkanFinal>::visit(I);
++			InstVisitor<VulkanBuiltinParamHandling>::visit(I);
 +		}
 +		
 +		//
@@ -56195,6 +56157,17 @@ index 00000000000..50eefc594fc
 +				I.eraseFromParent();
 +				return;
 +			}
++			else if(func_name == "floor.builtin.get_printf_buffer") {
++				if(soft_printf == nullptr) {
++					DBG(printf("failed to get printf_buffer arg, probably not in a kernel/vertex/fragment function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				// special case
++				I.replaceAllUsesWith(soft_printf);
++				I.eraseFromParent();
++				return;
++			}
 +			// unknown -> ignore for now
 +			else return;
 +			
@@ -56206,6 +56179,164 @@ index 00000000000..50eefc594fc
 +			// replace call with vector load / elem extraction from the appropriate vector
 +			I.replaceAllUsesWith(builder->CreateExtractElement(builder->CreateLoad(id), CS.getArgument(0)));
 +			I.eraseFromParent();
++		}
++	};
++	
++	// VulkanFinal
++	struct VulkanFinal : public FunctionPass, InstVisitor<VulkanFinal> {
++		friend class InstVisitor<VulkanFinal>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		std::shared_ptr<llvm::IRBuilder<>> builder;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		bool is_kernel_func { false };
++		bool is_vertex_func { false };
++		bool is_fragment_func { false };
++		
++		VulkanFinal() :
++		FunctionPass(ID) {
++			initializeVulkanFinalPass(*PassRegistry::getPassRegistry());
++		}
++		
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.addRequired<AAResultsWrapperPass>();
++			AU.addRequired<GlobalsAAWrapperPass>();
++			AU.addRequired<AssumptionCacheTracker>();
++			AU.addRequired<TargetLibraryInfoWrapperPass>();
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++			
++			// determine this function type + exit if it isn't a kernel or shader function
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
++			if(!is_kernel_func && !is_vertex_func && !is_fragment_func) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			
++			// handle return value / output
++			DBG(errs() << "> handling return values ...\n";)
++			if(is_vertex_func || is_fragment_func) {
++				const auto emit_output_var = [this](const std::string& var_name,
++													llvm::Type* global_type,
++													uint32_t address_space,
++													bool is_constant,
++													Constant* initializer) {
++					auto GV = new GlobalVariable(*M,
++												 global_type,
++												 is_constant,
++												 GlobalVariable::InternalLinkage,
++												 initializer,
++												 var_name,
++												 nullptr,
++												 GlobalValue::NotThreadLocal,
++												 address_space);
++					return GV;
++				};
++				
++				const auto ret_type = F.getReturnType();
++				const auto func_name = F.getName().str();
++				uint32_t return_idx = 0;
++				if(ret_type->isStructTy()) {
++					const auto st_type = cast<llvm::StructType>(ret_type);
++					for(const auto& elem : st_type->elements()) {
++						emit_output_var(func_name + ".vulkan_output." + std::to_string(return_idx++),
++										elem, SPIRAS_Output, false, nullptr);
++					}
++				}
++				else if(ret_type->isArrayTy()) {
++					emit_output_var(func_name + ".vulkan_output.0", ret_type, SPIRAS_Output, false, nullptr);
++				}
++				else if(!ret_type->isVoidTy()) {
++					emit_output_var(func_name + ".vulkan_output.0", ret_type, SPIRAS_Output, false, nullptr);
++				}
++				// else: nothing/passthrough
++			}
++			
++			// visit everything in this function
++			DBG(errs() << "> handling instructions ...\n";)
++			visit(F);
++			
++			DBG(errs() << "> updating function signature / parameters ...\n";)
++			{
++				// update function signature / param list
++				// NOTE: this always changes the return type to void (vs/fs returns have already been modified)
++				// NOTE: must be called after visiting rets and other ret type/val users
++				std::vector<Type*> param_types;
++				for(auto& arg : F.args()) {
++					auto arg_type = arg.getType();
++					
++					// fix non-struct uniforms by enclosing them in a struct
++					// NOTE: only fix direct args here (uniforms, not SSBOs, those will be fixed later)
++					if(arg.onlyReadsMemory() &&
++					   (arg.hasAttribute(Attribute::Dereferenceable) ||
++						arg.hasAttribute(Attribute::DereferenceableOrNull))) {
++					   if(auto ptr_type = dyn_cast<llvm::PointerType>(arg_type)) {
++						   auto elem_type = ptr_type->getElementType();
++						   if(ptr_type->getAddressSpace() == SPIRAS_Uniform &&
++							  !elem_type->isStructTy()) {
++							   llvm::Type* st_elems[] { elem_type };
++							   auto enclosing_type = llvm::StructType::create(*ctx, st_elems, "enclose." + arg.getName().str());
++							   auto new_arg_type = enclosing_type->getPointerTo(SPIRAS_Uniform);
++							   arg_type = new_arg_type;
++							   arg.mutateType(new_arg_type);
++							   
++							   // replace, should usually only have one load
++							   llvm::Value* idx_list[] {
++								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
++								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
++							   };
++							   
++							   std::vector<User*> users;
++							   for(auto* user : arg.users()) {
++								   users.emplace_back(user);
++							   }
++							   for(auto& user : users) {
++								   if(auto instr = dyn_cast<Instruction>(user)) {
++									   if(isa<LoadInst>(instr)) {
++										   auto elem_gep = llvm::GetElementPtrInst::CreateInBounds(&arg, idx_list, "", instr);
++										   auto repl_instr = new LoadInst(elem_gep, instr->getName(), false, instr);
++										   repl_instr->setDebugLoc(instr->getDebugLoc());
++										   instr->replaceAllUsesWith(repl_instr);
++										   instr->eraseFromParent();
++									   }
++									   // TODO: ?
++									   else errs() << "unhandled arg user: " << *instr << "\n";
++								   }
++								   else errs() << "arg user is not an instruction\n";
++							   }
++						   }
++					   }
++					}
++					
++					param_types.push_back(arg_type);
++				}
++				auto new_func_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), param_types, false);
++				F.mutateType(PointerType::get(new_func_type, 0));
++				F.mutateFunctionType(new_func_type);
++			}
++			
++			// always modified
++			DBG(errs() << "> " << F.getName() << " done\n";)
++			return true;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<VulkanFinal>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<VulkanFinal>::visit(I);
 +		}
 +		
 +		// prefer i32 indices so that we don't need the Int64 capability
@@ -57127,6 +57258,14 @@ index 00000000000..50eefc594fc
 +INITIALIZE_PASS_BEGIN(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
 +INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 +INITIALIZE_PASS_END(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
++
++char VulkanBuiltinParamHandling::ID = 0;
++FunctionPass *llvm::createVulkanBuiltinParamHandlingPass() {
++	return new VulkanBuiltinParamHandling();
++}
++INITIALIZE_PASS_BEGIN(VulkanBuiltinParamHandling, "VulkanBuiltinParamHandling", "VulkanBuiltinParamHandling Pass", false, false)
++INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
++INITIALIZE_PASS_END(VulkanBuiltinParamHandling, "VulkanBuiltinParamHandling", "VulkanBuiltinParamHandling Pass", false, false)
 +
 +char VulkanPreFinal::ID = 0;
 +FunctionPass *llvm::createVulkanPreFinalPass() {
