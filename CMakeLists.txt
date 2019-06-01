@@ -1,4 +1,4 @@
-﻿# VS/vcpkg/clang/CMake project for libfloor
+# VS/vcpkg/clang/CMake project for libfloor
 cmake_minimum_required(VERSION 3.8)
 project(libfloor)
 set(CMAKE_CXX_STANDARD 17)
@@ -80,6 +80,7 @@ compute/compute_queue.cpp
 compute/compute_queue.hpp
 compute/llvm_toolchain.cpp
 compute/llvm_toolchain.hpp
+compute/soft_printf.hpp
 compute/spirv_handler.cpp
 compute/spirv_handler.hpp
 compute/universal_binary.cpp
@@ -232,6 +233,7 @@ core/logger.cpp
 core/logger.hpp
 core/option_handler.hpp
 core/platform.hpp
+core/platform_windows.hpp
 core/serializer.cpp
 core/serializer.hpp
 core/serializer_storage.hpp

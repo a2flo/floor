@@ -440,7 +440,7 @@ template <typename... Args>
 static int printf(const char* format, Args&&... args) {
 	alignas(8) uint8_t args_buf[soft_printf::printf_args_total_size<Args...>()];
 	uint8_t* args_buf_ptr = &args_buf[0];
-	soft_printf::printf_args_apply(soft_printf::printf_handle_arg(args, &args_buf_ptr)...);
+	soft_printf::printf_args_apply(soft_printf::no_as::printf_handle_arg(args, &args_buf_ptr)...);
 	return vprintf(format, &args_buf);
 }
 

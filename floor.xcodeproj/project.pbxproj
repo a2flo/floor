@@ -215,6 +215,7 @@
 		5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
 		5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919C17D1153E007F536E /* task.cpp */; };
 		5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
+		5CB95F8E229FF2530092D4C5 /* soft_printf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CB95F8D229FF2520092D4C5 /* soft_printf.hpp */; };
 		5CBA3EF71D9D6973001BEDEC /* host_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBA3EF61D9D6973001BEDEC /* host_post.hpp */; };
 		5CBBFF581BC2B786001813E0 /* image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBBFF571BC2B786001813E0 /* image.hpp */; };
 		5CBE41DA1B31B48600AE0E5F /* darwin_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBE41D81B31B48600AE0E5F /* darwin_helper.hpp */; };
@@ -398,6 +399,7 @@
 		5C34F17D1C29BB9300C8F645 /* metal_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = metal_device.cpp; path = metal/metal_device.cpp; sourceTree = "<group>"; };
 		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
+		5C38EC1122A2D00B001E7086 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
 		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
 		5C3B61D91C60FD4400358DAB /* opaque_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opaque_image.hpp; path = device/opaque_image.hpp; sourceTree = "<group>"; };
@@ -486,6 +488,7 @@
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
+		5CB95F8D229FF2520092D4C5 /* soft_printf.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_printf.hpp; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
 		5CBA3EF61D9D6973001BEDEC /* host_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_post.hpp; path = device/host_post.hpp; sourceTree = "<group>"; };
 		5CBBFF571BC2B786001813E0 /* image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image.hpp; path = device/image.hpp; sourceTree = "<group>"; };
@@ -922,6 +925,7 @@
 				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
 				5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */,
 				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
+				5CB95F8D229FF2520092D4C5 /* soft_printf.hpp */,
 				5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */,
 				5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */,
 				5C9C1378209E3C35005C516C /* universal_binary.cpp */,
@@ -951,6 +955,7 @@
 			children = (
 				5C782595187226DA00725EAF /* floor_prefix.pch */,
 				5C0686BC19C95FD800CF63C8 /* build.sh */,
+				5C38EC1122A2D00B001E7086 /* CMakeLists.txt */,
 				5CD2176819EBEC4B0049D6AE /* README.textile */,
 			);
 			name = build;
@@ -1163,6 +1168,7 @@
 				5C20C8D11B4139260005F5EA /* host_queue.hpp in Headers */,
 				5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
+				5CB95F8E229FF2530092D4C5 /* soft_printf.hpp in Headers */,
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */,
 				5C5419021CD1C915003BD2CA /* host_limits.hpp in Headers */,

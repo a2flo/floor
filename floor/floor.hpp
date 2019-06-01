@@ -294,6 +294,7 @@ public:
 	static const string& get_vulkan_spirv_as();
 	static const string& get_vulkan_spirv_dis();
 	static const string& get_vulkan_spirv_validator();
+	static const bool& get_vulkan_soft_printf();
 	
 	// host
 	static const string& get_execution_model();
@@ -425,6 +426,7 @@ protected:
 		string vulkan_spirv_as = "spirv-as";
 		string vulkan_spirv_dis = "spirv-dis";
 		string vulkan_spirv_validator = "spirv-val";
+		bool vulkan_soft_printf = false;
 
 		// sdl
 		uint32_t flags = 0;

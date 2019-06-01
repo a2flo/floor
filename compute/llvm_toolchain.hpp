@@ -200,7 +200,7 @@ namespace llvm_toolchain {
 		//! e.g. OS, CPU features, ...
 		bool ignore_runtime_info { false };
 		
-		//! cuda specific options
+		//! CUDA specific options
 		struct {
 			//! sets the PTX version that should be used (4.3 by default)
 			uint32_t ptx_version { 43 };
@@ -213,12 +213,19 @@ namespace llvm_toolchain {
 			bool short_ptr { true };
 		} cuda;
 		
-		//! metal specific options
+		//! Metal specific options
 		struct {
 			//! if true, enable soft-printf support
 			//! if unset, use the global floor option
 			optional<bool> soft_printf;
 		} metal;
+		
+		//! Vulkan specific options
+		struct {
+			//! if true, enable soft-printf support
+			//! if unset, use the global floor option
+			optional<bool> soft_printf;
+		} vulkan;
 	};
 	
 	//! contains all information about a compiled compute/graphics program

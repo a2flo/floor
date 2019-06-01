@@ -392,6 +392,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_as= config_doc.get<string>("toolchain.vulkan.spirv-as", config.vulkan_spirv_as);
 		config.vulkan_spirv_dis = config_doc.get<string>("toolchain.vulkan.spirv-dis", config.vulkan_spirv_dis);
 		config.vulkan_spirv_validator = config_doc.get<string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
+		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
 		
 		config.execution_model = config_doc.get<string>("toolchain.host.exec_model", "mt-group");
 	}
@@ -1789,6 +1790,9 @@ const string& floor::get_vulkan_spirv_dis() {
 }
 const string& floor::get_vulkan_spirv_validator() {
 	return config.vulkan_spirv_validator;
+}
+const bool& floor::get_vulkan_soft_printf() {
+	return config.vulkan_soft_printf;
 }
 
 

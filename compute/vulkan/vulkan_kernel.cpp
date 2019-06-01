@@ -19,9 +19,11 @@
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/vulkan/vulkan_common.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/soft_printf.hpp>
 
 struct vulkan_kernel::vulkan_encoder {
 	vulkan_queue::command_buffer cmd_buffer;
@@ -282,6 +284,17 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		}
 	}
 	
+	// create + init printf buffer if this function uses soft-printf
+	shared_ptr<compute_buffer> printf_buffer;
+	const auto is_soft_printf = llvm_toolchain::function_info::has_flag<llvm_toolchain::function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags);
+	if (is_soft_printf) {
+		printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
+		printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
+		
+		auto entry = arg_pre_handler(shader_entries, idx);
+		set_argument(encoder.get(), *entry, idx, printf_buffer.get());
+	}
+	
 	// run
 	const auto& entry = kernel_iter->second;
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
@@ -318,7 +331,14 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 															
 															// kill constant buffers after the kernel has finished execution
 															encoder->constant_buffers.clear();
-														});
+														}, is_soft_printf /* block if soft-printf is enabled */);
+	
+	// if soft-printf is being used, read-back results
+	if (is_soft_printf) {
+		auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
+		printf_buffer->read(cqueue, cpu_printf_buffer.get());
+		handle_printf_buffer(cpu_printf_buffer);
+	}
 }
 
 void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,

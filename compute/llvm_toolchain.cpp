@@ -353,6 +353,13 @@ program_data compile_input(const string& input,
 				default: break;
 			}
 			
+			bool soft_printf = false;
+			if (options.vulkan.soft_printf) {
+				soft_printf = *options.vulkan.soft_printf;
+			} else {
+				soft_printf = floor::get_vulkan_soft_printf();
+			}
+			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
@@ -367,6 +374,7 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" +
 				" -Xclang -vulkan-iub-size=" + to_string(vk_device.max_inline_uniform_block_size) +
 				" -Xclang -vulkan-iub-count=" + to_string(vk_device.max_inline_uniform_block_count) +
+				(soft_printf ? " -Xclang -vulkan-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"

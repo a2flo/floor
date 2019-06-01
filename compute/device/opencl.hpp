@@ -331,11 +331,27 @@ namespace std {
 	using ::abs;
 }
 
-// NOTE: not supported with vulkan
+// NOTE: builtin printf is not supported with vulkan
 #if !defined(FLOOR_COMPUTE_VULKAN)
 // can't normally produce _Z6printfPrU3AS2cz with clang/llvm, because a proper "restrict" keyword is missing in c++ mode
 // -> slay it with an asm label
 int printf(const char constant* st, ...) asm("_Z6printfPrU3AS2cz");
+
+#else // Vulkan
+#if !defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF) || (FLOOR_COMPUTE_HAS_SOFT_PRINTF == 0)
+// not supported
+#define printf(...)
+#else // software printf implementation
+
+global uint32_t* floor_get_printf_buffer() asm("floor.builtin.get_printf_buffer");
+#include <floor/compute/device/soft_printf.hpp>
+
+template <size_t format_N, typename... Args>
+static void printf(constant const char (&format)[format_N], const Args&... args) {
+	soft_printf::as::printf_impl(format, args...);
+}
+#endif
+
 #endif
 
 // barrier and mem_fence functionality
