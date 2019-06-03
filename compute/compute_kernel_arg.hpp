@@ -22,6 +22,7 @@
 #include <variant>
 #include <memory>
 #include <vector>
+#include <type_traits>
 using namespace std;
 
 class compute_buffer;
@@ -44,9 +45,31 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const vector<shared_ptr<compute_image>>* imgs) noexcept : var(imgs) {}
 	constexpr compute_kernel_arg(const vector<shared_ptr<compute_image>>& imgs) noexcept : var(&imgs) {}
 	
-	template <typename T>
+	// adapters for derived compute_buffer/compute_image
+	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
+	constexpr compute_kernel_arg(const derived_buffer_t* buf) noexcept : var((const compute_buffer*)buf) {}
+	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
+	constexpr compute_kernel_arg(const derived_buffer_t& buf) noexcept : var((const compute_buffer*)&buf) {}
+	
+	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
+	constexpr compute_kernel_arg(const derived_image_t* img) noexcept : var((const compute_image*)img) {}
+	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
+	constexpr compute_kernel_arg(const derived_image_t& img) noexcept : var((const compute_image*)&img) {}
+	
+	// generic arg with CPU storage
+	template <typename T, enable_if_t<(!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&
+									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*>)>* = nullptr>
 	constexpr compute_kernel_arg(const T& generic_arg) noexcept : var((const void*)&generic_arg), size(sizeof(T)) {}
 	
+	// forward generic shader_ptrs to one of the constructors above
+	template <typename T>
+	constexpr compute_kernel_arg(const shared_ptr<T>& arg) noexcept : compute_kernel_arg(*arg) {}
+	
+	// forward generic unique_ptrs to one of the constructors above
+	template <typename T>
+	constexpr compute_kernel_arg(const unique_ptr<T>& arg) noexcept : compute_kernel_arg(*arg) {}
+	
+	// canonical arg storage
 	variant<const void*, // generic arg
 			const compute_buffer*, // single buffer
 			const compute_image*, // single image

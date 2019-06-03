@@ -25,6 +25,8 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/soft_printf.hpp>
 
+using namespace llvm_toolchain;
+
 struct vulkan_kernel::vulkan_encoder {
 	vulkan_queue::command_buffer cmd_buffer;
 	const vulkan_queue& cqueue;
@@ -160,20 +162,25 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(const co
 	for(const auto& entry : entries) {
 		if(entry == nullptr) continue;
 		for(const auto& arg : entry->info->args) {
-			if(arg.special_type != llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			if(arg.special_type != function_info::SPECIAL_TYPE::STAGE_INPUT) {
 				++arg_count;
 				
 				// +1 for read/write images
-				if(arg.image_type != llvm_toolchain::function_info::ARG_IMAGE_TYPE::NONE &&
-				   arg.image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+				if(arg.image_type != function_info::ARG_IMAGE_TYPE::NONE &&
+				   arg.image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 					++arg_count;
 				}
 				
 				// handle IUBs
-				if(arg.special_type == llvm_toolchain::function_info::SPECIAL_TYPE::IUB) {
+				if(arg.special_type == function_info::SPECIAL_TYPE::IUB) {
 					++iub_count;
 				}
 			}
+		}
+		
+		// implicit printf buffer
+		if (function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
+			++arg_count;
 		}
 	}
 	encoder->write_descs.resize(arg_count);
@@ -220,6 +227,104 @@ VkPipeline vulkan_kernel::get_pipeline_spec(const vulkan_device& device,
 	return spec_entry->pipeline;
 }
 
+//! returns the entry for the current indices and makes sure that stage_input args are ignored
+static inline const vulkan_kernel::vulkan_kernel_entry* arg_pre_handler(const vector<const vulkan_kernel::vulkan_kernel_entry*>& entries,
+																		vulkan_kernel::idx_handler& idx) {
+	// make sure we have a usable entry
+	const vulkan_kernel::vulkan_kernel_entry* entry = nullptr;
+	for(;;) {
+		// get the next non-nullptr entry or use the current one if it's valid
+		while(entries[idx.entry] == nullptr) {
+			++idx.entry;
+#if defined(FLOOR_DEBUG)
+			if(idx.entry >= entries.size()) {
+				log_error("shader/kernel entry out of bounds");
+				return nullptr;
+			}
+#endif
+		}
+		entry = entries[idx.entry];
+		
+		// ignore any stage input args
+		while(idx.arg < entry->info->args.size() &&
+			  entry->info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			++idx.arg;
+		}
+		
+		// have all args been specified for this entry?
+		if(idx.arg >= entry->info->args.size()) {
+			// implicit args at the end
+			const auto implicit_arg_count = (function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags) ? 1u : 0u);
+			if (idx.arg < entry->info->args.size() + implicit_arg_count) {
+				idx.is_implicit = true;
+			} else { // actual end
+				// get the next entry
+				++idx.entry;
+				// reset
+				idx.arg = 0;
+				idx.binding = 0;
+				idx.iub = 0;
+				idx.is_implicit = false;
+				idx.implicit = 0;
+				continue;
+			}
+		}
+		break;
+	}
+	return entry;
+}
+
+static inline void arg_post_handler(const vulkan_kernel::vulkan_kernel_entry& entry,
+									vulkan_kernel::idx_handler& idx) {
+	// advance all indices
+	if (!idx.is_implicit) {
+		if (entry.info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::IUB) {
+			++idx.iub;
+		}
+		if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			// read/write images are implemented as two args -> inc twice
+			++idx.write_desc;
+			++idx.binding;
+		}
+	} else {
+		++idx.implicit;
+	}
+	++idx.arg;
+	++idx.write_desc;
+	++idx.binding;
+}
+
+bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
+											 const vector<const vulkan_kernel_entry*>& shader_entries,
+											 idx_handler& idx,
+											 const vector<compute_kernel_arg>& args,
+											 const vector<compute_kernel_arg>& implicit_args) const {
+	const size_t arg_count = args.size() + implicit_args.size();
+	size_t explicit_idx = 0, implicit_idx = 0;
+	for (size_t i = 0; i < arg_count; ++i) {
+		auto entry = arg_pre_handler(shader_entries, idx);
+		const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
+		
+		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+			set_argument(encoder, *entry, idx, *buf_ptr);
+		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+			set_argument(encoder, *entry, idx, *img_ptr);
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+			set_argument(encoder, *entry, idx, **vec_img_ptrs);
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+			set_argument(encoder, *entry, idx, **vec_img_sptrs);
+		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+			set_argument(encoder, *entry, idx, *generic_arg_ptr, arg.size);
+		} else {
+			log_error("encountered invalid arg");
+			return false;
+		}
+		
+		arg_post_handler(*entry, idx);
+	}
+	return true;
+}
+
 void vulkan_kernel::execute(const compute_queue& cqueue,
 							const bool& is_cooperative,
 							const uint32_t& dim floor_unused,
@@ -264,35 +369,22 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		return;
 	}
 	
-	// set and handle arguments
-	idx_handler idx;
-	for (const auto& arg : args) {
-		auto entry = arg_pre_handler(shader_entries, idx);
-		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-			set_argument(encoder.get(), *entry, idx, *buf_ptr);
-		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-			set_argument(encoder.get(), *entry, idx, *img_ptr);
-		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-			set_argument(encoder.get(), *entry, idx, **vec_img_ptrs);
-		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-			set_argument(encoder.get(), *entry, idx, **vec_img_sptrs);
-		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
-			set_argument(encoder.get(), *entry, idx, *generic_arg_ptr, arg.size);
-		} else {
-			log_error("encountered invalid arg");
-			return;
-		}
-	}
+	// create implicit args
+	vector<compute_kernel_arg> implicit_args;
 	
 	// create + init printf buffer if this function uses soft-printf
 	shared_ptr<compute_buffer> printf_buffer;
-	const auto is_soft_printf = llvm_toolchain::function_info::has_flag<llvm_toolchain::function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags);
+	const auto is_soft_printf = function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags);
 	if (is_soft_printf) {
 		printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
 		printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
-		
-		auto entry = arg_pre_handler(shader_entries, idx);
-		set_argument(encoder.get(), *entry, idx, printf_buffer.get());
+		implicit_args.emplace_back(printf_buffer);
+	}
+	
+	// set and handle arguments
+	idx_handler idx;
+	if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
+		return;
 	}
 	
 	// run
@@ -331,7 +423,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 															
 															// kill constant buffers after the kernel has finished execution
 															encoder->constant_buffers.clear();
-														}, is_soft_printf /* block if soft-printf is enabled */);
+														}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
 	
 	// if soft-printf is being used, read-back results
 	if (is_soft_printf) {
@@ -341,14 +433,58 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	}
 }
 
-void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
-								  const compute_queue& cqueue,
-								  const vulkan_kernel_entry* vs_entry,
-								  const vulkan_kernel_entry* fs_entry,
+void vulkan_kernel::draw_internal(const compute_queue& cqueue,
+								  void* cmd_buffer,
+								  const VkPipeline pipeline,
+								  const VkPipelineLayout pipeline_layout,
+								  const vulkan_kernel_entry* vertex_shader,
+								  const vulkan_kernel_entry* fragment_shader,
 								  vector<shared_ptr<compute_buffer>>& retained_buffers,
 								  const vector<multi_draw_entry>* draw_entries,
-								  const vector<multi_draw_indexed_entry>* draw_indexed_entries) const {
+								  const vector<multi_draw_indexed_entry>* draw_indexed_entries,
+								  const vector<compute_kernel_arg>& args) const {
+	if(vertex_shader == nullptr) {
+		log_error("must specify a vertex shader!");
+		return;
+	}
+	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	
+	// create command buffer ("encoder") for this kernel execution
+	bool encoder_success = false;
+	const vector<const vulkan_kernel_entry*> shader_entries {
+		vertex_shader, fragment_shader
+	};
+	auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
+								  shader_entries, encoder_success);
+	if(!encoder_success) {
+		log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
+				  vertex_shader->info->name);
+		return;
+	}
+	
+	// create implicit args
+	vector<compute_kernel_arg> implicit_args;
+	
+	// create + init printf buffers if soft-printf is used
+	vector<shared_ptr<compute_buffer>> printf_buffers;
+	const auto is_vs_soft_printf = function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vertex_shader->info->flags);
+	const auto is_fs_soft_printf = (fragment_shader != nullptr && function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
+	if (is_vs_soft_printf || is_fs_soft_printf) {
+		const uint32_t printf_buffer_count = (is_vs_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
+		for (uint32_t i = 0; i < printf_buffer_count; ++i) {
+			auto printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
+			printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
+			printf_buffers.emplace_back(printf_buffer);
+			implicit_args.emplace_back(printf_buffer);
+		}
+	}
+	
+	// set and handle arguments
+	idx_handler idx;
+	if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
+		return;
+	}
 	
 	// set/write/update descriptors
 	vkUpdateDescriptorSets(vk_dev.device,
@@ -359,14 +495,14 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 	// final desc set binding after all parameters have been updated/set
 	// note that we need to take care of the situation where the vertex shader doesn't have a desc set,
 	// but the fragment shader does -> binding discontiguous sets is not directly possible
-	const bool has_vs_desc = (vs_entry->desc_set != nullptr);
-	const bool has_fs_desc = (fs_entry != nullptr && fs_entry->desc_set != nullptr);
+	const bool has_vs_desc = (vertex_shader->desc_set != nullptr);
+	const bool has_fs_desc = (fragment_shader != nullptr && fragment_shader->desc_set != nullptr);
 	const bool discontiguous = (!has_vs_desc && has_fs_desc);
 	
 	const array<VkDescriptorSet, 3> desc_sets {{
 		vk_dev.fixed_sampler_desc_set,
-		vs_entry->desc_set,
-		has_fs_desc ? fs_entry->desc_set : nullptr,
+		vertex_shader->desc_set,
+		has_fs_desc ? fragment_shader->desc_set : nullptr,
 	}};
 	// either binds everything or just the fixed sampler set
 	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
@@ -386,7 +522,7 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 								encoder->pipeline_layout,
 								2,
 								1,
-								&fs_entry->desc_set,
+								&fragment_shader->desc_set,
 								encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
 								encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
 	}
@@ -408,62 +544,30 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 	
 	// NOTE: caller will end command buffer
 	
+	// TODO: soft-printf eval
+	if (is_vs_soft_printf || is_fs_soft_printf) {
+		// TODO: add to retained
+		// TODO: eval after completion (in callback?)
+	}
+	
 	// TODO: properly kill constant_buffers !!!
 	retained_buffers.insert(retained_buffers.end(), encoder->constant_buffers.begin(), encoder->constant_buffers.end());
 }
 
-const vulkan_kernel::vulkan_kernel_entry* vulkan_kernel::arg_pre_handler(const vector<const vulkan_kernel_entry*>& entries,
-																		 idx_handler& idx) const {
-	// make sure we have a usable entry
-	const vulkan_kernel_entry* entry = nullptr;
-	for(;;) {
-		// get the next non-nullptr entry or use the current one if it's valid
-		while(entries[idx.entry] == nullptr) {
-			++idx.entry;
-#if defined(FLOOR_DEBUG)
-			if(idx.entry >= entries.size()) {
-				log_error("shader/kernel entry out of bounds");
-				return nullptr;
-			}
-#endif
-		}
-		entry = entries[idx.entry];
-		
-		// ignore any stage input args
-		while(idx.arg < entry->info->args.size() &&
-			  entry->info->args[idx.arg].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
-			++idx.arg;
-		}
-		
-		// have all args been specified for this entry?
-		if(idx.arg >= entry->info->args.size()) {
-			// get the next entry
-			++idx.entry;
-			// reset
-			idx.arg = 0;
-			idx.binding = 0;
-			idx.iub = 0;
-			continue;
-		}
-		break;
-	}
-	return entry;
-}
-
-void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
-								 idx_handler& idx,
+								 const idx_handler& idx,
 								 const void* ptr, const size_t& size) const {
 	// -> inline uniform buffer
-	if (entry.info->args[idx.arg].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::IUB) {
+	if (!idx.is_implicit && entry.info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::IUB) {
 		// TODO: size must be a multiple of 4
-		auto& iub_write_desc = encoder->iub_descs[idx.iub];
+		auto& iub_write_desc = encoder.iub_descs[idx.iub];
 		iub_write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT;
 		iub_write_desc.pNext = nullptr;
 		iub_write_desc.dataSize = uint32_t(size);
 		iub_write_desc.pData = ptr;
 		
-		auto& write_desc = encoder->write_descs[idx.write_desc];
+		auto& write_desc = encoder.write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = &iub_write_desc;
 		write_desc.dstSet = entry.desc_set;
@@ -474,27 +578,24 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 		write_desc.pImageInfo = nullptr;
 		write_desc.pBufferInfo = nullptr;
 		write_desc.pTexelBufferView = nullptr;
-		
-		idx.next();
-		++idx.iub;
 	}
 	// -> plain old SSBO
 	else {
 		// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
 		// TODO: current limitation of this is that size must be a multiple of 4
-		shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->cqueue, size, ptr,
+		shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder.cqueue, size, ptr,
 																				COMPUTE_MEMORY_FLAG::READ |
 																				COMPUTE_MEMORY_FLAG::HOST_WRITE);
-		encoder->constant_buffers.emplace_back(constant_buffer);
+		encoder.constant_buffers.emplace_back(constant_buffer);
 		set_argument(encoder, entry, idx, constant_buffer.get());
 	}
 }
 
-void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
-								 idx_handler& idx,
+								 const idx_handler& idx,
 								 const compute_buffer* arg) const {
-	auto& write_desc = encoder->write_descs[idx.write_desc];
+	auto& write_desc = encoder.write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
 	write_desc.dstSet = entry.desc_set;
@@ -507,33 +608,36 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	write_desc.pTexelBufferView = nullptr;
 	
 	// TODO/NOTE: use dynamic offset if we ever need it
-	//encoder->dyn_offsets.emplace_back(...);
-	
-	idx.next();
+	//encoder.dyn_offsets.emplace_back(...);
 }
 
-void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
-								 idx_handler& idx,
+								 const idx_handler& idx,
 								 const compute_image* arg) const {
+	if (idx.is_implicit) {
+		log_error("implicit image argument is not supported yet - should not be here");
+		return;
+	}
+	
 	auto vk_img = static_cast<vulkan_image*>(const_cast<compute_image*>(arg));
 	
 	// transition image to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		vk_img->transition_write(encoder->cqueue, encoder->cmd_buffer.cmd_buffer,
+	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		vk_img->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 								 // also readable?
-								 img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
+								 img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 	}
 	else { // READ
-		vk_img->transition_read(encoder->cqueue, encoder->cmd_buffer.cmd_buffer);
+		vk_img->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
 	}
 	
 	// read image desc/obj
-	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ ||
-	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		auto& write_desc = encoder->write_descs[idx.write_desc];
+	if(img_access == function_info::ARG_IMAGE_ACCESS::READ ||
+	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		auto& write_desc = encoder.write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
 		write_desc.dstSet = entry.desc_set;
@@ -547,52 +651,50 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	}
 	
 	// write image descs/objs
-	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			// next, but still the same arg
-			++idx.write_desc;
-			++idx.binding;
-		}
-		
+	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		const auto& mip_info = vk_img->get_vulkan_mip_map_image_info();
+		const uint32_t rw_offset = (img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE ? 1u : 0u);
 		
-		auto& write_desc = encoder->write_descs[idx.write_desc];
+		auto& write_desc = encoder.write_descs[idx.write_desc + rw_offset];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
 		write_desc.dstSet = entry.desc_set;
-		write_desc.dstBinding = idx.binding;
+		write_desc.dstBinding = idx.binding + rw_offset;
 		write_desc.dstArrayElement = 0;
 		write_desc.descriptorCount = uint32_t(mip_info.size());
-		write_desc.descriptorType = entry.desc_types[idx.binding];
+		write_desc.descriptorType = entry.desc_types[idx.binding + rw_offset];
 		write_desc.pImageInfo = mip_info.data();
 		write_desc.pBufferInfo = nullptr;
 		write_desc.pTexelBufferView = nullptr;
 	}
-	
-	idx.next();
 }
 
 template <typename T, typename F>
-floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_encoder* encoder,
+floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_encoder& encoder,
 														 const vulkan_kernel::vulkan_kernel_entry& entry,
-														 vulkan_kernel::idx_handler& idx,
-														 vector<T>& image_array, F&& image_accessor) {
+														 const vulkan_kernel::idx_handler& idx,
+														 const vector<T>& image_array, F&& image_accessor) {
+	if (idx.is_implicit) {
+		log_error("implicit image argument is not supported yet - should not be here");
+		return;
+	}
+	
 	// TODO: write/read-write array support
 	
 	// transition images to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
-			image_accessor(img)->transition_write(encoder->cqueue, encoder->cmd_buffer.cmd_buffer,
+			image_accessor(img)->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 												  // also readable?
-												  img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
+												  img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 		}
 	}
 	else { // READ
 		for(auto& img : image_array) {
-			image_accessor(img)->transition_read(encoder->cqueue, encoder->cmd_buffer.cmd_buffer);
+			image_accessor(img)->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
 		}
 	}
 	
@@ -610,9 +712,9 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 	for(uint32_t i = 0; i < elem_count; ++i) {
 		memcpy(&(*image_info)[i], image_accessor(image_array[i])->get_vulkan_image_info(), sizeof(VkDescriptorImageInfo));
 	}
-	encoder->image_array_info.emplace_back(image_info);
+	encoder.image_array_info.emplace_back(image_info);
 	
-	auto& write_desc = encoder->write_descs[idx.write_desc];
+	auto& write_desc = encoder.write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
 	write_desc.dstSet = entry.desc_set;
@@ -623,21 +725,21 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 	write_desc.pImageInfo = image_info->data();
 	write_desc.pBufferInfo = nullptr;
 	write_desc.pTexelBufferView = nullptr;
-	
-	idx.next();
 }
 
-void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
-								 idx_handler& idx,
-								 vector<shared_ptr<compute_image>>& arg) const {
-	set_image_array_argument(encoder, entry, idx, arg, [](shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
+								 const idx_handler& idx,
+								 const vector<shared_ptr<compute_image>>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](const shared_ptr<compute_image>& img) {
+		return static_cast<vulkan_image*>(const_cast<compute_image*>(img.get()));
+	});
 }
 
-void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
-								 idx_handler& idx,
-								 vector<const compute_image*>& arg) const {
+								 const idx_handler& idx,
+								 const vector<compute_image*>& arg) const {
 	set_image_array_argument(encoder, entry, idx, arg, [](const compute_image* img) {
 		return static_cast<vulkan_image*>(const_cast<compute_image*>(img));
 	});

@@ -28,6 +28,7 @@
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/compute_kernel.hpp>
+#include <floor/compute/compute_kernel_arg.hpp>
 
 class vulkan_device;
 
@@ -73,15 +74,12 @@ public:
 		uint32_t binding { 0 };
 		// IUB index in the resp. descriptor set
 		uint32_t iub { 0 };
+		// flag if this is an implicit arg
+		bool is_implicit { false };
+		// current implicit argument index
+		uint32_t implicit { 0 };
 		// current kernel/shader entry
 		uint32_t entry { 0 };
-		
-		// advances all indices by one
-		void next() {
-			++arg;
-			++write_desc;
-			++binding;
-		}
 	};
 	
 	vulkan_kernel(kernel_map_type&& kernels);
@@ -123,32 +121,9 @@ public:
 												// NOTE: current workaround for not directly submitting cmd buffers
 												vector<shared_ptr<compute_buffer>>& retained_buffers,
 												const vector<multi_draw_entry>& draw_entries,
-												Args&&... args) const {
-		if(vertex_shader == nullptr) {
-			log_error("must specify a vertex shader!");
-			return;
-		}
-		
-		// create command buffer ("encoder") for this kernel execution
-		bool encoder_success = false;
-		const vector<const vulkan_kernel_entry*> shader_entries {
-			vertex_shader, fragment_shader
-		};
-		auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
-									  shader_entries, encoder_success);
-		if(!encoder_success) {
-			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
-					  vertex_shader->info->name);
-			return;
-		}
-		
-		// set and handle arguments
-		idx_handler idx;
-		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
-		
-		// run
-		draw_internal(encoder, cqueue, vertex_shader, fragment_shader, retained_buffers,
-					  &draw_entries, nullptr);
+												const Args&... args) const {
+		draw_internal(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader,
+					  retained_buffers, &draw_entries, nullptr, { args... });
 	}
 	
 	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
@@ -164,32 +139,9 @@ public:
 														// NOTE: current workaround for not directly submitting cmd buffers
 														vector<shared_ptr<compute_buffer>>& retained_buffers,
 														const vector<multi_draw_indexed_entry>& draw_entries,
-														Args&&... args) const {
-		if(vertex_shader == nullptr) {
-			log_error("must specify a vertex shader!");
-			return;
-		}
-		
-		// create command buffer ("encoder") for this kernel execution
-		bool encoder_success = false;
-		const vector<const vulkan_kernel_entry*> shader_entries {
-			vertex_shader, fragment_shader
-		};
-		auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
-									  shader_entries, encoder_success);
-		if(!encoder_success) {
-			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
-					  vertex_shader->info->name);
-			return;
-		}
-		
-		// set and handle arguments
-		idx_handler idx;
-		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
-		
-		// run
-		draw_internal(encoder, cqueue, vertex_shader, fragment_shader, retained_buffers,
-					  nullptr, &draw_entries);
+														const Args&... args) const {
+		draw_internal(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader,
+					  retained_buffers, nullptr, &draw_entries, { args... });
 	}
 	
 	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
@@ -211,80 +163,47 @@ protected:
 								 vulkan_kernel_entry& entry,
 								 const uint3& work_group_size) const;
 	
-	void draw_internal(shared_ptr<vulkan_encoder> encoder,
-					   const compute_queue& cqueue,
-					   const vulkan_kernel_entry* vs_entry,
-					   const vulkan_kernel_entry* fs_entry,
+	void draw_internal(const compute_queue& cqueue,
+					   void* cmd_buffer,
+					   const VkPipeline pipeline,
+					   const VkPipelineLayout pipeline_layout,
+					   const vulkan_kernel_entry* vertex_shader,
+					   const vulkan_kernel_entry* fragment_shader,
 					   vector<shared_ptr<compute_buffer>>& retained_buffers,
 					   const vector<multi_draw_entry>* draw_entries,
-					   const vector<multi_draw_indexed_entry>* draw_indexed_entries) const;
+					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
+					   const vector<compute_kernel_arg>& args) const;
 	
-	//! returns the entry for the current indices and makes sure that stage_input args are ignored
-	const vulkan_kernel_entry* arg_pre_handler(const vector<const vulkan_kernel_entry*>& entries,
-											   idx_handler& idx) const;
-	
-	//! terminator
-	floor_inline_always void set_arguments(vulkan_encoder*,
-										   const vector<const vulkan_kernel_entry*>&,
-										   idx_handler&) const {}
-	
-	//! set argument and recurse
-	template <typename T, typename... Args>
-	floor_inline_always void set_arguments(vulkan_encoder* encoder,
-										   const vector<const vulkan_kernel_entry*>& entries,
-										   idx_handler& idx,
-										   T&& arg, Args&&... args) const {
-		auto entry = arg_pre_handler(entries, idx);
-		set_argument(encoder, *entry, idx, forward<T>(arg));
-		set_arguments(encoder, entries, idx, forward<Args>(args)...);
-	}
+	bool set_and_handle_arguments(vulkan_encoder& encoder,
+								  const vector<const vulkan_kernel_entry*>& shader_entries,
+								  idx_handler& idx,
+								  const vector<compute_kernel_arg>& args,
+								  const vector<compute_kernel_arg>& implicit_args) const;
 	
 	// actual argument setters
-	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
-	floor_inline_always void set_argument(vulkan_encoder* encoder,
-										  const vulkan_kernel_entry& entry,
-										  idx_handler& idx,
-										  T&& arg) const {
-		set_argument(encoder, entry, idx, &arg, sizeof(T));
-	}
-	
-	void set_argument(vulkan_encoder* encoder,
+	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
-					  idx_handler& idx,
+					  const idx_handler& idx,
 					  const void* ptr, const size_t& size) const;
 	
-	floor_inline_always void set_argument(vulkan_encoder* encoder,
-										  const vulkan_kernel_entry& entry,
-										  idx_handler& idx,
-										  shared_ptr<compute_buffer> arg) const {
-		set_argument(encoder, entry, idx, arg.get());
-	}
-	
-	floor_inline_always void set_argument(vulkan_encoder* encoder,
-										  const vulkan_kernel_entry& entry,
-										  idx_handler& idx,
-										  shared_ptr<compute_image> arg) const {
-		set_argument(encoder, entry, idx, arg.get());
-	}
-	
-	void set_argument(vulkan_encoder* encoder,
+	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
-					  idx_handler& idx,
+					  const idx_handler& idx,
 					  const compute_buffer* arg) const;
 	
-	void set_argument(vulkan_encoder* encoder,
+	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
-					  idx_handler& idx,
+					  const idx_handler& idx,
 					  const compute_image* arg) const;
 	
-	void set_argument(vulkan_encoder* encoder,
+	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
-					  idx_handler& idx,
-					  vector<shared_ptr<compute_image>>& arg) const;
-	void set_argument(vulkan_encoder* encoder,
+					  const idx_handler& idx,
+					  const vector<shared_ptr<compute_image>>& arg) const;
+	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
-					  idx_handler& idx,
-					  vector<const compute_image*>& arg) const;
+					  const idx_handler& idx,
+					  const vector<compute_image*>& arg) const;
 	
 };
 
