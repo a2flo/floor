@@ -4104,10 +4104,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..4004d8cc636
+index 00000000000..460cec9c4f0
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,585 @@
+@@ -0,0 +1,590 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4418,6 +4418,7 @@ index 00000000000..4004d8cc636
 +        {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
 +        {200, {{{2, 0, 0}}, {{2, 0, 0}}}},
 +        {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
++        {220, {{{2, 2, 0}}, {{2, 2, 0}}}},
 +    };
 +
 +//
@@ -4434,8 +4435,10 @@ index 00000000000..4004d8cc636
 +      target_air_version = 120;
 +    } else if (ios_major == 11) {
 +      target_air_version = 200;
-+    } else if (ios_major >= 12) {
++    } else if (ios_major == 12) {
 +      target_air_version = 210;
++    } else if (ios_major >= 13) {
++      target_air_version = 220;
 +    }
 +  } else {
 +    uint32_t osx_major, osx_minor, osx_micro;
@@ -4446,8 +4449,10 @@ index 00000000000..4004d8cc636
 +      target_air_version = 120;
 +    } else if (osx_major == 10 && osx_minor == 13) {
 +      target_air_version = 200;
-+    } else if ((osx_major == 10 && osx_minor >= 14) || osx_major > 10) {
++    } else if (osx_major == 10 && osx_minor == 14) {
 +      target_air_version = 210;
++    } else if ((osx_major == 10 && osx_minor >= 15) || osx_major > 10) {
++      target_air_version = 220;
 +    }
 +  }
 +  const auto &metal_version = *metal_versions.find(target_air_version);
@@ -58574,10 +58579,10 @@ index 00000000000..806634a078e
 +required_libraries = Analysis BitReader
 diff --git a/tools/metallib-dis/metallib-dis.cpp b/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 00000000000..fd9cf05527e
+index 00000000000..97a8da30953
 --- /dev/null
 +++ b/tools/metallib-dis/metallib-dis.cpp
-@@ -0,0 +1,502 @@
+@@ -0,0 +1,508 @@
 +//===-- metallib-dis.cpp - The low-level MetalLib + LLVM disassembler -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -58756,6 +58761,7 @@ index 00000000000..fd9cf05527e
 +		uint64_t bitcode_size { 0 }; // always 8 bytes
 +		version_info metal_version { 0, 0, 0 };
 +		version_info metal_language_version { 0, 0, 0 };
++		uint8_t tess_info { 0 };
 +	};
 +	vector<entry> entries;
 +};
@@ -58938,6 +58944,10 @@ index 00000000000..fd9cf05527e
 +					entry.bitcode_size = *(const uint64_t*)program_ptr;
 +					break;
 +				}
++				case metallib_program_info::TAG_TYPE::TESS: {
++					entry.tess_info = *(const uint8_t*)program_ptr;
++					break;
++				}
 +				case metallib_program_info::TAG_TYPE::END: {
 +					found_end_tag = true;
 +					break;
@@ -58991,6 +59001,7 @@ index 00000000000..fd9cf05527e
 +			hash_hex << uint32_t(prog.sha256_hash[i]);
 +		}
 +		os << hash_hex.str() << '\n';
++		os << "\ttess info: " << uint32_t(prog.tess_info) << '\n';
 +		
 +		// output LLVM IR
 +		// TODO: could use stringref?
