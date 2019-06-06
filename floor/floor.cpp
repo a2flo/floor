@@ -565,7 +565,7 @@ bool floor::init(const init_state& state) {
 																{ { 30800u, ~0u }, &config.vulkan_spirv_validator },
 															});
 		if(config.vulkan_base_path == "") {
-#if defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		}

@@ -480,7 +480,7 @@
 		5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_image.hpp; path = device/opencl_image.hpp; sourceTree = "<group>"; };
 		5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_pre.hpp; path = device/opencl_pre.hpp; sourceTree = "<group>"; };
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
-		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.1/include/metal; sourceTree = DEVELOPER_DIR; };
+		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
 		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
 		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
 		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
@@ -517,7 +517,7 @@
 		5CC5980A201E724500D8D19F /* vector_1d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_1d.cpp; sourceTree = "<group>"; };
 		5CC5980B201E724500D8D19F /* vector_3d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_3d.cpp; sourceTree = "<group>"; };
 		5CC5980C201E724500D8D19F /* vector_4d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_4d.cpp; sourceTree = "<group>"; };
-		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
+		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
@@ -533,11 +533,6 @@
 		5CD2176319EAA8800049D6AE /* opencl_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_device.cpp; sourceTree = "<group>"; };
 		5CD2176419EAA8800049D6AE /* opencl_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_device.hpp; sourceTree = "<group>"; };
 		5CD2176819EBEC4B0049D6AE /* README.textile */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.textile; sourceTree = "<group>"; };
-		5CD496531D53D5FB00B7E12A /* 40_clang.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = 40_clang.patch; path = etc/llvm40/40_clang.patch; sourceTree = "<group>"; };
-		5CD496541D53D5FB00B7E12A /* 40_libcxx.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = 40_libcxx.patch; path = etc/llvm40/40_libcxx.patch; sourceTree = "<group>"; };
-		5CD496551D53D5FB00B7E12A /* 40_llvm.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = 40_llvm.patch; path = etc/llvm40/40_llvm.patch; sourceTree = "<group>"; };
-		5CD496561D53D5FB00B7E12A /* build.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm40/build.sh; sourceTree = "<group>"; };
-		5CD496571D53D5FB00B7E12A /* pkg.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm40/pkg.sh; sourceTree = "<group>"; };
 		5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_image.hpp; path = device/metal_image.hpp; sourceTree = "<group>"; };
 		5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_image.hpp; path = device/cuda_image.hpp; sourceTree = "<group>"; };
 		5CD6448D1A51BF5B00716FE8 /* compute_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_common.hpp; sourceTree = "<group>"; };
@@ -944,7 +939,6 @@
 			isa = PBXGroup;
 			children = (
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
-				5CD496521D53D5E400B7E12A /* llvm40 */,
 				5CC1DB2221D6E3B500EB2E52 /* llvm80 */,
 			);
 			name = etc;
@@ -1051,18 +1045,6 @@
 				5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */,
 			);
 			path = opencl;
-			sourceTree = "<group>";
-		};
-		5CD496521D53D5E400B7E12A /* llvm40 */ = {
-			isa = PBXGroup;
-			children = (
-				5CD496531D53D5FB00B7E12A /* 40_clang.patch */,
-				5CD496541D53D5FB00B7E12A /* 40_libcxx.patch */,
-				5CD496551D53D5FB00B7E12A /* 40_llvm.patch */,
-				5CD496561D53D5FB00B7E12A /* build.sh */,
-				5CD496571D53D5FB00B7E12A /* pkg.sh */,
-			);
-			name = llvm40;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

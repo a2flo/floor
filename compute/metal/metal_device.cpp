@@ -48,7 +48,5 @@ metal_device::metal_device() : compute_device() {
 	max_total_local_size = 512;
 #endif
 	
-	// for now (iOS9/OSX11 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
-	metal_version = METAL_VERSION::METAL_1_1;
-	driver_version_str = "1.1.0";
+	driver_version_str = "";
 }

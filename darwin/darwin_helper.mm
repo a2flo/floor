@@ -63,9 +63,9 @@ FLOOR_IGNORE_WARNING(objc-interface-ivars)
 	chrono::time_point<chrono::high_resolution_clock> tp_prev_frame;
 FLOOR_POP_WARNINGS()
 }
-@property (assign, nonatomic) CAMetalLayer* metal_layer;
+@property (unsafe_unretained, nonatomic) CAMetalLayer* metal_layer;
 @property (assign, nonatomic) bool is_hidpi;
-@property (assign, nonatomic) wnd_type_ptr wnd;
+@property (unsafe_unretained, nonatomic) wnd_type_ptr wnd;
 @property (assign, nonatomic) uint32_t refresh_rate;
 @end
 

@@ -34,17 +34,33 @@ class metal_device final : public compute_device {
 public:
 	metal_device();
 	
-	// metal version which this device supports
-	METAL_VERSION metal_version;
+	// Metal software version (Metal API) which this device supports
+	METAL_VERSION metal_software_version { METAL_VERSION::METAL_1_1 };
 	
-	// iOS: < 10000, macOS: >= 10000
-	uint32_t feature_set { 0u };
+	// Metal language version (kernels/shaders) which this device supports
+	METAL_VERSION metal_language_version { METAL_VERSION::METAL_1_1 };
 	
-	// device family
-	uint32_t family { 1u };
+	enum class FAMILY_TYPE : uint32_t {
+		APPLE, //!< iOS, tvOS, ...
+		MAC,
+		COMMON,
+		IOS_MAC,
+	};
+	static constexpr const char* family_type_to_string(const FAMILY_TYPE& fam_type) {
+		switch (fam_type) {
+			case FAMILY_TYPE::APPLE: return "Apple";
+			case FAMILY_TYPE::MAC: return "Mac";
+			case FAMILY_TYPE::COMMON: return "Common";
+			case FAMILY_TYPE::IOS_MAC: return "iOS-Mac";
+		}
+		floor_unreachable();
+	}
 	
-	// device family version (OS/Metal version dependent)
-	uint32_t family_version { 1u };
+	// device family type
+	FAMILY_TYPE family_type { FAMILY_TYPE::COMMON };
+	
+	// device family tier
+	uint32_t family_tier { 1u };
 	
 	// compute queue used for internal purposes (try not to use this ...)
 	compute_queue* internal_queue { nullptr };

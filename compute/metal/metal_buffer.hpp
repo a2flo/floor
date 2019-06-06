@@ -33,12 +33,12 @@ class metal_buffer final : public compute_buffer {
 public:
 	metal_buffer(const compute_queue& cqueue,
 				 const size_t& size_,
-				 void* host_ptr,
+				 void* host_ptr_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0,
 				 const uint32_t external_gl_object_ = 0) :
-	metal_buffer(false, cqueue, size_, host_ptr, flags_, opengl_type_, external_gl_object_) {}
+	metal_buffer(false, cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {}
 	
 	metal_buffer(const compute_queue& cqueue,
 				 const size_t& size_,

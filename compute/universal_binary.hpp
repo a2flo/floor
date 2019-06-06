@@ -152,9 +152,9 @@ namespace universal_binary {
 		struct __attribute__((packed)) {
 			FLOOR_FUBAR_VERSION_AND_TYPE // see top
 
-			//! major Metal target version
+			//! major Metal language target version
 			uint64_t major : 6;
-			//! minor Metal target version
+			//! minor Metal language target version
 			uint64_t minor : 4;
 			
 			//! if true, this target iOS

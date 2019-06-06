@@ -137,6 +137,8 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
 		++device_num;
 		
+		// TODO: eval MTLGPUFamily and MTLSoftwareVersion with macOS 10.15 and iOS 13.0
+		
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
 		device.vendor_name = "Apple";
@@ -147,92 +149,67 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		
 		// hard to make this forward compatible, there is no direct "get family" call
 		// -> just try the first 17 types, good enough for now
+		device.family_type = metal_device::FAMILY_TYPE::APPLE;
+		uint32_t feature_set = 0;
 		for(uint32_t i = 17; i > 0; --i) {
 			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
-				device.feature_set = i - 1;
+				feature_set = i - 1;
 				break;
 			}
 		}
 		device.version_str = to_string(device.family);
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 120000) {
-			device.metal_version = METAL_VERSION::METAL_2_1;
-		}
-		else if(darwin_helper::get_system_version() >= 110000) {
-			device.metal_version = METAL_VERSION::METAL_2_0;
-		}
-		else if(darwin_helper::get_system_version() >= 100000) {
-			device.metal_version = METAL_VERSION::METAL_1_2;
-		}
-		else {
-			device.metal_version = METAL_VERSION::METAL_1_1;
+		if(darwin_helper::get_system_version() >= 130000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = METAL_VERSION::METAL_2_2;
+		} else if(darwin_helper::get_system_version() >= 120000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_1;
+			device.metal_language_version = METAL_VERSION::METAL_2_1;
+		} else if(darwin_helper::get_system_version() >= 110000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_0;
+			device.metal_language_version = METAL_VERSION::METAL_2_0;
+		} else if(darwin_helper::get_system_version() >= 100000) {
+			device.metal_software_version = METAL_VERSION::METAL_1_2;
+			device.metal_language_version = METAL_VERSION::METAL_1_2;
+		} else {
+			device.metal_software_version = METAL_VERSION::METAL_1_1;
+			device.metal_language_version = METAL_VERSION::METAL_1_1;
 		}
 		
-		switch (device.feature_set) {
+		switch (feature_set) {
 			default:
 			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
 			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
 			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
 			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
 			case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
-				device.family = 1;
+				device.family_tier = 1;
 				break;
 			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
 			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
 			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
 			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
 			case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
-				device.family = 2;
+				device.family_tier = 2;
 				break;
 			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
 			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
 			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
 			case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
-				device.family = 3;
+				device.family_tier = 3;
 				break;
 			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
 			case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
-				device.family = 4;
+				device.family_tier = 4;
 				break;
 			case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
-				device.family = 5;
-				break;
-		}
-		
-		switch (device.feature_set) {
-			default:
-			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
-			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
-			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
-			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
-			case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
-				device.family_version = 1;
-				break;
-			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
-			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
-			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
-			case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
-				device.family_version = 2;
-				break;
-			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
-			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
-			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
-				device.family_version = 3;
-				break;
-			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
-			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
-			case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
-				device.family_version = 4;
-				break;
-			case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
-			case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
-				device.family_version = 5;
+				device.family_tier = 5;
 				break;
 		}
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
-		switch (device.family) {
+		switch (device.family_tier) {
 			// A7/A7X
 			default:
 			case 1:
@@ -332,45 +309,26 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		
 		// there is no direct way of querying the highest available feature set
 		// -> find the highest (currently known) version
-		device.feature_set = 10000;
+		device.family_type = metal_device::FAMILY_TYPE::MAC;
+		uint32_t feature_set = 10000;
 		for (uint32_t fs_version = 10005; fs_version >= 10000; --fs_version) {
 			if ([dev supportsFeatureSet:(MTLFeatureSet)(fs_version)]) {
-				device.feature_set = fs_version;
+				feature_set = fs_version;
 				break;
 			}
 		}
 		
-		switch (device.feature_set) {
+		switch (feature_set) {
 			default:
 			case 10000: // MTLFeatureSet_macOS_GPUFamily1_v1
 			case 10001: // MTLFeatureSet_macOS_GPUFamily1_v2
 			case 10002: // MTLFeatureSet_macOS_ReadWriteTextureTier2
 			case 10003: // MTLFeatureSet_macOS_GPUFamily1_v3
 			case 10004: // MTLFeatureSet_macOS_GPUFamily1_v4
-				device.family = 1;
+				device.family_tier = 1;
 				break;
 			case 10005: // MTLFeatureSet_macOS_GPUFamily2_v1
-				device.family = 2;
-				break;
-		}
-		
-		switch (device.feature_set) {
-			default:
-			case 10000: // MTLFeatureSet_macOS_GPUFamily1_v1
-				device.family_version = 1;
-				break;
-			case 10001: // MTLFeatureSet_macOS_GPUFamily1_v2
-			case 10002: // MTLFeatureSet_macOS_ReadWriteTextureTier2
-				device.family_version = 2;
-				break;
-			case 10003: // MTLFeatureSet_macOS_GPUFamily1_v3
-				device.family_version = 3;
-				break;
-			case 10004: // MTLFeatureSet_macOS_GPUFamily1_v4
-				device.family_version = 4;
-				break;
-			case 10005: // MTLFeatureSet_macOS_GPUFamily2_v1
-				device.family_version = 1;
+				device.family_tier = 2;
 				break;
 		}
 		
@@ -396,28 +354,32 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 101400) {
-			device.metal_version = METAL_VERSION::METAL_2_1;
-		}
-		else if(darwin_helper::get_system_version() >= 101300) {
-			device.metal_version = METAL_VERSION::METAL_2_0;
-		}
-		else if(darwin_helper::get_system_version() >= 101200) {
-			device.metal_version = METAL_VERSION::METAL_1_2;
-		}
-		else {
-			device.metal_version = METAL_VERSION::METAL_1_1;
+		if (darwin_helper::get_system_version() >= 101500) {
+			device.metal_software_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = METAL_VERSION::METAL_2_2;
+		} else if (darwin_helper::get_system_version() >= 101400) {
+			device.metal_software_version = METAL_VERSION::METAL_2_1;
+			device.metal_language_version = METAL_VERSION::METAL_2_1;
+		} else if (darwin_helper::get_system_version() >= 101300) {
+			device.metal_software_version = METAL_VERSION::METAL_2_0;
+			device.metal_language_version = METAL_VERSION::METAL_2_0;
+		} else if (darwin_helper::get_system_version() >= 101200) {
+			device.metal_software_version = METAL_VERSION::METAL_1_2;
+			device.metal_language_version = METAL_VERSION::METAL_1_2;
+		} else {
+			device.metal_software_version = METAL_VERSION::METAL_1_1;
+			device.metal_language_version = METAL_VERSION::METAL_1_1;
 		}
 		
 		// Metal 2.0+ on macOS supports sub-groups and shuffle
-		if (device.metal_version >= METAL_VERSION::METAL_2_0) {
+		if (device.metal_language_version >= METAL_VERSION::METAL_2_0) {
 			device.sub_group_support = true;
 			device.sub_group_shuffle_support = true;
 		}
 #endif
 		device.max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
-		if (device.feature_set >= 10000 && (device.family > 1 ||
-											 (device.family == 1 && device.family_version >= 2))) {
+		if (device.family_type == metal_device::FAMILY_TYPE::MAC &&
+			device.metal_software_version >= METAL_VERSION::METAL_1_2) {
 			device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		}
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
@@ -440,13 +402,14 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (global: %u MB, local: %u bytes): %s, feature set %u, family %u, family version %u",
+		log_debug("GPU (global: %u MB, local: %u bytes): %s, Metal %s / %s, family type %u tier %u",
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.local_mem_size,
 				  device.name,
-				  device.feature_set,
-				  device.family,
-				  device.family_version);
+				  metal_version_to_string(device.metal_software_version),
+				  metal_version_to_string(device.metal_language_version),
+				  metal_device::family_type_to_string(device.family_type),
+				  device.family_tier);
 	}
 	
 	// check if there is any supported / whitelisted device

@@ -388,10 +388,9 @@ namespace universal_binary {
 				
 				toolchain_version = floor::get_metal_toolchain_version();
 				options.target = llvm_toolchain::TARGET::AIR;
-				mtl_dev.metal_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
-				mtl_dev.feature_set = (mtl_target.is_ios ? 0 : 10000);
-				mtl_dev.family = 1; // can't be overwritten right now
-				mtl_dev.family_version = 1; // can't be overwritten right now
+				mtl_dev.metal_language_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
+				mtl_dev.family_type = (mtl_target.is_ios ? metal_device::FAMILY_TYPE::APPLE : metal_device::FAMILY_TYPE::MAC);
+				mtl_dev.family_tier = 1; // can't be overwritten right now
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
 				mtl_dev.double_support = false; // always disabled for now
 				
@@ -409,7 +408,7 @@ namespace universal_binary {
 					mtl_dev.image_cube_array_write_support = true;
 					
 					// sub-group/shuffle support on Metal 2.0+
-					if (mtl_dev.metal_version >= METAL_VERSION::METAL_2_0) {
+					if (mtl_dev.metal_language_version >= METAL_VERSION::METAL_2_0) {
 						mtl_dev.sub_group_support = true;
 						mtl_dev.sub_group_shuffle_support = true;
 					}
@@ -1019,17 +1018,17 @@ namespace universal_binary {
 					const auto& mtl_target = target.metal;
 					
 					// iOS binary, macOS device?
-					if (mtl_target.is_ios && mtl_dev.feature_set >= 10000u) {
+					if (mtl_target.is_ios && mtl_dev.family_type != metal_device::FAMILY_TYPE::APPLE) {
 						continue;
 					}
 					// macOS binary, iOS device?
-					if (!mtl_target.is_ios && mtl_dev.feature_set < 10000u) {
+					if (!mtl_target.is_ios && mtl_dev.family_type != metal_device::FAMILY_TYPE::MAC) {
 						continue;
 					}
 					
 					// version check
 					const auto mtl_ver = metal_version_from_uint(mtl_target.major, mtl_target.minor);
-					if (mtl_ver > mtl_dev.metal_version) {
+					if (mtl_ver > mtl_dev.metal_language_version) {
 						continue;
 					}
 					
