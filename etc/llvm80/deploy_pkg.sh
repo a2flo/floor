@@ -102,6 +102,17 @@ make_abs_path() {
 	fi
 }
 
+if [ ! -e ${DEPLOY_FLOOR_ROOT_FOLDER} ]; then
+	if [ ${DEPLOY_DRY_RUN} -eq 0 ]; then
+		info "floor root folder ${DEPLOY_FLOOR_ROOT_FOLDER} is missing, creating now ..."
+		mkdir -p "${DEPLOY_FLOOR_ROOT_FOLDER}"
+		if [ $? -ne 0 ]; then
+			error "failed to create floor root folder - maybe run with sudo?"
+		fi
+	else
+		error "floor root folder does not exists: ${DEPLOY_FLOOR_ROOT_FOLDER}"
+	fi
+fi
 DEPLOY_FLOOR_ROOT_FOLDER=$(collapse_path $(make_abs_path "${DEPLOY_FLOOR_ROOT_FOLDER}"))
 DEPLOY_TARGET="${DEPLOY_FLOOR_ROOT_FOLDER}/${DEPLOY_TOOLCHAIN_FOLDER}"
 if [ ${#DEPLOY_TARGET} -eq 0 ]; then
