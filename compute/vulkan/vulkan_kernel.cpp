@@ -23,6 +23,7 @@
 #include <floor/compute/vulkan/vulkan_common.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/compute/soft_printf.hpp>
 
 using namespace llvm_toolchain;
@@ -439,7 +440,6 @@ void vulkan_kernel::draw_internal(const compute_queue& cqueue,
 								  const VkPipelineLayout pipeline_layout,
 								  const vulkan_kernel_entry* vertex_shader,
 								  const vulkan_kernel_entry* fragment_shader,
-								  vector<shared_ptr<compute_buffer>>& retained_buffers,
 								  const vector<multi_draw_entry>* draw_entries,
 								  const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 								  const vector<compute_kernel_arg>& args) const {
@@ -449,6 +449,7 @@ void vulkan_kernel::draw_internal(const compute_queue& cqueue,
 	}
 	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	auto& vk_cmd_buffer = *(vulkan_queue::command_buffer*)cmd_buffer;
 	
 	// create command buffer ("encoder") for this kernel execution
 	bool encoder_success = false;
@@ -542,16 +543,26 @@ void vulkan_kernel::draw_internal(const compute_queue& cqueue,
 		}
 	}
 	
-	// NOTE: caller will end command buffer
-	
-	// TODO: soft-printf eval
+	// add completion handler to evaluate printf buffers on completion
 	if (is_vs_soft_printf || is_fs_soft_printf) {
-		// TODO: add to retained
-		// TODO: eval after completion (in callback?)
+		const auto& vk_queue = (const vulkan_queue&)cqueue;
+		vk_queue.add_completion_handler(vk_cmd_buffer, [printf_buffers, dev = &vk_dev]() {
+			const auto default_queue = ((const vulkan_compute*)dev->context)->get_device_default_queue(*dev);
+			for (const auto& printf_buffer : printf_buffers) {
+				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
+				printf_buffer->read(*default_queue, cpu_printf_buffer.get());
+				handle_printf_buffer(cpu_printf_buffer);
+			}
+		});
 	}
-	
-	// TODO: properly kill constant_buffers !!!
-	retained_buffers.insert(retained_buffers.end(), encoder->constant_buffers.begin(), encoder->constant_buffers.end());
+
+	// attach constant buffers to queue+cmd_buffer so that they will be destroyed once this is completed
+	if (!encoder->constant_buffers.empty()) {
+		const auto& vk_queue = (const vulkan_queue&)cqueue;
+		vk_queue.add_retained_buffers(vk_cmd_buffer, encoder->constant_buffers);
+	}
+
+	// NOTE: caller will end command buffer
 }
 
 void vulkan_kernel::set_argument(vulkan_encoder& encoder,

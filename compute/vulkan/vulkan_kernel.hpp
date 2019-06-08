@@ -114,16 +114,15 @@ public:
 	template <typename... Args> void multi_draw(const compute_queue& cqueue,
 												// NOTE: this is a vulkan_queue::command_buffer*
 												void* cmd_buffer,
-												const VkPipeline pipeline,
-												const VkPipelineLayout pipeline_layout,
+												const VkPipeline pipeline_,
+												const VkPipelineLayout pipeline_layout_,
 												const vulkan_kernel_entry* vertex_shader,
 												const vulkan_kernel_entry* fragment_shader,
 												// NOTE: current workaround for not directly submitting cmd buffers
-												vector<shared_ptr<compute_buffer>>& retained_buffers,
 												const vector<multi_draw_entry>& draw_entries,
 												const Args&... args) const {
-		draw_internal(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader,
-					  retained_buffers, &draw_entries, nullptr, { args... });
+		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,
+					  &draw_entries, nullptr, { args... });
 	}
 	
 	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
@@ -132,16 +131,15 @@ public:
 	template <typename... Args> void multi_draw_indexed(const compute_queue& cqueue,
 														// NOTE: this is a vulkan_queue::command_buffer*
 														void* cmd_buffer,
-														const VkPipeline pipeline,
-														const VkPipelineLayout pipeline_layout,
+														const VkPipeline pipeline_,
+														const VkPipelineLayout pipeline_layout_,
 														const vulkan_kernel_entry* vertex_shader,
 														const vulkan_kernel_entry* fragment_shader,
 														// NOTE: current workaround for not directly submitting cmd buffers
-														vector<shared_ptr<compute_buffer>>& retained_buffers,
 														const vector<multi_draw_indexed_entry>& draw_entries,
 														const Args&... args) const {
-		draw_internal(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader,
-					  retained_buffers, nullptr, &draw_entries, { args... });
+		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,
+					  nullptr, &draw_entries, { args... });
 	}
 	
 	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
@@ -169,7 +167,6 @@ protected:
 					   const VkPipelineLayout pipeline_layout,
 					   const vulkan_kernel_entry* vertex_shader,
 					   const vulkan_kernel_entry* fragment_shader,
-					   vector<shared_ptr<compute_buffer>>& retained_buffers,
 					   const vector<multi_draw_entry>* draw_entries,
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 					   const vector<compute_kernel_arg>& args) const;

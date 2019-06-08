@@ -85,6 +85,8 @@ vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name)
 							"failed to reset command buffer ("s + (name != nullptr ? name : "unknown") + ")",
 							{ nullptr, ~0u, nullptr })
 				cmd_buffers_in_use.set(i);
+				cmd_buffer_internals[i].retained_buffers.clear();
+				cmd_buffer_internals[i].completion_handlers.clear();
 				return { cmd_buffers[i], i, name };
 			}
 		}
@@ -128,8 +130,7 @@ void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
 										 const VkPipelineStageFlags wait_stage_flags) const {
-	submit_command_buffer(cmd_buffer, [](const command_buffer&){}, blocking,
-						  wait_semas, wait_sema_count, wait_stage_flags);
+	submit_command_buffer(cmd_buffer, {}, blocking, wait_semas, wait_sema_count, wait_stage_flags);
 }
 
 void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer,
@@ -180,7 +181,25 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 		release_fence(dev, fence);
 		
 		// call user-specified handler
-		completion_handler(cmd_buffer);
+		if (completion_handler) {
+			completion_handler(cmd_buffer);
+		}
+		
+		// call internal completion handlers and free retained buffers
+		vector<shared_ptr<compute_buffer>> retained_buffers;
+		vector<vulkan_completion_handler_t> completion_handlers;
+		{
+			GUARD(cmd_buffers_lock);
+			auto& internal_cmd_buffer = cmd_buffer_internals[cmd_buffer.index];
+			retained_buffers.swap(internal_cmd_buffer.retained_buffers);
+			completion_handlers.swap(internal_cmd_buffer.completion_handlers);
+		}
+		for (const auto& compl_handler : completion_handlers) {
+			if (compl_handler) {
+				compl_handler();
+			}
+		}
+		retained_buffers.clear();
 		
 		// mark cmd buffer as free again
 		{
@@ -189,14 +208,26 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 		}
 	};
 	
-	if(!blocking) {
+	if (!blocking) {
 		// spawn handler thread
 		task::spawn(submit_func, "q_submit_hndlr");
-	}
-	else {
+	} else {
 		// block until done or timeout
 		submit_func();
 	}
+}
+
+void vulkan_queue::add_retained_buffers(vulkan_queue::command_buffer& cmd_buffer,
+										const vector<shared_ptr<compute_buffer>>& buffers) const {
+	GUARD(cmd_buffers_lock);
+	auto& internal_cmd_buffer = cmd_buffer_internals[cmd_buffer.index];
+	internal_cmd_buffer.retained_buffers.insert(internal_cmd_buffer.retained_buffers.end(), buffers.begin(), buffers.end());
+}
+
+void vulkan_queue::add_completion_handler(vulkan_queue::command_buffer& cmd_buffer,
+										  vulkan_completion_handler_t completion_handler) const {
+	GUARD(cmd_buffers_lock);
+	cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(completion_handler);
 }
 
 #endif
