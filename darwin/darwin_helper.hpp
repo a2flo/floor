@@ -78,6 +78,7 @@ public:
 	static metal_view* create_metal_view(SDL_Window* wnd, id <MTLDevice> device);
 	static CAMetalLayer* get_metal_layer(metal_view* view);
 	static id <CAMetalDrawable> get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer);
+	static MTLPixelFormat get_metal_pixel_format(metal_view* view);
 #endif
 	
 };

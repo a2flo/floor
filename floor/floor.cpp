@@ -281,6 +281,7 @@ bool floor::init(const init_state& state) {
 		config.stereo = config_doc.get<bool>("screen.stereo", false);
 		config.dpi = config_doc.get<uint32_t>("screen.dpi", 0);
 		config.hidpi = config_doc.get<bool>("screen.hidpi", false);
+		config.wide_gamut = config_doc.get<bool>("screen.wide_gamut", false);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -779,6 +780,12 @@ bool floor::init_internal(const init_state& state) {
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		SDL_SetHint("SDL_HINT_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
+		
+		if (renderer == RENDERER::METAL || renderer == RENDERER::VULKAN) {
+			if (config.wide_gamut) {
+				log_debug("wide-gamut enabled");
+			}
+		}
 		
 		if(renderer == RENDERER::OPENGL) {
 			// gl attributes
@@ -1476,6 +1483,10 @@ const uint32_t& floor::get_dpi() {
 
 bool floor::get_hidpi() {
 	return config.hidpi;
+}
+
+bool floor::get_wide_gamut() {
+	return config.wide_gamut;
 }
 
 json::document& floor::get_config_doc() {

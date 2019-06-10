@@ -109,7 +109,10 @@ FLOOR_POP_WARNINGS()
 	);
 }
 
-- (instancetype)initWithWindow:(wnd_type_ptr)wnd withDevice:(id <MTLDevice>)device withHiDPI:(bool)hidpi {
+- (instancetype)initWithWindow:(wnd_type_ptr)wnd
+					withDevice:(id <MTLDevice>)device
+					 withHiDPI:(bool)hidpi
+				 withWideGamut:(bool)wide_gamut {
 	self.wnd = wnd;
 	self.is_hidpi = hidpi;
 	const auto frame = [self create_frame];
@@ -121,7 +124,21 @@ FLOOR_POP_WARNINGS()
 #endif
 		self.metal_layer = (CAMetalLayer*)self.layer;
 		self.metal_layer.device = device;
-		self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+		if (!wide_gamut) {
+			self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+		} else {
+#if !defined(FLOOR_IOS)
+			self.metal_layer.pixelFormat = MTLPixelFormatRGBA16Float;
+			self.metal_layer.wantsExtendedDynamicRangeContent = true;
+			// always use Display P3 for now
+			self.metal_layer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+#else
+			self.metal_layer.pixelFormat = MTLPixelFormatBGRA10_XR_sRGB;
+			// always use sRGB for now
+			// TODO: consider using kCGColorSpaceExtendedSRGB
+			self.metal_layer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+#endif
+		}
 #if defined(FLOOR_IOS)
 		self.metal_layer.opaque = true;
 		self.metal_layer.backgroundColor = nil;
@@ -221,7 +238,8 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 						initWithWindow:info.info.uikit.window
 #endif
 						withDevice:device
-						withHiDPI:floor::get_hidpi()];
+						withHiDPI:floor::get_hidpi()
+						withWideGamut:floor::get_wide_gamut()];
 #if !defined(FLOOR_IOS)
 	[[info.info.cocoa.window contentView] addSubview:view];
 #else
@@ -265,6 +283,10 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 	}];
 	return [[view metal_layer] nextDrawable];
 FLOOR_POP_WARNINGS()
+}
+
+MTLPixelFormat darwin_helper::get_metal_pixel_format(metal_view* view) {
+	return [[view metal_layer] pixelFormat];
 }
 
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd
@@ -457,7 +479,7 @@ void* darwin_helper::get_eagl_sharegroup() {
 
 void darwin_helper::compile_shaders() {
 	// glsl es 3.00
-	static constexpr const char blit_vs_text[] { u8R"RAWSTR(
+	static constexpr const char blit_vs_text[] { R"RAWSTR(
 		in vec2 in_vertex;
 		out lowp vec2 tex_coord;
 		void main() {
@@ -465,7 +487,7 @@ void darwin_helper::compile_shaders() {
 			tex_coord = in_vertex * 0.5 + 0.5;
 		}
 	)RAWSTR"};
-	static constexpr const char blit_fs_text[] { u8R"RAWSTR(
+	static constexpr const char blit_fs_text[] { R"RAWSTR(
 		uniform sampler2D tex;
 		in lowp vec2 tex_coord;
 		layout (location = 0) out lowp vec4 frag_color;

@@ -157,7 +157,6 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			}
 		}
-		device.version_str = to_string(device.family);
 		
 		// figure out which metal version we can use
 		if(darwin_helper::get_system_version() >= 130000) {

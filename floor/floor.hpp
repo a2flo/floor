@@ -178,6 +178,7 @@ public:
 	static bool get_stereo();
 	static const uint32_t& get_dpi();
 	static bool get_hidpi();
+	static bool get_wide_gamut();
 	
 	//! gets the logical window width
 	static uint32_t get_width();
@@ -315,7 +316,11 @@ protected:
 		// screen
 		uint32_t width = 1280, height = 720, dpi = 0;
 		int2 position { SDL_WINDOWPOS_UNDEFINED };
-		bool fullscreen = false, vsync = false, stereo = false, hidpi = false;
+		bool fullscreen = false;
+		bool vsync = false;
+		bool stereo = false;
+		bool hidpi = false;
+		bool wide_gamut = false;
 		
 		// audio
 		bool audio_disabled = true;

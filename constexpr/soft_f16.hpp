@@ -282,17 +282,12 @@ struct soft_f16 {
 		0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x0D,
 	};
 	
-	//! conversion to/from other types
-	FLOOR_FP16_CONSTEXPR float to_float() const {
-#if FLOOR_HAS_NATIVE_FP16 == 2
-		return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
-#elif FLOOR_HAS_NATIVE_FP16 == 1
-		return (float)value_fp16;
-#else
-		const uint16_t shift_value = value >> 10;
-		const uint16_t offset = (shift_value == 0 || shift_value == 32 ? 0 : 1024);
-		const uint16_t mantissa_index = offset + (value & 0x3FF);
-		const uint32_t mantissa = (mantissa_index >= 1024 ?
+	//! static function to convert a half precision value (stored as uint16_t) to a single precision float
+	static inline float half_to_float(const uint16_t& val) {
+		const uint16_t shift_value = val >> 10u;
+		const uint16_t offset = (shift_value == 0u || shift_value == 32u ? 0u : 1024u);
+		const uint16_t mantissa_index = offset + (val & 0x3FF);
+		const uint32_t mantissa = (mantissa_index >= 1024u ?
 								   0x38000000u + ((mantissa_index - 1024u) << 13u) :
 								   htof_mantissa_table[mantissa_index]);
 		const union {
@@ -300,6 +295,26 @@ struct soft_f16 {
 			uint32_t u32_value;
 		} ri { .u32_value = mantissa + htof_exponent_table[shift_value] };
 		return ri.f32_value;
+	}
+	
+	//! static function to convert a single precision float value to a half precision (stored as uint16_t)
+	static inline uint16_t float_to_half(const float& val) {
+		const union {
+			float f32_value;
+			uint32_t u32_value;
+		} ri { .f32_value = val };
+		return (ftoh_base_table[(ri.u32_value >> 23) & 0x1FF] +
+				uint16_t((ri.u32_value & 0x007FFFFF) >> ftoh_shift_table[(ri.u32_value >> 23) & 0x1FF]));
+	}
+	
+	//! conversion to/from other types
+	FLOOR_FP16_CONSTEXPR float to_float() const {
+#if FLOOR_HAS_NATIVE_FP16 == 2
+		return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
+#elif FLOOR_HAS_NATIVE_FP16 == 1
+		return (float)value_fp16;
+#else
+		return half_to_float(value);
 #endif
 	}
 	
@@ -308,11 +323,7 @@ struct soft_f16 {
 #if FLOOR_HAS_NATIVE_FP16 == 2
 		return (uint16_t)_mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(val), 0));
 #else
-		const union {
-			float f32_value;
-			uint32_t u32_value;
-		} ri { .f32_value = val };
-		return ftoh_base_table[(ri.u32_value >> 23) & 0x1FF] + uint16_t((ri.u32_value & 0x007FFFFF) >> ftoh_shift_table[(ri.u32_value >> 23) & 0x1FF]);
+		return float_to_half(val);
 #endif
 	}
 #endif
