@@ -40,17 +40,26 @@ class metal_compute;
 class opengl_compute;
 class vulkan_compute;
 
+class graphics_pipeline;
+struct render_pipeline_description;
+class graphics_pass;
+struct render_pass_description;
+class graphics_renderer;
+
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	//! unfortunately necessary, has empty body in .cpp
+	//! unfortunately necessary
 	virtual ~compute_context() = default;
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;
+	
+	//! returns true if there is graphics support (i.e. the context is able to perform graphics rendering)
+	virtual bool is_graphics_supported() const = 0;
 	
 	//! returns the underlying compute implementation type
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
@@ -217,6 +226,26 @@ public:
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																			llvm_toolchain::program_data program,
 																			const llvm_toolchain::TARGET target) = 0;
+	
+	//////////////////////////////////////////
+	// graphics functionality
+	
+	//! creates a graphics render pipline with the specified description
+	//! NOTE: only available on backends with graphics support
+	virtual unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const;
+	
+	//! creates a graphics render pass with the specified description
+	//! NOTE: only available on backends with graphics support
+	virtual unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc) const;
+	
+	//! creates a graphics renderer
+	//! NOTE: only available on backends with graphics support
+	virtual unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
+																   const graphics_pass& pass,
+																   const graphics_pipeline& pipeline) const;
+	
+	//! returns the underlying image type (pixel format) of the renderer/screen
+	virtual COMPUTE_IMAGE_TYPE get_renderer_image_type() const;
 	
 protected:
 	//! platform vendor enum (set after initialization)

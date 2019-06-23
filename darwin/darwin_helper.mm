@@ -61,6 +61,7 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(objc-interface-ivars)
 	atomic<uint32_t> max_scheduled_frames;
 	chrono::time_point<chrono::high_resolution_clock> tp_prev_frame;
+	CGColorSpaceRef colorspace_ref;
 FLOOR_POP_WARNINGS()
 }
 @property (unsafe_unretained, nonatomic) CAMetalLayer* metal_layer;
@@ -131,12 +132,14 @@ FLOOR_POP_WARNINGS()
 			self.metal_layer.pixelFormat = MTLPixelFormatRGBA16Float;
 			self.metal_layer.wantsExtendedDynamicRangeContent = true;
 			// always use Display P3 for now
-			self.metal_layer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+			colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+			self.metal_layer.colorspace = colorspace_ref;
 #else
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA10_XR_sRGB;
 			// always use sRGB for now
 			// TODO: consider using kCGColorSpaceExtendedSRGB
-			self.metal_layer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+			colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+			self.metal_layer.colorspace = colorspace_ref;
 #endif
 		}
 #if defined(FLOOR_IOS)
@@ -171,6 +174,7 @@ FLOOR_POP_WARNINGS()
 
 - (void)dealloc {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	CGColorSpaceRelease(colorspace_ref);
 }
 
 #if !defined(FLOOR_IOS) // not applicable to ios

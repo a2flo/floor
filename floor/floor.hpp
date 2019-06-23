@@ -42,11 +42,11 @@ public:
 		//! selects the renderer based on the config and OS
 		DEFAULT = 1,
 		
-		//! use the OpenGL 2.0 or 3.3+ renderer, or the OpenGL ES 2.0 or 3.0 renderer,
+		//! use the OpenGL 2.0 or 3.3+ renderer, or the OpenGL ES 3.0 renderer,
 		//! based on the OS and init_state
 		OPENGL = 2,
 		
-		//! use the Vulkan 1.0+ renderer
+		//! use the Vulkan 1.1+ renderer
 		VULKAN = 3,
 		
 		//! use the Metal 1.1+ renderer
@@ -450,6 +450,9 @@ protected:
 	static bool use_gl_context;
 	static uint32_t global_vao;
 	static string gl_vendor;
+	
+	// Metal
+	static shared_ptr<metal_compute> metal_ctx;
 	
 	// Vulkan
 	static shared_ptr<vulkan_compute> vulkan_ctx;

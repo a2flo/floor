@@ -44,6 +44,8 @@ public:
 	
 	bool is_supported() const override { return supported; }
 	
+	bool is_graphics_supported() const override { return supported; /* identical to is_supported */ }
+	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 	
 	//////////////////////////////////////////
@@ -139,6 +141,19 @@ public:
 	shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																	llvm_toolchain::program_data program,
 																	const llvm_toolchain::TARGET target) override REQUIRES(!programs_lock);
+	
+	//////////////////////////////////////////
+	// graphics functionality
+	
+	unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const override;
+	
+	unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc) const override;
+	
+	unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
+														   const graphics_pass& pass,
+														   const graphics_pipeline& pipeline) const override;
+	
+	COMPUTE_IMAGE_TYPE get_renderer_image_type() const override;
 	
 	//////////////////////////////////////////
 	// vulkan specific functions

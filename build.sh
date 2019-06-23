@@ -380,7 +380,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan constexpr core floor lang math net threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan graphics graphics/metal graphics/vulkan constexpr core floor lang math net threading"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi

@@ -32,7 +32,7 @@
 class metal_buffer;
 class metal_device;
 
-class metal_kernel final : public compute_kernel {
+class metal_kernel : public compute_kernel {
 public:
 	// encapsulates MTLComputeCommandEncoder and MTLCommandBuffer, so we don't need obj-c++ here
 	struct metal_encoder;
@@ -61,24 +61,6 @@ protected:
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue& queue) const;
-	
-	//! actual kernel argument setters
-	void set_const_argument(metal_encoder& encoder, uint32_t& buffer_idx,
-							const void* ptr, const size_t& size) const;
-	
-	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
-							 metal_encoder& encoder, const kernel_entry& entry,
-							 const compute_buffer* arg) const;
-	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
-							 metal_encoder& encoder, const kernel_entry& entry,
-							 const compute_image* arg) const;
-	
-	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
-							 metal_encoder& encoder, const kernel_entry& entry,
-							 const vector<shared_ptr<compute_image>>& arg) const;
-	void set_kernel_argument(const uint32_t total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
-							 metal_encoder& encoder, const kernel_entry& entry,
-							 const vector<compute_image*>& arg) const;
 	
 };
 

@@ -37,6 +37,9 @@
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
+#include <floor/graphics/metal/metal_pipeline.hpp>
+#include <floor/graphics/metal/metal_pass.hpp>
+#include <floor/graphics/metal/metal_renderer.hpp>
 #include <floor/floor/floor.hpp>
 #include <Metal/Metal.h>
 
@@ -101,7 +104,7 @@
 
 #endif
 
-metal_compute::metal_compute(const vector<string> whitelist) : compute_context() {
+metal_compute::metal_compute(const bool enable_renderer_, const vector<string> whitelist) : compute_context(), enable_renderer(enable_renderer_) {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
@@ -448,6 +451,17 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		internal_queues.insert_or_assign(*dev, dev_queue);
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 	}
+	
+	// init renderer
+	if (enable_renderer) {
+		render_device = (const metal_device*)fastest_gpu_device;
+		auto mtl_dev = render_device->device;
+		view = darwin_helper::create_metal_view(floor::get_window(), mtl_dev);
+		if (view == nullptr) {
+			log_error("failed to create Metal view!");
+			supported = false;
+		}
+	}
 }
 
 shared_ptr<compute_queue> metal_compute::create_queue(const compute_device& dev) const {
@@ -715,6 +729,69 @@ shared_ptr<compute_program> metal_compute::create_metal_test_program(shared_ptr<
 	metal_program::program_map_type prog_map;
 	prog_map.insert(*metal_dev, *metal_entry);
 	return make_shared<metal_program>(move(prog_map));
+}
+
+MTLPixelFormat metal_compute::get_metal_renderer_pixel_format() const {
+	if (view == nullptr) {
+		return MTLPixelFormatInvalid;
+	}
+	return darwin_helper::get_metal_pixel_format(view);
+}
+
+id <CAMetalDrawable> metal_compute::get_metal_next_drawable(id <MTLCommandBuffer> cmd_buffer) const {
+	if (view == nullptr) {
+		return nil;
+	}
+	return darwin_helper::get_metal_next_drawable(view, cmd_buffer);
+}
+
+unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
+	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices);
+	if (!pipeline || !pipeline->is_valid()) {
+		return {};
+	}
+	return pipeline;
+}
+
+unique_ptr<graphics_pass> metal_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
+	auto pass = make_unique<metal_pass>(pass_desc);
+	if (!pass || !pass->is_valid()) {
+		return {};
+	}
+	return pass;
+}
+
+unique_ptr<graphics_renderer> metal_compute::create_graphics_renderer(const compute_queue& cqueue,
+																	  const graphics_pass& pass,
+																	  const graphics_pipeline& pipeline) const {
+	auto renderer = make_unique<metal_renderer>(cqueue, pass, pipeline);
+	if (!renderer || !renderer->is_valid()) {
+		return {};
+	}
+	return renderer;
+}
+
+COMPUTE_IMAGE_TYPE metal_compute::get_renderer_image_type() const {
+	switch (get_metal_renderer_pixel_format()) {
+		case MTLPixelFormatBGRA8Unorm:
+			return COMPUTE_IMAGE_TYPE::BGRA8UI_NORM;
+		case MTLPixelFormatBGRA8Unorm_sRGB:
+			return COMPUTE_IMAGE_TYPE::BGRA8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+		case MTLPixelFormatRGBA16Float:
+			return COMPUTE_IMAGE_TYPE::RGBA16F;
+#if defined(FLOOR_IOS)
+		case MTLPixelFormatBGR10_XR:
+			return COMPUTE_IMAGE_TYPE::BGR10UI_UNORM;
+		case MTLPixelFormatBGR10_XR_sRGB:
+			return COMPUTE_IMAGE_TYPE::BGR10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+		case MTLPixelFormatBGRA10_XR:
+			return COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM;
+		case MTLPixelFormatBGRA10_XR_sRGB:
+			return COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+#endif
+		default: break;
+	}
+	return COMPUTE_IMAGE_TYPE::NONE;
 }
 
 #endif

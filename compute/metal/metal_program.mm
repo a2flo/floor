@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/metal/metal_kernel.hpp>
+#include <floor/graphics/metal/metal_shader.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/core.hpp>
@@ -36,6 +37,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 		metal_kernel::kernel_map_type kernel_map;
 		kernel_map.reserve(kernel_names.size());
 		
+		bool is_kernel = true;
 		for(auto& prog : programs) {
 			if(!prog.second.valid) continue;
 			for(const auto& info : prog.second.functions) {
@@ -43,6 +45,9 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
 					entry.max_local_size = prog.first.get().max_local_size;
+					if (entry.info->type != llvm_toolchain::function_info::FUNCTION_TYPE::KERNEL) {
+						is_kernel = false;
+					}
 					
 					//
 					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
@@ -81,7 +86,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 			}
 		}
 		
-		kernels.emplace_back(make_shared<metal_kernel>(move(kernel_map)));
+		kernels.emplace_back(is_kernel ? make_shared<metal_kernel>(move(kernel_map)) : make_shared<metal_shader>(move(kernel_map)));
 	}
 }
 

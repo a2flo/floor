@@ -71,6 +71,9 @@ bool floor::use_gl_context { false };
 uint32_t floor::global_vao { 0u };
 string floor::gl_vendor { "" };
 
+// Metal
+shared_ptr<metal_compute> floor::metal_ctx;
+
 // Vulkan
 shared_ptr<vulkan_compute> floor::vulkan_ctx;
 uint3 floor::vulkan_api_version;
@@ -689,6 +692,7 @@ void floor::destroy() {
 	}
 #endif
 	
+	metal_ctx = nullptr;
 	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;
 	
@@ -898,6 +902,18 @@ bool floor::init_internal(const init_state& state) {
 #endif
 #endif
 		}
+#if !defined(FLOOR_NO_METAL)
+		else if(renderer == RENDERER::METAL) {
+			// create the metal context
+			metal_ctx = make_shared<metal_compute>(true, config.metal_whitelist);
+			if(metal_ctx == nullptr ||
+			   !metal_ctx->is_supported()) {
+				log_error("failed to create the Metal renderer context");
+				renderer = RENDERER::NONE;
+				metal_ctx = nullptr;
+			}
+		}
+#endif
 #if !defined(FLOOR_NO_VULKAN)
 		else if(renderer == RENDERER::VULKAN) {
 			// create the vulkan context
@@ -916,6 +932,7 @@ bool floor::init_internal(const init_state& state) {
 	if(!console_only) {
 		log_debug("window %screated and acquired!",
 				  renderer == RENDERER::OPENGL ? "and OpenGL context " :
+				  renderer == RENDERER::METAL ? "and Metal context " :
 				  renderer == RENDERER::VULKAN ? "and Vulkan context " : "");
 		
 		if(SDL_GetCurrentVideoDriver() == nullptr) {
@@ -1073,9 +1090,13 @@ bool floor::init_internal(const init_state& state) {
 					break;
 				case COMPUTE_TYPE::METAL:
 #if !defined(FLOOR_NO_METAL)
-					if(!config.metal_toolchain_exists) break;
-					log_debug("initializing Metal ...");
-					compute_ctx = make_shared<metal_compute>(config.metal_whitelist);
+					if (metal_ctx != nullptr) {
+						compute_ctx = metal_ctx;
+					} else {
+						if (!config.metal_toolchain_exists) break;
+						log_debug("initializing Metal ...");
+						compute_ctx = make_shared<metal_compute>(false, config.metal_whitelist);
+					}
 #endif
 					break;
 				case COMPUTE_TYPE::HOST:
@@ -1086,10 +1107,10 @@ bool floor::init_internal(const init_state& state) {
 					break;
 				case COMPUTE_TYPE::VULKAN:
 #if !defined(FLOOR_NO_VULKAN)
-					if(vulkan_ctx != nullptr) {
+					if (vulkan_ctx != nullptr) {
 						compute_ctx = vulkan_ctx;
-					}
-					else {
+					} else {
+						if (!config.vulkan_toolchain_exists) break;
 						log_debug("initializing Vulkan ...");
 						compute_ctx = make_shared<vulkan_compute>(false, config.vulkan_whitelist);
 					}

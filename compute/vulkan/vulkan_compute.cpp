@@ -31,6 +31,9 @@
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 #include <floor/compute/device/sampler.hpp>
+#include <floor/graphics/vulkan/vulkan_pipeline.hpp>
+#include <floor/graphics/vulkan/vulkan_pass.hpp>
+#include <floor/graphics/vulkan/vulkan_renderer.hpp>
 
 
 #include <floor/core/platform_windows.hpp>
@@ -1444,6 +1447,37 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	}
 	
 	// TODO: cleanup!
+}
+
+unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
+	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc);
+	if (!pipeline || !pipeline->is_valid()) {
+		return {};
+	}
+	return pipeline;
+}
+
+unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
+	auto pass = make_unique<vulkan_pass>(pass_desc);
+	if (!pass || !pass->is_valid()) {
+		return {};
+	}
+	return pass;
+}
+
+unique_ptr<graphics_renderer> vulkan_compute::create_graphics_renderer(const compute_queue& cqueue,
+																	   const graphics_pass& pass,
+																	   const graphics_pipeline& pipeline) const {
+	auto renderer = make_unique<vulkan_renderer>(cqueue, pass, pipeline);
+	if (!renderer || !renderer->is_valid()) {
+		return {};
+	}
+	return renderer;
+}
+
+COMPUTE_IMAGE_TYPE vulkan_compute::get_renderer_image_type() const {
+	// TODO: implement this
+	return COMPUTE_IMAGE_TYPE::NONE;
 }
 
 #endif

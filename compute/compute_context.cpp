@@ -17,6 +17,9 @@
  */
 
 #include <floor/compute/compute_context.hpp>
+#include <floor/graphics/graphics_pipeline.hpp>
+#include <floor/graphics/graphics_pass.hpp>
+#include <floor/graphics/graphics_renderer.hpp>
 
 const compute_device* compute_context::get_device(const compute_device::TYPE type) const {
 	switch(type) {
@@ -73,4 +76,23 @@ vector<const compute_device*> compute_context::get_devices() const {
 		ret.emplace_back(dev.get());
 	}
 	return ret;
+}
+
+unique_ptr<graphics_pipeline> compute_context::create_graphics_pipeline(const render_pipeline_description&) const {
+	log_error("graphics not supported by this backend");
+	return {};
+}
+
+unique_ptr<graphics_pass> compute_context::create_graphics_pass(const render_pass_description&) const {
+	log_error("graphics not supported by this backend");
+	return {};
+}
+
+unique_ptr<graphics_renderer> compute_context::create_graphics_renderer(const compute_queue&, const graphics_pass&, const graphics_pipeline&) const {
+	log_error("graphics not supported by this backend");
+	return {};
+}
+
+COMPUTE_IMAGE_TYPE compute_context::get_renderer_image_type() const {
+	return COMPUTE_IMAGE_TYPE::NONE;
 }

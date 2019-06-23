@@ -115,11 +115,6 @@ static uint4 compute_metal_image_dim(id <MTLTexture> floor_nonnull img) {
 static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull img, const COMPUTE_MEMORY_FLAG flags) {
 	COMPUTE_IMAGE_TYPE type { COMPUTE_IMAGE_TYPE::NONE };
 	
-	if([img isFramebufferOnly]) {
-		log_error("metal image can only be used as a framebuffer");
-		return COMPUTE_IMAGE_TYPE::NONE;
-	}
-	
 	// start with the base format
 	switch([img textureType]) {
 		case MTLTextureType1D: type = COMPUTE_IMAGE_TYPE::IMAGE_1D; break;
@@ -233,7 +228,8 @@ FLOOR_POP_WARNINGS()
 	if([img mipmapLevelCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
 	if([img sampleCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
 	
-	if(([img usage] & MTLTextureUsageRenderTarget) != 0) {
+	if(([img usage] & MTLTextureUsageRenderTarget) != 0 ||
+	   [img isFramebufferOnly]) {
 		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
 	}
 	
@@ -361,105 +357,12 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	[desc setTextureType:tex_type];
 	
 	// and now for the fun bit: pixel format conversion ...
-	static const unordered_map<COMPUTE_IMAGE_TYPE, MTLPixelFormat> format_lut {
-		// R
-		{ COMPUTE_IMAGE_TYPE::R8UI_NORM, MTLPixelFormatR8Unorm },
-		{ COMPUTE_IMAGE_TYPE::R8I_NORM, MTLPixelFormatR8Snorm },
-		{ COMPUTE_IMAGE_TYPE::R8UI, MTLPixelFormatR8Uint },
-		{ COMPUTE_IMAGE_TYPE::R8I, MTLPixelFormatR8Sint },
-		{ COMPUTE_IMAGE_TYPE::R16UI_NORM, MTLPixelFormatR16Unorm },
-		{ COMPUTE_IMAGE_TYPE::R16I_NORM, MTLPixelFormatR16Snorm },
-		{ COMPUTE_IMAGE_TYPE::R16UI, MTLPixelFormatR16Uint },
-		{ COMPUTE_IMAGE_TYPE::R16I, MTLPixelFormatR16Sint },
-		{ COMPUTE_IMAGE_TYPE::R16F, MTLPixelFormatR16Float },
-		{ COMPUTE_IMAGE_TYPE::R32UI, MTLPixelFormatR32Uint },
-		{ COMPUTE_IMAGE_TYPE::R32I, MTLPixelFormatR32Sint },
-		{ COMPUTE_IMAGE_TYPE::R32F, MTLPixelFormatR32Float },
-		// RG
-		{ COMPUTE_IMAGE_TYPE::RG8UI_NORM, MTLPixelFormatRG8Unorm },
-		{ COMPUTE_IMAGE_TYPE::RG8I_NORM, MTLPixelFormatRG8Snorm },
-		{ COMPUTE_IMAGE_TYPE::RG8UI, MTLPixelFormatRG8Uint },
-		{ COMPUTE_IMAGE_TYPE::RG8I, MTLPixelFormatRG8Sint },
-		{ COMPUTE_IMAGE_TYPE::RG16UI_NORM, MTLPixelFormatRG16Unorm },
-		{ COMPUTE_IMAGE_TYPE::RG16I_NORM, MTLPixelFormatRG16Snorm },
-		{ COMPUTE_IMAGE_TYPE::RG16UI, MTLPixelFormatRG16Uint },
-		{ COMPUTE_IMAGE_TYPE::RG16I, MTLPixelFormatRG16Sint },
-		{ COMPUTE_IMAGE_TYPE::RG16F, MTLPixelFormatRG16Float },
-		{ COMPUTE_IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
-		{ COMPUTE_IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
-		{ COMPUTE_IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
-		// RGB -> RGBA
-		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
-		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
-		{ COMPUTE_IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
-		{ COMPUTE_IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
-		{ COMPUTE_IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
-		{ COMPUTE_IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
-		{ COMPUTE_IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
-		{ COMPUTE_IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
-		{ COMPUTE_IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
-		{ COMPUTE_IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
-		{ COMPUTE_IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
-		{ COMPUTE_IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
-		// RGBA
-		{ COMPUTE_IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
-		{ COMPUTE_IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
-		{ COMPUTE_IMAGE_TYPE::RGBA8UI, MTLPixelFormatRGBA8Uint },
-		{ COMPUTE_IMAGE_TYPE::RGBA8I, MTLPixelFormatRGBA8Sint },
-		{ COMPUTE_IMAGE_TYPE::RGBA16UI_NORM, MTLPixelFormatRGBA16Unorm },
-		{ COMPUTE_IMAGE_TYPE::RGBA16I_NORM, MTLPixelFormatRGBA16Snorm },
-		{ COMPUTE_IMAGE_TYPE::RGBA16UI, MTLPixelFormatRGBA16Uint },
-		{ COMPUTE_IMAGE_TYPE::RGBA16I, MTLPixelFormatRGBA16Sint },
-		{ COMPUTE_IMAGE_TYPE::RGBA16F, MTLPixelFormatRGBA16Float },
-		{ COMPUTE_IMAGE_TYPE::RGBA32UI, MTLPixelFormatRGBA32Uint },
-		{ COMPUTE_IMAGE_TYPE::RGBA32I, MTLPixelFormatRGBA32Sint },
-		{ COMPUTE_IMAGE_TYPE::RGBA32F, MTLPixelFormatRGBA32Float },
-		// BGRA
-		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
-		// depth / depth+stencil
-		{ (COMPUTE_IMAGE_TYPE::FLOAT |
-		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
-		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
-		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
-#if !defined(FLOOR_IOS) // os x only
-		{ (COMPUTE_IMAGE_TYPE::UINT |
-		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
-		   COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
-		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth24Unorm_Stencil8 },
-#endif
-		{ (COMPUTE_IMAGE_TYPE::FLOAT |
-		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
-		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
-		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-#if defined(FLOOR_IOS)
-		// PVRTC formats
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2, MTLPixelFormatPVRTC_RGBA_2BPP },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4, MTLPixelFormatPVRTC_RGBA_4BPP },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2_SRGB, MTLPixelFormatPVRTC_RGB_2BPP_sRGB },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
-		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
-#endif
-		// TODO: special image formats, these are partially supported
-	};
-	const auto metal_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
-															COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
-															COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
-															COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
-															COMPUTE_IMAGE_TYPE::__LAYOUT_MASK |
-															COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED |
-															COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-															COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
-															COMPUTE_IMAGE_TYPE::FLAG_SRGB));
-	if(metal_format == end(format_lut)) {
+	const auto metal_format = metal_pixel_format_from_image_type(image_type);
+	if (!metal_format) {
 		log_error("unsupported image format: %X", image_type);
 		return false;
 	}
-	[desc setPixelFormat:metal_format->second];
+	[desc setPixelFormat:*metal_format];
 	
 	// set shim format info if necessary
 	set_shim_type_info();
@@ -818,6 +721,115 @@ void metal_image::generate_mip_map_chain(const compute_queue& cqueue) {
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
+}
+
+optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const COMPUTE_IMAGE_TYPE& image_type_) {
+	static const unordered_map<COMPUTE_IMAGE_TYPE, MTLPixelFormat> format_lut {
+		// R
+		{ COMPUTE_IMAGE_TYPE::R8UI_NORM, MTLPixelFormatR8Unorm },
+		{ COMPUTE_IMAGE_TYPE::R8I_NORM, MTLPixelFormatR8Snorm },
+		{ COMPUTE_IMAGE_TYPE::R8UI, MTLPixelFormatR8Uint },
+		{ COMPUTE_IMAGE_TYPE::R8I, MTLPixelFormatR8Sint },
+		{ COMPUTE_IMAGE_TYPE::R16UI_NORM, MTLPixelFormatR16Unorm },
+		{ COMPUTE_IMAGE_TYPE::R16I_NORM, MTLPixelFormatR16Snorm },
+		{ COMPUTE_IMAGE_TYPE::R16UI, MTLPixelFormatR16Uint },
+		{ COMPUTE_IMAGE_TYPE::R16I, MTLPixelFormatR16Sint },
+		{ COMPUTE_IMAGE_TYPE::R16F, MTLPixelFormatR16Float },
+		{ COMPUTE_IMAGE_TYPE::R32UI, MTLPixelFormatR32Uint },
+		{ COMPUTE_IMAGE_TYPE::R32I, MTLPixelFormatR32Sint },
+		{ COMPUTE_IMAGE_TYPE::R32F, MTLPixelFormatR32Float },
+		// RG
+		{ COMPUTE_IMAGE_TYPE::RG8UI_NORM, MTLPixelFormatRG8Unorm },
+		{ COMPUTE_IMAGE_TYPE::RG8I_NORM, MTLPixelFormatRG8Snorm },
+		{ COMPUTE_IMAGE_TYPE::RG8UI, MTLPixelFormatRG8Uint },
+		{ COMPUTE_IMAGE_TYPE::RG8I, MTLPixelFormatRG8Sint },
+		{ COMPUTE_IMAGE_TYPE::RG16UI_NORM, MTLPixelFormatRG16Unorm },
+		{ COMPUTE_IMAGE_TYPE::RG16I_NORM, MTLPixelFormatRG16Snorm },
+		{ COMPUTE_IMAGE_TYPE::RG16UI, MTLPixelFormatRG16Uint },
+		{ COMPUTE_IMAGE_TYPE::RG16I, MTLPixelFormatRG16Sint },
+		{ COMPUTE_IMAGE_TYPE::RG16F, MTLPixelFormatRG16Float },
+		{ COMPUTE_IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
+		{ COMPUTE_IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
+		{ COMPUTE_IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
+		// RGB -> RGBA
+		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
+		{ COMPUTE_IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
+		// RGBA
+		{ COMPUTE_IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGBA8UI, MTLPixelFormatRGBA8Uint },
+		{ COMPUTE_IMAGE_TYPE::RGBA8I, MTLPixelFormatRGBA8Sint },
+		{ COMPUTE_IMAGE_TYPE::RGBA16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGBA16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGBA16UI, MTLPixelFormatRGBA16Uint },
+		{ COMPUTE_IMAGE_TYPE::RGBA16I, MTLPixelFormatRGBA16Sint },
+		{ COMPUTE_IMAGE_TYPE::RGBA16F, MTLPixelFormatRGBA16Float },
+		{ COMPUTE_IMAGE_TYPE::RGBA32UI, MTLPixelFormatRGBA32Uint },
+		{ COMPUTE_IMAGE_TYPE::RGBA32I, MTLPixelFormatRGBA32Sint },
+		{ COMPUTE_IMAGE_TYPE::RGBA32F, MTLPixelFormatRGBA32Float },
+		// BGR(A)
+		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
+		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA8Unorm_sRGB },
+#if defined(FLOOR_IOS)
+		{ COMPUTE_IMAGE_TYPE::BGR10UI_UNORM, MTLPixelFormatBGR10_XR },
+		{ COMPUTE_IMAGE_TYPE::BGR10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGR10_XR_sRGB },
+		{ COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM, MTLPixelFormatBGRA10_XR },
+		{ COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA10_XR_sRGB },
+#endif
+		// depth / depth+stencil
+		{ (COMPUTE_IMAGE_TYPE::FLOAT |
+		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
+		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
+		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
+#if !defined(FLOOR_IOS) // os x only
+		{ (COMPUTE_IMAGE_TYPE::UINT |
+		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
+		   COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
+		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth24Unorm_Stencil8 },
+#endif
+		{ (COMPUTE_IMAGE_TYPE::FLOAT |
+		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
+		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
+		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
+#if defined(FLOOR_IOS)
+		// PVRTC formats
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2, MTLPixelFormatPVRTC_RGBA_2BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4, MTLPixelFormatPVRTC_RGBA_4BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2_SRGB, MTLPixelFormatPVRTC_RGB_2BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
+#endif
+		// TODO: special image formats, these are partially supported
+	};
+	const auto masked_image_type = (image_type_ & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
+												   COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
+												   COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
+												   COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
+												   COMPUTE_IMAGE_TYPE::__LAYOUT_MASK |
+												   COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED |
+												   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+												   COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
+												   COMPUTE_IMAGE_TYPE::FLAG_SRGB));
+	const auto metal_pixel_format = format_lut.find(masked_image_type);
+	if (metal_pixel_format == end(format_lut)) {
+		return {};
+	}
+	return metal_pixel_format->second;
 }
 
 #endif

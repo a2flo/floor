@@ -41,6 +41,8 @@ public:
 	
 	bool is_supported() const override { return supported; }
 	
+	bool is_graphics_supported() const override { return false; }
+	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
 	//////////////////////////////////////////

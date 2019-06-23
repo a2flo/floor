@@ -118,7 +118,6 @@ public:
 												const VkPipelineLayout pipeline_layout_,
 												const vulkan_kernel_entry* vertex_shader,
 												const vulkan_kernel_entry* fragment_shader,
-												// NOTE: current workaround for not directly submitting cmd buffers
 												const vector<multi_draw_entry>& draw_entries,
 												const Args&... args) const {
 		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,
@@ -135,7 +134,6 @@ public:
 														const VkPipelineLayout pipeline_layout_,
 														const vulkan_kernel_entry* vertex_shader,
 														const vulkan_kernel_entry* fragment_shader,
-														// NOTE: current workaround for not directly submitting cmd buffers
 														const vector<multi_draw_indexed_entry>& draw_entries,
 														const Args&... args) const {
 		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,

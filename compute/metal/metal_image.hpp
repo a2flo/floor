@@ -68,6 +68,10 @@ public:
 	//! creates the mip-map chain for this metal image
 	void generate_mip_map_chain(const compute_queue& cqueue) override;
 	
+	//! returns the corresponding MTLPixelFormat for the specified COMPUTE_IMAGE_TYPE,
+	//! or nothing if there is no matching pixel format
+	static optional<MTLPixelFormat> metal_pixel_format_from_image_type(const COMPUTE_IMAGE_TYPE& image_type_);
+	
 protected:
 	id <MTLTexture> floor_null_unspecified image { nil };
 	MTLTextureDescriptor* floor_null_unspecified desc { nil };

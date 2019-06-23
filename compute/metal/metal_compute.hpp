@@ -27,18 +27,27 @@
 #include <floor/threading/thread_safety.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 
+#if defined(__OBJC__)
+@class metal_view;
+#import <QuartzCore/CAMetalLayer.h>
+#import <Metal/Metal.h>
+#endif
+
 class metal_program;
+class metal_device;
 
 class metal_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	metal_compute(const vector<string> whitelist = {});
+	metal_compute(const bool enable_renderer = false, const vector<string> whitelist = {});
 	
 	~metal_compute() override {}
 	
 	bool is_supported() const override { return supported; }
+	
+	bool is_graphics_supported() const override { return supported; /* identical to is_supported */ }
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
@@ -130,15 +139,46 @@ public:
 																	const llvm_toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
+	// graphics functionality
+	
+	unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const override;
+	
+	unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc) const override;
+	
+	unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
+														   const graphics_pass& pass,
+														   const graphics_pipeline& pipeline) const override;
+	
+	COMPUTE_IMAGE_TYPE get_renderer_image_type() const override;
+	
+	//////////////////////////////////////////
 	// metal specific functions
 	
+	//! returns the internally used compute_queue for the specified device
 	shared_ptr<compute_queue> get_device_internal_queue(const compute_device& dev) const;
 	
 	//! for debugging/testing purposes only (circumvents the internal program handling)
 	shared_ptr<compute_program> create_metal_test_program(shared_ptr<compute_program::program_entry> entry);
 	
+	// Metal functions only available in Objective-C/C++ mode
+#if defined(__OBJC__)
+	//! if this context was created with renderer support, this returns the underlying pixel format of the Metal view
+	MTLPixelFormat get_metal_renderer_pixel_format() const;
+	
+	//! if this context was created with renderer support, return the next drawable of the Metal view
+	id <CAMetalDrawable> get_metal_next_drawable(id <MTLCommandBuffer> cmd_buffer) const;
+#endif
+	
 protected:
 	void* ctx { nullptr };
+	
+	bool enable_renderer { false };
+#if defined(__OBJC__)
+	metal_view* view { nullptr };
+#else
+	void* view { nullptr };
+#endif
+	const metal_device* render_device { nullptr };
 	
 	flat_map<const compute_device&, shared_ptr<compute_queue>> internal_queues;
 	
