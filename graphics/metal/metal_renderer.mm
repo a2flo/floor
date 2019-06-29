@@ -19,6 +19,7 @@
 #include <floor/graphics/metal/metal_renderer.hpp>
 
 #if !defined(FLOOR_NO_METAL)
+#include <floor/core/essentials.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
@@ -58,9 +59,11 @@ bool metal_renderer::begin() {
 	MTLRenderPassDescriptor* mtl_pass_desc = [mtl_pass_desc_template copy];
 	
 	// must set/update attachments (and drawable) before creating the encoder
-	// TODO: handle depth att
 	for (const auto& att : attachments_map) {
 		mtl_pass_desc.colorAttachments[att.first].texture = ((const metal_image*)att.second)->get_metal_image();
+	}
+	if (depth_attachment != nullptr) {
+		mtl_pass_desc.depthAttachment.texture = ((const metal_image*)depth_attachment)->get_metal_image();
 	}
 	
 	// create and setup the encoder

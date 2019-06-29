@@ -19,6 +19,7 @@
 #include <floor/graphics/metal/metal_pass.hpp>
 
 #if !defined(FLOOR_NO_METAL)
+#include <floor/core/essentials.hpp>
 
 metal_pass::metal_pass(const render_pass_description& pass_desc_) : graphics_pass(pass_desc_) {
 	mtl_pass_desc = [MTLRenderPassDescriptor renderPassDescriptor];

@@ -219,25 +219,28 @@ namespace metal_args {
 		// advance all indices
 		if (idx.is_implicit) {
 			++idx.implicit;
-		}
-		if (entry.info->args[idx.arg].image_type == function_info::ARG_IMAGE_TYPE::NONE) {
-			// buffer
+			// always a buffer for now
 			++idx.buffer_idx;
 		} else {
-			// texture
-			size_t tex_arg_count = 0;
-			if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-				tex_arg_count = (*vec_img_ptrs)->size();
-			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-				tex_arg_count = (*vec_img_sptrs)->size();
+			if (entry.info->args[idx.arg].image_type == function_info::ARG_IMAGE_TYPE::NONE) {
+				// buffer
+				++idx.buffer_idx;
 			} else {
-				tex_arg_count = 1;
-			}
-			
-			idx.texture_idx += tex_arg_count;
-			if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-				// read/write images are implemented as two images -> add twice
+				// texture
+				size_t tex_arg_count = 0;
+				if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+					tex_arg_count = (*vec_img_ptrs)->size();
+				} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+					tex_arg_count = (*vec_img_sptrs)->size();
+				} else {
+					tex_arg_count = 1;
+				}
+				
 				idx.texture_idx += tex_arg_count;
+				if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+					// read/write images are implemented as two images -> add twice
+					idx.texture_idx += tex_arg_count;
+				}
 			}
 		}
 		// finally

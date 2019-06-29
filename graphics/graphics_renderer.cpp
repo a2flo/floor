@@ -17,6 +17,7 @@
  */
 
 #include <floor/graphics/graphics_renderer.hpp>
+#include <floor/compute/compute_image.hpp>
 #include <floor/core/logger.hpp>
 #include <unordered_set>
 
@@ -45,6 +46,9 @@ bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments)
 	unordered_set<uint32_t> occupied_att_indices;
 	for (const auto& att : attachments) {
 		if (att.index != ~0u) {
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.image.get_image_type())) {
+				continue; // depth attachment is not assigned to an index
+			}
 			if (const auto [iter, success] = occupied_att_indices.emplace(att.index); !success) {
 				log_error("attachment index %u is specified multiple times!", att.index);
 				return false;
@@ -59,6 +63,11 @@ bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments)
 	// set each attachment
 	uint32_t running_idx = 0;
 	for (const auto& att : attachments) {
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.image.get_image_type())) {
+			set_depth_attachment(att);
+			continue;
+		}
+		
 		if (att.index != ~0u) {
 			set_attachment(att.index, att);
 		} else {
@@ -75,6 +84,14 @@ bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments)
 }
 
 bool graphics_renderer::set_attachment(const uint32_t& index, const attachment_t& attachment) {
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(attachment.image.get_image_type())) {
+		return set_depth_attachment(attachment);
+	}
 	attachments_map.insert_or_assign(index, &attachment.image);
+	return true;
+}
+
+bool graphics_renderer::set_depth_attachment(const attachment_t& attachment) {
+	depth_attachment = &attachment.image;
 	return true;
 }

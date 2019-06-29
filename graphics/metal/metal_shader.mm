@@ -19,7 +19,7 @@
 #include <floor/graphics/metal/metal_shader.hpp>
 
 #if !defined(FLOOR_NO_METAL)
-
+#include <floor/core/essentials.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_compute.hpp>

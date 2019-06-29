@@ -166,12 +166,16 @@ protected:
 	const graphics_pass& pass;
 	const graphics_pipeline* cur_pipeline { nullptr };
 	flat_map<uint32_t, const compute_image*> attachments_map;
+	const compute_image* depth_attachment { nullptr };
 	bool valid { false };
 	
 	//! internal draw call dispatcher for the respective backend
 	virtual void draw_internal(const vector<multi_draw_entry>* draw_entries,
 							   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 							   const vector<compute_kernel_arg>& args) const = 0;
+	
+	//! sets the depth attachment
+	virtual bool set_depth_attachment(const attachment_t& attachment);
 	
 };
 

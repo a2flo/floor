@@ -19,7 +19,7 @@
 #include <floor/graphics/metal/metal_pipeline.hpp>
 
 #if !defined(FLOOR_NO_METAL)
-
+#include <floor/core/essentials.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/metal/metal_device.hpp>
