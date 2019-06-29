@@ -5505,7 +5505,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..9db4966e06 100644
+index f012384f3d..5e6071b7b4 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -5518,7 +5518,7 @@ index f012384f3d..9db4966e06 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1867 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,1874 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6675,6 +6675,7 @@ index f012384f3d..9db4966e06 100644
 +					
 +					// #1: type
 +					// TODO: handle perspective/center correctly
++					const auto type_name = make_type_name(field.type);
 +					if(field.hasAttr<GraphicsVertexPositionAttr>()) {
 +						arg_info.push_back(llvm::MDString::get(Context, "air.position"));
 +						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
@@ -6683,13 +6684,19 @@ index f012384f3d..9db4966e06 100644
 +					else {
 +						arg_info.push_back(llvm::MDString::get(Context, "air.fragment_input"));
 +						arg_info.push_back(llvm::MDString::get(Context, StringRef(field.mangled_name)));
-+						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
-+						arg_info.push_back(llvm::MDString::get(Context, "air.perspective"));
++						// TODO/NOTE: rather primitive/unreliable way of doing this, but better than nothing for now
++						if (type_name.find("uint") == 0 || type_name.find("int") == 0) {
++							// use flat "interpolation" for uint* and int* types
++							arg_info.push_back(llvm::MDString::get(Context, "air.flat"));
++						} else {
++							arg_info.push_back(llvm::MDString::get(Context, "air.center"));
++							arg_info.push_back(llvm::MDString::get(Context, "air.perspective"));
++						}
 +					}
 +					
 +					// type name
 +					arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+					arg_info.push_back(llvm::MDString::get(Context, make_type_name(field.type)));
++					arg_info.push_back(llvm::MDString::get(Context, type_name));
 +					
 +					// arg name
 +					arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
@@ -7513,7 +7520,7 @@ index f012384f3d..9db4966e06 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2448,112 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2455,112 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7626,7 +7633,7 @@ index f012384f3d..9db4966e06 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2619,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2626,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7639,7 +7646,7 @@ index f012384f3d..9db4966e06 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2731,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2738,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7669,7 +7676,7 @@ index f012384f3d..9db4966e06 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2784,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2791,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7685,7 +7692,7 @@ index f012384f3d..9db4966e06 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2884,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2891,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7703,7 +7710,7 @@ index f012384f3d..9db4966e06 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2940,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2947,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7719,7 +7726,7 @@ index f012384f3d..9db4966e06 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3091,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3098,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7729,7 +7736,7 @@ index f012384f3d..9db4966e06 100644
    return ResTy;
  }
  
-@@ -1356,7 +3162,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3169,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
