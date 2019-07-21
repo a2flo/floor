@@ -51621,10 +51621,10 @@ index 00000000000..560f7837c84
 +
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 00000000000..58e4bf1b391
+index 00000000000..c0cf701d386
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
-@@ -0,0 +1,316 @@
+@@ -0,0 +1,329 @@
 +//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -51930,6 +51930,19 @@ index 00000000000..58e4bf1b391
 +			
 +			const auto smallest_legal_type = M->getDataLayout().getSmallestLegalIntType(*ctx, bit_width);
 +			SI.getCondition()->mutateType(smallest_legal_type);
++		}
++		
++		void visitGetElementPtrInst(GetElementPtrInst& GEP) {
++			// fix internal GEP address space mismatch
++			if (auto *PTy = dyn_cast<PointerType>(GEP.getType())) {
++				if (GEP.getAddressSpace() != PTy->getAddressSpace()) {
++					auto new_ptr_type = PointerType::get(GEP.getType()->getPointerElementType(), GEP.getAddressSpace());
++					DBG(errs() << ">> fix GEP/PTy mismatch: " << GEP.getAddressSpace() << " != " << PTy->getAddressSpace() << ": " << *GEP.getType();)
++					GEP.mutateType(new_ptr_type);
++					DBG(errs() << " -> " << *GEP.getType() << "\n";)
++					was_modified = true;
++				}
++			}
 +		}
 +	};
 +}
@@ -55812,10 +55825,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..49f96c3954e
+index 00000000000..fca114ba0ae
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1475 @@
+@@ -0,0 +1,1490 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -56419,6 +56432,21 @@ index 00000000000..49f96c3954e
 +			// clear return
 +			ReturnInst::Create(*ctx, RI.getParent());
 +			RI.eraseFromParent();
++		}
++		
++		void visitSelectInst(SelectInst& SI) {
++			// if the result/object type is a vector, the condition must be a vector as well
++			const auto cond_type = SI.getCondition()->getType();
++			if (SI.getTrueValue()->getType()->isVectorTy() && !cond_type->isVectorTy()) {
++				// -> make condition a vector by duplicating the scalar condition value
++				// NOTE: this will be cleaned up / optimized again later on (doesn't matter if we do this multiple times for the same condition)
++				const auto vector_dim = SI.getTrueValue()->getType()->getVectorNumElements();
++				Value* cond_vector = ConstantVector::getSplat(vector_dim, Constant::getNullValue(cond_type));
++				for (uint32_t i = 0; i < vector_dim; ++i) {
++					cond_vector = InsertElementInst::Create(cond_vector, SI.getCondition(), builder->getInt32(i), "cond_extend", &SI);
++				}
++				SI.setCondition(cond_vector);
++			}
 +		}
 +	};
 +	
