@@ -135,6 +135,7 @@ graphics_pipeline(pipeline_desc_) {
 		entry.fs_entry = mtl_fs_entry;
 		
 		// create depth/stencil state
+		// TODO: depth range?
 		auto depth_stencil_desc = [[MTLDepthStencilDescriptor alloc] init];
 		depth_stencil_desc.depthWriteEnabled = pipeline_desc.depth.write;
 		depth_stencil_desc.depthCompareFunction = metal_compare_func_from_depth_compare(pipeline_desc.depth.compare);

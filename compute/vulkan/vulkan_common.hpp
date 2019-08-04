@@ -116,6 +116,13 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 		continue; \
 	} \
 }
+#define VK_CALL_ERR_EXEC(call, error_msg, do_stuff) { \
+	const auto call_err_var = call; \
+	if(call_err_var != VK_SUCCESS) { \
+		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		do_stuff \
+	} \
+}
 #define VK_CALL_IGNORE(call, error_msg) { \
 	const auto call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \

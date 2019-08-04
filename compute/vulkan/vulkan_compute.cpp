@@ -780,6 +780,12 @@ bool vulkan_compute::init_renderer() {
 			break;
 		}
 	}
+	const auto screen_img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
+	if (!screen_img_type) {
+		log_error("no matching image type for Vulkan format: %X", screen.format);
+		return false;
+	}
+	screen.image_type = *screen_img_type;
 	
 	//
 	VkSurfaceCapabilitiesKHR surface_caps;
@@ -883,7 +889,7 @@ bool vulkan_compute::init_renderer() {
 #endif
 }
 
-pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
+pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
 	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
@@ -901,11 +907,7 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 		};
 	}
 	
-	const drawable_image_info dummy_ret {
-		.index = ~0u,
-		.image_size = 0u,
-		.image = nullptr,
-	};
+	const drawable_image_info dummy_ret;
 	
 	// create new sema and acquire image
 	const VkSemaphoreCreateInfo sema_create_info {
@@ -933,13 +935,15 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
 				"failed to begin command buffer", { false, dummy_ret })
 	
+	const auto dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	const auto dst_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	const VkImageMemoryBarrier image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.pNext = nullptr,
 		.srcAccessMask = 0,
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		.dstAccessMask = dst_access_mask,
 		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.newLayout = dst_layout,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.image = screen.swapchain_images[screen.image_index],
@@ -966,6 +970,10 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 			.index = screen.image_index,
 			.image_size = screen.size,
 			.image = screen.swapchain_images[screen.image_index],
+			.image_view = screen.swapchain_image_views[screen.image_index],
+			.format = screen.format,
+			.access_mask = dst_access_mask,
+			.layout = dst_layout,
 		}
 	};
 }
@@ -1039,6 +1047,13 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
 				"failed to end command buffer", false)
 	vk_queue.submit_command_buffer(cmd_buffer, true); // TODO: don't block?
+	
+	return queue_present(drawable);
+}
+
+bool vulkan_compute::queue_present(const drawable_image_info& drawable) {
+	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
 	// present
 	const VkPresentInfoKHR present_info {
@@ -1450,7 +1465,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 }
 
 unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
-	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc);
+	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc, devices);
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
@@ -1458,7 +1473,7 @@ unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const ren
 }
 
 unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
-	auto pass = make_unique<vulkan_pass>(pass_desc);
+	auto pass = make_unique<vulkan_pass>(pass_desc, devices);
 	if (!pass || !pass->is_valid()) {
 		return {};
 	}
@@ -1476,8 +1491,7 @@ unique_ptr<graphics_renderer> vulkan_compute::create_graphics_renderer(const com
 }
 
 COMPUTE_IMAGE_TYPE vulkan_compute::get_renderer_image_type() const {
-	// TODO: implement this
-	return COMPUTE_IMAGE_TYPE::NONE;
+	return screen.image_type;
 }
 
 #endif

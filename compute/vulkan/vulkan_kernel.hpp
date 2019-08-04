@@ -31,12 +31,12 @@
 #include <floor/compute/compute_kernel_arg.hpp>
 
 class vulkan_device;
+class vulkan_queue;
+struct vulkan_encoder;
+struct vulkan_command_buffer;
 
-class vulkan_kernel final : public compute_kernel {
+class vulkan_kernel : public compute_kernel {
 public:
-	// don't want to include vulkan_queue here
-	struct vulkan_encoder;
-	
 	struct vulkan_kernel_entry : kernel_entry {
 		VkPipelineLayout pipeline_layout { nullptr };
 		VkPipelineShaderStageCreateInfo stage_info;
@@ -92,54 +92,6 @@ public:
 				 const uint3& local_work_size,
 				 const vector<compute_kernel_arg>& args) const override;
 	
-	//! NOTE: very wip/temporary
-	struct multi_draw_entry {
-		uint32_t vertex_count;
-		uint32_t instance_count { 1u };
-		uint32_t first_vertex { 0u };
-		uint32_t first_instance { 0u };
-	};
-	struct multi_draw_indexed_entry {
-		compute_buffer* index_buffer;
-		uint32_t index_count;
-		uint32_t instance_count { 1u };
-		uint32_t first_index { 0u };
-		int32_t vertex_offset { 0u };
-		uint32_t first_instance { 0u };
-	};
-	
-	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
-	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	//! NOTE: 'fragment_shader' can be nullptr when only running a vertex shader
-	template <typename... Args> void multi_draw(const compute_queue& cqueue,
-												// NOTE: this is a vulkan_queue::command_buffer*
-												void* cmd_buffer,
-												const VkPipeline pipeline_,
-												const VkPipelineLayout pipeline_layout_,
-												const vulkan_kernel_entry* vertex_shader,
-												const vulkan_kernel_entry* fragment_shader,
-												const vector<multi_draw_entry>& draw_entries,
-												const Args&... args) const {
-		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,
-					  &draw_entries, nullptr, { args... });
-	}
-	
-	//! NOTE: very wip/temporary, need to specifically set vs/fs entries here, b/c we only store one in here
-	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	//! NOTE: 'fragment_shader' can be nullptr when only running a vertex shader
-	template <typename... Args> void multi_draw_indexed(const compute_queue& cqueue,
-														// NOTE: this is a vulkan_queue::command_buffer*
-														void* cmd_buffer,
-														const VkPipeline pipeline_,
-														const VkPipelineLayout pipeline_layout_,
-														const vulkan_kernel_entry* vertex_shader,
-														const vulkan_kernel_entry* fragment_shader,
-														const vector<multi_draw_indexed_entry>& draw_entries,
-														const Args&... args) const {
-		draw_internal(cqueue, cmd_buffer, pipeline_, pipeline_layout_, vertex_shader, fragment_shader,
-					  nullptr, &draw_entries, { args... });
-	}
-	
 	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
 	
 protected:
@@ -150,7 +102,7 @@ protected:
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 	
 	shared_ptr<vulkan_encoder> create_encoder(const compute_queue& queue,
-											  void* cmd_buffer,
+											  const vulkan_command_buffer* cmd_buffer,
 											  const VkPipeline pipeline,
 											  const VkPipelineLayout pipeline_layout,
 											  const vector<const vulkan_kernel_entry*>& entries,
@@ -158,16 +110,6 @@ protected:
 	VkPipeline get_pipeline_spec(const vulkan_device& device,
 								 vulkan_kernel_entry& entry,
 								 const uint3& work_group_size) const;
-	
-	void draw_internal(const compute_queue& cqueue,
-					   void* cmd_buffer,
-					   const VkPipeline pipeline,
-					   const VkPipelineLayout pipeline_layout,
-					   const vulkan_kernel_entry* vertex_shader,
-					   const vulkan_kernel_entry* fragment_shader,
-					   const vector<multi_draw_entry>* draw_entries,
-					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
-					   const vector<compute_kernel_arg>& args) const;
 	
 	bool set_and_handle_arguments(vulkan_encoder& encoder,
 								  const vector<const vulkan_kernel_entry*>& shader_entries,

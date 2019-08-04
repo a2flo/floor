@@ -79,6 +79,12 @@ public:
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
 	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
+		// can't be both mip-mapped and a render target
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+			log_error("image can't be both mip-mapped and a render target!");
+			return;
+		}
 		// can't be both mip-mapped and a multi-sampled image
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
 		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {

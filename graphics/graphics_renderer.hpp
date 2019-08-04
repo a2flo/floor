@@ -22,6 +22,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/graphics/graphics_pass.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
+#include <floor/core/logger.hpp>
 
 //! renderer object for a specific pass and one or more pipelines
 //! NOTE: create this every time something should be rendered (this doesn't/shouldn't be a static object)
@@ -54,7 +55,7 @@ public:
 	//! to be implemented by each backend
 	struct drawable_t {
 		virtual ~drawable_t();
-		const compute_image* image { nullptr };
+		compute_image* image { nullptr };
 		
 		//! returns true if this drawable is in a valid state
 		bool is_valid() const {
@@ -68,7 +69,7 @@ public:
 	
 	//! retrieves the next drawable screen surface,
 	//! returns nullptr if there is none (mostly due to the screen being in an invalid/non-renderable state)
-	virtual const drawable_t* get_next_drawable() = 0;
+	virtual drawable_t* get_next_drawable() = 0;
 	
 	//! present the current drawable to the screen
 	virtual void present() = 0;
@@ -82,35 +83,61 @@ public:
 		//! if ~0u -> determine index automatically
 		uint32_t index { ~0u };
 		//! reference to the backing image
-		const compute_image& image;
+		compute_image& image;
 		
-		attachment_t(const compute_image& image_) noexcept : image(image_) {}
-		attachment_t(const compute_image* image_) noexcept : image(*image_) {}
-		attachment_t(const shared_ptr<compute_image>& image_) noexcept : image(*image_) {}
-		attachment_t(const unique_ptr<compute_image>& image_) noexcept : image(*image_) {}
-		attachment_t(const drawable_t& drawable) noexcept : image(*drawable.image) {}
-		attachment_t(const drawable_t* drawable) noexcept : image(*drawable->image) {}
+#if !defined(FLOOR_DEBUG)
+		attachment_t(compute_image& image_) noexcept : image(image_) {}
+		attachment_t(compute_image* image_) noexcept : image(*image_) {}
+		attachment_t(shared_ptr<compute_image>& image_) noexcept : image(*image_) {}
+		attachment_t(unique_ptr<compute_image>& image_) noexcept : image(*image_) {}
+		attachment_t(drawable_t& drawable) noexcept : image(*drawable.image) {}
+		attachment_t(drawable_t* drawable) noexcept : image(*drawable->image) {}
 		
-		attachment_t(const uint32_t& index_, const compute_image& image_) : index(index_), image(image_) {}
-		attachment_t(const uint32_t& index_, const drawable_t& drawable) : index(index_), image(*drawable.image) {}
+		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(image_) {}
+		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(*drawable.image) {}
+#else
+		compute_image& image_sanity_check(compute_image* image_) {
+			if (image_ == nullptr) {
+				log_error("attachment image is nullptr!");
+			}
+			return *image_;
+		}
+		compute_image& drawable_sanity_check(drawable_t* drawable_) {
+			if (drawable_ == nullptr) {
+				log_error("drawable is nullptr!");
+			}
+			return image_sanity_check(drawable_->image);
+		}
+		
+		attachment_t(compute_image& image_) noexcept : image(image_) {}
+		attachment_t(compute_image* image_) noexcept : image(image_sanity_check(image_)) {}
+		attachment_t(shared_ptr<compute_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
+		attachment_t(unique_ptr<compute_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
+		attachment_t(drawable_t& drawable) noexcept : image(image_sanity_check(drawable.image)) {}
+		attachment_t(drawable_t* drawable) noexcept : image(drawable_sanity_check(drawable)) {}
+		
+		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(image_) {}
+		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(image_sanity_check(drawable.image)) {}
+#endif
 	};
 	
 	//! set all pass/pipeline attachments
 	//! NOTE: depth attachments are automatically detected
 	//! NOTE: resets all previously set attachments
 	template <typename... Args>
-	bool set_attachments(const Args&... attachments) {
-		return set_attachments({ attachments... });
+	bool set_attachments(Args&&... attachments) {
+		vector<attachment_t> atts { forward<Args>(attachments)... };
+		return set_attachments(atts);
 	}
 	
 	//! set all pass/pipeline attachments
 	//! NOTE: depth attachments are automatically detected
 	//! NOTE: resets all previously set attachments
-	virtual bool set_attachments(const vector<attachment_t>& attachments);
+	virtual bool set_attachments(vector<attachment_t>& attachments);
 	
 	//! manually set or update/replace an attachment at a specific index
 	//! NOTE: depth attachments are automatically detected
-	virtual bool set_attachment(const uint32_t& index, const attachment_t& attachment);
+	virtual bool set_attachment(const uint32_t& index, attachment_t& attachment);
 
 	//////////////////////////////////////////
 	// pipeline functions
@@ -165,8 +192,8 @@ protected:
 	const compute_context& ctx;
 	const graphics_pass& pass;
 	const graphics_pipeline* cur_pipeline { nullptr };
-	flat_map<uint32_t, const compute_image*> attachments_map;
-	const compute_image* depth_attachment { nullptr };
+	flat_map<uint32_t, compute_image*> attachments_map;
+	compute_image* depth_attachment { nullptr };
 	bool valid { false };
 	
 	//! internal draw call dispatcher for the respective backend
@@ -175,7 +202,7 @@ protected:
 							   const vector<compute_kernel_arg>& args) const = 0;
 	
 	//! sets the depth attachment
-	virtual bool set_depth_attachment(const attachment_t& attachment);
+	virtual bool set_depth_attachment(attachment_t& attachment);
 	
 };
 

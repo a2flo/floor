@@ -17,10 +17,37 @@
  */
 
 #include <floor/graphics/graphics_pipeline.hpp>
+#include <floor/floor/floor.hpp>
 
-graphics_pipeline::graphics_pipeline(const render_pipeline_description& pipeline_desc_) : pipeline_desc(pipeline_desc_) {
+graphics_pipeline::graphics_pipeline(const render_pipeline_description& pipeline_desc_) : pipeline_desc(handle_pipeline_defaults(pipeline_desc_)) {
 	// TODO: check validity
 }
 
 graphics_pipeline::~graphics_pipeline() {
+}
+
+uint2 graphics_pipeline::compute_dim_from_screen_or_user(const uint2& in_size) {
+	auto ret = in_size;
+	if (in_size.x == ~0u || in_size.y == ~0u) {
+		const auto phys_size = floor::get_physical_screen_size();
+		if (in_size.x == ~0u) {
+			ret.x = phys_size.x;
+		}
+		if (in_size.y == ~0u) {
+			ret.y = phys_size.y;
+		}
+	}
+	return ret;
+}
+
+render_pipeline_description graphics_pipeline::handle_pipeline_defaults(const render_pipeline_description& pipeline_desc_) {
+	render_pipeline_description ret = pipeline_desc_;
+	ret.viewport = compute_dim_from_screen_or_user(ret.viewport);
+	if (ret.scissor.extent.x == ~0u) {
+		ret.scissor.extent.x = ret.viewport.x;
+	}
+	if (ret.scissor.extent.y == ~0u) {
+		ret.scissor.extent.y = ret.viewport.y;
+	}
+	return ret;
 }

@@ -47,11 +47,11 @@ public:
 		using drawable_t::valid;
 	};
 	
-	const drawable_t* get_next_drawable() override;
+	drawable_t* get_next_drawable() override;
 	void present() override;
 	
-	bool set_attachments(const vector<attachment_t>& attachments) override;
-	bool set_attachment(const uint32_t& index, const attachment_t& attachment) override;
+	bool set_attachments(vector<attachment_t>& attachments) override;
+	bool set_attachment(const uint32_t& index, attachment_t& attachment) override;
 	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 	

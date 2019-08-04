@@ -35,11 +35,14 @@ graphics_renderer::drawable_t::~drawable_t() {
 
 bool graphics_renderer::switch_pipeline(const graphics_pipeline& pipeline) {
 	// TODO: sanity checks
+	if (!pipeline.is_valid()) {
+		return false;
+	}
 	cur_pipeline = &pipeline;
 	return true;
 }
 
-bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments) {
+bool graphics_renderer::set_attachments(vector<attachment_t>& attachments) {
 	// TODO: sanity check
 	
 	// determine all fixed attachment indices
@@ -62,7 +65,7 @@ bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments)
 	
 	// set each attachment
 	uint32_t running_idx = 0;
-	for (const auto& att : attachments) {
+	for (auto& att : attachments) {
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.image.get_image_type())) {
 			set_depth_attachment(att);
 			continue;
@@ -83,7 +86,7 @@ bool graphics_renderer::set_attachments(const vector<attachment_t>& attachments)
 	return true;
 }
 
-bool graphics_renderer::set_attachment(const uint32_t& index, const attachment_t& attachment) {
+bool graphics_renderer::set_attachment(const uint32_t& index, attachment_t& attachment) {
 	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(attachment.image.get_image_type())) {
 		return set_depth_attachment(attachment);
 	}
@@ -91,7 +94,7 @@ bool graphics_renderer::set_attachment(const uint32_t& index, const attachment_t
 	return true;
 }
 
-bool graphics_renderer::set_depth_attachment(const attachment_t& attachment) {
+bool graphics_renderer::set_depth_attachment(attachment_t& attachment) {
 	depth_attachment = &attachment.image;
 	return true;
 }

@@ -180,18 +180,25 @@ public:
 	}
 	
 	struct drawable_image_info {
-		const uint32_t index;
-		const uint2 image_size;
-		VkImage image;
+		uint32_t index { ~0u };
+		uint2 image_size;
+		VkImage image { nullptr };
+		VkImageView image_view { nullptr };
+		VkFormat format { VK_FORMAT_UNDEFINED };
+		VkAccessFlags access_mask { 0 };
+		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
 	};
 	
 	//! acquires the next drawable image
 	//! NOTE: will block for now
-	pair<bool, drawable_image_info> acquire_next_image();
+	pair<bool, const drawable_image_info> acquire_next_image();
 	
 	//! presents the drawable image that has previously been acquired
 	//! NOTE: will block for now
 	bool present_image(const drawable_image_info& drawable);
+	//! final queue image present only
+	//! NOTE: "present_image" calls this
+	bool queue_present(const drawable_image_info& drawable);
 	
 protected:
 	VkInstance ctx { nullptr };
@@ -204,6 +211,7 @@ protected:
 		VkSurfaceKHR surface { nullptr };
 		VkSwapchainKHR swapchain { nullptr };
 		VkFormat format { VK_FORMAT_UNDEFINED };
+		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
 		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 		vector<VkImage> swapchain_images;
 		vector<VkImageView> swapchain_image_views;

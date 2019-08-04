@@ -23,19 +23,61 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/graphics/graphics_renderer.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_queue.hpp>
+#include <floor/compute/vulkan/vulkan_image.hpp>
+#include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 
 class vulkan_renderer final : public graphics_renderer {
 public:
 	vulkan_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline_);
 	~vulkan_renderer() override;
-
-	const drawable_t* get_next_drawable() override;
+	
+	bool begin() override;
+	bool end() override;
+	bool commit() override;
+	
+	struct vulkan_drawable_t final : public drawable_t {
+		vulkan_drawable_t() : drawable_t() {}
+		~vulkan_drawable_t() override;
+		
+		vulkan_compute::drawable_image_info vk_drawable;
+		unique_ptr<vulkan_image> vk_image;
+		
+		using drawable_t::valid;
+	};
+	
+	drawable_t* get_next_drawable() override;
 	void present() override;
+	
+	bool set_attachments(vector<attachment_t>& attachments) override;
+	bool set_attachment(const uint32_t& index, attachment_t& attachment) override;
+	
+	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 
 protected:
+	vulkan_command_buffer cmd_buffer;
+	unique_ptr<vulkan_drawable_t> cur_drawable;
+	VkFramebuffer cur_framebuffer { nullptr };
+	vector<VkFramebuffer> framebuffers;
+	bool is_presenting { false };
+	optional<vulkan_command_buffer> att_cmd_buffer;
+
+	// cmd buffer begin must be delayed until we actually start drawing,
+	// otherwise we'll run into trouble with the drawable cmd buffer and dependencies
+	bool did_begin_cmd_buffer { false };
+	bool create_cmd_buffer();
+	
 	void draw_internal(const vector<multi_draw_entry>* draw_entries,
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 					   const vector<compute_kernel_arg>& args) const override;
+	
+	bool update_vulkan_pipeline();
+	
+	const vulkan_pipeline::vulkan_pipeline_entry* vk_pipeline_state { nullptr };
+	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass);
+	
+	bool set_depth_attachment(attachment_t& attachment) override;
 	
 };
 

@@ -27,10 +27,26 @@
 
 class vulkan_pass final : public graphics_pass {
 public:
-	vulkan_pass(const render_pass_description& pass_desc);
+	vulkan_pass(const render_pass_description& pass_desc, const vector<unique_ptr<compute_device>>& devices);
 	virtual ~vulkan_pass();
 	
+	//! returns the corresponding VkAttachmentLoadOp for the specified LOAD_OP
+	static VkAttachmentLoadOp vulkan_load_op_from_load_op(const LOAD_OP& load_op);
+	
+	//! returns the corresponding VkAttachmentStoreOp for the specified STORE_OP
+	static VkAttachmentStoreOp vulkan_store_op_from_store_op(const STORE_OP& store_op);
+	
+	//! returns the Vulkan render pass object for the specified device
+	VkRenderPass get_vulkan_render_pass(const compute_device& dev) const;
+	
+	//! returns the attachment clear values defined for this pass
+	const vector<VkClearValue>& get_vulkan_clear_values() const {
+		return clear_values;
+	}
+	
 protected:
+	flat_map<const compute_device&, VkRenderPass> render_passes;
+	vector<VkClearValue> clear_values;
 	
 };
 

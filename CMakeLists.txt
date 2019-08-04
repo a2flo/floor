@@ -195,6 +195,7 @@ compute/vulkan/vulkan_compute.cpp
 compute/vulkan/vulkan_compute.hpp
 compute/vulkan/vulkan_device.cpp
 compute/vulkan/vulkan_device.hpp
+compute/vulkan/vulkan_encoder.hpp
 compute/vulkan/vulkan_image.cpp
 compute/vulkan/vulkan_image.hpp
 compute/vulkan/vulkan_kernel.cpp
@@ -232,6 +233,8 @@ graphics/vulkan/vulkan_pass.cpp
 graphics/vulkan/vulkan_pass.hpp
 graphics/vulkan/vulkan_pipeline.cpp
 graphics/vulkan/vulkan_pipeline.hpp
+graphics/vulkan/vulkan_shader.cpp
+graphics/vulkan/vulkan_shader.hpp
 core/core.cpp
 core/core.hpp
 core/cpp_ext.hpp

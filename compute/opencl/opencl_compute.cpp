@@ -586,7 +586,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			// check for core function first
 			bool check_extension_ptr = false;
 			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
-#if !defined(CL_VERSION_2_1)
+#if !defined(CL_VERSION_2_1) || 1 // workaround dll hell
 				// not compiling with opencl 2.1+ headers, which pretty much always means that the icd loader won't have
 				// the core clCreateProgramWithIL symbol, and since I don't want to dlsym vendor libraries, fallback to
 				// the extension method
@@ -611,7 +611,7 @@ FLOOR_POP_WARNINGS()
 			
 			// last resort: if we compiled against a opencl 2.1+ header/lib, but aren't using a opencl 2.1+ platform,
 			// still try the core function (which might yet work)
-#if defined(CL_VERSION_2_1)
+#if defined(CL_VERSION_2_1) && 0 // workaround dll hell
 			if(cl_create_program_with_il == nullptr) {
 				cl_create_program_with_il = &clCreateProgramWithIL;
 			}
@@ -641,7 +641,7 @@ FLOOR_POP_WARNINGS()
 		if(check_sub_group_support) {
 			bool check_extension_ptr = false;
 			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
-#if !defined(CL_VERSION_2_1)
+#if !defined(CL_VERSION_2_1) || 1 // workaround dll hell
 				check_extension_ptr = true;
 #else
 				cl_get_kernel_sub_group_info = &clGetKernelSubGroupInfo;

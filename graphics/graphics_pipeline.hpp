@@ -106,7 +106,7 @@ struct render_pipeline_description {
 	//! scissor testing / only render within an area of the screen
 	struct scissor_t {
 		//! offset within the viewport, (0, 0) is left top
-		uint2 offset { 0, 0 };
+		int2 offset { 0, 0 };
 		//! (width, height) extent of the scissor area
 		//! NOTE: if set to ~0u, extent will be set to cover the whole viewport
 		uint2 extent { ~0u, ~0u };
@@ -202,6 +202,13 @@ public:
 protected:
 	const render_pipeline_description pipeline_desc;
 	bool valid { false };
+	
+	//! takes the 2D input size, sets ~0u components to the physical screen size and returns the result
+	//! NOTE: this is used for the viewport and scissor extent computation
+	static uint2 compute_dim_from_screen_or_user(const uint2& in_size);
+	
+	//! handles pipeline defaults like setting viewport or scissor extent (when set to auto/default-init)
+	static render_pipeline_description handle_pipeline_defaults(const render_pipeline_description& pipeline_desc_);
 	
 };
 

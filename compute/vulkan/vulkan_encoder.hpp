@@ -16,11 +16,22 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/graphics/graphics_pass.hpp>
+#ifndef __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
+#define __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
 
-graphics_pass::graphics_pass(const render_pass_description& pass_desc_) : pass_desc(pass_desc_) {
-	// TODO: check validity (more than one depth att, ...)
-}
+// NOTE: only included from vulkan_kernel and vulkan_shader
 
-graphics_pass::~graphics_pass() {
-}
+struct vulkan_encoder {
+	vulkan_command_buffer cmd_buffer;
+	const vulkan_queue& cqueue;
+	const vulkan_device& device;
+	vector<VkWriteDescriptorSet> write_descs;
+	vector<VkWriteDescriptorSetInlineUniformBlockEXT> iub_descs;
+	vector<shared_ptr<compute_buffer>> constant_buffers;
+	vector<uint32_t> dyn_offsets;
+	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
+	const VkPipeline pipeline { nullptr };
+	const VkPipelineLayout pipeline_layout { nullptr };
+};
+
+#endif

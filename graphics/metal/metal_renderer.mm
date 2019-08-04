@@ -77,6 +77,20 @@ bool metal_renderer::begin() {
 						 blue:pipeline_desc.blend.constant_color.z
 						alpha:pipeline_desc.blend.constant_alpha];
 	
+	// viewport handling:
+	// since Metal uses top-left origin for framebuffers, flip the viewport vertically, so that the origin is where it's supposed to be
+	const MTLViewport viewport {
+		.originX = 0.0,
+		.originY = double(pipeline_desc.viewport.y),
+		.width = double(pipeline_desc.viewport.x),
+		.height = -double(pipeline_desc.viewport.y),
+		.znear = double(pipeline_desc.depth.range.x),
+		.zfar = double(pipeline_desc.depth.range.y)
+	};
+	[encoder setViewport:viewport];
+	
+	// TODO: scissor handling
+	
 	[encoder pushDebugGroup:@"metal_renderer render"];
 	[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];
 	[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
@@ -99,11 +113,11 @@ metal_renderer::metal_drawable_t::~metal_drawable_t() {
 	// nop
 }
 
-const graphics_renderer::drawable_t* metal_renderer::get_next_drawable() {
+graphics_renderer::drawable_t* metal_renderer::get_next_drawable() {
 	auto mtl_drawable = ((const metal_compute&)ctx).get_metal_next_drawable(cmd_buffer);
 	if (mtl_drawable == nil) {
 		log_error("drawable is nil!");
-		return {};
+		return nullptr;
 	}
 	
 	cur_drawable = make_unique<metal_drawable_t>();
@@ -122,14 +136,14 @@ void metal_renderer::present() {
 	[cmd_buffer presentDrawable:cur_drawable->metal_drawable];
 }
 
-bool metal_renderer::set_attachments(const vector<attachment_t>& attachments) {
+bool metal_renderer::set_attachments(vector<attachment_t>& attachments) {
 	if (!graphics_renderer::set_attachments(attachments)) {
 		return false;
 	}
 	return true;
 }
 
-bool metal_renderer::set_attachment(const uint32_t& index, const attachment_t& attachment) {
+bool metal_renderer::set_attachment(const uint32_t& index, attachment_t& attachment) {
 	if (!graphics_renderer::set_attachment(index, attachment)) {
 		return false;
 	}

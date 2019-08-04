@@ -27,6 +27,14 @@
 #include <floor/threading/thread_safety.hpp>
 #include <bitset>
 
+struct vulkan_command_buffer {
+	VkCommandBuffer cmd_buffer { nullptr };
+	uint32_t index { ~0u };
+	const char* name { nullptr };
+	
+	explicit operator bool() const { return (cmd_buffer != nullptr); }
+};
+
 class vulkan_queue final : public compute_queue {
 public:
 	explicit vulkan_queue(const compute_device& device, VkQueue queue, const uint32_t family_index);
@@ -46,20 +54,15 @@ public:
 		return family_index;
 	}
 	
-	struct command_buffer {
-		VkCommandBuffer cmd_buffer { nullptr };
-		uint32_t index { ~0u };
-		const char* name { nullptr };
-	};
-	command_buffer make_command_buffer(const char* name = nullptr) const REQUIRES(!cmd_buffers_lock);
+	vulkan_command_buffer make_command_buffer(const char* name = nullptr) const REQUIRES(!cmd_buffers_lock);
 	
-	void submit_command_buffer(command_buffer cmd_buffer,
+	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
 							   const bool blocking = true,
 							   const VkSemaphore* wait_semas = nullptr,
 							   const uint32_t wait_sema_count = 0,
 							   const VkPipelineStageFlags wait_stage_flags = 0) const REQUIRES(!cmd_buffers_lock, !queue_lock);
-	void submit_command_buffer(command_buffer cmd_buffer,
-							   function<void(const command_buffer&)> completion_handler,
+	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
+							   function<void(const vulkan_command_buffer&)> completion_handler,
 							   const bool blocking = true,
 							   const VkSemaphore* wait_semas = nullptr,
 							   const uint32_t wait_sema_count = 0,
@@ -67,7 +70,7 @@ public:
 	
 	//! attaches buffers to the specified command buffer that will be retained until the command buffer has finished execution
 	//! NOTE: must be called before submit_command_buffer, otherwise this has no effect
-	void add_retained_buffers(vulkan_queue::command_buffer& cmd_buffer,
+	void add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
 							  const vector<shared_ptr<compute_buffer>>& buffers) const REQUIRES(!cmd_buffers_lock);
 	
 	//! completion handler type for "add_completion_handler"
@@ -75,7 +78,7 @@ public:
 	
 	//! adds a completion handler to the specified command buffer that is called once the command buffer has finished execution
 	//! NOTE: must be called before submit_command_buffer, otherwise this has no effect
-	void add_completion_handler(vulkan_queue::command_buffer& cmd_buffer,
+	void add_completion_handler(const vulkan_command_buffer& cmd_buffer,
 								vulkan_completion_handler_t completion_handler) const REQUIRES(!cmd_buffers_lock);
 	
 protected:

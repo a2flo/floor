@@ -38,6 +38,26 @@ public:
 				 const uint32_t external_gl_object_ = 0,
 				 const opengl_image_info* gl_image_info = nullptr);
 	
+	//! image info used for wrapping an existing Vulkan image
+	//! NOTE: since Vulkan has no image query functionality, this needs to be specified manually
+	struct external_vulkan_image_info {
+		VkImage image { nullptr };
+		VkImageView image_view { nullptr };
+		VkFormat format { VK_FORMAT_UNDEFINED };
+		VkAccessFlags access_mask { 0 };
+		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
+		//! any of IMAGE_1D, IMAGE_2D, IMAGE_3D, ...
+		COMPUTE_IMAGE_TYPE image_base_type { COMPUTE_IMAGE_TYPE::IMAGE_2D };
+		uint4 dim;
+	};
+	
+	//! wraps an already existing Vulkan image, with the specified flags and backed by the specified host pointer
+	vulkan_image(const compute_queue& cqueue,
+				 const external_vulkan_image_info& external_image,
+				 void* host_ptr = nullptr,
+				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+	
 	~vulkan_image() override;
 	
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
@@ -91,13 +111,21 @@ public:
 		return vk_format;
 	}
 	
+	//! returns the corresponding VkFormat for the specified COMPUTE_IMAGE_TYPE,
+	//! or nothing if there is no matching format
+	static optional<VkFormat> vulkan_format_from_image_type(const COMPUTE_IMAGE_TYPE& image_type_);
+	
+	//! returns the corresponding COMPUTE_IMAGE_TYPE for the specified VkFormat,
+	//! or nothing if there is no matching format
+	static optional<COMPUTE_IMAGE_TYPE> image_type_from_vulkan_format(const VkFormat& format_);
+	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
 	VkAccessFlags cur_access_mask { 0 };
-	VkImageUsageFlags usage { 0 };
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
+	bool is_external { false };
 	
 	// similar to image_info, but these contain per-level image views and infos
 	// NOTE: image views are only created/used when the image is writable
@@ -106,7 +134,7 @@ protected:
 	void update_mip_map_info();
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
+	bool create_internal(const bool copy_host_data, const compute_queue& cqueue, const VkImageUsageFlags& usage);
 	
 	void image_copy_dev_to_host(const compute_queue& cqueue,
 								VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;

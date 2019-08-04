@@ -71,11 +71,11 @@ void vulkan_queue::flush() const {
 	// nop
 }
 
-static const char* cmd_buffer_name(const vulkan_queue::command_buffer& cmd_buffer) {
+static const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffer) {
 	return (cmd_buffer.name != nullptr ? cmd_buffer.name : "unknown");
 }
 
-vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name) const {
+vulkan_command_buffer vulkan_queue::make_command_buffer(const char* name) const {
 	GUARD(cmd_buffers_lock);
 	if(!cmd_buffers_in_use.all()) {
 		for(uint32_t i = 0; i < cmd_buffer_count; ++i) {
@@ -125,7 +125,7 @@ void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fe
 	fences_in_use.reset(fence.second);
 }
 
-void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer,
+void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
 										 const bool blocking,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
@@ -133,8 +133,8 @@ void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer,
 	submit_command_buffer(cmd_buffer, {}, blocking, wait_semas, wait_sema_count, wait_stage_flags);
 }
 
-void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer,
-										 function<void(const command_buffer&)> completion_handler,
+void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
+										 function<void(const vulkan_command_buffer&)> completion_handler,
 										 const bool blocking,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
@@ -217,14 +217,14 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 	}
 }
 
-void vulkan_queue::add_retained_buffers(vulkan_queue::command_buffer& cmd_buffer,
+void vulkan_queue::add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
 										const vector<shared_ptr<compute_buffer>>& buffers) const {
 	GUARD(cmd_buffers_lock);
 	auto& internal_cmd_buffer = cmd_buffer_internals[cmd_buffer.index];
 	internal_cmd_buffer.retained_buffers.insert(internal_cmd_buffer.retained_buffers.end(), buffers.begin(), buffers.end());
 }
 
-void vulkan_queue::add_completion_handler(vulkan_queue::command_buffer& cmd_buffer,
+void vulkan_queue::add_completion_handler(const vulkan_command_buffer& cmd_buffer,
 										  vulkan_completion_handler_t completion_handler) const {
 	GUARD(cmd_buffers_lock);
 	cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(completion_handler);
