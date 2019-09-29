@@ -55,6 +55,9 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		return;
 	}
 	
+	has_external_memory_support = cuda_can_use_external_memory();
+	log_msg("CUDA external memory support: %v", has_external_memory_support ? "yes" : "no");
+	
 	// sm force debug info
 	if(!floor::get_cuda_force_driver_sm().empty()) {
 		log_debug("forced driver sm: sm_%s", floor::get_cuda_force_driver_sm());

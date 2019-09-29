@@ -291,6 +291,17 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.tex_object_get_resource_desc = load_symbol(cuda_lib, "cuTexObjectGetResourceDesc");
 	if(cuda_api.tex_object_get_resource_desc == nullptr) log_error("failed to retrieve function pointer for \"cuTexObjectGetResourceDesc\"");
 	
+	// external memory functions (supported since CUDA 10.0)
+	// NOTE: we won't error if function pointers could not be retrieved -> rather signal false in cuda_can_use_external_memory
+	(void*&)cuda_api.destroy_external_memory = load_symbol(cuda_lib, "cuDestroyExternalMemory");
+	(void*&)cuda_api.destroy_external_semaphore = load_symbol(cuda_lib, "cuDestroyExternalSemaphore");
+	(void*&)cuda_api.external_memory_get_mapped_buffer = load_symbol(cuda_lib, "cuExternalMemoryGetMappedBuffer");
+	(void*&)cuda_api.external_memory_get_mapped_mip_mapped_array = load_symbol(cuda_lib, "cuExternalMemoryGetMappedMipmappedArray");
+	(void*&)cuda_api.import_external_memory = load_symbol(cuda_lib, "cuImportExternalMemory");
+	(void*&)cuda_api.import_external_semaphore = load_symbol(cuda_lib, "cuImportExternalSemaphore");
+	(void*&)cuda_api.signal_external_semaphore_async = load_symbol(cuda_lib, "cuSignalExternalSemaphoresAsync");
+	(void*&)cuda_api.wait_external_semaphore_async = load_symbol(cuda_lib, "cuWaitExternalSemaphoresAsync");
+	
 	// if this is enabled, we need to look up offsets of cuda internal structs for later use
 	if(use_internal_api) {
 		bool has_cuda_lib_data = false;
@@ -421,6 +432,17 @@ bool cuda_api_init(const bool use_internal_api) {
 
 bool cuda_can_use_internal_api() {
 	return cuda_internal_api_functional;
+}
+
+bool cuda_can_use_external_memory() {
+	return (cuda_api.destroy_external_memory != nullptr &&
+			cuda_api.destroy_external_semaphore != nullptr &&
+			cuda_api.external_memory_get_mapped_buffer != nullptr &&
+			cuda_api.external_memory_get_mapped_mip_mapped_array != nullptr &&
+			cuda_api.import_external_memory != nullptr &&
+			cuda_api.import_external_semaphore != nullptr &&
+			cuda_api.signal_external_semaphore_async != nullptr &&
+			cuda_api.wait_external_semaphore_async != nullptr);
 }
 
 #endif

@@ -150,11 +150,17 @@ public:
 	
 	const compute_queue* get_device_default_queue(const compute_device& dev) const;
 	
+	//! returns true if external memory can be used (i.e. Vulkan buffer/image sharing)
+	bool can_use_external_memory() const {
+		return has_external_memory_support;
+	}
+	
 protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<cuda_program>> programs GUARDED_BY(programs_lock);
 	
 	uint32_t driver_version { 0 };
+	bool has_external_memory_support { false };
 	
 	flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
 	

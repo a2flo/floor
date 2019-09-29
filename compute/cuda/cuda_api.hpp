@@ -562,6 +562,97 @@ struct cu_launch_params {
 	void** kernel_params;
 };
 
+// cuda 10.0+
+struct _cu_external_memory;
+using cu_external_memory = _cu_external_memory*;
+using const_cu_external_memory = const _cu_external_memory*;
+
+struct _cu_external_semaphore;
+using cu_external_semaphore = _cu_external_semaphore*;
+using const_cu_external_semaphore = const _cu_external_semaphore*;
+
+enum class CU_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t {
+	OPAQUE_FD = 1,
+	OPAQUE_WIN32 = 2,
+	OPAQUE_WIN32_KMT = 3,
+	D3D12_HEAP __attribute__((unavailable("unsupported"))) = 4,
+	D3D12_RESOURCE __attribute__((unavailable("unsupported"))) = 5,
+};
+
+enum class CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE : uint32_t {
+	OPAQUE_FD = 1,
+	OPAQUE_WIN32 = 2,
+	OPAQUE_WIN32_KMT = 3,
+	D3D12_FENCE __attribute__((unavailable("unsupported"))) = 4,
+};
+
+enum class CU_EXTERNAL_MEMORY_FLAGS : uint32_t {
+	DEDICATED_MEMORY = 1,
+};
+
+struct cu_external_memory_handle_descriptor {
+	CU_EXTERNAL_MEMORY_HANDLE_TYPE type;
+	union {
+		int fd;
+		struct {
+			void* handle;
+			const void* name;
+		} win32;
+	} handle;
+	uint64_t size;
+	uint32_t flags;
+	uint32_t _reserved[16];
+};
+
+struct cu_external_memory_buffer_descriptor {
+	uint64_t offset;
+	uint64_t size;
+	uint32_t flags;
+	uint32_t _reserved[16];
+};
+
+struct cu_external_memory_mip_mapped_array_descriptor {
+	uint64_t offset;
+	cu_array_3d_descriptor array_desc;
+	uint32_t num_levels;
+	uint32_t _reserved[16];
+};
+
+struct cu_external_semaphore_handle_descriptor {
+	CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE type;
+	union {
+		int fd;
+		struct {
+			void* handle;
+			const void* name;
+		} win32;
+	} handle;
+	uint32_t flags;
+	uint32_t _reserved[16];
+};
+
+struct cu_external_semaphore_signal_parameters {
+	struct {
+		struct {
+			uint64_t value;
+		} fence;
+		uint32_t _reserved[16];
+	} params;
+	uint32_t flags;
+	uint32_t _reserved[16];
+};
+
+struct cu_external_semaphore_wait_parameters {
+	struct {
+		struct {
+			uint64_t value;
+		} fence;
+		uint32_t _reserved[16];
+	} params;
+	uint32_t flags;
+	uint32_t _reserved[16];
+};
+
 // internal api structs
 #include <floor/compute/cuda/cuda_internal_api.hpp>
 
@@ -573,6 +664,8 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*ctx_create)(cu_context* pctx, CU_CONTEXT_FLAGS flags, cu_device dev);
 	CU_API CU_RESULT (*ctx_get_limit)(size_t* pvalue, CU_LIMIT limit);
 	CU_API CU_RESULT (*ctx_set_current)(cu_context ctx);
+	CU_API CU_RESULT (*destroy_external_memory)(cu_external_memory ext_mem);
+	CU_API CU_RESULT (*destroy_external_semaphore)(cu_external_semaphore ext_sem);
 	CU_API CU_RESULT (*device_compute_capability)(int32_t* major, int32_t* minor, cu_device dev);
 	CU_API CU_RESULT (*device_get)(cu_device* device, int32_t ordinal);
 	CU_API CU_RESULT (*device_get_attribute)(int32_t* pi, CU_DEVICE_ATTRIBUTE attrib, cu_device dev);
@@ -585,6 +678,8 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*event_elapsed_time)(float* milli_seconds, cu_event start_evt, cu_event end_evt);
 	CU_API CU_RESULT (*event_record)(cu_event evt, const_cu_stream stream);
 	CU_API CU_RESULT (*event_synchronize)(cu_event evt);
+	CU_API CU_RESULT (*external_memory_get_mapped_buffer)(cu_device_ptr* dev_ptr, cu_external_memory ext_mem, const cu_external_memory_buffer_descriptor* buffer_desc);
+	CU_API CU_RESULT (*external_memory_get_mapped_mip_mapped_array)(cu_mip_mapped_array* mip_map, cu_external_memory ext_mem, const cu_external_memory_mip_mapped_array_descriptor* mip_map_desc);
 	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
@@ -595,6 +690,8 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_sub_resource_get_mapped_array)(cu_array* p_array, cu_graphics_resource resource, uint32_t array_index, uint32_t mip_level);
 	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, const_cu_stream h_stream);
+	CU_API CU_RESULT (*import_external_memory)(cu_external_memory* ext_mem_out, const cu_external_memory_handle_descriptor* mem_handle_desc);
+	CU_API CU_RESULT (*import_external_semaphore)(cu_external_semaphore* ext_sem_out, const cu_external_semaphore_handle_descriptor* sem_handle_desc);
 	CU_API CU_RESULT (*init)(uint32_t flags);
 	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params, void** extra);
 	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params);
@@ -632,6 +729,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*occupancy_max_active_blocks_per_multiprocessor_with_flags)(int32_t* num_blocks, cu_function func, int32_t block_size, size_t dynamic_s_mem_size, uint32_t flags);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size_with_flags)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit, uint32_t flags);
+	CU_API CU_RESULT (*signal_external_semaphore_async)(const cu_external_semaphore* ext_sem_array, const cu_external_semaphore_signal_parameters* params_array, const uint32_t num_ext_sems, cu_stream stream);
 	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
 	CU_API CU_RESULT (*stream_synchronize)(const_cu_stream h_stream);
 	CU_API CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
@@ -639,6 +737,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);
 	CU_API CU_RESULT (*tex_object_destroy)(cu_tex_object tex_object);
 	CU_API CU_RESULT (*tex_object_get_resource_desc)(cu_resource_descriptor* desc, cu_tex_object tex_object);
+	CU_API CU_RESULT (*wait_external_semaphore_async)(const cu_external_semaphore* ext_sem_array, const cu_external_semaphore_wait_parameters* params_array, const uint32_t num_ext_sems, cu_stream stream);
 };
 extern cuda_api_ptrs cuda_api;
 extern bool cuda_api_init(const bool use_internal_api);
@@ -647,12 +746,16 @@ extern uint32_t cuda_device_sampler_func_offset;
 extern uint32_t cuda_device_in_ctx_offset;
 extern bool cuda_can_use_internal_api();
 
+extern bool cuda_can_use_external_memory();
+
 #define cu_array_3d_create cuda_api.array_3d_create
 #define cu_array_3d_get_descriptor cuda_api.array_3d_get_descriptor
 #define cu_array_destroy cuda_api.array_destroy
 #define cu_ctx_create cuda_api.ctx_create
 #define cu_ctx_get_limit cuda_api.ctx_get_limit
 #define cu_ctx_set_current cuda_api.ctx_set_current
+#define cu_destroy_external_memory cuda_api.destroy_external_memory
+#define cu_destroy_external_semaphore cuda_api.destroy_external_semaphore
 #define cu_device_compute_capability cuda_api.device_compute_capability
 #define cu_device_get cuda_api.device_get
 #define cu_device_get_attribute cuda_api.device_get_attribute
@@ -665,6 +768,8 @@ extern bool cuda_can_use_internal_api();
 #define cu_event_elapsed_time cuda_api.event_elapsed_time
 #define cu_event_record cuda_api.event_record
 #define cu_event_synchronize cuda_api.event_synchronize
+#define cu_external_memory_get_mapped_buffer cuda_api.external_memory_get_mapped_buffer
+#define cu_external_memory_get_mapped_mip_mapped_array cuda_api.external_memory_get_mapped_mip_mapped_array
 #define cu_function_get_attribute cuda_api.function_get_attribute
 #define cu_get_error_name cuda_api.get_error_name
 #define cu_get_error_string cuda_api.get_error_string
@@ -675,6 +780,8 @@ extern bool cuda_can_use_internal_api();
 #define cu_graphics_resource_get_mapped_pointer cuda_api.graphics_resource_get_mapped_pointer
 #define cu_graphics_sub_resource_get_mapped_array cuda_api.graphics_sub_resource_get_mapped_array
 #define cu_graphics_unmap_resources cuda_api.graphics_unmap_resources
+#define cu_import_external_memory cuda_api.import_external_memory
+#define cu_import_external_semaphore cuda_api.import_external_semaphore
 #define cu_init cuda_api.init
 #define cu_launch_kernel cuda_api.launch_kernel
 #define cu_launch_cooperative_kernel cuda_api.launch_cooperative_kernel
@@ -712,6 +819,7 @@ extern bool cuda_can_use_internal_api();
 #define cu_occupancy_max_active_blocks_per_multiprocessor_with_flags cuda_api.occupancy_max_active_blocks_per_multiprocessor_with_flags
 #define cu_occupancy_max_potential_block_size cuda_api.occupancy_max_potential_block_size
 #define cu_occupancy_max_potential_block_size_with_flags cuda_api.occupancy_max_potential_block_size_with_flags
+#define cu_signal_external_semaphore_async cuda_api.signal_external_semaphore_async
 #define cu_stream_create cuda_api.stream_create
 #define cu_stream_synchronize cuda_api.stream_synchronize
 #define cu_surf_object_create cuda_api.surf_object_create
@@ -719,6 +827,7 @@ extern bool cuda_can_use_internal_api();
 #define cu_tex_object_create cuda_api.tex_object_create
 #define cu_tex_object_destroy cuda_api.tex_object_destroy
 #define cu_tex_object_get_resource_desc cuda_api.tex_object_get_resource_desc
+#define cu_wait_external_semaphore_async cuda_api.wait_external_semaphore_async
 
 #endif
 
