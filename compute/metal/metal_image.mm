@@ -470,6 +470,62 @@ metal_image::~metal_image() {
 	}
 }
 
+bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
+	if(image == nil) return false;
+	
+	const auto src_image_dim = src.get_image_dim();
+	if ((src_image_dim != image_dim).any()) {
+		log_error("blit: dim mismatch: src %v != dst %v", src_image_dim, image_dim);
+		return false;
+	}
+	
+	const auto src_layer_count = src.get_layer_count();
+	if (src_layer_count != layer_count) {
+		log_error("blit: layer count mismatch: src %v != dst %v", src_layer_count, layer_count);
+		return false;
+	}
+	
+	const auto src_data_size = src.get_image_data_size();
+	if (src_data_size != image_data_size) {
+		log_error("blit: size mismatch: src %v != dst %v", src_data_size, image_data_size);
+		return false;
+	}
+	
+	const auto src_format = image_format(src.get_image_type());
+	const auto dst_format = image_format(image_type);
+	if (src_format != dst_format) {
+		log_error("blit: format mismatch (%u != %u)", src_format, dst_format);
+		return false;
+	}
+	
+	if (image_compressed(image_type) || image_compressed(src.get_image_type())) {
+		log_error("blit: blitting of compressed formats is not supported");
+		return false;
+	}
+	
+	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+	
+	auto src_image = ((const metal_image&)src).get_metal_image();
+	const auto dim_count = image_dim_count(image_type);
+	// TODO: deal with mip-mapping
+	[blit_encoder copyFromTexture:src_image
+					  sourceSlice:0
+					  sourceLevel:0
+					 sourceOrigin:{ 0, 0, 0 }
+					   sourceSize:{ max(image_dim.x, 1u), dim_count >= 2 ? max(image_dim.y, 1u) : 1, dim_count >= 3 ? max(image_dim.z, 1u) : 1 }
+						toTexture:image
+				 destinationSlice:0
+				 destinationLevel:0
+				destinationOrigin:{ 0, 0, 0 }];
+	
+	[blit_encoder endEncoding];
+	[cmd_buffer commit];
+	[cmd_buffer waitUntilCompleted];
+	
+	return true;
+}
+
 void metal_image::zero(const compute_queue& cqueue) {
 	if(image == nil) return;
 	

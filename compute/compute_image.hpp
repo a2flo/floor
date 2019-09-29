@@ -114,6 +114,11 @@ public:
 	// TODO: read, write, copy, fill
 	// TODO: map with dim size and dim coords/offset
 	
+	//! blits the "src" image onto this image, returns true on success
+	//! NOTE: dim must be identical, format must be compatible
+	//! TODO: implement this everywhere
+	virtual bool blit(const compute_queue& cqueue floor_unused, const compute_image& src floor_unused) { return false; }
+	
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not

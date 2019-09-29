@@ -390,6 +390,11 @@ floor_inline_always static constexpr uint32_t image_channel_count(const COMPUTE_
 	return (uint32_t(image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) >> uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) + 1u;
 }
 
+//! return the format of the specified image type
+floor_inline_always static constexpr uint32_t image_format(const COMPUTE_IMAGE_TYPE& image_type) {
+	return uint32_t(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+}
+
 //! returns the coordinate width required to address a single texel in the image
 //! NOTE: this is usually identical to "image_storage_dim_count", but needs to be increased by 1 for cube array formats
 floor_inline_always static constexpr uint32_t image_coordinate_width(const COMPUTE_IMAGE_TYPE& image_type) {

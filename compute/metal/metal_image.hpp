@@ -49,6 +49,8 @@ public:
 	
 	~metal_image() override;
 	
+	bool blit(const compute_queue& cqueue, const compute_image& src) override;
+	
 	bool acquire_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	bool release_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	

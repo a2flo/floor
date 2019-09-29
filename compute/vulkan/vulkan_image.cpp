@@ -52,7 +52,7 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 			case COMPUTE_MEMORY_FLAG::READ_WRITE:
 				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 				break;
-				// all possible cases handled
+			// all possible cases handled
 			default: floor_unreachable();
 		}
 	} else {

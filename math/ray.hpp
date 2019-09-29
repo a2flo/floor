@@ -30,6 +30,12 @@ public:
 	constexpr ray(const ray& r) noexcept : origin(r.origin), direction(r.direction) {}
 	constexpr ray(const float3& rorigin, const float3& rdirection) noexcept : origin(rorigin), direction(rdirection) {}
 	
+	constexpr ray& operator=(const ray& r) noexcept {
+		origin = r.origin;
+		direction = r.direction;
+		return *this;
+	}
+	
 	constexpr float3 get_point(const float& distance) const {
 		return origin + distance * direction;
 	}
