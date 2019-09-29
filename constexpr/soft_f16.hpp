@@ -92,9 +92,9 @@ struct soft_f16 {
 	
 	//! construction from an integral value
 	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
-	constexpr soft_f16(const int_type& val) noexcept __attribute__((enable_if(val == 0, "constant zero special case"))) : value(0) {}
+	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 0, "constant zero special case"))) : value(0) {}
 	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
-	constexpr soft_f16(const int_type& val) noexcept __attribute__((enable_if(val == 1, "constant one special case"))) : value(0x3C00u) {}
+	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 1, "constant one special case"))) : value(0x3C00u) {}
 	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
 	soft_f16(const int_type& val) noexcept : value(from_float((float)val)) {}
 	//! assignment from an integral value
