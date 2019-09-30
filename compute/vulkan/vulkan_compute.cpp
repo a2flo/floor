@@ -238,9 +238,15 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceShaderFloat16Int8FeaturesKHR shader_float16_int8_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR,
+			.pNext = nullptr,
+			.shaderFloat16 = 0,
+			.shaderInt8 = 0,
+		};
 		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
-			.pNext = nullptr,
+			.pNext = &shader_float16_int8_features,
 			.inlineUniformBlock = false,
 			.descriptorBindingInlineUniformBlockUpdateAfterBind = false
 		};
@@ -380,9 +386,13 @@ compute_context(), enable_renderer(enable_renderer_) {
 			device_extensions_ptrs.emplace_back(ext.c_str());
 		}
 		
+		// ext feature enablement
+		auto enable_f16_i8 = shader_float16_int8_features;
+		enable_f16_i8.pNext = nullptr;
+		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = nullptr,
+			.pNext = &enable_f16_i8,
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
@@ -515,7 +525,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device.max_anisotropy = (device.anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
 		
 		device.int16_support = features.shaderInt16;
-		//device.float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
+		device.float16_support = enable_f16_i8.shaderFloat16;
 		device.double_support = features.shaderFloat64;
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;

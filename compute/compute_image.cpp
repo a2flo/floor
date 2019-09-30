@@ -903,7 +903,7 @@ void compute_image::generate_mip_map_chain(const compute_queue& cqueue) {
 		const auto image_base_type = minify_image_base_type(image_type);
 		const auto kernel_iter = prog->kernels.find(image_base_type);
 		if(kernel_iter == prog->kernels.end()) {
-			log_error("no minification kernel for this image type exists: %X", image_type);
+			log_error("no minification kernel for this image type exists: %s (%X)", image_type_to_string(image_type), image_type);
 			return;
 		}
 		auto minify_kernel = kernel_iter->second.second;
