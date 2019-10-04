@@ -485,11 +485,19 @@ program_data compile_input(const string& input,
 	
 	string os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION=0";
 	os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
-#if defined(__APPLE__) // TODO: do this on windows and linux as well? if so, how/what?
+#if defined(__APPLE__) // TODO: do this on linux as well? if so, how/what?
 	if (!options.ignore_runtime_info) {
 		const auto osx_version_str = to_string(darwin_helper::get_system_version());
 		os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + osx_version_str;
 		os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + osx_version_str;
+	}
+#elif defined(__WINDOWS__)
+	if (!options.ignore_runtime_info) {
+		const auto win_version = core::get_windows_version();
+		// set as: 61 (Win 7), 62 (Win 8), 63 (Win 8.1), 100 (Win 10)
+		const auto win_version_str = to_string(win_version.x * 10 + win_version.y);
+		os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + win_version_str;
+		os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + win_version_str;
 	}
 #endif
 	clang_cmd += os_version_str;

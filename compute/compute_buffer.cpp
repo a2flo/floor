@@ -26,8 +26,9 @@ compute_buffer::compute_buffer(const compute_queue& cqueue,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
-							   const uint32_t external_gl_object_) :
-compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)) {
+							   const uint32_t external_gl_object_,
+							   const vulkan_buffer* vk_buffer_) :
+compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)), shared_vk_buffer(vk_buffer_) {
 	if(size == 0) {
 		log_error("can't allocate a buffer of size 0!");
 	}
@@ -38,6 +39,10 @@ compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), si
 	else if(size > 0xFFFFFFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		log_error("using a buffer larger than 4GiB is not supported when using OpenGL sharing!");
 		size = 0xFFFFFFFFu;
+	}
+	
+	if (shared_vk_buffer != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		log_warn("provided shared Vulkan buffer, but sharing flag is not set");
 	}
 }
 

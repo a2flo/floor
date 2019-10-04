@@ -338,7 +338,7 @@ metal_compute::metal_compute(const bool enable_renderer_, const vector<string> w
 			// NOTE: MTLFeatureSet_macOS_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
 			//device.image_read_write_support = true; // TODO: enable this when supported by the compiler
 		}
-        
+
 		device.local_mem_size = [dev_spi maxComputeThreadgroupMemory];
 		device.max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		device.units = 0; // sadly unknown and impossible to query

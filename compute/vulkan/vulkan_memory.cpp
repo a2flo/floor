@@ -342,7 +342,8 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 }
 
 uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
-											   const bool want_device_memory) const {
+											   const bool want_device_memory,
+											   const bool requires_device_memory) const {
 	const auto find_index = [](const unordered_set<uint32_t>& indices,
 							   const uint32_t& preferred_index,
 							   const uint32_t& type_bits) -> pair<bool, uint32_t> {
@@ -364,10 +365,16 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 		return { false, 0 };
 	};
 	
-	// if device memory is wanted, try this first
-	if(want_device_memory) {
+	// if device memory is wanted or required, try this first
+	if(want_device_memory || requires_device_memory) {
 		const auto ret = find_index(device.device_mem_indices, device.device_mem_index, memory_type_bits);
-		if(ret.first) return ret.second;
+		if(ret.first) {
+			return ret.second;
+		}
+		if (requires_device_memory) {
+			log_error("could not find device-local memory");
+			return 0;
+		}
 	}
 	
 	// check cached first, then uncached

@@ -559,6 +559,88 @@ string get_current_thread_name() {
 #endif
 }
 
+#if defined(__WINDOWS__)
+uint4 get_windows_version() {
+	// only do this once
+	static const uint4 version = []() -> uint4 {
+		// dynamically load version.dll (don't want to link it)
+		auto version_handle = LoadLibrary("version.dll");
+		const auto win_ver_fail = [&version_handle]() -> uint4 {
+			if (version_handle != nullptr) {
+				FreeLibrary(version_handle);
+			}
+			return { 0, 0, 0, 0 };
+		};
+		if (!version_handle) {
+			return win_ver_fail();
+		}
+		
+		// get needed function pointers
+		using get_file_version_info_fptr = int /* bool */ (*)(const char* /* filename */, const uint32_t /* handle */, const uint32_t /* len */, void* /* data */);
+		using get_file_version_info_size_fptr = uint32_t /* size */ (*)(const char* /* filename */, uint32_t* /* handle */);
+		using ver_query_value_fptr = int /* bool */ (*)(const void* /* block */, const char* /* sub_block */, void* /* ret_buffer */, uint32_t* /* ret_len */);
+		auto get_file_version_info = (get_file_version_info_fptr)GetProcAddress(version_handle, "GetFileVersionInfoA");
+		auto get_file_version_info_size = (get_file_version_info_size_fptr)GetProcAddress(version_handle, "GetFileVersionInfoSizeA");
+		auto ver_query_value = (ver_query_value_fptr)GetProcAddress(version_handle, "VerQueryValueA");
+		if (get_file_version_info == nullptr || get_file_version_info_size == nullptr || ver_query_value == nullptr) {
+			return win_ver_fail();
+		}
+		
+		// get the full kernel32.dll version info
+		uint32_t dummy_handle = 0;
+		const auto kernel_version_info_size = get_file_version_info_size("kernel32.dll", &dummy_handle);
+		if (kernel_version_info_size == 0) {
+			return win_ver_fail();
+		}
+		
+		auto kernel_version_info = make_unique<uint8_t[]>(kernel_version_info_size);
+		if (!get_file_version_info("kernel32.dll", 0 /* dummy handle */, kernel_version_info_size, kernel_version_info.get())) {
+			return win_ver_fail();
+		}
+		
+		// query the version info we're actually interested in
+		struct fixed_file_info_t {
+			uint32_t signature;
+			uint32_t struc_version;
+			uint32_t file_version_ms;
+			uint32_t file_version_ls;
+			uint32_t product_version_ms;
+			uint32_t product_version_ls;
+			uint32_t file_flags_mask;
+			uint32_t file_flags;
+			uint32_t file_os;
+			uint32_t file_type;
+			uint32_t file_subtype;
+			uint32_t file_date_ms;
+			uint32_t file_date_ls;
+		};
+		fixed_file_info_t* fixed_file_info = nullptr;
+		uint32_t fixed_file_info_len = 0;
+		if (!ver_query_value(kernel_version_info.get(), "\\", &fixed_file_info, &fixed_file_info_len)) {
+			return win_ver_fail();
+		}
+		if (fixed_file_info_len == 0) {
+			return win_ver_fail();
+		}
+		
+		// all okay, parse the version info
+		return {
+			(fixed_file_info->product_version_ms >> 16u) & 0xFFFFu,
+			(fixed_file_info->product_version_ms & 0xFFFFu),
+			(fixed_file_info->product_version_ls >> 16u) & 0xFFFFu,
+			(fixed_file_info->product_version_ls & 0xFFFFu)
+		};
+	}();
+	return version;
+}
+
+bool is_windows_8_or_higher() {
+	static const auto win_ver = get_windows_version();
+	static const bool is_win8_or_higher = (win_ver.x > 6 || (win_ver.x == 6 && win_ver.y >= 2));
+	return is_win8_or_higher;
+}
+#endif
+
 bool cpu_has_fma() {
 #if !defined(FLOOR_IOS)
 	int eax, ebx, ecx, edx;

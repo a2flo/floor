@@ -55,7 +55,7 @@ static lib_handle_type cuda_lib { nullptr };
 bool cuda_api_init(const bool use_internal_api) {
 	// already init check
 	static bool did_init = false, init_success = false;
-	if(did_init) return init_success;
+	if (did_init) return init_success;
 	did_init = true;
 	
 	// init function pointers
@@ -70,7 +70,7 @@ bool cuda_api_init(const bool use_internal_api) {
 	};
 	
 	cuda_lib = open_dynamic_library(cuda_lib_name);
-	if(cuda_lib == nullptr) {
+	if (cuda_lib == nullptr) {
 		log_error("failed to open cuda library \"%s\"!", cuda_lib_name);
 		return false;
 	}
@@ -107,6 +107,9 @@ bool cuda_api_init(const bool use_internal_api) {
 	
 	(void*&)cuda_api.device_get_name = load_symbol(cuda_lib, "cuDeviceGetName");
 	if(cuda_api.device_get_name == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceGetName\"");
+	
+	(void*&)cuda_api.device_get_uuid = load_symbol(cuda_lib, "cuDeviceGetUuid");
+	if(cuda_api.device_get_uuid == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceGetUuid\"");
 	
 	(void*&)cuda_api.device_total_mem = load_symbol(cuda_lib, "cuDeviceTotalMem_v2");
 	if(cuda_api.device_total_mem == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceTotalMem_v2\"");
@@ -303,7 +306,7 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.wait_external_semaphore_async = load_symbol(cuda_lib, "cuWaitExternalSemaphoresAsync");
 	
 	// if this is enabled, we need to look up offsets of cuda internal structs for later use
-	if(use_internal_api) {
+	if (use_internal_api) {
 		bool has_cuda_lib_data = false;
 		string cuda_lib_data = "";
 		string cuda_lib_path = "";
@@ -311,18 +314,19 @@ bool cuda_api_init(const bool use_internal_api) {
 		// get a list of all loaded dylibs
 		task_dyld_info dyld_info;
 		mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
-		if(task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
+		if (task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
 			const auto all_image_infos = (const dyld_all_image_infos*)dyld_info.all_image_info_addr;
 			
 			// figure out which cuda dylib is loaded (-> we're using)
-			for(uint32_t i = 0; i < all_image_infos->infoArrayCount; ++i) {
-				if(strstr(all_image_infos->infoArray[i].imageFilePath, "libcuda_") != nullptr) {
+			for (uint32_t i = 0; i < all_image_infos->infoArrayCount; ++i) {
+				if (strstr(all_image_infos->infoArray[i].imageFilePath, "libcuda_") != nullptr) {
 					cuda_lib_path = all_image_infos->infoArray[i].imageFilePath;
 					break;
 				}
 			}
+		} else {
+			log_error("task_info was unsuccessful");
 		}
-		else log_error("task_info was unsuccessful");
 #else // linux/windows
 #if defined(__WINDOWS__)
 		cuda_lib_path = core::expand_path_with_env("%windir%/System32/"s + cuda_lib_name);
@@ -332,15 +336,14 @@ bool cuda_api_init(const bool use_internal_api) {
 #endif
 		
 		// load the cuda lib (.so/.dylib/.dll)
-		if(cuda_lib_path != "") {
+		if (cuda_lib_path != "") {
 			has_cuda_lib_data = file_io::file_to_string(cuda_lib_path, cuda_lib_data);
-		}
-		else {
+		} else {
 			log_error("cuda lib not found");
 		}
 		
 		// if we loaded the cuda lib to memory, search it for the offsets we need
-		if(has_cuda_lib_data) {
+		if (has_cuda_lib_data) {
 			// -> find the call to the device specific sampler creation/init function pointer
 			static const uint8_t pattern_start[] {
 #if defined(__APPLE__) // os x
@@ -387,28 +390,29 @@ bool cuda_api_init(const bool use_internal_api) {
 			size_t offset = 0;
 			uint32_t device_sampler_func_offset = 0;
 			uint32_t device_in_ctx_offset = 0;
-			for(;;) {
+			for (;;) {
 				offset = cuda_lib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
-				if(offset != string::npos) {
+				if (offset != string::npos) {
 					// offset to "device_in_ctx_offset"
 					offset += size(pattern_start);
 					
 					// check if middle and end pattern match
-					if(memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset),
-							  pattern_middle, size(pattern_middle)) == 0 &&
-					   memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle) + sizeof(device_sampler_func_offset),
-							  pattern_end, size(pattern_end)) == 0) {
-						   memcpy(&device_in_ctx_offset, cuda_lib_data.data() + offset,
+					if (memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset),
+							   pattern_middle, size(pattern_middle)) == 0 &&
+						memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle) + sizeof(device_sampler_func_offset),
+							   pattern_end, size(pattern_end)) == 0) {
+						memcpy(&device_in_ctx_offset, cuda_lib_data.data() + offset,
 							   sizeof(device_in_ctx_offset));
-						   memcpy(&device_sampler_func_offset, cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle),
+						memcpy(&device_sampler_func_offset, cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle),
 							   sizeof(device_sampler_func_offset));
-						   break;
-					   }
+						break;
+					}
+				} else {
+					break;
 				}
-				else break;
 			}
 			
-			if(device_in_ctx_offset != 0 &&
+			if (device_in_ctx_offset != 0 &&
 			   device_sampler_func_offset != 0 &&
 			   // sanity check, offsets are never larger than this
 			   uint32_t(device_in_ctx_offset) < 0x400 &&
@@ -416,11 +420,14 @@ bool cuda_api_init(const bool use_internal_api) {
 				cuda_internal_api_functional = true;
 				cuda_device_sampler_func_offset = device_sampler_func_offset;
 				cuda_device_in_ctx_offset = device_in_ctx_offset;
+			} else {
+				log_error("device sampler function pointer offset / device in context offset invalid or not found: %X, %X",
+						  device_sampler_func_offset, device_in_ctx_offset);
 			}
-			else log_error("device sampler function pointer offset / device in context offset invalid or not found: %X, %X",
-						   device_sampler_func_offset, device_in_ctx_offset);
+		} else {
+			log_error("failed to load cuda lib");
+			return false;
 		}
-		else log_error("failed to load cuda lib");
 	}
 
 	logger::flush();

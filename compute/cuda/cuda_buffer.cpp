@@ -21,8 +21,15 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
+
+#if !defined(FLOOR_NO_VULKAN)
+#include <floor/floor/floor.hpp>
+#include <floor/compute/vulkan/vulkan_buffer.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
+#endif
 
 // TODO: proper error (return) value handling everywhere
 
@@ -31,8 +38,9 @@ cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
-						 const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+						 const uint32_t external_gl_object_,
+						 const vulkan_buffer* vk_buffer_) :
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, vk_buffer_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -68,6 +76,19 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 					"failed to make cuda context current")
 	}
 	
+	// check Vulkan buffer sharing validity
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if defined(FLOOR_NO_VULKAN)
+		log_error("Vulkan support is not enabled");
+		return;
+#else
+		if (!cuda_can_use_external_memory()) {
+			log_error("can't use Vulkan buffer sharing, because use of external memory is not supported");
+			return;
+		}
+#endif
+	}
+	
 	// actually create the buffer
 	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
@@ -85,7 +106,8 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 	// -> alloc and use device memory
 	else {
 		// -> plain old cuda buffer
-		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+		   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 			CU_CALL_RET(cu_mem_alloc(&buffer, size),
 						"failed to allocate device memory", false)
 			
@@ -97,7 +119,52 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 							"failed to copy initial host data to device", false)
 			}
 		}
-		// -> opengl buffer
+		// -> Vulkan buffer
+		else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if !defined(FLOOR_NO_VULKAN)
+			if (!create_shared_vulkan_buffer(copy_host_data)) {
+				return false;
+			}
+			
+			// import
+			const auto vk_buffer_size = shared_vk_buffer->get_vulkan_allocation_size();
+			if (vk_buffer_size < size) {
+				log_error("Vulkan buffer allocation size (%u) is smaller than the specified CUDA buffer size (%u)",
+						  vk_buffer_size, size);
+				return false;
+			}
+			cu_external_memory_handle_descriptor ext_mem_desc {
+#if defined(__WINDOWS__)
+				.type = (core::is_windows_8_or_higher() ?
+						 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32 :
+						 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+				.handle.win32 = {
+					.handle = shared_vk_buffer->get_vulkan_shared_handle(),
+					.name = nullptr,
+				},
+#else
+				.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_FD,
+				.handle.fd = shared_vk_buffer->get_vulkan_shared_handle(),
+#endif
+				.size = vk_buffer_size,
+				.flags = 0, // not relevant for Vulkan
+			};
+			CU_CALL_RET(cu_import_external_memory(&ext_memory, &ext_mem_desc),
+						"failed to import external Vulkan buffer", false)
+			
+			// map
+			cu_external_memory_buffer_descriptor ext_buffer_desc {
+				.offset = 0,
+				.size = vk_buffer_size,
+				.flags = 0,
+			};
+			CU_CALL_RET(cu_external_memory_get_mapped_buffer(&buffer, ext_memory, &ext_buffer_desc),
+						"failed to get mapped buffer pointer from external Vulkan buffer", false)
+#else
+			return false; // no Vulkan support
+#endif
+		}
+		// -> OpenGL buffer
 		else {
 			if(!create_gl_buffer(copy_host_data)) return false;
 			
@@ -130,7 +197,6 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 
 cuda_buffer::~cuda_buffer() {
 	// kill the buffer
-	if(buffer == 0) return;
 	
 	// -> host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
@@ -140,21 +206,35 @@ cuda_buffer::~cuda_buffer() {
 	// -> device memory
 	else {
 		// -> plain old cuda buffer
-		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-			CU_CALL_RET(cu_mem_free(buffer),
-						"failed to free device memory")
-		}
-		// -> opengl buffer
-		else {
-			if(gl_object == 0) {
-				log_error("invalid opengl buffer!");
+		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+		   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			if (buffer != 0) {
+				CU_CALL_RET(cu_mem_free(buffer), "failed to free device memory")
 			}
-			else {
-				if(buffer == 0 || gl_object_state) {
+		}
+		// -> Vulkan buffer
+		else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			if (buffer != 0) {
+				// CUDA doc says that shared/external memory must also be freed
+				CU_CALL_IGNORE(cu_mem_free(buffer), "failed to free shared external memory")
+			}
+			if (ext_memory != nullptr) {
+				CU_CALL_IGNORE(cu_destroy_external_memory(ext_memory), "failed to destroy shared external memory")
+			}
+			cuda_vk_buffer = nullptr;
+		}
+		// -> OpenGL buffer
+		else {
+			if (gl_object == 0) {
+				log_error("invalid opengl buffer!");
+			} else {
+				if (buffer == 0 || gl_object_state) {
 					log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
 				}
 				// kill opengl buffer
-				if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
+				if (!gl_object_state) {
+					release_opengl_object(nullptr); // -> release to opengl
+				}
 				delete_gl_buffer();
 			}
 		}
@@ -466,6 +546,72 @@ bool cuda_buffer::release_opengl_object(const compute_queue* cqueue) {
 	gl_object_state = true;
 	
 	return true;
+}
+
+#if !defined(FLOOR_NO_VULKAN)
+bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
+	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */) {
+		// create the underlying Vulkan buffer
+		
+		// get the render/graphics context so that we can create a buffer (TODO: allow specifying a different context?)
+		auto render_ctx = floor::get_render_context();
+		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
+			log_error("CUDA/Vulkan buffer sharing failed: render context is not Vulkan");
+			return false;
+		}
+		auto vk_render_ctx = (const vulkan_compute*)render_ctx.get();
+		
+		// get the device and its default queue where we want to create the buffer on/in
+		auto render_dev = vk_render_ctx->get_corresponding_device(dev);
+		if (render_dev == nullptr) {
+			log_error("CUDA/Vulkan buffer sharing failed: failed to find a matching Vulkan device");
+			return false;
+		}
+		auto default_queue = vk_render_ctx->get_device_default_queue(*render_dev);
+		
+		// finally create the buffer
+		auto shared_vk_buffer_flags = flags;
+		if (!copy_host_data) {
+			shared_vk_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+		}
+		cuda_vk_buffer = render_ctx->create_buffer(*default_queue, size, host_ptr, shared_vk_buffer_flags);
+		if (!cuda_vk_buffer) {
+			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
+			return false;
+		}
+		shared_vk_buffer = (const vulkan_buffer*)cuda_vk_buffer.get();
+	}
+	// else: wrapping an existing Vulkan buffer
+	
+	const auto vk_shared_handle = shared_vk_buffer->get_vulkan_shared_handle();
+	if (
+#if defined(__WINDOWS__)
+		vk_shared_handle == nullptr
+#else
+		vk_shared_handle == 0
+#endif
+		) {
+		log_error("shared Vulkan buffer has no shared memory handle");
+		return false;
+	}
+	
+	return true;
+}
+#else
+bool cuda_buffer::create_shared_vulkan_buffer(const bool) {
+	log_error("Vulkan is disabled");
+	return false;
+}
+#endif
+
+bool cuda_buffer::acquire_vulkan_buffer(const compute_queue& cqueue floor_unused) {
+	// TODO: implement this
+	return false;
+}
+
+bool cuda_buffer::release_vulkan_buffer(const compute_queue& cqueue floor_unused) {
+	// TODO: implement this
+	return false;
 }
 
 #endif

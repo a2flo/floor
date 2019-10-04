@@ -44,9 +44,10 @@
 #include <SDL_syswm.h>
 #endif
 
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+#if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(__WINDOWS__)
 #include <vulkan/vulkan_win32.h>
-#elif defined(SDL_VIDEO_DRIVER_X11)
+#endif
+#if defined(SDL_VIDEO_DRIVER_X11)
 #include <vulkan/vulkan_xlib.h>
 #endif
 
@@ -160,6 +161,21 @@ compute_context(), enable_renderer(enable_renderer_) {
 				"failed to register debug callback")
 #endif
 	
+	// get external memory functions
+#if defined(__WINDOWS__)
+	get_memory_win32_handle = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(ctx, "vkGetMemoryWin32HandleKHR");
+	if (get_memory_win32_handle == nullptr) {
+		log_error("failed to retrieve vkGetMemoryWin32HandleKHR function pointer");
+		return;
+	}
+#else
+	get_memory_fd = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(ctx, "vkGetMemoryFdKHR");
+	if (get_memory_fd == nullptr) {
+		log_error("failed to retrieve vkGetMemoryFdKHR function pointer");
+		return;
+	}
+#endif
+	
 	// get layers
 	uint32_t layer_count = 0;
 	VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, nullptr), "failed to retrieve instance layer properties count")
@@ -238,11 +254,21 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalar_block_layout_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
+			.pNext = nullptr,
+			.scalarBlockLayout = false,
+		};
+		VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR uniform_buffer_standard_layout_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR,
+			.pNext = &scalar_block_layout_features,
+			.uniformBufferStandardLayout = false,
+		};
 		VkPhysicalDeviceShaderFloat16Int8FeaturesKHR shader_float16_int8_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR,
-			.pNext = nullptr,
-			.shaderFloat16 = 0,
-			.shaderInt8 = 0,
+			.pNext = &uniform_buffer_standard_layout_features,
+			.shaderFloat16 = false,
+			.shaderInt8 = false,
 		};
 		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
@@ -256,9 +282,18 @@ compute_context(), enable_renderer(enable_renderer_) {
 		};
 		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
 		
+		VkPhysicalDeviceIDProperties device_id_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES,
+			.pNext = nullptr,
+			.deviceUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			.driverUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			.deviceLUID = { 0, 0, 0, 0, 0, 0, 0, 0 },
+			.deviceNodeMask = 0,
+			.deviceLUIDValid = 0,
+		};
 		VkPhysicalDeviceInlineUniformBlockPropertiesEXT inline_uniform_block_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT,
-			.pNext = nullptr,
+			.pNext = &device_id_props,
 			.maxInlineUniformBlockSize = 0,
 			.maxPerStageDescriptorInlineUniformBlocks = 0,
 			.maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks = 0,
@@ -270,6 +305,16 @@ compute_context(), enable_renderer(enable_renderer_) {
 			.pNext = &inline_uniform_block_props,
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
+		
+		if (scalar_block_layout_features.scalarBlockLayout == 0) {
+			log_error("scalar block layout is not supported by %s", props.deviceName);
+			continue;
+		}
+		
+		if (uniform_buffer_standard_layout_features.uniformBufferStandardLayout == 0) {
+			log_error("uniform buffer standard layout is not supported by %s", props.deviceName);
+			continue;
+		}
 		
 		if (inline_uniform_block_features.inlineUniformBlock == 0) {
 			log_error("inline uniform blocks are not supported by %s", props.deviceName);
@@ -339,8 +384,12 @@ compute_context(), enable_renderer(enable_renderer_) {
 		//device_extensions_set.emplace(VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME); // NOTE: will be required in the future
 		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
-		// TODO: use VK_KHR_uniform_buffer_standard_layout macro once headers are current everywhere
-		device_extensions_set.emplace("VK_KHR_uniform_buffer_standard_layout");
+		device_extensions_set.emplace(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME);
+#if defined(__WINDOWS__)
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+#else
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+#endif
 		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
 			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
 		}
@@ -387,12 +436,14 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		
 		// ext feature enablement
-		auto enable_f16_i8 = shader_float16_int8_features;
-		enable_f16_i8.pNext = nullptr;
+		scalar_block_layout_features.scalarBlockLayout = true;
+		uniform_buffer_standard_layout_features.uniformBufferStandardLayout = true;
+		inline_uniform_block_features.inlineUniformBlock = true;
+		// NOTE: shaderFloat16 and shaderInt8 are optional
 		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = &enable_f16_i8,
+			.pNext = &inline_uniform_block_features,
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
@@ -415,6 +466,8 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device.physical_device = phys_dev;
 		device.device = dev;
 		device.name = props.deviceName;
+		copy_n(begin(device_id_props.deviceUUID), device.uuid.size(), begin(device.uuid));
+		device.has_uuid = true;
 		device.platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
 		device.version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
 							  to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
@@ -525,7 +578,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device.max_anisotropy = (device.anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
 		
 		device.int16_support = features.shaderInt16;
-		device.float16_support = enable_f16_i8.shaderFloat16;
+		device.float16_support = shader_float16_int8_features.shaderFloat16;
 		device.double_support = features.shaderFloat64;
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
@@ -633,7 +686,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 	
 	// if there are no devices left, init has failed
 	if(devices.empty()) {
-		if(!queried_devices.empty()) log_warn("no devices left after applying whitelist!");
+		if(!queried_devices.empty()) log_warn("no devices left after checking requirements and applying whitelist!");
 		return;
 	}
 	

@@ -562,6 +562,11 @@ struct cu_launch_params {
 	void** kernel_params;
 };
 
+// cuda 9.2+
+struct cu_uuid {
+	uint8_t bytes[16];
+};
+
 // cuda 10.0+
 struct _cu_external_memory;
 using cu_external_memory = _cu_external_memory*;
@@ -601,21 +606,21 @@ struct cu_external_memory_handle_descriptor {
 	} handle;
 	uint64_t size;
 	uint32_t flags;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 struct cu_external_memory_buffer_descriptor {
 	uint64_t offset;
 	uint64_t size;
 	uint32_t flags;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 struct cu_external_memory_mip_mapped_array_descriptor {
 	uint64_t offset;
 	cu_array_3d_descriptor array_desc;
 	uint32_t num_levels;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 struct cu_external_semaphore_handle_descriptor {
@@ -628,7 +633,7 @@ struct cu_external_semaphore_handle_descriptor {
 		} win32;
 	} handle;
 	uint32_t flags;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 struct cu_external_semaphore_signal_parameters {
@@ -636,10 +641,10 @@ struct cu_external_semaphore_signal_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		uint32_t _reserved[16];
+		uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	} params;
 	uint32_t flags;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 struct cu_external_semaphore_wait_parameters {
@@ -647,10 +652,10 @@ struct cu_external_semaphore_wait_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		uint32_t _reserved[16];
+		uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	} params;
 	uint32_t flags;
-	uint32_t _reserved[16];
+	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 // internal api structs
@@ -671,6 +676,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*device_get_attribute)(int32_t* pi, CU_DEVICE_ATTRIBUTE attrib, cu_device dev);
 	CU_API CU_RESULT (*device_get_count)(int32_t* count);
 	CU_API CU_RESULT (*device_get_name)(char* name, int32_t len, cu_device dev);
+	CU_API CU_RESULT (*device_get_uuid)(cu_uuid* uuid, cu_device dev);
 	CU_API CU_RESULT (*device_total_mem)(size_t* bytes, cu_device dev);
 	CU_API CU_RESULT (*driver_get_version)(int32_t* driver_version);
 	CU_API CU_RESULT (*event_create)(cu_event* evt, CU_EVENT_FLAGS flags);
@@ -761,6 +767,7 @@ extern bool cuda_can_use_external_memory();
 #define cu_device_get_attribute cuda_api.device_get_attribute
 #define cu_device_get_count cuda_api.device_get_count
 #define cu_device_get_name cuda_api.device_get_name
+#define cu_device_get_uuid cuda_api.device_get_uuid
 #define cu_device_total_mem cuda_api.device_total_mem
 #define cu_driver_get_version cuda_api.driver_get_version
 #define cu_event_create cuda_api.event_create

@@ -195,6 +195,10 @@ public:
 	
 	//! device name in string form
 	string name { "unknown" };
+	//! device UUID (if present)
+	array<uint8_t, 16> uuid { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	//! true if the device can be identfied by a UUID and "uuid" is filled with the device UUID
+	bool has_uuid { false };
 	//! device vendor name in string form
 	string vendor_name { "unknown" };
 	//! device version in string form

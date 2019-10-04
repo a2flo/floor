@@ -32,6 +32,12 @@
 #include <floor/compute/spirv_handler.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 
+#if defined(__WINDOWS__) // we don't want to globally include vulkan_win32.h (and windows.h), so forward declare this instead
+struct VkMemoryGetWin32HandleInfoKHR;
+typedef void* HANDLE;
+typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
+#endif
+
 class vulkan_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
@@ -200,6 +206,18 @@ public:
 	//! NOTE: "present_image" calls this
 	bool queue_present(const drawable_image_info& drawable);
 	
+#if defined(__WINDOWS__)
+	//! calls vkGetMemoryWin32HandleKHR
+	VkResult vulkan_get_memory_win32_handle(VkDevice device_, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo_, HANDLE* pHandle_) const {
+		return (*get_memory_win32_handle)(device_, pGetWin32HandleInfo_, pHandle_);
+	}
+#else
+	//! calls vkGetMemoryFdKHR
+	VkResult vulkan_get_memory_fd(VkDevice device_, const VkMemoryGetFdInfoKHR* pGetFdInfo_, int* pFd_) const {
+		return (*get_memory_fd)(device_, pGetFdInfo_, pFd_);
+	}
+#endif
+	
 protected:
 	VkInstance ctx { nullptr };
 	
@@ -243,6 +261,12 @@ protected:
 	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback { nullptr };
 	PFN_vkDestroyDebugReportCallbackEXT destroy_debug_report_callback { nullptr };
 	VkDebugReportCallbackEXT debug_callback { nullptr };
+#endif
+	
+#if defined(__WINDOWS__)
+	PFN_vkGetMemoryWin32HandleKHR get_memory_win32_handle { nullptr };
+#else
+	PFN_vkGetMemoryFdKHR get_memory_fd { nullptr };
 #endif
 	
 	// creates the fixed sampler set for all devices

@@ -199,6 +199,19 @@ namespace core {
 	
 	//! returns the name/label of the current thread (only works with pthreads)
 	string get_current_thread_name();
+
+#if defined(__WINDOWS__)
+	//! returns the Windows version as { major, minor, build, revision }
+	//! invalid:     { 0, 0, 0, 0 }
+	//! Windows 7:   { 6, 1, ... }
+	//! Windows 8:   { 6, 2, ... }
+	//! Windows 8.1: { 6, 3, ... }
+	//! Windows 10:  { 10, 0, ... }
+	uint4 get_windows_version();
+
+	//! returns true if running Windows 8 or higher
+	bool is_windows_8_or_higher();
+#endif
 	
 	//! returns true if the cpu has fma instruction support
 	bool cpu_has_fma();

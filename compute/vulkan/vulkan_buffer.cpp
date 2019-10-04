@@ -21,9 +21,15 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+
+#if defined(__WINDOWS__)
+#include <dxgi1_2.h>
+#include <vulkan/vulkan_win32.h>
+#endif
 
 // TODO: proper error (return) value handling everywhere
 
@@ -64,7 +70,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 				  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 				  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
 				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
-		// TODO: probably want a concurrent option later on
+		// NOTE: for performance reasons, we always want exclusive sharing
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 0,
 		.pQueueFamilyIndices = nullptr,
@@ -72,15 +78,52 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
 				"buffer creation failed", false)
 	
+	// export memory alloc info (if sharing is enabled)
+	VkExportMemoryAllocateInfo export_alloc_info;
+#if defined(__WINDOWS__)
+	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
+#endif
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if defined(__WINDOWS__)
+		// Windows 8+ needs more detailed sharing info
+		if (core::is_windows_8_or_higher()) {
+			export_mem_win32_info = VkExportMemoryWin32HandleInfoKHR {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+				.pNext = nullptr,
+				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+				//       -> we don't need this, so set it to nullptr
+				.pAttributes = nullptr,
+				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+				.name = nullptr,
+			};
+		}
+#endif
+		
+		export_alloc_info = VkExportMemoryAllocateInfo {
+			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#if defined(__WINDOWS__)
+			.pNext = (core::is_windows_8_or_higher() ? &export_mem_win32_info : nullptr),
+			.handleTypes = (core::is_windows_8_or_higher() ?
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+#else
+			.pNext = nullptr,
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
+		};
+	}
+	
 	// allocate / back it up
 	VkMemoryRequirements mem_req;
 	vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
+	allocation_size = mem_req.size;
 	
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.allocationSize = mem_req.size,
-		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */),
+		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.allocationSize = allocation_size,
+		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
+												  has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) /* sharing requires device memory */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
 	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false)
@@ -98,6 +141,30 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 							  "failed to initialize buffer with host data (map failed)")) {
 			return false;
 		}
+	}
+	
+	// get shared memory handle (if sharing is enabled)
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
+#if defined(__WINDOWS__)
+		VkMemoryGetWin32HandleInfoKHR get_win32_handle {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+			.pNext = nullptr,
+			.memory = mem,
+			.handleType = (VkExternalMemoryHandleTypeFlagBits)export_alloc_info.handleTypes,
+		};
+		VK_CALL_RET(vk_ctx.vulkan_get_memory_win32_handle(vulkan_dev, &get_win32_handle, &shared_handle),
+					"failed to retrieve shared win32 memory handle", false)
+#else
+		VkMemoryGetFdInfoKHR get_fd_handle {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+			.pNext = nullptr,
+			.memory = mem,
+			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+		};
+		VK_CALL_RET(vk_ctx.vulkan_get_memory_fd(vulkan_dev, &get_fd_handle, &shared_handle),
+					"failed to retrieve shared fd memory handle", false)
+#endif
 	}
 	
 	return true;

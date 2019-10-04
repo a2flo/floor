@@ -79,6 +79,10 @@ public:
 										   void* data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
+										   const compute_buffer& vk_buffer,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation

@@ -35,6 +35,14 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 		}
 	}
 	
+	// Vulkan sharing handling
+	if(has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		// clear out USE_HOST_MEMORY flag if it is set
+		if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+			flags &= ~COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY;
+		}
+	}
+	
 	// handle read/write flags
 	if((flags & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		// neither read nor write is set -> set read/write
@@ -66,6 +74,10 @@ gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
 	   has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags_)) {
 		log_error("USE_HOST_MEMORY and OPENGL_SHARING are mutually exclusive!");
+	}
+	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
+	   has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags_)) {
+		log_error("USE_HOST_MEMORY and VULKAN_SHARING are mutually exclusive!");
 	}
 }
 

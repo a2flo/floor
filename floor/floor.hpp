@@ -112,6 +112,9 @@ public:
 	static void end_frame(const bool window_swap = true);
 	static void swap();
 	static bool is_console_only();
+	//! returns the default render/graphics context if Metal or Vulkan is used, or nullptr otherwise
+	//! NOTE: this returns the same context as "get_compute_context" if Metal/Vulkan are used as the compute backend as well
+	static shared_ptr<compute_context> get_render_context();
 	
 	// OpenGL-only
 	static SDL_GLContext get_opengl_context();
@@ -124,6 +127,9 @@ public:
 	// Vulkan-only
 	static shared_ptr<vulkan_compute> get_vulkan_context();
 	static const uint3& get_vulkan_api_version();
+	
+	// Metal-only
+	static shared_ptr<metal_compute> get_metal_context();
 	
 	// class return functions
 	static event* get_event();
@@ -301,7 +307,7 @@ public:
 	static const string& get_execution_model();
 	
 	//! returns the default compute/graphics context (CUDA/Host/Metal/OpenCL/Vulkan)
-	//! NOTE: if floor was initialized with Vulkan, this will return the same context
+	//! NOTE: if floor was initialized with Vulkan/Metal, this will return the same context as "get_render_context"
 	static shared_ptr<compute_context> get_compute_context();
 	
 protected:

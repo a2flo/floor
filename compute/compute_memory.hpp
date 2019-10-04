@@ -82,6 +82,11 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! NOTE: of course, this flag only makes sense for compute_images
 	GENERATE_MIP_MAPS	= (1u << 9u),
 	
+	//! creates the memory with Vulkan sharing enabled
+	//! NOTE: the Vulkan object can be retrieved via get_vulkan_object()
+	//! NOTE: VULKAN_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
+	VULKAN_SHARING		= (1u << 10u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

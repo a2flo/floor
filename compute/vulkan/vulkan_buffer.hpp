@@ -108,9 +108,28 @@ FLOOR_POP_WARNINGS()
 	const VkBuffer& get_vulkan_buffer() const { return buffer; }
 	const VkDescriptorBufferInfo* get_vulkan_buffer_info() const { return &buffer_info; }
 	
+	//! returns the Vulkan shared memory handle (nullptr/0 if !shared)
+	const auto& get_vulkan_shared_handle() const {
+		return shared_handle;
+	}
+	
+	//! returns the actual allocation size in bytes this buffer has been created with
+	//! NOTE: allocation size has been computed via vkGetBufferMemoryRequirements and can differ from "size"
+	const VkDeviceSize& get_vulkan_allocation_size() const {
+		return allocation_size;
+	}
+	
 protected:
 	VkBuffer buffer { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
+	VkDeviceSize allocation_size { 0 };
+	
+	// shared memory handle when the buffer has been created with VULKAN_SHARING
+#if defined(__WINDOWS__)
+	void* /* HANDLE */ shared_handle { nullptr };
+#else
+	int shared_handle { 0 };
+#endif
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);

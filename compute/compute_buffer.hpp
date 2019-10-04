@@ -24,6 +24,8 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class vulkan_buffer;
+
 class compute_buffer : public compute_memory {
 public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
@@ -33,7 +35,8 @@ public:
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type = 0,
-				   const uint32_t external_gl_object_ = 0);
+				   const uint32_t external_gl_object_ = 0,
+				   const vulkan_buffer* vk_buffer_ = nullptr);
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const compute_queue& cqueue,
@@ -157,12 +160,29 @@ public:
 													 const uint32_t& opengl_type,
 													 const COMPUTE_MEMORY_FLAG& flags);
 	
+	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
+	const vulkan_buffer* get_shared_vulkan_buffer() const {
+		return shared_vk_buffer;
+	}
+	
+	//! acquires the associated Vulkan buffer for use with compute (-> release from Vulkan use)
+	virtual bool acquire_vulkan_buffer(const compute_queue&) {
+		return false;
+	}
+	//! releases the associated Vulkan buffer from use with compute (-> acquire for Vulkan use)
+	virtual bool release_vulkan_buffer(const compute_queue&) {
+		return false;
+	}
+	
 protected:
 	size_t size { 0u };
 	
 	// internal function to create/delete an opengl buffer if compute/opengl sharing is used
 	bool create_gl_buffer(const bool copy_host_data);
 	void delete_gl_buffer();
+	
+	// shared Vulkan buffer object when Vulkan sharing is used
+	const vulkan_buffer* shared_vk_buffer { nullptr };
 	
 	// buffer size/offset checking (used for debugging/development purposes)
 	// NOTE: this can also be enabled by simply defining FLOOR_DEBUG_COMPUTE_BUFFER elsewhere

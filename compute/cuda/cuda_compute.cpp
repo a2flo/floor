@@ -24,6 +24,11 @@
 #include <floor/floor/floor.hpp>
 #include <floor/compute/universal_binary.hpp>
 
+#if !defined(FLOOR_NO_VULKAN)
+#include <floor/compute/vulkan/vulkan_buffer.hpp>
+#include <floor/compute/vulkan/vulkan_image.hpp>
+#endif
+
 cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
@@ -198,6 +203,16 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		
 		device.sub_group_shuffle_support = (device.sm.x >= 3); // supported with sm_30+
 		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
+		
+		// get UUID if CUDA 9.2+
+		if (driver_version >= 9020 && cu_device_get_uuid != nullptr) {
+			do {
+				cu_uuid uuid;
+				CU_CALL_CONT(cu_device_get_uuid(&uuid, cuda_dev), "failed to retrieve device UUID")
+				copy_n(begin(uuid.bytes), device.uuid.size(), begin(device.uuid));
+				device.has_uuid = true;
+			} while (false);
+		}
 		
 		// enable h/w depth compare when using the internal api and everything is alright
 		if(cuda_can_use_internal_api()) {
@@ -400,6 +415,22 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 	return make_shared<cuda_buffer>(cqueue, info.size, data,
 									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									opengl_type, opengl_buffer);
+}
+
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
+													 const compute_buffer& vk_buffer,
+													 const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_VULKAN)
+	const auto vk_buffer_obj = dynamic_cast<const vulkan_buffer*>(&vk_buffer);
+	if (vk_buffer_obj == nullptr) {
+		log_error("specified buffer is not a Vulkan buffer");
+		return {};
+	}
+	
+	return make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, vk_buffer_obj);
+#else
+	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
+#endif
 }
 
 shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,

@@ -74,6 +74,10 @@ public:
 	//! NOTE: will return any valid device if none matches "type" or nullptr if no device exists
 	const compute_device* get_device(const compute_device::TYPE type) const;
 	
+	//! returns the device in this context corresponding to the specified "external_dev" device in a different context,
+	//! if no match is found, returns nullptr
+	const compute_device* get_corresponding_device(const compute_device& external_dev) const;
+	
 	//! creates and returns a compute_queue (aka command queue or stream) for the specified device
 	virtual shared_ptr<compute_queue> create_queue(const compute_device& dev) const = 0;
 	
@@ -132,6 +136,13 @@ public:
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
+	//! wraps an already existing Vulkan buffer, with the specified flags
+	//! NOTE: VULKAN_SHARING flag is always implied
+	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
+												   const compute_buffer& vk_buffer,
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
+	
 	//////////////////////////////////////////
 	// image creation
 	
@@ -188,6 +199,13 @@ public:
 												 void* data,
 												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+	
+	//! wraps an already existing Vulkan image, with the specified flags
+	//! NOTE: VULKAN_SHARING flag is always implied
+	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
+												 const compute_image& vk_image,
+												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	// TODO: add is_image_format_supported(...) function
 	

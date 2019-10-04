@@ -78,6 +78,39 @@ vector<const compute_device*> compute_context::get_devices() const {
 	return ret;
 }
 
+const compute_device* compute_context::get_corresponding_device(const compute_device& external_dev) const {
+	for (const auto& dev : devices) {
+		// check if the devices have UUIDs that can be compared
+		if (dev->has_uuid && external_dev.has_uuid) {
+			if (dev->uuid == external_dev.uuid) {
+				return dev.get();
+			}
+		}
+		// otherwise fall back to comparing vendor type and device name
+		else {
+			if (dev->vendor != external_dev.vendor) {
+				continue;
+			}
+			if (dev->name != external_dev.name) {
+				continue;
+			}
+			// found it
+			return dev.get();
+		}
+	}
+	return nullptr;
+}
+
+shared_ptr<compute_buffer> compute_context::wrap_buffer(const compute_queue&, const compute_buffer&, const COMPUTE_MEMORY_FLAG) const {
+	log_error("Vulkan buffer sharing is not supported by this backend");
+	return {};
+}
+
+shared_ptr<compute_image> compute_context::wrap_image(const compute_queue&, const compute_image&, const COMPUTE_MEMORY_FLAG) const {
+	log_error("Vulkan image sharing is not supported by this backend");
+	return {};
+}
+
 unique_ptr<graphics_pipeline> compute_context::create_graphics_pipeline(const render_pipeline_description&) const {
 	log_error("graphics not supported by this backend");
 	return {};

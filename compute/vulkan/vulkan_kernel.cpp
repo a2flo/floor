@@ -462,6 +462,22 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
 								 const idx_handler& idx,
 								 const compute_buffer* arg) const {
+	const vulkan_buffer* vk_buffer = nullptr;
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(arg->get_flags())) {
+		vk_buffer = arg->get_shared_vulkan_buffer();
+		if (vk_buffer == nullptr) {
+			vk_buffer = (const vulkan_buffer*)arg;
+#if defined(FLOOR_DEBUG)
+			if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(arg); !test_cast_vk_buffer) {
+				log_error("specified buffer is neither a Vulkan buffer nor a shared Vulkan buffer");
+				return;
+			}
+#endif
+		}
+	} else {
+		vk_buffer = (const vulkan_buffer*)arg;
+	}
+	
 	auto& write_desc = encoder.write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
@@ -471,7 +487,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	write_desc.descriptorCount = 1;
 	write_desc.descriptorType = entry.desc_types[idx.binding];
 	write_desc.pImageInfo = nullptr;
-	write_desc.pBufferInfo = ((const vulkan_buffer*)arg)->get_vulkan_buffer_info();
+	write_desc.pBufferInfo = vk_buffer->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
 	
 	// TODO/NOTE: use dynamic offset if we ever need it

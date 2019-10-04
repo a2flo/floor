@@ -86,7 +86,8 @@ protected:
 	//! based on the specified/supported memory type bits and "wants device memory" flag,
 	//! this tries to find the best matching memory type index (heap / location)
 	uint32_t find_memory_type_index(const uint32_t memory_type_bits,
-									const bool want_device_memory) const;
+									const bool want_device_memory,
+									const bool requires_device_memory = false) const;
 	
 };
 

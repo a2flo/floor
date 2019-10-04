@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_buffer.hpp>
 
+class vulkan_buffer;
 class cuda_device;
 class cuda_buffer final : public compute_buffer {
 public:
@@ -34,7 +35,8 @@ public:
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
-				const uint32_t external_gl_object_ = 0);
+				const uint32_t external_gl_object_ = 0,
+				const vulkan_buffer* vk_buffer_ = nullptr);
 	
 	cuda_buffer(const compute_queue& cqueue,
 				const size_t& size_,
@@ -91,6 +93,9 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
+	bool acquire_vulkan_buffer(const compute_queue& cqueue) override;
+	bool release_vulkan_buffer(const compute_queue& cqueue) override;
+	
 	//! returns the cuda specific buffer pointer (device pointer)
 	const cu_device_ptr& get_cuda_buffer() const {
 		return buffer;
@@ -110,6 +115,13 @@ protected:
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
+	
+	// external (Vulkan) memory
+	cu_external_memory ext_memory { nullptr };
+	// internal Vulkan buffer when using Vulkan memory sharing (and not wrapping an existing buffer)
+	shared_ptr<compute_buffer> cuda_vk_buffer;
+	// creates the internal Vulkan buffer, or deals with the wrapped external one
+	bool create_shared_vulkan_buffer(const bool copy_host_data);
 	
 };
 

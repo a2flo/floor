@@ -594,8 +594,8 @@ bool floor::init(const init_state& state) {
 	
 	// choose the renderer
 	if(state.renderer == RENDERER::DEFAULT) {
-		// try to use Vulkan if the backend is Vulkan and the toolchain exists
 #if !defined(__APPLE__)
+		// try to use Vulkan if the backend is Vulkan and the toolchain exists
 		if(config.backend == "vulkan") {
 			if(!config.vulkan_toolchain_exists) {
 				log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
@@ -604,6 +604,10 @@ bool floor::init(const init_state& state) {
 			else {
 				renderer = RENDERER::VULKAN;
 			}
+		}
+		// also try to use Vulkan if the backend is CUDA and a Vulkan toolchain exists
+		else if(config.backend == "cuda") {
+			renderer = (config.vulkan_toolchain_exists ? RENDERER::VULKAN : RENDERER::OPENGL);
 		}
 		else
 #endif // always default to OpenGL on OS X / iOS
@@ -873,59 +877,72 @@ bool floor::init_internal(const init_state& state) {
 		SDL_ShowWindow(window);
 #endif
 		
-		if(renderer == RENDERER::OPENGL) {
-			opengl_ctx = SDL_GL_CreateContext(window);
-			if(opengl_ctx == nullptr) {
-				log_error("can't create OpenGL context: %s", SDL_GetError());
-				return false;
-			}
-			
+		// 1st pass: try to create the renderer that was specified
+		// 2nd pass: if this fails, try to create an OpenGL renderer (or break if failed renderer was OpenGL)
+		for (uint32_t pass = 0; pass < 2; ++pass) {
+			if (renderer == RENDERER::OPENGL) {
+				opengl_ctx = SDL_GL_CreateContext(window);
+				if (opengl_ctx == nullptr) {
+					log_error("can't create OpenGL context: %s", SDL_GetError());
+					renderer = RENDERER::NONE;
+					break;
+				}
+				
 #if !defined(FLOOR_IOS)
-			// has to be set after context creation
-			if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-				log_error("error setting the OpenGL swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
-				SDL_ClearError();
-			}
-			
-			// enable multi-threaded opengl context when on os x
-			// TODO: did this ever actually work?
+				// has to be set after context creation
+				if (SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
+					log_error("error setting the OpenGL swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
+					SDL_ClearError();
+				}
+				
+				// enable multi-threaded opengl context when on os x
+				// TODO: did this ever actually work?
 #if defined(__APPLE__) && 0
-			CGLContextObj cgl_ctx = CGLGetCurrentContext();
-			CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
-			if(cgl_err != kCGLNoError) {
-				log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
-						  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
-			}
-			else {
-				log_debug("multi-threaded opengl context enabled!");
-			}
+				CGLContextObj cgl_ctx = CGLGetCurrentContext();
+				CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
+				if (cgl_err != kCGLNoError) {
+					log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
+							  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
+				} else {
+					log_debug("multi-threaded opengl context enabled!");
+				}
 #endif
 #endif
-		}
+				break;
+			}
 #if !defined(FLOOR_NO_METAL)
-		else if(renderer == RENDERER::METAL) {
-			// create the metal context
-			metal_ctx = make_shared<metal_compute>(true, config.metal_whitelist);
-			if(metal_ctx == nullptr ||
-			   !metal_ctx->is_supported()) {
-				log_error("failed to create the Metal renderer context");
-				renderer = RENDERER::NONE;
-				metal_ctx = nullptr;
+			else if (renderer == RENDERER::METAL) {
+				// create the metal context
+				metal_ctx = make_shared<metal_compute>(true, config.metal_whitelist);
+				if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
+					log_error("failed to create the Metal renderer context");
+					metal_ctx = nullptr;
+					renderer = RENDERER::OPENGL; // try OpenGL next
+					continue;
+				}
+				break;
 			}
-		}
 #endif
 #if !defined(FLOOR_NO_VULKAN)
-		else if(renderer == RENDERER::VULKAN) {
-			// create the vulkan context
-			vulkan_ctx = make_shared<vulkan_compute>(true, config.vulkan_whitelist);
-			if(vulkan_ctx == nullptr ||
-			   !vulkan_ctx->is_supported()) {
-				log_error("failed to create the Vulkan renderer context");
-				renderer = RENDERER::NONE;
-				vulkan_ctx = nullptr;
+			else if (renderer == RENDERER::VULKAN) {
+				// create the vulkan context
+				vulkan_ctx = make_shared<vulkan_compute>(true, config.vulkan_whitelist);
+				if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
+					log_error("failed to create the Vulkan renderer context");
+					vulkan_ctx = nullptr;
+					renderer = RENDERER::OPENGL; // try OpenGL next
+					continue;
+				}
+				break;
 			}
-		}
 #endif
+			else if (renderer == RENDERER::NONE) {
+				// no renderer at all
+				break;
+			}
+			// if we got here, Metal and Vulkan are disabled -> use OpenGL
+			renderer = RENDERER::OPENGL;
+		}
 	}
 	acquire_context();
 	
@@ -1461,12 +1478,24 @@ uint32_t floor::get_window_refresh_rate() {
 	}
 }
 
+shared_ptr<compute_context> floor::get_render_context() {
+#if defined(__APPLE__)
+	return metal_ctx;
+#else
+	return vulkan_ctx;
+#endif
+}
+
 SDL_GLContext floor::get_opengl_context() {
 	return opengl_ctx;
 }
 
 shared_ptr<vulkan_compute> floor::get_vulkan_context() {
 	return vulkan_ctx;
+}
+
+shared_ptr<metal_compute> floor::get_metal_context() {
+	return metal_ctx;
 }
 
 const string floor::get_version() {

@@ -43,8 +43,8 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 
 #include <vulkan/vulkan.h>
 
-#if VK_HEADER_VERSION < 24
-#error "Vulkan header version must at least be 24"
+#if VK_HEADER_VERSION < 108
+#error "Vulkan header version must at least be 108"
 #endif
 
 constexpr const char* vulkan_error_to_string(const int& error_code) {
