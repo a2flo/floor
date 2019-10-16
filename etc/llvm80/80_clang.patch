@@ -977,10 +977,19 @@ index 34f510f5ca..464eb24223 100644
  public:
    /// Set of enabled sanitizers.
 diff --git a/include/clang/Basic/OpenCLExtensions.def b/include/clang/Basic/OpenCLExtensions.def
-index 5e7d2cb473..9cb524c944 100644
+index 5e7d2cb473..faa2ec7d8b 100644
 --- a/include/clang/Basic/OpenCLExtensions.def
 +++ b/include/clang/Basic/OpenCLExtensions.def
-@@ -70,10 +70,12 @@ OPENCLEXT_INTERNAL(cl_khr_spir, 120, ~0U)
+@@ -35,8 +35,6 @@
+ 
+ // OpenCL 1.0.
+ OPENCLEXT_INTERNAL(cl_khr_3d_image_writes, 100, 200)
+-// fprounding mode is special since it is not mentioned beyond 1.0
+-OPENCLEXT_INTERNAL(cl_khr_select_fprounding_mode, 100, 110)
+ OPENCLEXT_INTERNAL(cl_khr_byte_addressable_store, 100, 110)
+ OPENCLEXT_INTERNAL(cl_khr_fp16, 100, ~0U)
+ OPENCLEXT_INTERNAL(cl_khr_fp64, 100, 120)
+@@ -70,10 +68,12 @@ OPENCLEXT_INTERNAL(cl_khr_spir, 120, ~0U)
  // OpenCL 2.0.
  OPENCLEXT_INTERNAL(cl_khr_egl_event, 200, ~0U)
  OPENCLEXT_INTERNAL(cl_khr_egl_image, 200, ~0U)
@@ -995,7 +1004,7 @@ index 5e7d2cb473..9cb524c944 100644
  
  // Clang Extensions.
  OPENCLEXT_INTERNAL(cl_clang_storage_class_specifiers, 100, ~0U)
-@@ -87,6 +89,12 @@ OPENCLEXT_INTERNAL(cl_intel_subgroups, 120, ~0U)
+@@ -87,6 +87,12 @@ OPENCLEXT_INTERNAL(cl_intel_subgroups, 120, ~0U)
  OPENCLEXT_INTERNAL(cl_intel_subgroups_short, 120, ~0U)
  OPENCLEXT_INTERNAL(cl_intel_device_side_avc_motion_estimation, 120, ~0U)
  
@@ -5050,10 +5059,10 @@ index c754541ac1..dc5a335877 100644
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/lib/CodeGen/CGSPIRMetadataAdder.cpp b/lib/CodeGen/CGSPIRMetadataAdder.cpp
 new file mode 100644
-index 0000000000..761a54bbbb
+index 0000000000..a0e254b250
 --- /dev/null
 +++ b/lib/CodeGen/CGSPIRMetadataAdder.cpp
-@@ -0,0 +1,318 @@
+@@ -0,0 +1,324 @@
 +//===- SPIRMetadataAdder.cpp - Add SPIR related module scope metadata -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -5270,6 +5279,7 @@ index 0000000000..761a54bbbb
 +#define OPENCLEXT(nm) if (cl_options.isEnabled(#nm)) sUsedExts._##nm = true;
 +#include "clang/Basic/OpenCLExtensions.def"
 +
++#if 0 // already emitted by CodeGenModule
 +  // Add SPIR version (1.2)
 +  llvm::Metadata *SPIRVerElts[] = {
 +    llvm::ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(M.getContext()), 1)),
@@ -5287,6 +5297,11 @@ index 0000000000..761a54bbbb
 +  llvm::NamedMDNode *OCLVerMD =
 +    M.getOrInsertNamedMetadata("opencl.ocl.version");
 +  OCLVerMD->addOperand(llvm::MDNode::get(M.getContext(), OCLVerElts));
++#endif
++
++  // add kernels metadata node (this is usually also done by CodeGenModule,
++  // but if no kernels exist, this will not be emitted -> add empty node here)
++  M.getOrInsertNamedMetadata("opencl.kernels");
 +
 +  // Add used extensions
 +  llvm::SmallVector<llvm::Metadata*, 5> OCLExtElts;
@@ -5505,7 +5520,7 @@ index fd4506f2d1..f3bc986b12 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..5e6071b7b4 100644
+index f012384f3d..bf3e567e64 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -5518,7 +5533,7 @@ index f012384f3d..5e6071b7b4 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1874 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,1875 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6101,11 +6116,11 @@ index f012384f3d..5e6071b7b4 100644
 +	
 +	//
 +	const auto handle_stage_input_output = [&Context, &CGM, &stage_infos,
-+											&is_kernel, &is_vertex, &is_fragment,
-+											&FD, &Fn](const QualType& clang_type,
-+													  llvm::Type* llvm_type,
-+													  const bool is_return,
-+													  uint32_t* arg_idx) {
++											&is_vertex, &is_fragment,
++											&Fn](const QualType& clang_type,
++												 llvm::Type* llvm_type,
++												 const bool is_return,
++												 uint32_t* arg_idx) {
 +		assert((arg_idx != nullptr && !is_return) || (arg_idx == nullptr && is_return) && "invalid args");
 +		
 +		const bool is_vertex_io = (is_return && is_vertex) || (!is_return && is_fragment);
@@ -6178,13 +6193,14 @@ index f012384f3d..5e6071b7b4 100644
 +								return;
 +							}
 +							
-+							// TODO: add/handle!
-+							std::string depth_qual = "depth_qualifier:";
++							std::string depth_qual;
 +							switch(depth_attr->getDepthQualifier()) {
-+								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeAny: depth_qual += "any"; break;
-+								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeLess: depth_qual += "less"; break;
-+								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeGreater: depth_qual += "greater"; break;
++								default:
++								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeAny: depth_qual = "any"; break;
++								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeLess: depth_qual = "less"; break;
++								case clang::GraphicsFBODepthTypeAttr::FBODepthTypeGreater: depth_qual = "greater"; break;
 +							}
++							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_depth:" + depth_qual));
 +						}
 +						else {
 +							for(;;) {
@@ -7520,7 +7536,7 @@ index f012384f3d..5e6071b7b4 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2455,112 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2456,112 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -7633,7 +7649,7 @@ index f012384f3d..5e6071b7b4 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2626,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2627,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7646,7 +7662,7 @@ index f012384f3d..5e6071b7b4 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2738,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +2739,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -7676,7 +7692,7 @@ index f012384f3d..5e6071b7b4 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2791,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +2792,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7692,7 +7708,7 @@ index f012384f3d..5e6071b7b4 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2891,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +2892,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7710,7 +7726,7 @@ index f012384f3d..5e6071b7b4 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2947,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +2948,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -7726,7 +7742,7 @@ index f012384f3d..5e6071b7b4 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3098,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3099,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -7736,7 +7752,7 @@ index f012384f3d..5e6071b7b4 100644
    return ResTy;
  }
  
-@@ -1356,7 +3169,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3170,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -9597,7 +9613,7 @@ index 57b8d4340e..617b1f1584 100644
    // requires fair amount of work on LLVM side. We'll keep using PTX 6.1 until
    // all prerequisites are in place.
 diff --git a/lib/Driver/ToolChains/Darwin.cpp b/lib/Driver/ToolChains/Darwin.cpp
-index e5dafa2b09..638b957d2d 100644
+index e5dafa2b09..6fe9dbc761 100644
 --- a/lib/Driver/ToolChains/Darwin.cpp
 +++ b/lib/Driver/ToolChains/Darwin.cpp
 @@ -63,6 +63,8 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
@@ -9638,7 +9654,17 @@ index e5dafa2b09..638b957d2d 100644
    // For modern targets, promote certain warnings to errors.
    if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
      // Always enable -Wdeprecated-objc-isa-usage and promote it
-@@ -2017,6 +2027,8 @@ void MachO::AddLinkRuntimeLibArgs(const ArgList &Args,
+@@ -900,6 +910,9 @@ void DarwinClang::AddLinkARCArgs(const ArgList &Args,
+ }
+ 
+ unsigned DarwinClang::GetDefaultDwarfVersion() const {
++  if (getTriple().getArch() == llvm::Triple::ArchType::air64) {
++    return 2; // AIR is always dwarf 2
++  }
+   // Default to use DWARF 2 on OS X 10.10 / iOS 8 and lower.
+   if ((isTargetMacOS() && isMacosxVersionLT(10, 11)) ||
+       (isTargetIOSBased() && isIPhoneOSVersionLT(9)))
+@@ -2017,6 +2030,8 @@ void MachO::AddLinkRuntimeLibArgs(const ArgList &Args,
  }
  
  bool Darwin::isAlignedAllocationUnavailable() const {
@@ -9647,7 +9673,7 @@ index e5dafa2b09..638b957d2d 100644
    llvm::Triple::OSType OS;
  
    switch (TargetPlatform) {
-@@ -2293,6 +2305,11 @@ void Darwin::CheckObjCARC() const {
+@@ -2293,6 +2308,11 @@ void Darwin::CheckObjCARC() const {
  SanitizerMask Darwin::getSupportedSanitizers() const {
    const bool IsX86_64 = getTriple().getArch() == llvm::Triple::x86_64;
    SanitizerMask Res = ToolChain::getSupportedSanitizers();

@@ -25350,10 +25350,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..9c8fc96af9d
+index 00000000000..99722729a37
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3746 @@
+@@ -0,0 +1,3781 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -25698,7 +25698,8 @@ index 00000000000..9c8fc96af9d
 +    bool is_input{false};
 +    bool is_builtin{false};
 +    bool is_image{false};
-+    bool is_fbo{false};
++    bool is_fbo_color{false};
++    bool is_fbo_depth{false};
 +    bool is_read_only{false};
 +    bool is_write_only{false};
 +    bool set_location{false};
@@ -27530,7 +27531,7 @@ index 00000000000..9c8fc96af9d
 +      mapped_type =
 +          BM->addPointerType(spv::StorageClassUniformConstant, ptr_img_type);
 +    }
-+  } else if (global_type.is_fbo) {
++  } else if (global_type.is_fbo_color) {
 +    // extract location idx
 +    const auto location_pos = md_info.rfind(':');
 +    assert(location_pos != std::string::npos);
@@ -27553,6 +27554,24 @@ index 00000000000..9c8fc96af9d
 +    } else {
 +      mapped_type = transType(GV.getType());
 +    }
++
++  } else if (global_type.is_fbo_depth) {
++    // extract depth qualifier
++    const auto depth_qual_pos = md_info.rfind(':');
++    assert(depth_qual_pos != std::string::npos);
++    const auto depth_qual = md_info.substr(depth_qual_pos + 1);
++
++    // add execution mode for "less" and "greater"
++    if (depth_qual == "less") {
++      spirv_func->addExecutionMode(
++          new SPIRVExecutionMode(spirv_func, ExecutionModeDepthLess));
++    } else if (depth_qual == "greater") {
++      spirv_func->addExecutionMode(
++          new SPIRVExecutionMode(spirv_func, ExecutionModeDepthGreater));
++    }
++    // else: "any"/default, keep as-is
++
++    mapped_type = transType(GV.getType());
 +
 +  } else {
 +    mapped_type = transType(GV.getType());
@@ -27591,8 +27610,8 @@ index 00000000000..9c8fc96af9d
 +    }
 +  }
 +
-+  // set fbo output location decoration
-+  if (global_type.is_fbo) {
++  // handle decoration
++  if (global_type.is_fbo_color) {
 +    BVar->addDecorate(
 +        new SPIRVDecorate(DecorationLocation, BVar, fbo_location));
 +  } else if ((storage_class == spv::StorageClassOutput ||
@@ -27604,8 +27623,8 @@ index 00000000000..9c8fc96af9d
 +
 +  // automatically add the "flat" decoration on types that need it
 +  // NOTE: vulkan requires that this is only set on input variables
-+  if (storage_class == spv::StorageClassInput && !global_type.is_fbo &&
-+      !global_type.is_builtin) {
++  if (storage_class == spv::StorageClassInput && !global_type.is_fbo_color &&
++      !global_type.is_fbo_depth && !global_type.is_builtin) {
 +    // I/O should always be a pointer type
 +    if (GV.getType()->isPointerTy()) {
 +      auto elem_type = GV.getType()->getPointerElementType();
@@ -28211,6 +28230,8 @@ index 00000000000..9c8fc96af9d
 +          GV.getName().find(output_var_name_stub) != std::string::npos) {
 +        auto output_name = GV.getName().split(".vulkan_output.").second;
 +
++        assert(output_arg_idx < md_data_output.size() &&
++               "invalid/incomplete output metadata");
 +        const auto md_prefix_split_pos =
 +            md_data_output[output_arg_idx].find(':');
 +        const std::string md_prefix =
@@ -28224,14 +28245,28 @@ index 00000000000..9c8fc96af9d
 +                 : md_data_output[output_arg_idx]);
 +
 +        if (md_prefix != "") {
-+          // -> fbo
++          // -> fbo color
 +          if (md_prefix == "stage" &&
 +              md_info.find("fbo_output:") != std::string::npos) {
 +            spirv_global_io_type global_type;
 +            global_type.is_write_only = true;
-+            global_type.is_fbo = true;
++            global_type.is_fbo_color = true;
 +            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
 +                                  global_type, md_info);
++          }
++          // -> fbo depth
++          else if (md_prefix == "stage" &&
++                   md_info.find("fbo_depth:") != std::string::npos) {
++            spirv_global_io_type global_type;
++            global_type.is_write_only = true;
++            global_type.is_fbo_depth = true;
++            global_type.is_builtin = true;
++            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                  global_type, md_info, spv::BuiltInFragDepth);
++            // since we explicitly write depth, flag the function as
++            // "DepthReplacing"
++            spirv_func->addExecutionMode(new SPIRVExecutionMode(
++                spirv_func, ExecutionModeDepthReplacing));
 +          }
 +          // -> builtin
 +          else if (md_prefix == "builtin" || md_prefix == "stage") {
