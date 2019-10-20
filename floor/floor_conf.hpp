@@ -33,17 +33,17 @@
 #endif
 
 // if defined, this disables cuda support
-#define FLOOR_NO_CUDA 1
+//#define FLOOR_NO_CUDA 1
 
 // if defined, this disables host compute support
-#define FLOOR_NO_HOST_COMPUTE 1
+//#define FLOOR_NO_HOST_COMPUTE 1
 
 // if defined, this disables opencl support
-#define FLOOR_NO_OPENCL 1
+//#define FLOOR_NO_OPENCL 1
 
 #if !defined(FLOOR_VULKAN_TESTING)
 // if defined, this disables vulkan support
-#define FLOOR_NO_VULKAN 1
+//#define FLOOR_NO_VULKAN 1
 #endif
 
 // if defined, this disables metal support
@@ -54,13 +54,13 @@
 #endif
 
 // if defined, this disables openal support
-#define FLOOR_NO_OPENAL 1
+//#define FLOOR_NO_OPENAL 1
 
 // if defined, this disables network support
-#define FLOOR_NO_NET 1
+//#define FLOOR_NO_NET 1
 
 // if defined, this disables c++ exception support
-#define FLOOR_NO_EXCEPTIONS 1
+//#define FLOOR_NO_EXCEPTIONS 1
 
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
