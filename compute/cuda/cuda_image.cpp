@@ -458,7 +458,6 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			.num_levels = mip_level_count,
 		};
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-			// TODO: check if depth attachment is supported
 			ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE;
 		}
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
@@ -752,6 +751,7 @@ cuda_image::~cuda_image() {
 						"failed to free device memory")
 		}
 	}
+#if !defined(FLOOR_NO_VULKAN)
 	// -> Vulkan image
 	else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		if (image_mipmap_array != nullptr) {
@@ -768,6 +768,7 @@ cuda_image::~cuda_image() {
 		}
 		cuda_vk_sema = nullptr;
 	}
+#endif
 	// -> OpenGL image
 	else {
 		if (gl_object == 0) {
