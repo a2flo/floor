@@ -47,6 +47,22 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 #error "Vulkan header version must at least be 108"
 #endif
 
+// workaround struct + enum rename
+#if VK_HEADER_VERSION < 115
+#define VkPhysicalDeviceShaderFloat16Int8FeaturesKHR VkPhysicalDeviceFloat16Int8FeaturesKHR
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR
+#endif
+
+// for Vulkan resource sharing on Windows
+#if defined(__WINDOWS__)
+#if !defined(DXGI_SHARED_RESOURCE_READ)
+#define DXGI_SHARED_RESOURCE_READ (0x80000000L)
+#endif
+#if !defined(DXGI_SHARED_RESOURCE_WRITE)
+#define DXGI_SHARED_RESOURCE_WRITE (1)
+#endif
+#endif
+
 constexpr const char* vulkan_error_to_string(const int& error_code) {
 	// NOTE: don't use actual enums here so this doesn't have to rely on vulkan version or vendor specific headers
 	switch(error_code) {

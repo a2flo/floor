@@ -29,7 +29,6 @@
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp>
-#include <dxgi1_2.h>
 #include <vulkan/vulkan_win32.h>
 #endif
 
