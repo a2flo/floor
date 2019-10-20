@@ -21,9 +21,15 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+
+#if defined(__WINDOWS__)
+#include <dxgi1_2.h>
+#include <vulkan/vulkan_win32.h>
+#endif
 
 // TODO: proper error (return) value handling everywhere
 
@@ -41,24 +47,21 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 	const bool is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	
 	VkImageUsageFlags usage = 0;
-	if (!is_render_target) {
-		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-			case COMPUTE_MEMORY_FLAG::READ:
-				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-				break;
-			case COMPUTE_MEMORY_FLAG::WRITE:
-				usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-				break;
-			case COMPUTE_MEMORY_FLAG::READ_WRITE:
-				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-				break;
-			// all possible cases handled
-			default: floor_unreachable();
-		}
-	} else {
-		// render targets are always just "sampled"
-		usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-		
+	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::READ:
+			usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+			break;
+		case COMPUTE_MEMORY_FLAG::WRITE:
+			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+			break;
+		case COMPUTE_MEMORY_FLAG::READ_WRITE:
+			usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+			break;
+		// all possible cases handled
+		default: floor_unreachable();
+	}
+	
+	if (is_render_target) {
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		} else {
@@ -97,7 +100,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// format conversion
 	const auto vk_format_opt = vulkan_format_from_image_type(image_type);
 	if (!vk_format_opt) {
-		log_error("unsupported image format: %X", image_type);
+		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	vk_format = *vk_format_opt;
@@ -151,7 +154,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.samples = VK_SAMPLE_COUNT_1_BIT, // TODO: msaa support
 		.tiling = VK_IMAGE_TILING_OPTIMAL, // TODO: might want linear as well later on?
 		.usage = usage,
-		// TODO: probably want a concurrent option later on
+		// NOTE: for performance reasons, we always want exclusive sharing
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 0,
 		.pQueueFamilyIndices = nullptr,
@@ -160,15 +163,52 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
 				"image creation failed", false)
 	
+	// export memory alloc info (if sharing is enabled)
+	VkExportMemoryAllocateInfo export_alloc_info;
+#if defined(__WINDOWS__)
+	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
+#endif
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if defined(__WINDOWS__)
+		// Windows 8+ needs more detailed sharing info
+		if (core::is_windows_8_or_higher()) {
+			export_mem_win32_info = {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+				.pNext = nullptr,
+				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+				//       -> we don't need this, so set it to nullptr
+				.pAttributes = nullptr,
+				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+				.name = nullptr,
+			};
+		}
+#endif
+		
+		export_alloc_info = {
+			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#if defined(__WINDOWS__)
+			.pNext = (core::is_windows_8_or_higher() ? &export_mem_win32_info : nullptr),
+			.handleTypes = (core::is_windows_8_or_higher() ?
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+#else
+			.pNext = nullptr,
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
+		};
+	}
+	
 	// allocate / back it up
 	VkMemoryRequirements mem_req;
 	vkGetImageMemoryRequirements(vulkan_dev, image, &mem_req);
+	allocation_size = mem_req.size;
 	
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.allocationSize = mem_req.size,
-		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */),
+		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.allocationSize = allocation_size,
+		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
+												  has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) /* sharing requires device memory */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
@@ -318,6 +358,30 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		} else {
 			transition_write(cqueue, nullptr);
 		}
+	}
+	
+	// get shared memory handle (if sharing is enabled)
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
+#if defined(__WINDOWS__)
+		VkMemoryGetWin32HandleInfoKHR get_win32_handle {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+			.pNext = nullptr,
+			.memory = mem,
+			.handleType = (VkExternalMemoryHandleTypeFlagBits)export_alloc_info.handleTypes,
+		};
+		VK_CALL_RET(vk_ctx.vulkan_get_memory_win32_handle(vulkan_dev, &get_win32_handle, &shared_handle),
+					"failed to retrieve shared win32 memory handle", false)
+#else
+		VkMemoryGetFdInfoKHR get_fd_handle {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+			.pNext = nullptr,
+			.memory = mem,
+			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+		};
+		VK_CALL_RET(vk_ctx.vulkan_get_memory_fd(vulkan_dev, &get_fd_handle, &shared_handle),
+					"failed to retrieve shared fd memory handle", false)
+#endif
 	}
 	
 	return false;

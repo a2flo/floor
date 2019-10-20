@@ -943,11 +943,11 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 	// base type
 	const auto dim = image_dim_count(type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-	const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type);
-	const auto is_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
+	const auto is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(type);
 	const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(type);
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type);
-	const auto is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(type);
+	const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type);
+	const auto is_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
 	
 	if(!is_cube) ret << dim << "D ";
 	else ret << "Cube ";

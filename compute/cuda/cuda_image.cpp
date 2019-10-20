@@ -28,6 +28,14 @@
 #include <floor/compute/cuda/cuda_buffer.hpp>
 #include <floor/core/gl_shader.hpp>
 
+#if !defined(FLOOR_NO_VULKAN)
+#include <floor/floor/floor.hpp>
+#include <floor/compute/vulkan/vulkan_image.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_queue.hpp>
+#include <floor/compute/vulkan/vulkan_semaphore.hpp>
+#endif
+
 // internal shaders for copying/blitting opengl textures
 static const char blit_vs_text[] {
 	"out vec2 tex_coord;\n"
@@ -181,9 +189,11 @@ cuda_image::cuda_image(const compute_queue& cqueue,
 					   const COMPUTE_MEMORY_FLAG flags_,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
-					   const opengl_image_info* gl_image_info) :
+					   const opengl_image_info* gl_image_info,
+					   const vulkan_image* vk_image_) :
 compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info) {
+			  opengl_type_, external_gl_object_, gl_image_info, vk_image_),
+is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 	// TODO: handle the remaining flags + host ptr
 	
 	// zero init cuda textures array
@@ -195,6 +205,19 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 	if(cuda_dev.ctx != nullptr) {
 		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
 					"failed to make cuda context current")
+	}
+	
+	// check Vulkan image sharing validity
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if defined(FLOOR_NO_VULKAN)
+		log_error("Vulkan support is not enabled");
+		return;
+#else
+		if (!cuda_can_use_external_memory()) {
+			log_error("can't use Vulkan image sharing, because use of external memory is not supported");
+			return;
+		}
+#endif
 	}
 	
 	// actually create the image
@@ -291,7 +314,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 														   COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
 														   COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
 	if(cuda_format == end(format_lut)) {
-		log_error("unsupported image format: %X", image_type);
+		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	
@@ -335,33 +358,34 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	}
 	
 	// -> cuda array
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		const cu_array_3d_descriptor desc {
-			.dim = {
-				image_dim.x,
-				(dim_count >= 2 ? image_dim.y : 0),
-				depth
-			},
-			.format = format,
-			.channel_count = channel_count,
-			.flags = (
-					  (is_array ? CU_ARRAY_3D_FLAGS::LAYERED : CU_ARRAY_3D_FLAGS::NONE) |
-					  (is_cube ? CU_ARRAY_3D_FLAGS::CUBE_MAP : CU_ARRAY_3D_FLAGS::NONE) |
-					  // NOTE: depth flag is not supported and array creation will return INVALID_VALUE
-					  // (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CU_ARRAY_3D_FLAGS::NONE) |
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CU_ARRAY_3D_FLAGS::TEXTURE_GATHER : CU_ARRAY_3D_FLAGS::NONE) |
-					  (need_surf ? CU_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CU_ARRAY_3D_FLAGS::NONE)
-			)
-		};
+	const cu_array_3d_descriptor array_desc {
+		.dim = {
+			image_dim.x,
+			(dim_count >= 2 ? image_dim.y : 0),
+			depth
+		},
+		.format = format,
+		.channel_count = channel_count,
+		.flags = (
+				  (is_array ? CU_ARRAY_3D_FLAGS::LAYERED : CU_ARRAY_3D_FLAGS::NONE) |
+				  (is_cube ? CU_ARRAY_3D_FLAGS::CUBE_MAP : CU_ARRAY_3D_FLAGS::NONE) |
+				  // NOTE: depth flag is not supported and array creation will return INVALID_VALUE
+				  // (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CU_ARRAY_3D_FLAGS::NONE) |
+				  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CU_ARRAY_3D_FLAGS::TEXTURE_GATHER : CU_ARRAY_3D_FLAGS::NONE) |
+				  (need_surf ? CU_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CU_ARRAY_3D_FLAGS::NONE)
+		)
+	};
+	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+	   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		log_debug("surf/tex %u/%u; dim %u: %v; channels %u; flags %u; format: %X",
-				  need_surf, need_tex, dim_count, desc.dim, desc.channel_count, desc.flags, desc.format);
+				  need_surf, need_tex, dim_count, array_desc.dim, array_desc.channel_count, array_desc.flags, array_desc.format);
 		if(!is_mip_mapped) {
-			CU_CALL_RET(cu_array_3d_create(&image_array, &desc),
+			CU_CALL_RET(cu_array_3d_create(&image_array, &array_desc),
 						"failed to create cuda array/image", false)
 			image = image_array;
 		}
 		else {
-			CU_CALL_RET(cu_mipmapped_array_create(&image_mipmap_array, &desc, mip_level_count),
+			CU_CALL_RET(cu_mipmapped_array_create(&image_mipmap_array, &array_desc, mip_level_count),
 						"failed to create cuda mip-mapped array/image", false)
 			image = image_mipmap_array;
 			
@@ -393,7 +417,68 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			});
 		}
 	}
-	// -> opengl image
+	// -> Vulkan image
+	else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+#if !defined(FLOOR_NO_VULKAN)
+		if (!create_shared_vulkan_image(copy_host_data)) {
+			return false;
+		}
+		
+		// import
+		const auto vk_image_size = shared_vk_image->get_vulkan_allocation_size();
+		if (vk_image_size < image_data_size) {
+			log_error("Vulkan image allocation size (%u) is smaller than the specified CUDA image size (%u)",
+					  vk_image_size, image_data_size);
+			return false;
+		}
+		cu_external_memory_handle_descriptor ext_mem_desc {
+#if defined(__WINDOWS__)
+			.type = (core::is_windows_8_or_higher() ?
+					 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32 :
+					 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+			.handle.win32 = {
+				.handle = shared_vk_image->get_vulkan_shared_handle(),
+				.name = nullptr,
+			},
+#else
+			.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_FD,
+			.handle.fd = shared_vk_image->get_vulkan_shared_handle(),
+#endif
+			.size = vk_image_size,
+			.flags = 0, // not relevant for Vulkan
+		};
+		CU_CALL_RET(cu_import_external_memory(&ext_memory, &ext_mem_desc),
+					"failed to import external Vulkan image", false)
+		
+		// map
+		// NOTE: CUDA considers the image/array to always be mip-mapped (even if it only has one level)
+		cu_external_memory_mip_mapped_array_descriptor ext_array_desc {
+			.offset = 0,
+			.array_desc = array_desc,
+			.num_levels = mip_level_count,
+		};
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			// TODO: check if depth attachment is supported
+			ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE;
+		}
+		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
+			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+			ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::COLOR_ATTACHMENT;
+		}
+		CU_CALL_RET(cu_external_memory_get_mapped_mip_mapped_array(&image_mipmap_array, ext_memory, &ext_array_desc),
+					"failed to get mapped array/image pointer from external Vulkan image", false)
+		image = image_mipmap_array;
+		
+		image_mipmap_arrays.resize(mip_level_count);
+		for(uint32_t level = 0; level < mip_level_count; ++level) {
+			CU_CALL_RET(cu_mipmapped_array_get_level(&image_mipmap_arrays[level], image_mipmap_array, level),
+						"failed to retrieve cuda mip-map level #" + to_string(level), false)
+		}
+#else
+		return false; // no Vulkan support
+#endif
+	}
+	// -> OpenGL image
 	else {
 		if(!create_gl_image(copy_host_data)) return false;
 		log_debug("surf/tex %u/%u", need_surf, need_tex);
@@ -512,7 +597,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	memset(&rsrc_view_desc, 0, sizeof(cu_resource_view_descriptor));
 	
 	// TODO: support LINEAR/PITCH2D?
-	if(is_mip_mapped) {
+	if(is_mip_mapped_or_vulkan) {
 		rsrc_desc.type = CU_RESOURCE_TYPE::MIP_MAPPED_ARRAY;
 		rsrc_desc.mip_mapped_array = image_mipmap_array;
 	}
@@ -556,7 +641,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			// no variable anisotropy yet
 			tex_desc.max_anisotropy = 16;
 			tex_desc.min_mip_map_level_clamp = 0;
-			tex_desc.max_mip_map_level_clamp = (is_mip_mapped ? dev.max_mip_levels : 0);
+			tex_desc.max_mip_map_level_clamp = (is_mip_mapped_or_vulkan ? dev.max_mip_levels : 0);
 			
 			// at this point, the device function pointer that initializes/creates the sampler state
 			// has been overwritten/hijacked by our own function (if the internal api is used/enabled)
@@ -603,13 +688,13 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	}
 	if(need_surf) {
 		// there is no mip-map surface equivalent, so we must create a surface for each mip-map level from each level array
-		if(is_mip_mapped) {
+		if(is_mip_mapped_or_vulkan) {
 			rsrc_desc.type = CU_RESOURCE_TYPE::ARRAY;
 		}
 		
 		surfaces.resize(mip_level_count);
 		for(uint32_t level = 0; level < mip_level_count; ++level) {
-			if(is_mip_mapped) {
+			if(is_mip_mapped_or_vulkan) {
 				rsrc_desc.array = image_mipmap_arrays[level];
 			}
 			CU_CALL_RET(cu_surf_object_create(&surfaces[level], &rsrc_desc),
@@ -618,7 +703,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		
 		// since we don't want to carry around 64-bit values for all possible mip-levels for all images (15 * 8 == 120 bytes per image!),
 		// store all mip-map level surface "objects"/ids in a separate buffer, which we will access if lod write is actually being used
-		if(is_mip_mapped) {
+		if(is_mip_mapped_or_vulkan) {
 			surfaces_lod_buffer = make_shared<cuda_buffer>(cqueue, surfaces,
 														   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 		}
@@ -641,7 +726,6 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 
 cuda_image::~cuda_image() {
 	// kill the image
-	if(image == nullptr) return;
 	
 	for(const auto& texture : textures) {
 		if(texture != 0) {
@@ -657,36 +741,52 @@ cuda_image::~cuda_image() {
 	}
 	
 	// -> cuda array
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		if(image_array != nullptr) {
+	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (image_array != nullptr) {
 			CU_CALL_RET(cu_array_destroy(image_array),
 						"failed to free device memory")
 		}
-		if(image_mipmap_array != nullptr) {
+		if (image_mipmap_array != nullptr) {
 			CU_CALL_RET(cu_mipmapped_array_destroy(image_mipmap_array),
 						"failed to free device memory")
 		}
 	}
-	// -> opengl image
-	else {
-		if(gl_object == 0) {
-			log_error("invalid opengl image!");
+	// -> Vulkan image
+	else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (image_mipmap_array != nullptr) {
+			// CUDA doc says that shared/external memory must also be freed
+			CU_CALL_RET(cu_mipmapped_array_destroy(image_mipmap_array),
+						"failed to free shared external memory")
 		}
-		else {
-			if(image == nullptr || gl_object_state) {
+		if (ext_memory != nullptr) {
+			CU_CALL_IGNORE(cu_destroy_external_memory(ext_memory), "failed to destroy shared external memory")
+		}
+		cuda_vk_image = nullptr;
+		if (ext_sema != nullptr) {
+			CU_CALL_IGNORE(cu_destroy_external_semaphore(ext_sema), "failed to destroy shared external semaphore")
+		}
+		cuda_vk_sema = nullptr;
+	}
+	// -> OpenGL image
+	else {
+		if (gl_object == 0) {
+			log_error("invalid opengl image!");
+		} else {
+			if (image == nullptr || gl_object_state) {
 				log_warn("image still registered for opengl use - acquire before destructing a compute image!");
 			}
 			// kill opengl image
-			if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
+			if (!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 			delete_gl_image();
 		}
 	}
 	
 	// clean up depth compat objects
-	if(depth_copy_fbo != 0) {
+	if (depth_copy_fbo != 0) {
 		glDeleteFramebuffers(1, &depth_copy_fbo);
 	}
-	if(depth_compat_tex != 0) {
+	if (depth_compat_tex != 0) {
 		glDeleteTextures(1, &depth_compat_tex);
 	}
 }
@@ -705,7 +805,7 @@ void cuda_image::zero(const compute_queue& cqueue) {
 												 const uint32_t& slice_data_size,
 												 const uint32_t&) {
 		if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(zero_data_ptr,
-																	 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
+																	 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
 																	 slice_data_size / max(mip_image_dim.y, 1u),
 																	 mip_image_dim.y, mip_image_dim.z * layer_count)) {
 			log_error("failed to zero image");
@@ -766,7 +866,7 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 																		   const uint32_t& slice_data_size,
 																		   const uint32_t& level_data_size) {
 			if(!cuda_memcpy<CU_MEMORY_TYPE::ARRAY, CU_MEMORY_TYPE::HOST>(cpy_host_ptr,
-																		 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
+																		 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
 																		 mip_image_dim.y, mip_image_dim.z * layer_count,
 																		 !blocking_map, stream)) {
@@ -805,7 +905,7 @@ void cuda_image::unmap(const compute_queue& cqueue,
 											  const uint32_t& slice_data_size,
 											  const uint32_t& level_data_size) {
 			if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
-																		 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
+																		 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
 																		 mip_image_dim.y, mip_image_dim.z * layer_count)) {
 				log_error("failed to copy host memory to device");
@@ -956,5 +1056,119 @@ bool cuda_image::release_opengl_object(const compute_queue* cqueue) {
 	
 	return true;
 }
+	
+#if !defined(FLOOR_NO_VULKAN)
+bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
+	const vulkan_compute* vk_render_ctx = nullptr;
+	const compute_device* render_dev = nullptr;
+	if (shared_vk_image == nullptr || cuda_vk_image != nullptr /* !nullptr if resize */ || !cuda_vk_sema) {
+		// get the render/graphics context so that we can create a image (TODO: allow specifying a different context?)
+		auto render_ctx = floor::get_render_context();
+		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
+			log_error("CUDA/Vulkan image sharing failed: render context is not Vulkan");
+			return false;
+		}
+		vk_render_ctx = (const vulkan_compute*)render_ctx.get();
+		
+		// get the device and its default queue where we want to create the image on/in
+		render_dev = vk_render_ctx->get_corresponding_device(dev);
+		if (render_dev == nullptr) {
+			log_error("CUDA/Vulkan image sharing failed: failed to find a matching Vulkan device");
+			return false;
+		}
+	}
+	
+	if (shared_vk_image == nullptr || cuda_vk_image != nullptr /* !nullptr if resize */) {
+		// create the underlying Vulkan image
+		auto default_queue = vk_render_ctx->get_device_default_queue(*render_dev);
+		auto shared_vk_image_flags = flags;
+		if (!copy_host_data) {
+			shared_vk_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+		}
+		cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_vk_image_flags);
+		if (!cuda_vk_image) {
+			log_error("CUDA/Vulkan image sharing failed: failed to create the underlying shared Vulkan image");
+			return false;
+		}
+		shared_vk_image = (const vulkan_image*)cuda_vk_image.get();
+	}
+	// else: wrapping an existing Vulkan image
+	
+	const auto vk_shared_handle = shared_vk_image->get_vulkan_shared_handle();
+	if (
+#if defined(__WINDOWS__)
+		vk_shared_handle == nullptr
+#else
+		vk_shared_handle == 0
+#endif
+		) {
+		log_error("shared Vulkan image has no shared memory handle");
+		return false;
+	}
+	
+	// create the sync sema (note that we only need to create this once)
+	if (!cuda_vk_sema) {
+		cuda_vk_sema = make_unique<vulkan_semaphore>(*render_dev, true /* external */);
+		auto& vk_sema = cuda_vk_sema->get_semaphore();
+		if (vk_sema == nullptr) {
+			log_error("CUDA/Vulkan image sharing failed: failed to create sync semaphore");
+			return false;
+		}
+		
+		cu_external_semaphore_handle_descriptor ext_sema_desc {
+#if defined(__WINDOWS__)
+			.type = (core::is_windows_8_or_higher() ?
+					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32 :
+					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+			.handle.win32 = {
+				.handle = cuda_vk_sema->get_shared_handle(),
+				.name = nullptr,
+			},
+#else
+			.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_FD,
+			.handle.fd = cuda_vk_sema->get_shared_handle(),
+#endif
+			.flags = 0, // not relevant for Vulkan
+		};
+		CU_CALL_RET(cu_import_external_semaphore(&ext_sema, &ext_sema_desc),
+					"failed to import external Vulkan semaphore", false)
+	}
+	
+	return true;
+}
+#endif
+
+#if !defined(FLOOR_NO_VULKAN)
+bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue) {
+	// finish Vulkan queue
+#if defined(FLOOR_DEBUG)
+	if (const auto vk_queue = dynamic_cast<const vulkan_queue*>(&cqueue); vk_queue == nullptr) {
+		log_error("specified queue is not a Vulkan queue");
+		return false;
+	}
+#endif
+	cqueue.finish();
+	return true;
+}
+
+bool cuda_image::release_vulkan_image(const compute_queue& cqueue) {
+	// finish CUDA queue
+#if defined(FLOOR_DEBUG)
+	if (const auto cu_queue = dynamic_cast<const cuda_queue*>(&cqueue); cu_queue == nullptr) {
+		log_error("specified queue is not a CUDA queue");
+		return false;
+	}
+#endif
+	cqueue.finish();
+	return true;
+}
+#else
+bool cuda_image::acquire_vulkan_image(const compute_queue&) {
+	return false;
+}
+bool cuda_image::release_vulkan_image(const compute_queue&) {
+	return false;
+}
+#endif
 
 #endif

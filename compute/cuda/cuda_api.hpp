@@ -391,8 +391,10 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	SURFACE_LOAD_STORE = 2,
 	CUBE_MAP = 4,
 	TEXTURE_GATHER = 8,
-	DEPTH_TEXTURE __attribute__((unavailable("unsupported"))) = 16,
-	COLOR_ATTACHMENT __attribute__((unavailable("unsupported"))) = 32,
+	//! NOTE: unsupported for standalone CUDA or OpenGL use, required for Vulkan
+	DEPTH_TEXTURE = 16,
+	//! NOTE: unsupported for standalone CUDA or OpenGL use, required for Vulkan
+	COLOR_ATTACHMENT = 32,
 };
 floor_global_enum_no_hash_ext(CU_ARRAY_3D_FLAGS)
 

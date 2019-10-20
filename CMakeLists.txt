@@ -208,6 +208,8 @@ compute/vulkan/vulkan_program.cpp
 compute/vulkan/vulkan_program.hpp
 compute/vulkan/vulkan_queue.cpp
 compute/vulkan/vulkan_queue.hpp
+compute/vulkan/vulkan_semaphore.cpp
+compute/vulkan/vulkan_semaphore.hpp
 constexpr/const_array.hpp
 constexpr/const_math.hpp
 constexpr/const_string.hpp

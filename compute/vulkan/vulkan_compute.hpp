@@ -34,8 +34,10 @@
 
 #if defined(__WINDOWS__) // we don't want to globally include vulkan_win32.h (and windows.h), so forward declare this instead
 struct VkMemoryGetWin32HandleInfoKHR;
+struct VkSemaphoreGetWin32HandleInfoKHR;
 typedef void* HANDLE;
 typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
+typedef VkResult (VKAPI_PTR *PFN_vkGetSemaphoreWin32HandleKHR)(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 #endif
 
 class vulkan_compute final : public compute_context {
@@ -211,10 +213,18 @@ public:
 	VkResult vulkan_get_memory_win32_handle(VkDevice device_, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo_, HANDLE* pHandle_) const {
 		return (*get_memory_win32_handle)(device_, pGetWin32HandleInfo_, pHandle_);
 	}
+	//! calls vkGetSemaphoreWin32HandleKHR
+	VkResult vulkan_get_semaphore_win32_handle(VkDevice device_, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo_, HANDLE* pHandle_) const {
+		return (*get_semaphore_win32_handle)(device_, pGetWin32HandleInfo_, pHandle_);
+	}
 #else
 	//! calls vkGetMemoryFdKHR
 	VkResult vulkan_get_memory_fd(VkDevice device_, const VkMemoryGetFdInfoKHR* pGetFdInfo_, int* pFd_) const {
 		return (*get_memory_fd)(device_, pGetFdInfo_, pFd_);
+	}
+	//! calls vkGetSemaphoreFdKHR
+	VkResult vulkan_get_semaphore_fd(VkDevice device_, const VkSemaphoreGetFdInfoKHR* pGetFdInfo_, int* pFd_) const {
+		return (*get_semaphore_fd)(device_, pGetFdInfo_, pFd_);
 	}
 #endif
 	
@@ -265,8 +275,10 @@ protected:
 	
 #if defined(__WINDOWS__)
 	PFN_vkGetMemoryWin32HandleKHR get_memory_win32_handle { nullptr };
+	PFN_vkGetSemaphoreWin32HandleKHR get_semaphore_win32_handle { nullptr };
 #else
 	PFN_vkGetMemoryFdKHR get_memory_fd { nullptr };
+	PFN_vkGetSemaphoreFdKHR get_semaphore_fd { nullptr };
 #endif
 	
 	// creates the fixed sampler set for all devices

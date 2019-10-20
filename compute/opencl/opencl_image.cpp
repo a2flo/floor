@@ -124,7 +124,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 														 COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 														 COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED));
 	if(cl_format == end(format_lut)) {
-		log_error("unsupported image format: %X", image_type);
+		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	cl_img_format.image_channel_data_type = cl_format->second;

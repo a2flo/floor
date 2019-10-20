@@ -168,10 +168,20 @@ compute_context(), enable_renderer(enable_renderer_) {
 		log_error("failed to retrieve vkGetMemoryWin32HandleKHR function pointer");
 		return;
 	}
+	get_semaphore_win32_handle = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(ctx, "vkGetSemaphoreWin32HandleKHR");
+	if (get_semaphore_win32_handle == nullptr) {
+		log_error("failed to retrieve vkGetSemaphoreWin32HandleKHR function pointer");
+		return;
+	}
 #else
 	get_memory_fd = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(ctx, "vkGetMemoryFdKHR");
 	if (get_memory_fd == nullptr) {
 		log_error("failed to retrieve vkGetMemoryFdKHR function pointer");
+		return;
+	}
+	get_semaphore_fd = (PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(ctx, "vkGetSemaphoreFdKHR");
+	if (get_semaphore_fd == nullptr) {
+		log_error("failed to retrieve vkGetSemaphoreFdKHR function pointer");
 		return;
 	}
 #endif
@@ -385,10 +395,14 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
 #else
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
 #endif
 		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
 			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);

@@ -119,12 +119,24 @@ public:
 	//! or nothing if there is no matching format
 	static optional<COMPUTE_IMAGE_TYPE> image_type_from_vulkan_format(const VkFormat& format_);
 	
+	//! returns the Vulkan shared memory handle (nullptr/0 if !shared)
+	const auto& get_vulkan_shared_handle() const {
+		return shared_handle;
+	}
+	
+	//! returns the actual allocation size in bytes this image has been created with
+	//! NOTE: allocation size has been computed via vkGetBufferMemoryRequirements and can differ from "size"
+	const VkDeviceSize& get_vulkan_allocation_size() const {
+		return allocation_size;
+	}
+	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
 	VkAccessFlags cur_access_mask { 0 };
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
+	VkDeviceSize allocation_size { 0 };
 	bool is_external { false };
 	
 	// similar to image_info, but these contain per-level image views and infos
@@ -132,6 +144,13 @@ protected:
 	vector<VkImageView> mip_map_image_view;
 	vector<VkDescriptorImageInfo> mip_map_image_info;
 	void update_mip_map_info();
+	
+	// shared memory handle when the image has been created with VULKAN_SHARING
+#if defined(__WINDOWS__)
+	void* /* HANDLE */ shared_handle { nullptr };
+#else
+	int shared_handle { 0 };
+#endif
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue, const VkImageUsageFlags& usage);

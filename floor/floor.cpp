@@ -608,12 +608,22 @@ bool floor::init(const init_state& state) {
 		// also try to use Vulkan if the backend is CUDA and a Vulkan toolchain exists
 		else if(config.backend == "cuda") {
 			renderer = (config.vulkan_toolchain_exists ? RENDERER::VULKAN : RENDERER::OPENGL);
-		}
-		else
-#endif // always default to OpenGL on OS X / iOS
-		{
+		} else {
 			renderer = RENDERER::OPENGL;
 		}
+#else
+#if !defined(FLOOR_IOS)
+		// default to Metal on macOS if a toolchaing exists
+		if (config.metal_toolchain_exists) {
+			renderer = RENDERER::METAL;
+		} else {
+			renderer = RENDERER::OPENGL;
+		}
+#else
+		// always use Metal on iOS
+		renderer = RENDERER::METAL;
+#endif
+#endif
 	}
 	else if(state.renderer == RENDERER::OPENGL) {
 		renderer = RENDERER::OPENGL;
@@ -1480,9 +1490,17 @@ uint32_t floor::get_window_refresh_rate() {
 
 shared_ptr<compute_context> floor::get_render_context() {
 #if defined(__APPLE__)
+#if !defined(FLOOR_NO_METAL)
 	return metal_ctx;
 #else
+	return nullptr;
+#endif
+#else
+#if !defined(FLOOR_NO_VULKAN)
 	return vulkan_ctx;
+#else
+	return nullptr;
+#endif
 #endif
 }
 

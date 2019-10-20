@@ -28,6 +28,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_context;
 class compute_program;
 class compute_kernel;
+class vulkan_image;
 class compute_image : public compute_memory {
 public:
 	struct opengl_image_info;
@@ -66,7 +67,8 @@ public:
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0,
-				  const opengl_image_info* gl_image_info = nullptr) :
+				  const opengl_image_info* gl_image_info = nullptr,
+				  const vulkan_image* vk_image_ = nullptr) :
 	compute_memory(cqueue, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
@@ -78,6 +80,7 @@ public:
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
+	shared_vk_image(vk_image_),
 	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
 		// can't be both mip-mapped and a render target
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
@@ -183,6 +186,20 @@ public:
 	//! for debugging purposes: dump COMPUTE_IMAGE_TYPE information into a human-readable string
 	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
 	
+	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
+	const vulkan_image* get_shared_vulkan_image() const {
+		return shared_vk_image;
+	}
+	
+	//! acquires the associated Vulkan image for use with compute (-> release from Vulkan use)
+	virtual bool acquire_vulkan_image(const compute_queue&) {
+		return false;
+	}
+	//! releases the associated Vulkan image from use with compute (-> acquire for Vulkan use)
+	virtual bool release_vulkan_image(const compute_queue&) {
+		return false;
+	}
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
@@ -206,6 +223,9 @@ protected:
 	int32_t gl_internal_format { 0 };
 	uint32_t gl_format { 0u };
 	uint32_t gl_type { 0u };
+	
+	// shared Vulkan image object when Vulkan sharing is used
+	const vulkan_image* shared_vk_image { nullptr };
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
 	void set_shim_type_info();

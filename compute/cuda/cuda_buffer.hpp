@@ -26,6 +26,7 @@
 #include <floor/compute/compute_buffer.hpp>
 
 class vulkan_buffer;
+class vulkan_semaphore;
 class cuda_device;
 class cuda_buffer final : public compute_buffer {
 public:
@@ -115,13 +116,19 @@ protected:
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
-	
+
+#if !defined(FLOOR_NO_VULKAN)
 	// external (Vulkan) memory
 	cu_external_memory ext_memory { nullptr };
 	// internal Vulkan buffer when using Vulkan memory sharing (and not wrapping an existing buffer)
 	shared_ptr<compute_buffer> cuda_vk_buffer;
+	// external (Vulkan) semaphore
+	cu_external_semaphore ext_sema { nullptr };
+	// internal Vulkan semaphore when using Vulkan memory sharing, used to sync buffer access
+	unique_ptr<vulkan_semaphore> cuda_vk_sema;
 	// creates the internal Vulkan buffer, or deals with the wrapped external one
 	bool create_shared_vulkan_buffer(const bool copy_host_data);
+#endif
 	
 };
 

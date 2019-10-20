@@ -473,6 +473,23 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 								   opengl_target, opengl_image, &info);
 }
 
+shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
+												   const compute_image& vk_image,
+												   const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_VULKAN)
+	const auto vk_image_obj = dynamic_cast<const vulkan_image*>(&vk_image);
+	if (vk_image_obj == nullptr) {
+		log_error("specified buffer is not a Vulkan image");
+		return {};
+	}
+	
+	return make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,
+								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, vk_image_obj);
+#else
+	return compute_context::wrap_image(cqueue, vk_image, flags);
+#endif
+}
+
 shared_ptr<compute_program> cuda_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {

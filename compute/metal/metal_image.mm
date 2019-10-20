@@ -367,7 +367,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	// and now for the fun bit: pixel format conversion ...
 	const auto metal_format = metal_pixel_format_from_image_type(image_type);
 	if (!metal_format) {
-		log_error("unsupported image format: %X", image_type);
+		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	[desc setPixelFormat:*metal_format];

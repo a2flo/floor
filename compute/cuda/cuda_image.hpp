@@ -29,6 +29,8 @@
 class cuda_device;
 class cuda_compute;
 class cuda_buffer;
+class vulkan_image;
+class vulkan_semaphore;
 class cuda_image final : public compute_image {
 public:
 	cuda_image(const compute_queue& cqueue,
@@ -38,12 +40,16 @@ public:
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 			   const uint32_t opengl_type = 0,
 			   const uint32_t external_gl_object_ = 0,
-			   const opengl_image_info* gl_image_info = nullptr);
+			   const opengl_image_info* gl_image_info = nullptr,
+			   const vulkan_image* vk_image_ = nullptr);
 	
 	~cuda_image() override;
 	
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
+	
+	bool acquire_vulkan_image(const compute_queue& cqueue) override;
+	bool release_vulkan_image(const compute_queue& cqueue) override;
 	
 	void zero(const compute_queue& cqueue) override;
 	
@@ -110,6 +116,21 @@ protected:
 	uint32_t depth_compat_tex { 0u };
 	uint32_t depth_compat_format { 0u };
 	uint32_t depth_copy_fbo { 0u };
+	
+#if !defined(FLOOR_NO_VULKAN)
+	// external (Vulkan) memory
+	cu_external_memory ext_memory { nullptr };
+	// internal Vulkan image when using Vulkan memory sharing (and not wrapping an existing image)
+	shared_ptr<compute_image> cuda_vk_image;
+	// external (Vulkan) semaphore
+	cu_external_semaphore ext_sema { nullptr };
+	// internal Vulkan semaphore when using Vulkan memory sharing, used to sync buffer access
+	unique_ptr<vulkan_semaphore> cuda_vk_sema;
+	// creates the internal Vulkan buffer, or deals with the wrapped external one
+	bool create_shared_vulkan_image(const bool copy_host_data);
+#endif
+	// external/Vulkan images are always imported as mip-mapped arrays -> add an easy to check flag to handle both cases
+	const bool is_mip_mapped_or_vulkan { false };
 	
 };
 

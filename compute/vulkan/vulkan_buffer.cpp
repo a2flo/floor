@@ -87,7 +87,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 #if defined(__WINDOWS__)
 		// Windows 8+ needs more detailed sharing info
 		if (core::is_windows_8_or_higher()) {
-			export_mem_win32_info = VkExportMemoryWin32HandleInfoKHR {
+			export_mem_win32_info = {
 				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
 				.pNext = nullptr,
 				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
@@ -99,7 +99,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 		}
 #endif
 		
-		export_alloc_info = VkExportMemoryAllocateInfo {
+		export_alloc_info = {
 			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
 #if defined(__WINDOWS__)
 			.pNext = (core::is_windows_8_or_higher() ? &export_mem_win32_info : nullptr),

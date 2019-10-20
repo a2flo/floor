@@ -29,6 +29,8 @@
 #include <floor/floor/floor.hpp>
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_queue.hpp>
+#include <floor/compute/vulkan/vulkan_semaphore.hpp>
 #endif
 
 // TODO: proper error (return) value handling everywhere
@@ -212,6 +214,7 @@ cuda_buffer::~cuda_buffer() {
 				CU_CALL_RET(cu_mem_free(buffer), "failed to free device memory")
 			}
 		}
+#if !defined(FLOOR_NO_VULKAN)
 		// -> Vulkan buffer
 		else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 			if (buffer != 0) {
@@ -222,7 +225,12 @@ cuda_buffer::~cuda_buffer() {
 				CU_CALL_IGNORE(cu_destroy_external_memory(ext_memory), "failed to destroy shared external memory")
 			}
 			cuda_vk_buffer = nullptr;
+			if (ext_sema != nullptr) {
+				CU_CALL_IGNORE(cu_destroy_external_semaphore(ext_sema), "failed to destroy shared external semaphore")
+			}
+			cuda_vk_sema = nullptr;
 		}
+#endif
 		// -> OpenGL buffer
 		else {
 			if (gl_object == 0) {
@@ -550,31 +558,33 @@ bool cuda_buffer::release_opengl_object(const compute_queue* cqueue) {
 
 #if !defined(FLOOR_NO_VULKAN)
 bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
-	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */) {
-		// create the underlying Vulkan buffer
-		
+	const vulkan_compute* vk_render_ctx = nullptr;
+	const compute_device* render_dev = nullptr;
+	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */ || !cuda_vk_sema) {
 		// get the render/graphics context so that we can create a buffer (TODO: allow specifying a different context?)
 		auto render_ctx = floor::get_render_context();
 		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
 			log_error("CUDA/Vulkan buffer sharing failed: render context is not Vulkan");
 			return false;
 		}
-		auto vk_render_ctx = (const vulkan_compute*)render_ctx.get();
+		vk_render_ctx = (const vulkan_compute*)render_ctx.get();
 		
 		// get the device and its default queue where we want to create the buffer on/in
-		auto render_dev = vk_render_ctx->get_corresponding_device(dev);
+		render_dev = vk_render_ctx->get_corresponding_device(dev);
 		if (render_dev == nullptr) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to find a matching Vulkan device");
 			return false;
 		}
+	}
+	
+	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */) {
+		// create the underlying Vulkan buffer
 		auto default_queue = vk_render_ctx->get_device_default_queue(*render_dev);
-		
-		// finally create the buffer
 		auto shared_vk_buffer_flags = flags;
 		if (!copy_host_data) {
 			shared_vk_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
-		cuda_vk_buffer = render_ctx->create_buffer(*default_queue, size, host_ptr, shared_vk_buffer_flags);
+		cuda_vk_buffer = vk_render_ctx->create_buffer(*default_queue, size, host_ptr, shared_vk_buffer_flags);
 		if (!cuda_vk_buffer) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
 			return false;
@@ -595,23 +605,69 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 		return false;
 	}
 	
-	return true;
-}
+	// create the sync sema (note that we only need to create this once)
+	if (!cuda_vk_sema) {
+		cuda_vk_sema = make_unique<vulkan_semaphore>(*render_dev, true /* external */);
+		auto& vk_sema = cuda_vk_sema->get_semaphore();
+		if (vk_sema == nullptr) {
+			log_error("CUDA/Vulkan buffer sharing failed: failed to create sync semaphore");
+			return false;
+		}
+		
+		cu_external_semaphore_handle_descriptor ext_sema_desc {
+#if defined(__WINDOWS__)
+			.type = (core::is_windows_8_or_higher() ?
+					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32 :
+					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+			.handle.win32 = {
+				.handle = cuda_vk_sema->get_shared_handle(),
+				.name = nullptr,
+			},
 #else
-bool cuda_buffer::create_shared_vulkan_buffer(const bool) {
-	log_error("Vulkan is disabled");
-	return false;
+			.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_FD,
+			.handle.fd = cuda_vk_sema->get_shared_handle(),
+#endif
+			.flags = 0, // not relevant for Vulkan
+		};
+		CU_CALL_RET(cu_import_external_semaphore(&ext_sema, &ext_sema_desc),
+					"failed to import external Vulkan semaphore", false)
+	}
+	
+	return true;
 }
 #endif
 
-bool cuda_buffer::acquire_vulkan_buffer(const compute_queue& cqueue floor_unused) {
-	// TODO: implement this
-	return false;
+#if !defined(FLOOR_NO_VULKAN)
+bool cuda_buffer::acquire_vulkan_buffer(const compute_queue& cqueue) {
+	// finish Vulkan queue
+#if defined(FLOOR_DEBUG)
+	if (const auto vk_queue = dynamic_cast<const vulkan_queue*>(&cqueue); vk_queue == nullptr) {
+		log_error("specified queue is not a Vulkan queue");
+		return false;
+	}
+#endif
+	cqueue.finish();
+	return true;
 }
 
-bool cuda_buffer::release_vulkan_buffer(const compute_queue& cqueue floor_unused) {
-	// TODO: implement this
+bool cuda_buffer::release_vulkan_buffer(const compute_queue& cqueue) {
+	// finish CUDA queue
+#if defined(FLOOR_DEBUG)
+	if (const auto cu_queue = dynamic_cast<const cuda_queue*>(&cqueue); cu_queue == nullptr) {
+		log_error("specified queue is not a CUDA queue");
+		return false;
+	}
+#endif
+	cqueue.finish();
+	return true;
+}
+#else
+bool cuda_buffer::acquire_vulkan_buffer(const compute_queue&) {
 	return false;
 }
+bool cuda_buffer::release_vulkan_buffer(const compute_queue&) {
+	return false;
+}
+#endif
 
 #endif

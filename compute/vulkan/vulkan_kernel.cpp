@@ -503,7 +503,21 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 		return;
 	}
 	
-	auto vk_img = static_cast<vulkan_image*>(const_cast<compute_image*>(arg));
+	vulkan_image* vk_img = nullptr;
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(arg->get_flags())) {
+		vk_img = const_cast<vulkan_image*>(arg->get_shared_vulkan_image());
+		if (vk_img == nullptr) {
+			vk_img = static_cast<vulkan_image*>(const_cast<compute_image*>(arg));
+#if defined(FLOOR_DEBUG)
+			if (auto test_cast_vk_image = dynamic_cast<const vulkan_image*>(arg); !test_cast_vk_image) {
+				log_error("specified buffer is neither a Vulkan image nor a shared Vulkan image");
+				return;
+			}
+#endif
+		}
+	} else {
+		vk_img = static_cast<vulkan_image*>(const_cast<compute_image*>(arg));
+	}
 	
 	// transition image to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;

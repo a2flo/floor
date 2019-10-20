@@ -185,6 +185,9 @@
 		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */; };
+		5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */; };
+		5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
+		5C7C6F142348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
 		5C8452FC22B1A09C0014AECF /* graphics_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */; };
 		5C8452FD22B1A09C0014AECF /* graphics_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */; };
 		5C8452FE22B1A09C0014AECF /* graphics_pipeline.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */; };
@@ -494,6 +497,8 @@
 		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_pre.hpp; path = device/vulkan_pre.hpp; sourceTree = "<group>"; };
+		5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_semaphore.hpp; path = vulkan/vulkan_semaphore.hpp; sourceTree = "<group>"; };
+		5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_semaphore.cpp; path = vulkan/vulkan_semaphore.cpp; sourceTree = "<group>"; };
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = graphics_pipeline.cpp; sourceTree = "<group>"; };
 		5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_pipeline.hpp; sourceTree = "<group>"; };
@@ -868,6 +873,8 @@
 				5C2B87CB1C73893E00F11EA5 /* vulkan_program.hpp */,
 				5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */,
 				5C2B87CE1C73893E00F11EA5 /* vulkan_queue.hpp */,
+				5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */,
+				5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */,
 			);
 			name = vulkan;
 			sourceTree = "<group>";
@@ -1248,6 +1255,7 @@
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,
 				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
+				5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */,
 				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
 				5C4E30ED1B428B120034E536 /* host.hpp in Headers */,
@@ -1513,6 +1521,7 @@
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C6B6D8E1EC7381C00342E50 /* serializer.cpp in Sources */,
 				5C8FD0C71AD38F9700215230 /* opencl_image.cpp in Sources */,
+				5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
 				5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */,
@@ -1611,6 +1620,7 @@
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
+				5C7C6F142348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
 				5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */,
 				5CEEA6E11A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
 				5C84614B1A914759004D4745 /* metal_program.mm in Sources */,
