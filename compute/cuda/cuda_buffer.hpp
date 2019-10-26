@@ -37,7 +37,7 @@ public:
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
 				const uint32_t external_gl_object_ = 0,
-				const vulkan_buffer* vk_buffer_ = nullptr);
+				const compute_buffer* shared_buffer_ = nullptr);
 	
 	cuda_buffer(const compute_queue& cqueue,
 				const size_t& size_,

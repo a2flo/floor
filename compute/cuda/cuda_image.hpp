@@ -41,7 +41,7 @@ public:
 			   const uint32_t opengl_type = 0,
 			   const uint32_t external_gl_object_ = 0,
 			   const opengl_image_info* gl_image_info = nullptr,
-			   const vulkan_image* vk_image_ = nullptr);
+			   const compute_image* shared_image_ = nullptr);
 	
 	~cuda_image() override;
 	

@@ -41,8 +41,8 @@ cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
-						 const vulkan_buffer* vk_buffer_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, vk_buffer_) {
+						 const compute_buffer* shared_buffer_) :
+compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
