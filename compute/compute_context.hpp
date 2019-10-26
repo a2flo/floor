@@ -40,6 +40,11 @@ class metal_compute;
 class opengl_compute;
 class vulkan_compute;
 
+class vulkan_buffer;
+class vulkan_image;
+class metal_buffer;
+class metal_image;
+
 class graphics_pipeline;
 struct render_pipeline_description;
 class graphics_pass;
@@ -139,7 +144,14 @@ public:
 	//! wraps an already existing Vulkan buffer, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-												   const compute_buffer& vk_buffer,
+												   const vulkan_buffer& vk_buffer,
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
+	
+	//! wraps an already existing Metal buffer, with the specified flags
+	//! NOTE: METAL_SHARING flag is always implied
+	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
+												   const metal_buffer& mtl_buffer,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
@@ -203,7 +215,14 @@ public:
 	//! wraps an already existing Vulkan image, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-												 const compute_image& vk_image,
+												 const vulkan_image& vk_image,
+												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
+	
+	//! wraps an already existing Metal image, with the specified flags
+	//! NOTE: METAL_SHARING flag is always implied
+	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
+												 const metal_image& mtl_image,
 												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	

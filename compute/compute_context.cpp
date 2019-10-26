@@ -101,13 +101,23 @@ const compute_device* compute_context::get_corresponding_device(const compute_de
 	return nullptr;
 }
 
-shared_ptr<compute_buffer> compute_context::wrap_buffer(const compute_queue&, const compute_buffer&, const COMPUTE_MEMORY_FLAG) const {
+shared_ptr<compute_buffer> compute_context::wrap_buffer(const compute_queue&, const vulkan_buffer&, const COMPUTE_MEMORY_FLAG) const {
 	log_error("Vulkan buffer sharing is not supported by this backend");
 	return {};
 }
 
-shared_ptr<compute_image> compute_context::wrap_image(const compute_queue&, const compute_image&, const COMPUTE_MEMORY_FLAG) const {
+shared_ptr<compute_image> compute_context::wrap_image(const compute_queue&, const vulkan_image&, const COMPUTE_MEMORY_FLAG) const {
 	log_error("Vulkan image sharing is not supported by this backend");
+	return {};
+}
+
+shared_ptr<compute_buffer> compute_context::wrap_buffer(const compute_queue&, const metal_buffer&, const COMPUTE_MEMORY_FLAG) const {
+	log_error("Metal buffer sharing is not supported by this backend");
+	return {};
+}
+
+shared_ptr<compute_image> compute_context::wrap_image(const compute_queue&, const metal_image&, const COMPUTE_MEMORY_FLAG) const {
+	log_error("Metal image sharing is not supported by this backend");
 	return {};
 }
 

@@ -83,9 +83,14 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	GENERATE_MIP_MAPS	= (1u << 9u),
 	
 	//! creates the memory with Vulkan sharing enabled
-	//! NOTE: the Vulkan object can be retrieved via get_vulkan_object()
+	//! NOTE: the Vulkan object can be retrieved via get_vulkan_buffer()/get_vulkan_image()
 	//! NOTE: VULKAN_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
 	VULKAN_SHARING		= (1u << 10u),
+	
+	//! creates the memory with Metal sharing enabled
+	//! NOTE: the Metal object can be retrieved via get_metal_buffer()/get_metal_image()
+	//! NOTE: METAL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
+	METAL_SHARING		= (1u << 11u),
 	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)

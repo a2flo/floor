@@ -418,16 +418,10 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
-													 const compute_buffer& vk_buffer,
+													 const vulkan_buffer& vk_buffer,
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
-	const auto vk_buffer_obj = dynamic_cast<const vulkan_buffer*>(&vk_buffer);
-	if (vk_buffer_obj == nullptr) {
-		log_error("specified buffer is not a Vulkan buffer");
-		return {};
-	}
-	
-	return make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, vk_buffer_obj);
+	return make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, &vk_buffer);
 #else
 	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
 #endif
@@ -474,17 +468,11 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
-												   const compute_image& vk_image,
+												   const vulkan_image& vk_image,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
-	const auto vk_image_obj = dynamic_cast<const vulkan_image*>(&vk_image);
-	if (vk_image_obj == nullptr) {
-		log_error("specified buffer is not a Vulkan image");
-		return {};
-	}
-	
 	return make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,
-								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, vk_image_obj);
+								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, &vk_image);
 #else
 	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif

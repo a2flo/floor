@@ -28,7 +28,10 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_context;
 class compute_program;
 class compute_kernel;
+
 class vulkan_image;
+class metal_image;
+
 class compute_image : public compute_memory {
 public:
 	struct opengl_image_info;
@@ -68,7 +71,7 @@ public:
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0,
 				  const opengl_image_info* gl_image_info = nullptr,
-				  const vulkan_image* vk_image_ = nullptr) :
+				  const compute_image* shared_image_ = nullptr) :
 	compute_memory(cqueue, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
@@ -80,7 +83,7 @@ public:
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
-	shared_vk_image(vk_image_),
+	shared_image(shared_image_),
 	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
 		// can't be both mip-mapped and a render target
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
@@ -108,6 +111,12 @@ public:
 		if(image_compressed(image_type) && generate_mip_maps) {
 			log_error("generating mip-maps for compressed image data is not supported!");
 			return;
+		}
+		// warn about missing sharing flag if shared image is set
+		if (shared_image != nullptr) {
+			if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+				log_warn("provided a shared image, but no sharing flag is set");
+			}
 		}
 		// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
 	}
@@ -200,6 +209,20 @@ public:
 		return false;
 	}
 	
+	//! returns the internal shared Metal image if there is one, returns nullptr otherwise
+	const metal_image* get_shared_metal_image() const {
+		return shared_mtl_image;
+	}
+	
+	//! acquires the associated Metal image for use with compute (-> release from Metal use)
+	virtual bool acquire_metal_image(const compute_queue&) {
+		return false;
+	}
+	//! releases the associated Metal image from use with compute (-> acquire for Metal use)
+	virtual bool release_metal_image(const compute_queue&) {
+		return false;
+	}
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
@@ -224,8 +247,14 @@ protected:
 	uint32_t gl_format { 0u };
 	uint32_t gl_type { 0u };
 	
-	// shared Vulkan image object when Vulkan sharing is used
-	const vulkan_image* shared_vk_image { nullptr };
+	// NOTE: only one of these can be active at a time
+	union {
+		const compute_image* shared_image { nullptr };
+		// shared Vulkan image object when Vulkan sharing is used
+		const vulkan_image* shared_vk_image;
+		// shared Metal image object when Metal sharing is used
+		const metal_image* shared_mtl_image;
+	};
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
 	void set_shim_type_info();
