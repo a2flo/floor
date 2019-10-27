@@ -235,6 +235,17 @@ shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue
 									opengl_type, opengl_buffer);
 }
 
+shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
+													 metal_buffer& mtl_buffer,
+													 const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_METAL)
+	return make_shared<host_buffer>(cqueue, ((const compute_buffer&)mtl_buffer).get_size(), nullptr,
+									flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, 0, 0, (compute_buffer*)&mtl_buffer);
+#else
+	return compute_context::wrap_buffer(cqueue, mtl_buffer, flags);
+#endif
+}
+
 shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,

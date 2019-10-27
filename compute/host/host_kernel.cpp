@@ -284,10 +284,15 @@ struct alignas(128) fiber_context {
 		floor_get_context(this);
 	}
 
-	[[noreturn]] void set_context() {
+// ignore the "missing noreturn" warning here, because actually setting [[noreturn]] leads to unwanted codegen
+// (ud2 insertion at a point we don't want this to happen -> we already have a ud2 trap in enter_context)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(missing-noreturn)
+	void set_context() {
 		floor_set_context(this);
 		floor_unreachable();
 	}
+FLOOR_POP_WARNINGS()
 
 	void swap_context(fiber_context* next_ctx) {
 		// NOTE: order of operation in here:

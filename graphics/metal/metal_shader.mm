@@ -67,7 +67,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 	
 	// add completion handler to evaluate printf buffers on completion
 	if (is_vs_soft_printf || is_fs_soft_printf) {
-		auto internal_dev_queue = ((const metal_compute*)cqueue.get_device().context)->get_device_internal_queue(cqueue.get_device());
+		auto internal_dev_queue = ((const metal_compute*)cqueue.get_device().context)->get_device_default_queue(cqueue.get_device());
 		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 			for (const auto& printf_buffer : printf_buffers) {
 				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);

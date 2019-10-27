@@ -784,15 +784,15 @@ FLOOR_POP_WARNINGS()
 	return ret;
 }
 
-shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute_device& dev) const {
+const compute_queue* opencl_compute::get_device_default_queue(const compute_device& dev) const {
 	for(const auto& default_queue : default_queues) {
 		if(default_queue.first.get() == dev) {
-			return default_queue.second;
+			return default_queue.second.get();
 		}
 	}
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
-	return {};
+	return nullptr;
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,

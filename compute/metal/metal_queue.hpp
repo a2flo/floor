@@ -44,7 +44,7 @@ public:
 		return true;
 	}
 	void start_profiling() override;
-	uint64_t stop_profiling() override;
+	uint64_t stop_profiling() override REQUIRES(!cmd_buffers_lock);
 	
 protected:
 	id <MTLCommandQueue> queue { nil };

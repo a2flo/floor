@@ -418,7 +418,7 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
-													 const vulkan_buffer& vk_buffer,
+													 vulkan_buffer& vk_buffer,
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, &vk_buffer);
@@ -468,7 +468,7 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
-												   const vulkan_image& vk_image,
+												   vulkan_image& vk_image,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,

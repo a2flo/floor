@@ -114,7 +114,7 @@ void metal_queue::start_profiling() {
 	is_profiling = true;
 }
 
-uint64_t metal_queue::stop_profiling() REQUIRES(!cmd_buffers_lock) {
+uint64_t metal_queue::stop_profiling() {
 	if (!can_do_profiling) {
 		// fallback to host side profiling
 		return compute_queue::stop_profiling();

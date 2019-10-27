@@ -1307,7 +1307,8 @@ void floor::init_gl() {
 void floor::resize_gl_window() {
 	if(renderer == RENDERER::OPENGL) {
 		// set the viewport
-		glViewport(0, 0, (GLsizei)config.width, (GLsizei)config.height);
+		const auto phys_size = get_physical_screen_size();
+		glViewport(0, 0, (GLsizei)phys_size.x, (GLsizei)phys_size.y);
 	}
 }
 

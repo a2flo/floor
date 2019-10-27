@@ -476,12 +476,12 @@ shared_ptr<compute_queue> metal_compute::create_queue(const compute_device& dev)
 	return ret;
 }
 
-shared_ptr<compute_queue> metal_compute::get_device_internal_queue(const compute_device& dev) const {
+const compute_queue* metal_compute::get_device_default_queue(const compute_device& dev) const {
 	if (const auto iter = internal_queues.find(dev); iter != internal_queues.end()) {
-		return iter->second;
+		return iter->second.get();
 	}
-	log_error("no internal queue exists for this device: %s!", dev.name);
-	return {};
+	log_error("no default queue exists for this device: %s!", dev.name);
+	return nullptr;
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,

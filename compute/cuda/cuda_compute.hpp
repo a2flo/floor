@@ -51,6 +51,8 @@ public:
 	
 	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
+	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -80,7 +82,7 @@ public:
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-										   const vulkan_buffer& vk_buffer,
+										   vulkan_buffer& vk_buffer,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
@@ -114,7 +116,7 @@ public:
 																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-										 const vulkan_image& vk_image,
+										 vulkan_image& vk_image,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
@@ -156,8 +158,6 @@ public:
 	uint32_t get_cuda_driver_version() const {
 		return driver_version;
 	}
-	
-	const compute_queue* get_device_default_queue(const compute_device& dev) const;
 	
 	//! returns true if external memory can be used (i.e. Vulkan buffer/image sharing)
 	bool can_use_external_memory() const {

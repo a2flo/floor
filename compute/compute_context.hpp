@@ -86,6 +86,9 @@ public:
 	//! creates and returns a compute_queue (aka command queue or stream) for the specified device
 	virtual shared_ptr<compute_queue> create_queue(const compute_device& dev) const = 0;
 	
+	//! returns the internal default compute_queue for the specified device
+	virtual const compute_queue* get_device_default_queue(const compute_device& dev) const = 0;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -144,14 +147,14 @@ public:
 	//! wraps an already existing Vulkan buffer, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-												   const vulkan_buffer& vk_buffer,
+												   vulkan_buffer& vk_buffer,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	//! wraps an already existing Metal buffer, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-												   const metal_buffer& mtl_buffer,
+												   metal_buffer& mtl_buffer,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
@@ -215,14 +218,14 @@ public:
 	//! wraps an already existing Vulkan image, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-												 const vulkan_image& vk_image,
+												 vulkan_image& vk_image,
 												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	//! wraps an already existing Metal image, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-												 const metal_image& mtl_image,
+												 metal_image& mtl_image,
 												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const;
 	

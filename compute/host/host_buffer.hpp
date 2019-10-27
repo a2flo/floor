@@ -34,30 +34,34 @@ public:
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
-				const uint32_t external_gl_object_ = 0);
+				const uint32_t external_gl_object_ = 0,
+				compute_buffer* shared_buffer_ = nullptr);
 	
 	host_buffer(const compute_queue& cqueue,
 				const size_t& size_,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	host_buffer(cqueue, size_, nullptr, flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	host_buffer(cqueue, size_, nullptr, flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	template <typename data_type>
 	host_buffer(const compute_queue& cqueue,
 				const vector<data_type>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	host_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	host_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	template <typename data_type, size_t n>
 	host_buffer(const compute_queue& cqueue,
 				const array<data_type, n>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	host_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	host_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 
 	~host_buffer() override;
 
@@ -91,6 +95,11 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
+	bool acquire_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
+	bool release_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
+	bool sync_metal_buffer(const compute_queue* cqueue = nullptr,
+						   const metal_queue* mtl_queue = nullptr) const override;
+	
 	//! returns a direct pointer to the internal host buffer
 	uint8_t* __attribute__((aligned(128))) get_host_buffer_ptr() const {
 		return buffer;
@@ -101,6 +110,13 @@ protected:
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
+	
+#if !defined(FLOOR_NO_METAL)
+	// internal Metal buffer when using Metal memory sharing (and not wrapping an existing buffer)
+	shared_ptr<compute_buffer> host_mtl_buffer;
+	// creates the internal Metal buffer, or deals with the wrapped external one
+	bool create_shared_metal_buffer(const bool copy_host_data);
+#endif
 
 };
 

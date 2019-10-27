@@ -65,17 +65,37 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
 							 const compute_buffer* arg) {
+		const metal_buffer* mtl_buffer = nullptr;
+		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
+			mtl_buffer = arg->get_shared_metal_buffer();
+			if (mtl_buffer == nullptr) {
+				mtl_buffer = (const metal_buffer*)arg;
+#if defined(FLOOR_DEBUG)
+				if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(arg); !test_cast_mtl_buffer) {
+					log_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
+					return;
+				}
+#endif
+			} else {
+				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(arg->get_flags())) {
+					arg->sync_metal_buffer();
+				}
+			}
+		} else {
+			mtl_buffer = (const metal_buffer*)arg;
+		}
+		
 		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
-			[encoder setBuffer:((const metal_buffer*)arg)->get_metal_buffer()
+			[encoder setBuffer:mtl_buffer->get_metal_buffer()
 						offset:0
 					   atIndex:idx.buffer_idx];
 		} else {
 			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
-				[encoder setVertexBuffer:((const metal_buffer*)arg)->get_metal_buffer()
+				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
 								  offset:0
 								 atIndex:idx.buffer_idx];
 			} else {
-				[encoder setFragmentBuffer:((const metal_buffer*)arg)->get_metal_buffer()
+				[encoder setFragmentBuffer:mtl_buffer->get_metal_buffer()
 									offset:0
 								   atIndex:idx.buffer_idx];
 			}

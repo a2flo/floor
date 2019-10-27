@@ -41,7 +41,7 @@ cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
-						 const compute_buffer* shared_buffer_) :
+						 compute_buffer* shared_buffer_) :
 compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
 	if(size < min_multiple()) return;
 	
@@ -589,7 +589,7 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
 			return false;
 		}
-		shared_vk_buffer = (const vulkan_buffer*)cuda_vk_buffer.get();
+		shared_vk_buffer = (vulkan_buffer*)cuda_vk_buffer.get();
 	}
 	// else: wrapping an existing Vulkan buffer
 	

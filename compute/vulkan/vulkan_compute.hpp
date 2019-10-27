@@ -61,6 +61,8 @@ public:
 	
 	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
+	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -169,8 +171,6 @@ public:
 	const VkInstance& get_vulkan_context() const {
 		return ctx;
 	}
-	
-	const compute_queue* get_device_default_queue(const compute_device& dev) const;
 	
 	//! returns the used screen image format
 	VkFormat get_screen_format() const {

@@ -131,14 +131,6 @@
 #define FLOOR_IGNORE_WARNING(warning)
 #endif
 
-// clang < 3.6 doesn't have this, so just pass it through
-#if !__has_builtin(__builtin_assume_aligned)
-#define __builtin_assume_aligned(ptr, alignment) (ptr)
-#endif
-#if !__has_builtin(__builtin_assume)
-#define __builtin_assume(expr)
-#endif
-
 // on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros
 #if defined(__WINDOWS__) && !defined(MINGW)
 #if defined(FLOOR_DLL_EXPORT)

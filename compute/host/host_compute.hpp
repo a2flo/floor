@@ -50,6 +50,10 @@ public:
 	
 	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
+	const compute_queue* get_device_default_queue(const compute_device&) const override {
+		return main_queue.get();
+	}
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -76,6 +80,10 @@ public:
 										   const uint32_t opengl_buffer,
 										   const uint32_t opengl_type,
 										   void* data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
+										   metal_buffer& mtl_buffer,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
@@ -134,10 +142,6 @@ public:
 	
 	//////////////////////////////////////////
 	// host specific functions
-	
-	const compute_queue& get_main_queue() {
-		return *main_queue;
-	}
 	
 protected:
 	shared_ptr<compute_queue> main_queue;

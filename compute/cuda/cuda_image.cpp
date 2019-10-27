@@ -190,7 +190,7 @@ cuda_image::cuda_image(const compute_queue& cqueue,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info,
-					   const compute_image* shared_image_) :
+					   compute_image* shared_image_) :
 compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info, shared_image_),
 is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
@@ -1091,7 +1091,7 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 			log_error("CUDA/Vulkan image sharing failed: failed to create the underlying shared Vulkan image");
 			return false;
 		}
-		shared_vk_image = (const vulkan_image*)cuda_vk_image.get();
+		shared_vk_image = (vulkan_image*)cuda_vk_image.get();
 	}
 	// else: wrapping an existing Vulkan image
 	

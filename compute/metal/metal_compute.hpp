@@ -56,6 +56,8 @@ public:
 	
 	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
+	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -153,9 +155,6 @@ public:
 	
 	//////////////////////////////////////////
 	// metal specific functions
-	
-	//! returns the internally used compute_queue for the specified device
-	shared_ptr<compute_queue> get_device_internal_queue(const compute_device& dev) const;
 	
 	//! for debugging/testing purposes only (circumvents the internal program handling)
 	shared_ptr<compute_program> create_metal_test_program(shared_ptr<compute_program::program_entry> entry);

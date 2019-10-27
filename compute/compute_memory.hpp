@@ -31,66 +31,77 @@ class compute_device;
 //! memory flags
 enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! invalid/uninitialized flag
-	NONE				= (0u),
+	NONE						= (0u),
 	
 	//! read only memory (kernel point of view)
-	READ				= (1u << 0u),
+	READ						= (1u << 0u),
 	//! write only memory (kernel point of view)
-	WRITE				= (1u << 1u),
+	WRITE						= (1u << 1u),
 	//! read and write memory (kernel point of view)
-	READ_WRITE			= (READ | WRITE),
+	READ_WRITE					= (READ | WRITE),
 	
 	//! read only memory (host point of view)
-	HOST_READ			= (1u << 2u),
+	HOST_READ					= (1u << 2u),
 	//! write only memory (host point of view)
-	HOST_WRITE			= (1u << 3u),
+	HOST_WRITE					= (1u << 3u),
 	//! read and write memory (host point of view)
-	HOST_READ_WRITE		= (HOST_READ | HOST_WRITE),
+	HOST_READ_WRITE				= (HOST_READ | HOST_WRITE),
 	//! if neither HOST_READ or HOST_WRITE is set, the host will not have access to the memory
 	//! -> can use this mask to AND with flags
-	__HOST_NO_ACCESS_MASK = ~(HOST_READ_WRITE),
+	__HOST_NO_ACCESS_MASK		= ~(HOST_READ_WRITE),
 	
 	//! the memory will use/store the specified host pointer,
 	//! but won't initialize the compute memory with that data
-	NO_INITIAL_COPY		= (1u << 4u),
+	NO_INITIAL_COPY				= (1u << 4u),
 	
 	//! the specified (host pointer) data will be copied back to the
 	//! compute memory each time it is used by a kernel
 	//! -> copy before kernel execution
 	//! NOTE: the user must make sure that this is thread-safe!
 	//! NOTE/TODO: not yet implemented!
-	__COPY_ON_USE		= (1u << 5u),
+	__COPY_ON_USE				= (1u << 5u),
 	
 	//! every time a kernel using this memory has finished execution,
 	//! the memory data will be copied back to the specified host pointer
 	//! -> copy after kernel execution
 	//! NOTE: the user must make sure that this is thread-safe!
 	//! NOTE/TODO: not yet implemented!
-	__READ_BACK_RESULT	= (1u << 6u),
+	__READ_BACK_RESULT			= (1u << 6u),
 	
 	//! memory is allocated in host memory, i.e. the specified host pointer
 	//! will be used for all memory operations
-	USE_HOST_MEMORY		= (1u << 7u),
+	USE_HOST_MEMORY				= (1u << 7u),
 	
 	//! creates the memory with opengl sharing enabled
 	//! NOTE: the opengl object can be retrieved via get_opengl_object()
 	//! NOTE: OPENGL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
-	OPENGL_SHARING		= (1u << 8u),
+	OPENGL_SHARING				= (1u << 8u),
 	
 	//! automatically create mip-levels (either happens in the backend or libfloor)
 	//! NOTE: if not set, it is expected that the host data pointer contains all necessary mip-levels
 	//! NOTE: of course, this flag only makes sense for compute_images
-	GENERATE_MIP_MAPS	= (1u << 9u),
+	GENERATE_MIP_MAPS			= (1u << 9u),
 	
 	//! creates the memory with Vulkan sharing enabled
 	//! NOTE: the Vulkan object can be retrieved via get_vulkan_buffer()/get_vulkan_image()
 	//! NOTE: VULKAN_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
-	VULKAN_SHARING		= (1u << 10u),
+	VULKAN_SHARING				= (1u << 10u),
 	
 	//! creates the memory with Metal sharing enabled
 	//! NOTE: the Metal object can be retrieved via get_metal_buffer()/get_metal_image()
 	//! NOTE: METAL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
-	METAL_SHARING		= (1u << 11u),
+	METAL_SHARING				= (1u << 11u),
+	
+	//! automatically synchronizes the contents of the memory of the memory object with the shared Vulkan memory,
+	//! i.e. when using the memory in a Vulkan kernel/shader execution with the memory currently being acquired for compute use,
+	//! automatically copy the current contents of the memory object to the shared Vulkan memory object
+	//! NOTE/TODO: not yet implemented!
+	//VULKAN_SHARING_SYNC_SHAERD	= (1u << 12u),
+	
+	//! automatically synchronizes the contents of the memory of the memory object with the shared Metal memory,
+	//! i.e. when using the memory in a Metal kernel/shader execution with the memory currently being acquired for compute use,
+	//! automatically copy the current contents of the memory object to the shared Metal memory object
+	METAL_SHARING_SYNC_SHARED	= (1u << 13u),
 	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
@@ -159,6 +170,16 @@ public:
 	//! releases the associated opengl object from use with compute (-> acquire for opengl use)
 	virtual bool release_opengl_object(const compute_queue* cqueue) = 0;
 	
+	//! returns true if the shared OpenGL buffer/image is currently acquired for use with compute
+	bool is_shared_opengl_object_acquired() const {
+		return gl_object_state;
+	}
+	
+	//! returns true if the shared Metal buffer/image is currently acquired for use with compute
+	bool is_shared_metal_object_acquired() const {
+		return mtl_object_state;
+	}
+	
 	//! zeros/clears the complete memory object
 	virtual void zero(const compute_queue& cqueue) = 0;
 	//! zeros/clears the complete memory object
@@ -176,7 +197,14 @@ protected:
 	const bool has_external_gl_object { false };
 	const uint32_t opengl_type { 0u };
 	uint32_t gl_object { 0u };
-	bool gl_object_state { true }; // false: compute use, true: opengl use
+	//! false: compute use, true: OpenGL use
+	bool gl_object_state { true };
+	
+	//! false: compute use, true: Metal use
+	bool mtl_object_state { true };
+	
+	//! returns the default compute_queue of the device backing the specified memory object
+	const compute_queue* get_default_queue_for_memory(const compute_memory& mem) const;
 	
 	mutable safe_recursive_mutex lock;
 	

@@ -53,6 +53,8 @@ public:
 	
 	shared_ptr<compute_queue> create_queue(const compute_device& dev) const override;
 	
+	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	
@@ -149,8 +151,6 @@ public:
 	const cl_context& get_opencl_context() const {
 		return ctx;
 	}
-	
-	shared_ptr<compute_queue> get_device_default_queue(const compute_device& dev) const;
 	
 	// for compat with clGetKernelSubGroupInfo(KHR) and misc sub-group extensions
 	cl_int get_kernel_sub_group_info(cl_kernel kernel,

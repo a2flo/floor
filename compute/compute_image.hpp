@@ -71,7 +71,7 @@ public:
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0,
 				  const opengl_image_info* gl_image_info = nullptr,
-				  const compute_image* shared_image_ = nullptr) :
+				  compute_image* shared_image_ = nullptr) :
 	compute_memory(cqueue, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
@@ -249,11 +249,11 @@ protected:
 	
 	// NOTE: only one of these can be active at a time
 	union {
-		const compute_image* shared_image { nullptr };
+		compute_image* shared_image { nullptr };
 		// shared Vulkan image object when Vulkan sharing is used
-		const vulkan_image* shared_vk_image;
+		vulkan_image* shared_vk_image;
 		// shared Metal image object when Metal sharing is used
-		const metal_image* shared_mtl_image;
+		metal_image* shared_mtl_image;
 	};
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image

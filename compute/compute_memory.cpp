@@ -18,6 +18,8 @@
 
 #include <floor/compute/compute_memory.hpp>
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/compute_device.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
@@ -99,4 +101,9 @@ void compute_memory::_lock() const {
 
 void compute_memory::_unlock() const {
 	lock.unlock();
+}
+
+const compute_queue* compute_memory::get_default_queue_for_memory(const compute_memory& mem) const {
+	const auto& mem_dev = mem.get_device();
+	return mem_dev.context->get_device_default_queue(mem_dev);
 }

@@ -26,6 +26,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class vulkan_buffer;
 class metal_buffer;
+class metal_queue;
 
 class compute_buffer : public compute_memory {
 public:
@@ -37,15 +38,16 @@ public:
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type = 0,
 				   const uint32_t external_gl_object_ = 0,
-				   const compute_buffer* shared_buffer_ = nullptr);
+				   compute_buffer* shared_buffer_ = nullptr);
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const compute_queue& cqueue,
 				   const size_t& size_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(cqueue, size_, nullptr, flags_, opengl_type_) {}
+				   const uint32_t opengl_type_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr) :
+	compute_buffer(cqueue, size_, nullptr, flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type>
@@ -53,8 +55,9 @@ public:
 				   const vector<data_type>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+				   const uint32_t opengl_type_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr) :
+	compute_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
@@ -62,8 +65,9 @@ public:
 				   const array<data_type, n>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0) :
-	compute_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+				   const uint32_t opengl_type_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr) :
+	compute_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	virtual ~compute_buffer() = default;
 	
@@ -181,11 +185,19 @@ public:
 	}
 	
 	//! acquires the associated Metal buffer for use with compute (-> release from Metal use)
-	virtual bool acquire_metal_buffer(const compute_queue&) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
+	virtual bool acquire_metal_buffer(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
 		return false;
 	}
 	//! releases the associated Metal buffer from use with compute (-> acquire for Metal use)
-	virtual bool release_metal_buffer(const compute_queue&) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
+	virtual bool release_metal_buffer(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
+		return false;
+	}
+	//! synchronizes the contents of this buffer with the shared Metal buffer
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
+	virtual bool sync_metal_buffer(const compute_queue* cqueue floor_unused = nullptr,
+								   const metal_queue* mtl_queue floor_unused = nullptr) const {
 		return false;
 	}
 	
@@ -198,11 +210,11 @@ protected:
 	
 	// NOTE: only one of these can be active at a time
 	union {
-		const compute_buffer* shared_buffer { nullptr };
+		compute_buffer* shared_buffer { nullptr };
 		// shared Vulkan buffer object when Vulkan sharing is used
-		const vulkan_buffer* shared_vk_buffer;
+		vulkan_buffer* shared_vk_buffer;
 		// shared Metal buffer object when Metal sharing is used
-		const metal_buffer* shared_mtl_buffer;
+		metal_buffer* shared_mtl_buffer;
 	};
 	
 	// buffer size/offset checking (used for debugging/development purposes)

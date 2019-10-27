@@ -37,30 +37,33 @@ public:
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
 				const uint32_t external_gl_object_ = 0,
-				const compute_buffer* shared_buffer_ = nullptr);
+				compute_buffer* shared_buffer_ = nullptr);
 	
 	cuda_buffer(const compute_queue& cqueue,
 				const size_t& size_,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	cuda_buffer(cqueue, size_, nullptr, flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	cuda_buffer(cqueue, size_, nullptr, flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	template <typename data_type>
 	cuda_buffer(const compute_queue& cqueue,
 				const vector<data_type>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	cuda_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	cuda_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	template <typename data_type, size_t n>
 	cuda_buffer(const compute_queue& cqueue,
 				const array<data_type, n>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0) :
-	cuda_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+				const uint32_t opengl_type_ = 0,
+				compute_buffer* shared_buffer_ = nullptr) :
+	cuda_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
 	~cuda_buffer() override;
 	
