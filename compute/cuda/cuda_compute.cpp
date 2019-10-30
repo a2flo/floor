@@ -472,7 +472,7 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,
-								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, &vk_image);
+								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image);
 #else
 	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif

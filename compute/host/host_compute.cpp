@@ -286,6 +286,17 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 								   opengl_target, opengl_image, &info);
 }
 
+shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
+												   metal_image& mtl_image,
+												   const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_METAL)
+	return make_shared<host_image>(cqueue, ((const compute_image&)mtl_image).get_image_dim(), ((const compute_image&)mtl_image).get_image_type(), nullptr,
+								   flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, 0, 0, nullptr, (compute_image*)&mtl_image);
+#else
+	return compute_context::wrap_image(cqueue, mtl_image, flags);
+#endif
+}
+
 shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name floor_unused) {
 	// TODO: implement this
 	log_error("not yet implemented");

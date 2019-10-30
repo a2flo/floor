@@ -106,15 +106,36 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
 							 const compute_image* arg) {
+		const metal_image* mtl_image = nullptr;
+		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
+			mtl_image = arg->get_shared_metal_image();
+			if (mtl_image == nullptr) {
+				mtl_image = (const metal_image*)arg;
+#if defined(FLOOR_DEBUG)
+				if (auto test_cast_mtl_image = dynamic_cast<const metal_image*>(arg); !test_cast_mtl_image) {
+					log_error("specified image is neither a Metal image nor a shared Metal image");
+					return;
+				}
+#endif
+			} else {
+				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(arg->get_flags())) {
+					arg->sync_metal_image();
+				}
+			}
+		} else {
+			mtl_image = (const metal_image*)arg;
+		}
+		
+		
 		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
-			[encoder setTexture:((const metal_image*)arg)->get_metal_image()
+			[encoder setTexture:mtl_image->get_metal_image()
 						atIndex:idx.texture_idx];
 		} else {
 			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
-				[encoder setVertexTexture:((const metal_image*)arg)->get_metal_image()
+				[encoder setVertexTexture:mtl_image->get_metal_image()
 								  atIndex:idx.texture_idx];
 			} else {
-				[encoder setFragmentTexture:((const metal_image*)arg)->get_metal_image()
+				[encoder setFragmentTexture:mtl_image->get_metal_image()
 									atIndex:idx.texture_idx];
 			}
 		}
@@ -122,14 +143,14 @@ namespace metal_args {
 		// if this is a read/write image, add it again (one is read-only, the other is write-only)
 		if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 			if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
-				[encoder setTexture:((const metal_image*)arg)->get_metal_image()
+				[encoder setTexture:mtl_image->get_metal_image()
 							atIndex:(idx.texture_idx + 1)];
 			} else {
 				if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
-					[encoder setVertexTexture:((const metal_image*)arg)->get_metal_image()
+					[encoder setVertexTexture:mtl_image->get_metal_image()
 									  atIndex:(idx.texture_idx + 1)];
 				} else {
-					[encoder setFragmentTexture:((const metal_image*)arg)->get_metal_image()
+					[encoder setFragmentTexture:mtl_image->get_metal_image()
 										atIndex:(idx.texture_idx + 1)];
 				}
 			}

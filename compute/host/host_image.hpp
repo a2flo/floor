@@ -36,7 +36,8 @@ public:
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 			   const uint32_t opengl_type = 0,
 			   const uint32_t external_gl_object_ = 0,
-			   const opengl_image_info* gl_image_info = nullptr);
+			   const opengl_image_info* gl_image_info = nullptr,
+			   compute_image* shared_image_ = nullptr);
 	
 	~host_image() override;
 	
@@ -60,6 +61,11 @@ public:
 		return (void*)&program_info;
 	}
 	
+	bool acquire_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
+	bool release_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
+	bool sync_metal_image(const compute_queue* cqueue = nullptr,
+						  const metal_queue* mtl_queue = nullptr) const override;
+	
 protected:
 	uint8_t* __attribute__((aligned(1024))) image { nullptr };
 	
@@ -77,8 +83,15 @@ protected:
 					  "invalid level_info size");
 	} program_info;
 	
-	//! separate create buffer function, b/c it's called by the constructor and resize
+	//! separate create image function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
+	
+#if !defined(FLOOR_NO_METAL)
+	// internal Metal image when using Metal memory sharing (and not wrapping an existing image)
+	shared_ptr<compute_image> host_mtl_image;
+	// creates the internal Metal image, or deals with the wrapped external one
+	bool create_shared_metal_image(const bool copy_host_data);
+#endif
 	
 };
 

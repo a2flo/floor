@@ -25,6 +25,10 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
 
+#if !defined(FLOOR_NO_METAL)
+#include <floor/floor/floor.hpp>
+#endif
+
 #if defined(FLOOR_DEBUG)
 static constexpr const size_t protection_size { 1024u };
 static constexpr const uint8_t protection_byte { 0xA5 };
@@ -39,9 +43,18 @@ host_image::host_image(const compute_queue& cqueue,
 					   const COMPUTE_MEMORY_FLAG flags_,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
-					   const opengl_image_info* gl_image_info) :
+					   const opengl_image_info* gl_image_info,
+					   compute_image* shared_image_) :
 compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info) {
+			  opengl_type_, external_gl_object_, gl_image_info, shared_image_) {
+	// check Metal image sharing validity
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+#if defined(FLOOR_NO_METAL)
+		log_error("Metal support is not enabled");
+		return;
+#endif
+	}
+	
 	// actually create the image
 	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
@@ -88,7 +101,8 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 #endif
 	
 	// -> normal host image
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
@@ -104,10 +118,24 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 			}
 		}
 	}
-	// -> shared host/opengl image
+#if !defined(FLOOR_NO_METAL)
+	// -> shared host/Metal image
+	else if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		if (!create_shared_metal_image(copy_host_data)) {
+			return false;
+		}
+		
+		// acquire for use with the host
+		const compute_queue* comp_mtl_queue = get_default_queue_for_memory(*shared_image);
+		acquire_metal_image(cqueue, (const metal_queue&)*comp_mtl_queue);
+	}
+#endif
+	// -> shared host/OpenGL image
 	else {
 #if !defined(FLOOR_IOS)
-		if(!create_gl_image(copy_host_data)) return false;
+		if (!create_gl_image(copy_host_data)) {
+			return false;
+		}
 #endif
 		
 		// acquire for use with the host
@@ -238,7 +266,7 @@ bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused)
 		return true;
 	}
 	
-	// copy the host data back to the gl buffer (if write access is set)
+	// copy the host data back to the gl image (if write access is set)
 	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
 		glBindTexture(opengl_type, gl_object);
 		update_gl_image_data(image);
@@ -252,5 +280,160 @@ bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused)
 	return false;
 #endif
 }
+
+#if !defined(FLOOR_NO_METAL)
+bool host_image::acquire_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) {
+	if (shared_mtl_image == nullptr) return false;
+	if (!mtl_object_state) {
+#if defined(FLOOR_DEBUG)
+		log_warn("Metal image has already been acquired for use with the host!");
+#endif
+		return true;
+	}
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+	
+	const auto& comp_mtl_queue = (const compute_queue&)mtl_queue;
+	
+	// full sync
+	cqueue.finish();
+	comp_mtl_queue.finish();
+	
+	// read/copy Metal image data to host memory
+	auto img_data = shared_image->map(comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(image, img_data, image_data_size);
+	shared_image->unmap(comp_mtl_queue, img_data);
+	
+	// finish read
+	comp_mtl_queue.finish();
+	
+	mtl_object_state = false;
+	return true;
+}
+
+bool host_image::release_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) {
+	if (shared_mtl_image == nullptr) return false;
+	if (image == nullptr) return false;
+	if (mtl_object_state) {
+#if defined(FLOOR_DEBUG)
+		log_warn("Metal image has already been released for Metal use!");
+#endif
+		return true;
+	}
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+
+	const auto& comp_mtl_queue = (const compute_queue&)mtl_queue;
+	
+	// full sync
+	cqueue.finish();
+	comp_mtl_queue.finish();
+	
+	// write/copy the host data to the Metal image
+	auto img_data = shared_image->map(comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(img_data, image, image_data_size);
+	shared_image->unmap(comp_mtl_queue, img_data);
+	
+	// finish write
+	comp_mtl_queue.finish();
+	
+	mtl_object_state = true;
+	return true;
+}
+
+bool host_image::sync_metal_image(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
+	if (shared_mtl_image == nullptr) return false;
+	if (image == nullptr) return false;
+	if (mtl_object_state) {
+		// no need, already acquired for Metal use
+		return true;
+	}
+	
+	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	const auto comp_mtl_queue = (mtl_queue_ != nullptr ? (const compute_queue*)mtl_queue_ : get_default_queue_for_memory(*shared_image));
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+
+	// full sync
+	cqueue->finish();
+	comp_mtl_queue->finish();
+	
+	// write/copy the host data to the Metal image
+	auto img_data = shared_image->map(*comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(img_data, image, image_data_size);
+	shared_image->unmap(*comp_mtl_queue, img_data);
+	
+	// finish write
+	comp_mtl_queue->finish();
+	
+	return true;
+}
+#else
+bool host_image::acquire_metal_image(const compute_queue&, const metal_queue&) {
+	return false;
+}
+bool host_image::release_metal_image(const compute_queue&, const metal_queue&) {
+	return false;
+}
+bool host_image::sync_metal_image(const compute_queue*, const metal_queue*) const {
+	return false;
+}
+#endif
+
+#if !defined(FLOOR_NO_METAL)
+bool host_image::create_shared_metal_image(const bool copy_host_data) {
+	const compute_device* render_dev = nullptr;
+	if (shared_mtl_image == nullptr || host_mtl_image != nullptr /* !nullptr if resize */) {
+		// get the render/graphics context so that we can create an image (TODO: allow specifying a different context?)
+		auto render_ctx = floor::get_render_context();
+		if (render_ctx->get_compute_type() != COMPUTE_TYPE::METAL) {
+			log_error("Host/Metal image sharing failed: render context is not Metal");
+			return false;
+		}
+		
+		// get the device and its default queue where we want to create the image on/in
+		// NOTE: we never have a corresponding device here, so simply use the fastest device
+		render_dev = render_ctx->get_device(compute_device::TYPE::FASTEST);
+		if (render_dev == nullptr) {
+			log_error("Host/Metal image sharing failed: failed to find a Metal device");
+			return false;
+		}
+		
+		// create the underlying Metal image
+		auto default_queue = render_ctx->get_device_default_queue(*render_dev);
+		auto shared_mtl_image_flags = flags | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+		if (!copy_host_data) {
+			shared_mtl_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+		}
+		host_mtl_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_mtl_image_flags);
+		if (!host_mtl_image) {
+			log_error("Host/Metal image sharing failed: failed to create the underlying shared Metal image");
+			return false;
+		}
+		shared_image = host_mtl_image.get();
+	}
+	// else: wrapping an existing Metal image
+	
+	return true;
+}
+#endif
 
 #endif
