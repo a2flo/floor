@@ -110,6 +110,11 @@ bool floor::cursor_visible = true;
 bool floor::x11_forwarding = false;
 atomic<bool> floor::reload_kernels_flag { false };
 
+#if defined(__WINDOWS__)
+bool enable_windows_hidpi();
+static double windows_dpi_scaler{ 1.0 };
+#endif
+
 bool floor::init(const init_state& state) {
 	// return if already initialized
 	FLOOR_INIT_STATUS expected_init { FLOOR_INIT_STATUS::UNINITIALIZED };
@@ -766,7 +771,6 @@ bool floor::init_internal(const init_state& state) {
 			config.flags |= SDL_WINDOW_OPENGL;
 		}
 		
-		config.flags |= SDL_WINDOW_ALLOW_HIGHDPI; // allow by default, disable later if necessary
 #if !defined(FLOOR_IOS)
 		auto window_pos = state.window_position;
 		if(config.position.x != SDL_WINDOWPOS_UNDEFINED) {
@@ -794,10 +798,28 @@ bool floor::init_internal(const init_state& state) {
 		
 		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
 		
-		// disable hidpi mode?
+		// handle hidpi
+		int2 init_screen_size{ (int)config.width, (int)config.height };
+		if (config.hidpi) {
+			config.flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+		}
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		SDL_SetHint("SDL_HINT_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
+
+#if defined(__WINDOWS__)
+		if (config.hidpi) {
+			if (!enable_windows_hidpi()) {
+				log_error("failed to set Windows DPI awareness");
+			} else {
+				// update wanted window size based on DPI scaler
+				if (!config.fullscreen) {
+					init_screen_size = (init_screen_size.cast<double>() * windows_dpi_scaler).cast<int>();
+					log_debug("DPI-scaled window size: (%v, %v) -> %v", config.width, config.height, init_screen_size);
+				}
+			}
+		}
+#endif
 		
 		if (renderer == RENDERER::METAL || renderer == RENDERER::VULKAN) {
 			if (config.wide_gamut) {
@@ -859,7 +881,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// create screen
 #if !defined(FLOOR_IOS)
-		window = SDL_CreateWindow(app_name.c_str(), window_pos.x, window_pos.y, (int)config.width, (int)config.height, config.flags);
+		window = SDL_CreateWindow(app_name.c_str(), window_pos.x, window_pos.y, init_screen_size.x, init_screen_size.y, config.flags);
 #else
 		window = SDL_CreateWindow(app_name.c_str(), 0, 0, (int)config.width, (int)config.height, config.flags);
 #endif
@@ -1922,3 +1944,44 @@ floor::RENDERER floor::get_renderer() {
 bool floor::is_x11_forwarding() {
 	return x11_forwarding;
 }
+
+#if defined(__WINDOWS__)
+bool enable_windows_hidpi() {
+	auto shcore_handle = LoadLibrary("Shcore.dll");
+	const auto fail = [&shcore_handle]() {
+		if (shcore_handle != nullptr) {
+			FreeLibrary(shcore_handle);
+		}
+		return false;
+	};
+	if (!shcore_handle) {
+		return fail();
+	}
+
+	// get SetProcessDpiAwareness function pointer
+	using set_process_dpi_awareness_fptr = long (*)(int /* process_dpi_awareness */);
+	auto set_process_dpi_awareness = (set_process_dpi_awareness_fptr)GetProcAddress(shcore_handle, "SetProcessDpiAwareness");
+	if (set_process_dpi_awareness == nullptr) {
+		return fail();
+	}
+
+	// set process dpi awareness
+	enum WINDOWS_PROCESS_DPI_AWARENESS : int {
+		WINDOWS_PROCESS_DPI_UNAWARE = 0,
+		WINDOWS_PROCESS_SYSTEM_DPI_AWARE = 1,
+		WINDOWS_PROCESS_PER_MONITOR_DPI_AWARE = 2,
+	};
+	if (set_process_dpi_awareness(WINDOWS_PROCESS_SYSTEM_DPI_AWARE) != 0l) {
+		return false;
+	}
+
+	// compute DPI scaler
+	float ddpi = 0.0f, hdpi = 0.0f, vdpi = 0.0;
+	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
+	const auto max_dpi = max(max(max(hdpi, vdpi), ddpi), 96.0f);
+	windows_dpi_scaler = double(max_dpi) / 96.0;
+	log_debug("DPI scaler: %v", windows_dpi_scaler);
+
+	return true;
+}
+#endif

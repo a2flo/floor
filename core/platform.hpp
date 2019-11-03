@@ -27,6 +27,12 @@
 // Windows
 #if (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__WINDOWS__) || defined(MINGW)) && !defined(CYGWIN)
 
+// workaround std::byte ambiguity on windows
+#if defined(_HAS_STD_BYTE)
+#undef _HAS_STD_BYTE
+#endif
+#define _HAS_STD_BYTE 0
+
 #if defined(MINGW)
 #include <stdlib.h>
 #include <malloc.h>
