@@ -185,6 +185,7 @@ public:
 	static const uint32_t& get_dpi();
 	static bool get_hidpi();
 	static bool get_wide_gamut();
+	static bool get_hdr();
 	
 	//! gets the logical window width
 	static uint32_t get_width();
@@ -325,8 +326,9 @@ protected:
 		bool fullscreen = false;
 		bool vsync = false;
 		bool stereo = false;
-		bool hidpi = false;
-		bool wide_gamut = false;
+		bool hidpi = true;
+		bool wide_gamut = true;
+		bool hdr = true;
 		
 		// audio
 		bool audio_disabled = true;

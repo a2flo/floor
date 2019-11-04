@@ -288,8 +288,9 @@ bool floor::init(const init_state& state) {
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
 		config.stereo = config_doc.get<bool>("screen.stereo", false);
 		config.dpi = config_doc.get<uint32_t>("screen.dpi", 0);
-		config.hidpi = config_doc.get<bool>("screen.hidpi", false);
-		config.wide_gamut = config_doc.get<bool>("screen.wide_gamut", false);
+		config.hidpi = config_doc.get<bool>("screen.hidpi", true);
+		config.wide_gamut = config_doc.get<bool>("screen.wide_gamut", true);
+		config.hdr = config_doc.get<bool>("screen.hdr", true);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -1578,6 +1579,10 @@ bool floor::get_hidpi() {
 
 bool floor::get_wide_gamut() {
 	return config.wide_gamut;
+}
+
+bool floor::get_hdr() {
+	return config.hdr;
 }
 
 json::document& floor::get_config_doc() {
