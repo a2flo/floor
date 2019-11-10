@@ -177,6 +177,16 @@ public:
 		return screen.format;
 	}
 	
+	//! returns true if the screen image has wide-gamut support
+	bool is_screen_wide_gamut() const {
+		return screen.has_wide_gamut;
+	}
+	
+	//! returns true if the screen image has HDR support and HDR metadata has been set
+	bool is_screen_hdr() const {
+		return screen.hdr_metadata.has_value();
+	}
+	
 	//! returns the allocated swapchain image count
 	uint32_t get_swapchain_image_count() const {
 		return screen.image_count;
@@ -227,11 +237,20 @@ public:
 		return (*get_semaphore_fd)(device_, pGetFdInfo_, pFd_);
 	}
 #endif
+
+	//! calls vkSetHdrMetadataEXT
+	void vulkan_set_hdr_metadata(VkDevice device_, uint32_t swapchainCount_, const VkSwapchainKHR* pSwapchains_, const VkHdrMetadataEXT* pMetadata_) {
+		if (!set_hdr_metadata) {
+			return;
+		}
+		(*set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
+	}
 	
 protected:
 	VkInstance ctx { nullptr };
 	
 	bool enable_renderer { false };
+	bool hdr_supported { false };
 	struct screen_data {
 		uint2 size;
 		uint32_t image_count { 0 };
@@ -247,6 +266,8 @@ protected:
 		const vulkan_device* render_device { nullptr };
 		bool x11_forwarding { false };
 		shared_ptr<vulkan_image> x11_screen;
+		optional<VkHdrMetadataEXT> hdr_metadata;
+		bool has_wide_gamut { false };
 	} screen;
 	bool init_renderer();
 	
@@ -280,6 +301,8 @@ protected:
 	PFN_vkGetMemoryFdKHR get_memory_fd { nullptr };
 	PFN_vkGetSemaphoreFdKHR get_semaphore_fd { nullptr };
 #endif
+
+	PFN_vkSetHdrMetadataEXT set_hdr_metadata { nullptr };
 	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;

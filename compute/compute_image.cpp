@@ -949,8 +949,13 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 	const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type);
 	const auto is_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
 	
-	if(!is_cube) ret << dim << "D ";
-	else ret << "Cube ";
+	if (!is_cube) {
+		if (dim > 0) {
+			ret << dim << "D ";
+		}
+	} else {
+		ret << "Cube ";
+	}
 	
 	if(is_depth) ret << "Depth ";
 	if(is_stencil) ret << "Stencil ";

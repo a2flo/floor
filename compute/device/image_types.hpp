@@ -167,7 +167,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FORMAT_8				= (11u),
 	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
 	FORMAT_9_9_9_EXP_5		= (12u),
-	//! 3 channel format: 10-bit/10-bit/10-bit
+	//! 3 or 4 channel format: 10-bit/10-bit/10-bit(/10-bit)
 	FORMAT_10				= (13u),
 	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
 	FORMAT_10_10_10_ALPHA_2	= (14u),
@@ -259,6 +259,8 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	BGRA8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_BGRA,
 	BGR10UI_NORM			= CHANNELS_3 | FORMAT_10 | UINT | FLAG_NORMALIZED | LAYOUT_BGR,
 	BGRA10UI_NORM			= CHANNELS_4 | FORMAT_10 | UINT | FLAG_NORMALIZED | LAYOUT_BGRA,
+	A2BGR10UI_NORM			= CHANNELS_4 | FORMAT_10_10_10_ALPHA_2 | UINT | FLAG_NORMALIZED | LAYOUT_ABGR,
+	A2RGB10UI_NORM			= CHANNELS_4 | FORMAT_10_10_10_ALPHA_2 | UINT | FLAG_NORMALIZED | LAYOUT_ARGB,
 	R16UI_NORM				= CHANNELS_1 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RG16UI_NORM				= CHANNELS_2 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RGB16UI_NORM			= CHANNELS_3 | FORMAT_16 | UINT | FLAG_NORMALIZED,
@@ -423,7 +425,7 @@ floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return (channel_count == 4);
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return (channel_count == 3);
-		case COMPUTE_IMAGE_TYPE::FORMAT_10: return (channel_count == 3);
+		case COMPUTE_IMAGE_TYPE::FORMAT_10: return (channel_count == 3 || channel_count == 4);
 		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return (channel_count == 4);
 		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return (channel_count == 3);
@@ -446,6 +448,7 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 			case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2 * channel_count;
 			case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4 * channel_count;
 			case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8 * channel_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10 * channel_count;
 			case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16 * channel_count;
 			case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32 * channel_count;
 			case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64 * channel_count;
@@ -456,7 +459,6 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return 16;
 			case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return 16;
 			case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return 32;
-			case COMPUTE_IMAGE_TYPE::FORMAT_10: return 30;
 			case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return 32;
 			case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return 32;
 			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 36;

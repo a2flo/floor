@@ -185,6 +185,19 @@ compute_context(), enable_renderer(enable_renderer_) {
 		return;
 	}
 #endif
+
+	// get HDR function
+	if (floor::get_hdr()) {
+		set_hdr_metadata = (PFN_vkSetHdrMetadataEXT)vkGetInstanceProcAddr(ctx, "vkSetHdrMetadataEXT");
+		if (set_hdr_metadata == nullptr) {
+			log_error("failed to retrieve vkSetHdrMetadataEXT function pointer");
+			hdr_supported = false;
+		} else {
+			hdr_supported = true;
+		}
+	} else {
+		hdr_supported = false;
+	}
 	
 	// get layers
 	uint32_t layer_count = 0;
@@ -414,7 +427,11 @@ compute_context(), enable_renderer(enable_renderer_) {
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+			} else {
+				hdr_supported = false;
 			}
+		} else {
+			hdr_supported = false;
 		}
 
 		// deal with swapchain ext
@@ -840,7 +857,8 @@ bool vulkan_compute::init_renderer() {
 		return false;
 	}
 	
-	// query formats and try to use VK_FORMAT_B8G8R8A8_UNORM if possible
+	// query formats and figure out which one we should use (depending on set wide-gamut and HDR flags)
+	// NOTE: we do at least need/want VK_FORMAT_B8G8R8A8_UNORM
 	uint32_t format_count = 0;
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(screen.render_device->physical_device, screen.surface, &format_count, nullptr),
 				"failed to query presentable surface formats count", false)
@@ -851,22 +869,190 @@ bool vulkan_compute::init_renderer() {
 	vector<VkSurfaceFormatKHR> formats(format_count);
 	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(screen.render_device->physical_device, screen.surface, &format_count, formats.data()),
 				"failed to query presentable surface formats", false)
+#if 0
+	for (const auto& format : formats) {
+		log_msg("supported screen format: %X, %X", format.format, format.colorSpace);
+	}
+#endif
+	
+	// fallback
 	screen.format = formats[0].format;
 	screen.color_space = formats[0].colorSpace;
-	for(const auto& format : formats) {
-		// use VK_FORMAT_B8G8R8A8_UNORM if we can
-		if(format.format == VK_FORMAT_B8G8R8A8_UNORM) {
-			screen.format = VK_FORMAT_B8G8R8A8_UNORM;
-			screen.color_space = format.colorSpace;
-			break;
+	
+	const bool want_wide_color = (floor::get_wide_gamut() || floor::get_hdr());
+	screen.has_wide_gamut = false;
+	if (!want_wide_color) {
+		// just find and use VK_FORMAT_B8G8R8A8_UNORM
+		for (const auto& format : formats) {
+			if (format.format == VK_FORMAT_B8G8R8A8_UNORM) {
+				screen.format = VK_FORMAT_B8G8R8A8_UNORM;
+				screen.color_space = format.colorSpace;
+				break;
+			}
+		}
+	} else {
+		// checks if the color space actually is wide-gamut
+		const auto is_wide_gamut_color_space = [](const auto& color_space) {
+			switch (color_space) {
+				default:
+				case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+				case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+				case VK_COLOR_SPACE_BT709_LINEAR_EXT:
+				case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
+				case VK_COLOR_SPACE_PASS_THROUGH_EXT:
+				case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
+				case VK_COLOR_SPACE_DISPLAY_NATIVE_AMD:
+					return false; // nope
+				case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+				case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
+				case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
+				case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
+				case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+				case VK_COLOR_SPACE_DOLBYVISION_EXT:
+				case VK_COLOR_SPACE_HDR10_HLG_EXT:
+				case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT:
+				case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
+					return true;
+			}
+		};
+
+		// list of formats that we want to use/support (in order of priority)
+		static constexpr const array wide_color_tiers {
+			VK_FORMAT_R16G16B16A16_SFLOAT,
+			VK_FORMAT_R16G16B16A16_UNORM,
+			VK_FORMAT_R16G16B16A16_SNORM,
+			VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+			VK_FORMAT_A2R10G10B10_UNORM_PACK32,
+		};
+		bool found_format = false;
+		for (const auto& wanted_format : wide_color_tiers) {
+			for (const auto& format : formats) {
+				if (format.format == wanted_format && is_wide_gamut_color_space(format.colorSpace)) {
+					screen.format = format.format;
+					screen.color_space = format.colorSpace;
+					found_format = true;
+					break;
+				}
+			}
+			if (found_format) {
+				break;
+			}
+		}
+		
+		if (found_format) {
+			// if we get here, we know that the format is also representable by COMPUTE_IMAGE_TYPE
+			const auto img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
+			log_debug("wide-gamut enabled (using format %s (%X))", compute_image::image_type_to_string(*img_type), screen.format);
+			screen.has_wide_gamut = true;
+		} else {
+			log_error("did not find a supported wide-gamut format");
 		}
 	}
+	
 	const auto screen_img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
 	if (!screen_img_type) {
 		log_error("no matching image type for Vulkan format: %X", screen.format);
 		return false;
 	}
 	screen.image_type = *screen_img_type;
+	if (image_bits_of_channel(screen.image_type, 0) < 8) {
+		log_error("screen format bit-depth is too low (must at least be 8-bit)");
+		return false;
+	}
+	
+	if (floor::get_hdr() && hdr_supported) {
+		if (!screen.has_wide_gamut) {
+			log_error("can't enable/use HDR when wide-gamut format + color space aren't supported");
+			hdr_supported = false;
+		} else {
+			bool has_hdr_color_space = false;
+			switch (screen.color_space) {
+				default:
+					break; // nope
+				case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+				case VK_COLOR_SPACE_DOLBYVISION_EXT:
+				case VK_COLOR_SPACE_HDR10_HLG_EXT:
+					has_hdr_color_space = true;
+					break;
+			}
+
+			string color_space_name = "unknown";
+			switch (screen.color_space) {
+				case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+					color_space_name = "sRGB (non-linear)";
+					break;
+				case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+					color_space_name = "Display-P3 (non-linear)";
+					break;
+				case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+					color_space_name = "extended sRGB (linear)";
+					break;
+				case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
+					color_space_name = "Display-P3 (linear)";
+					break;
+				case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
+					color_space_name = "DCI-P3 (non-linear)";
+					break;
+				case VK_COLOR_SPACE_BT709_LINEAR_EXT:
+					color_space_name = "BT.709 (linear)";
+					break;
+				case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
+					color_space_name = "BT.709 (non-linear)";
+					break;
+				case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
+					color_space_name = "BT.2020 (linear)";
+					break;
+				case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+					color_space_name = "HDR10 ST 2084";
+					break;
+				case VK_COLOR_SPACE_DOLBYVISION_EXT:
+					color_space_name = "Dolby Vision";
+					break;
+				case VK_COLOR_SPACE_HDR10_HLG_EXT:
+					color_space_name = "HDR10 HLG";
+					break;
+				case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT:
+					color_space_name = "Adobe RGB (linear)";
+					break;
+				case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
+					color_space_name = "Adobe RGB (non-linear)";
+					break;
+				case VK_COLOR_SPACE_PASS_THROUGH_EXT:
+					color_space_name = "pass-through";
+					break;
+				case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
+					color_space_name = "extended sRGB (non-linear)";
+					break;
+				case VK_COLOR_SPACE_DISPLAY_NATIVE_AMD:
+					color_space_name = "display native (AMD)";
+					break;
+				default:
+					break;
+			}
+			
+			if (!has_hdr_color_space) {
+				log_error("can't enable/use HDR with a non-HDR color space (%X: %s)", screen.color_space, color_space_name);
+				hdr_supported = false;
+			} else {
+				// create/set HDR meta data
+				screen.hdr_metadata = {
+					.sType = VK_STRUCTURE_TYPE_HDR_METADATA_EXT,
+					.pNext = nullptr,
+					// these are the same for all supported color spaces (above)
+					.displayPrimaryRed = { 0.708f, 0.292f },
+					.displayPrimaryGreen = { 0.170f, 0.797f },
+					.displayPrimaryBlue = { 0.131f, 0.046f },
+					.whitePoint = { 0.3127f, 0.3290f },
+					// TODO: query these / make them configurable
+					.maxLuminance = 1000.0f,
+					.minLuminance = 0.001f,
+					.maxContentLightLevel = 2000.0f,
+					.maxFrameAverageLightLevel = 500.0f,
+				};
+				log_debug("HDR enabled (using color space %s (%X))", color_space_name, screen.color_space);
+			}
+		}
+	}
 	
 	//
 	VkSurfaceCapabilitiesKHR surface_caps;
@@ -924,6 +1110,11 @@ bool vulkan_compute::init_renderer() {
 	};
 	VK_CALL_RET(vkCreateSwapchainKHR(screen.render_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
 				"failed to create swapchain", false)
+	
+	// now that we have a swapchain, actually set the HDR metadata for it (if HDR was enabled and can be used)
+	if (screen.hdr_metadata) {
+		vulkan_set_hdr_metadata(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
+	}
 	
 	// get all swapchain images + create views
 	screen.image_count = 0;
