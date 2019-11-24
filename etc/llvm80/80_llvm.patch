@@ -45780,7 +45780,7 @@ index 1ef7da328d3..8318790b1b8 100644
    default:
      return false;
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 3731b2f37f6..edd51c1a982 100644
+index 3731b2f37f6..62138452a60 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -45796,7 +45796,7 @@ index 3731b2f37f6..edd51c1a982 100644
  def SM30 : SubtargetFeature<"sm_30", "SmVersion", "30",
                              "Target SM 3.0">;
  def SM32 : SubtargetFeature<"sm_32", "SmVersion", "32",
-@@ -38,25 +40,36 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
+@@ -38,25 +40,38 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
                              "Target SM 3.5">;
  def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
                              "Target SM 3.7">;
@@ -45829,11 +45829,13 @@ index 3731b2f37f6..edd51c1a982 100644
 +// TBD
 +def SM82 : SubtargetFeature<"sm_82", "SmVersion", "82",
 +                             "Target SM 8.2">;
++def SM86 : SubtargetFeature<"sm_86", "SmVersion", "86",
++                             "Target SM 8.6">;
 +
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
                               "Use PTX version 3.2">;
-@@ -74,8 +87,12 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
+@@ -74,8 +89,14 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
                               "Use PTX version 6.0">;
  def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
                               "Use PTX version 6.1">;
@@ -45843,16 +45845,19 @@ index 3731b2f37f6..edd51c1a982 100644
                               "Use PTX version 6.3">;
 +def PTX64 : SubtargetFeature<"ptx64", "PTXVersion", "64",
 +                             "Use PTX version 6.4">;
++def PTX65 : SubtargetFeature<"ptx65", "PTXVersion", "65",
++                             "Use PTX version 6.5">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -98,7 +115,9 @@ def : Proc<"sm_61", [SM61, PTX50]>;
+@@ -98,7 +119,10 @@ def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
  def : Proc<"sm_70", [SM70, PTX60]>;
  def : Proc<"sm_72", [SM72, PTX61]>;
 +def : Proc<"sm_73", [SM73, PTX63]>;
  def : Proc<"sm_75", [SM75, PTX63]>;
-+def : Proc<"sm_82", [SM82, PTX64]>;
++def : Proc<"sm_82", [SM82, PTX65]>;
++def : Proc<"sm_86", [SM86, PTX65]>;
  
  def NVPTXInstrInfo : InstrInfo {
  }
