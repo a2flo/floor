@@ -105,6 +105,8 @@ enum class CU_RESULT : uint32_t {
 	STREAM_CAPTURE_IMPLICIT = 906,
 	CAPTURED_EVENT = 907,
 	STREAM_CAPTURE_WRONG_THREAD = 908,
+	TIMEOUT = 909,
+	GRAPH_EXEC_UPDATE_FAILURE = 910,
 	UNKNOWN = 999
 };
 enum class CU_DEVICE_ATTRIBUTE : uint32_t {
@@ -217,6 +219,11 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	HOST_REGISTER_SUPPORTED = 99,
 	PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES = 100,
 	DIRECT_MANAGED_MEM_ACCESS_FROM_HOST = 101,
+	// CUDA 10.2+
+	VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED = 102,
+	HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED = 103,
+	HANDLE_TYPE_WIN32_HANDLE_SUPPORTED = 104,
+	HANDLE_TYPE_WIN32_KMT_HANDLE_SUPPORTED = 105,
 };
 enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
 	MAX_THREADS_PER_BLOCK = 0,
@@ -403,6 +410,8 @@ enum class CU_TEXTURE_FLAGS : uint32_t {
 	READ_AS_INTEGER = 1,
 	NORMALIZED_COORDINATES = 2,
 	SRGB = 16,
+	// CUDA 10.2+
+	DISABLE_TRILINEAR_OPTIMIZATION = 32,
 };
 floor_global_enum_no_hash_ext(CU_TEXTURE_FLAGS)
 
@@ -584,6 +593,14 @@ enum class CU_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t {
 	OPAQUE_WIN32_KMT = 3,
 	D3D12_HEAP __attribute__((unavailable("unsupported"))) = 4,
 	D3D12_RESOURCE __attribute__((unavailable("unsupported"))) = 5,
+	// CUDA 10.2+
+	D3D11_RESOURCE __attribute__((unavailable("unsupported"))) = 6,
+	D3D11_RESOURCE_KMT __attribute__((unavailable("unsupported"))) = 7,
+	NVSCIBUF = 8,
+};
+
+enum class CU_EXTERNAL_MEMORY_FLAGS : uint32_t {
+	DEDICATED_MEMORY = 1,
 };
 
 enum class CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE : uint32_t {
@@ -591,10 +608,16 @@ enum class CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE : uint32_t {
 	OPAQUE_WIN32 = 2,
 	OPAQUE_WIN32_KMT = 3,
 	D3D12_FENCE __attribute__((unavailable("unsupported"))) = 4,
+	D3D11_FENCE __attribute__((unavailable("unsupported"))) = 5,
+	NVSCISYNC = 6,
+	D3D11_KEYED_MUTEX __attribute__((unavailable("unsupported"))) = 7,
+	D3D11_KEYED_MUTEX_KMT __attribute__((unavailable("unsupported"))) = 8,
 };
 
-enum class CU_EXTERNAL_MEMORY_FLAGS : uint32_t {
-	DEDICATED_MEMORY = 1,
+enum class CU_EXTERNAL_SEMAPHORE_FLAGS : uint32_t {
+	// CUDA 10.2+
+	SIGNAL_SKIP_NVSCIBUF_MEMSYN = 1,
+	WAIT_SKIP_NVSCIBUF_MEMSYNC = 2,
 };
 
 struct cu_external_memory_handle_descriptor {
@@ -605,6 +628,8 @@ struct cu_external_memory_handle_descriptor {
 			void* handle;
 			const void* name;
 		} win32;
+		// CUDA 10.2+
+		const void* nv_sci_buf_object;
 	} handle;
 	uint64_t size;
 	uint32_t flags;
@@ -633,6 +658,8 @@ struct cu_external_semaphore_handle_descriptor {
 			void* handle;
 			const void* name;
 		} win32;
+		// CUDA 10.2+
+		const void* nv_sci_sync_object;
 	} handle;
 	uint32_t flags;
 	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -643,7 +670,15 @@ struct cu_external_semaphore_signal_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		// CUDA 10.2+
+		union {
+			void* fence;
+			uint64_t reserved;
+		} nv_sci_sync;
+		struct {
+			uint64_t key;
+		} keyed_mutex;
+		uint32_t _reserved[12] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	} params;
 	uint32_t flags;
 	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -654,7 +689,16 @@ struct cu_external_semaphore_wait_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		// CUDA 10.2+
+		union {
+			void* fence;
+			uint64_t reserved;
+		} nv_sci_sync;
+		struct {
+			uint64_t key;
+			uint32_t timeout_ms;
+		} keyed_mutex;
+		uint32_t _reserved[10] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	} params;
 	uint32_t flags;
 	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

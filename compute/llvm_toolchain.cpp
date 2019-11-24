@@ -312,7 +312,7 @@ program_data compile_input(const string& input,
 			const auto& sm = cuda_dev.sm;
 			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
 
-			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_7x < 75, 6.3 for sm_75+, 6.4 for sm_8x+)
+			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_7x < 75, 6.3 for sm_75+, 6.5 for sm_8x+)
 			switch(cuda_dev.sm.x) {
 				case 2:
 				case 3:
@@ -326,10 +326,10 @@ program_data compile_input(const string& input,
 					ptx_version = max(cuda_dev.sm.y < 5 ? 60u : 63u, ptx_version);
 					break;
 				case 8:
-					ptx_version = max(64u, ptx_version);
+					ptx_version = max(65u, ptx_version);
 					break;
 				default:
-					ptx_version = max(64u, ptx_version);
+					ptx_version = max(65u, ptx_version);
 					break;
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
