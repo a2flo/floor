@@ -34,9 +34,12 @@
 #define _HAS_STD_BYTE 0
 
 #if defined(MINGW)
+#define __unused__ used
 #include <stdlib.h>
+#include <stdio.h>
 #include <malloc.h>
 #include <wchar.h>
+#undef __unused__
 #endif
 
 #if defined(_MSC_VER)

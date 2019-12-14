@@ -29,9 +29,11 @@
 #include <windef.h>
 #include <WinBase.h>
 #else
+#define byte __windows_byte_workaround
 #include <windows.h>
 #include <windef.h>
 #include <winbase.h>
+#undef byte
 #endif
 
 #include <wingdi.h>

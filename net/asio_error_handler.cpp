@@ -22,6 +22,7 @@
 
 #include <floor/core/logger.hpp>
 #include <algorithm>
+#include <cstring>
 
 struct asio_error_stack {
 	// keep the last 16 errors in a ring buffer

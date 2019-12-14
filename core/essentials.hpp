@@ -202,3 +202,9 @@
 #endif
 
 #endif // _MSC_VER
+
+#if defined(MINGW)
+#define __unused__ used
+#include <cstdio>
+#undef __unused__
+#endif
