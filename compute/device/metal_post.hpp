@@ -104,10 +104,19 @@ const_func float2 unpack_half_2x16(const uint32_t& val) {
 }
 
 //////////////////////////////////////////
+// any shader
+//! returns the view index inside a shader
+//! TODO: implement this
+const_func uint32_t get_view_index() {
+	//asm("floor.get_view_index.i32");
+	return 0;
+}
+
+//////////////////////////////////////////
 // vertex shader
-// returns the vertex id inside a vertex shader
+//! returns the vertex id inside a vertex shader
 const_func uint32_t get_vertex_id() asm("floor.get_vertex_id.i32");
-// returns the instance id inside a vertex shader
+//! returns the instance id inside a vertex shader
 const_func uint32_t get_instance_id() asm("floor.get_instance_id.i32");
 
 //////////////////////////////////////////

@@ -441,6 +441,7 @@ template <typename T> using param = const T&;
 #define vertex_id get_vertex_id()
 #define instance_id get_instance_id()
 #define point_coord get_point_coord()
+#define view_index get_view_index()
 #endif
 
 #endif

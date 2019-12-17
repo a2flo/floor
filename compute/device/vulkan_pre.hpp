@@ -40,6 +40,9 @@
 #pragma OPENCL EXTENSION vk_capability_float64 : enable
 #endif
 
+// multi-view is always enabled
+#pragma OPENCL EXTENSION vk_capability_multiview : enable
+
 // Vulkan helper function to perform int32_t/uint32_t <-> float bitcasts on the SPIR-V side
 int32_t floor_bitcast_f32_to_i32(float) asm("floor.bitcast.f32.i32");
 uint32_t floor_bitcast_f32_to_u32(float) asm("floor.bitcast.f32.u32");
