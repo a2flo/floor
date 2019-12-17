@@ -17357,10 +17357,10 @@ index 00000000000..63b5f7e9529
 +}
 diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
 new file mode 100644
-index 00000000000..5b191539623
+index 00000000000..12c22736cf0
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.h
-@@ -0,0 +1,612 @@
+@@ -0,0 +1,615 @@
 +//===- OCLUtil.h - OCL Utilities declarations -------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -17607,6 +17607,7 @@ index 00000000000..5b191539623
 +                                          vk_capability_int64)
 +                                          _SPIRV_OP(vk_capability_float16)
 +                                              _SPIRV_OP(vk_capability_float64)
++                                              _SPIRV_OP(vk_capability_multiview)
 +#undef _SPIRV_OP
 +};
 +}
@@ -17792,6 +17793,7 @@ index 00000000000..5b191539623
 +  _SPIRV_OP(vk_capability_int64)
 +  _SPIRV_OP(vk_capability_float16)
 +  _SPIRV_OP(vk_capability_float64)
++  _SPIRV_OP(vk_capability_multiview)
 +#undef _SPIRV_OP
 +}
 +
@@ -17808,6 +17810,7 @@ index 00000000000..5b191539623
 +  add(OclExt::vk_capability_int64, CapabilityInt64);
 +  add(OclExt::vk_capability_float16, CapabilityFloat16);
 +  add(OclExt::vk_capability_float64, CapabilityFloat64);
++  add(OclExt::vk_capability_multiview, CapabilityMultiView);
 +}
 +
 +/// Map OpenCL work functions to SPIR-V builtin variables.
@@ -25350,10 +25353,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..99722729a37
+index 00000000000..e66ebafded3
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3781 @@
+@@ -0,0 +1,3787 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -27843,6 +27846,7 @@ index 00000000000..99722729a37
 +          // spv::BuiltInSubgroupLocalInvocationId },
 +          {"vertex_index", spv::BuiltInVertexIndex},
 +          {"instance_index", spv::BuiltInInstanceIndex},
++          {"view_index", spv::BuiltInViewIndex},
 +      };
 +      const auto iter = builtin_lut.find(str);
 +      if (iter == builtin_lut.end()) {
@@ -27913,6 +27917,10 @@ index 00000000000..99722729a37
 +              //{ spv::BuiltInSubgroupLocalInvocationId, VULKAN_STAGE::NONE },
 +              {spv::BuiltInVertexIndex, VULKAN_STAGE::VERTEX},
 +              {spv::BuiltInInstanceIndex, VULKAN_STAGE::VERTEX},
++              {spv::BuiltInViewIndex,
++               (VULKAN_STAGE::VERTEX | VULKAN_STAGE::TESSELLATION_CONTROL |
++                VULKAN_STAGE::TESSELLATION_EVALUATION |
++                VULKAN_STAGE::GEOMETRY | VULKAN_STAGE::FRAGMENT)},
 +          };
 +      static const std::unordered_map<spv::BuiltIn, VULKAN_STAGE>
 +          builtin_validity_output_lut{
@@ -27972,6 +27980,7 @@ index 00000000000..99722729a37
 +              //{ spv::BuiltInSubgroupLocalInvocationId, VULKAN_STAGE::NONE },
 +              {spv::BuiltInVertexIndex, VULKAN_STAGE::NONE},
 +              {spv::BuiltInInstanceIndex, VULKAN_STAGE::NONE},
++              {spv::BuiltInViewIndex, VULKAN_STAGE::NONE},
 +          };
 +
 +      if (is_input) {
@@ -31977,10 +31986,10 @@ index 00000000000..eaf98d52056
 +#endif /* SPIRVENTRY_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 new file mode 100644
-index 00000000000..ae9e7aa7429
+index 00000000000..dfe3e091206
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
-@@ -0,0 +1,417 @@
+@@ -0,0 +1,419 @@
 +//===- SPIRVEnum.h - SPIR-V enums -------------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -32166,6 +32175,7 @@ index 00000000000..ae9e7aa7429
 +  ADD_VEC_INIT(CapabilityStorageImageReadWithoutFormat, {CapabilityShader});
 +  ADD_VEC_INIT(CapabilityStorageImageWriteWithoutFormat, {CapabilityShader});
 +  ADD_VEC_INIT(CapabilityMultiViewport, {CapabilityGeometry});
++  ADD_VEC_INIT(CapabilityMultiView, {CapabilityShader});
 +}
 +
 +template <> inline void SPIRVMap<SPIRVExecutionModelKind, SPIRVCapVec>::init() {
@@ -32362,6 +32372,7 @@ index 00000000000..ae9e7aa7429
 +  ADD_VEC_INIT(BuiltInSubgroupLocalInvocationId, {CapabilityKernel});
 +  ADD_VEC_INIT(BuiltInVertexIndex, {CapabilityShader});
 +  ADD_VEC_INIT(BuiltInInstanceIndex, {CapabilityShader});
++  ADD_VEC_INIT(BuiltInViewIndex, {CapabilityMultiView});
 +}
 +
 +template <> inline void SPIRVMap<MemorySemanticsMask, SPIRVCapVec>::init() {
@@ -35618,10 +35629,10 @@ index 00000000000..f3a8e735d94
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 00000000000..b77bcc159ee
+index 00000000000..dd6de4b6e2c
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
-@@ -0,0 +1,967 @@
+@@ -0,0 +1,969 @@
 +//===- SPIRVIsValidEnum.h - SPIR-V isValid enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36075,6 +36086,7 @@ index 00000000000..b77bcc159ee
 +  case BuiltInSubgroupLocalInvocationId:
 +  case BuiltInVertexIndex:
 +  case BuiltInInstanceIndex:
++  case BuiltInViewIndex:
 +    return true;
 +  default:
 +    return false;
@@ -36177,6 +36189,7 @@ index 00000000000..b77bcc159ee
 +  case CapabilitySubgroupDispatch:
 +  case CapabilityNamedBarrier:
 +  case CapabilityPipeStorage:
++  case CapabilityMultiView:
 +    return true;
 +  default:
 +    return false;
@@ -38914,10 +38927,10 @@ index 00000000000..ec894ba2202
 +#endif /* SPIRVMODULE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
 new file mode 100644
-index 00000000000..d6c1b6de98c
+index 00000000000..ebe17289112
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
-@@ -0,0 +1,471 @@
+@@ -0,0 +1,473 @@
 +//===- SPIRVNameMapEnum.h - SPIR-V NameMap enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -39294,6 +39307,7 @@ index 00000000000..d6c1b6de98c
 +  add(BuiltInSubgroupLocalInvocationId, "BuiltInSubgroupLocalInvocationId");
 +  add(BuiltInVertexIndex, "BuiltInVertexIndex");
 +  add(BuiltInInstanceIndex, "BuiltInInstanceIndex");
++  add(BuiltInViewIndex, "BuiltInViewIndex");
 +}
 +SPIRV_DEF_NAMEMAP(BuiltIn, SPIRVBuiltInNameMap)
 +
@@ -39383,6 +39397,7 @@ index 00000000000..d6c1b6de98c
 +  add(CapabilityStorageImageWriteWithoutFormat,
 +      "StorageImageWriteWithoutFormat");
 +  add(CapabilityMultiViewport, "MultiViewport");
++  add(CapabilityMultiView, "MultiView");
 +}
 +SPIRV_DEF_NAMEMAP(Capability, SPIRVCapabilityNameMap)
 +
@@ -42365,10 +42380,10 @@ index 00000000000..a51d8432bac
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 00000000000..843a5a330d0
+index 00000000000..1dedb653a4d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
-@@ -0,0 +1,911 @@
+@@ -0,0 +1,913 @@
 +// Copyright (c) 2014-2016 The Khronos Group Inc.
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42782,6 +42797,7 @@ index 00000000000..843a5a330d0
 +    BuiltInSubgroupLocalInvocationId = 41,
 +    BuiltInVertexIndex = 42,
 +    BuiltInInstanceIndex = 43,
++    BuiltInViewIndex = 4440,
 +};
 +
 +enum SelectionControlShift {
@@ -42954,6 +42970,7 @@ index 00000000000..843a5a330d0
 +    CapabilitySubgroupDispatch = 58,
 +    CapabilityNamedBarrier = 59,
 +    CapabilityPipeStorage = 60,
++    CapabilityMultiView = 4439,
 +};
 +
 +enum Op {
@@ -55865,10 +55882,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..fca114ba0ae
+index 00000000000..c07f8a5028c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1490 @@
+@@ -0,0 +1,1509 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -55971,6 +55988,9 @@ index 00000000000..fca114ba0ae
 +		Argument* group_size { nullptr };
 +		GlobalVariable* workgroup_size { nullptr };
 +		
++		// added general shader function args
++		Argument* view_index { nullptr };
++		
 +		// added vertex function args
 +		Argument* vertex_id { nullptr };
 +		
@@ -56003,16 +56023,18 @@ index 00000000000..fca114ba0ae
 +		};
 +		
 +		enum VULKAN_VERTEX_ARG_REV_IDX : int32_t {
-+			VULKAN_VERTEX_ID = -1,
++			VULKAN_VERTEX_ID = -2,
++			VULKAN_VERTEX_VIEW_INDEX = -1,
 +			
-+			VULKAN_VERTEX_ARG_COUNT = 1,
++			VULKAN_VERTEX_ARG_COUNT = 2,
 +		};
 +		
 +		enum VULKAN_FRAGMENT_ARG_REV_IDX : int32_t {
-+			VULKAN_POINT_COORD = -2,
-+			VULKAN_FRAG_COORD = -1,
++			VULKAN_POINT_COORD = -3,
++			VULKAN_FRAG_COORD = -2,
++			VULKAN_FRAGMENT_VIEW_INDEX = -1,
 +			
-+			VULKAN_FRAGMENT_ARG_COUNT = 2,
++			VULKAN_FRAGMENT_ARG_COUNT = 3,
 +		};
 +		
 +		bool runOnFunction(Function &F) override {
@@ -56069,6 +56091,7 @@ index 00000000000..fca114ba0ae
 +			if(is_vertex_func) {
 +				if (F.arg_size() >= VULKAN_VERTEX_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					vertex_id = get_arg_by_idx(VULKAN_VERTEX_ID);
++					view_index = get_arg_by_idx(VULKAN_VERTEX_VIEW_INDEX);
 +					// TODO: this should be optional / only happen on request
 +					// TODO: handle instance id
 +					if (has_soft_printf) {
@@ -56077,6 +56100,7 @@ index 00000000000..fca114ba0ae
 +				} else {
 +					errs() << "invalid vertex function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					vertex_id = nullptr;
++					view_index = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -56086,6 +56110,7 @@ index 00000000000..fca114ba0ae
 +				if (F.arg_size() >= VULKAN_FRAGMENT_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
 +					point_coord = get_arg_by_idx(VULKAN_POINT_COORD);
 +					frag_coord = get_arg_by_idx(VULKAN_FRAG_COORD);
++					view_index = get_arg_by_idx(VULKAN_FRAGMENT_VIEW_INDEX);
 +					if (has_soft_printf) {
 +						soft_printf = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + 1));
 +					}
@@ -56093,6 +56118,7 @@ index 00000000000..fca114ba0ae
 +					errs() << "invalid fragment function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					point_coord = nullptr;
 +					frag_coord = nullptr;
++					view_index = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -56223,6 +56249,16 @@ index 00000000000..fca114ba0ae
 +				
 +				// special case
 +				I.replaceAllUsesWith(soft_printf);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.builtin.view_index.i32") {
++				if(view_index == nullptr) {
++					DBG(printf("failed to get view_index arg, probably not in a shader function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				I.replaceAllUsesWith(builder->CreateLoad(view_index, "view_index"));
 +				I.eraseFromParent();
 +				return;
 +			}
