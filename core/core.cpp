@@ -67,16 +67,17 @@ int2 get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mp
 	proj_vec *= -1.0f / mview_vec.z;
 	
 	// and finally: compute window position
+	const auto viewportf = viewport.cast<float>();
 	return {
-		(int)(viewport[2] * (proj_vec.x * 0.5f + 0.5f) + viewport[0]),
-		(int)(viewport[3] - viewport[3] * (proj_vec.y * 0.5f + 0.5f) + viewport[1]) // flip y
+		(int)(viewportf[2] * (proj_vec.x * 0.5f + 0.5f) + viewportf[0]),
+		(int)(viewportf[3] - viewportf[3] * (proj_vec.y * 0.5f + 0.5f) + viewportf[1]) // flip y
 	};
 }
 
 float3 get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
 	const matrix4f ipm((mview * mproj).invert());
-	const float3 wnd_vec((((p.x - float(viewport[0])) * 2.0f) / float(viewport[2])) - 1.0f,
-						 (((p.y - float(viewport[1])) * 2.0f) / float(viewport[3])) - 1.0f,
+	const float3 wnd_vec((((float(p.x) - float(viewport[0])) * 2.0f) / float(viewport[2])) - 1.0f,
+						 (((float(p.y) - float(viewport[1])) * 2.0f) / float(viewport[3])) - 1.0f,
 						 1.0f);
 	return (wnd_vec * ipm);
 }
@@ -222,13 +223,13 @@ string trim(const string& str) {
 	
 	string ret = str;
 	size_t pos = 0;
-	while(pos < ret.length() && (ret[pos] == ' ' || ret[pos] == '\t' || ret[pos] == '\r' || ret[pos] == '\n')) {
+	while(pos < ret.length() && (ret[pos] == ' ' || ret[pos] == '\t' || ret[pos] == '\r' || ret[pos] == '\n' || ret[pos] == '\0')) {
 		ret.erase(pos, 1);
 	}
 	
 	if(ret.length() > 0) {
 		pos = ret.length()-1;
-		while(pos < ret.length() && (ret[pos] == ' ' || ret[pos] == '\t' || ret[pos] == '\r' || ret[pos] == '\n')) {
+		while(pos < ret.length() && (ret[pos] == ' ' || ret[pos] == '\t' || ret[pos] == '\r' || ret[pos] == '\n' || ret[pos] == '\0')) {
 			ret.erase(pos, 1);
 			if(pos > 0) pos--;
 		}

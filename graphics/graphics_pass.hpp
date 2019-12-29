@@ -47,9 +47,9 @@ struct render_pass_description {
 	struct attachment_desc_t {
 		//! base pixel format of the attachment
 		//! requires: FORMAT, CHANNELS, DATA_TYPE, FLAG_DEPTH (if depth)
-		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB, FLAG_STENCIL (not supported yet)
+		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB, FLAG_ARRAY, FLAG_STENCIL (not supported yet)
 		//! e.g.: specify BGRA8UI_NORM, RGBA16F or D32F
-		COMPUTE_IMAGE_TYPE format;
+		COMPUTE_IMAGE_TYPE format { COMPUTE_IMAGE_TYPE::NONE };
 		//! load operation performed on the attachment
 		LOAD_OP load_op { LOAD_OP::CLEAR };
 		//! store operation performed on the attachment
@@ -62,33 +62,58 @@ struct render_pass_description {
 			//! depth clear value
 			float depth { 1.0f };
 		} clear;
+		//! if enabled and "automatic_multi_view_handling" is enabled as well, allow automatic format transformation of this to a layer format
+		//! NOTE: this flag enables per-attachment multi-view deactivation if only a singular attachment is wanted
+		bool automatic_multi_view_transformation { true };
 	};
 	
 	//! description of all attachments used/required for this pass
 	//! NOTE: includes both color and depth attachments
 	vector<attachment_desc_t> attachments;
+
+	//! if enabled, performs automatic modification of this render pass description to enable multi-view rendering
+	//! if not enabled, this render pass description must already be multi-view capable when used for multi-view rendering
+	bool automatic_multi_view_handling { true };
 };
+
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 //! pass object used for rendering with graphics_renderer
 class graphics_pass {
 public:
-	graphics_pass(const render_pass_description& pass_desc_);
-	virtual ~graphics_pass();
+	explicit graphics_pass(const render_pass_description& pass_desc_, const bool with_multi_view_support = false);
+	virtual ~graphics_pass() = default;
 	
 	//! returns the description of this pass
-	const render_pass_description& get_description() const {
-		return pass_desc;
+	const render_pass_description& get_description(const bool get_multi_view) const {
+		return (!get_multi_view || !multi_view_pass_desc ? pass_desc : *multi_view_pass_desc);
 	}
 	
 	//! returns true if this pass is in a valid state
 	bool is_valid() const {
 		return valid;
 	}
+
+	//! returns true if this pass can be used for multi-view rendering
+	bool is_multi_view_capable() const {
+		return multi_view_capable;
+	}
+
+	//! returns true if this pass can be used for single-view rendering
+	//! NOTE: it is possible that this pass can be multi-view-only
+	bool is_single_view_capable() const {
+		return (!multi_view_capable || multi_view_pass_desc);
+	}
 	
 protected:
 	const render_pass_description pass_desc;
+	const optional<render_pass_description> multi_view_pass_desc;
 	bool valid { false };
+	bool multi_view_capable { false };
 	
 };
+
+FLOOR_POP_WARNINGS()
 
 #endif

@@ -102,6 +102,8 @@
 		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
 		5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61D91C60FD4400358DAB /* opaque_image.hpp */; };
 		5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61DB1C61647600358DAB /* sampler.hpp */; };
+		5C3D13B223B67784000BB608 /* vr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3D13B023B67784000BB608 /* vr_context.hpp */; };
+		5C3D13B323B67784000BB608 /* vr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3D13B123B67784000BB608 /* vr_context.cpp */; };
 		5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
 		5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
 		5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */; };
@@ -446,6 +448,8 @@
 		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
 		5C3B61D91C60FD4400358DAB /* opaque_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opaque_image.hpp; path = device/opaque_image.hpp; sourceTree = "<group>"; };
 		5C3B61DB1C61647600358DAB /* sampler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = sampler.hpp; path = device/sampler.hpp; sourceTree = "<group>"; };
+		5C3D13B023B67784000BB608 /* vr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vr_context.hpp; path = vr/vr_context.hpp; sourceTree = "<group>"; };
+		5C3D13B123B67784000BB608 /* vr_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vr_context.cpp; path = vr/vr_context.cpp; sourceTree = "<group>"; };
 		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
 		5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = asio_error_handler.hpp; sourceTree = "<group>"; };
 		5C3EA9D81D89632000EC932F /* vulkan_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_image.hpp; path = device/vulkan_image.hpp; sourceTree = "<group>"; };
@@ -796,6 +800,7 @@
 				5C0DF00719B8C79200331AAC /* math */,
 				5C10919117D1153E007F536E /* net */,
 				5C10919B17D1153E007F536E /* threading */,
+				5C3D13B523B6778E000BB608 /* vr */,
 			);
 			name = src;
 			sourceTree = "<group>";
@@ -891,6 +896,15 @@
 				5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */,
 			);
 			path = constexpr;
+			sourceTree = "<group>";
+		};
+		5C3D13B523B6778E000BB608 /* vr */ = {
+			isa = PBXGroup;
+			children = (
+				5C3D13B123B67784000BB608 /* vr_context.cpp */,
+				5C3D13B023B67784000BB608 /* vr_context.hpp */,
+			);
+			name = vr;
 			sourceTree = "<group>";
 		};
 		5C4A85A018F9527E0039BFD4 /* lang */ = {
@@ -1204,6 +1218,7 @@
 				5C8452FE22B1A09C0014AECF /* graphics_pipeline.hpp in Headers */,
 				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C84531822B1A6D80014AECF /* vulkan_pipeline.hpp in Headers */,
+				5C3D13B223B67784000BB608 /* vr_context.hpp in Headers */,
 				5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */,
 				5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */,
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
@@ -1470,6 +1485,7 @@
 				5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */,
 				5CDEB85D1D81AC0200A8CD9B /* vulkan_memory.cpp in Sources */,
 				5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */,
+				5C3D13B323B67784000BB608 /* vr_context.cpp in Sources */,
 				5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C20C8D01B4139260005F5EA /* host_queue.cpp in Sources */,
@@ -1764,6 +1780,7 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",
 					"-Wno-system-headers",
@@ -1901,6 +1918,7 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",
 					"-Wno-system-headers",
@@ -1938,6 +1956,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
+					/usr/local/lib,
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -1947,11 +1966,14 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
+					"-isystem",
+					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-lopenvr_api",
 				);
 			};
 			name = Debug;
@@ -1972,6 +1994,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
+					/usr/local/lib,
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -1981,11 +2004,14 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
+					"-isystem",
+					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-lopenvr_api",
 				);
 			};
 			name = Release;
@@ -2115,6 +2141,7 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",
 					"-Wno-system-headers",
@@ -2152,6 +2179,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
+					/usr/local/lib,
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2161,11 +2189,14 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
+					"-isystem",
+					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-lopenvr_api",
 				);
 			};
 			name = Debug_vulkan;
@@ -2354,6 +2385,7 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",
 					"-Wno-system-headers",
@@ -2390,6 +2422,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
+					/usr/local/lib,
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2399,11 +2432,14 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
+					"-isystem",
+					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-lopenvr_api",
 				);
 			};
 			name = Release_vulkan;

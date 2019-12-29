@@ -25,6 +25,7 @@
 ** (opt) Vulkan: requires 1.0.24+ "Vulkan headers":https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/tree/master/include/vulkan and "ICD loader / SDK":https://vulkan.lunarg.com
 ** (opt) networking: requires "asio":http://think-async.com/Asio headers and "OpenSSL":https://www.openssl.org 1.0.1+
 ** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
+** (opt) VR: requires "OpenVR":https://github.com/ValveSoftware/openvr
 
 *Build Instructions:*
 * run ./build.sh (use "./build.sh help" to get a list of all options)
@@ -43,6 +44,8 @@
    define "FLOOR_NO_NET" or "./build.sh no-net"
 ** to disable OpenAL:
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
+** to disable VR:
+   define "FLOOR_NO_VR" or "./build.sh no-vr"
 ** to disable C++ exceptions:
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ instead of libc++:
@@ -53,6 +56,10 @@
 * some notes:
 ** all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
 ** "homebrew":http://brew.sh is the recommended way to install additional dependencies: ==ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"==
+** download "OpenVR":https://github.com/ValveSoftware/openvr/releases and manually install it:
+*** mkdir -p {/usr/local/include/openvr,/usr/local/lib}
+*** cp openvr/headers/* /usr/local/include/openvr/
+*** cp openvr/bin/osx32/libopenvr_api.dylib /usr/local/lib/
 ** command line tools might be necessary, install them with: ==xcode-select --install==
 ** on iOS, either copy dependencies into your iPhoneOS and iPhoneSimulator SDK, or floor/ios/deps/{include,lib}
 ** iOS linker flags for a depending project: -lSDL2 -lfloor -lcrypto -lssl
@@ -62,12 +69,12 @@
 * install "Clang / LLVM for Windows":http://llvm.org/builds
 * install "Vulkan SDK":https://vulkan.lunarg.com/sdk/home
 * install vcpkg (somewhere, not within libfloor):
-** ==git clone https://github.com/Microsoft/vcpkg.git ==
+** == git clone https://github.com/Microsoft/vcpkg.git ==
 ** ==cd vcpkg==
-** ==.\bootstrap-vcpkg.bat==
+** ==.\bootstrap-vcpkg.bat -disableMetrics==
 ** ==.\vcpkg integrate install==
 * install vcpkg packages:
-** ==vcpkg --triplet x64-windows install sdl2 opengl opengl-registry OpenCL vulkan openssl-windows asio openal-soft==
+** ==vcpkg --triplet x64-windows install sdl2 opengl opengl-registry OpenCL vulkan openssl-windows asio openal-soft openvr==
 * in Visual Studio 2019: open folder "floor" (wait a little until build files are generated)
 * select "Debug" or "Release" configuration and build
 ** NOTE: all dependencies (optional parts) are enabled here

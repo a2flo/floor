@@ -111,7 +111,7 @@ pair<VkFence, uint32_t> vulkan_queue::acquire_fence() const {
 				floor_unreachable();
 			}
 		}
-		this_thread::sleep_for(1ms);
+		this_thread::yield();
 	}
 	log_error("failed to acquire a fence");
 	return { nullptr, ~0u };
@@ -165,16 +165,18 @@ void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer
 				// still continue here to free the cmd buffer
 			}
 		}
-		
-		// TODO: it might make sense to sleep+wait+vkGetFenceStatus instead of vkWaitForFences
+
 		// TODO: connect a fence to a cmd buffer allocation, this way they don't need to be created + destroyed every time
 		// TODO: instead of creating a completion handler thread every time, it's probably better to have just one (or two) threads to handle this (+vkGetFenceStatus)
-		
-		for(;;) {
-			auto status = vkGetFenceStatus(dev, fence.first);
-			//log_debug(">> fence %X status: %X", fence.first, status);
-			if(status == VK_SUCCESS) break;
-			this_thread::sleep_for(1ms);
+
+		// NOTE: vkWaitForFences is faster + more efficient than a vkGetFenceStatus loop
+		const auto wait_ret = vkWaitForFences(dev, 1, &fence.first, true, ~0ull);
+		if (wait_ret != VK_SUCCESS) {
+			if (wait_ret == VK_TIMEOUT) {
+				log_error("waiting for fence timed out");
+			} else {
+				log_error("waiting for fence failed: %s (%u)", vulkan_error_to_string(wait_ret), wait_ret);
+			}
 		}
 		
 		// reset + release fence

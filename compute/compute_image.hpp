@@ -171,6 +171,11 @@ public:
 	const uint4& get_image_dim() const {
 		return image_dim;
 	}
+
+	//! returns the image width/height aspect ratio
+	float get_aspect_ratio() const {
+		return float(image_dim.x) / float(image_dim.y);
+	}
 	
 	//! returns the amount of image layers with which this image has been created
 	//! NOTE: this count includes cube map sides (layers)

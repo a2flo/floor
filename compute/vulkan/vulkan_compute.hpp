@@ -40,19 +40,24 @@ typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryWin32HandleKHR)(VkDevice device, con
 typedef VkResult (VKAPI_PTR *PFN_vkGetSemaphoreWin32HandleKHR)(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 #endif
 
+class vr_context;
+
 class vulkan_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	vulkan_compute(const bool enable_renderer = false,
-				   const vector<string> whitelist = {});
+	explicit vulkan_compute(const bool enable_renderer = false,
+							vr_context* vr_ctx_ = nullptr,
+							const vector<string> whitelist = {});
 	
 	~vulkan_compute() override;
 	
 	bool is_supported() const override { return supported; }
 	
-	bool is_graphics_supported() const override { return supported; /* identical to is_supported */ }
+	bool is_graphics_supported() const override { return true; }
+
+	bool is_vr_supported() const override;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 	
@@ -161,9 +166,14 @@ public:
 	
 	unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
 														   const graphics_pass& pass,
-														   const graphics_pipeline& pipeline) const override;
+														   const graphics_pipeline& pipeline,
+														   const bool create_multi_view_renderer = false) const override;
 	
 	COMPUTE_IMAGE_TYPE get_renderer_image_type() const override;
+
+	uint4 get_renderer_image_dim() const override;
+
+	vr_context* get_renderer_vr_context() const override;
 	
 	//////////////////////////////////////////
 	// vulkan specific functions
@@ -188,11 +198,13 @@ public:
 	}
 	
 	//! returns the allocated swapchain image count
+	//! TODO: remove this
 	uint32_t get_swapchain_image_count() const {
 		return screen.image_count;
 	}
 	
 	//! returns the swapchain image-view at the specified index
+	//! TODO: remove this
 	const VkImageView& get_swapchain_image_view(const uint32_t& idx) const {
 		return screen.swapchain_image_views[idx];
 	}
@@ -200,16 +212,19 @@ public:
 	struct drawable_image_info {
 		uint32_t index { ~0u };
 		uint2 image_size;
+		uint32_t layer_count { 1 };
 		VkImage image { nullptr };
 		VkImageView image_view { nullptr };
 		VkFormat format { VK_FORMAT_UNDEFINED };
 		VkAccessFlags access_mask { 0 };
 		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
+		VkImageLayout present_layout { VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
+		COMPUTE_IMAGE_TYPE base_type { COMPUTE_IMAGE_TYPE::NONE };
 	};
 	
 	//! acquires the next drawable image
 	//! NOTE: will block for now
-	pair<bool, const drawable_image_info> acquire_next_image();
+	pair<bool, const drawable_image_info> acquire_next_image(const bool get_multi_view_drawable = false);
 	
 	//! presents the drawable image that has previously been acquired
 	//! NOTE: will block for now
@@ -245,9 +260,20 @@ public:
 		}
 		(*set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
 	}
+
+	//! returns true if validation layer error printing is currently enabled
+	bool is_vulkan_validation_ignored() const {
+		return ignore_validation.load();
+	}
+
+	//! sets the state of whether validation layer errors should be printed/logged
+	void set_vulkan_validation_ignored(const bool& state) {
+		ignore_validation = state;
+	}
 	
 protected:
 	VkInstance ctx { nullptr };
+	vr_context* vr_ctx { nullptr };
 	
 	bool enable_renderer { false };
 	bool hdr_supported { false };
@@ -269,7 +295,21 @@ protected:
 		optional<VkHdrMetadataEXT> hdr_metadata;
 		bool has_wide_gamut { false };
 	} screen;
+	struct vr_screen_data {
+		uint2 size;
+		uint32_t layer_count { 2 };
+		uint32_t image_count { 2 };
+		uint32_t image_index { 0 };
+		VkFormat format { VK_FORMAT_UNDEFINED };
+		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
+		vector<shared_ptr<compute_image>> images;
+		vector<atomic_spin_lock> image_locks;
+		const vulkan_device* render_device { nullptr };
+		bool has_wide_gamut { false };
+	} vr_screen;
 	bool init_renderer();
+	bool init_vr_renderer();
 	
 	// NOTE: these match up 1:1
 	vector<VkPhysicalDevice> physical_devices;
@@ -306,6 +346,9 @@ protected:
 	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;
+
+	// if true, won't log/print validation layer messages
+	atomic<bool> ignore_validation { false };
 	
 };
 

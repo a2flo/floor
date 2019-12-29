@@ -27,8 +27,10 @@
 
 class vulkan_pass final : public graphics_pass {
 public:
-	vulkan_pass(const render_pass_description& pass_desc, const vector<unique_ptr<compute_device>>& devices);
-	virtual ~vulkan_pass();
+	vulkan_pass(const render_pass_description& pass_desc,
+				const vector<unique_ptr<compute_device>>& devices,
+				const bool with_multi_view_support = false);
+	~vulkan_pass() override;
 	
 	//! returns the corresponding VkAttachmentLoadOp for the specified LOAD_OP
 	static VkAttachmentLoadOp vulkan_load_op_from_load_op(const LOAD_OP& load_op);
@@ -37,16 +39,21 @@ public:
 	static VkAttachmentStoreOp vulkan_store_op_from_store_op(const STORE_OP& store_op);
 	
 	//! returns the Vulkan render pass object for the specified device
-	VkRenderPass get_vulkan_render_pass(const compute_device& dev) const;
+	VkRenderPass get_vulkan_render_pass(const compute_device& dev, const bool get_multi_view) const;
 	
 	//! returns the attachment clear values defined for this pass
-	const vector<VkClearValue>& get_vulkan_clear_values() const {
-		return clear_values;
+	const vector<VkClearValue>& get_vulkan_clear_values(const bool get_multi_view) const {
+		return (!get_multi_view ? sv_clear_values : mv_clear_values);
 	}
 	
 protected:
-	flat_map<const compute_device&, VkRenderPass> render_passes;
-	vector<VkClearValue> clear_values;
+	struct vulkan_pass_t {
+		VkRenderPass single_view_pass;
+		VkRenderPass multi_view_pass;
+	};
+	flat_map<const compute_device&, vulkan_pass_t> render_passes;
+	vector<VkClearValue> sv_clear_values;
+	vector<VkClearValue> mv_clear_values;
 	
 };
 

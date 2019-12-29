@@ -161,11 +161,14 @@ struct render_pipeline_description {
 	struct color_attachment_t {
 		//! base pixel format of the attachment
 		//! requires: FORMAT, CHANNELS, DATA_TYPE
-		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB
+		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB, FLAG_ARRAY
 		//! e.g.: specify BGRA8UI_NORM or RGBA16F
 		COMPUTE_IMAGE_TYPE format { COMPUTE_IMAGE_TYPE::NONE };
 		//! blend state of this attachment
 		attachment_blend_t blend;
+		//! if enabled and "automatic_multi_view_handling" is enabled as well, allow automatic format transformation of this to a layer format
+		//! NOTE: this flag enables per-attachment multi-view deactivation if only a singular attachment is wanted
+		bool automatic_multi_view_transformation { true };
 	};
 	vector<color_attachment_t> color_attachments;
 	
@@ -173,42 +176,61 @@ struct render_pipeline_description {
 	struct depth_attachment_t {
 		//! base pixel format of the depth attachment
 		//! requires: FLAG_DEPTH, FORMAT, CHANNELS, DATA_TYPE
-		//! optional: FLAG_STENCIL (not supported yet)
+		//! optional: FLAG_STENCIL (not supported yet), FLAG_ARRAY
 		//! NOTE: no depth attachment when NONE (default)
 		//! e.g.: specify D32F or D24
 		COMPUTE_IMAGE_TYPE format { COMPUTE_IMAGE_TYPE::NONE };
+		//! if enabled and "automatic_multi_view_handling" is enabled as well, allow automatic format transformation of this to a layer format
+		//! NOTE: this flag enables per-attachment multi-view deactivation if only a singular attachment is wanted
+		bool automatic_multi_view_transformation { true };
 	};
 	depth_attachment_t depth_attachment;
-	
+
+	//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering
+	//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering
+	bool automatic_multi_view_handling { true };
 };
 
 //! pipeline object used for rendering with graphics_renderer
 //! NOTE: this is costly to create, try to avoid doing this at run-time, prefer creation during init
 class graphics_pipeline {
 public:
-	graphics_pipeline(const render_pipeline_description& pipeline_desc_);
+	explicit graphics_pipeline(const render_pipeline_description& pipeline_desc_, const bool with_multi_view_support = false);
 	virtual ~graphics_pipeline();
 	
 	//! returns the description of this pipeline
-	const render_pipeline_description& get_description() const {
-		return pipeline_desc;
+	const render_pipeline_description& get_description(const bool get_multi_view) const {
+		return (!get_multi_view || !multi_view_pipeline_desc ? pipeline_desc : *multi_view_pipeline_desc);
 	}
 	
 	//! returns true if this pipeline is in a valid state
 	bool is_valid() const {
 		return valid;
 	}
+
+	//! returns true if this pipeline can be used for multi-view rendering
+	bool is_multi_view_capable() const {
+		return multi_view_capable;
+	}
+
+	//! returns true if this pipeline can be used for single-view rendering
+	//! NOTE: it is possible that this pipeline can be multi-view-only
+	bool is_single_view_capable() const {
+		return (!multi_view_capable || multi_view_pipeline_desc);
+	}
 	
 protected:
 	const render_pipeline_description pipeline_desc;
+	const optional<render_pipeline_description> multi_view_pipeline_desc;
 	bool valid { false };
+	bool multi_view_capable { false };
 	
 	//! takes the 2D input size, sets ~0u components to the physical screen size and returns the result
 	//! NOTE: this is used for the viewport and scissor extent computation
-	static uint2 compute_dim_from_screen_or_user(const uint2& in_size);
+	static uint2 compute_dim_from_screen_or_user(const uint2& in_size, const bool is_vr);
 	
 	//! handles pipeline defaults like setting viewport or scissor extent (when set to auto/default-init)
-	static render_pipeline_description handle_pipeline_defaults(const render_pipeline_description& pipeline_desc_);
+	static render_pipeline_description handle_pipeline_defaults(const render_pipeline_description& pipeline_desc_, const bool is_vr);
 	
 };
 

@@ -40,6 +40,7 @@
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/graphics/metal/metal_pass.hpp>
 #include <floor/graphics/metal/metal_renderer.hpp>
+#include <floor/vr/vr_context.hpp>
 #include <floor/floor/floor.hpp>
 #include <Metal/Metal.h>
 
@@ -104,7 +105,10 @@
 
 #endif
 
-metal_compute::metal_compute(const bool enable_renderer_, const vector<string> whitelist) : compute_context(), enable_renderer(enable_renderer_) {
+metal_compute::metal_compute(const bool enable_renderer_,
+							 vr_context* vr_ctx_,
+							 const vector<string> whitelist) :
+compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
@@ -461,6 +465,15 @@ metal_compute::metal_compute(const bool enable_renderer_, const vector<string> w
 			log_error("failed to create Metal view!");
 			supported = false;
 		}
+		
+#if !defined(FLOOR_NO_VR)
+		if (vr_ctx) {
+			if (!init_vr_renderer()) {
+				log_error("failed to init VR renderer");
+				vr_ctx = nullptr;
+			}
+		}
+#endif
 	}
 }
 
@@ -745,8 +758,63 @@ id <CAMetalDrawable> metal_compute::get_metal_next_drawable(id <MTLCommandBuffer
 	return darwin_helper::get_metal_next_drawable(view, cmd_buffer);
 }
 
+bool metal_compute::init_vr_renderer() {
+#if !defined(FLOOR_NO_VR)
+	if (!vr_ctx) {
+		return false;
+	}
+	
+	const auto& dev_queue = *get_device_default_queue(*render_device);
+	
+	const uint4 vr_screen_dim { floor::get_vr_physical_screen_size(), 2, 0 };
+	const COMPUTE_IMAGE_TYPE vr_image_type = (COMPUTE_IMAGE_TYPE::RGBA8UI_NORM |
+											  COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY |
+											  COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET |
+											  COMPUTE_IMAGE_TYPE::READ_WRITE);
+	for (uint32_t i = 0; i < vr_image_count; ++i) {
+		vr_images[i].image = create_image(dev_queue, vr_screen_dim, vr_image_type,
+										  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+	}
+	
+	return true;
+#else
+	return false;
+#endif
+}
+
+shared_ptr<compute_image> metal_compute::get_metal_next_vr_drawable() const NO_THREAD_SAFETY_ANALYSIS {
+	if (!vr_ctx) {
+		return {};
+	}
+	
+	// manual index advance
+	vr_image_index = (vr_image_index + 1) % vr_image_count;
+	
+	// lock this image until it has been submitted for present (also blocks until the wanted image is available)
+	vr_images[vr_image_index].image_lock.lock();
+	return vr_images[vr_image_index].image;
+}
+
+void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue, const compute_image& img) const NO_THREAD_SAFETY_ANALYSIS {
+	if (!vr_ctx) {
+		return;
+	}
+#if !defined(FLOOR_NO_VR)
+	vr_ctx->present(cqueue, img);
+	vr_ctx->update();
+	
+	// unlock image again
+	for (auto& vr_img : vr_images) {
+		if (vr_img.image.get() == &img) {
+			vr_img.image_lock.unlock();
+			break;
+		}
+	}
+#endif
+}
+
 unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
-	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices);
+	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices, vr_ctx != nullptr);
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
@@ -754,7 +822,7 @@ unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const rend
 }
 
 unique_ptr<graphics_pass> metal_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
-	auto pass = make_unique<metal_pass>(pass_desc);
+	auto pass = make_unique<metal_pass>(pass_desc, vr_ctx != nullptr);
 	if (!pass || !pass->is_valid()) {
 		return {};
 	}
@@ -763,8 +831,14 @@ unique_ptr<graphics_pass> metal_compute::create_graphics_pass(const render_pass_
 
 unique_ptr<graphics_renderer> metal_compute::create_graphics_renderer(const compute_queue& cqueue,
 																	  const graphics_pass& pass,
-																	  const graphics_pipeline& pipeline) const {
-	auto renderer = make_unique<metal_renderer>(cqueue, pass, pipeline);
+																	  const graphics_pipeline& pipeline,
+																	  const bool create_multi_view_renderer) const {
+	if (create_multi_view_renderer && !is_vr_supported()) {
+		log_error("can't create a multi-view/VR graphics renderer when VR is not supported");
+		return {};
+	}
+	
+	auto renderer = make_unique<metal_renderer>(cqueue, pass, pipeline, create_multi_view_renderer);
 	if (!renderer || !renderer->is_valid()) {
 		return {};
 	}
@@ -792,6 +866,25 @@ COMPUTE_IMAGE_TYPE metal_compute::get_renderer_image_type() const {
 		default: break;
 	}
 	return COMPUTE_IMAGE_TYPE::NONE;
+}
+
+uint4 metal_compute::get_renderer_image_dim() const {
+	if (!vr_ctx) {
+		if (view) {
+			return { darwin_helper::get_metal_view_dim(view), 0, 0 };
+		}
+		return {};
+	} else {
+		return vr_images[0].image->get_image_dim();
+	}
+}
+
+bool metal_compute::is_vr_supported() const {
+	return (vr_ctx ? true : false);
+}
+
+vr_context* metal_compute::get_renderer_vr_context() const {
+	return vr_ctx;
 }
 
 #endif

@@ -51,6 +51,8 @@ class graphics_pass;
 struct render_pass_description;
 class graphics_renderer;
 
+class vr_context;
+
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_context {
 public:
@@ -60,11 +62,15 @@ public:
 	//! unfortunately necessary
 	virtual ~compute_context() = default;
 	
-	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
+	//! returns true if this is a valid context (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;
 	
 	//! returns true if there is graphics support (i.e. the context is able to perform graphics rendering)
+	//! NOTE: must still call "is_supported()" to check if this context is actually valid
 	virtual bool is_graphics_supported() const = 0;
+
+	//! returns true if VR rendering is supported (implies that is_supported() and is_graphics_supported() return true)
+	virtual bool is_vr_supported() const { return false; }
 	
 	//! returns the underlying compute implementation type
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
@@ -282,10 +288,17 @@ public:
 	//! NOTE: only available on backends with graphics support
 	virtual unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
 																   const graphics_pass& pass,
-																   const graphics_pipeline& pipeline) const;
+																   const graphics_pipeline& pipeline,
+																   const bool create_multi_view_renderer = false) const;
 	
 	//! returns the underlying image type (pixel format) of the renderer/screen
 	virtual COMPUTE_IMAGE_TYPE get_renderer_image_type() const;
+
+	//! returns the image dim of the renderer/screen as (width, height, layers, _unused)
+	virtual uint4 get_renderer_image_dim() const;
+
+	//! returns the associated VR context of the renderer (if the renderer supports VR and VR is enabled)
+	virtual vr_context* get_renderer_vr_context() const;
 	
 protected:
 	//! platform vendor enum (set after initialization)

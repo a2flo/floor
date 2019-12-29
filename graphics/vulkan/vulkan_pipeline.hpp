@@ -28,19 +28,27 @@
 
 class vulkan_pipeline final : public graphics_pipeline {
 public:
-	vulkan_pipeline(const render_pipeline_description& pipeline_desc, const vector<unique_ptr<compute_device>>& devices);
-	virtual ~vulkan_pipeline();
+	vulkan_pipeline(const render_pipeline_description& pipeline_desc,
+					const vector<unique_ptr<compute_device>>& devices,
+					const bool with_multi_view_support = false);
+	~vulkan_pipeline() override;
 	
 	//! all Vulkan pipeline state
-	struct vulkan_pipeline_entry {
+	struct vulkan_pipeline_state_t {
 		VkPipeline pipeline { nullptr };
 		VkPipelineLayout layout { nullptr };
 		const compute_kernel::kernel_entry* vs_entry { nullptr };
 		const compute_kernel::kernel_entry* fs_entry { nullptr };
 	};
+
+	//! Vulkan pipeline entry with single-view and multi-view rendering support
+	struct vulkan_pipeline_entry_t {
+		vulkan_pipeline_state_t single_view_pipeline {};
+		vulkan_pipeline_state_t multi_view_pipeline {};
+	};
 	
 	//! return the device specific Vulkan pipeline state for the specified device (or nullptr if it doesn't exist)
-	const vulkan_pipeline_entry* get_vulkan_pipeline_entry(const compute_device& dev) const;
+	const vulkan_pipeline_state_t* get_vulkan_pipeline_state(const compute_device& dev, const bool get_multi_view) const;
 	
 	//! returns the corresponding VkPrimitiveTopology for the specified PRIMITIVE
 	static VkPrimitiveTopology vulkan_primitive_topology_from_primitive(const PRIMITIVE& primitive);
@@ -61,8 +69,9 @@ public:
 	static VkCompareOp vulkan_compare_op_from_depth_compare(const DEPTH_COMPARE& depth_compare);
 	
 protected:
-	flat_map<const compute_device&, vulkan_pipeline_entry> pipelines;
-	unique_ptr<vulkan_pass> vulkan_base_pass;
+	flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;
+	unique_ptr<vulkan_pass> sv_vulkan_base_pass;
+	unique_ptr<vulkan_pass> mv_vulkan_base_pass;
 	
 };
 

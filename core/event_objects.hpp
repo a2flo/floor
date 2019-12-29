@@ -27,12 +27,13 @@
 
 // general/global event types
 enum class EVENT_TYPE : uint32_t {
-	__MOUSE_EVENT	= (1u << 31u),
-	__KEY_EVENT		= (1u << 30u),
-	__TOUCH_EVENT	= (1u << 29u),
-	__GUI_EVENT		= (1u << 28u),
-	__OTHER_EVENT	= (1u << 27u),
-	__USER_EVENT	= (1u << 26u),
+	__USER_EVENT			= (1u << 31u),
+	__OTHER_EVENT			= (1u << 30u),
+	__MOUSE_EVENT			= (1u << 29u),
+	__KEY_EVENT				= (1u << 28u),
+	__TOUCH_EVENT			= (1u << 27u),
+	__GUI_EVENT				= (1u << 26u),
+	__VR_CONTROLLER_EVENT	= (1u << 25u),
 	
 	MOUSE_LEFT_DOWN = __MOUSE_EVENT + 1,
 	MOUSE_LEFT_UP,
@@ -72,6 +73,28 @@ enum class EVENT_TYPE : uint32_t {
 	SHADER_RELOAD, // note: used in a2elight
 	CLIPBOARD_UPDATE,
 	AUDIO_STORE_LOAD,
+
+	// NOTE: VR controller events are for both the left and right controller, differentiation is part of the event object
+	VR_APP_MENU_PRESS = __VR_CONTROLLER_EVENT + 1,
+	VR_APP_MENU_TOUCH,
+	VR_MAIN_PRESS,
+	VR_MAIN_TOUCH,
+	VR_SYSTEM_PRESS,
+	VR_SYSTEM_TOUCH,
+	VR_TRACKPAD_PRESS,
+	VR_TRACKPAD_TOUCH,
+	VR_TRACKPAD_MOVE,
+	VR_TRACKPAD_FORCE,
+	VR_THUMBSTICK_PRESS,
+	VR_THUMBSTICK_TOUCH,
+	VR_THUMBSTICK_MOVE,
+	VR_TRIGGER_TOUCH,
+	VR_TRIGGER_PRESS,
+	VR_TRIGGER_PULL,
+	VR_GRIP_PRESS,
+	VR_GRIP_TOUCH,
+	VR_GRIP_PULL,
+	VR_GRIP_FORCE,
 	
 	__USER_EVENT_START = __USER_EVENT + 1,
 	FLOOR_USER_EVENT_TYPES
@@ -209,5 +232,66 @@ struct audio_store_load_event : public event_object_base<EVENT_TYPE::AUDIO_STORE
 	audio_store_load_event(const uint32_t& time_, const string& identifier_)
 	: event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD>(time_), identifier(identifier_) {}
 };
+
+// VR controller events
+template<EVENT_TYPE event_type> struct vr_event_base : public event_object_base<event_type> {
+	const bool side; //! false: left, true: right
+	vr_event_base(const uint32_t& time_, const bool& side_) :
+		event_object_base<event_type>(time_), side(side_) {}
+
+	bool is_left_controller() const {
+		return !side;
+	}
+	bool is_right_controller() const {
+		return side;
+	}
+};
+
+template<EVENT_TYPE event_type> struct vr_digital_event_base : public vr_event_base<event_type> {
+	const bool state;
+	vr_digital_event_base(const uint32_t& time_, const bool& side_, const bool& state_) :
+		vr_event_base<event_type>(time_, side_), state(state_) {}
+};
+typedef vr_digital_event_base<EVENT_TYPE::VR_APP_MENU_PRESS> vr_app_menu_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_APP_MENU_TOUCH> vr_app_menu_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_MAIN_PRESS> vr_main_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_MAIN_TOUCH> vr_main_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_SYSTEM_PRESS> vr_system_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_SYSTEM_TOUCH> vr_system_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_TRACKPAD_PRESS> vr_trackpad_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_TRACKPAD_TOUCH> vr_trackpad_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_THUMBSTICK_PRESS> vr_thumbstick_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_THUMBSTICK_TOUCH> vr_thumbstick_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_TRIGGER_PRESS> vr_trigger_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_TRIGGER_TOUCH> vr_trigger_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_GRIP_PRESS> vr_grip_press_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_GRIP_TOUCH> vr_grip_touch_event;
+
+template<EVENT_TYPE event_type> struct vr_analog_move_event_base : public vr_event_base<event_type> {
+	const float2 position;
+	const float2 delta;
+	vr_analog_move_event_base(const uint32_t& time_, const bool& side_, const float2& position_, const float2& delta_) :
+		vr_event_base<event_type>(time_, side_), position(position_), delta(delta_) {}
+};
+typedef vr_analog_move_event_base<EVENT_TYPE::VR_TRACKPAD_MOVE> vr_trackpad_move_event;
+typedef vr_analog_move_event_base<EVENT_TYPE::VR_THUMBSTICK_MOVE> vr_thumbstick_move_event;
+
+template<EVENT_TYPE event_type> struct vr_analog_pull_event_base : public vr_event_base<event_type> {
+	const float pull;
+	const float delta;
+	vr_analog_pull_event_base(const uint32_t& time_, const bool& side_, const float& pull_, const float& delta_) :
+		vr_event_base<event_type>(time_, side_), pull(pull_), delta(delta_) {}
+};
+typedef vr_analog_pull_event_base<EVENT_TYPE::VR_TRIGGER_PULL> vr_trigger_pull_event;
+typedef vr_analog_pull_event_base<EVENT_TYPE::VR_GRIP_PULL> vr_grip_pull_event;
+
+template<EVENT_TYPE event_type> struct vr_analog_force_event_base : public vr_event_base<event_type> {
+	const float force;
+	const float delta;
+	vr_analog_force_event_base(const uint32_t& time_, const bool& side_, const float& force_, const float& delta_) :
+		vr_event_base<event_type>(time_, side_), force(force_), delta(delta_) {}
+};
+typedef vr_analog_force_event_base<EVENT_TYPE::VR_TRACKPAD_FORCE> vr_trackpad_force_event;
+typedef vr_analog_force_event_base<EVENT_TYPE::VR_GRIP_FORCE> vr_grip_force_event;
 
 #endif

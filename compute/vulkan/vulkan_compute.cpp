@@ -22,7 +22,6 @@
 #include <floor/core/platform.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/compute/spirv_handler.hpp>
-#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
@@ -34,7 +33,7 @@
 #include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 #include <floor/graphics/vulkan/vulkan_renderer.hpp>
-
+#include <floor/vr/vr_context.hpp>
 
 #include <floor/core/platform_windows.hpp>
 
@@ -61,16 +60,26 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugReportFlagsEX
 															int32_t message_code,
 															const char* layer_prefix,
 															const char* message,
-															/* vulkan_compute* */ void* ctx floor_unused) {
-	log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
+															/* vulkan_compute* */ void* ctx) {
+	const auto vk_ctx = (const vulkan_compute*)ctx;
+	if (!vk_ctx->is_vulkan_validation_ignored()) {
+		log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
+	}
 	return VK_FALSE; // don't abort
 }
 #endif
 
-vulkan_compute::vulkan_compute(const bool enable_renderer_, const vector<string> whitelist) :
-compute_context(), enable_renderer(enable_renderer_) {
+vulkan_compute::vulkan_compute(const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
+compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(enable_renderer) {
 		screen.x11_forwarding = floor::is_x11_forwarding();
+
+		if (floor::get_vr()) {
+			if (screen.x11_forwarding) {
+				log_error("VR and X11 forwarding are mutually exclusive");
+				return;
+			}
+		}
 	}
 	
 	// create a vulkan instance (context)
@@ -87,36 +96,51 @@ compute_context(), enable_renderer(enable_renderer_) {
 	
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
-	vector<const char*> instance_extensions {
+	set<string> instance_extensions {
 #if defined(FLOOR_DEBUG)
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
 	if(enable_renderer && !screen.x11_forwarding) {
-		instance_extensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
-		instance_extensions.emplace_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+		instance_extensions.emplace(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(SDL_VIDEO_DRIVER_X11)
 		// SDL only supports xlib
-		instance_extensions.emplace_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		instance_extensions.emplace(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
 #endif
 
 #if defined(SDL_VIDEO_DRIVER_WINDOWS) // seems to only exist on windows (and android) right now
-		instance_extensions.emplace_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+		instance_extensions.emplace(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 #endif
 	}
+
+#if !defined(FLOOR_NO_VR)
+	if (vr_ctx) {
+		const auto vr_instance_exts = vr_ctx->get_vulkan_instance_extensions();
+		if (vr_instance_exts) {
+			const string vr_instance_exts_str(vr_instance_exts.get());
+			const auto vr_instance_ext_strs = core::tokenize(vr_instance_exts_str, ' ');
+			for (const auto& ext : vr_instance_ext_strs) {
+				instance_extensions.emplace(ext);
+			}
+		}
+	}
+#endif
 	
 	const vector<const char*> instance_layers {
 #if defined(FLOOR_DEBUG)
 		"VK_LAYER_LUNARG_standard_validation",
 #endif
 	};
-	
-	string inst_exts_str = "", inst_layers_str = "";
+
+	vector<const char*> instance_extensions_ptrs;
+	string inst_exts_str, inst_layers_str;
 	for(const auto& ext : instance_extensions) {
 		inst_exts_str += ext;
 		inst_exts_str += " ";
+		instance_extensions_ptrs.emplace_back(ext.c_str());
 	}
 	for(const auto& layer : instance_layers) {
 		inst_layers_str += layer;
@@ -132,8 +156,8 @@ compute_context(), enable_renderer(enable_renderer_) {
 		.pApplicationInfo = &app_info,
 		.enabledLayerCount = (uint32_t)size(instance_layers),
 		.ppEnabledLayerNames = size(instance_layers) > 0 ? instance_layers.data() : nullptr,
-		.enabledExtensionCount = (uint32_t)size(instance_extensions),
-		.ppEnabledExtensionNames = size(instance_extensions) > 0 ? instance_extensions.data() : nullptr,
+		.enabledExtensionCount = (uint32_t)size(instance_extensions_ptrs),
+		.ppEnabledExtensionNames = size(instance_extensions_ptrs) > 0 ? instance_extensions_ptrs.data() : nullptr,
 	};
 	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance")
 	
@@ -277,9 +301,16 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceMultiviewFeatures multiview_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+			.pNext = nullptr,
+			.multiview = false,
+			.multiviewGeometryShader = false,
+			.multiviewTessellationShader = false,
+		};
 		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalar_block_layout_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
-			.pNext = nullptr,
+			.pNext = &multiview_features,
 			.scalarBlockLayout = false,
 		};
 		VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR uniform_buffer_standard_layout_features {
@@ -304,10 +335,16 @@ compute_context(), enable_renderer(enable_renderer_) {
 			.pNext = &inline_uniform_block_features
 		};
 		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
-		
+
+		VkPhysicalDeviceMultiviewProperties multiview_properties {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES,
+			.pNext = nullptr,
+			.maxMultiviewViewCount = 0,
+			.maxMultiviewInstanceIndex = 0,
+		};
 		VkPhysicalDeviceIDProperties device_id_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES,
-			.pNext = nullptr,
+			.pNext = &multiview_properties,
 			.deviceUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.driverUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.deviceLUID = { 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -328,6 +365,21 @@ compute_context(), enable_renderer(enable_renderer_) {
 			.pNext = &inline_uniform_block_props,
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
+
+#if !defined(FLOOR_NO_VR)
+		if (vr_ctx) {
+			if (!multiview_features.multiview ||
+				!multiview_features.multiviewGeometryShader ||
+				!multiview_features.multiviewTessellationShader) {
+				log_error("VR requirements not met: multi-view features are not supported by %s", props.deviceName);
+				continue;
+			}
+			if (multiview_properties.maxMultiviewViewCount < 2) {
+				log_error("VR requirements not met: multi-view count must be >= 2 for device %s", props.deviceName);
+				continue;
+			}
+		}
+#endif
 		
 		if (scalar_block_layout_features.scalarBlockLayout == 0) {
 			log_error("scalar block layout is not supported by %s", props.deviceName);
@@ -379,6 +431,8 @@ compute_context(), enable_renderer(enable_renderer_) {
 			"VK_KHR_shader_subgroup_extended_types",
 			"VK_KHR_spirv_1_4",
 			"VK_KHR_timeline_semaphore",
+			"VK_KHR_buffer_device_address",
+			"VK_KHR_separate_depth_stencil_layouts",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -405,6 +459,20 @@ compute_context(), enable_renderer(enable_renderer_) {
 			if (is_filtered) continue;
 			device_extensions_set.emplace(ext_name);
 		}
+
+#if !defined(FLOOR_NO_VR)
+		// handle VR extensions
+		if (vr_ctx) {
+			const auto vr_dev_exts = vr_ctx->get_vulkan_device_extensions(phys_dev);
+			if (vr_dev_exts) {
+				const string vr_dev_exts_str(vr_dev_exts.get());
+				const auto vr_dev_ext_strs = core::tokenize(vr_dev_exts_str, ' ');
+				for (const auto& ext_str : vr_dev_ext_strs) {
+					device_extensions_set.emplace(ext_str);
+				}
+			}
+		}
+#endif
 
 		// add other required or optional extensions
 		//device_extensions_set.emplace(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME); // NOTE: will be required in the future
@@ -890,6 +958,8 @@ bool vulkan_compute::init_renderer() {
 				break;
 			}
 		}
+		const auto img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
+		log_debug("using screen format %s (%X)", compute_image::image_type_to_string(*img_type), screen.format);
 	} else {
 		// checks if the color space actually is wide-gamut
 		const auto is_wide_gamut_color_space = [](const auto& color_space) {
@@ -1153,6 +1223,14 @@ bool vulkan_compute::init_renderer() {
 		VK_CALL_RET(vkCreateImageView(screen.render_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
 					"image view creation failed", false)
 	}
+
+#if !defined(FLOOR_NO_VR)
+	if (vr_ctx) {
+		if (!init_vr_renderer()) {
+			return false;
+		}
+	}
+#endif
 	
 	return true;
 #else
@@ -1161,11 +1239,66 @@ bool vulkan_compute::init_renderer() {
 #endif
 }
 
-pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
+bool vulkan_compute::init_vr_renderer() {
+	// create 2D 2-layer images for rendering (with aliasing support, so we can grab each layer individually)
+	const auto& vk_queue = (const vulkan_queue&)*get_device_default_queue(*screen.render_device);
+	vr_screen.render_device = screen.render_device;
+
+	vr_screen.size = floor::get_vr_physical_screen_size();
+	vr_screen.layer_count = 2;
+	vr_screen.image_count = 2;
+	// TODO: properly support wide-gamut (VK_FORMAT_R16G16B16A16_SFLOAT is overkill and VK_FORMAT_A2R10G10B10_UINT_PACK32 can't be used as a color att)
+	vr_screen.has_wide_gamut = floor::get_wide_gamut();
+	//vr_screen.has_wide_gamut = false;
+	vr_screen.format = (vr_screen.has_wide_gamut ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_B8G8R8A8_UNORM);
+	vr_screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	// NOTE: we'll be using multi-view / layered rendering
+	vr_screen.image_type = *vulkan_image::image_type_from_vulkan_format(vr_screen.format);
+	vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ_WRITE;
+	for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
+		vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count },
+												   vr_screen.image_type,
+												   COMPUTE_MEMORY_FLAG::READ_WRITE |
+												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+												   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
+	}
+	vr_screen.image_locks.resize(vr_screen.image_count);
+	return true;
+}
+
+pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const bool get_multi_view_drawable) NO_THREAD_SAFETY_ANALYSIS {
 	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
+
+	if (get_multi_view_drawable && vr_ctx) {
+		// manual index advance
+		vr_screen.image_index = (vr_screen.image_index + 1) % vr_screen.image_count;
+
+		// lock this image until it has been submitted for present (also blocks until the wanted image is available)
+		vr_screen.image_locks[vr_screen.image_index].lock();
+		auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
+
+		// transition / make the render target writable
+		vr_image->transition_write(dev_queue, nullptr);
+
+		return {
+			true,
+			{
+				.index = vr_screen.image_index,
+				.image_size = vr_screen.size,
+				.layer_count = vr_screen.layer_count,
+				.image = vr_image->get_vulkan_image(),
+				.image_view = vr_image->get_vulkan_image_view(),
+				.format = vr_screen.format,
+				.access_mask = vr_image->get_vulkan_access_mask(),
+				.layout = vr_image->get_vulkan_image_info()->imageLayout,
+				.present_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY,
+			}
+		};
+	}
 	
-	if(screen.x11_forwarding) {
+	if (screen.x11_forwarding) {
 		screen.x11_screen->transition(dev_queue, nullptr /* create a cmd buffer */,
 									  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 									  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
@@ -1174,12 +1307,13 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 			{
 				.index = 0u,
 				.image_size = screen.size,
+				.layer_count = 1,
 				.image = screen.x11_screen->get_vulkan_image(),
 			}
 		};
 	}
 	
-	const drawable_image_info dummy_ret;
+	const drawable_image_info dummy_ret {};
 	
 	// create new sema and acquire image
 	const VkSemaphoreCreateInfo sema_create_info {
@@ -1241,11 +1375,14 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 		{
 			.index = screen.image_index,
 			.image_size = screen.size,
+			.layer_count = 1,
 			.image = screen.swapchain_images[screen.image_index],
 			.image_view = screen.swapchain_image_views[screen.image_index],
 			.format = screen.format,
 			.access_mask = dst_access_mask,
 			.layout = dst_layout,
+			.present_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D,
 		}
 	};
 }
@@ -1323,27 +1460,46 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	return queue_present(drawable);
 }
 
-bool vulkan_compute::queue_present(const drawable_image_info& drawable) {
-	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
-	const auto& vk_queue = (const vulkan_queue&)dev_queue;
-	
-	// present
-	const VkPresentInfoKHR present_info {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 0,
-		.pWaitSemaphores = nullptr,
-		.swapchainCount = 1,
-		.pSwapchains = &screen.swapchain,
-		.pImageIndices = &drawable.index,
-		.pResults = nullptr,
-	};
-	VK_CALL_RET(vkQueuePresentKHR((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), &present_info),
-				"failed to present", false)
-	
-	// cleanup
-	vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
-	screen.render_semas[drawable.index] = nullptr;
+bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREAD_SAFETY_ANALYSIS {
+	if (vr_ctx && drawable.layer_count > 1) {
+#if !defined(FLOOR_NO_VR)
+		const auto& dev_queue = *get_device_default_queue(*vr_screen.render_device);
+		auto& present_image = (vulkan_image&)*vr_screen.images[drawable.index];
+
+		// keep image state in sync
+		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_MEMORY_READ_BIT);
+
+		// present both eyes (+temporarily disable validation, because this will throw errors)
+		ignore_validation = true;
+		vr_ctx->present(dev_queue, present_image);
+		ignore_validation = false;
+		vr_ctx->update();
+
+		// unlock image again
+		vr_screen.image_locks[drawable.index].unlock();
+#endif
+	} else {
+		const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+		const auto& vk_queue = (const vulkan_queue&)dev_queue;
+
+		// present window image
+		const VkPresentInfoKHR present_info {
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.pNext = nullptr,
+			.waitSemaphoreCount = 0,
+			.pWaitSemaphores = nullptr,
+			.swapchainCount = 1,
+			.pSwapchains = &screen.swapchain,
+			.pImageIndices = &drawable.index,
+			.pResults = nullptr,
+		};
+		VK_CALL_RET(vkQueuePresentKHR((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), &present_info),
+					"failed to present", false)
+
+		// cleanup
+		vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
+		screen.render_semas[drawable.index] = nullptr;
+	}
 	
 	return true;
 }
@@ -1737,7 +1893,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 }
 
 unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
-	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc, devices);
+	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc, devices, vr_ctx != nullptr);
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
@@ -1745,7 +1901,7 @@ unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const ren
 }
 
 unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
-	auto pass = make_unique<vulkan_pass>(pass_desc, devices);
+	auto pass = make_unique<vulkan_pass>(pass_desc, devices, vr_ctx != nullptr);
 	if (!pass || !pass->is_valid()) {
 		return {};
 	}
@@ -1754,8 +1910,14 @@ unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass
 
 unique_ptr<graphics_renderer> vulkan_compute::create_graphics_renderer(const compute_queue& cqueue,
 																	   const graphics_pass& pass,
-																	   const graphics_pipeline& pipeline) const {
-	auto renderer = make_unique<vulkan_renderer>(cqueue, pass, pipeline);
+																	   const graphics_pipeline& pipeline,
+																	   const bool create_multi_view_renderer) const {
+	if (create_multi_view_renderer && !is_vr_supported()) {
+		log_error("can't create a multi-view/VR graphics renderer when VR is not supported");
+		return {};
+	}
+
+	auto renderer = make_unique<vulkan_renderer>(cqueue, pass, pipeline, create_multi_view_renderer);
 	if (!renderer || !renderer->is_valid()) {
 		return {};
 	}
@@ -1763,7 +1925,23 @@ unique_ptr<graphics_renderer> vulkan_compute::create_graphics_renderer(const com
 }
 
 COMPUTE_IMAGE_TYPE vulkan_compute::get_renderer_image_type() const {
-	return screen.image_type;
+	return (!vr_ctx ? screen.image_type : vr_screen.image_type);
+}
+
+uint4 vulkan_compute::get_renderer_image_dim() const {
+	if (!vr_ctx) {
+		return { screen.size, 0, 0 };
+	} else {
+		return { vr_screen.size, vr_screen.layer_count, 0 };
+	}
+}
+
+bool vulkan_compute::is_vr_supported() const {
+	return (vr_ctx ? true : false);
+}
+
+vr_context* vulkan_compute::get_renderer_vr_context() const {
+	return vr_ctx;
 }
 
 #endif

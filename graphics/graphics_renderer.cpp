@@ -21,8 +21,8 @@
 #include <floor/core/logger.hpp>
 #include <unordered_set>
 
-graphics_renderer::graphics_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline) :
-cqueue(cqueue_), ctx(*cqueue.get_device().context), pass(pass_), cur_pipeline(&pipeline) {
+graphics_renderer::graphics_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_) :
+cqueue(cqueue_), ctx(*cqueue.get_device().context), pass(pass_), cur_pipeline(&pipeline), multi_view(multi_view_) {
 	// TODO: check validity, check compat between pass <-> pipeline, check if cqueue dev is in pass+pipeline
 	
 	// all successful, mark as valid for now (can be changed to false again by derived implementations)

@@ -27,8 +27,8 @@
 
 class metal_pass final : public graphics_pass {
 public:
-	metal_pass(const render_pass_description& pass_desc);
-	virtual ~metal_pass();
+	metal_pass(const render_pass_description& pass_desc, const bool with_multi_view_support = false);
+	~metal_pass() override;
 	
 	//! returns the corresponding MTLLoadAction for the specified LOAD_OP
 	static MTLLoadAction metal_load_action_from_load_op(const LOAD_OP& load_op);
@@ -37,15 +37,17 @@ public:
 	static MTLStoreAction metal_store_action_from_store_op(const STORE_OP& store_op);
 	
 	//! creates an encoder for this render pass description
-	id <MTLRenderCommandEncoder> create_encoder(id <MTLCommandBuffer> cmd_buffer) const;
+	id <MTLRenderCommandEncoder> create_encoder(id <MTLCommandBuffer> cmd_buffer,
+												const bool create_multi_view) const;
 	
 	//! returns the Metal render pass descriptor
-	const MTLRenderPassDescriptor* get_metal_pass_desc() const {
-		return mtl_pass_desc;
+	const MTLRenderPassDescriptor* get_metal_pass_desc(const bool get_multi_view) const {
+		return (!get_multi_view ? sv_mtl_pass_desc : mv_mtl_pass_desc);
 	}
 	
 protected:
-	MTLRenderPassDescriptor* mtl_pass_desc { nil };
+	MTLRenderPassDescriptor* sv_mtl_pass_desc { nil };
+	MTLRenderPassDescriptor* mv_mtl_pass_desc { nil };
 	
 };
 

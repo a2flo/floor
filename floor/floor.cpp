@@ -27,6 +27,7 @@
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/host/host_compute.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/vr/vr_context.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -63,6 +64,9 @@ unique_ptr<event> floor::evt;
 shared_ptr<compute_context> floor::compute_ctx;
 floor::RENDERER floor::renderer { floor::RENDERER::DEFAULT };
 SDL_Window* floor::window { nullptr };
+
+// VR
+shared_ptr<vr_context> floor::vr_ctx;
 
 // OpenGL
 SDL_GLContext floor::opengl_ctx { nullptr };
@@ -286,11 +290,19 @@ bool floor::init(const init_state& state) {
 		config.position.y = config_doc.get<int32_t>("screen.position.y", SDL_WINDOWPOS_UNDEFINED);
 		config.fullscreen = config_doc.get<bool>("screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
-		config.stereo = config_doc.get<bool>("screen.stereo", false);
 		config.dpi = config_doc.get<uint32_t>("screen.dpi", 0);
 		config.hidpi = config_doc.get<bool>("screen.hidpi", true);
 		config.wide_gamut = config_doc.get<bool>("screen.wide_gamut", true);
 		config.hdr = config_doc.get<bool>("screen.hdr", true);
+
+#if !defined(FLOOR_NO_VR)
+		config.vr = config_doc.get<bool>("screen.vr.enabled", false);
+#else
+		config.vr = false;
+#endif
+		config.vr_companion = config_doc.get<bool>("screen.vr.companion", true);
+		config.vr_width = config_doc.get<uint32_t>("screen.vr.width", 0);
+		config.vr_height = config_doc.get<uint32_t>("screen.vr.height", 0);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -715,6 +727,8 @@ void floor::destroy() {
 	metal_ctx = nullptr;
 	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;
+	evt->set_vr_context(nullptr);
+	vr_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) {
@@ -909,6 +923,27 @@ bool floor::init_internal(const init_state& state) {
 		log_debug("fullscreen mode set: w%u h%u", config.width, config.height);
 		SDL_ShowWindow(window);
 #endif
+
+#if !defined(FLOOR_NO_VR)
+		// create a VR context if this is enabled and we want to create a supported renderer
+		if (config.vr && (renderer == RENDERER::VULKAN || renderer == RENDERER::METAL)) {
+			log_debug("initializing VR");
+			vr_ctx = make_unique<vr_context>();
+			if (!vr_ctx->is_valid()) {
+				vr_ctx = nullptr;
+			} else {
+				if (config.vr_width == 0) {
+					config.vr_width = vr_ctx->get_recommended_render_size().x;
+				}
+				if (config.vr_height == 0) {
+					config.vr_height = vr_ctx->get_recommended_render_size().y;
+				}
+				log_debug("VR per-eye render size: w%u h%u", config.vr_width, config.vr_height);
+
+				evt->set_vr_context(vr_ctx.get());
+			}
+		}
+#endif
 		
 		// 1st pass: try to create the renderer that was specified
 		// 2nd pass: if this fails, try to create an OpenGL renderer (or break if failed renderer was OpenGL)
@@ -946,7 +981,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_METAL)
 			else if (renderer == RENDERER::METAL) {
 				// create the metal context
-				metal_ctx = make_shared<metal_compute>(true, config.metal_whitelist);
+				metal_ctx = make_shared<metal_compute>(true, vr_ctx.get(), config.metal_whitelist);
 				if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
 					log_error("failed to create the Metal renderer context");
 					metal_ctx = nullptr;
@@ -959,7 +994,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_VULKAN)
 			else if (renderer == RENDERER::VULKAN) {
 				// create the vulkan context
-				vulkan_ctx = make_shared<vulkan_compute>(true, config.vulkan_whitelist);
+				vulkan_ctx = make_shared<vulkan_compute>(true, vr_ctx.get(), config.vulkan_whitelist);
 				if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
 					log_error("failed to create the Vulkan renderer context");
 					vulkan_ctx = nullptr;
@@ -978,6 +1013,14 @@ bool floor::init_internal(const init_state& state) {
 		}
 	}
 	acquire_context();
+
+#if !defined(FLOOR_NO_VR)
+	// kill the VR context if we couldn't create a supported renderer
+	if (vr_ctx && renderer != RENDERER::VULKAN && renderer != RENDERER::METAL) {
+		evt->set_vr_context(nullptr);
+		vr_ctx = nullptr;
+	}
+#endif
 	
 	if(!console_only) {
 		log_debug("window %screated and acquired!",
@@ -1069,7 +1112,7 @@ bool floor::init_internal(const init_state& state) {
 #if defined(__WINDOWS__)
 				HDC hdc = wm_info.info.win.hdc;
 				const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
-				const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
+				const float2 display_phys_size = int2(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE)).cast<float>();
 #else // x11
 				Display* display = wm_info.info.x11.display;
 				const size2 display_res((size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0));
@@ -1145,7 +1188,7 @@ bool floor::init_internal(const init_state& state) {
 					} else {
 						if (!config.metal_toolchain_exists) break;
 						log_debug("initializing Metal ...");
-						compute_ctx = make_shared<metal_compute>(false, config.metal_whitelist);
+						compute_ctx = make_shared<metal_compute>(false, vr_ctx.get(), config.metal_whitelist);
 					}
 #endif
 					break;
@@ -1162,7 +1205,7 @@ bool floor::init_internal(const init_state& state) {
 					} else {
 						if (!config.vulkan_toolchain_exists) break;
 						log_debug("initializing Vulkan ...");
-						compute_ctx = make_shared<vulkan_compute>(false, config.vulkan_whitelist);
+						compute_ctx = make_shared<vulkan_compute>(false, vr_ctx.get(), config.vulkan_whitelist);
 					}
 #endif
 					break;
@@ -1425,10 +1468,6 @@ bool floor::get_vsync() {
 	return config.vsync;
 }
 
-bool floor::get_stereo() {
-	return config.stereo;
-}
-
 uint32_t floor::get_width() {
 	return config.width;
 }
@@ -1583,6 +1622,26 @@ bool floor::get_wide_gamut() {
 
 bool floor::get_hdr() {
 	return config.hdr;
+}
+
+bool floor::get_vr() {
+	return config.vr;
+}
+
+bool floor::get_vr_companion() {
+	return config.vr_companion;
+}
+
+uint32_t floor::get_vr_physical_width() {
+	return config.vr_width;
+}
+
+uint32_t floor::get_vr_physical_height() {
+	return config.vr_height;
+}
+
+uint2 floor::get_vr_physical_screen_size() {
+	return { config.vr_width, config.vr_height };
 }
 
 json::document& floor::get_config_doc() {

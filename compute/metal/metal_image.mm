@@ -896,4 +896,8 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 	return metal_pixel_format->second;
 }
 
+void* floor_nullable metal_image::get_metal_image_void_ptr() const {
+	return (__bridge void*)image;
+}
+
 #endif

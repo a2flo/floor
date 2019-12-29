@@ -639,8 +639,8 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			
 			// no variable anisotropy yet
 			tex_desc.max_anisotropy = 16;
-			tex_desc.min_mip_map_level_clamp = 0;
-			tex_desc.max_mip_map_level_clamp = (is_mip_mapped_or_vulkan ? dev.max_mip_levels : 0);
+			tex_desc.min_mip_map_level_clamp = 0.0f;
+			tex_desc.max_mip_map_level_clamp = (is_mip_mapped_or_vulkan ? float(dev.max_mip_levels) : 0.0f);
 			
 			// at this point, the device function pointer that initializes/creates the sampler state
 			// has been overwritten/hijacked by our own function (if the internal api is used/enabled)

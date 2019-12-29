@@ -30,7 +30,10 @@
 
 class vulkan_renderer final : public graphics_renderer {
 public:
-	vulkan_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline_);
+	vulkan_renderer(const compute_queue& cqueue_,
+					const graphics_pass& pass_,
+					const graphics_pipeline& pipeline_,
+					const bool multi_view_ = false);
 	~vulkan_renderer() override;
 	
 	bool begin() override;
@@ -47,7 +50,7 @@ public:
 		using drawable_t::valid;
 	};
 	
-	drawable_t* get_next_drawable() override;
+	drawable_t* get_next_drawable(const bool get_multi_view_drawable = false) override;
 	void present() override;
 	
 	bool set_attachments(vector<attachment_t>& attachments) override;
@@ -74,7 +77,7 @@ protected:
 	
 	bool update_vulkan_pipeline();
 	
-	const vulkan_pipeline::vulkan_pipeline_entry* vk_pipeline_state { nullptr };
+	const vulkan_pipeline::vulkan_pipeline_state_t* vk_pipeline_state { nullptr };
 	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass);
 	
 	bool set_depth_attachment(attachment_t& attachment) override;

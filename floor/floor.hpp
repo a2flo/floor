@@ -32,6 +32,8 @@ namespace json {
 	struct document;
 }
 
+class vr_context;
+
 class floor {
 public:
 	//! renderer backend that should be used and initialized
@@ -181,7 +183,6 @@ public:
 	static void set_fullscreen(const bool& state);
 	static bool get_vsync();
 	static void set_vsync(const bool& state);
-	static bool get_stereo();
 	static const uint32_t& get_dpi();
 	static bool get_hidpi();
 	static bool get_wide_gamut();
@@ -202,6 +203,13 @@ public:
 	static uint2 get_physical_screen_size();
 	
 	static void set_screen_size(const uint2& screen_size);
+
+	// VR
+	static bool get_vr();
+	static bool get_vr_companion();
+	static uint32_t get_vr_physical_width();
+	static uint32_t get_vr_physical_height();
+	static uint2 get_vr_physical_screen_size();
 	
 	// audio
 	static void set_audio_disabled(const bool& state);
@@ -325,10 +333,15 @@ protected:
 		int2 position { SDL_WINDOWPOS_UNDEFINED };
 		bool fullscreen = false;
 		bool vsync = false;
-		bool stereo = false;
 		bool hidpi = true;
 		bool wide_gamut = true;
 		bool hdr = true;
+
+		// VR
+		bool vr = false;
+		bool vr_companion = true;
+		uint32_t vr_width = 0;
+		uint32_t vr_height = 0;
 		
 		// audio
 		bool audio_disabled = true;
@@ -451,6 +464,9 @@ protected:
 	static shared_ptr<compute_context> compute_ctx;
 	static RENDERER renderer;
 	static SDL_Window* window;
+
+	// VR
+	static shared_ptr<vr_context> vr_ctx;
 	
 	// OpenGL
 	static SDL_GLContext opengl_ctx;

@@ -35,19 +35,24 @@
 
 class metal_program;
 class metal_device;
+class vr_context;
 
 class metal_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	metal_compute(const bool enable_renderer = false, const vector<string> whitelist = {});
+	metal_compute(const bool enable_renderer = false,
+				  vr_context* vr_ctx_ = nullptr,
+				  const vector<string> whitelist = {});
 	
-	~metal_compute() override {}
+	~metal_compute() override = default;
 	
 	bool is_supported() const override { return supported; }
 	
-	bool is_graphics_supported() const override { return supported; /* identical to is_supported */ }
+	bool is_graphics_supported() const override { return true; }
+	
+	bool is_vr_supported() const override;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
@@ -149,9 +154,14 @@ public:
 	
 	unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
 														   const graphics_pass& pass,
-														   const graphics_pipeline& pipeline) const override;
+														   const graphics_pipeline& pipeline,
+														   const bool create_multi_view_renderer = false) const override;
 	
 	COMPUTE_IMAGE_TYPE get_renderer_image_type() const override;
+
+	uint4 get_renderer_image_dim() const override;
+
+	vr_context* get_renderer_vr_context() const override;
 	
 	//////////////////////////////////////////
 	// metal specific functions
@@ -166,10 +176,17 @@ public:
 	
 	//! if this context was created with renderer support, return the next drawable of the Metal view
 	id <CAMetalDrawable> get_metal_next_drawable(id <MTLCommandBuffer> cmd_buffer) const;
+	
+	//! if this context was created with renderer and VR support, return the next drawable VR Metal image
+	shared_ptr<compute_image> get_metal_next_vr_drawable() const;
+	
+	//! presents the specified VR drawable
+	void present_metal_vr_drawable(const compute_queue& cqueue, const compute_image& img) const;
 #endif
 	
 protected:
 	void* ctx { nullptr };
+	vr_context* vr_ctx { nullptr };
 	
 	bool enable_renderer { false };
 #if defined(__OBJC__)
@@ -183,6 +200,16 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
+	
+	// VR handling
+	struct vr_image_t {
+		shared_ptr<compute_image> image;
+		atomic_spin_lock image_lock;
+	};
+	static constexpr const uint32_t vr_image_count { 2 };
+	mutable array<vr_image_t, vr_image_count> vr_images;
+	mutable uint32_t vr_image_index { 0 };
+	bool init_vr_renderer();
 	
 };
 

@@ -96,6 +96,7 @@ BUILD_CONF_METAL=1
 BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
 BUILD_CONF_EXCEPTIONS=1
+BUILD_CONF_VR=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 BUILD_CONF_NATIVE=0
@@ -141,6 +142,7 @@ for arg in "$@"; do
 			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
 			echo "	no-vulkan          disables vulkan support"
 			echo "	no-openal          disables openal support"
+			echo "	no-vr              disables VR support"
 			echo "	no-net             disables network support"
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
@@ -211,6 +213,9 @@ for arg in "$@"; do
 			;;
 		"no-openal")
 			BUILD_CONF_OPENAL=0
+			;;
+		"no-vr")
+			BUILD_CONF_VR=0
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
@@ -380,7 +385,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan graphics graphics/metal graphics/vulkan constexpr core floor lang math net threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan graphics graphics/metal graphics/vulkan constexpr core floor lang math net threading vr"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
@@ -473,6 +478,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	fi
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openal"
+	fi
+	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} openvr"
 	fi
 	if [ ${BUILD_CONF_POCL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} pocl"
@@ -592,13 +600,16 @@ else
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openal-soft/include"
 	fi
+	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /usr/local/include/openvr"
+	fi
 	INCLUDES="${INCLUDES} -iframework /Library/Frameworks"
 	
 	# build a shared/dynamic library
 	LDFLAGS="${LDFLAGS} -dynamiclib"
 	
 	# additional lib/framework paths
-	LDFLAGS="${LDFLAGS} -F/Library/Frameworks"
+	LDFLAGS="${LDFLAGS} -F/Library/Frameworks -L/usr/local/lib"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openssl/lib"
 	fi
@@ -627,6 +638,9 @@ else
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lopenal"
 		LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/opt/openal-soft/lib"
+	fi
+	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -lopenvr_api"
 	fi
 	
 	# system frameworks
@@ -665,6 +679,7 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 		set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
 	fi
 	set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
+	set_conf_val "###FLOOR_VR###" "FLOOR_NO_VR" ${BUILD_CONF_VR}
 	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 	set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 	echo "${CONF}" > floor/floor_conf.hpp.tmp
@@ -803,6 +818,7 @@ WARNINGS="${WARNINGS} -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions"
 WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
+WARNINGS="${WARNINGS} -Wno-nullability-extension"
 # don't be too pedantic
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast"
 WARNINGS="${WARNINGS} -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-date-time"

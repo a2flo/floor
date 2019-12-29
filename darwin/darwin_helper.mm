@@ -293,6 +293,11 @@ MTLPixelFormat darwin_helper::get_metal_pixel_format(metal_view* view) {
 	return [[view metal_layer] pixelFormat];
 }
 
+uint2 darwin_helper::get_metal_view_dim(metal_view* view) {
+	const auto& dim = [view frame].size;
+	return { uint32_t(dim.width), uint32_t(dim.height) };
+}
+
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 #if defined(FLOOR_IOS)
 							  floor_unused

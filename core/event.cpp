@@ -19,6 +19,7 @@
 #include <floor/core/event.hpp>
 #include <floor/floor/floor.hpp>
 #include <floor/core/unicode.hpp>
+#include <floor/vr/vr_context.hpp>
 
 constexpr int event::handlers_locked;
 
@@ -56,6 +57,7 @@ void event::handle_events() {
 	
 	// internal engine event handler
 	const int coord_scale = (floor::get_hidpi() ? int(floor::get_scale_factor()) : 1);
+	const auto coord_scalef = float(coord_scale);
 	while(SDL_PollEvent(&event_handle)) {
 		const unsigned int event_type = event_handle.type;
 		const unsigned int cur_ticks = SDL_GetTicks();
@@ -216,7 +218,7 @@ void event::handle_events() {
 				event_type == SDL_FINGERUP ||
 				event_type == SDL_FINGERMOTION) {
 			// touch event handling
-			const float2 finger_coord { event_handle.tfinger.x * coord_scale, event_handle.tfinger.y * coord_scale };
+			const float2 finger_coord { event_handle.tfinger.x * coord_scalef, event_handle.tfinger.y * coord_scalef };
 			const float pressure = event_handle.tfinger.pressure;
 			const auto finger_id = event_handle.tfinger.fingerId;
 			
@@ -282,6 +284,16 @@ void event::handle_events() {
 			}
 		}
 	}
+
+#if !defined(FLOOR_NO_VR)
+	// handle VR events
+	if (vr_ctx != nullptr) {
+		const auto vr_events = vr_ctx->update_input();
+		for (const auto& vr_event : vr_events) {
+			handle_event(((const vr_event_base<EVENT_TYPE::__VR_CONTROLLER_EVENT>*)vr_event.get())->type, vr_event);
+		}
+	}
+#endif
 	
 	floor::release_context();
 }

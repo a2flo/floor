@@ -25,8 +25,12 @@
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 
-metal_pipeline::metal_pipeline(const render_pipeline_description& pipeline_desc_, const vector<unique_ptr<compute_device>>& devices) :
-graphics_pipeline(pipeline_desc_) {
+metal_pipeline::metal_pipeline(const render_pipeline_description& pipeline_desc_,
+							   const vector<unique_ptr<compute_device>>& devices,
+							   const bool with_multi_view_support) :
+graphics_pipeline(pipeline_desc_, with_multi_view_support) {
+	// NOTE: with Metal, we don't actually have to create an extra pipeline for multi-view support
+	
 	const auto mtl_vs = (const metal_kernel*)pipeline_desc.vertex_shader;
 	const auto mtl_fs = (const metal_kernel*)pipeline_desc.fragment_shader;
 	

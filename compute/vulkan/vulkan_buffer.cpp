@@ -57,12 +57,17 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer) {
 
 bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	const auto& vulkan_dev = ((const vulkan_device&)cqueue.get_device()).device;
-	
+
+	VkImageCreateFlags vk_create_flags = 0;
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_ALIASING>(flags)) {
+		vk_create_flags |= VK_IMAGE_CREATE_ALIAS_BIT;
+	}
+
 	// create the buffer
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = 0, // no sparse backing
+		.flags = vk_create_flags,
 		.size = size,
 		// set all the bits here, might need some better restrictions later on
 		// NOTE: not setting vertex bit here, b/c we're always using SSBOs

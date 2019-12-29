@@ -100,6 +100,11 @@ public:
 	const VkDescriptorImageInfo* get_vulkan_image_info() const {
 		return &image_info;
 	}
+
+	//! returns the current vulkan specific access mask
+	const VkAccessFlags& get_vulkan_access_mask() const {
+		return cur_access_mask;
+	}
 	
 	//! returns the mip-map image descriptor info array of this image
 	const vector<VkDescriptorImageInfo>& get_vulkan_mip_map_image_info() const {
@@ -129,6 +134,18 @@ public:
 	const VkDeviceSize& get_vulkan_allocation_size() const {
 		return allocation_size;
 	}
+
+	//! if this is an array image that has been created with Vulkan memory aliasing support, returns an individual layer image at the specified index
+	VkImage get_vulkan_aliased_layer_image(const uint32_t& layer_index) const {
+		if (layer_index < image_aliased_layers.size()) {
+			return image_aliased_layers[layer_index];
+		}
+		return nullptr;
+	}
+
+	//! updates the Vulkan image layout and current access mask with the specified ones
+	//! NOTE: this is useful when the Vulkan image/state is changed externally and we want to keep this in sync
+	void update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags& access);
 	
 protected:
 	VkImage image { nullptr };
@@ -138,6 +155,9 @@ protected:
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
 	VkDeviceSize allocation_size { 0 };
 	bool is_external { false };
+
+	// contains each individual layer of an image array that has been created with aliasing support
+	vector<VkImage> image_aliased_layers;
 	
 	// similar to image_info, but these contain per-level image views and infos
 	// NOTE: image views are only created/used when the image is writable

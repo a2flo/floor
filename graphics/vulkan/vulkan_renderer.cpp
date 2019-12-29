@@ -29,8 +29,11 @@
 #include <floor/graphics/vulkan/vulkan_shader.hpp>
 #include <floor/core/logger.hpp>
 
-vulkan_renderer::vulkan_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline_) :
-graphics_renderer(cqueue_, pass_, pipeline_) {
+vulkan_renderer::vulkan_renderer(const compute_queue& cqueue_,
+								 const graphics_pass& pass_,
+								 const graphics_pipeline& pipeline_,
+								 const bool multi_view_) :
+graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 	if (!valid) {
 		// already marked invalid, no point in continuing
 		return;
@@ -67,9 +70,9 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 		.renderPass = vk_render_pass,
 		.attachmentCount = uint32_t(vk_attachments.size()),
 		.pAttachments = vk_attachments.data(),
-		.width = cur_pipeline->get_description().viewport.x,
-		.height = cur_pipeline->get_description().viewport.y,
-		.layers = 1,
+		.width = cur_pipeline->get_description(multi_view).viewport.x,
+		.height = cur_pipeline->get_description(multi_view).viewport.y,
+		.layers = (!multi_view ? 1 : 2),
 	};
 	VkFramebuffer framebuffer { nullptr };
 	VK_CALL_RET(vkCreateFramebuffer(vk_dev, &framebuffer_create_info, nullptr, &framebuffer),
@@ -162,7 +165,7 @@ bool vulkan_renderer::begin() {
 	const auto& vk_pass = (const vulkan_pass&)pass;
 	
 	// create framebuffer(s) for this pass
-	const auto vk_render_pass = vk_pass.get_vulkan_render_pass(cqueue.get_device());
+	const auto vk_render_pass = vk_pass.get_vulkan_render_pass(cqueue.get_device(), multi_view);
 	cur_framebuffer = create_vulkan_framebuffer(vk_render_pass);
 	if (cur_framebuffer == nullptr) {
 		return false;
@@ -177,22 +180,23 @@ bool vulkan_renderer::begin() {
 	}
 	
 	// actually begin the render pass
+	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 	const VkViewport viewport {
 		.x = 0.0f,
 		.y = 0.0f,
-		.width = (float)cur_pipeline->get_description().viewport.x,
-		.height = (float)cur_pipeline->get_description().viewport.y,
+		.width = (float)pipeline_desc.viewport.x,
+		.height = (float)pipeline_desc.viewport.y,
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f,
 	};
 	const VkRect2D render_area {
 		.offset = { 0, 0 },
-		.extent = { cur_pipeline->get_description().viewport.x, cur_pipeline->get_description().viewport.y },
+		.extent = { pipeline_desc.viewport.x, pipeline_desc.viewport.y },
 	};
 	vkCmdSetViewport(cmd_buffer.cmd_buffer, 0, 1, &viewport);
 	vkCmdSetScissor(cmd_buffer.cmd_buffer, 0, 1, &render_area);
 	
-	const auto& clear_values = vk_pass.get_vulkan_clear_values();
+	const auto& clear_values = vk_pass.get_vulkan_clear_values(multi_view);
 	const VkRenderPassBeginInfo pass_begin_info {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.pNext = nullptr,
@@ -214,7 +218,7 @@ bool vulkan_renderer::end() {
 
 bool vulkan_renderer::commit() {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	
+
 	// TODO: blocking or not? yes for now, until we can ensure that everything gets cleaned up properly + is synced properly
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", false)
 	vk_queue.submit_command_buffer(cmd_buffer, true);
@@ -233,8 +237,8 @@ vulkan_renderer::vulkan_drawable_t::~vulkan_drawable_t() {
 	// TODO: free any image?
 }
 
-graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable() {
-	auto drawable_ret = ((vulkan_compute*)cqueue.get_device().context)->acquire_next_image();
+graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable(const bool get_multi_view_drawable) {
+	auto drawable_ret = ((vulkan_compute*)cqueue.get_device().context)->acquire_next_image(get_multi_view_drawable);
 	if (!drawable_ret.first) {
 		return nullptr;
 	}
@@ -244,15 +248,15 @@ graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable() {
 	cur_drawable->vk_drawable = vk_drawable;
 	cur_drawable->valid = true;
 	
-	// wrapping the Vulkan image is non-trival
+	// wrapping the Vulkan image is non-trivial
 	vulkan_image::external_vulkan_image_info info {
 		.image = vk_drawable.image,
 		.image_view = vk_drawable.image_view,
 		.format = vk_drawable.format,
 		.access_mask = vk_drawable.access_mask,
 		.layout = vk_drawable.layout,
-		.image_base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D,
-		.dim = { vk_drawable.image_size, 0, 0 },
+		.image_base_type = vk_drawable.base_type,
+		.dim = { vk_drawable.image_size, vk_drawable.layer_count, 0 },
 	};
 	cur_drawable->vk_image = make_unique<vulkan_image>(cqueue, info);
 	cur_drawable->image = cur_drawable->vk_image.get();
@@ -267,27 +271,9 @@ void vulkan_renderer::present() {
 	}
 	
 	// transition drawable image back to present mode
-	const VkImageMemoryBarrier present_image_barrier {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = cur_drawable->vk_drawable.image,
-		.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
-		},
-	};
-	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-						 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
-	
+	cur_drawable->vk_image->transition(cqueue, cmd_buffer.cmd_buffer, VK_ACCESS_MEMORY_READ_BIT, cur_drawable->vk_drawable.present_layout,
+	                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
+
 	// actual queue present must happen after the command buffer has been submitted and finished
 	is_presenting = true;
 }
@@ -324,7 +310,7 @@ static inline bool attachment_transition_write(const compute_queue& cqueue, comp
 	VkCommandBuffer vk_cmd_buffer = (transition_cmd_buffer ? transition_cmd_buffer->cmd_buffer : nullptr);
 	vulkan_command_buffer tmp_cmd_buffer {};
 	if (vk_cmd_buffer == nullptr) {
-		// use a tmp command buffer if we don't have one (set_attchments creates a single one for bulk transition)
+		// use a tmp command buffer if we don't have one (set_attachments creates a single one for bulk transition)
 		tmp_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_transition_write_attachment_cmd_buffer");
 		const VkCommandBufferBeginInfo begin_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -370,9 +356,9 @@ bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {
 bool vulkan_renderer::update_vulkan_pipeline() {
 	const auto& dev = cqueue.get_device();
 	const auto& vk_pipeline = (const vulkan_pipeline&)*cur_pipeline;
-	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_entry(dev);
+	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_state(dev, multi_view);
 	if (vk_pipeline_state == nullptr) {
-		log_error("no pipeline state for device %s", dev.name);
+		log_error("no pipeline entry for device %s", dev.name);
 		return false;
 	}
 	return true;
@@ -381,7 +367,7 @@ bool vulkan_renderer::update_vulkan_pipeline() {
 void vulkan_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries,
 									const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 									const vector<compute_kernel_arg>& args) const {
-	const auto vs = (const vulkan_shader*)cur_pipeline->get_description().vertex_shader;
+	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
 	vs->draw(cqueue,
 			 cmd_buffer,
 			 vk_pipeline_state->pipeline,

@@ -131,11 +131,20 @@ unique_ptr<graphics_pass> compute_context::create_graphics_pass(const render_pas
 	return {};
 }
 
-unique_ptr<graphics_renderer> compute_context::create_graphics_renderer(const compute_queue&, const graphics_pass&, const graphics_pipeline&) const {
+unique_ptr<graphics_renderer> compute_context::create_graphics_renderer(const compute_queue&, const graphics_pass&, const graphics_pipeline&,
+																		const bool) const {
 	log_error("graphics not supported by this backend");
 	return {};
 }
 
 COMPUTE_IMAGE_TYPE compute_context::get_renderer_image_type() const {
 	return COMPUTE_IMAGE_TYPE::NONE;
+}
+
+uint4 compute_context::get_renderer_image_dim() const {
+	return {};
+}
+
+vr_context* compute_context::get_renderer_vr_context() const {
+	return nullptr;
 }

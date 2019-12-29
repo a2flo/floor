@@ -56,6 +56,9 @@
 // if defined, this disables openal support
 //#define FLOOR_NO_OPENAL 1
 
+// if defined, this disables VR support
+//#define FLOOR_NO_VR 1
+
 // if defined, this disables network support
 //#define FLOOR_NO_NET 1
 
@@ -76,6 +79,11 @@
 #define ASIO_NO_EXCEPTIONS 1
 #define ASIO_DISABLE_BOOST_THROW_EXCEPTION 1
 #define ASIO_DISABLE_BUFFER_DEBUGGING 1
+#endif
+
+// no VR support on iOS
+#if defined(FLOOR_IOS) && !defined(FLOOR_NO_VR)
+#define FLOOR_NO_VR 1
 #endif
 
 #endif

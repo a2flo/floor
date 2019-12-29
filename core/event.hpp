@@ -23,7 +23,9 @@
 #include <floor/threading/thread_base.hpp>
 #include <floor/core/event_objects.hpp>
 
-//! (sdl) event handler
+class vr_context;
+
+//! SDL and VR event handler
 class event : public thread_base {
 public:
 	event();
@@ -31,6 +33,10 @@ public:
 
 	void handle_events();
 	void add_event(const EVENT_TYPE type, shared_ptr<event_object> obj);
+
+	void set_vr_context(vr_context* vr_ctx_) {
+		vr_ctx = vr_ctx_;
+	}
 	
 	// <returns true if handled, pointer to object, event type>
 	typedef function<bool(EVENT_TYPE, shared_ptr<event_object>)> handler;
@@ -58,6 +64,7 @@ public:
 
 protected:
 	SDL_Event event_handle;
+	vr_context* vr_ctx { nullptr };
 	
 	virtual void run();
 	

@@ -26,6 +26,17 @@ using namespace std;
 
 class CAPABILITY("mutex") atomic_spin_lock {
 public:
+	constexpr floor_inline_always atomic_spin_lock() noexcept = default;
+
+	floor_inline_always atomic_spin_lock(atomic_spin_lock&& spin_lock) noexcept {
+		const auto is_acquired = spin_lock.mtx.test_and_set(memory_order_acquire);
+		if (is_acquired) {
+			mtx.test_and_set(memory_order_acquire);
+		} else {
+			spin_lock.mtx.clear();
+		}
+	}
+
 	floor_inline_always void lock() ACQUIRE() {
 		// as long as this succeeds (returns true), the lock is already acquired
 		while(mtx.test_and_set(memory_order_acquire)) {

@@ -21,26 +21,52 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/essentials.hpp>
 
-metal_pass::metal_pass(const render_pass_description& pass_desc_) : graphics_pass(pass_desc_) {
-	mtl_pass_desc = [MTLRenderPassDescriptor renderPassDescriptor];
+static MTLRenderPassDescriptor* create_metal_render_pass_desc_from_description(const render_pass_description& desc,
+																			   const bool is_multi_view) {
+	MTLRenderPassDescriptor* pass_desc = [MTLRenderPassDescriptor renderPassDescriptor];
 	
 	size_t color_att_counter = 0;
-	for (size_t i = 0, count = pass_desc.attachments.size(); i < count; ++i) {
-		const auto& att = pass_desc.attachments[i];
+	for (size_t i = 0, count = desc.attachments.size(); i < count; ++i) {
+		const auto& att = desc.attachments[i];
 		
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.format)) {
 			// depth attachment
-			mtl_pass_desc.depthAttachment.loadAction = metal_load_action_from_load_op(att.load_op);
-			mtl_pass_desc.depthAttachment.storeAction = metal_store_action_from_store_op(att.store_op);
-			mtl_pass_desc.depthAttachment.clearDepth = double(att.clear.depth);
+			pass_desc.depthAttachment.loadAction = metal_pass::metal_load_action_from_load_op(att.load_op);
+			pass_desc.depthAttachment.storeAction = metal_pass::metal_store_action_from_store_op(att.store_op);
+			pass_desc.depthAttachment.clearDepth = double(att.clear.depth);
 		} else {
 			// color attachment
-			mtl_pass_desc.colorAttachments[color_att_counter].loadAction = metal_load_action_from_load_op(att.load_op);
-			mtl_pass_desc.colorAttachments[color_att_counter].storeAction = metal_store_action_from_store_op(att.store_op);
+			pass_desc.colorAttachments[color_att_counter].loadAction = metal_pass::metal_load_action_from_load_op(att.load_op);
+			pass_desc.colorAttachments[color_att_counter].storeAction = metal_pass::metal_store_action_from_store_op(att.store_op);
 			const auto dbl_clear_color = att.clear.color.cast<double>();
-			mtl_pass_desc.colorAttachments[color_att_counter].clearColor = MTLClearColorMake(dbl_clear_color.x, dbl_clear_color.y,
+			pass_desc.colorAttachments[color_att_counter].clearColor = MTLClearColorMake(dbl_clear_color.x, dbl_clear_color.y,
 																							 dbl_clear_color.z, dbl_clear_color.w);
 			++color_att_counter;
+		}
+	}
+	if (is_multi_view) {
+		pass_desc.renderTargetArrayLength = 2;
+	}
+	
+	return pass_desc;
+}
+
+metal_pass::metal_pass(const render_pass_description& pass_desc_, const bool with_multi_view_support) :
+graphics_pass(pass_desc_, with_multi_view_support) {
+	const bool create_sv_pass = is_single_view_capable();
+	const bool create_mv_pass = is_multi_view_capable();
+
+	if (create_sv_pass) {
+		sv_mtl_pass_desc = create_metal_render_pass_desc_from_description(pass_desc, false);
+		if (!sv_mtl_pass_desc) {
+			return;
+		}
+	}
+
+	if (create_mv_pass) {
+		mv_mtl_pass_desc = create_metal_render_pass_desc_from_description(!multi_view_pass_desc ? pass_desc : *multi_view_pass_desc, true);
+		if (!mv_mtl_pass_desc) {
+			return;
 		}
 	}
 	
@@ -49,7 +75,8 @@ metal_pass::metal_pass(const render_pass_description& pass_desc_) : graphics_pas
 }
 
 metal_pass::~metal_pass() {
-	mtl_pass_desc = nil;
+	sv_mtl_pass_desc = nil;
+	mv_mtl_pass_desc = nil;
 }
 
 MTLLoadAction metal_pass::metal_load_action_from_load_op(const LOAD_OP& load_op) {
@@ -72,8 +99,10 @@ MTLStoreAction metal_pass::metal_store_action_from_store_op(const STORE_OP& stor
 	}
 }
 
-id <MTLRenderCommandEncoder> metal_pass::create_encoder(id <MTLCommandBuffer> cmd_buffer) const {
-	return [cmd_buffer renderCommandEncoderWithDescriptor:mtl_pass_desc];
+id <MTLRenderCommandEncoder> metal_pass::create_encoder(id <MTLCommandBuffer> cmd_buffer,
+														const bool create_multi_view) const {
+	return [cmd_buffer renderCommandEncoderWithDescriptor:(!create_multi_view ?
+														   sv_mtl_pass_desc : mv_mtl_pass_desc)];
 }
 
 #endif

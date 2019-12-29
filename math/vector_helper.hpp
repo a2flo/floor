@@ -945,7 +945,7 @@ F2_INT(bit_xor, constexpr, (lhs ^ rhs)) \
 F2_INT(bit_left_shift, constexpr, (lhs << rhs)) \
 F2_INT(bit_right_shift, constexpr, (lhs >> rhs)) \
 F1(unary_not, constexpr, (!val)) \
-F1(unary_complement, constexpr, (~val)) \
+F1(unary_complement, constexpr, (val ^ true)) \
 F1(clz, constexpr, math::__clz(val)) \
 F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \

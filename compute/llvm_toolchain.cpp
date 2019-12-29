@@ -80,13 +80,13 @@ bool create_floor_function_info(const string& ffi_file_name,
 		
 		function_info info {
 			.name = tokens[1],
-			.type = func_type,
-			.flags = func_flags,
 			.local_size = {
 				(uint32_t)strtoull(tokens[4].c_str(), nullptr, 10),
 				(uint32_t)strtoull(tokens[5].c_str(), nullptr, 10),
 				(uint32_t)strtoull(tokens[6].c_str(), nullptr, 10),
-			}
+			},
+			.type = func_type,
+			.flags = func_flags,
 		};
 		
 		for(size_t i = 7, count = tokens.size(); i < count; ++i) {

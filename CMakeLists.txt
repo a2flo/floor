@@ -1,6 +1,12 @@
 # VS/vcpkg/clang/CMake project for libfloor
 cmake_minimum_required(VERSION 3.8)
-project(libfloor)
+# NOTE: "lib" prefix is automatically added by CMake when not targeting VS/CMake
+# also: can't use "if (MSVC)" before project(...), so use VCPKG_TARGET_TRIPLET instead
+if (VCPKG_TARGET_TRIPLET)
+	project(libfloor)
+else (VCPKG_TARGET_TRIPLET)
+	project(floor)
+endif (VCPKG_TARGET_TRIPLET)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -27,6 +33,17 @@ if (WIN32)
 	endif (MINGW)
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif (WIN32)
+
+add_compile_options("$<$<CONFIG:RELEASE>:-Ofast>")
+add_compile_options("$<$<CONFIG:RELEASE>:-msse4.1>")
+add_compile_options("$<$<CONFIG:RELEASE>:-fstrict-aliasing>")
+if (UNIX OR MINGW)
+	add_compile_options("$<$<CONFIG:RELEASE>:-ffast-math>")
+	add_compile_options("$<$<CONFIG:RELEASE>:-funroll-loops>")
+endif (UNIX OR MINGW)
+if (MSVC)
+	add_compile_options("$<$<CONFIG:RELEASE>:/fp:fast>")
+endif (MSVC)
 
 ## warnings
 # let's start with everything
@@ -67,6 +84,9 @@ endif (MINGW)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
+set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> cruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
+set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> ruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
 
 ## source files
 include_directories("../")
@@ -335,10 +355,22 @@ add_library(${PROJECT_NAME} SHARED
 		threading/task.hpp
 		threading/thread_base.cpp
 		threading/thread_base.hpp
-		threading/thread_safety.hpp)
+		threading/thread_safety.hpp
+		vr/vr_context.cpp
+		vr/vr_context.hpp)
 
 ## output postfix
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
+
+# MinGW: use lld
+if (MINGW)
+	target_link_options(${PROJECT_NAME} PRIVATE -fuse-ld=lld)
+endif (MINGW)
+
+# MinGW: export everything (import lib flag "-Wl,--out-implib" is already added by CMake)
+if (MINGW)
+	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--export-all-symbols)
+endif (MINGW)
 
 ## use console subsystem (MSVC)
 if (MSVC)
@@ -373,6 +405,18 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${ASIO_INCLUDE_DIR})
 find_package(OpenAL CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenAL::OpenAL)
 
-target_link_directories(${PROJECT_NAME} PRIVATE $ENV{VK_SDK_PATH}/Lib)
-target_link_libraries(${PROJECT_NAME} PRIVATE vulkan-1)
+if (MSVC)
+	target_link_directories(${PROJECT_NAME} PRIVATE $ENV{VK_SDK_PATH}/Lib)
+	target_link_libraries(${PROJECT_NAME} PRIVATE vulkan-1)
+endif (MSVC)
+if (MINGW)
+	target_link_options(${PROJECT_NAME} PRIVATE "$ENV{VK_SDK_PATH}/Lib/vulkan-1.lib")
+endif (MINGW)
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE $ENV{VK_SDK_PATH}/include)
+
+find_path(OPENVR_INCLUDE_DIR openvr.h)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OPENVR_INCLUDE_DIR})
+if (MSVC)
+	target_link_directories(${PROJECT_NAME} PRIVATE ${OPENVR_INCLUDE_DIR}/../lib)
+endif (MSVC)
+target_link_libraries(${PROJECT_NAME} PRIVATE openvr_api)

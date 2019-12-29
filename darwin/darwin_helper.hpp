@@ -79,6 +79,7 @@ public:
 	static CAMetalLayer* get_metal_layer(metal_view* view);
 	static id <CAMetalDrawable> get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer);
 	static MTLPixelFormat get_metal_pixel_format(metal_view* view);
+	static uint2 get_metal_view_dim(metal_view* view);
 #endif
 	
 };

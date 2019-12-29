@@ -30,7 +30,8 @@ class graphics_renderer {
 public:
 	//////////////////////////////////////////
 	// renderer construction and handling
-	graphics_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline);
+	//! NOTE: if "multi_view" is true, this will create a multi-view/VR renderer, otherwise a single-view renderer will be created
+	graphics_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_ = false);
 	virtual ~graphics_renderer() = default;
 	
 	//! begins drawing with the specified pass and pipeline
@@ -46,6 +47,11 @@ public:
 	//! commits all currently queued work to the queue
 	virtual bool commit() {
 		return true;
+	}
+
+	//! returns true if this is a multi-view/VR renderer
+	bool is_multi_view() const {
+		return multi_view;
 	}
 	
 	//////////////////////////////////////////
@@ -69,7 +75,7 @@ public:
 	
 	//! retrieves the next drawable screen surface,
 	//! returns nullptr if there is none (mostly due to the screen being in an invalid/non-renderable state)
-	virtual drawable_t* get_next_drawable() = 0;
+	virtual drawable_t* get_next_drawable(const bool get_multi_view_drawable = false) = 0;
 	
 	//! present the current drawable to the screen
 	virtual void present() = 0;
@@ -195,6 +201,7 @@ protected:
 	flat_map<uint32_t, compute_image*> attachments_map;
 	compute_image* depth_attachment { nullptr };
 	bool valid { false };
+	const bool multi_view { false };
 	
 	//! internal draw call dispatcher for the respective backend
 	virtual void draw_internal(const vector<multi_draw_entry>* draw_entries,

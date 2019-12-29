@@ -97,13 +97,17 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! automatically copy the current contents of the memory object to the shared Vulkan memory object
 	//! NOTE/TODO: not yet implemented!
 	//! NOTE: this is only intended for reading data on the Vulkan side (no write-back will happen)
-	//! VULKAN_SHARING_SYNC_SHAERD	= (1u << 12u),
+	//! VULKAN_SHARING_SYNC_SHARED	= (1u << 12u),
 	
 	//! automatically synchronizes the contents of the memory of the memory object with the shared Metal memory,
 	//! i.e. when using the memory in a Metal kernel/shader execution with the memory currently being acquired for compute use,
 	//! automatically copy the current contents of the memory object to the shared Metal memory object
 	//! NOTE: this is only intended for reading data on the Metal side (no write-back will happen)
 	METAL_SHARING_SYNC_SHARED	= (1u << 13u),
+
+	//! Vulkan-only: creates images/buffers with memory aliasing support
+	//! NOTE: for array images, this will automatically create aliased single-plane images of the whole image array
+	VULKAN_ALIASING				= (1u << 14u),
 	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)

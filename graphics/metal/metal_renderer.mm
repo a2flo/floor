@@ -28,8 +28,11 @@
 #include <floor/graphics/metal/metal_shader.hpp>
 #include <floor/core/logger.hpp>
 
-metal_renderer::metal_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline_) :
-graphics_renderer(cqueue_, pass_, pipeline_) {
+metal_renderer::metal_renderer(const compute_queue& cqueue_,
+							   const graphics_pass& pass_,
+							   const graphics_pipeline& pipeline_,
+							   const bool multi_view_) :
+graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 	if (!valid) {
 		// already marked invalid, no point in continuing
 		return;
@@ -52,9 +55,9 @@ graphics_renderer(cqueue_, pass_, pipeline_) {
 }
 
 bool metal_renderer::begin() {
-	const auto& pipeline_desc = cur_pipeline->get_description();
+	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 	const auto& mtl_pass = (const metal_pass&)pass;
-	const auto mtl_pass_desc_template = mtl_pass.get_metal_pass_desc();
+	const auto mtl_pass_desc_template = mtl_pass.get_metal_pass_desc(multi_view);
 	
 	MTLRenderPassDescriptor* mtl_pass_desc = [mtl_pass_desc_template copy];
 	
@@ -113,8 +116,26 @@ metal_renderer::metal_drawable_t::~metal_drawable_t() {
 	// nop
 }
 
-graphics_renderer::drawable_t* metal_renderer::get_next_drawable() {
-	auto mtl_drawable = ((const metal_compute&)ctx).get_metal_next_drawable(cmd_buffer);
+graphics_renderer::drawable_t* metal_renderer::get_next_drawable(const bool get_multi_view_drawable) {
+	const auto& mtl_ctx = (const metal_compute&)ctx;
+	
+	// VR / multi-view drawable
+	if (get_multi_view_drawable) {
+		cur_drawable = make_unique<metal_drawable_t>();
+		cur_drawable->metal_image = mtl_ctx.get_metal_next_vr_drawable();
+		if (!cur_drawable->metal_image) {
+			log_error("no VR/multi-view drawable");
+			return nullptr;
+		}
+		cur_drawable->metal_drawable = nil;
+		cur_drawable->valid = true;
+		cur_drawable->image = cur_drawable->metal_image.get();
+		cur_drawable->is_multi_view_drawable = true;
+		return cur_drawable.get();
+	}
+	
+	// screen drawable
+	auto mtl_drawable = mtl_ctx.get_metal_next_drawable(cmd_buffer);
 	if (mtl_drawable == nil) {
 		log_error("drawable is nil!");
 		return nullptr;
@@ -123,7 +144,7 @@ graphics_renderer::drawable_t* metal_renderer::get_next_drawable() {
 	cur_drawable = make_unique<metal_drawable_t>();
 	cur_drawable->metal_drawable = mtl_drawable;
 	cur_drawable->valid = true;
-	cur_drawable->metal_image = make_unique<metal_image>(cqueue, mtl_drawable.texture);
+	cur_drawable->metal_image = make_shared<metal_image>(cqueue, mtl_drawable.texture);
 	cur_drawable->image = cur_drawable->metal_image.get();
 	return cur_drawable.get();
 }
@@ -133,7 +154,12 @@ void metal_renderer::present() {
 		log_error("current drawable is invalid");
 		return;
 	}
-	[cmd_buffer presentDrawable:cur_drawable->metal_drawable];
+	if (cur_drawable->is_multi_view_drawable) {
+		const auto& mtl_ctx = (const metal_compute&)ctx;
+		mtl_ctx.present_metal_vr_drawable(cqueue, *cur_drawable->metal_image.get());
+	} else {
+		[cmd_buffer presentDrawable:cur_drawable->metal_drawable];
+	}
 }
 
 bool metal_renderer::set_attachments(vector<attachment_t>& attachments) {
@@ -171,14 +197,14 @@ bool metal_renderer::update_metal_pipeline() {
 void metal_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries,
 								   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 								   const vector<compute_kernel_arg>& args) const {
-	const auto vs = (const metal_shader*)cur_pipeline->get_description().vertex_shader;
+	const auto vs = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
 	vs->set_shader_arguments(cqueue, encoder, cmd_buffer,
 							 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
 							 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
 	if (draw_entries != nullptr) {
-		vs->draw(encoder, cur_pipeline->get_description().primitive, *draw_entries);
+		vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_entries);
 	} else if (draw_indexed_entries != nullptr) {
-		vs->draw(encoder, cur_pipeline->get_description().primitive, *draw_indexed_entries);
+		vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_indexed_entries);
 	}
 }
 

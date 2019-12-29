@@ -25,7 +25,9 @@
 
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_image.hpp>
+#if defined(__OBJC__)
 #include <Metal/Metal.h>
+#endif
 
 class metal_device;
 class compute_device;
@@ -39,13 +41,15 @@ public:
 				const uint32_t opengl_type = 0,
 				const uint32_t external_gl_object_ = 0,
 				const opengl_image_info* floor_nullable gl_image_info = nullptr);
-	
+
+#if defined(__OBJC__)
 	//! wraps an already existing metal image, with the specified flags and backed by the specified host pointer
 	metal_image(const compute_queue& cqueue,
 				id <MTLTexture> floor_nonnull external_image,
 				void* floor_nullable host_ptr = nullptr,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+#endif
 	
 	~metal_image() override;
 	
@@ -65,23 +69,37 @@ public:
 			   void* floor_nullable __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the metal specific image object
+#if defined(__OBJC__)
 	id <MTLTexture> floor_nullable get_metal_image() const { return image; }
+#endif
+	
+	//! returns the metal specific image object as a void*
+	void* floor_nullable get_metal_image_void_ptr() const;
 	
 	//! creates the mip-map chain for this metal image
 	void generate_mip_map_chain(const compute_queue& cqueue) override;
 	
 	//! returns the corresponding MTLPixelFormat for the specified COMPUTE_IMAGE_TYPE,
 	//! or nothing if there is no matching pixel format
+#if defined(__OBJC__)
 	static optional<MTLPixelFormat> metal_pixel_format_from_image_type(const COMPUTE_IMAGE_TYPE& image_type_);
+#endif
 	
 protected:
+#if defined(__OBJC__)
 	id <MTLTexture> floor_null_unspecified image { nil };
 	MTLTextureDescriptor* floor_null_unspecified desc { nil };
+#else
+	void* floor_null_unspecified image { nullptr };
+	void* floor_null_unspecified desc { nullptr };
+#endif
 	bool is_external { false };
-	
+
+#if defined(__OBJC__)
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
 	MTLStorageMode storage_options { MTLStorageModeShared };
+#endif
 	
 	struct metal_mapping {
 		const COMPUTE_MEMORY_MAP_FLAG flags;

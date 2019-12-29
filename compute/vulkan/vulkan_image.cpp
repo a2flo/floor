@@ -75,11 +75,9 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 		usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 	}
 	
-	// always need this for now (except for render targets)
-	if (!is_render_target) {
-		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	}
+	// always need this for now
+	usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	
 	// actually create the image
 	if(!create_internal(true, cqueue, usage)) {
@@ -97,6 +95,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	//const bool is_compressed = image_compressed(image_type); // TODO: check incompatible usage
 	const bool is_read_only = has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type);
 	const bool is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
+	const bool is_aliasing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_ALIASING>(flags);
 	
 	// format conversion
 	const auto vk_format_opt = vulkan_format_from_image_type(image_type);
@@ -140,13 +139,21 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 			dst_access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
 	}
+
+	// TODO: might want VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT later on
+	VkImageCreateFlags vk_create_flags = 0;
+	if (is_cube) {
+		vk_create_flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	}
+	if (is_aliasing) {
+		vk_create_flags |= VK_IMAGE_CREATE_ALIAS_BIT;
+	}
 	
 	// create the image
 	const VkImageCreateInfo image_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.pNext = nullptr,
-		// TODO: might want VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT later on
-		.flags = VkImageCreateFlags(is_cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : VkImageCreateFlagBits(0u)),
+		.flags = vk_create_flags,
 		.imageType = vk_image_type,
 		.format = vk_format,
 		.extent = extent,
@@ -163,6 +170,21 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	};
 	VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
 				"image creation failed", false)
+
+	// aliased array: create images for each plane
+	const auto is_aliased_array = (is_aliasing && is_array);
+	if (is_aliased_array) {
+		const auto layer_count = image_layer_count(image_dim, image_type);
+		image_aliased_layers.resize(layer_count, nullptr);
+
+		auto image_layer_create_info = image_create_info;
+		image_layer_create_info.arrayLayers = 1;
+		image_layer_create_info.extent.depth = 1;
+		for (uint32_t layer = 0; layer < layer_count; ++layer) {
+			VK_CALL_RET(vkCreateImage(vulkan_dev, &image_layer_create_info, nullptr, &image_aliased_layers[layer]),
+						"image layer creation failed", false)
+		}
+	}
 	
 	// export memory alloc info (if sharing is enabled)
 	VkExportMemoryAllocateInfo export_alloc_info;
@@ -213,6 +235,17 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
+
+	// aliased array: back each layer
+	if (is_aliased_array) {
+		VkMemoryRequirements layer_mem_req;
+		vkGetImageMemoryRequirements(vulkan_dev, image_aliased_layers[0], &layer_mem_req);
+		const auto per_layer_size = layer_mem_req.size;
+		for (uint32_t layer = 0; layer < layer_count; ++layer) {
+			VK_CALL_RET(vkBindImageMemory(vulkan_dev, image_aliased_layers[layer], mem, per_layer_size * layer),
+						"image layer allocation binding failed", false)
+		}
+	}
 	
 	// create the view
 	VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -832,14 +865,17 @@ optional<VkFormat> vulkan_image::vulkan_format_from_image_type(const COMPUTE_IMA
 		{ COMPUTE_IMAGE_TYPE::BGRA8I_NORM, VK_FORMAT_B8G8R8A8_SNORM },
 		{ COMPUTE_IMAGE_TYPE::BGRA8UI, VK_FORMAT_B8G8R8A8_UINT },
 		{ COMPUTE_IMAGE_TYPE::BGRA8I, VK_FORMAT_B8G8R8A8_SINT },
+		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, VK_FORMAT_B8G8R8A8_SRGB },
 		// ABGR
 		{ COMPUTE_IMAGE_TYPE::ABGR8UI_NORM, VK_FORMAT_A8B8G8R8_UNORM_PACK32 },
 		{ COMPUTE_IMAGE_TYPE::ABGR8I_NORM, VK_FORMAT_A8B8G8R8_SNORM_PACK32 },
 		{ COMPUTE_IMAGE_TYPE::ABGR8UI, VK_FORMAT_A8B8G8R8_UINT_PACK32 },
 		{ COMPUTE_IMAGE_TYPE::ABGR8I, VK_FORMAT_A8B8G8R8_SINT_PACK32 },
 		{ COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM, VK_FORMAT_A2B10G10R10_UNORM_PACK32 },
+		{ COMPUTE_IMAGE_TYPE::A2BGR10UI, VK_FORMAT_A2B10G10R10_UINT_PACK32 },
 		// ARGB
 		{ COMPUTE_IMAGE_TYPE::A2RGB10UI_NORM, VK_FORMAT_A2R10G10B10_UNORM_PACK32 },
+		{ COMPUTE_IMAGE_TYPE::A2RGB10UI, VK_FORMAT_A2R10G10B10_UINT_PACK32 },
 		// depth / depth+stencil
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
@@ -956,14 +992,17 @@ optional<COMPUTE_IMAGE_TYPE> vulkan_image::image_type_from_vulkan_format(const V
 		{ VK_FORMAT_B8G8R8A8_SNORM, COMPUTE_IMAGE_TYPE::BGRA8I_NORM },
 		{ VK_FORMAT_B8G8R8A8_UINT, COMPUTE_IMAGE_TYPE::BGRA8UI },
 		{ VK_FORMAT_B8G8R8A8_SINT, COMPUTE_IMAGE_TYPE::BGRA8I },
+		{ VK_FORMAT_B8G8R8A8_SRGB, COMPUTE_IMAGE_TYPE::BGRA8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB },
 		// ABGR
 		{ VK_FORMAT_A8B8G8R8_UNORM_PACK32, COMPUTE_IMAGE_TYPE::ABGR8UI_NORM },
 		{ VK_FORMAT_A8B8G8R8_SNORM_PACK32, COMPUTE_IMAGE_TYPE::ABGR8I_NORM },
 		{ VK_FORMAT_A8B8G8R8_UINT_PACK32, COMPUTE_IMAGE_TYPE::ABGR8UI },
 		{ VK_FORMAT_A8B8G8R8_SINT_PACK32, COMPUTE_IMAGE_TYPE::ABGR8I },
 		{ VK_FORMAT_A2B10G10R10_UNORM_PACK32, COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM },
+		{ VK_FORMAT_A2B10G10R10_UINT_PACK32, COMPUTE_IMAGE_TYPE::A2BGR10UI },
 		// ARGB
 		{ VK_FORMAT_A2R10G10B10_UNORM_PACK32, COMPUTE_IMAGE_TYPE::A2RGB10UI_NORM },
+		{ VK_FORMAT_A2R10G10B10_UINT_PACK32, COMPUTE_IMAGE_TYPE::A2RGB10UI },
 		// depth / depth+stencil
 		{ VK_FORMAT_D16_UNORM, (COMPUTE_IMAGE_TYPE::UINT |
 								COMPUTE_IMAGE_TYPE::CHANNELS_1 |
@@ -1023,6 +1062,12 @@ optional<COMPUTE_IMAGE_TYPE> vulkan_image::image_type_from_vulkan_format(const V
 		return {};
 	}
 	return img_type->second;
+}
+
+void vulkan_image::update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags& access) {
+	image_info.imageLayout = layout;
+	cur_access_mask = access;
+	update_mip_map_info();
 }
 
 #endif

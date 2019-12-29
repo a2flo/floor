@@ -30,7 +30,10 @@
 
 class metal_renderer final : public graphics_renderer {
 public:
-	metal_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline_);
+	metal_renderer(const compute_queue& cqueue_,
+				   const graphics_pass& pass_,
+				   const graphics_pipeline& pipeline_,
+				   const bool multi_view_ = false);
 	~metal_renderer() override = default;
 	
 	bool begin() override;
@@ -42,12 +45,13 @@ public:
 		~metal_drawable_t() override;
 		
 		id <CAMetalDrawable> metal_drawable;
-		unique_ptr<metal_image> metal_image;
+		shared_ptr<compute_image> metal_image;
+		bool is_multi_view_drawable { false };
 		
 		using drawable_t::valid;
 	};
 	
-	drawable_t* get_next_drawable() override;
+	drawable_t* get_next_drawable(const bool get_multi_view_drawable = false) override;
 	void present() override;
 	
 	bool set_attachments(vector<attachment_t>& attachments) override;

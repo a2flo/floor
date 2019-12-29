@@ -578,6 +578,52 @@ public:
 			scalar_type(0), scalar_type(0), (nf_factor_2 * z_far * z_near) / (z_near - z_far), scalar_type(0)
 		};
 	}
+
+	//! returns a perspective projection matrix according to the specified parameters
+	//! NOTE: if "pre_adjusted_fov" is true, assumes all FOV values are already tangents of the half-angles (in radian),
+	//! they have already been adjusted for z_near, and they are already suited for a right-handed matrix
+	template <bool pre_adjusted_fov = false, bool is_right_handed = true, bool is_only_positive_z = true>
+	static constexpr matrix4 perspective(const scalar_type fov_left_, const scalar_type fov_right_,
+										 const scalar_type fov_top_, const scalar_type fov_bottom_,
+										 const scalar_type z_near, const scalar_type z_far) {
+		typedef conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float> fp_type;
+
+		constexpr const fp_type nf_factor_1 = (is_only_positive_z ? scalar_type(0.5) : scalar_type(1));
+		constexpr const fp_type nf_factor_2 = (is_only_positive_z ? scalar_type(1) : scalar_type(2));
+
+		fp_type z_near_numerator;
+		fp_type fov_left, fov_right, fov_top, fov_bottom;
+		if constexpr (!pre_adjusted_fov) {
+			z_near_numerator = scalar_type(2) * z_near;
+			fov_left = -math::tan(const_math::deg_to_rad(fov_left_));
+			fov_right = math::tan(const_math::deg_to_rad(fov_right_));
+			fov_top = math::tan(const_math::deg_to_rad(fov_top_));
+			fov_bottom = math::tan(const_math::deg_to_rad(fov_bottom_));
+			if constexpr (is_right_handed) {
+				fov_top = -fov_top;
+			} else {
+				fov_bottom = -fov_bottom;
+			}
+		} else {
+			z_near_numerator = scalar_type(2);
+			fov_left = fov_left_;
+			fov_right = fov_right_;
+			fov_top = fov_top_;
+			fov_bottom = fov_bottom_;
+			if constexpr (!is_right_handed) {
+				// flip top/bottom signs to make it left-handed
+				fov_top = -fov_top;
+				fov_bottom = -fov_bottom;
+			}
+		}
+
+		return {
+			z_near_numerator / (fov_right - fov_left), scalar_type(0), scalar_type(0), scalar_type(0),
+			scalar_type(0), z_near_numerator / (fov_top - fov_bottom), scalar_type(0), scalar_type(0),
+			(fov_right + fov_left) / (fov_right - fov_left), (fov_top + fov_bottom) / (fov_top - fov_bottom), (nf_factor_1 * (z_far + z_near)) / (z_near - z_far), scalar_type(-1),
+			scalar_type(0), scalar_type(0), (nf_factor_2 * z_far * z_near) / (z_near - z_far), scalar_type(0)
+		};
+	}
 	
 	//! returns an orthographic projection matrix according to the specified parameters
 	static constexpr matrix4 orthographic(const scalar_type left, const scalar_type right,
