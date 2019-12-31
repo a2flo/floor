@@ -498,6 +498,20 @@ bool vr_context::present(const compute_queue& cqueue, const compute_image& image
 #endif
 }
 
+vr_context::frame_matrices_t vr_context::get_frame_matrices(const float& z_near, const float& z_far,
+															const bool with_position) const {
+	auto mview_hmd = get_hmd_matrix();
+	if (!with_position) {
+		mview_hmd.set_translation(0.0f, 0.0f, 0.0f);
+	}
+	return {
+		mview_hmd * get_eye_matrix(VR_EYE::LEFT),
+		mview_hmd * get_eye_matrix(VR_EYE::RIGHT),
+		get_projection_matrix(VR_EYE::LEFT, z_near, z_far),
+		get_projection_matrix(VR_EYE::RIGHT, z_near, z_far)
+	};
+}
+
 matrix4f vr_context::get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const {
 	// build our own projection matrix
 	// NOTE: raw projection values are already pre-adjusted -> https://github.com/ValveSoftware/openvr/wiki/IVRSystem::GetProjectionRaw

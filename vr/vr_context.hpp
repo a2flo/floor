@@ -107,6 +107,24 @@ public:
 	//! presents the images of both eyes to the HMD/compositor
 	//! NOTE: image must be a 2D array with 2 layers (first is the left eye, second is the right eye)
 	bool present(const compute_queue& cqueue, const compute_image& image);
+	
+	//! the per-eye modelview and projection matrices for a particular frame
+	//! NOTE: this contains all necessary per-eye transformations
+	struct frame_matrices_t {
+		//! left eye modelview matrix
+		matrix4f mvm_left;
+		//! right eye modelview matrix
+		matrix4f mvm_right;
+		//! left eye projection matrix
+		matrix4f pm_left;
+		//! right eye projection matrix
+		matrix4f pm_right;
+	};
+	
+	//! returns/computes the modelview and projection matrices for this frame
+	//! NOTE: if "with_position" is true, then the modelview will also contain the current position
+	frame_matrices_t get_frame_matrices(const float& z_near, const float& z_far,
+										const bool with_position = true) const;
 
 	//! computes the current projection matrix for the specified eye and near/far plane
 	matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const;
