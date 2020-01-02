@@ -20,43 +20,57 @@
 #define __FLOOR_ATOMIC_SPIN_LOCK_HPP__
 
 #include <atomic>
+#include <thread>
 #include <floor/threading/thread_safety.hpp>
 #include <floor/core/essentials.hpp>
 using namespace std;
 
+// improved atomic spin lock based on:
+// https://probablydance.com/2019/12/30/measuring-mutexes-spinlocks-and-how-bad-the-linux-scheduler-really-is/
+// https://gpuopen.com/gdc-presentations/2019/gdc-2019-s2-amd-ryzen-processor-software-optimization.pdf
+// https://github.com/skarupke/mutex_benchmarks/blob/master/BenchmarkMutex.cpp
 class CAPABILITY("mutex") atomic_spin_lock {
 public:
 	constexpr floor_inline_always atomic_spin_lock() noexcept = default;
 
 	floor_inline_always atomic_spin_lock(atomic_spin_lock&& spin_lock) noexcept {
-		const auto is_acquired = spin_lock.mtx.test_and_set(memory_order_acquire);
-		if (is_acquired) {
-			mtx.test_and_set(memory_order_acquire);
-		} else {
-			spin_lock.mtx.clear();
-		}
+		mtx = spin_lock.mtx.load();
 	}
 
 	floor_inline_always void lock() ACQUIRE() {
-		// as long as this succeeds (returns true), the lock is already acquired
-		while(mtx.test_and_set(memory_order_acquire)) {
-			// wait
+#pragma nounroll
+		for (uint32_t trial = 0; !try_lock(); ++trial) {
+			if (trial < 16) {
+				// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
+				// Malte recommendation: to improve latency, only try this 16 times ...
+#if !defined(FLOOR_IOS)
+				asm volatile("pause" : : : "memory"); // x86
+#else
+				asm volatile("yield" : : : "memory"); // ARM
+#endif
+			} else {
+				// ... and after the 16th attempt: actually yield the thread (then start again)
+				this_thread::yield();
+				trial = 0;
+			}
 		}
 	}
 	floor_inline_always bool try_lock() TRY_ACQUIRE(true) {
-		// test_and_set returns true if already locked
-		return !mtx.test_and_set(memory_order_acquire);
+		// AMD recommendation to prevent unnecessary cache line invalidation (due to write):
+		// load/read first (and fail if lock is taken), only then try to exchange/write memory
+		// when we know that the lock is potentially not taken right now
+		return (!mtx.load(memory_order_relaxed) && !mtx.exchange(true, memory_order_acquire));
 	}
 	floor_inline_always void unlock() RELEASE() {
-		// sets flag to 0/false
-		mtx.clear(memory_order_release);
+		// resets flag to false
+		mtx.store(false, memory_order_release);
 	}
 	
 	// for negative capabilities
 	floor_inline_always const atomic_spin_lock& operator!() const { return *this; }
 	
 protected:
-	atomic_flag mtx = ATOMIC_FLAG_INIT;
+	alignas(64) atomic<bool> mtx { false };
 	
 };
 
