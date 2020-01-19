@@ -795,7 +795,8 @@ shared_ptr<compute_image> metal_compute::get_metal_next_vr_drawable() const NO_T
 	return vr_images[vr_image_index].image;
 }
 
-void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue, const compute_image& img) const NO_THREAD_SAFETY_ANALYSIS {
+void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue floor_unused_on_ios,
+											  const compute_image& img floor_unused_on_ios) const NO_THREAD_SAFETY_ANALYSIS {
 	if (!vr_ctx) {
 		return;
 	}
@@ -855,13 +856,13 @@ COMPUTE_IMAGE_TYPE metal_compute::get_renderer_image_type() const {
 			return COMPUTE_IMAGE_TYPE::RGBA16F;
 #if defined(FLOOR_IOS)
 		case MTLPixelFormatBGR10_XR:
-			return COMPUTE_IMAGE_TYPE::BGR10UI_UNORM;
+			return COMPUTE_IMAGE_TYPE::BGR10UI_NORM;
 		case MTLPixelFormatBGR10_XR_sRGB:
-			return COMPUTE_IMAGE_TYPE::BGR10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+			return COMPUTE_IMAGE_TYPE::BGR10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
 		case MTLPixelFormatBGRA10_XR:
-			return COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM;
+			return COMPUTE_IMAGE_TYPE::BGRA10UI_NORM;
 		case MTLPixelFormatBGRA10_XR_sRGB:
-			return COMPUTE_IMAGE_TYPE::BGRA10UI_UNORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+			return COMPUTE_IMAGE_TYPE::BGRA10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
 #endif
 		default: break;
 	}

@@ -21,7 +21,7 @@
 
 //! misc compute algorithms, specialized for each backend/hardware
 namespace compute_algorithm {
-	// TODO: sg incl/excl scan, broadcast, radix/bitonic sort, histogram
+	// TODO: broadcast, radix/bitonic sort, histogram
 	
 	//////////////////////////////////////////
 	// sub-group reduce functions
@@ -235,7 +235,16 @@ namespace compute_algorithm {
 	
 	//////////////////////////////////////////
 	// work-group scan functions
-	// TODO: add specialized scans (sub-group/warp, shuffle, spir/spir-v built-in)
+	// TODO: add specialized scans (spir/spir-v built-in)
+
+	//! returns true if the inclusive/exclusive scan implementation uses the sub-group path
+	static constexpr bool has_sub_group_scan() {
+		constexpr const bool pot_simd { const_math::popcount(device_info::simd_width()) == 1 };
+		return (device_info::has_sub_group_shuffle() &&
+				device_info::has_fixed_known_simd_width() &&
+				device_info::simd_width() > 0u &&
+				pot_simd);
+	}
 	
 	//! generic work-group scan function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
@@ -247,35 +256,92 @@ namespace compute_algorithm {
 										 lmem_type& lmem,
 										 const data_type zero_val = (data_type)0) {
 		const auto lid = local_id.x;
-		auto value = work_item_value;
 		
 #if !defined(FLOOR_COMPUTE_HOST)
-		lmem[lid] = value;
-		local_barrier();
-		
-		uint32_t side_idx = 0;
+		if constexpr (has_sub_group_scan()) {
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+			constexpr const auto simd_width = device_info::simd_width();
+			constexpr const auto group_count = work_group_size / simd_width;
+			static_assert((work_group_size % simd_width) == 0u, "work-group size must be a multiple of SIMD-width");
+			const auto lane = sub_group_local_id;
+			const auto group = sub_group_id_1d;
+			
+			// scan in sub-group
+			data_type shfled_var;
+			data_type scan_value = work_item_value;
 #pragma unroll
-		for(uint32_t offset = 1; offset < work_group_size; offset <<= 1) {
-			if(lid >= offset) {
-				value = op(lmem[side_idx + lid - offset], value);
+			for (uint32_t lane_idx = 1u; lane_idx != simd_width; lane_idx <<= 1u) {
+				shfled_var = simd_shuffle_up(scan_value, lane_idx);
+				if (lane >= lane_idx) {
+					scan_value = op(shfled_var, scan_value);
+				}
 			}
-			side_idx = work_group_size - side_idx; // swap side
-			lmem[side_idx + lid] = value;
+			
+			// broadcast last value in each scan (for other sub-groups)
+			if (lane == (simd_width - 1u)) {
+				lmem[group] = scan_value;
+			}
 			local_barrier();
-		}
-		
-		// inclusive
-		if constexpr(inclusive) {
-			return value; // value == lmem[side_idx + lid] at this point
-		}
-		// exclusive
-		else {
-			const auto ret = (lid == 0 ? zero_val : lmem[side_idx + lid - 1]);
+			
+			// scan per-sub-group results in the first sub-group
+			if (group == 0u) {
+				// init each lane with the result (most right) value of each sub-group
+				data_type group_scan_value {};
+				if constexpr (group_count == simd_width) {
+					group_scan_value = lmem[lane];
+				} else {
+					group_scan_value = (lane < group_count ? lmem[lane] : zero_val);
+				}
+				
+#pragma unroll
+				for (uint32_t lane_idx = 1u; lane_idx != simd_width; lane_idx <<= 1u) {
+					shfled_var = simd_shuffle_up(group_scan_value, lane_idx);
+					if (lane >= lane_idx) {
+						group_scan_value = op(shfled_var, group_scan_value);
+					}
+				}
+				
+				lmem[lane] = group_scan_value;
+			}
+			local_barrier();
+			
+			// broadcast final per-sub-group offsets to all sub-groups
+			const auto group_offset = (group > 0u ? lmem[group - 1u] : data_type(0));
+			if constexpr (!inclusive) {
+				// exclusive: shift one up, #0 in each group returns the offset of the previous group (+ 0)
+				shfled_var = simd_shuffle_up(scan_value, 1u);
+				scan_value = (lane == 0u ? zero_val : shfled_var);
+			}
+			return op(group_offset, scan_value);
+#endif
+		} else {
+			// old-school scan
+			auto value = work_item_value;
+			lmem[lid] = value;
+			local_barrier();
+			
+			uint32_t side_idx = 0u;
+#pragma unroll
+			for (uint32_t offset = 1u; offset < work_group_size; offset <<= 1u) {
+				if (lid >= offset) {
+					value = op(lmem[side_idx + lid - offset], value);
+				}
+				side_idx = work_group_size - side_idx; // swap side
+				lmem[side_idx + lid] = value;
+				local_barrier();
+			}
+			
+			// inclusive
+			if constexpr (inclusive) {
+				return value; // value == lmem[side_idx + lid] at this point
+			}
+			// exclusive
+			const auto ret = (lid == 0u ? zero_val : lmem[side_idx + lid - 1u]);
 			local_barrier();
 			return ret;
 		}
 #else // -> host-compute
-		lmem[inclusive ? lid : lid + 1] = value;
+		lmem[inclusive ? lid : lid + 1] = work_item_value;
 		local_barrier();
 		
 		if(lid == 0) {
@@ -325,7 +391,24 @@ namespace compute_algorithm {
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size>
 	static constexpr uint32_t scan_local_memory_elements() {
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		if constexpr (has_sub_group_scan()) {
+			static_assert(device_info::simd_width() * device_info::simd_width() >= device_info::local_id_range_max(),
+						  "unexpected SIMD-width / max work-group size");
+#if !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
+			return device_info::simd_width();
+#else
+			// more padding on Metal/AMD
+			return device_info::simd_width() * 2u;
+#endif
+		}
+#endif
+#if !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
 		return work_group_size * 2u - 1u;
+#else
+		// need the padding on Metal/AMD
+		return work_group_size * 2u;
+#endif
 	}
 	
 }
