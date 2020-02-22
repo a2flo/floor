@@ -72,8 +72,8 @@ template <typename T> T floor_atomic_exchange(global T* addr, const T& val, memo
 template <typename T> void floor_atomic_store(global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
 template <typename T> void floor_atomic_init(global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
 template <typename T> T floor_atomic_load(global T* addr, memory_order) { return atomic_load(addr); }
-template <typename T> bool floor_atomic_compare_exchange_weak(global T* addr, const T* expected, const T& desired,
-															  memory_order, memory_order) {
+template <typename T> bool floor_atomic_compare_exchange_strong(global T* addr, const T* expected, const T& desired,
+																memory_order, memory_order) {
 	const auto old = *expected;
 	return (atomic_cmpxchg(addr, *expected, desired) == old);
 }
@@ -90,8 +90,8 @@ template <typename T> T floor_atomic_exchange(local T* addr, const T& val, memor
 template <typename T> void floor_atomic_store(local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
 template <typename T> void floor_atomic_init(local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
 template <typename T> T floor_atomic_load(local T* addr, memory_order) { return atomic_load(addr); }
-template <typename T> bool floor_atomic_compare_exchange_weak(local T* addr, const T* expected, const T& desired,
-															  memory_order, memory_order) {
+template <typename T> bool floor_atomic_compare_exchange_strong(local T* addr, const T* expected, const T& desired,
+																memory_order, memory_order) {
 	const auto old = *expected;
 	return (atomic_cmpxchg(addr, *expected, desired) == old);
 }
