@@ -60,18 +60,25 @@ command -v ${CC} >/dev/null 2>&1 || error "clang binary not found, please set CC
 
 # check if clang is the compiler, fail if not
 CXX_VERSION=$(${CXX} -v 2>&1)
+CXX20_CAPABLE=0
 if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
-	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
+	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor|clang_patchlevel" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
 		# apple xcode/llvm/clang versioning scheme -> at least 8.1.0 is required (ships with Xcode 8.3)
 		if [ $CLANG_MAJOR -lt 10 ] || [ $CLANG_MAJOR -eq 10 -a $CLANG_MINOR -lt 0 ]; then
 			error "at least Xcode 10.0 / clang/LLVM 10.0.0 is required to compile this project!"
 		fi
+		if [ $CLANG_MAJOR -gt 11 ] || [ $CLANG_MAJOR -eq 11 -a $CLANG_MINOR -gt 0 ] || [ $CLANG_MAJOR -eq 11 -a $CLANG_MINOR -eq 0 -a $CLANG_PATCHLEVEL -ge 3 ]; then
+			CXX20_CAPABLE=1
+		fi
 	else
 		# standard clang versioning scheme -> at least 6.0 is required
 		if [ $CLANG_MAJOR -lt 6 ] || [ $CLANG_MAJOR -eq 6 -a $CLANG_MINOR -lt 0 ]; then
 			error "at least clang 6.0 is required to compile this project!"
+		fi
+		if [ $CLANG_MAJOR -gt 9 ] || [ $CLANG_MAJOR -eq 9 -a $CLANG_MINOR -ge 0 ]; then
+			CXX20_CAPABLE=1
 		fi
 	fi
 else
@@ -100,6 +107,7 @@ BUILD_CONF_VR=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 BUILD_CONF_NATIVE=0
+BUILD_CONF_CXX20=0
 
 BUILD_CONF_SANITIZERS=0
 BUILD_CONF_ASAN=0
@@ -148,6 +156,7 @@ for arg in "$@"; do
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	native             optimize and specifically build for the host cpu"
+			echo "	c++20              enable C++20 support"
 			echo ""
 			echo "sanitizers:"
 			echo "	asan               build with address sanitizer"
@@ -231,6 +240,13 @@ for arg in "$@"; do
 			;;
 		"native")
 			BUILD_CONF_NATIVE=1
+			;;
+		"c++20")
+			if [ ${CXX20_CAPABLE} -gt 0 ]; then
+				BUILD_CONF_CXX20=1
+			else
+				error "compiler is not C++20 capable"
+			fi
 			;;
 		"asan")
 			BUILD_CONF_SANITIZERS=1
@@ -682,6 +698,7 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	set_conf_val "###FLOOR_VR###" "FLOOR_NO_VR" ${BUILD_CONF_VR}
 	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 	set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
+	set_conf_val "###FLOOR_CXX20###" "FLOOR_CXX20" $((1 - $((${BUILD_CONF_CXX20}))))
 	echo "${CONF}" > floor/floor_conf.hpp.tmp
 
 	# check if this is an entirely new conf or if it differs from the existing conf
@@ -713,7 +730,11 @@ fi
 # flags
 
 # set up initial c++ and c flags
-CXXFLAGS="${CXXFLAGS} -std=gnu++1z"
+if [ ${BUILD_CONF_CXX20} -eq 0 ]; then
+	CXXFLAGS="${CXXFLAGS} -std=gnu++1z"
+else
+	CXXFLAGS="${CXXFLAGS} -std=gnu++2a"
+fi
 if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
 else
@@ -812,10 +833,11 @@ COMMON_FLAGS="${COMMON_FLAGS} -DFLOOR_EXPORT=1"
 WARNINGS="-Weverything ${WARNINGS}"
 # in case we're using warning options that aren't supported by other clang versions
 WARNINGS="${WARNINGS} -Wno-unknown-warning-option"
-# remove std compat warnings (c++17 with gnu and clang extensions is required)
+# remove std compat warnings (c++17/c++20 with gnu and clang extensions is required)
 WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
+WARNINGS="${WARNINGS} -Wno-c++17-compat -Wno-c++17-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions"
 WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
 WARNINGS="${WARNINGS} -Wno-nullability-extension"

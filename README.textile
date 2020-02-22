@@ -50,6 +50,8 @@
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ instead of libc++:
    "./build.sh libstdc++"
+** to build with C++20 support (requires Clang 9.0+):
+   "./build.sh c++20"
 
 *Build Instructions (Xcode / macOS / iOS):*
 * open floor.xcodeproj and build
