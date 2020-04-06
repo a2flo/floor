@@ -460,7 +460,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if (enable_renderer) {
 		render_device = (const metal_device*)fastest_gpu_device;
 		auto mtl_dev = render_device->device;
-		view = darwin_helper::create_metal_view(floor::get_window(), mtl_dev);
+		view = darwin_helper::create_metal_view(floor::get_window(), mtl_dev, hdr_metadata);
 		if (view == nullptr) {
 			log_error("failed to create Metal view!");
 			supported = false;
@@ -852,6 +852,8 @@ COMPUTE_IMAGE_TYPE metal_compute::get_renderer_image_type() const {
 			return COMPUTE_IMAGE_TYPE::BGRA8UI_NORM;
 		case MTLPixelFormatBGRA8Unorm_sRGB:
 			return COMPUTE_IMAGE_TYPE::BGRA8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB;
+		case MTLPixelFormatBGR10A2Unorm:
+			return COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM;
 		case MTLPixelFormatRGBA16Float:
 			return COMPUTE_IMAGE_TYPE::RGBA16F;
 #if defined(FLOOR_IOS)
@@ -886,6 +888,13 @@ bool metal_compute::is_vr_supported() const {
 
 vr_context* metal_compute::get_renderer_vr_context() const {
 	return vr_ctx;
+}
+
+void metal_compute::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
+	compute_context::set_hdr_metadata(hdr_metadata_);
+	if (view != nullptr) {
+		darwin_helper::set_metal_view_hdr_metadata(view, hdr_metadata);
+	}
 }
 
 #endif

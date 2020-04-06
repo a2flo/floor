@@ -148,3 +148,15 @@ uint4 compute_context::get_renderer_image_dim() const {
 vr_context* compute_context::get_renderer_vr_context() const {
 	return nullptr;
 }
+
+void compute_context::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
+	hdr_metadata = hdr_metadata_;
+}
+
+const hdr_metadata_t& compute_context::get_hdr_metadata() const {
+	return hdr_metadata;
+}
+
+const float2& compute_context::get_hdr_luminance_range() const {
+	return hdr_metadata.luminance;
+}

@@ -175,6 +175,8 @@ public:
 
 	vr_context* get_renderer_vr_context() const override;
 	
+	void set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) override;
+	
 	//////////////////////////////////////////
 	// vulkan specific functions
 	
@@ -255,10 +257,10 @@ public:
 
 	//! calls vkSetHdrMetadataEXT
 	void vulkan_set_hdr_metadata(VkDevice device_, uint32_t swapchainCount_, const VkSwapchainKHR* pSwapchains_, const VkHdrMetadataEXT* pMetadata_) {
-		if (!set_hdr_metadata) {
+		if (!vk_set_hdr_metadata) {
 			return;
 		}
-		(*set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
+		(*vk_set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
 	}
 
 	//! returns true if validation layer error printing is currently enabled
@@ -311,6 +313,9 @@ protected:
 	bool init_renderer();
 	bool init_vr_renderer();
 	
+	// sets screen.hdr_metadata from current compute_context::hdr_metadata if screen.hdr_metadata is not empty
+	void set_vk_screen_hdr_metadata();
+	
 	// NOTE: these match up 1:1
 	vector<VkPhysicalDevice> physical_devices;
 	vector<VkDevice> logical_devices;
@@ -342,7 +347,7 @@ protected:
 	PFN_vkGetSemaphoreFdKHR get_semaphore_fd { nullptr };
 #endif
 
-	PFN_vkSetHdrMetadataEXT set_hdr_metadata { nullptr };
+	PFN_vkSetHdrMetadataEXT vk_set_hdr_metadata { nullptr };
 	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;

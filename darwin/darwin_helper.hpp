@@ -43,6 +43,8 @@
 #import <Metal/Metal.h>
 #endif
 
+struct hdr_metadata_t;
+
 class darwin_helper {
 public:
 	// OS X and iOS
@@ -75,11 +77,12 @@ protected:
 public:
 	// metal functions (only available in objective-c/c++ mode)
 #if defined(__OBJC__)
-	static metal_view* create_metal_view(SDL_Window* wnd, id <MTLDevice> device);
+	static metal_view* create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata);
 	static CAMetalLayer* get_metal_layer(metal_view* view);
 	static id <CAMetalDrawable> get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer);
 	static MTLPixelFormat get_metal_pixel_format(metal_view* view);
 	static uint2 get_metal_view_dim(metal_view* view);
+	static void set_metal_view_hdr_metadata(metal_view* view, const hdr_metadata_t& hdr_metadata);
 #endif
 	
 };

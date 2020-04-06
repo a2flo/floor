@@ -212,8 +212,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 
 	// get HDR function
 	if (floor::get_hdr()) {
-		set_hdr_metadata = (PFN_vkSetHdrMetadataEXT)vkGetInstanceProcAddr(ctx, "vkSetHdrMetadataEXT");
-		if (set_hdr_metadata == nullptr) {
+		vk_set_hdr_metadata = (PFN_vkSetHdrMetadataEXT)vkGetInstanceProcAddr(ctx, "vkSetHdrMetadataEXT");
+		if (vk_set_hdr_metadata == nullptr) {
 			log_error("failed to retrieve vkSetHdrMetadataEXT function pointer");
 			hdr_supported = false;
 		} else {
@@ -1104,21 +1104,9 @@ bool vulkan_compute::init_renderer() {
 				log_error("can't enable/use HDR with a non-HDR color space (%X: %s)", screen.color_space, color_space_name);
 				hdr_supported = false;
 			} else {
-				// create/set HDR meta data
-				screen.hdr_metadata = {
-					.sType = VK_STRUCTURE_TYPE_HDR_METADATA_EXT,
-					.pNext = nullptr,
-					// these are the same for all supported color spaces (above)
-					.displayPrimaryRed = { 0.708f, 0.292f },
-					.displayPrimaryGreen = { 0.170f, 0.797f },
-					.displayPrimaryBlue = { 0.131f, 0.046f },
-					.whitePoint = { 0.3127f, 0.3290f },
-					// TODO: query these / make them configurable
-					.maxLuminance = 1000.0f,
-					.minLuminance = 0.001f,
-					.maxContentLightLevel = 2000.0f,
-					.maxFrameAverageLightLevel = 500.0f,
-				};
+				// create/set HDR metadata
+				screen.hdr_metadata = VkHdrMetadataEXT {};
+				set_vk_screen_hdr_metadata();
 				log_debug("HDR enabled (using color space %s (%X))", color_space_name, screen.color_space);
 			}
 		}
@@ -1942,6 +1930,35 @@ bool vulkan_compute::is_vr_supported() const {
 
 vr_context* vulkan_compute::get_renderer_vr_context() const {
 	return vr_ctx;
+}
+
+void vulkan_compute::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
+	compute_context::set_hdr_metadata(hdr_metadata_);
+	
+	// update screen and swapchain HDR metadata (if we previously enabled HDR support)
+	set_vk_screen_hdr_metadata();
+	if (screen.hdr_metadata) {
+		vulkan_set_hdr_metadata(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
+	}
+}
+
+void vulkan_compute::set_vk_screen_hdr_metadata() {
+	if (!screen.hdr_metadata) {
+		return;
+	}
+	
+	screen.hdr_metadata = {
+		.sType = VK_STRUCTURE_TYPE_HDR_METADATA_EXT,
+		.pNext = nullptr,
+		.displayPrimaryRed = { hdr_metadata.primaries[0].x, hdr_metadata.primaries[0].y },
+		.displayPrimaryGreen = { hdr_metadata.primaries[1].x, hdr_metadata.primaries[1].y },
+		.displayPrimaryBlue = { hdr_metadata.primaries[2].x, hdr_metadata.primaries[2].y },
+		.whitePoint = { hdr_metadata.white_point.x, hdr_metadata.white_point.y },
+		.maxLuminance = hdr_metadata.luminance.y,
+		.minLuminance = hdr_metadata.luminance.x,
+		.maxContentLightLevel = hdr_metadata.max_content_light_level,
+		.maxFrameAverageLightLevel = hdr_metadata.max_average_light_level,
+	};
 }
 
 #endif

@@ -30,6 +30,7 @@
 #include <floor/darwin/darwin_helper.hpp>
 #include <floor/floor/floor.hpp>
 #include <floor/constexpr/const_math.hpp>
+#include <floor/compute/hdr_metadata.hpp>
 
 #if !defined(FLOOR_IOS)
 #import <AppKit/AppKit.h>
@@ -38,6 +39,8 @@
 #import <UIKit/UIKit.h>
 #define UI_VIEW_CLASS UIView
 #endif
+
+#import <Foundation/NSData.h>
 
 #if defined(FLOOR_IOS)
 #include <OpenGLES/EAGL.h>
@@ -66,6 +69,8 @@ FLOOR_POP_WARNINGS()
 }
 @property (unsafe_unretained, nonatomic) CAMetalLayer* metal_layer;
 @property (assign, nonatomic) bool is_hidpi;
+@property (assign, nonatomic) bool is_wide_gamut;
+@property (assign, nonatomic) bool is_hdr;
 @property (unsafe_unretained, nonatomic) wnd_type_ptr wnd;
 @property (assign, nonatomic) uint32_t refresh_rate;
 @end
@@ -73,6 +78,8 @@ FLOOR_POP_WARNINGS()
 @implementation metal_view
 @synthesize metal_layer = _metal_layer;
 @synthesize is_hidpi = _is_hidpi;
+@synthesize is_wide_gamut = _is_wide_gamut;
+@synthesize is_hdr = _is_hdr;
 @synthesize wnd = _wnd;
 @synthesize refresh_rate = _refresh_rate;
 
@@ -110,12 +117,128 @@ FLOOR_POP_WARNINGS()
 	);
 }
 
+- (void)set_hdr_metadata:(const hdr_metadata_t&)hdr_metadata {
+	if (!self.is_hdr) {
+		return;
+	}
+	
+	// set HDR metadata (thanks for making this complicated Apple ...)
+	
+	// SEI mastering display colour volume
+	struct __attribute__((packed)) SEI_MDCV_message_t {
+		struct __attribute__((packed)) {
+			uint16_t display_primaries_x;
+			uint16_t display_primaries_y;
+		} display_primaries[3];
+		uint16_t white_point_x;
+		uint16_t white_point_y;
+		uint32_t max_display_mastering_luminance;
+		uint32_t min_display_mastering_luminance;
+	};
+	static_assert(sizeof(SEI_MDCV_message_t) == 24);
+	
+	// SEI content light level information
+	struct __attribute__((packed)) SEI_CLLI_message_t {
+		uint16_t max_content_light_level;
+		uint16_t max_pic_average_light_level;
+	};
+	static_assert(sizeof(SEI_CLLI_message_t) == 4);
+	
+	// color conversion for display_primaries and white_point_*
+	static constexpr const uint2 color_x_range { 5u, 37'000u };
+	static constexpr const uint2 color_y_range { 5u, 42'000u };
+	const auto convert_color = [](const float& color, const uint2& range) {
+		// as defined by CIE 1931 / ISO 11664-1
+		// 1 unit == 0.00002
+		auto conv = uint32_t(color * 50000.0f);
+		if (conv < range.x || conv > range.y) {
+			log_error("invalid color %u, must be in [%u, %u]", conv, range.x, range.y);
+			conv = math::clamp(conv, range.x, range.y);
+		}
+		return SDL_Swap16(uint16_t(conv));
+	};
+	
+	// luminance conversion for *_display_mastering_luminance
+	static constexpr const uint2 lum_max_range { 50'000u, 100'000'000u };
+	static constexpr const uint2 lum_min_range { 1u, 50'000u };
+	static constexpr const uint32_t lum_max_req_multiple { 10'000u };
+	static constexpr const uint32_t lum_min_req_multiple { 1u };
+	const auto convert_luminance = [](const float& cd, const uint2& range, const uint32_t& req_multiple) {
+		// 1 unit == 0.0001 cd
+		auto conv = uint32_t(cd * 10000.0f);
+		if (conv < range.x || conv > range.y) {
+			log_error("invalid luminance %u, must be in [%u, %u]", conv, range.x, range.y);
+			conv = math::clamp(conv, range.x, range.y);
+		}
+		// SMPTE ST 2086 requires that luminance is a certain multiple
+		const auto multiple_mod = conv % req_multiple;
+		if (multiple_mod != 0u) {
+			if (multiple_mod < req_multiple / 2u) {
+				// round down
+				conv -= multiple_mod;
+			} else {
+				// round up
+				conv += req_multiple - multiple_mod;
+			}
+		}
+		return SDL_Swap32(conv);
+	};
+	
+	// init structs (note that all uints are big endian)
+	const SEI_MDCV_message_t mdvc {
+		.display_primaries = {
+			// NOTE: order is GBR
+			// green
+			{
+				convert_color(hdr_metadata.primaries[1].x, color_x_range),
+				convert_color(hdr_metadata.primaries[1].y, color_y_range)
+			},
+			// blue
+			{
+				convert_color(hdr_metadata.primaries[2].x, color_x_range),
+				convert_color(hdr_metadata.primaries[2].y, color_y_range)
+			},
+			// red
+			{
+				convert_color(hdr_metadata.primaries[0].x, color_x_range),
+				convert_color(hdr_metadata.primaries[0].y, color_y_range)
+			},
+		},
+		.white_point_x = convert_color(hdr_metadata.white_point.x, color_x_range),
+		.white_point_y = convert_color(hdr_metadata.white_point.y, color_y_range),
+		.max_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.y, lum_max_range, lum_max_req_multiple),
+		.min_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.x, lum_min_range, lum_min_req_multiple)
+	};
+	const SEI_CLLI_message_t clli {
+		// NOTE: luminance here is actually in cd
+		.max_content_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_content_light_level)),
+		.max_pic_average_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_average_light_level))
+	};
+	const float optical_output_scale = 1.0f;
+	
+	// set metadata
+	auto mdvc_data = [NSData dataWithBytesNoCopy:(void*)&mdvc
+										  length:sizeof(SEI_MDCV_message_t)
+									freeWhenDone:false];
+	auto clli_data = [NSData dataWithBytesNoCopy:(void*)&clli
+										  length:sizeof(SEI_CLLI_message_t)
+									freeWhenDone:false];
+	self.metal_layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithDisplayInfo:mdvc_data
+																   contentInfo:clli_data
+															opticalOutputScale:optical_output_scale];
+}
+
 - (instancetype)initWithWindow:(wnd_type_ptr)wnd
 					withDevice:(id <MTLDevice>)device
 					 withHiDPI:(bool)hidpi
-				 withWideGamut:(bool)wide_gamut {
+				 withWideGamut:(bool)wide_gamut
+					   withHDR:(bool)hdr
+			   withHDRMetadata:(const hdr_metadata_t&)hdr_metadata {
 	self.wnd = wnd;
 	self.is_hidpi = hidpi;
+	self.is_hdr = hdr;
+	// enable if directly set or implicitly if HDR is set
+	self.is_wide_gamut = (wide_gamut || self.is_hdr);
 	const auto frame = [self create_frame];
 	
 	self = [super initWithFrame:frame];
@@ -125,15 +248,27 @@ FLOOR_POP_WARNINGS()
 #endif
 		self.metal_layer = (CAMetalLayer*)self.layer;
 		self.metal_layer.device = device;
-		if (!wide_gamut) {
+		if (!self.is_wide_gamut) {
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 		} else {
 #if !defined(FLOOR_IOS)
+			// NOTE: float (-> non-normalized) won't do any scaling for wide-gamut or HDR (-> luminance is linear)
+			//       normalized uint will do scaling by itself, but rather intransparently
+			// -> use float format
 			self.metal_layer.pixelFormat = MTLPixelFormatRGBA16Float;
 			self.metal_layer.wantsExtendedDynamicRangeContent = true;
-			// always use Display P3 for now
-			colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
-			self.metal_layer.colorspace = colorspace_ref;
+			if (self.is_hdr) {
+				// use BT.2020 colorspace with PQ transfer function
+				// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
+				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
+				self.metal_layer.colorspace = colorspace_ref;
+				
+				[self set_hdr_metadata:hdr_metadata];
+			} else {
+				// use Display P3 if not HDR
+				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+				self.metal_layer.colorspace = colorspace_ref;
+			}
 #else
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA10_XR_sRGB;
 			// always use sRGB for now
@@ -164,10 +299,10 @@ FLOOR_POP_WARNINGS()
 												 selector:@selector(orientationChanged:)
 													 name:UIDeviceOrientationDidChangeNotification
 												   object:[UIDevice currentDevice]];
-		
-		// noone else calls this on init, so do it explicitly in here
-		[self reshape];
 #endif
+		
+		// force reshape after init
+		[self reshapeWithForceFrameChange:true];
 	}
 	return self;
 }
@@ -193,6 +328,10 @@ FLOOR_POP_WARNINGS()
 #endif
 
 - (void)reshape {
+	[self reshapeWithForceFrameChange:false];
+}
+
+- (void)reshapeWithForceFrameChange:(bool)force_frame_change {
 	self.refresh_rate = floor::get_window_refresh_rate();
 	if(self.refresh_rate == 0) self.refresh_rate = 60; // sane fallback
 	
@@ -202,7 +341,7 @@ FLOOR_POP_WARNINGS()
 		scale_change = true;
 	}
 	
-	bool frame_change = false;
+	bool frame_change = force_frame_change;
 	auto frame = [self create_frame];
 	if(const_math::is_unequal(frame.size.width, self.frame.size.width) ||
 	   const_math::is_unequal(frame.size.height, self.frame.size.height)) {
@@ -226,7 +365,7 @@ FLOOR_POP_WARNINGS()
 }
 @end
 
-metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device) {
+metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata) {
 	// since sdl doesn't have metal support (yet), we need to create a metal view ourselves
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
@@ -234,6 +373,13 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 		log_error("failed to retrieve window info: %s", SDL_GetError());
 		return nullptr;
 	}
+
+#if !defined(FLOOR_IOS)
+	const bool can_do_hdr = ([[info.info.cocoa.window screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
+#else
+	// TODO/NOTE: not supported on iOS yet?
+	const bool can_do_hdr = false /*([[info.info.uikit.window screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0)*/;
+#endif
 	
 	metal_view* view = [[metal_view alloc]
 #if !defined(FLOOR_IOS)
@@ -243,7 +389,9 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 #endif
 						withDevice:device
 						withHiDPI:floor::get_hidpi()
-						withWideGamut:floor::get_wide_gamut()];
+						withWideGamut:floor::get_wide_gamut()
+						withHDR:(floor::get_hdr() && can_do_hdr)
+						withHDRMetadata:hdr_metadata];
 #if !defined(FLOOR_IOS)
 	[[info.info.cocoa.window contentView] addSubview:view];
 #else
@@ -294,8 +442,12 @@ MTLPixelFormat darwin_helper::get_metal_pixel_format(metal_view* view) {
 }
 
 uint2 darwin_helper::get_metal_view_dim(metal_view* view) {
-	const auto& dim = [view frame].size;
-	return { uint32_t(dim.width), uint32_t(dim.height) };
+	const auto& drawable_size = [view metal_layer].drawableSize;
+	return { uint32_t(drawable_size.width), uint32_t(drawable_size.height) };
+}
+
+void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_metadata_t& hdr_metadata) {
+	[view set_hdr_metadata:hdr_metadata];
 }
 
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd

@@ -163,6 +163,8 @@ public:
 
 	vr_context* get_renderer_vr_context() const override;
 	
+	void set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) override;
+	
 	//////////////////////////////////////////
 	// metal specific functions
 	

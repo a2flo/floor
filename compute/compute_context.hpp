@@ -29,6 +29,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/compute_program.hpp>
+#include <floor/compute/hdr_metadata.hpp>
 
 // necessary here, because there are no out-of-line virtual method definitions
 FLOOR_PUSH_WARNINGS()
@@ -300,6 +301,15 @@ public:
 	//! returns the associated VR context of the renderer (if the renderer supports VR and VR is enabled)
 	virtual vr_context* get_renderer_vr_context() const;
 	
+	//! replaces the current HDR metadata with the specified metadata
+	virtual void set_hdr_metadata(const hdr_metadata_t& hdr_metadata_);
+	
+	//! returns the currently active HDR metadata
+	virtual const hdr_metadata_t& get_hdr_metadata() const;
+	
+	//! returns the currently active HDR luminance min/max range
+	virtual const float2& get_hdr_luminance_range() const;
+	
 protected:
 	//! platform vendor enum (set after initialization)
 	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };
@@ -318,6 +328,9 @@ protected:
 	
 	//! all compute queues of the current compute context
 	mutable vector<shared_ptr<compute_queue>> queues;
+	
+	//! current HDR metadata
+	hdr_metadata_t hdr_metadata {};
 	
 };
 
