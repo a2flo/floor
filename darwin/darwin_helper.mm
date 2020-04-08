@@ -214,7 +214,8 @@ FLOOR_POP_WARNINGS()
 		.max_content_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_content_light_level)),
 		.max_pic_average_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_average_light_level))
 	};
-	const float optical_output_scale = 1.0f;
+	// normalize to max nominal luminance so that 1.0 signals max luminance (still can go higher than this)
+	const float optical_output_scale = hdr_metadata.luminance.y;
 	
 	// set metadata
 	auto mdvc_data = [NSData dataWithBytesNoCopy:(void*)&mdvc
