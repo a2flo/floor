@@ -3686,10 +3686,10 @@ index 6df2f9a379a..313b7154f52 100644
  // ConstantPropagation - A worklist driven constant propagation pass
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 00000000000..60c9dd706df
+index 00000000000..9952546c65b
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,405 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3956,6 +3956,11 @@ index 00000000000..60c9dd706df
 +	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
 +}
 +
++//! returns the dimensionality of the specified image type
++__attribute__((always_inline, used)) static constexpr uint32_t image_dim_count(const COMPUTE_IMAGE_TYPE& image_type) {
++	return uint32_t(image_type & COMPUTE_IMAGE_TYPE::__DIM_MASK) >> uint32_t(COMPUTE_IMAGE_TYPE::__DIM_SHIFT);
++}
++
 +// compare function used by depth compare reads
 +enum class COMPARE_FUNCTION : uint32_t {
 +	NEVER				= 0u,
@@ -4018,6 +4023,7 @@ index 00000000000..60c9dd706df
 +		void visitCallSite(CallSite CS);
 +		
 +		void handle_image(CallSite& CS, const StringRef& func_name);
++		void handle_image_query(CallSite& CS, const StringRef& func_name);
 +		
 +		virtual void handle_read_image(Instruction& I,
 +									   const StringRef& func_name,
@@ -4054,10 +4060,18 @@ index 00000000000..60c9dd706df
 +										const bool is_lod,
 +										llvm::Value* data_arg) = 0;
 +		
++		virtual void handle_get_image_dim(Instruction& I,
++										  const StringRef& func_name,
++										  llvm::Value* img_handle_arg,
++										  const COMPUTE_IMAGE_TYPE& full_image_type,
++										  const COMPUTE_IMAGE_TYPE& image_type,
++										  llvm::Value* lod_arg) = 0;
++		
 +	protected:
 +		const IMAGE_TYPE_ID image_type_id;
 +		const char* image_read_prefix;
 +		const char* image_write_prefix;
++		const char* image_get_dim_prefix;
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
 +		Function* func { nullptr };
@@ -20318,10 +20332,10 @@ index 00000000000..4185c820c0a
 +ModulePass *llvm::createOCL20To12() { return new OCL20To12(); }
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 00000000000..f3bb9c969e5
+index 00000000000..5888760e7f6
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
-@@ -0,0 +1,1530 @@
+@@ -0,0 +1,1533 @@
 +//===- OCL20ToSPIRV.cpp - Transform OCL20/GLSL to SPIR-V builtins - C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -21479,7 +21493,8 @@ index 00000000000..f3bb9c969e5
 +  mutateCallInstSPIRV(
 +      M, CI,
 +      [&](CallInst *, std::vector<Value *> &Args, Type *&Ret) {
-+        assert(Args.size() == 1);
++        assert(Args.size() == 1 ||
++               (Args.size() == 2 && SrcLang == spv::SourceLanguageGLSL));
 +        Ret = CI->getType()->isIntegerTy(64) ? Type::getInt64Ty(*Ctx)
 +                                             : Type::getInt32Ty(*Ctx);
 +        if (Dim > 1)
@@ -21487,7 +21502,9 @@ index 00000000000..f3bb9c969e5
 +        if (Desc.Dim == DimBuffer)
 +          return getSPIRVFuncName(OpImageQuerySize, CI->getType());
 +        else {
-+          Args.push_back(getInt32(M, 0));
++          if (Args.size() == 1) {
++            Args.push_back(getInt32(M, 0));
++          }
 +          return getSPIRVFuncName(OpImageQuerySizeLod, CI->getType());
 +        }
 +      },
@@ -31157,10 +31174,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..e66ebafded3
+index 00000000000..4d7bf8f5af1
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3787 @@
+@@ -0,0 +1,3817 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -34402,7 +34419,10 @@ index 00000000000..e66ebafded3
 +  // special handling for Vulkan/SPIR-V image read/write
 +  if (SrcLang == spv::SourceLanguageGLSL &&
 +      (DemangledName.find(kOCLBuiltinName::ReadImage) == 0 ||
-+       DemangledName.find(kOCLBuiltinName::WriteImage) == 0)) {
++       DemangledName.find(kOCLBuiltinName::WriteImage) == 0 ||
++       DemangledName.find(std::string(kSPIRVName::Prefix) +
++                          kSPIRVName::ImageQuerySize) ==
++           0 /* matches both LOD and non-LOD */)) {
 +    auto inst_op = transVulkanImageFunction(CI, BB, DemangledName, MangledName);
 +    assert(inst_op.first != nullptr && inst_op.second != OpNop &&
 +           "failed to translate image read/write function");
@@ -34583,6 +34603,9 @@ index 00000000000..e66ebafded3
 +  // write(image, coord_with_layer, data,
 +  //       // NOTE: only explicit lod or no lod
 +  //       lod_type, [lod_arg_0])
++  //
++  // query(image, lod)
++  //
 +
 +  // TODO: try to "cache" these things (image loads and sampler stuff)
 +
@@ -34807,6 +34830,31 @@ index 00000000000..e66ebafded3
 +    auto write_sample =
 +        BM->addInstTemplate(spv::OpImageWrite, write_operands, BB, nullptr);
 +    return {write_sample, write_sample->getOpCode()};
++  } else if (DemangledName.find(kSPIRVName::ImageQuerySize) !=
++             std::string::npos) {
++    std::vector<SPIRVWord> query_operands{loaded_img->getId()};
++
++    // query requires cap
++    BM->addCapability(spv::CapabilityImageQuery);
++
++    // buffer and MSAA images must use the non-LOD variant
++    const auto non_lod_variant =
++        (MangledName.find("msaa") != std::string::npos ||
++         MangledName.find("buffer") != std::string::npos);
++
++    auto query_op = spv::OpImageQuerySize;
++    if (!non_lod_variant) {
++      auto lod_arg = transValue(args[1], BB);
++      query_operands.emplace_back(lod_arg->getId());
++      query_op = spv::OpImageQuerySizeLod;
++    }
++
++    // the return type is already correct on the LLVM side, just translate it
++    SPIRVType *ret_type = transType(CI->getType());
++
++    auto img_query =
++        BM->addInstTemplate(query_op, query_operands, BB, ret_type);
++    return {img_query, img_query->getOpCode()};
 +  }
 +
 +  return {nullptr, OpNop};
@@ -34815,7 +34863,6 @@ index 00000000000..e66ebafded3
 +SPIRVInstruction *
 +LLVMToSPIRV::transBuiltinToInstWithoutDecoration(Op OC, CallInst *CI,
 +                                                 SPIRVBasicBlock *BB) {
-+  // TODO: handle image query stuff
 +  assert(!(SrcLang == spv::SourceLanguageGLSL && isImageOpCode(OC)) &&
 +         "should not be here");
 +
@@ -52321,7 +52368,7 @@ index 7c9dbcb66cc..184065ade31 100644
  void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 00000000000..9762165d380
+index 00000000000..153d948abbc
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 @@ -0,0 +1,555 @@
@@ -52698,7 +52745,7 @@ index 00000000000..9762165d380
 +					}
 +					
 +					SmallVector<llvm::ReturnInst*, 8> returns;
-+					llvm::CloneFunctionInto(cloned_func, called_func, VMap, false, returns);
++					llvm::CloneFunctionInto(cloned_func, called_func, VMap, true /* must be true due to debug info */, returns);
 +					
 +#if 0 // for debugging purposes
 +					cloned_func->addFnAttr(Attribute::NoInline);
@@ -53609,10 +53656,10 @@ index 00000000000..9f08fe5ca43
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 00000000000..a31359db0c0
+index 00000000000..5456f5c7db9
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,642 @@
+@@ -0,0 +1,722 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53688,6 +53735,39 @@ index 00000000000..a31359db0c0
 +			initializeCUDAImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
++		static const char* type_to_geom(const COMPUTE_IMAGE_TYPE& image_type) {
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:
++					return "1d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:
++					return "a1d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:
++					return "2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:
++					return "a2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++					return "2dms";
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:
++					return "3d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++					return "cube";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					return "acube";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					return "a2dms";
++				default:
++					return nullptr;
++			}
++		}
++		
 +		void handle_read_image(Instruction& I,
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
@@ -53756,30 +53836,15 @@ index 00000000000..a31359db0c0
 +			asm_args.push_back(img_handle_arg);
 +			
 +			// -> geom
-+			std::string geom; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
-+			bool is_array = false, is_msaa = false, is_cube = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "2dms"; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "a2dms"; is_array = true; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "cube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; is_cube = true; is_array = true; break;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
 +			}
++			std::string geom = geom_cstr; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 +			
 +			// -> coords
 +			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
@@ -54083,32 +54148,20 @@ index 00000000000..a31359db0c0
 +			asm_args.push_back(img_handle_arg);
 +			
 +			// -> geom
-+			std::string geom; // .1d, .2d, .3d, .a1d, .a2d
-+			bool is_array = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
-+				// cube and msaa formats are not writable by cuda/ptx
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
-+					ctx->emitError(&I, "invalid image type - type is not writable");
-+					return;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
++			}
++			std::string geom = geom_cstr; // .1d, .2d, .3d, .a1d, .a2d
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			
++			// cube and msaa formats are not writable by cuda/ptx
++			if (is_cube || is_msaa) {
++				ctx->emitError(&I, "invalid image type - type is not writable");
++				return;
 +			}
 +			
 +			// -> coords
@@ -54242,6 +54295,80 @@ index 00000000000..a31359db0c0
 +			
 +			//
 +			I.replaceAllUsesWith(asm_call);
++			I.eraseFromParent();
++		}
++		
++		void handle_get_image_dim(Instruction& I,
++								  const StringRef& func_name,
++								  llvm::Value* img_handle_arg,
++								  const COMPUTE_IMAGE_TYPE& full_image_type,
++								  const COMPUTE_IMAGE_TYPE& image_type,
++								  llvm::Value* lod_arg) override {
++			// gather info
++			const auto dim_count = image_dim_count(image_type);
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			// tex if readable, surf otherwise
++			const auto is_tex = has_flag<COMPUTE_IMAGE_TYPE::READ>(full_image_type);
++
++			// query/get function base
++			const auto query_image = [&](const std::string& query_name) {
++				SmallVector<llvm::Type*, 2> func_arg_types;
++				SmallVector<llvm::Value*, 2> func_args;
++				func_arg_types.push_back(img_handle_arg->getType());
++				func_args.push_back(img_handle_arg);
++				if (is_tex) {
++					func_arg_types.push_back(lod_arg->getType());
++					func_args.push_back(lod_arg);
++				}
++				
++				// -> build asm call
++				std::string asm_str = (is_tex ? "txq.level." : "suq.") + query_name + ".b32 ";
++				std::string constraints_str = "=r,l";
++				asm_str += "$0, [$1]";
++				if (is_tex) {
++					asm_str += ", $2";
++					constraints_str += ",r";
++				}
++				asm_str += ";";
++				
++				// create the asm call
++				const auto asm_func_type = FunctionType::get(llvm::Type::getInt32Ty(*ctx), func_arg_types, false);
++				auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, false /* !volatile */);
++				auto get_call = builder->CreateCall(asm_func, func_args);
++				get_call->setConvergent();
++				get_call->setOnlyAccessesArgMemory();
++				get_call->setDoesNotThrow();
++				get_call->setOnlyReadsMemory(); // all get_* calls are readonly (can be optimized away if unused)
++				get_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++				return get_call;
++			};
++			
++			// we have to a return a full image dim query for all dims of the image (type dependent)
++			// order is: width [, height] [, depth], [, layer_count]
++			// non-existing dims are set to 0
++			const auto ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			llvm::Value* ret_vec = UndefValue::get(ret_type);
++			uint32_t ret_vec_idx = 0;
++			// all images have a width
++			ret_vec = builder->CreateInsertElement(ret_vec, query_image("width"), builder->getInt32(ret_vec_idx++));
++			if (dim_count >= 2) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("height"), builder->getInt32(ret_vec_idx++));
++			}
++			if (dim_count >= 3) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("depth"), builder->getInt32(ret_vec_idx++));
++			}
++			if (is_array) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("array_size"), builder->getInt32(ret_vec_idx++));
++			}
++			// NOTE: while cube maps technically have 6 layers, this number is not stored in the image dim
++			
++			// fill remaining components with 0
++			for (uint32_t vec_idx = ret_vec_idx; vec_idx < 4; ++vec_idx) {
++				ret_vec = builder->CreateInsertElement(ret_vec, builder->getInt32(0), builder->getInt32(ret_vec_idx++));
++			}
++			
++			//
++			I.replaceAllUsesWith(ret_vec);
 +			I.eraseFromParent();
 +		}
 +		
@@ -55038,10 +55165,10 @@ index 00000000000..1fe7acb3ba7
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 00000000000..d0d2dfa2be5
+index 00000000000..cd1d10fc33c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,469 @@
+@@ -0,0 +1,526 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -55101,6 +55228,7 @@ index 00000000000..d0d2dfa2be5
 +: FunctionPass(ID), image_type_id(image_type_id_),
 +image_read_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.read_image." : "floor.opaque.read_image."),
 +image_write_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.write_image." : "floor.opaque.write_image."),
++image_get_dim_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.get_image_dim" : "floor.opaque.get_image_dim"),
 +image_capabilities((IMAGE_CAPABILITY)image_capabilities_) {
 +}
 +
@@ -55167,6 +55295,9 @@ index 00000000000..d0d2dfa2be5
 +		// strip off .(i|f)(1|2|3) from the end of the func name
 +		const auto func_name = full_func_name.rsplit('.').first;
 +		handle_image(CS, func_name);
++		was_modified = true;
++	} else if (full_func_name.startswith(image_get_dim_prefix)) {
++		handle_image_query(CS, full_func_name);
 +		was_modified = true;
 +	}
 +}
@@ -55466,6 +55597,59 @@ index 00000000000..d0d2dfa2be5
 +						   lod_arg, is_lod,
 +						   data_arg);
 +	}
++}
++
++void FloorImageBasePass::handle_image_query(CallSite& CS, const StringRef& func_name) {
++	Instruction* I = CS.getInstruction();
++	builder->SetInsertPoint(I);
++	
++	/* args for cuda and opaque get_image_dim functions:
++	 
++	 cuda get_image_dim:
++	 uint64_t tex, COMPUTE_IMAGE_TYPE type, uint32_t lod
++	 
++	 opaque get_image_dim:
++	 image_t img, COMPUTE_IMAGE_TYPE type, uint32_t lod
++	 
++	 */
++	
++	// check + get arguments
++	constexpr const uint32_t arg_count = 3;
++	if(CS.arg_size() != arg_count) {
++		ctx->emitError(I, func_name + ": invalid argument count (expected " + std::to_string(arg_count) + ")");
++		return;
++	}
++	
++	// -> tex/surf/img handle
++	const auto img_handle_arg = CS.getArgument(0);
++	if(image_type_id == IMAGE_TYPE_ID::CUDA &&
++	   !img_handle_arg->getType()->isIntegerTy()) {
++		ctx->emitError(I, "invalid image handle type (must be integer)");
++		return;
++	}
++	else if(image_type_id == IMAGE_TYPE_ID::OPAQUE) {
++		if(!img_handle_arg->getType()->isPointerTy()) {
++			ctx->emitError(I, "invalid image handle type (must be an image pointer)");
++			return;
++		}
++	}
++	
++	// -> type enum
++	const auto image_type_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(1));
++	if(!image_type_arg) {
++		ctx->emitError(I, "image type argument must be a constant value");
++		return;
++	}
++	if(!image_type_arg->getType()->isIntegerTy()) {
++		ctx->emitError(I, "invalid image-type type (must be enum/integer)");
++		return;
++	}
++	const auto full_image_type = COMPUTE_IMAGE_TYPE(image_type_arg->getZExtValue());
++	const COMPUTE_IMAGE_TYPE image_type = full_image_type & COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK;
++	
++	const auto lod_arg = CS.getArgument(2);
++	
++	handle_get_image_dim(*I, func_name, img_handle_arg, full_image_type, image_type, lod_arg);
 +}
 +
 +void FloorImageBasePass::emulate_depth_compare(llvm::Value*& dst_vec,
@@ -56683,10 +56867,10 @@ index 00000000000..ad20ef2c5e7
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 00000000000..ec4c69ae9fa
+index 00000000000..b546c0952c1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,592 @@
+@@ -0,0 +1,690 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -56757,6 +56941,46 @@ index 00000000000..ec4c69ae9fa
 +			initializeMetalImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
++		static const char* type_to_geom(const COMPUTE_IMAGE_TYPE& image_type) {
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:
++					return "texture_1d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:
++					return "texture_1d_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:
++					return "texture_1d_buffer";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++					return "depth_2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:
++					return "texture_2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++					return "depth_2d_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:
++					return "texture_2d_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++					return "depth_2d_ms";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++					return "texture_2d_ms";
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:
++					return "texture_3d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++					return "depth_cube";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++					return "depth_cube_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++					return "texture_cube";
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					return "texture_cube_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY: // since Metal 2.1
++					return "depth2d_ms_array";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY: // since Metal 2.1
++					return "texture2d_ms_array";
++				default:
++					return nullptr;
++			}
++		}
++		
 +		void handle_read_image(Instruction& I,
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
@@ -56811,32 +57035,16 @@ index 00000000000..ec4c69ae9fa
 +			else return;
 +			
 +			// -> geom
-+			std::string geom;
-+			bool is_array = false, is_msaa = false, is_cube = false, is_depth = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "texture_1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "texture_1d_array"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "texture_1d_buffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "depth_2d"; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "texture_2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "depth_2d_array"; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "texture_2d_array"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "depth_2d_ms"; is_msaa = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "texture_2d_ms"; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "texture_3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "depth_cube"; is_cube = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "depth_cube_array"; is_cube = true; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "texture_cube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "texture_cube_array"; is_cube = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
-+					ctx->emitError(&I, "unsupported image type");
-+					return;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
 +			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 +			
 +			// -> coord type
 +			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
@@ -57179,17 +57387,17 @@ index 00000000000..ec4c69ae9fa
 +			func_args.push_back(img_handle_arg);
 +			
 +			// -> geom
-+			std::string geom;
-+			bool is_array = false, is_cube = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "texture_1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "texture_1d_array"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "texture_1d_buffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "texture_2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "texture_2d_array"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "texture_3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "texture_cube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "texture_cube_array"; is_cube = true; is_array = true; break;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
++			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			
++			// filter types that are not allowed, b/c they can't be directly written to
++			switch (image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
@@ -57197,15 +57405,12 @@ index 00000000000..ec4c69ae9fa
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
-+					ctx->emitError(&I, "invalid image type - type is not writable");
-+					return;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
-+					ctx->emitError(&I, "unsupported image type");
++					ctx->emitError(&I, "invalid image type - type is not writable");
 +					return;
 +				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++					break;
 +			}
 +			
 +			// -> coords: coords, face, layer
@@ -57266,6 +57471,83 @@ index 00000000000..ec4c69ae9fa
 +			
 +			//
 +			I.replaceAllUsesWith(write_call);
++			I.eraseFromParent();
++		}
++		
++		void handle_get_image_dim(Instruction& I,
++								  const StringRef& func_name,
++								  llvm::Value* img_handle_arg,
++								  const COMPUTE_IMAGE_TYPE& /* full_image_type */,
++								  const COMPUTE_IMAGE_TYPE& image_type,
++								  llvm::Value* lod_arg) override {
++			// gather info
++			const auto dim_count = image_dim_count(image_type);
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
++			}
++			const std::string geom = geom_cstr;
++
++			// query/get function base
++			const auto query_image = [&](const std::string& query_name) {
++				SmallVector<llvm::Type*, 2> func_arg_types;
++				SmallVector<llvm::Value*, 2> func_args;
++				func_arg_types.push_back(img_handle_arg->getType());
++				func_args.push_back(img_handle_arg);
++				func_arg_types.push_back(lod_arg->getType());
++				func_args.push_back(lod_arg);
++				
++				// -> build get func name
++				const std::string get_func_name = "air.get_" + query_name + '_' + geom;
++				
++				AttrBuilder attr_builder;
++				attr_builder.addAttribute(llvm::Attribute::Convergent);
++				attr_builder.addAttribute(llvm::Attribute::ArgMemOnly);
++				attr_builder.addAttribute(llvm::Attribute::NoUnwind);
++				attr_builder.addAttribute(llvm::Attribute::ReadOnly);
++				auto func_attrs = AttributeList::get(*ctx, ~0, attr_builder);
++				
++				// create the air call
++				const auto ret_type = llvm::Type::getInt32Ty(*ctx);
++				const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
++				llvm::CallInst* get_call = builder->CreateCall(M->getOrInsertFunction(get_func_name, func_type, func_attrs), func_args);
++				get_call->setConvergent();
++				get_call->setOnlyAccessesArgMemory();
++				get_call->setDoesNotThrow();
++				get_call->setOnlyReadsMemory(); // all get_* calls are readonly (can be optimized away if unused)
++				get_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++				return get_call;
++			};
++			
++			// we have to a return a full image dim query for all dims of the image (type dependent)
++			// order is: width [, height] [, depth], [, layer_count]
++			// non-existing dims are set to 0
++			const auto ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			llvm::Value* ret_vec = UndefValue::get(ret_type);
++			uint32_t ret_vec_idx = 0;
++			// all images have a width
++			ret_vec = builder->CreateInsertElement(ret_vec, query_image("width"), builder->getInt32(ret_vec_idx++));
++			if (dim_count >= 2) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("height"), builder->getInt32(ret_vec_idx++));
++			}
++			if (dim_count >= 3) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("depth"), builder->getInt32(ret_vec_idx++));
++			}
++			if (is_array) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("array_size"), builder->getInt32(ret_vec_idx++));
++			}
++			// NOTE: while cube maps technically have 6 layers, this number is not stored in the image dim
++			
++			// fill remaining components with 0
++			for (uint32_t vec_idx = ret_vec_idx; vec_idx < 4; ++vec_idx) {
++				ret_vec = builder->CreateInsertElement(ret_vec, builder->getInt32(0), builder->getInt32(ret_vec_idx++));
++			}
++			
++			//
++			I.replaceAllUsesWith(ret_vec);
 +			I.eraseFromParent();
 +		}
 +		
@@ -57829,10 +58111,10 @@ index 00000000000..c0cf701d386
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 00000000000..5eec930f074
+index 00000000000..4f0402f238f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,657 @@
+@@ -0,0 +1,751 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -57905,6 +58187,42 @@ index 00000000000..5eec930f074
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
++		static const char* type_to_geom(const COMPUTE_IMAGE_TYPE& image_type) {
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:
++					return "11ocl_image1d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:
++					return "16ocl_image1darray";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:
++					return "17ocl_image1dbuffer";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++					return "16ocl_image2ddepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:
++					return "11ocl_image2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++					return "21ocl_image2darraydepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:
++					return "16ocl_image2darray";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++					return "20ocl_image2dmsaadepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++					return "15ocl_image2dmsaa";
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:
++					return "11ocl_image3d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++					return "25ocl_image2darraymsaadepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					return "20ocl_image2darraymsaa";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++				default:
++					return nullptr;
++			}
++		}
++		
 +		llvm::Value* get_or_create_spir_function(std::string func_name,
 +												 llvm::Type* ret_type,
 +												 const SmallVector<llvm::Type*, 8>& func_arg_types,
@@ -57962,9 +58280,12 @@ index 00000000000..5eec930f074
 +			for(uint32_t i = 0; i < dim; ++i) {
 +				auto get_dim_func = get_or_create_spir_function(img_dim_funcs[i] + geom,
 +																builder->getInt32Ty(),
-+																get_dim_arg_types);
++																get_dim_arg_types,
++																true);
 +				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
 +				get_dim_call->setDoesNotAccessMemory();
++				get_dim_call->setConvergent();
++				get_dim_call->setDoesNotThrow();
 +				get_dim_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +				ret.push_back(get_dim_call);
 +			}
@@ -58082,32 +58403,15 @@ index 00000000000..5eec930f074
 +			// TODO: add an option to disable advanced image functions and silently fallback to simple ones (at the loss of functionality)
 +			
 +			// get geom string / mangled name + flags
-+			std::string geom;
-+			bool is_array = false, is_msaa = false, is_depth = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
-+					ctx->emitError(&I, "unsupported image type");
-+					return;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown/incorrect/unsupported image type");
++				return;
 +			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 +			
 +			// -> caps check
 +			if(is_lod_or_bias) {
@@ -58329,6 +58633,8 @@ index 00000000000..5eec930f074
 +			auto read_func = get_or_create_spir_function(cl_func_name, ret_type, func_arg_types, true);
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			read_call->setConvergent();
++			read_call->setDoesNotThrow();
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
@@ -58402,32 +58708,27 @@ index 00000000000..5eec930f074
 +			
 +			//// func replacement
 +			// -> geom
-+			std::string geom;
-+			bool is_array = false, is_depth = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown/incorrect/unsupported image type");
++				return;
++			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
++			
++			// filter types that are not allowed, b/c they can't be directly written to
++			switch (image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
-+					ctx->emitError(&I, "unsupported image type");
++					ctx->emitError(&I, "invalid image type - type is not writable");
 +					return;
 +				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++					break;
 +			}
++			
 +			cl_func_name += geom;
 +			
 +			func_arg_types.push_back(img_handle_arg->getType());
@@ -58477,6 +58778,81 @@ index 00000000000..5eec930f074
 +			I.replaceAllUsesWith(write_call);
 +			I.eraseFromParent();
 +			
++		}
++		
++		void handle_get_image_dim(Instruction& I,
++								  const StringRef& func_name,
++								  llvm::Value* img_handle_arg,
++								  const COMPUTE_IMAGE_TYPE& /* full_image_type */,
++								  const COMPUTE_IMAGE_TYPE& image_type,
++								  llvm::Value* lod_arg) override {
++			// gather info
++			const auto dim_count = image_dim_count(image_type);
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
++			}
++			const std::string geom = geom_cstr;
++			
++			// TODO/NOTE: LOD arg is not supported with OpenCL/SPIR, only with OpenCL/SPIR-V (but not properly handled yet)
++			const bool with_lod = false;
++
++			// query/get function base
++			const auto query_image = [&](const std::string& query_name) {
++				SmallVector<llvm::Type*, 8> func_arg_types;
++				SmallVector<llvm::Value*, 8> func_args;
++				func_arg_types.push_back(img_handle_arg->getType());
++				func_args.push_back(img_handle_arg);
++				if (with_lod) {
++					func_arg_types.push_back(lod_arg->getType());
++					func_args.push_back(lod_arg);
++				}
++				
++				// -> build get func name
++				const std::string get_func_name = query_name + geom + (with_lod ? "i" : "");
++				
++				// create the air call
++				const auto ret_type = llvm::Type::getInt32Ty(*ctx);
++				auto get_func = get_or_create_spir_function(get_func_name, ret_type, func_arg_types, true);
++				llvm::CallInst* get_call = builder->CreateCall(get_func, func_args);
++				get_call->setConvergent();
++				get_call->setDoesNotThrow();
++				get_call->setDoesNotAccessMemory(); // all get_* calls are readnone (can be optimized away if unused)
++				get_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++				get_call->setCallingConv(CallingConv::FLOOR_FUNC);
++				return get_call;
++			};
++			
++			// we have to a return a full image dim query for all dims of the image (type dependent)
++			// order is: width [, height] [, depth], [, layer_count]
++			// non-existing dims are set to 0
++			const auto ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			llvm::Value* ret_vec = UndefValue::get(ret_type);
++			uint32_t ret_vec_idx = 0;
++			// all images have a width
++			ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z15get_image_width"), builder->getInt32(ret_vec_idx++));
++			if (dim_count >= 2) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z16get_image_height"), builder->getInt32(ret_vec_idx++));
++			}
++			if (dim_count >= 3) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z15get_image_depth"), builder->getInt32(ret_vec_idx++));
++			}
++			if (is_array) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z20get_image_array_size"), builder->getInt32(ret_vec_idx++));
++			}
++			// NOTE: while cube maps technically have 6 layers, this number is not stored in the image dim
++			
++			// fill remaining components with 0
++			for (uint32_t vec_idx = ret_vec_idx; vec_idx < 4; ++vec_idx) {
++				ret_vec = builder->CreateInsertElement(ret_vec, builder->getInt32(0), builder->getInt32(ret_vec_idx++));
++			}
++			
++			//
++			I.replaceAllUsesWith(ret_vec);
++			I.eraseFromParent();
 +		}
 +		
 +	};
@@ -63213,10 +63589,10 @@ index 00000000000..c07f8a5028c
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 00000000000..1211f7be098
+index 00000000000..bd424ba9d7a
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,748 @@
+@@ -0,0 +1,802 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -63304,37 +63680,44 @@ index 00000000000..1211f7be098
 +			return func;
 +		}
 +		
-+		SmallVector<llvm::Value*, 3> get_image_dim(llvm::Value* img_handle_arg,
-+												   llvm::Type* coord_type,
-+												   const std::string& geom) {
-+			// NOTE: ImageQuery cap is a required cap in Vulkan, so this is okay
-+			// TODO: check if this actually gets added ...
-+			
-+			SmallVector<llvm::Value*, 3> ret;
-+			
-+			static const char* img_dim_funcs[] {
-+				"_Z15get_image_width",
-+				"_Z16get_image_height",
-+				"_Z15get_image_depth"
-+			};
-+			
-+			const auto dim = coord_type->getVectorNumElements();
-+			SmallVector<llvm::Type*, 8> get_dim_arg_types;
-+			SmallVector<llvm::Value*, 8> get_dim_func_args;
-+			get_dim_arg_types.push_back(img_handle_arg->getType());
-+			get_dim_func_args.push_back(img_handle_arg);
-+			for(uint32_t i = 0; i < dim; ++i) {
-+				auto get_dim_func = get_or_create_spirv_function(img_dim_funcs[i] + geom,
-+																 builder->getInt32Ty(),
-+																 get_dim_arg_types);
-+				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
-+				get_dim_call->setDoesNotAccessMemory();
-+				get_dim_call->setCallingConv(CallingConv::FLOOR_FUNC);
-+				ret.push_back(get_dim_call);
-+				// TODO: any other flags here?
++		static const char* type_to_geom(const COMPUTE_IMAGE_TYPE& image_type) {
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:
++					return "11ocl_image1d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:
++					return "16ocl_image1darray";
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:
++					return "17ocl_image1dbuffer";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++					return "16ocl_image2ddepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:
++					return "11ocl_image2d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++					return "21ocl_image2darraydepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:
++					return "16ocl_image2darray";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++					return "20ocl_image2dmsaadepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++					return "15ocl_image2dmsaa";
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:
++					return "11ocl_image3d";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++					return "25ocl_image2darraymsaadepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					return "20ocl_image2darraymsaa";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++					return "18ocl_imagecubedepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++					return "23ocl_imagecubearraydepth";
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++					return "13ocl_imagecube";
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					return "18ocl_imagecubearray";
++				default:
++					return nullptr;
 +			}
-+			
-+			return ret;
 +		}
 +		
 +		void handle_vk_coord(Instruction& I,
@@ -63476,30 +63859,16 @@ index 00000000000..1211f7be098
 +								   vulkan_sampling::sampler::COORD_MODE::PIXEL);
 +			
 +			// get geom string / mangled name + flags
-+			std::string geom;
-+			bool is_array = false, is_msaa = false, is_depth = false, is_cube = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "18ocl_imagecubedepth"; is_depth = true; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "23ocl_imagecubearraydepth"; is_depth = true; is_cube = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "13ocl_imagecube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "18ocl_imagecubearray"; is_cube = true; is_array = true; break;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
 +			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 +			
 +			// -> return data and vulkan function name
 +			// NOTE: we don't have a c++ mangling support in here, so do it manually
@@ -63724,7 +64093,10 @@ index 00000000000..1211f7be098
 +			// NOTE: always returns a vector4
 +			auto read_func = get_or_create_spirv_function(vk_func_name, ret_type, func_arg_types, true);
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
-+			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			read_call->setConvergent();
++			read_call->setOnlyAccessesArgMemory();
++			read_call->setDoesNotThrow();
++			read_call->setOnlyReadsMemory(); // all reads are readonly (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
@@ -63800,30 +64172,17 @@ index 00000000000..1211f7be098
 +			
 +			//// func replacement
 +			// -> geom
-+			std::string geom;
-+			bool is_array = false, is_msaa = false, is_depth = false, is_cube = false;
-+			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "18ocl_imagecubedepth"; is_depth = true; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "23ocl_imagecubearraydepth"; is_depth = true; is_cube = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "13ocl_imagecube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "18ocl_imagecubearray"; is_cube = true; is_array = true; break;
-+				default:
-+					ctx->emitError(&I, "unknown or incorrect image type");
-+					return;
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
 +			}
++			std::string geom = geom_cstr;
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++			const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
++			//const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			//const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
++			
 +			vk_func_name += geom;
 +			
 +			// TODO: vulkan/spir-v can write cube, depth, msaa images ?
@@ -63953,6 +64312,77 @@ index 00000000000..1211f7be098
 +			
 +			LI->replaceAllUsesWith(CI);
 +			LI->eraseFromParent();
++		}
++		
++		void handle_get_image_dim(Instruction& I,
++								  const StringRef& func_name,
++								  llvm::Value* img_handle_arg,
++								  const COMPUTE_IMAGE_TYPE& /* full_image_type */,
++								  const COMPUTE_IMAGE_TYPE& image_type,
++								  llvm::Value* lod_arg) override {
++			// gather info
++			const auto dim_count = image_dim_count(image_type);
++			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
++
++			const auto geom_cstr = type_to_geom(image_type);
++			if (!geom_cstr) {
++				ctx->emitError(&I, "unknown or incorrect image type");
++				return;
++			}
++			const std::string geom = geom_cstr;
++
++			// query/get function base
++			const auto query_image = [&](const std::string& query_name) {
++				SmallVector<llvm::Type*, 8> func_arg_types;
++				SmallVector<llvm::Value*, 8> func_args;
++				func_arg_types.push_back(img_handle_arg->getType());
++				func_args.push_back(img_handle_arg);
++				func_arg_types.push_back(lod_arg->getType());
++				func_args.push_back(lod_arg);
++				
++				// -> build get func name
++				const std::string get_func_name = query_name + geom + "i";
++				
++				// create the air call
++				const auto ret_type = llvm::Type::getInt32Ty(*ctx);
++				auto get_func = get_or_create_spirv_function(get_func_name, ret_type, func_arg_types, true);
++				llvm::CallInst* get_call = builder->CreateCall(get_func, func_args);
++				get_call->setConvergent();
++				get_call->setOnlyAccessesArgMemory();
++				get_call->setDoesNotThrow();
++				get_call->setOnlyReadsMemory(); // all get_* calls are readonly (can be optimized away if unused)
++				get_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++				get_call->setCallingConv(CallingConv::FLOOR_FUNC);
++				return get_call;
++			};
++			
++			// we have to a return a full image dim query for all dims of the image (type dependent)
++			// order is: width [, height] [, depth], [, layer_count]
++			// non-existing dims are set to 0
++			const auto ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			llvm::Value* ret_vec = UndefValue::get(ret_type);
++			uint32_t ret_vec_idx = 0;
++			// all images have a width
++			ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z15get_image_width"), builder->getInt32(ret_vec_idx++));
++			if (dim_count >= 2) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z16get_image_height"), builder->getInt32(ret_vec_idx++));
++			}
++			if (dim_count >= 3) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z15get_image_depth"), builder->getInt32(ret_vec_idx++));
++			}
++			if (is_array) {
++				ret_vec = builder->CreateInsertElement(ret_vec, query_image("_Z20get_image_array_size"), builder->getInt32(ret_vec_idx++));
++			}
++			// NOTE: while cube maps technically have 6 layers, this number is not stored in the image dim
++			
++			// fill remaining components with 0
++			for (uint32_t vec_idx = ret_vec_idx; vec_idx < 4; ++vec_idx) {
++				ret_vec = builder->CreateInsertElement(ret_vec, builder->getInt32(0), builder->getInt32(ret_vec_idx++));
++			}
++			
++			//
++			I.replaceAllUsesWith(ret_vec);
++			I.eraseFromParent();
 +		}
 +		
 +	};
