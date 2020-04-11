@@ -310,6 +310,9 @@ public:
 	//! returns the currently active HDR luminance min/max range
 	virtual const float2& get_hdr_luminance_range() const;
 	
+	//! returns the current max possible/representable value of the renderer (defaults to 1.0)
+	virtual float get_hdr_range_max() const;
+	
 protected:
 	//! platform vendor enum (set after initialization)
 	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };

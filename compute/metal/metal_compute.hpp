@@ -165,6 +165,8 @@ public:
 	
 	void set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) override;
 	
+	float get_hdr_range_max() const override;
+	
 	//////////////////////////////////////////
 	// metal specific functions
 	

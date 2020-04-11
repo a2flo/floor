@@ -112,6 +112,8 @@ namespace cuda_image {
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i1");
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i2");
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i3");
+
+	const_func clang_uint4 get_image_dim(uint64_t tex_or_surf, COMPUTE_IMAGE_TYPE type, uint32_t lod) asm("floor.cuda.get_image_dim");
 	
 	//////////////////////////////////////////
 	// cuda image write functions with run-time selection

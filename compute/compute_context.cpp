@@ -160,3 +160,7 @@ const hdr_metadata_t& compute_context::get_hdr_metadata() const {
 const float2& compute_context::get_hdr_luminance_range() const {
 	return hdr_metadata.luminance;
 }
+
+float compute_context::get_hdr_range_max() const {
+	return 1.0f;
+}

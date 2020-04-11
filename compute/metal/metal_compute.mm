@@ -897,4 +897,11 @@ void metal_compute::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
 	}
 }
 
+float metal_compute::get_hdr_range_max() const {
+	if (view != nullptr) {
+		return darwin_helper::get_metal_view_edr_max(view);
+	}
+	return compute_context::get_hdr_range_max();
+}
+
 #endif

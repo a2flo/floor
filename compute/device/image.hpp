@@ -312,20 +312,20 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
-		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
-		floor_inline_always constexpr auto& w_img() { return (*w_img_lod_obj)[0]; }
+		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		uint64_t w_img_obj;
 		uint64_t* w_img_lod_obj;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
-		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_HOST)
 		host_device_image<image_type>* w_img_obj;
-		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #endif
 	};
 	//! read-write
@@ -340,29 +340,29 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #else
 		__attribute__((floor_image(sample_type), image_read_write)) opaque_type rw_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() { return rw_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
 #endif
 #elif defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() { return (*w_img_lod_obj)[0]; }
+		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		uint64_t w_img_obj;
 		uint64_t* w_img_lod_obj;
 		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_HOST)
 		host_device_image<image_type>* rw_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() { return rw_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
 #endif
 	};
 	
@@ -424,6 +424,31 @@ namespace floor_image {
 			using scalar_type = typename data_type::decayed_scalar_type;
 			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
 			return vector_n<scalar_type, 4> { data };
+		}
+		
+		//! queries the image dimension at run-time, returning it in the same format as compute_image::image_dim
+		uint4 dim(const uint32_t lod = 0) const {
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+			if constexpr (is_readable()) {
+				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::r_img(), image_type, lod));
+			} else {
+				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
+			}
+#elif defined(FLOOR_COMPUTE_CUDA)
+			if constexpr (is_readable()) {
+				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::r_img()[0], image_type, lod));
+			} else {
+				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
+			}
+#elif defined(FLOOR_COMPUTE_HOST)
+			if constexpr (is_readable()) {
+				return image_storage_type::r_img()->level_info[lod].dim;
+			} else {
+				return image_storage_type::w_img()->level_info[lod].dim;
+			}
+#else
+#error "unknown backend"
+#endif
 		}
 	};
 	

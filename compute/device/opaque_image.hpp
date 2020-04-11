@@ -120,7 +120,9 @@ namespace opaque_image {
 	\
 	void write_image_uint(image_type img, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.opaque.write_image." #image_type ".uint.i1"); \
 	void write_image_uint(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.opaque.write_image." #image_type ".uint.i2"); \
-	void write_image_uint(image_type img, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.opaque.write_image." #image_type ".uint.i3");
+	void write_image_uint(image_type img, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.opaque.write_image." #image_type ".uint.i3"); \
+	\
+	const_func clang_uint4 get_image_dim(image_type img, COMPUTE_IMAGE_TYPE type, uint32_t lod) asm("floor.opaque.get_image_dim." #image_type);
 	
 #define FLOOR_OPAQUE_IMAGE_TYPES(F) \
 F(image1d_t) \

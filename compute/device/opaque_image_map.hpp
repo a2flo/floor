@@ -77,7 +77,12 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 #if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_t type;
 #else
+#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1)
+	// supported since Metal 2.1
+	typedef image2d_array_msaa_t type;
+#else
 	typedef unavailable_metal_image_type type;
+#endif
 #endif
 };
 
@@ -102,7 +107,12 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 #if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_depth_t type;
 #else
+#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1)
+	// supported since Metal 2.1
+	typedef image2d_array_msaa_depth_t type;
+#else
 	typedef unavailable_metal_image_type type;
+#endif
 #endif
 };
 

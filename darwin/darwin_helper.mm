@@ -118,6 +118,7 @@ FLOOR_POP_WARNINGS()
 }
 
 - (void)set_hdr_metadata:(const hdr_metadata_t&)hdr_metadata {
+#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 	if (!self.is_hdr) {
 		return;
 	}
@@ -227,6 +228,7 @@ FLOOR_POP_WARNINGS()
 	self.metal_layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithDisplayInfo:mdvc_data
 																   contentInfo:clli_data
 															opticalOutputScale:optical_output_scale];
+#endif
 }
 
 - (instancetype)initWithWindow:(wnd_type_ptr)wnd
@@ -259,12 +261,14 @@ FLOOR_POP_WARNINGS()
 			self.metal_layer.pixelFormat = MTLPixelFormatRGBA16Float;
 			self.metal_layer.wantsExtendedDynamicRangeContent = true;
 			if (self.is_hdr) {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 				// use BT.2020 colorspace with PQ transfer function
 				// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
 				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
 				self.metal_layer.colorspace = colorspace_ref;
 				
 				[self set_hdr_metadata:hdr_metadata];
+#endif
 			} else {
 				// use Display P3 if not HDR
 				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
@@ -376,7 +380,11 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 	}
 
 #if !defined(FLOOR_IOS)
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 	const bool can_do_hdr = ([[info.info.cocoa.window screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
+#else
+	const bool can_do_hdr = false;
+#endif
 #else
 	// TODO/NOTE: not supported on iOS yet?
 	const bool can_do_hdr = false /*([[info.info.uikit.window screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0)*/;
@@ -449,6 +457,14 @@ uint2 darwin_helper::get_metal_view_dim(metal_view* view) {
 
 void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_metadata_t& hdr_metadata) {
 	[view set_hdr_metadata:hdr_metadata];
+}
+
+float darwin_helper::get_metal_view_edr_max(metal_view* view) {
+#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
+#else
+	return 1.0f;
+#endif
 }
 
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd
