@@ -198,6 +198,9 @@ public:
 		return generate_mip_maps;
 	}
 	
+	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
+	virtual void generate_mip_map_chain(const compute_queue& cqueue);
+	
 	//! for debugging purposes: dump COMPUTE_IMAGE_TYPE information into a human-readable string
 	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
 	
@@ -339,9 +342,6 @@ protected:
 	//! builds the mip-map minification program for this context and its devices
 	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
 	void build_mip_map_minification_program() const;
-	
-	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
-	virtual void generate_mip_map_chain(const compute_queue& cqueue);
 	
 };
 

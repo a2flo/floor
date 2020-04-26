@@ -84,6 +84,7 @@ public:
 	static uint2 get_metal_view_dim(metal_view* view);
 	static void set_metal_view_hdr_metadata(metal_view* view, const hdr_metadata_t& hdr_metadata);
 	static float get_metal_view_edr_max(metal_view* view);
+	static float get_metal_view_hdr_max_nits(metal_view* view);
 #endif
 	
 };

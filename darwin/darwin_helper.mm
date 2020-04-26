@@ -23,6 +23,7 @@
 #include <SDL2/SDL_syswm.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <dlfcn.h>
 #include <floor/core/core.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/logger.hpp>
@@ -71,6 +72,7 @@ FLOOR_POP_WARNINGS()
 @property (assign, nonatomic) bool is_hidpi;
 @property (assign, nonatomic) bool is_wide_gamut;
 @property (assign, nonatomic) bool is_hdr;
+@property (assign, nonatomic) bool is_hdr_linear;
 @property (unsafe_unretained, nonatomic) wnd_type_ptr wnd;
 @property (assign, nonatomic) uint32_t refresh_rate;
 @end
@@ -80,6 +82,7 @@ FLOOR_POP_WARNINGS()
 @synthesize is_hidpi = _is_hidpi;
 @synthesize is_wide_gamut = _is_wide_gamut;
 @synthesize is_hdr = _is_hdr;
+@synthesize is_hdr_linear = _is_hdr_linear;
 @synthesize wnd = _wnd;
 @synthesize refresh_rate = _refresh_rate;
 
@@ -236,10 +239,12 @@ FLOOR_POP_WARNINGS()
 					 withHiDPI:(bool)hidpi
 				 withWideGamut:(bool)wide_gamut
 					   withHDR:(bool)hdr
+				 withHDRLinear:(bool)hdr_linear
 			   withHDRMetadata:(const hdr_metadata_t&)hdr_metadata {
 	self.wnd = wnd;
 	self.is_hidpi = hidpi;
 	self.is_hdr = hdr;
+	self.is_hdr_linear = hdr_linear;
 	// enable if directly set or implicitly if HDR is set
 	self.is_wide_gamut = (wide_gamut || self.is_hdr);
 	const auto frame = [self create_frame];
@@ -262,16 +267,24 @@ FLOOR_POP_WARNINGS()
 			self.metal_layer.wantsExtendedDynamicRangeContent = true;
 			if (self.is_hdr) {
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
-				// use BT.2020 colorspace with PQ transfer function
-				// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
-				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
-				self.metal_layer.colorspace = colorspace_ref;
-				
-				[self set_hdr_metadata:hdr_metadata];
+				if (!self.is_hdr_linear) {
+					// use BT.2020 colorspace with PQ transfer function
+					// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
+					colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
+					self.metal_layer.colorspace = colorspace_ref;
+					[self set_hdr_metadata:hdr_metadata];
+				} else {
+					// use BT.2020 colorspace that is "linearly extended" and has no output mapping (PQ must be applied manually)
+					// NOTE: while Apple doesn't state exactly what this is, this more or less looks like scRGB, where 1.0 == 80 nits and 12.5 == 1000 nits,
+					//       which however contradicts the value returned by "maximumExtendedDynamicRangeColorComponentValue" that actually returns the
+					//       "max frame-average luminance" with 1.0 == 100 nits
+					colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearITUR_2020);
+					self.metal_layer.colorspace = colorspace_ref;
+				}
 #endif
 			} else {
-				// use Display P3 if not HDR
-				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+				// use BT.2020 if not HDR
+				colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020);
 				self.metal_layer.colorspace = colorspace_ref;
 			}
 #else
@@ -400,6 +413,7 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 						withHiDPI:floor::get_hidpi()
 						withWideGamut:floor::get_wide_gamut()
 						withHDR:(floor::get_hdr() && can_do_hdr)
+						withHDRLinear:floor::get_hdr_linear()
 						withHDRMetadata:hdr_metadata];
 #if !defined(FLOOR_IOS)
 	[[info.info.cocoa.window contentView] addSubview:view];
@@ -462,6 +476,35 @@ void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_meta
 float darwin_helper::get_metal_view_edr_max(metal_view* view) {
 #if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
+#else
+	return 1.0f;
+#endif
+}
+
+float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view) {
+#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+	using get_nominal_pixel_nits_func_type = float (*)(int32_t);
+	static const auto get_nominal_pixel_nits = []() -> get_nominal_pixel_nits_func_type {
+		static const auto core_display_lib = dlopen("/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay", RTLD_NOW);
+		if (!core_display_lib) {
+			log_error("failed to get CoreDisplay lib");
+			return nullptr;
+		}
+		
+		static const auto get_nominal_pixel_nits_ = (get_nominal_pixel_nits_func_type)dlsym(core_display_lib, "CoreDisplay_Display_GetNominalPixelNits");
+		if (!get_nominal_pixel_nits_) {
+			log_error("failed to get CoreDisplay_Display_GetNominalPixelNits");
+			return nullptr;
+		}
+		return get_nominal_pixel_nits_;
+	}();
+	
+	const auto edr_max = get_metal_view_edr_max(view);
+	if (!get_nominal_pixel_nits) {
+		return 100.0f * edr_max;
+	}
+	const NSNumber* screen_idx = [[[[view window] screen] deviceDescription] objectForKey:@"NSScreenNumber"];
+	return get_nominal_pixel_nits([screen_idx intValue]) * edr_max;
 #else
 	return 1.0f;
 #endif

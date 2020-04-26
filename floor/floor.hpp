@@ -187,6 +187,7 @@ public:
 	static bool get_hidpi();
 	static bool get_wide_gamut();
 	static bool get_hdr();
+	static bool get_hdr_linear();
 	
 	//! gets the logical window width
 	static uint32_t get_width();
@@ -336,6 +337,13 @@ protected:
 		bool hidpi = true;
 		bool wide_gamut = true;
 		bool hdr = true;
+		bool hdr_linear {
+#if defined(__APPLE__)
+			true
+#else
+			false
+#endif
+		};
 
 		// VR
 		bool vr = false;

@@ -36,10 +36,10 @@ struct hdr_metadata_t {
 	float2 white_point { 0.3127f, 0.3290f };
 	//! nominal min/max luminance (in cd/m^2)
 	//! NOTE: with SMPTE ST.2086, min must be a multiple of 0.0001, max must be a multiple of 1
-	float2 luminance { 0.0001f, 1000.0f };
+	float2 luminance { 0.01f, 1000.0f };
 	//! upper bound on the maximum light level among all RGB samples (in cd/m^2),
 	//! i.e. the brightest pixel does not exceed this light level
-	float max_content_light_level { 2000.0f };
+	float max_content_light_level { 1000.0f };
 	//! upper bound on the maximum average light level among RGB samples (in cd/m^2),
 	//! i.e. the average brightness of all pixels does not exceed this light level
 	float max_average_light_level { 500.0f };

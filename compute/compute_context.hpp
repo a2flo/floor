@@ -313,6 +313,9 @@ public:
 	//! returns the current max possible/representable value of the renderer (defaults to 1.0)
 	virtual float get_hdr_range_max() const;
 	
+	//! returns the current max nits of the display that is used for rendering (defaults to 80 nits)
+	virtual float get_hdr_display_max_nits() const;
+	
 protected:
 	//! platform vendor enum (set after initialization)
 	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };

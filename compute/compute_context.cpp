@@ -164,3 +164,7 @@ const float2& compute_context::get_hdr_luminance_range() const {
 float compute_context::get_hdr_range_max() const {
 	return 1.0f;
 }
+
+float compute_context::get_hdr_display_max_nits() const {
+	return 80.0f;
+}

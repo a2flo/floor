@@ -899,9 +899,23 @@ void metal_compute::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
 
 float metal_compute::get_hdr_range_max() const {
 	if (view != nullptr) {
-		return darwin_helper::get_metal_view_edr_max(view);
+		const auto edr_max = darwin_helper::get_metal_view_edr_max(view);
+		if (edr_max <= 1.0f) {
+			// SDR
+			return 1.0f;
+		}
+		// normalize max nits to extended linear range (interpreting 1.0 as 80 nits):
+		// (max nits * (100 nits / 80 nits)) / 100 nits
+		return darwin_helper::get_metal_view_hdr_max_nits(view) * (1.0f / 80.0f);
 	}
 	return compute_context::get_hdr_range_max();
+}
+
+float metal_compute::get_hdr_display_max_nits() const {
+	if (view != nullptr) {
+		return darwin_helper::get_metal_view_hdr_max_nits(view);
+	}
+	return compute_context::get_hdr_display_max_nits();
 }
 
 #endif

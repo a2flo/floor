@@ -294,6 +294,13 @@ bool floor::init(const init_state& state) {
 		config.hidpi = config_doc.get<bool>("screen.hidpi", true);
 		config.wide_gamut = config_doc.get<bool>("screen.wide_gamut", true);
 		config.hdr = config_doc.get<bool>("screen.hdr", true);
+		config.hdr_linear = config_doc.get<bool>("screen.hdr_linear",
+#if defined(__APPLE__)
+												 true
+#else
+												 false
+#endif
+												 );
 
 #if !defined(FLOOR_NO_VR)
 		config.vr = config_doc.get<bool>("screen.vr.enabled", false);
@@ -1622,6 +1629,10 @@ bool floor::get_wide_gamut() {
 
 bool floor::get_hdr() {
 	return config.hdr;
+}
+
+bool floor::get_hdr_linear() {
+	return config.hdr_linear;
 }
 
 bool floor::get_vr() {

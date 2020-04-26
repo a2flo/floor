@@ -167,6 +167,8 @@ public:
 	
 	float get_hdr_range_max() const override;
 	
+	float get_hdr_display_max_nits() const override;
+	
 	//////////////////////////////////////////
 	// metal specific functions
 	
