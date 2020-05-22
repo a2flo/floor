@@ -55801,10 +55801,10 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..ad20ef2c5e7
+index 00000000000..49551c997f3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,1060 @@
+@@ -0,0 +1,1073 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -56131,6 +56131,7 @@ index 00000000000..ad20ef2c5e7
 +		
 +		// added vertex function args
 +		Argument* vertex_id { nullptr };
++		Argument* instance_id { nullptr };
 +		
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
@@ -56238,9 +56239,10 @@ index 00000000000..ad20ef2c5e7
 +		};
 +		
 +		enum METAL_VERTEX_ARG_REV_IDX : int32_t {
-+			METAL_VERTEX_ID = -1,
++			METAL_VERTEX_ID = -2,
++			METAL_INSTANCE_ID = -1,
 +			
-+			METAL_VERTEX_ARG_COUNT = 1,
++			METAL_VERTEX_ARG_COUNT = 2,
 +		};
 +		
 +		enum METAL_FRAGMENT_ARG_REV_IDX : int32_t {
@@ -56341,15 +56343,16 @@ index 00000000000..ad20ef2c5e7
 +			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
 +			if(is_vertex_func) {
 +				if (F.arg_size() >= METAL_VERTEX_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
-+					vertex_id = get_arg_by_idx(METAL_VERTEX_ID);
 +					// TODO: this should be optional / only happen on request
-+					// TODO: handle instance id
++					vertex_id = get_arg_by_idx(METAL_VERTEX_ID);
++					instance_id = get_arg_by_idx(METAL_INSTANCE_ID);
 +					if (has_soft_printf) {
 +						soft_printf = get_arg_by_idx(-(METAL_VERTEX_ARG_COUNT + 1));
 +					}
 +				} else {
 +					errs() << "invalid vertex function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					vertex_id = nullptr;
++					instance_id = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -56483,6 +56486,16 @@ index 00000000000..ad20ef2c5e7
 +				}
 +				
 +				I.replaceAllUsesWith(vertex_id);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_instance_id.i32") {
++				if(instance_id == nullptr) {
++					DBG(printf("failed to get instance_id arg, probably not in a vertex function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				I.replaceAllUsesWith(instance_id);
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -62074,10 +62087,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..c07f8a5028c
+index 00000000000..17036761546
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1509 @@
+@@ -0,0 +1,1522 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -62185,6 +62198,7 @@ index 00000000000..c07f8a5028c
 +		
 +		// added vertex function args
 +		Argument* vertex_id { nullptr };
++		Argument* instance_id { nullptr };
 +		
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
@@ -62215,10 +62229,11 @@ index 00000000000..c07f8a5028c
 +		};
 +		
 +		enum VULKAN_VERTEX_ARG_REV_IDX : int32_t {
-+			VULKAN_VERTEX_ID = -2,
-+			VULKAN_VERTEX_VIEW_INDEX = -1,
++			VULKAN_VERTEX_ID = -3,
++			VULKAN_VERTEX_VIEW_INDEX = -2,
++			VULKAN_INSTANCE_ID = -1,
 +			
-+			VULKAN_VERTEX_ARG_COUNT = 2,
++			VULKAN_VERTEX_ARG_COUNT = 3,
 +		};
 +		
 +		enum VULKAN_FRAGMENT_ARG_REV_IDX : int32_t {
@@ -62282,10 +62297,10 @@ index 00000000000..c07f8a5028c
 +			// add args if this is a vertex function
 +			if(is_vertex_func) {
 +				if (F.arg_size() >= VULKAN_VERTEX_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
++					// TODO: this should be optional / only happen on request
 +					vertex_id = get_arg_by_idx(VULKAN_VERTEX_ID);
 +					view_index = get_arg_by_idx(VULKAN_VERTEX_VIEW_INDEX);
-+					// TODO: this should be optional / only happen on request
-+					// TODO: handle instance id
++					instance_id = get_arg_by_idx(VULKAN_INSTANCE_ID);
 +					if (has_soft_printf) {
 +						soft_printf = get_arg_by_idx(-(VULKAN_VERTEX_ARG_COUNT + 1));
 +					}
@@ -62293,6 +62308,7 @@ index 00000000000..c07f8a5028c
 +					errs() << "invalid vertex function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					vertex_id = nullptr;
 +					view_index = nullptr;
++					instance_id = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -62410,6 +62426,16 @@ index 00000000000..c07f8a5028c
 +				}
 +				
 +				I.replaceAllUsesWith(builder->CreateLoad(vertex_id, "vertex_index"));
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.builtin.instance_id.i32") {
++				if(instance_id == nullptr) {
++					DBG(printf("failed to get instance_id arg, probably not in a vertex function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				I.replaceAllUsesWith(builder->CreateLoad(instance_id, "instance_index"));
 +				I.eraseFromParent();
 +				return;
 +			}
