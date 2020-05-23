@@ -407,12 +407,6 @@ namespace universal_binary {
 					mtl_dev.image_cube_array_support = true;
 					mtl_dev.image_cube_array_write_support = true;
 					
-					// sub-group/shuffle support on Metal 2.0+
-					if (mtl_dev.metal_language_version >= METAL_VERSION::METAL_2_0) {
-						mtl_dev.sub_group_support = true;
-						mtl_dev.sub_group_shuffle_support = true;
-					}
-					
 					// special vendor workarounds/settings + SIMD handling
 					switch (mtl_target.device_target) {
 						default:
@@ -433,6 +427,12 @@ namespace universal_binary {
 							mtl_dev.vendor = COMPUTE_VENDOR::AMD;
 							mtl_dev.simd_width = 64;
 							break;
+					}
+					// sub-group/shuffle support on Metal 2.0+, if SIMD width is known as well
+					if (mtl_dev.metal_language_version >= METAL_VERSION::METAL_2_0 &&
+						mtl_dev.simd_width > 0) {
+						mtl_dev.sub_group_support = true;
+						mtl_dev.sub_group_shuffle_support = true;
 					}
 					if (mtl_target.device_target != decltype(mtl_target.device_target)::GENERIC) {
 						// fixed SIMD width must match requested one

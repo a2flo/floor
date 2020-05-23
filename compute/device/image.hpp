@@ -383,6 +383,8 @@ namespace floor_image {
 		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
 		static constexpr bool is_read_write() { return is_readable() && is_writable(); }
 		
+		static constexpr bool is_array() { return has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type); }
+		
 #if !defined(FLOOR_COMPUTE_HOST) // opencl/metal/cuda coordinate conversion
 		//! convert any coordinate vector type to int* or float* clang vector types
 		template <typename coord_type>

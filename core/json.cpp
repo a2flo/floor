@@ -118,7 +118,7 @@ json_value::~json_value() {
 			// nop
 			break;
 		case VALUE_TYPE::OBJECT:
-			object.members.~vector();
+			object.members.~unordered_map();
 			break;
 		case VALUE_TYPE::ARRAY:
 			array.values.~vector();
@@ -151,11 +151,13 @@ void json_value::print(const uint32_t depth) const {
 		case VALUE_TYPE::OBJECT: {
 			const string space_string((depth + 1) * 4, ' ');
 			cout << "{" << endl;
-			for(size_t i = 0, count = size(object.members); i < count; ++i) {
-				cout << space_string << '\"' << object.members[i].key << "\": ";
-				object.members[i].value.print(depth + 1);
-				if(i < count - 1) cout << ",";
+			size_t i = 0, count = size(object.members);
+			for (const auto& entry : object.members) {
+				cout << space_string << '\"' << entry.first << "\": ";
+				entry.second.print(depth + 1);
+				if (i < count - 1) cout << ",";
 				cout << endl;
+				++i;
 			}
 			cout << string(depth * 4, ' ') << "}";
 			break;
@@ -788,8 +790,8 @@ struct json_grammar {
 							json_value val { json_value::VALUE_TYPE::OBJECT };
 							auto onode = (object_node*)jnode;
 							for(auto& obj : onode->objects) {
-								val.object.members.emplace_back(move(((member_node*)obj.get())->name),
-																move(((value_node*)((member_node*)obj.get())->value.get())->value));
+								val.object.members.emplace(move(((member_node*)obj.get())->name),
+														   move(((value_node*)((member_node*)obj.get())->value.get())->value));
 							}
 							onode->objects.clear();
 							return { make_unique<value_node>(move(val)) };
@@ -954,17 +956,17 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 		const auto& key = path_stack[i];
 		bool found = false;
 		for(const auto& member : cur_node->object.members) {
-			if(member.key == key) {
+			if(member.first == key) {
 				// is leaf?
 				if(i == count - 1) {
-					const auto ret = member.value.get<T>();
+					const auto ret = member.second.get<T>();
 					if(!ret.first) {
 						log_error("type mismatch: value of \"%s\" is not of the requested type!", path);
 					}
 					return ret;
 				}
 				// set to next child node
-				cur_node = &member.value;
+				cur_node = &member.second;
 				found = true;
 				break;
 			}

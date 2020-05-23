@@ -39,27 +39,16 @@
 #include <dirent.h>
 #endif
 
-/*! there is no function currently
- */
-file_io::file_io() {
-}
-
 file_io::file_io(const string& filename_, const OPEN_TYPE open_type_) {
 	open(filename_, open_type_);
 }
 
-/*! there is no function currently
- */
 file_io::~file_io() {
 	if(filestream.is_open()) {
 		close();
 	}
 }
 
-/*! opens a input file stream
- *  @param filename the name of the file
- *  @param open_type enum that specifies how we want to open the file (like "r", "wb", etc. ...)
- */
 bool file_io::open(const string& filename_, OPEN_TYPE open_type_) {
 	if(check_open()) {
 		log_error("a file is already opened! can't open another file!");
@@ -113,8 +102,6 @@ bool file_io::open(const string& filename_, OPEN_TYPE open_type_) {
 	return true;
 }
 
-/*! closes the input file stream
- */
 void file_io::close() {
 	filestream.close();
 	filestream.clear();

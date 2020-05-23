@@ -23,6 +23,9 @@
 #include <memory>
 #include <vector>
 #include <type_traits>
+#if defined(FLOOR_CXX20)
+#include <span>
+#endif
 using namespace std;
 
 class compute_buffer;
@@ -55,6 +58,11 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const derived_image_t* img) noexcept : var((const compute_image*)img) {}
 	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
 	constexpr compute_kernel_arg(const derived_image_t& img) noexcept : var((const compute_image*)&img) {}
+
+#if defined(FLOOR_CXX20)
+	// span arg with CPU storage
+	constexpr compute_kernel_arg(const span<const uint8_t>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+#endif
 	
 	// generic arg with CPU storage
 	template <typename T, enable_if_t<(!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&

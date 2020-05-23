@@ -22,9 +22,8 @@
 #include <floor/core/cpp_headers.hpp>
 
 namespace json {
-	struct json_member;
 	struct json_value;
-	typedef vector<json_member> json_object;
+	typedef unordered_map<string, json_value> json_object;
 	typedef vector<json_value> json_array;
 	
 	//! json value (keyword, object, array, number or string)
@@ -142,6 +141,16 @@ namespace json {
 			return { true, array.values };
 		}
 		
+		//! gets this value as type "T" or throws if this value is not of the specified type
+		template <typename T>
+		T get_or_throw() const {
+			const auto ret = get<T>();
+			if (!ret.first) {
+				throw runtime_error("json_value is not of type "s + typeid(T).name());
+			}
+			return ret.second;
+		}
+		
 		void print(const uint32_t depth = 0) const;
 		
 		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
@@ -162,16 +171,6 @@ namespace json {
 		// init as double precision floating point
 		json_value(const double& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
 		~json_value();
-	};
-	
-	//! json member -> "key" : <value>
-	struct json_member {
-		string key;
-		json_value value;
-		
-		json_member(json_member&& member_) : key(move(member_.key)), value(move(member_.value)) {}
-		json_member(string&& key_, json_value&& value_) : key(move(key_)), value(move(value_)) {}
-		json_member(const json_member& member_) = default;
 	};
 	
 	//! json document, root is always a json value

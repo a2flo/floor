@@ -37,23 +37,17 @@ public:
 		APPEND_READ_BINARY
 	};
 	
-	file_io();
+	file_io() = default;
 	file_io(const string& filename, const OPEN_TYPE open_type = OPEN_TYPE::READWRITE_BINARY);
 	file_io(file_io&& fio) = default;
 	~file_io();
 	file_io& operator=(file_io&& fio) = default;
 	
-	enum class FILE_TYPE : unsigned int {
-		NONE,			//!< any file or folder
-		DIR,			//!< any folder
-		TEXT,			//!< *.txt
-		IMAGE,			//!< *.png
-		XML,			//!< *.xml
-		OPENCL,			//!< *.cl *.clh *.h
-		A2E_MODEL,		//!< *.a2m
-		A2E_ANIMATION,	//!< *.a2a
-		A2E_MATERIAL,	//!< *.a2mat
-		A2E_UI,			//!< *.a2eui
+	enum class FILE_TYPE : uint32_t {
+		//! any file
+		NONE,
+		//! any folder
+		DIR,
 	};
 	
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
@@ -67,6 +61,7 @@ public:
 	static bool string_to_file(const string& filename, const string& str);
 	static bool buffer_to_file(const string& filename, const char* buffer, const size_t& size);
 
+	//! opens the "filename" file with the specified "open_type" (read, write-binary, ...)
 	bool open(const string& filename, OPEN_TYPE open_type);
 	void close();
 	long long int get_filesize();

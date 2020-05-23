@@ -30,23 +30,23 @@ uint64_t compute_queue::stop_profiling() {
 	return core::unix_timestamp_us() - us_prof_start;
 }
 
-void compute_queue::kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const bool is_cooperative,
 											 const uint1& global_size, const uint1& local_size,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel->execute(*this, is_cooperative, 1, uint3 { global_size }, uint3 { local_size }, args);
+	kernel.execute(*this, is_cooperative, 1, uint3 { global_size }, uint3 { local_size }, args);
 }
 
-void compute_queue::kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const bool is_cooperative,
 											 const uint2& global_size, const uint2& local_size,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel->execute(*this, is_cooperative, 2, uint3 { global_size }, uint3 { local_size }, args);
+	kernel.execute(*this, is_cooperative, 2, uint3 { global_size }, uint3 { local_size }, args);
 }
 
-void compute_queue::kernel_execute_forwarder(shared_ptr<compute_kernel> kernel,
+void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const bool is_cooperative,
 											 const uint3& global_size, const uint3& local_size,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel->execute(*this, is_cooperative, 3, global_size, local_size, args);
+	kernel.execute(*this, is_cooperative, 3, global_size, local_size, args);
 }

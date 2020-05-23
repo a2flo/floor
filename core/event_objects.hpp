@@ -32,7 +32,7 @@ enum class EVENT_TYPE : uint32_t {
 	__MOUSE_EVENT			= (1u << 29u),
 	__KEY_EVENT				= (1u << 28u),
 	__TOUCH_EVENT			= (1u << 27u),
-	__GUI_EVENT				= (1u << 26u),
+	__UI_EVENT				= (1u << 26u),
 	__VR_CONTROLLER_EVENT	= (1u << 25u),
 	
 	MOUSE_LEFT_DOWN = __MOUSE_EVENT + 1,

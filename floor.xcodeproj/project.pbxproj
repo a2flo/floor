@@ -347,6 +347,7 @@
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 		5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */; };
 		5CFB8CC922906D6500BF387F /* platform_windows.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CFB8CC822906D6200BF387F /* platform_windows.hpp */; };
+		5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -645,6 +646,7 @@
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
 		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
 		5CFB8CC822906D6200BF387F /* platform_windows.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = platform_windows.hpp; sourceTree = "<group>"; };
+		5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_memory_flags.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1001,6 +1003,7 @@
 				5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */,
 				5C8FD0D41AD3983000215230 /* compute_memory.cpp */,
 				5C8FD0D21AD3947200215230 /* compute_memory.hpp */,
+				5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */,
 				5CEEA6D41A4EE171005239DA /* compute_program.cpp */,
 				5CEEA6D51A4EE171005239DA /* compute_program.hpp */,
 				5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */,
@@ -1314,6 +1317,7 @@
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
+				5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */,
 				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
 				5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */,
 				5CBBFF581BC2B786001813E0 /* image.hpp in Headers */,
