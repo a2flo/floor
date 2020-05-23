@@ -270,6 +270,10 @@ for arg in "$@"; do
 	esac
 done
 
+if [ ${BUILD_CONF_CXX20} -gt 0 -a ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
+	error "building with libstdc++ in C++20 mode is not supported right now"
+fi
+
 ##########################################
 # target and build environment setup
 
