@@ -118,7 +118,7 @@ json_value::~json_value() {
 			// nop
 			break;
 		case VALUE_TYPE::OBJECT:
-			object.members.~unordered_map();
+			object.members.~flat_map();
 			break;
 		case VALUE_TYPE::ARRAY:
 			array.values.~vector();

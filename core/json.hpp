@@ -20,10 +20,11 @@
 #define __FLOOR_JSON_HPP__
 
 #include <floor/core/cpp_headers.hpp>
+#include <floor/core/flat_map.hpp>
 
 namespace json {
 	struct json_value;
-	typedef unordered_map<string, json_value> json_object;
+	typedef flat_map<string, json_value> json_object;
 	typedef vector<json_value> json_array;
 	
 	//! json value (keyword, object, array, number or string)
@@ -146,7 +147,11 @@ namespace json {
 		T get_or_throw() const {
 			const auto ret = get<T>();
 			if (!ret.first) {
+#if !defined(FLOOR_NO_EXCEPTIONS)
 				throw runtime_error("json_value is not of type "s + typeid(T).name());
+#else
+				return {};
+#endif
 			}
 			return ret.second;
 		}

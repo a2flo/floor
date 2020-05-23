@@ -22,6 +22,7 @@
 #include <functional>
 #include <algorithm>
 #include <vector>
+#include <exception>
 using namespace std;
 
 //! simple <key, value> map backed by a vector stored contiguously in memory (hence flat map),
@@ -120,6 +121,34 @@ public:
 		return insert_or_assign(key, value_type {})->second;
 	}
 	
+	//! look up 'key' and if found, return its associated value,
+	//! if not found, throws std::out_of_range
+	value_type& at(const key_type& key) {
+		const auto iter = find(key);
+		if (iter == end()) {
+#if !defined(FLOOR_NO_EXCEPTIONS)
+			throw out_of_range("key not found");
+#else
+			exit(-1);
+#endif
+		}
+		return iter->second;
+	}
+	
+	//! look up 'key' and if found, return its associated value,
+	//! if not found, throws std::out_of_range
+	const value_type& at(const key_type& key) const {
+		const auto iter = find(key);
+		if (iter == end()) {
+#if !defined(FLOOR_NO_EXCEPTIONS)
+			throw out_of_range("key not found");
+#else
+			exit(-1);
+#endif
+		}
+		return iter->second;
+	}
+	
 	//! returns a <found flag, iterator> pair, returning <true, iterator to <key, value>> if 'key' was found,
 	//! and <false, end()> if 'key' was not found (will not modify this object)
 	pair<bool, iterator> get(const key_type& key) {
@@ -153,6 +182,16 @@ public:
 			return { false, iter };
 		}
 		return { true, data.emplace(end(), key, value) };
+	}
+	
+	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<true, iterator to it>,
+	//! or returns pair<false, iterator to the current <key, value> entry> if it already exists
+	pair<bool, iterator> emplace(key_type&& key, value_type&& value) {
+		auto iter = find(key);
+		if(iter != end()) {
+			return { false, iter };
+		}
+		return { true, data.emplace(end(), move(key), move(value)) };
 	}
 	
 	//! erases the <key, value> pair at 'iter',
