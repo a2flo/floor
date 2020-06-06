@@ -36,7 +36,7 @@ public:
 					const bool multi_view_ = false);
 	~vulkan_renderer() override;
 	
-	bool begin() override;
+	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
 	bool commit() override;
 	

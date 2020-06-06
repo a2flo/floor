@@ -54,19 +54,36 @@ graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 	valid = true;
 }
 
-bool metal_renderer::begin() {
+bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 	const auto& mtl_pass = (const metal_pass&)pass;
 	const auto mtl_pass_desc_template = mtl_pass.get_metal_pass_desc(multi_view);
 	
 	MTLRenderPassDescriptor* mtl_pass_desc = [mtl_pass_desc_template copy];
 	
+	if (dynamic_render_state.clear_values &&
+		dynamic_render_state.clear_values->size() != attachments_map.size() + (depth_attachment ? 1u : 0u)) {
+		log_error("invalid clear values size: %u", dynamic_render_state.clear_values->size());
+		return false;
+	}
+	
 	// must set/update attachments (and drawable) before creating the encoder
+	uint32_t attachment_idx = 0;
 	for (const auto& att : attachments_map) {
 		mtl_pass_desc.colorAttachments[att.first].texture = ((const metal_image*)att.second)->get_metal_image();
+		if (dynamic_render_state.clear_values) {
+			const auto dbl_clear_color = (*dynamic_render_state.clear_values)[attachment_idx].color.cast<double>();
+			mtl_pass_desc.colorAttachments[att.first].clearColor = MTLClearColorMake(dbl_clear_color.x, dbl_clear_color.y,
+																					 dbl_clear_color.z, dbl_clear_color.w);
+		}
+		++attachment_idx;
 	}
 	if (depth_attachment != nullptr) {
 		mtl_pass_desc.depthAttachment.texture = ((const metal_image*)depth_attachment)->get_metal_image();
+		if (dynamic_render_state.clear_values) {
+			mtl_pass_desc.depthAttachment.clearDepth = double((*dynamic_render_state.clear_values)[attachment_idx].depth);
+		}
+		++attachment_idx;
 	}
 	
 	// create and setup the encoder
@@ -82,17 +99,53 @@ bool metal_renderer::begin() {
 	
 	// viewport handling:
 	// since Metal uses top-left origin for framebuffers, flip the viewport vertically, so that the origin is where it's supposed to be
-	const MTLViewport viewport {
-		.originX = 0.0,
-		.originY = double(pipeline_desc.viewport.y),
-		.width = double(pipeline_desc.viewport.x),
-		.height = -double(pipeline_desc.viewport.y),
-		.znear = double(pipeline_desc.depth.range.x),
-		.zfar = double(pipeline_desc.depth.range.y)
-	};
+	MTLViewport viewport;
+	if (!dynamic_render_state.viewport) {
+		viewport = {
+			.originX = 0.0,
+			.originY = double(pipeline_desc.viewport.y),
+			.width = double(pipeline_desc.viewport.x),
+			.height = -double(pipeline_desc.viewport.y),
+			.znear = double(pipeline_desc.depth.range.x),
+			.zfar = double(pipeline_desc.depth.range.y)
+		};
+	} else {
+		viewport = {
+			.originX = 0.0,
+			.originY = double(dynamic_render_state.viewport->y),
+			.width = double(dynamic_render_state.viewport->x),
+			.height = -double(dynamic_render_state.viewport->y),
+			.znear = double(pipeline_desc.depth.range.x),
+			.zfar = double(pipeline_desc.depth.range.y)
+		};
+	}
 	[encoder setViewport:viewport];
 	
-	// TODO: scissor handling
+	// scissor handling:
+	MTLScissorRect scissor_rect;
+	if (!dynamic_render_state.scissor) {
+		scissor_rect = {
+			.x = pipeline_desc.scissor.offset.x,
+			.y = pipeline_desc.scissor.offset.y,
+			.width = pipeline_desc.scissor.extent.x,
+			.height = pipeline_desc.scissor.extent.y
+		};
+	} else {
+		scissor_rect = {
+			.x = dynamic_render_state.scissor->offset.x,
+			.y = dynamic_render_state.scissor->offset.y,
+			.width = dynamic_render_state.scissor->extent.x,
+			.height = dynamic_render_state.scissor->extent.y
+		};
+	}
+	if (scissor_rect.x + scissor_rect.width > (uint32_t)viewport.width ||
+		scissor_rect.y + scissor_rect.height > (uint32_t)viewport.height) {
+		log_error("scissor rectangle is out-of-bounds: @%v + %v > %v",
+				  ulong2 { scissor_rect.x, scissor_rect.y }, ulong2 { scissor_rect.width, scissor_rect.height },
+				  double2 { viewport.width, viewport.height });
+		return false;
+	}
+	[encoder setScissorRect:scissor_rect];
 	
 	[encoder pushDebugGroup:@"metal_renderer render"];
 	[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];

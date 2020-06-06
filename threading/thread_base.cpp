@@ -121,12 +121,11 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 }
 
 void thread_base::finish() {
-	if(thread_obj != nullptr) {
-		if((get_thread_status() == THREAD_STATUS::FINISHED || get_thread_status() == THREAD_STATUS::INIT) &&
-		   !thread_obj->joinable()) {
+	if (thread_obj != nullptr) {
+		if ((get_thread_status() == THREAD_STATUS::FINISHED && !thread_obj->joinable()) ||
+			get_thread_status() == THREAD_STATUS::INIT) {
 			// already finished or uninitialized, nothing to do here
-		}
-		else {
+		} else {
 			// signal thread to finish
 			set_thread_should_finish();
 			
@@ -134,7 +133,9 @@ void thread_base::finish() {
 			this_thread::sleep_for(100ms);
 			
 			// this will block until the thread is finished
-			if(thread_obj->joinable()) thread_obj->join();
+			if (thread_obj->joinable()) {
+				thread_obj->join();
+			}
 		}
 		
 		// finally: kill the thread object

@@ -61,7 +61,8 @@ struct compute_kernel_arg {
 
 #if defined(FLOOR_CXX20)
 	// span arg with CPU storage
-	constexpr compute_kernel_arg(const span<const uint8_t>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+	template <typename data_type>
+	constexpr compute_kernel_arg(const span<data_type>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
 #endif
 	
 	// generic arg with CPU storage

@@ -40,7 +40,7 @@ static MTLRenderPassDescriptor* create_metal_render_pass_desc_from_description(c
 			pass_desc.colorAttachments[color_att_counter].storeAction = metal_pass::metal_store_action_from_store_op(att.store_op);
 			const auto dbl_clear_color = att.clear.color.cast<double>();
 			pass_desc.colorAttachments[color_att_counter].clearColor = MTLClearColorMake(dbl_clear_color.x, dbl_clear_color.y,
-																							 dbl_clear_color.z, dbl_clear_color.w);
+																						 dbl_clear_color.z, dbl_clear_color.w);
 			++color_att_counter;
 		}
 	}

@@ -127,7 +127,11 @@ public:
 		const auto iter = find(key);
 		if (iter == end()) {
 #if !defined(FLOOR_NO_EXCEPTIONS)
-			throw out_of_range("key not found");
+			if constexpr (is_same_v<key_type, string> || is_same_v<key_type, string_view>) {
+				throw out_of_range("key not found: " + string(key));
+			} else {
+				throw out_of_range("key not found");
+			}
 #else
 			exit(-1);
 #endif
@@ -141,7 +145,11 @@ public:
 		const auto iter = find(key);
 		if (iter == end()) {
 #if !defined(FLOOR_NO_EXCEPTIONS)
-			throw out_of_range("key not found");
+			if constexpr (is_same_v<key_type, string> || is_same_v<key_type, string_view>) {
+				throw out_of_range("key not found: " + string(key));
+			} else {
+				throw out_of_range("key not found");
+			}
 #else
 			exit(-1);
 #endif

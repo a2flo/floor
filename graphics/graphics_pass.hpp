@@ -40,6 +40,14 @@ enum class STORE_OP {
 	DONT_CARE,
 };
 
+//! attachment clear color/depth
+struct clear_value_t {
+	//! RGBA color clear value
+	float4 color { 0.0f, 0.0f, 0.0f, 0.0f };
+	//! depth clear value
+	float depth { 1.0f };
+};
+
 //! full pass description used to create pass objects
 //! NOTE: for now, this always consists of a single sub-pass
 struct render_pass_description {
@@ -56,12 +64,7 @@ struct render_pass_description {
 		STORE_OP store_op { STORE_OP::STORE };
 		//! attachment clear color/depth if "load_op" is LOAD_OP::CLEAR
 		//! depending on "format", either clear.color or clear.depth is active
-		struct {
-			//! RGBA color clear value
-			float4 color { 0.0f, 0.0f, 0.0f, 0.0f };
-			//! depth clear value
-			float depth { 1.0f };
-		} clear;
+		clear_value_t clear {};
 		//! if enabled and "automatic_multi_view_handling" is enabled as well, allow automatic format transformation of this to a layer format
 		//! NOTE: this flag enables per-attachment multi-view deactivation if only a singular attachment is wanted
 		bool automatic_multi_view_transformation { true };

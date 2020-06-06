@@ -161,7 +161,7 @@ bool vulkan_renderer::create_cmd_buffer() {
 	return true;
 }
 
-bool vulkan_renderer::begin() {
+bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	const auto& vk_pass = (const vulkan_pass&)pass;
 	
 	// create framebuffer(s) for this pass
@@ -181,22 +181,78 @@ bool vulkan_renderer::begin() {
 	
 	// actually begin the render pass
 	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
-	const VkViewport viewport {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = (float)pipeline_desc.viewport.x,
-		.height = (float)pipeline_desc.viewport.y,
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
-	};
-	const VkRect2D render_area {
-		.offset = { 0, 0 },
-		.extent = { pipeline_desc.viewport.x, pipeline_desc.viewport.y },
-	};
+	
+	VkViewport viewport;
+	if (!dynamic_render_state.viewport) {
+		viewport = {
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = (float)pipeline_desc.viewport.x,
+			.height = (float)pipeline_desc.viewport.y,
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f,
+		};
+	} else {
+		viewport = {
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = (float)dynamic_render_state.viewport->x,
+			.height = (float)dynamic_render_state.viewport->y,
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f,
+		};
+	}
 	vkCmdSetViewport(cmd_buffer.cmd_buffer, 0, 1, &viewport);
+	
+	VkRect2D render_area;
+	if (!dynamic_render_state.scissor) {
+		render_area = {
+			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+			.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
+			.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
+		};
+	} else {
+		render_area = {
+			.offset = { int(dynamic_render_state.scissor->offset.x), int(dynamic_render_state.scissor->offset.y) },
+			.extent = { dynamic_render_state.scissor->extent.x, dynamic_render_state.scissor->extent.y },
+		};
+	}
+	if (uint32_t(render_area.offset.x) + render_area.extent.width > (uint32_t)viewport.width ||
+		uint32_t(render_area.offset.y) + render_area.extent.height > (uint32_t)viewport.height) {
+		log_error("scissor rectangle is out-of-bounds: @%v + %v > %v",
+				  int2 { render_area.offset.x, render_area.offset.y }, uint2 { render_area.extent.width, render_area.extent.height },
+				  float2 { viewport.width, viewport.height });
+		return false;
+	}
 	vkCmdSetScissor(cmd_buffer.cmd_buffer, 0, 1, &render_area);
 	
-	const auto& clear_values = vk_pass.get_vulkan_clear_values(multi_view);
+	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);
+	vector<VkClearValue> clear_values;
+	if (dynamic_render_state.clear_values) {
+		if (dynamic_render_state.clear_values->size() != pass_clear_values.size()) {
+			log_error("invalid clear values size: %u", dynamic_render_state.clear_values->size());
+			return false;
+		}
+		
+		clear_values.reserve(dynamic_render_state.clear_values->size());
+		const bool has_depth = (depth_attachment != nullptr);
+		const auto depth_cv_idx = (dynamic_render_state.clear_values->size() - 1u);
+		for (uint32_t attachment_idx = 0, attachment_count = uint32_t(dynamic_render_state.clear_values->size());
+			 attachment_idx < attachment_count; ++attachment_idx) {
+			const auto& clear_value = (*dynamic_render_state.clear_values)[attachment_idx];
+			if (!has_depth || attachment_idx != depth_cv_idx) {
+				clear_values.emplace_back(VkClearValue {
+					.color = { .float32 = { clear_value.color.x, clear_value.color.y, clear_value.color.z, clear_value.color.w }, }
+				});
+			} else {
+				clear_values.emplace_back(VkClearValue {
+					.depthStencil = { .depth = clear_value.depth, .stencil = 0 }
+				});
+			}
+		}
+	} else {
+		clear_values = pass_clear_values;
+	}
 	const VkRenderPassBeginInfo pass_begin_info {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.pNext = nullptr,

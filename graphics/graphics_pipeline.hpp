@@ -106,7 +106,7 @@ struct render_pipeline_description {
 	//! scissor testing / only render within an area of the screen
 	struct scissor_t {
 		//! offset within the viewport, (0, 0) is left top
-		int2 offset { 0, 0 };
+		uint2 offset { 0, 0 };
 		//! (width, height) extent of the scissor area
 		//! NOTE: if set to ~0u, extent will be set to cover the whole viewport
 		uint2 extent { ~0u, ~0u };

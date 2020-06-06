@@ -386,6 +386,8 @@ protected:
 		bool keep_binaries = true;
 		bool use_cache = true;
 		bool log_commands = false;
+		bool internal_skip_toolchain_check = false;
+		uint32_t internal_claim_toolchain_version = 0u;
 		
 		// compute toolchain
 		string default_compiler = "clang";

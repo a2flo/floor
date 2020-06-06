@@ -343,6 +343,8 @@ bool floor::init(const init_state& state) {
 		config.keep_binaries = config_doc.get<bool>("toolchain.keep_binaries", true);
 		config.use_cache = config_doc.get<bool>("toolchain.use_cache", true);
 		config.log_commands = config_doc.get<bool>("toolchain.log_commands", false);
+		config.internal_skip_toolchain_check = config_doc.get<bool>("toolchain._skip_toolchain_check", false);
+		config.internal_claim_toolchain_version = config_doc.get<uint32_t>("toolchain._claim_toolchain_version", 0u);
 		
 		//
 		const auto extract_whitelist = [](vector<string>& ret, const string& config_entry_name) {
@@ -467,29 +469,33 @@ bool floor::init(const init_state& state) {
 			if(!file_io::is_directory(path_str + "/floor")) continue;
 			if(!file_io::is_directory(path_str + "/libcxx")) continue;
 			
-			// get the toolchain (clang) version
-			// NOTE: this also checks if clang is actually callable (-> non-viable if not)
-			string version_output = "";
-			core::system("\"" + path_str + "/bin/" + compiler + "\" --version", version_output);
-			
-			// e.g. "clang version 3.5.2 (...)" -> want 3.5.2
-			static constexpr const char clang_version_str[] { "clang version " };
-			const auto clang_version_pos = version_output.find(clang_version_str);
-			if(clang_version_pos == string::npos) continue;
-			const auto version_start_pos = clang_version_pos + size(clang_version_str) - 1 /* \0 */;
-			const auto next_space_pos = version_output.find(' ', version_start_pos);
-			if(next_space_pos == string::npos) continue;
-			if(next_space_pos - version_start_pos < 5 /* at least len("3.5.2") */) continue;
-			
-			const auto major_dot_pos = version_output.find('.', version_start_pos + 1);
-			if(major_dot_pos == string::npos || major_dot_pos > next_space_pos) continue;
-			
-			const auto minor_dot_pos = version_output.find('.', major_dot_pos + 1);
-			if(minor_dot_pos == string::npos || minor_dot_pos > next_space_pos) continue;
-			
-			toolchain_version = 10000u * stou(version_output.substr(version_start_pos, major_dot_pos - version_start_pos));
-			toolchain_version += 100u * stou(version_output.substr(major_dot_pos + 1, minor_dot_pos - major_dot_pos));
-			toolchain_version += stou(version_output.substr(minor_dot_pos + 1, next_space_pos - minor_dot_pos));
+			if (!config.internal_skip_toolchain_check) {
+				// get the toolchain (clang) version
+				// NOTE: this also checks if clang is actually callable (-> non-viable if not)
+				string version_output = "";
+				core::system("\"" + path_str + "/bin/" + compiler + "\" --version", version_output);
+				
+				// e.g. "clang version 3.5.2 (...)" -> want 3.5.2
+				static constexpr const char clang_version_str[] { "clang version " };
+				const auto clang_version_pos = version_output.find(clang_version_str);
+				if(clang_version_pos == string::npos) continue;
+				const auto version_start_pos = clang_version_pos + size(clang_version_str) - 1 /* \0 */;
+				const auto next_space_pos = version_output.find(' ', version_start_pos);
+				if(next_space_pos == string::npos) continue;
+				if(next_space_pos - version_start_pos < 5 /* at least len("3.5.2") */) continue;
+				
+				const auto major_dot_pos = version_output.find('.', version_start_pos + 1);
+				if(major_dot_pos == string::npos || major_dot_pos > next_space_pos) continue;
+				
+				const auto minor_dot_pos = version_output.find('.', major_dot_pos + 1);
+				if(minor_dot_pos == string::npos || minor_dot_pos > next_space_pos) continue;
+				
+				toolchain_version = 10000u * stou(version_output.substr(version_start_pos, major_dot_pos - version_start_pos));
+				toolchain_version += 100u * stou(version_output.substr(major_dot_pos + 1, minor_dot_pos - major_dot_pos));
+				toolchain_version += stou(version_output.substr(minor_dot_pos + 1, next_space_pos - minor_dot_pos));
+			} else {
+				toolchain_version = config.internal_claim_toolchain_version;
+			}
 			
 			// check additional bins after getting the toolchain version
 			bool found_additional_bins = true;
@@ -518,10 +524,10 @@ bool floor::init(const init_state& state) {
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
 															vector<pair<uint2, string*>> {
-																{ { 30800u, ~0u }, &config.opencl_spirv_encoder },
-																{ { 30800u, ~0u }, &config.opencl_spirv_as },
-																{ { 30800u, ~0u }, &config.opencl_spirv_dis },
-																{ { 30800u, ~0u }, &config.opencl_spirv_validator },
+																{ { 80000u, ~0u }, &config.opencl_spirv_encoder },
+																{ { 80000u, ~0u }, &config.opencl_spirv_as },
+																{ { 80000u, ~0u }, &config.opencl_spirv_dis },
+																{ { 80000u, ~0u }, &config.opencl_spirv_validator },
 															});
 		if(config.opencl_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
@@ -588,10 +594,10 @@ bool floor::init(const init_state& state) {
 															config.vulkan_compiler, config.vulkan_llc,
 															config.vulkan_as, config.vulkan_dis,
 															vector<pair<uint2, string*>> {
-																{ { 30800u, ~0u }, &config.vulkan_spirv_encoder },
-																{ { 30800u, ~0u }, &config.vulkan_spirv_as },
-																{ { 30800u, ~0u }, &config.vulkan_spirv_dis },
-																{ { 30800u, ~0u }, &config.vulkan_spirv_validator },
+																{ { 80000u, ~0u }, &config.vulkan_spirv_encoder },
+																{ { 80000u, ~0u }, &config.vulkan_spirv_as },
+																{ { 80000u, ~0u }, &config.vulkan_spirv_dis },
+																{ { 80000u, ~0u }, &config.vulkan_spirv_validator },
 															});
 		if(config.vulkan_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways

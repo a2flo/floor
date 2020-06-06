@@ -107,7 +107,8 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 		.maxDepth = pipeline_desc.depth.range.y,
 	};
 	const VkRect2D scissor_rect {
-		.offset = { pipeline_desc.scissor.offset.x, pipeline_desc.scissor.offset.y },
+		// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+		.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
 		.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
 	};
 	const VkPipelineViewportStateCreateInfo viewport_state {
@@ -228,6 +229,18 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 		return false;
 	}
 
+	// allow dynamic change of viewport and scissor
+	const array dyn_state_arr {
+		VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
+		VkDynamicState::VK_DYNAMIC_STATE_SCISSOR,
+	};
+	const VkPipelineDynamicStateCreateInfo dyn_state {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.dynamicStateCount = size(dyn_state_arr),
+		.pDynamicStates = &dyn_state_arr[0],
+	};
 	const VkGraphicsPipelineCreateInfo gfx_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
@@ -242,7 +255,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 		.pMultisampleState = &multisample_state,
 		.pDepthStencilState = (has_depth_attachment ? &depth_stencil_state : nullptr),
 		.pColorBlendState = &color_blend_state,
-		.pDynamicState = nullptr,
+		.pDynamicState = &dyn_state,
 		.layout = state.layout,
 		.renderPass = render_pass,
 		.subpass = 0,

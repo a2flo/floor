@@ -34,8 +34,19 @@ public:
 	graphics_renderer(const compute_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_ = false);
 	virtual ~graphics_renderer() = default;
 	
+	//! certain render settings can be modified dynamically at run-time, overwriting the values specified in the graphics_pass/graphics_pipeline
+	struct dynamic_render_state_t {
+		//! if set, overwrites the graphics_pipeline viewport
+		optional<decltype(render_pipeline_description::viewport)> viewport;
+		//! if set, overwrites the graphics_pipeline scissor rectangle
+		optional<render_pipeline_description::scissor_t> scissor;
+		//! if set, overwrites the per-attachment clear value
+		//! NOTE: if set, clear values for all attachments must be set
+		optional<vector<clear_value_t>> clear_values;
+	};
+	
 	//! begins drawing with the specified pass and pipeline
-	virtual bool begin() {
+	virtual bool begin(const dynamic_render_state_t dynamic_render_state floor_unused = {}) {
 		return true;
 	}
 	

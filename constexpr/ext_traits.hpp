@@ -25,6 +25,9 @@
 // vector is not supported on compute/graphics backends
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <vector>
+#if defined(FLOOR_CXX20)
+#include <span>
+#endif
 #endif
 
 #include <floor/core/essentials.hpp>
@@ -85,6 +88,13 @@ namespace ext {
 	//! is_vector to detect vector<T>
 	template <typename any_type> struct is_vector : public false_type {};
 	template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
+
+#if defined(FLOOR_CXX20)
+	//! span<T[, extent]> detection
+	template <typename any_type> struct is_span_helper : public false_type {};
+	template <typename elem_type, size_t extent> struct is_span_helper<span<elem_type, extent>> : public true_type {};
+	template <typename any_type> static constexpr bool is_span_v = is_span_helper<decay_t<any_type>>::value;
+#endif
 #endif
 	
 	//! the equivalent/corresponding unsigned integer type to sizeof(T)
