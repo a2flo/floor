@@ -51648,7 +51648,7 @@ index 1ef7da328d3..8318790b1b8 100644
    default:
      return false;
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 3731b2f37f6..62138452a60 100644
+index 3731b2f37f6..e073cf652b2 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -51664,7 +51664,7 @@ index 3731b2f37f6..62138452a60 100644
  def SM30 : SubtargetFeature<"sm_30", "SmVersion", "30",
                              "Target SM 3.0">;
  def SM32 : SubtargetFeature<"sm_32", "SmVersion", "32",
-@@ -38,25 +40,38 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
+@@ -38,25 +40,40 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
                              "Target SM 3.5">;
  def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
                              "Target SM 3.7">;
@@ -51694,7 +51694,9 @@ index 3731b2f37f6..62138452a60 100644
  def SM75 : SubtargetFeature<"sm_75", "SmVersion", "75",
                               "Target SM 7.5">;
  
-+// TBD
++// Ampere
++def SM80 : SubtargetFeature<"sm_80", "SmVersion", "80",
++                             "Target SM 8.0">;
 +def SM82 : SubtargetFeature<"sm_82", "SmVersion", "82",
 +                             "Target SM 8.2">;
 +def SM86 : SubtargetFeature<"sm_86", "SmVersion", "86",
@@ -51703,7 +51705,7 @@ index 3731b2f37f6..62138452a60 100644
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
                               "Use PTX version 3.2">;
-@@ -74,8 +89,14 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
+@@ -74,8 +91,16 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
                               "Use PTX version 6.0">;
  def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
                               "Use PTX version 6.1">;
@@ -51715,17 +51717,20 @@ index 3731b2f37f6..62138452a60 100644
 +                             "Use PTX version 6.4">;
 +def PTX65 : SubtargetFeature<"ptx65", "PTXVersion", "65",
 +                             "Use PTX version 6.5">;
++def PTX70 : SubtargetFeature<"ptx70", "PTXVersion", "70",
++                             "Use PTX version 7.0">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -98,7 +119,10 @@ def : Proc<"sm_61", [SM61, PTX50]>;
+@@ -98,7 +123,11 @@ def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
  def : Proc<"sm_70", [SM70, PTX60]>;
  def : Proc<"sm_72", [SM72, PTX61]>;
 +def : Proc<"sm_73", [SM73, PTX63]>;
  def : Proc<"sm_75", [SM75, PTX63]>;
-+def : Proc<"sm_82", [SM82, PTX65]>;
-+def : Proc<"sm_86", [SM86, PTX65]>;
++def : Proc<"sm_80", [SM80, PTX70]>;
++def : Proc<"sm_82", [SM82, PTX70]>;
++def : Proc<"sm_86", [SM86, PTX70]>;
  
  def NVPTXInstrInfo : InstrInfo {
  }
