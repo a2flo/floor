@@ -241,8 +241,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device.ptx = { 6, 3 };
 		} else if (driver_version < 10020) {
 			device.ptx = { 6, 4 };
-		} else {
+		} else if (driver_version < 11000) {
 			device.ptx = { 6, 5 };
+		} else {
+			device.ptx = { 7, 0 };
 		}
 		
 		device.min_req_ptx = { 4, 3 };
@@ -255,9 +257,9 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 				device.min_req_ptx = { 6, 3 };
 			}
 		} else if (device.sm.x == 8) {
-			device.min_req_ptx = { 6, 5 };
+			device.min_req_ptx = { 7, 0 };
 		} else {
-			device.min_req_ptx = { 6, 5 };
+			device.min_req_ptx = { 7, 0 };
 		}
 		
 		// additional info
@@ -323,8 +325,12 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					// sm_70/sm_72/sm_73/sm_75: 64 cores/sm
 					multiplier = 64;
 					break;
+				case 8:
+					// sm_80/sm_82/sm_86/sm_8x: 64 cores/sm
+					multiplier = 64;
+					break;
 				default:
-					// sm_82/sm_86/sm_8x: 64 cores/sm (TODO)?
+					// default to 64 cores/sm
 					multiplier = 64;
 					break;
 			}
