@@ -902,4 +902,11 @@ void* floor_nullable metal_image::get_metal_image_void_ptr() const {
 	return (__bridge void*)image;
 }
 
+void metal_image::set_debug_label(const string& label) {
+	compute_memory::set_debug_label(label);
+	if (image) {
+		image.label = [NSString stringWithUTF8String:debug_label.c_str()];
+	}
+}
+
 #endif

@@ -635,10 +635,10 @@ public:
 		return {
 			scalar_type(2) / r_l, scalar_type(0), scalar_type(0), scalar_type(0),
 			scalar_type(0), scalar_type(2) / t_b, scalar_type(0), scalar_type(0),
-			scalar_type(0), scalar_type(0), scalar_type(-2) / f_n, scalar_type(0),
+			scalar_type(0), scalar_type(0), scalar_type(1) / f_n, scalar_type(0),
 			-(right + left) / (right - left),
 			-(top + bottom) / (top - bottom),
-			-(z_far + z_near) / (z_far - z_near),
+			-z_near / (z_far - z_near),
 			scalar_type(1)
 		};
 	}

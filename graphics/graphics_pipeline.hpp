@@ -189,6 +189,9 @@ struct render_pipeline_description {
 	//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering
 	//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering
 	bool automatic_multi_view_handling { true };
+	
+	//! sets the debug label for pipelines created from this description (e.g. for display in a debugger)
+	string debug_label;
 };
 
 //! pipeline object used for rendering with graphics_renderer

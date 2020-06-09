@@ -539,4 +539,11 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue floor_unused_
 #endif
 }
 
+void metal_buffer::set_debug_label(const string& label) {
+	compute_memory::set_debug_label(label);
+	if (buffer) {
+		buffer.label = [NSString stringWithUTF8String:debug_label.c_str()];
+	}
+}
+
 #endif

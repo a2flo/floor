@@ -88,7 +88,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	// create and setup the encoder
 	encoder = [cmd_buffer renderCommandEncoderWithDescriptor:mtl_pass_desc];
-	encoder.label = @"metal_renderer encoder";
+	encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer encoder" : [NSString stringWithUTF8String:pipeline_desc.debug_label.c_str()]);
 	
 	[encoder setCullMode:metal_pipeline::metal_cull_mode_from_cull_mode(pipeline_desc.cull_mode)];
 	[encoder setFrontFacingWinding:metal_pipeline::metal_winding_from_front_face(pipeline_desc.front_face)];
@@ -147,7 +147,6 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	}
 	[encoder setScissorRect:scissor_rect];
 	
-	[encoder pushDebugGroup:@"metal_renderer render"];
 	[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];
 	[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
 	

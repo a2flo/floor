@@ -107,3 +107,11 @@ const compute_queue* compute_memory::get_default_queue_for_memory(const compute_
 	const auto& mem_dev = mem.get_device();
 	return mem_dev.context->get_device_default_queue(mem_dev);
 }
+
+void compute_memory::set_debug_label(const string& label) {
+	debug_label = label;
+}
+
+const string& compute_memory::get_debug_label() const {
+	return debug_label;
+}

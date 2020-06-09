@@ -97,6 +97,11 @@ public:
 	//! zeros/clears the complete memory object
 	void clear(const compute_queue& cqueue) { zero(cqueue); }
 	
+	//! sets the debug label for this memory object (e.g. for display in a debugger)
+	virtual void set_debug_label(const string& label);
+	//! returns the current debug label
+	virtual const string& get_debug_label() const;
+	
 	//! NOTE: for debugging/development purposes only
 	void _lock() const ACQUIRE(lock) REQUIRES(!lock);
 	void _unlock() const RELEASE(lock);
@@ -119,6 +124,8 @@ protected:
 	const compute_queue* get_default_queue_for_memory(const compute_memory& mem) const;
 	
 	mutable safe_recursive_mutex lock;
+	
+	string debug_label;
 	
 };
 

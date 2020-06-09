@@ -103,6 +103,8 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
+	void set_debug_label(const string& label) override;
+	
 	//! returns the metal specific buffer object
 	id <MTLBuffer> get_metal_buffer() const { return buffer; }
 	

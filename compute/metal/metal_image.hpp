@@ -68,6 +68,8 @@ public:
 	void unmap(const compute_queue& cqueue,
 			   void* floor_nullable __attribute__((aligned(128))) mapped_ptr) override;
 	
+	void set_debug_label(const string& label) override;
+	
 	//! returns the metal specific image object
 #if defined(__OBJC__)
 	id <MTLTexture> floor_nullable get_metal_image() const { return image; }
