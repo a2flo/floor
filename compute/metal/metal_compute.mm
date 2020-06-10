@@ -921,8 +921,10 @@ float metal_compute::get_hdr_display_max_nits() const {
 }
 
 bool metal_compute::start_metal_capture(const compute_device& dev, const string& file_name) const {
+#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500) || \
+	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
 	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-	if (![capture_manager supportsDestination: MTLCaptureDestinationGPUTraceDocument]) {
+	if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
 		log_error("can't capture GPU trace to file");
 		return false;
 	}
@@ -945,14 +947,22 @@ bool metal_compute::start_metal_capture(const compute_device& dev, const string&
 	[capture_manager.defaultCaptureScope beginScope];
 	
 	return true;
+#else
+	return false;
+#endif
 }
 
 bool metal_compute::stop_metal_capture() const {
+#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500) || \
+	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
 	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
 	[capture_manager.defaultCaptureScope endScope];
 	[capture_manager stopCapture];
 	capture_manager.defaultCaptureScope = nil;
 	return true;
+#else
+	return false;
+#endif
 }
 
 #endif

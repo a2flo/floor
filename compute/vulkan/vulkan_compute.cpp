@@ -1250,7 +1250,7 @@ bool vulkan_compute::init_vr_renderer() {
 												   COMPUTE_MEMORY_FLAG::READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
-		vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i))
+		vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i));
 	}
 	vr_screen.image_locks.resize(vr_screen.image_count);
 	return true;
