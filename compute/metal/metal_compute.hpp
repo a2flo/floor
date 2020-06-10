@@ -190,6 +190,11 @@ public:
 	void present_metal_vr_drawable(const compute_queue& cqueue, const compute_image& img) const;
 #endif
 	
+	//! starts capturing on the specified device, dumping it to "file_name" (extension must be .gputrace)
+	bool start_metal_capture(const compute_device& dev, const string& file_name) const;
+	//! stops the capturing again
+	bool stop_metal_capture() const;
+	
 protected:
 	void* ctx { nullptr };
 	vr_context* vr_ctx { nullptr };

@@ -56,6 +56,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 		const uint32_t printf_buffer_count = (is_vs_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
 		for (uint32_t i = 0; i < printf_buffer_count; ++i) {
 			auto printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
+			printf_buffer->set_debug_label("printf_buffer");
 			printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
 			printf_buffers.emplace_back(printf_buffer);
 			implicit_args.emplace_back(printf_buffer);

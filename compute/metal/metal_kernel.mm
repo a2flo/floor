@@ -75,6 +75,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	shared_ptr<compute_buffer> printf_buffer;
 	if (llvm_toolchain::function_info::has_flag<llvm_toolchain::function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
 		printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
+		printf_buffer->set_debug_label("printf_buffer");
 		printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
 		implicit_args.emplace_back(printf_buffer);
 	}

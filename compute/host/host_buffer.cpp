@@ -482,6 +482,7 @@ bool host_buffer::create_shared_metal_buffer(const bool copy_host_data) {
 			log_error("Host/Metal buffer sharing failed: failed to create the underlying shared Metal buffer");
 			return false;
 		}
+		host_mtl_buffer->set_debug_label("host_mtl_buffer");
 		shared_buffer = host_mtl_buffer.get();
 	}
 	// else: wrapping an existing Metal buffer

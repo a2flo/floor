@@ -875,6 +875,7 @@ bool vulkan_compute::init_renderer() {
 			log_error("failed to create image/render-target for x11 forwarding");
 			return false;
 		}
+		screen.x11_screen->set_debug_label("x11_screen");
 		
 		screen.swapchain_images.emplace_back(screen.x11_screen->get_vulkan_image());
 		screen.swapchain_image_views.emplace_back(screen.x11_screen->get_vulkan_image_view());
@@ -1249,6 +1250,7 @@ bool vulkan_compute::init_vr_renderer() {
 												   COMPUTE_MEMORY_FLAG::READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
+		vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i))
 	}
 	vr_screen.image_locks.resize(vr_screen.image_count);
 	return true;

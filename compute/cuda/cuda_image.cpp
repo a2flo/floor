@@ -1087,6 +1087,7 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 			shared_vk_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
 		cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_vk_image_flags);
+		cuda_vk_image->set_debug_label("cuda_vk_image");
 		if (!cuda_vk_image) {
 			log_error("CUDA/Vulkan image sharing failed: failed to create the underlying shared Vulkan image");
 			return false;

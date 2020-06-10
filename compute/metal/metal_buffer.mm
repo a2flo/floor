@@ -68,6 +68,7 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 			staging_buffer = unique_ptr<metal_buffer>(new metal_buffer(true /* staging */, cqueue, size, nullptr,
 																	   COMPUTE_MEMORY_FLAG::READ_WRITE |
 																	   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0));
+			staging_buffer->set_debug_label(debug_label + "_staging_buffer");
 		}
 		else {
 			// use managed storage for the staging buffer or host memory backed buffer

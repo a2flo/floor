@@ -43,7 +43,9 @@ graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 	// create a command buffer from the specified queue (this will be used throughout until commit)
 	const auto mtl_queue = ((const metal_queue&)cqueue).get_queue();
 	cmd_buffer = [mtl_queue commandBuffer];
-	cmd_buffer.label = @"metal_renderer";
+	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
+	cmd_buffer.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer" :
+						[NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
 	
 	if (!update_metal_pipeline()) {
 		valid = false;
@@ -88,7 +90,11 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	// create and setup the encoder
 	encoder = [cmd_buffer renderCommandEncoderWithDescriptor:mtl_pass_desc];
-	encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer encoder" : [NSString stringWithUTF8String:pipeline_desc.debug_label.c_str()]);
+	encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer encoder" :
+					 [NSString stringWithUTF8String:(pipeline_desc.debug_label + " encoder").c_str()]);
+	 if (!pipeline_desc.debug_label.empty()) {
+		 [encoder pushDebugGroup:(encoder.label ? encoder.label : @"metal_renderer")];
+	 }
 	
 	[encoder setCullMode:metal_pipeline::metal_cull_mode_from_cull_mode(pipeline_desc.cull_mode)];
 	[encoder setFrontFacingWinding:metal_pipeline::metal_winding_from_front_face(pipeline_desc.front_face)];
@@ -155,7 +161,12 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 
 bool metal_renderer::end() {
 	[encoder endEncoding];
-	[encoder popDebugGroup];
+	
+	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
+	if (!pipeline_desc.debug_label.empty()) {
+		[encoder popDebugGroup];
+	}
+	
 	return true;
 }
 

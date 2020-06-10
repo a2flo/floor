@@ -424,6 +424,7 @@ bool host_image::create_shared_metal_image(const bool copy_host_data) {
 			shared_mtl_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
 		host_mtl_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_mtl_image_flags);
+		host_mtl_image->set_debug_label("host_mtl_image");
 		if (!host_mtl_image) {
 			log_error("Host/Metal image sharing failed: failed to create the underlying shared Metal image");
 			return false;

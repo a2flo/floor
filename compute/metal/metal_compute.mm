@@ -43,6 +43,7 @@
 #include <floor/vr/vr_context.hpp>
 #include <floor/floor/floor.hpp>
 #include <Metal/Metal.h>
+#include <Metal/MTLCaptureScope.h>
 
 // include again to clean up macro mess
 #include <floor/core/essentials.hpp>
@@ -774,6 +775,7 @@ bool metal_compute::init_vr_renderer() {
 	for (uint32_t i = 0; i < vr_image_count; ++i) {
 		vr_images[i].image = create_image(dev_queue, vr_screen_dim, vr_image_type,
 										  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+		vr_images[i].image->set_debug_label("VR screen image #" + to_string(i));
 	}
 	
 	return true;
@@ -916,6 +918,41 @@ float metal_compute::get_hdr_display_max_nits() const {
 		return darwin_helper::get_metal_view_hdr_max_nits(view);
 	}
 	return compute_context::get_hdr_display_max_nits();
+}
+
+bool metal_compute::start_metal_capture(const compute_device& dev, const string& file_name) const {
+	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+	if (![capture_manager supportsDestination: MTLCaptureDestinationGPUTraceDocument]) {
+		log_error("can't capture GPU trace to file");
+		return false;
+	}
+	
+	MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
+	capture_manager.defaultCaptureScope =
+		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
+	capture_desc.captureObject = capture_manager.defaultCaptureScope;
+	auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
+	capture_desc.outputURL = [NSURL fileURLWithPath:file_name_nsstr];
+	capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
+	
+	NSError* err { nil };
+	if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
+		log_error("failed to start GPU trace capture: %s",
+				   (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+		return false;
+	}
+	
+	[capture_manager.defaultCaptureScope beginScope];
+	
+	return true;
+}
+
+bool metal_compute::stop_metal_capture() const {
+	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+	[capture_manager.defaultCaptureScope endScope];
+	[capture_manager stopCapture];
+	capture_manager.defaultCaptureScope = nil;
+	return true;
 }
 
 #endif

@@ -589,6 +589,7 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
 			return false;
 		}
+		cuda_vk_buffer->set_debug_label("cuda_vk_buffer");
 		shared_vk_buffer = (vulkan_buffer*)cuda_vk_buffer.get();
 	}
 	// else: wrapping an existing Vulkan buffer
