@@ -27,6 +27,7 @@ enum class LOAD_OP {
 	//! load value from attachment
 	LOAD,
 	//! use clear value instead of attachment value
+	//! NOTE: clears the whole attachment regardless of active scissor rectangle
 	CLEAR,
 	//! loaded value is undefined
 	DONT_CARE,

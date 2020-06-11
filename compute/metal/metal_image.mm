@@ -24,6 +24,7 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/compute/compute_context.hpp>
 
 // TODO: proper error (return) value handling everywhere
 
@@ -530,38 +531,40 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 void metal_image::zero(const compute_queue& cqueue) {
 	if(image == nil) return;
 	
+	const bool is_compressed = image_compressed(image_type);
+	const auto dim_count = image_dim_count(image_type);
+	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+	
+	auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
+																  COMPUTE_MEMORY_FLAG::READ_WRITE);
+	zero_buffer->set_debug_label("zero_buffer");
+	auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
+	
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
-	const bool is_compressed = image_compressed(image_type);
 	
-	auto zero_data = make_unique<uint8_t[]>(bytes_per_slice);
-	auto zero_data_ptr = zero_data.get();
-	memset(zero_data_ptr, 0, bytes_per_slice);
+	[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
 	
-	const auto dim_count = image_dim_count(image_type);
-	
-	apply_on_levels<true>([this, &zero_data_ptr,
-						   &dim_count, &is_compressed](const uint32_t& level,
-													   const uint4& mip_image_dim,
-													   const uint32_t& slice_data_size,
-													   const uint32_t&) {
+	apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
+																							  const uint4& mip_image_dim,
+																							  const uint32_t& slice_data_size,
+																							  const uint32_t&) {
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
-		const MTLRegion mipmap_region {
-			.origin = { 0, 0, 0 },
-			.size = {
+		for (size_t slice = 0; slice < layer_count; ++slice) {
+			const MTLSize copy_size {
 				max(mip_image_dim.x, 1u),
 				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
 				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
-			}
-		};
-		for(size_t slice = 0; slice < layer_count; ++slice) {
-			[image replaceRegion:mipmap_region
-					 mipmapLevel:level
-						   slice:slice
-					   withBytes:zero_data_ptr
-					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-				   bytesPerImage:slice_data_size];
+			};
+			[blit_encoder copyFromBuffer:mtl_zero_buffer
+							sourceOffset:0
+					   sourceBytesPerRow:(is_compressed ? 0 : bytes_per_row)
+					 sourceBytesPerImage:slice_data_size
+							  sourceSize:copy_size
+							   toTexture:image
+						destinationSlice:slice
+						destinationLevel:level
+					   destinationOrigin:MTLOrigin { 0, 0, 0 }];
 		}
 		return true;
 	}, shim_image_type);
