@@ -24,6 +24,9 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/graphics/graphics_pass.hpp>
+#include <floor/core/flat_map.hpp>
+
+class compute_device;
 
 class vulkan_pass final : public graphics_pass {
 public:

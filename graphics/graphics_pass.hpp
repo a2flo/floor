@@ -19,8 +19,11 @@
 #ifndef __FLOOR_GRAPHICS_GRAPHICS_PASS_HPP__
 #define __FLOOR_GRAPHICS_GRAPHICS_PASS_HPP__
 
-#include <floor/compute/compute_kernel.hpp>
+#include <floor/core/essentials.hpp>
+#include <floor/core/enum_helpers.hpp>
+#include <floor/math/vector_lib.hpp>
 #include <floor/compute/device/image_types.hpp>
+#include <optional>
 
 //! load operation to be used on an attachment
 enum class LOAD_OP {
@@ -37,6 +40,10 @@ enum class LOAD_OP {
 enum class STORE_OP {
 	//! store value to attachment
 	STORE,
+	//! resolve MSAA buffer image to the resolve image
+	RESOLVE,
+	//! store to the MSAA buffer attachment and resolve the MSAA buffer image to the resolve image
+	STORE_AND_RESOLVE,
 	//! stored value is undefined
 	DONT_CARE,
 };
@@ -55,13 +62,15 @@ struct render_pass_description {
 	//! per-attachment description, i.e. how and which values are loaded from and stored to an attachment
 	struct attachment_desc_t {
 		//! base pixel format of the attachment
-		//! requires: FORMAT, CHANNELS, DATA_TYPE, FLAG_DEPTH (if depth)
+		//! requires: FORMAT, CHANNELS, DATA_TYPE, FLAG_DEPTH (if depth), FLAG_MSAA (if MSAA)
 		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB, FLAG_ARRAY, FLAG_STENCIL (not supported yet)
 		//! e.g.: specify BGRA8UI_NORM, RGBA16F or D32F
 		COMPUTE_IMAGE_TYPE format { COMPUTE_IMAGE_TYPE::NONE };
 		//! load operation performed on the attachment
 		LOAD_OP load_op { LOAD_OP::CLEAR };
 		//! store operation performed on the attachment
+		//! NOTE: when resolving an MSAA image, this should be set to RESOLVE rather than STORE_AND_RESOLVE for best performance (if the MSAA image
+		//! content is no longer needed)
 		STORE_OP store_op { STORE_OP::STORE };
 		//! attachment clear color/depth if "load_op" is LOAD_OP::CLEAR
 		//! depending on "format", either clear.color or clear.depth is active

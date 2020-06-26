@@ -72,7 +72,10 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	// must set/update attachments (and drawable) before creating the encoder
 	uint32_t attachment_idx = 0;
 	for (const auto& att : attachments_map) {
-		mtl_pass_desc.colorAttachments[att.first].texture = ((const metal_image*)att.second)->get_metal_image();
+		mtl_pass_desc.colorAttachments[att.first].texture = ((const metal_image*)att.second.image)->get_metal_image();
+		if (att.second.resolve_image) {
+			mtl_pass_desc.colorAttachments[att.first].resolveTexture = ((const metal_image*)att.second.resolve_image)->get_metal_image();
+		}
 		if (dynamic_render_state.clear_values) {
 			const auto dbl_clear_color = (*dynamic_render_state.clear_values)[attachment_idx].color.cast<double>();
 			mtl_pass_desc.colorAttachments[att.first].clearColor = MTLClearColorMake(dbl_clear_color.x, dbl_clear_color.y,
@@ -80,8 +83,8 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		}
 		++attachment_idx;
 	}
-	if (depth_attachment != nullptr) {
-		mtl_pass_desc.depthAttachment.texture = ((const metal_image*)depth_attachment)->get_metal_image();
+	if (depth_attachment) {
+		mtl_pass_desc.depthAttachment.texture = ((const metal_image*)depth_attachment->image)->get_metal_image();
 		if (dynamic_render_state.clear_values) {
 			mtl_pass_desc.depthAttachment.clearDepth = double((*dynamic_render_state.clear_values)[attachment_idx].depth);
 		}

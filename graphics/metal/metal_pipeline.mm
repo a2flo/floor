@@ -44,6 +44,11 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
 		mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
 		
+		// multi-sampling
+		if (pipeline_desc.sample_count > 1) {
+			mtl_pipeline_desc.rasterSampleCount = pipeline_desc.sample_count;
+		}
+		
 		// set color attachments
 		for (size_t i = 0, count = pipeline_desc.color_attachments.size(); i < count; ++i) {
 			const auto& color_att = pipeline_desc.color_attachments[i];

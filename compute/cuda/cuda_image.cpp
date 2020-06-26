@@ -637,8 +637,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 									 CU_TEXTURE_FLAGS::NONE : CU_TEXTURE_FLAGS::NORMALIZED_COORDINATES);
 			tex_desc.flags = coord_mode;
 			
-			// no variable anisotropy yet
-			tex_desc.max_anisotropy = 16;
+			tex_desc.max_anisotropy = image_anisotropy(image_type);
 			tex_desc.min_mip_map_level_clamp = 0.0f;
 			tex_desc.max_mip_map_level_clamp = (is_mip_mapped_or_vulkan ? float(dev.max_mip_levels) : 0.0f);
 			
@@ -796,7 +795,7 @@ void cuda_image::zero(const compute_queue& cqueue) {
 	if(image == nullptr) return;
 	
 	// NOTE: when using mip-mapping, we can reuse the zero data ptr from the first level (all levels will be smaller than the first)
-	const auto first_level_size = image_data_size_from_types(image_dim, image_type, 1, true);
+	const auto first_level_size = image_data_size_from_types(image_dim, image_type, true);
 	auto zero_data = make_unique<uint8_t[]>(first_level_size);
 	auto zero_data_ptr = zero_data.get();
 	memset(zero_data_ptr, 0, first_level_size);

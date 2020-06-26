@@ -19,7 +19,7 @@
 #include <floor/graphics/metal/metal_pass.hpp>
 
 #if !defined(FLOOR_NO_METAL)
-#include <floor/core/essentials.hpp>
+#include <floor/core/logger.hpp>
 
 static MTLRenderPassDescriptor* create_metal_render_pass_desc_from_description(const render_pass_description& desc,
 																			   const bool is_multi_view) {
@@ -28,6 +28,11 @@ static MTLRenderPassDescriptor* create_metal_render_pass_desc_from_description(c
 	size_t color_att_counter = 0;
 	for (size_t i = 0, count = desc.attachments.size(); i < count; ++i) {
 		const auto& att = desc.attachments[i];
+		const auto is_multi_sampling = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(att.format);
+		const auto is_msaa_resolve = (att.store_op == STORE_OP::RESOLVE || att.store_op == STORE_OP::STORE_AND_RESOLVE);
+		if (!is_multi_sampling && is_msaa_resolve) {
+			log_warn("graphics_pass: MSAA resolve is set, but format is not MSAA");
+		}
 		
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.format)) {
 			// depth attachment
@@ -94,6 +99,10 @@ MTLStoreAction metal_pass::metal_store_action_from_store_op(const STORE_OP& stor
 	switch (store_op) {
 		case STORE_OP::STORE:
 			return MTLStoreActionStore;
+		case STORE_OP::RESOLVE:
+			return MTLStoreActionMultisampleResolve;
+		case STORE_OP::STORE_AND_RESOLVE:
+			return MTLStoreActionStoreAndMultisampleResolve;
 		case STORE_OP::DONT_CARE:
 			return MTLStoreActionDontCare;
 	}

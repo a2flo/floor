@@ -75,7 +75,7 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 	};
 	uint32_t level_offset = 0;
 	for(size_t level = 0; level < host_limits::max_mip_levels; ++level, mip_image_dim >>= 1) {
-		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		const auto level_data_size = slice_data_size * layer_count;
 		program_info.level_info[level].offset = level_offset;
 		level_offset += level_data_size;
@@ -214,7 +214,7 @@ bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused)
 		glBindTexture(opengl_type, gl_object);
 		const uint8_t* level_data = image;
 		for(size_t level = 0; level < mip_level_count; ++level, mip_image_dim >>= 1) {
-			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 			const auto level_data_size = slice_data_size * layer_count;
 			
 			if(!is_cube ||

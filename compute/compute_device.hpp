@@ -188,7 +188,7 @@ public:
 	//! true if anisotropic filtering is supported
 	bool anisotropic_support { false };
 	//! max anisotropy that is supported
-	float max_anisotropy { 0.0f };
+	uint32_t max_anisotropy { 1u };
 	
 	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
 	bool param_workaround { false };

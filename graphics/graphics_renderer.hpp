@@ -23,6 +23,9 @@
 #include <floor/graphics/graphics_pass.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/flat_map.hpp>
+
+class compute_context;
 
 //! renderer object for a specific pass and one or more pipelines
 //! NOTE: create this every time something should be rendered (this doesn't/shouldn't be a static object)
@@ -72,7 +75,8 @@ public:
 	//! to be implemented by each backend
 	struct drawable_t {
 		virtual ~drawable_t();
-		compute_image* image { nullptr };
+		//! NOTE: if a proper non-null drawable was returned from "get_next_drawable", then this is also non-null
+		compute_image* floor_nonnull image { nullptr };
 		
 		//! returns true if this drawable is in a valid state
 		bool is_valid() const {
@@ -86,7 +90,7 @@ public:
 	
 	//! retrieves the next drawable screen surface,
 	//! returns nullptr if there is none (mostly due to the screen being in an invalid/non-renderable state)
-	virtual drawable_t* get_next_drawable(const bool get_multi_view_drawable = false) = 0;
+	virtual drawable_t* floor_nullable get_next_drawable(const bool get_multi_view_drawable = false) = 0;
 	
 	//! present the current drawable to the screen
 	virtual void present() = 0;
@@ -94,48 +98,69 @@ public:
 	//////////////////////////////////////////
 	// attachments
 	
+	//! special case where an attachment consists of a store image and a resolve image (used for MSAA)
+	struct resolve_and_store_attachment_t {
+		compute_image& store_image;
+		compute_image& resolve_image;
+	};
+	
 	//! identifies an attachment at an specific index in the pass/pipeline
 	struct attachment_t {
 		//! index of the attachment in graphics_pipeline/graphics_pass,
 		//! if ~0u -> determine index automatically
 		uint32_t index { ~0u };
-		//! reference to the backing image
-		compute_image& image;
+		//! pointer to the backing image
+		compute_image* floor_nonnull image;
+		//! only set when using resolve_and_store_attachment_t/MSAA: this is the resolve_image
+		compute_image* floor_nullable resolve_image { nullptr };
+		
+		attachment_t(const attachment_t& att) noexcept : index(att.index), image(att.image), resolve_image(att.resolve_image) {}
+		attachment_t& operator=(const attachment_t& att) {
+			index = att.index;
+			image = att.image;
+			resolve_image = att.resolve_image;
+			return *this;
+		}
 		
 #if !defined(FLOOR_DEBUG)
-		attachment_t(compute_image& image_) noexcept : image(image_) {}
-		attachment_t(compute_image* image_) noexcept : image(*image_) {}
-		attachment_t(shared_ptr<compute_image>& image_) noexcept : image(*image_) {}
-		attachment_t(unique_ptr<compute_image>& image_) noexcept : image(*image_) {}
-		attachment_t(drawable_t& drawable) noexcept : image(*drawable.image) {}
-		attachment_t(drawable_t* drawable) noexcept : image(*drawable->image) {}
+		attachment_t(compute_image& image_) noexcept : image(&image_) {}
+		attachment_t(compute_image* floor_nonnull image_) noexcept : image(image_) {}
+		attachment_t(shared_ptr<compute_image>& image_) noexcept : image(image_.get()) {}
+		attachment_t(unique_ptr<compute_image>& image_) noexcept : image(image_.get()) {}
+		attachment_t(drawable_t& drawable) noexcept : image(drawable.image) {}
+		attachment_t(drawable_t* floor_nonnull drawable) noexcept : image(drawable->image) {}
 		
-		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(image_) {}
-		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(*drawable.image) {}
+		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(&image_) {}
+		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(drawable.image) {}
 #else
-		compute_image& image_sanity_check(compute_image* image_) {
+		compute_image* floor_null_unspecified image_sanity_check(compute_image* floor_null_unspecified image_) {
 			if (image_ == nullptr) {
 				log_error("attachment image is nullptr!");
 			}
-			return *image_;
+			return image_;
 		}
-		compute_image& drawable_sanity_check(drawable_t* drawable_) {
+		compute_image* floor_null_unspecified drawable_sanity_check(drawable_t* floor_null_unspecified drawable_) {
 			if (drawable_ == nullptr) {
 				log_error("drawable is nullptr!");
 			}
 			return image_sanity_check(drawable_->image);
 		}
 		
-		attachment_t(compute_image& image_) noexcept : image(image_) {}
-		attachment_t(compute_image* image_) noexcept : image(image_sanity_check(image_)) {}
+		attachment_t(compute_image& image_) noexcept : image(&image_) {}
+		attachment_t(compute_image* floor_nonnull image_) noexcept : image(image_sanity_check(image_)) {}
 		attachment_t(shared_ptr<compute_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
 		attachment_t(unique_ptr<compute_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
 		attachment_t(drawable_t& drawable) noexcept : image(image_sanity_check(drawable.image)) {}
-		attachment_t(drawable_t* drawable) noexcept : image(drawable_sanity_check(drawable)) {}
+		attachment_t(drawable_t* floor_nonnull drawable) noexcept : image(drawable_sanity_check(drawable)) {}
 		
-		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(image_) {}
+		attachment_t(const uint32_t& index_, compute_image& image_) : index(index_), image(&image_) {}
 		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(image_sanity_check(drawable.image)) {}
 #endif
+		
+		attachment_t(resolve_and_store_attachment_t& resolve_and_store_attachment) noexcept :
+		image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image) {}
+		attachment_t(const uint32_t& index_, resolve_and_store_attachment_t& resolve_and_store_attachment) noexcept :
+		index(index_), image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image) {}
 	};
 	
 	//! set all pass/pipeline attachments
@@ -176,7 +201,7 @@ public:
 	
 	//! draw info with primitives created via indices into the vertex buffer
 	struct multi_draw_indexed_entry {
-		compute_buffer* index_buffer;
+		compute_buffer* floor_nonnull index_buffer;
 		uint32_t index_count;
 		uint32_t instance_count { 1u };
 		uint32_t first_index { 0u };
@@ -208,15 +233,15 @@ protected:
 	const compute_queue& cqueue;
 	const compute_context& ctx;
 	const graphics_pass& pass;
-	const graphics_pipeline* cur_pipeline { nullptr };
-	flat_map<uint32_t, compute_image*> attachments_map;
-	compute_image* depth_attachment { nullptr };
+	const graphics_pipeline* floor_nullable cur_pipeline { nullptr };
+	flat_map<uint32_t, attachment_t> attachments_map;
+	optional<attachment_t> depth_attachment;
 	bool valid { false };
 	const bool multi_view { false };
 	
 	//! internal draw call dispatcher for the respective backend
-	virtual void draw_internal(const vector<multi_draw_entry>* draw_entries,
-							   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
+	virtual void draw_internal(const vector<multi_draw_entry>* floor_nullable draw_entries,
+							   const vector<multi_draw_indexed_entry>* floor_nullable draw_indexed_entries,
 							   const vector<compute_kernel_arg>& args) const = 0;
 	
 	//! sets the depth attachment

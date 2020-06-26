@@ -63,7 +63,6 @@ public:
 		return ret;
 	}
 	
-	// TODO: anisotropic value (must be present at init, or need to recreate image later)
 	compute_image(const compute_queue& cqueue,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
@@ -78,14 +77,14 @@ public:
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
 					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
-	image_data_size(image_data_size_from_types(image_dim, image_type, 1, generate_mip_maps)),
+	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps)),
 	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
 	layer_count(image_layer_count(image_dim, image_type)),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
 	shared_image(shared_image_),
-	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
+	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, false)) {
 		// can't be both mip-mapped and a render target
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
 		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
@@ -322,7 +321,7 @@ protected:
 			0
 		};
 		for(uint32_t level = 0; level < handled_level_count; ++level, mip_image_dim >>= 1) {
-			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, mip_image_type, 1);
+			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, mip_image_type);
 			const auto level_data_size = (uint32_t)(slice_data_size * slice_count);
 			if(!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size)) {
 				return false;

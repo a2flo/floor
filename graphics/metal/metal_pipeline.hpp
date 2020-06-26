@@ -23,6 +23,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 
+#include <floor/compute/compute_kernel.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
 #include <Metal/Metal.h>
 

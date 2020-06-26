@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 
+#include <floor/compute/compute_device.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 
@@ -221,7 +222,9 @@ VkAttachmentLoadOp vulkan_pass::vulkan_load_op_from_load_op(const LOAD_OP& load_
 VkAttachmentStoreOp vulkan_pass::vulkan_store_op_from_store_op(const STORE_OP& store_op) {
 	switch (store_op) {
 		case STORE_OP::STORE:
+		case STORE_OP::STORE_AND_RESOLVE:
 			return VK_ATTACHMENT_STORE_OP_STORE;
+		case STORE_OP::RESOLVE:
 		case STORE_OP::DONT_CARE:
 			return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	}

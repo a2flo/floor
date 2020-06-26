@@ -293,7 +293,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 }
 
 void compute_image::init_gl_image_data(const void* data) {
-	const GLsizei sample_count { 1 }; // TODO: support this properly
+	const auto sample_count = (GLsizei)image_sample_count(image_type);
 	const bool fixed_sample_locations { false }; // TODO: support this properly
 	const auto dim_count = image_dim_count(image_type);
 	const auto storage_dim_count = image_storage_dim_count(image_type);
@@ -310,7 +310,7 @@ void compute_image::init_gl_image_data(const void* data) {
 		0
 	};
 	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
-		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		const auto level_data_size = slice_data_size * layer_count;
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
@@ -416,7 +416,7 @@ void compute_image::update_gl_image_data(const void* data) {
 		0
 	};
 	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
-		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		const auto level_data_size = slice_data_size * layer_count;
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
@@ -564,7 +564,10 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 		
 		GLint samples = 0;
 		glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES, &samples);
-		if(samples > 1) info.image_type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
+		if(samples > 1) {
+			info.image_type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
+			info.image_type |= image_sample_type_from_count((uint32_t)samples);
+		}
 		
 		// rebind previous renderbuffer
 		glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)cur_bound_rb);
@@ -734,7 +737,7 @@ uint8_t* compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 									const uint8_t* rgb_data,
 									const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	
@@ -753,7 +756,7 @@ void compute_image::rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
 										uint8_t* rgb_to_rgba_data,
 										const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	const auto alpha_size = rgba_bytes_per_pixel / 4;
@@ -775,8 +778,8 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 									uint8_t* dst_rgb_data,
 									const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
-	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type, 1, ignore_mip_levels);
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
+	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	
@@ -959,9 +962,16 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 	
 	if(is_depth) ret << "Depth ";
 	if(is_stencil) ret << "Stencil ";
-	if(is_msaa) ret << "MSAA ";
+	if(is_msaa) {
+		ret << image_sample_count(type) << "xMSAA ";
+	}
 	if(is_array) ret << "Array ";
 	if(is_buffer) ret << "Buffer ";
+	
+	const auto aniso = image_anisotropy(type);
+	if (aniso > 1) {
+		ret << aniso << "xAniso";
+	}
 	
 	// channel count and layout
 	const auto channel_count = image_channel_count(type);
@@ -1050,8 +1060,8 @@ void compute_image::set_shim_type_info() {
 	// compressed images will always be used in their original state, even if they are RGB
 	if(image_channel_count(image_type) == 3 && !image_compressed(image_type)) {
 		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
-		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, 1, generate_mip_maps);
-		shim_image_data_size_mip_maps = image_data_size_from_types(image_dim, shim_image_type, 1, false);
+		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, generate_mip_maps);
+		shim_image_data_size_mip_maps = image_data_size_from_types(image_dim, shim_image_type, false);
 	}
 	// == original type if not 3-channel -> 4-channel emulation
 	else shim_image_type = image_type;

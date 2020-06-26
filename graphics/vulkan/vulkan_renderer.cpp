@@ -57,10 +57,10 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 	
 	vector<VkImageView> vk_attachments;
 	for (const auto& att : attachments_map) {
-		vk_attachments.emplace_back(((const vulkan_image*)att.second)->get_vulkan_image_view());
+		vk_attachments.emplace_back(((const vulkan_image*)att.second.image)->get_vulkan_image_view());
 	}
-	if (depth_attachment != nullptr) {
-		vk_attachments.emplace_back(((const vulkan_image*)depth_attachment)->get_vulkan_image_view());
+	if (depth_attachment) {
+		vk_attachments.emplace_back(((const vulkan_image*)depth_attachment->image)->get_vulkan_image_view());
 	}
 	
 	VkFramebufferCreateInfo framebuffer_create_info {
@@ -109,7 +109,7 @@ bool vulkan_renderer::create_cmd_buffer() {
 	
 	// register completion callback to make all attachments readable once we're done (except for the drawable, which is dealt with differently)
 	vk_queue.add_completion_handler(cmd_buffer, [this]() {
-		if (attachments_map.empty() && depth_attachment == nullptr) {
+		if (attachments_map.empty() && !depth_attachment) {
 			return; // nop
 		}
 		
@@ -118,10 +118,10 @@ bool vulkan_renderer::create_cmd_buffer() {
 		if (cur_drawable) {
 			cur_drawable_img = cur_drawable->image;
 		}
-		if (depth_attachment == nullptr) {
+		if (!depth_attachment) {
 			bool has_non_swapchain_iamge = false;
 			for (auto& att : attachments_map) {
-				if (att.second != cur_drawable_img) {
+				if (att.second.image != cur_drawable_img) {
 					has_non_swapchain_iamge = true;
 					break;
 				}
@@ -144,12 +144,12 @@ bool vulkan_renderer::create_cmd_buffer() {
 						 "failed to begin command buffer for attachments read transition", return;)
 		
 		for (auto& att : attachments_map) {
-			if (att.second != nullptr && att.second != cur_drawable_img) {
-				((vulkan_image*)att.second)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
+			if (att.second.image != cur_drawable_img) {
+				((vulkan_image*)att.second.image)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
 			}
 		}
-		if (depth_attachment != nullptr) {
-			((vulkan_image*)depth_attachment)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
+		if (depth_attachment) {
+			((vulkan_image*)depth_attachment->image)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
 		}
 		
 		VK_CALL_RET(vkEndCommandBuffer(transition_cmd_buffer.cmd_buffer), "failed to end command buffer for attachments read transition")
@@ -235,7 +235,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		}
 		
 		clear_values.reserve(dynamic_render_state.clear_values->size());
-		const bool has_depth = (depth_attachment != nullptr);
+		const bool has_depth = depth_attachment.has_value();
 		const auto depth_cv_idx = (dynamic_render_state.clear_values->size() - 1u);
 		for (uint32_t attachment_idx = 0, attachment_count = uint32_t(dynamic_render_state.clear_values->size());
 			 attachment_idx < attachment_count; ++attachment_idx) {
@@ -392,14 +392,14 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 	if (!graphics_renderer::set_attachment(index, attachment)) {
 		return false;
 	}
-	return attachment_transition_write(cqueue, attachment.image, att_cmd_buffer);
+	return attachment_transition_write(cqueue, *attachment.image, att_cmd_buffer);
 }
 
 bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 	if (!graphics_renderer::set_depth_attachment(attachment)) {
 		return false;
 	}
-	return attachment_transition_write(cqueue, attachment.image, att_cmd_buffer);
+	return attachment_transition_write(cqueue, *attachment.image, att_cmd_buffer);
 }
 
 bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {

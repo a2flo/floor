@@ -23,6 +23,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 
+#include <floor/compute/compute_kernel.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 

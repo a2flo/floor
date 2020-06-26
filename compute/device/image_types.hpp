@@ -20,49 +20,70 @@
 #define __FLOOR_COMPUTE_IMAGE_TYPES_HPP__
 
 //! image type
-enum class COMPUTE_IMAGE_TYPE : uint32_t {
+enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	//! invalid/uninitialized
-	NONE					= (0u),
+	NONE					= (0ull),
 	
 	//////////////////////////////////////////
 	// -> image flags and types
-	//! upper 12-bit (20-31): type flags
-	__FLAG_MASK				= (0xFFFC0000u),
-	__FLAG_SHIFT			= (20u),
+	
+	//! bits 35-37: anisotropy (stored as power-of-two)
+	__ANISOTROPY_MASK		= (0x0000'0038'0000'0000ull),
+	__ANISOTROPY_SHIFT		= (35ull),
+	ANISOTROPY_1			= (0ull << __ANISOTROPY_SHIFT),
+	ANISOTROPY_2			= (1ull << __ANISOTROPY_SHIFT),
+	ANISOTROPY_4			= (2ull << __ANISOTROPY_SHIFT),
+	ANISOTROPY_8			= (3ull << __ANISOTROPY_SHIFT),
+	ANISOTROPY_16			= (4ull << __ANISOTROPY_SHIFT),
+	
+	//! bits 32-34: multi-sampling sample count (stored as power-of-two)
+	__SAMPLE_COUNT_MASK		= (0x0000'0007'0000'0000ull),
+	__SAMPLE_COUNT_SHIFT	= (32ull),
+	SAMPLE_COUNT_1			= (0ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_2			= (1ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_4			= (2ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_8			= (3ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_16			= (4ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_32			= (5ull << __SAMPLE_COUNT_SHIFT),
+	SAMPLE_COUNT_64			= (6ull << __SAMPLE_COUNT_SHIFT),
+	
+	//! bits 20-31: type flags
+	__FLAG_MASK				= (0x0000'0000'FFFC'0000ull),
+	__FLAG_SHIFT			= (20ull),
 	//! base type: image is an array (aka has layers)
-	FLAG_ARRAY				= (1u << (__FLAG_SHIFT + 0u)),
+	FLAG_ARRAY				= (1ull << (__FLAG_SHIFT + 0ull)),
 	//! base type: image is a buffer object
-	FLAG_BUFFER				= (1u << (__FLAG_SHIFT + 1u)),
+	FLAG_BUFFER				= (1ull << (__FLAG_SHIFT + 1ull)),
 	//! base type: image uses mutli-sampling (consists of multiple samples)
-	FLAG_MSAA				= (1u << (__FLAG_SHIFT + 2u)),
+	FLAG_MSAA				= (1ull << (__FLAG_SHIFT + 2ull)),
 	//! base type: image is a cube map
-	FLAG_CUBE				= (1u << (__FLAG_SHIFT + 3u)),
+	FLAG_CUBE				= (1ull << (__FLAG_SHIFT + 3ull)),
 	//! base type: image is a depth image
-	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
+	FLAG_DEPTH				= (1ull << (__FLAG_SHIFT + 4ull)),
 	//! base type: image is a stencil image
-	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
+	FLAG_STENCIL			= (1ull << (__FLAG_SHIFT + 5ull)),
 	//! base type: image is a render target (Metal) / renderbuffer (OpenGL) / framebuffer attachment (Vulkan)
 	//! NOTE: only applicable when using OpenGL sharing, Metal or Vulkan
-	FLAG_RENDER_TARGET		= (1u << (__FLAG_SHIFT + 6u)),
+	FLAG_RENDER_TARGET		= (1ull << (__FLAG_SHIFT + 6ull)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
-	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
+	FLAG_MIPMAPPED			= (1ull << (__FLAG_SHIFT + 7ull)),
 	//! optional type: image uses a fixed channel count
 	//! NOTE: only used internally, serves no purpose on the user-side
-	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
+	FLAG_FIXED_CHANNELS		= (1ull << (__FLAG_SHIFT + 8ull)),
 	//! optional type: image uses gather sampling (aka tld4/fetch4)
-	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 9u)),
+	FLAG_GATHER				= (1ull << (__FLAG_SHIFT + 9ull)),
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
-	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 10u)),
+	FLAG_NORMALIZED			= (1ull << (__FLAG_SHIFT + 10ull)),
 	//! optional type: image data contains sRGB data
-	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 11u)),
+	FLAG_SRGB				= (1ull << (__FLAG_SHIFT + 11ull)),
 	
 	//! bits 18-19: channel layout
-	__LAYOUT_MASK			= (0x000C0000u),
-	__LAYOUT_SHIFT			= (18u),
-	LAYOUT_RGBA				= (0u << __LAYOUT_SHIFT),
-	LAYOUT_BGRA				= (1u << __LAYOUT_SHIFT),
-	LAYOUT_ABGR				= (2u << __LAYOUT_SHIFT),
-	LAYOUT_ARGB				= (3u << __LAYOUT_SHIFT),
+	__LAYOUT_MASK			= (0x0000'0000'000C'0000ull),
+	__LAYOUT_SHIFT			= (18ull),
+	LAYOUT_RGBA				= (0ull << __LAYOUT_SHIFT),
+	LAYOUT_BGRA				= (1ull << __LAYOUT_SHIFT),
+	LAYOUT_ABGR				= (2ull << __LAYOUT_SHIFT),
+	LAYOUT_ARGB				= (3ull << __LAYOUT_SHIFT),
 	//! layout convenience aliases
 	LAYOUT_R				= LAYOUT_RGBA,
 	LAYOUT_RG				= LAYOUT_RGBA,
@@ -72,19 +93,19 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! bits 16-17: dimensionality
 	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
 	//!       -> 2D for cube maps, 2D for 2D arrays, 1D for 1D arrays
-	__DIM_MASK				= (0x00030000u),
-	__DIM_SHIFT				= (16u),
-	DIM_1D					= (1u << __DIM_SHIFT),
-	DIM_2D					= (2u << __DIM_SHIFT),
-	DIM_3D					= (3u << __DIM_SHIFT),
+	__DIM_MASK				= (0x0000'0000'0003'0000ull),
+	__DIM_SHIFT				= (16ull),
+	DIM_1D					= (1ull << __DIM_SHIFT),
+	DIM_2D					= (2ull << __DIM_SHIFT),
+	DIM_3D					= (3ull << __DIM_SHIFT),
 	
 	//! bits 14-15: channel count
-	__CHANNELS_MASK			= (0x0000C000u),
-	__CHANNELS_SHIFT		= (14u),
-	CHANNELS_1				= (0u << __CHANNELS_SHIFT),
-	CHANNELS_2				= (1u << __CHANNELS_SHIFT),
-	CHANNELS_3				= (2u << __CHANNELS_SHIFT),
-	CHANNELS_4				= (3u << __CHANNELS_SHIFT),
+	__CHANNELS_MASK			= (0x0000'0000'0000'C000ull),
+	__CHANNELS_SHIFT		= (14ull),
+	CHANNELS_1				= (0ull << __CHANNELS_SHIFT),
+	CHANNELS_2				= (1ull << __CHANNELS_SHIFT),
+	CHANNELS_3				= (2ull << __CHANNELS_SHIFT),
+	CHANNELS_4				= (3ull << __CHANNELS_SHIFT),
 	//! channel convenience aliases
 	R 						= CHANNELS_1,
 	RG 						= CHANNELS_2,
@@ -92,105 +113,105 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	RGBA					= CHANNELS_4,
 	
 	//! bits 12-13: storage data type
-	__DATA_TYPE_MASK		= (0x00003000u),
-	__DATA_TYPE_SHIFT		= (12u),
-	INT						= (1u << __DATA_TYPE_SHIFT),
-	UINT					= (2u << __DATA_TYPE_SHIFT),
-	FLOAT					= (3u << __DATA_TYPE_SHIFT),
+	__DATA_TYPE_MASK		= (0x0000'0000'0000'3000ull),
+	__DATA_TYPE_SHIFT		= (12ull),
+	INT						= (1ull << __DATA_TYPE_SHIFT),
+	UINT					= (2ull << __DATA_TYPE_SHIFT),
+	FLOAT					= (3ull << __DATA_TYPE_SHIFT),
 	
 	//! bits 10-11: access qualifier
-	__ACCESS_MASK			= (0x00000C00u),
-	__ACCESS_SHIFT			= (10u),
+	__ACCESS_MASK			= (0x0000'0000'0000'0C00ull),
+	__ACCESS_SHIFT			= (10ull),
 	//! image is read-only (exluding host operations)
-	READ					= (1u << __ACCESS_SHIFT),
+	READ					= (1ull << __ACCESS_SHIFT),
 	//! image is write-only (exluding host operations)
-	WRITE					= (2u << __ACCESS_SHIFT),
+	WRITE					= (2ull << __ACCESS_SHIFT),
 	//! image is read-write
 	//! NOTE: also applies if neither is set
 	READ_WRITE				= (READ | WRITE),
 	
 	//! bits 6-9: compressed formats
-	__COMPRESSION_MASK		= (0x000003C0),
-	__COMPRESSION_SHIFT		= (6u),
+	__COMPRESSION_MASK		= (0x0000'0000'0000'03C0),
+	__COMPRESSION_SHIFT		= (6ull),
 	//! image data is not compressed
-	UNCOMPRESSED			= (0u << __COMPRESSION_SHIFT),
+	UNCOMPRESSED			= (0ull << __COMPRESSION_SHIFT),
 	//! S3TC/DXTn
-	BC1						= (1u << __COMPRESSION_SHIFT),
-	BC2						= (2u << __COMPRESSION_SHIFT),
-	BC3						= (3u << __COMPRESSION_SHIFT),
+	BC1						= (1ull << __COMPRESSION_SHIFT),
+	BC2						= (2ull << __COMPRESSION_SHIFT),
+	BC3						= (3ull << __COMPRESSION_SHIFT),
 	//! RGTC1/RGTC2
-	RGTC					= (4u << __COMPRESSION_SHIFT),
+	RGTC					= (4ull << __COMPRESSION_SHIFT),
 	BC4						= RGTC,
 	BC5						= RGTC,
 	//! BPTC/BPTC_FLOAT
-	BPTC					= (5u << __COMPRESSION_SHIFT),
+	BPTC					= (5ull << __COMPRESSION_SHIFT),
 	BC6H					= BPTC,
 	BC7						= BPTC,
 	//! PVRTC
-	PVRTC					= (6u << __COMPRESSION_SHIFT),
+	PVRTC					= (6ull << __COMPRESSION_SHIFT),
 	//! PVRTC2
-	PVRTC2					= (7u << __COMPRESSION_SHIFT),
+	PVRTC2					= (7ull << __COMPRESSION_SHIFT),
 	//! EAC/ETC1
-	EAC						= (8u << __COMPRESSION_SHIFT),
+	EAC						= (8ull << __COMPRESSION_SHIFT),
 	ETC1					= EAC,
 	//! ETC2
-	ETC2					= (9u << __COMPRESSION_SHIFT),
+	ETC2					= (9ull << __COMPRESSION_SHIFT),
 	//! ASTC
-	ASTC					= (10u << __COMPRESSION_SHIFT),
+	ASTC					= (10ull << __COMPRESSION_SHIFT),
 	
 	//! bits 0-5: formats
 	//! NOTE: unless specified otherwise, a format is usable with any channel count
 	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
 	//! NOTE: channel layout / order is determined by LAYOUT_* -> bit/channel order in here can be different to the actual layout
-	__FORMAT_MASK			= (0x0000003Fu),
+	__FORMAT_MASK			= (0x0000'0000'0000'003Full),
 	//! 1 bit per channel
-	FORMAT_1				= (1u),
+	FORMAT_1				= (1ull),
 	//! 2 bits per channel
-	FORMAT_2				= (2u),
+	FORMAT_2				= (2ull),
 	//! 3 channel format: 3-bit/3-bit/2-bit
-	FORMAT_3_3_2			= (3u),
+	FORMAT_3_3_2			= (3ull),
 	//! 4 bits per channel or YUV444
-	FORMAT_4				= (4u),
+	FORMAT_4				= (4ull),
 	//! YUV420
-	FORMAT_4_2_0			= (5u),
+	FORMAT_4_2_0			= (5ull),
 	//! YUV411
-	FORMAT_4_1_1			= (6u),
+	FORMAT_4_1_1			= (6ull),
 	//! YUV422
-	FORMAT_4_2_2			= (7u),
+	FORMAT_4_2_2			= (7ull),
 	//! 3 channel format: 5-bit/5-bit/5-bit
-	FORMAT_5_5_5			= (8u),
+	FORMAT_5_5_5			= (8ull),
 	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
-	FORMAT_5_5_5_ALPHA_1	= (9u),
+	FORMAT_5_5_5_ALPHA_1	= (9ull),
 	//! 3 channel format: 5-bit/6-bit/5-bit
-	FORMAT_5_6_5			= (10u),
+	FORMAT_5_6_5			= (10ull),
 	//! 8 bits per channel
-	FORMAT_8				= (11u),
+	FORMAT_8				= (11ull),
 	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
-	FORMAT_9_9_9_EXP_5		= (12u),
+	FORMAT_9_9_9_EXP_5		= (12ull),
 	//! 3 or 4 channel format: 10-bit/10-bit/10-bit(/10-bit)
-	FORMAT_10				= (13u),
+	FORMAT_10				= (13ull),
 	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
-	FORMAT_10_10_10_ALPHA_2	= (14u),
+	FORMAT_10_10_10_ALPHA_2	= (14ull),
 	//! 3 channel format: 11-bit/11-bit/10-bit
-	FORMAT_11_11_10			= (15u),
+	FORMAT_11_11_10			= (15ull),
 	//! 3 channel format: 12-bit/12-bit/12-bit
-	FORMAT_12_12_12			= (16u),
+	FORMAT_12_12_12			= (16ull),
 	//! 4 channel format: 12-bit/12-bit/12-bit/12-bit
-	FORMAT_12_12_12_12		= (17u),
+	FORMAT_12_12_12_12		= (17ull),
 	//! 16 bits per channel
-	FORMAT_16				= (18u),
+	FORMAT_16				= (18ull),
 	//! 2 channel format: 16-bit/8-bit
-	FORMAT_16_8				= (19u),
+	FORMAT_16_8				= (19ull),
 	//! 1 channel format: 24-bit
-	FORMAT_24				= (20u),
+	FORMAT_24				= (20ull),
 	//! 2 channel format: 24-bit/8-bit
-	FORMAT_24_8				= (21u),
+	FORMAT_24_8				= (21ull),
 	//! 32 bits per channel
-	FORMAT_32				= (22u),
+	FORMAT_32				= (22ull),
 	//! 2 channel format: 32-bit/8-bit
-	FORMAT_32_8				= (23u),
+	FORMAT_32_8				= (23ull),
 	//! 64 bits per channel
-	FORMAT_64				= (24u),
+	FORMAT_64				= (24ull),
 	__FORMAT_MAX			= FORMAT_64,
 	
 	//////////////////////////////////////////
@@ -399,6 +420,40 @@ floor_inline_always static constexpr uint32_t image_format(const COMPUTE_IMAGE_T
 	return uint32_t(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 }
 
+//! return the anisotropy of the specified image type
+floor_inline_always static constexpr uint32_t image_anisotropy(const COMPUTE_IMAGE_TYPE& image_type) {
+	return uint32_t(1ull << (uint64_t(image_type & COMPUTE_IMAGE_TYPE::__ANISOTROPY_MASK) >>
+							 uint64_t(COMPUTE_IMAGE_TYPE::__ANISOTROPY_SHIFT)));
+}
+
+//! return the sample count of the specified image type
+floor_inline_always static constexpr uint32_t image_sample_count(const COMPUTE_IMAGE_TYPE& image_type) {
+	if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) return 1u;
+	return uint32_t(1ull << (uint64_t(image_type & COMPUTE_IMAGE_TYPE::__SAMPLE_COUNT_MASK) >>
+							 uint64_t(COMPUTE_IMAGE_TYPE::__SAMPLE_COUNT_SHIFT)));
+}
+
+//! return the COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_* type matching the specified sample count
+//! NOTE: "sample_count" must be in [0, 64]
+floor_inline_always static constexpr COMPUTE_IMAGE_TYPE image_sample_type_from_count(const uint32_t& sample_count) {
+	static_assert(uint32_t(COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_1) == uint32_t(COMPUTE_IMAGE_TYPE::NONE), "sample count definition changed");
+	if (sample_count <= 1 || sample_count > 64u) {
+		return COMPUTE_IMAGE_TYPE::NONE;
+	}
+	if (sample_count <= 2u) {
+		return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_2;
+	} else if (sample_count <= 4u) {
+		return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_4;
+	} else if (sample_count <= 8u) {
+		return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_8;
+	} else if (sample_count <= 16u) {
+		return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_16;
+	} else if (sample_count <= 32u) {
+		return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_32;
+	}
+	return COMPUTE_IMAGE_TYPE::SAMPLE_COUNT_64;
+}
+
 //! returns the coordinate width required to address a single texel in the image
 //! NOTE: this is usually identical to "image_storage_dim_count", but needs to be increased by 1 for cube array formats
 floor_inline_always static constexpr uint32_t image_coordinate_width(const COMPUTE_IMAGE_TYPE& image_type) {
@@ -443,36 +498,36 @@ floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE
 //! returns the amount of bits needed to store one pixel
 static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_type) {
 	const auto format = image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
-	if(!image_compressed(image_type)) {
+	if (!image_compressed(image_type)) {
 		const auto channel_count = image_channel_count(image_type);
-		switch(format) {
+		const auto sample_count = image_sample_count(image_type);
+		switch (format) {
 			// arbitrary channel formats
-			case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32 * channel_count;
-			case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64 * channel_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32 * channel_count * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64 * channel_count * sample_count;
 				
 			// special channel specific formats
-			case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return 8;
-			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 15;
-			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return 16;
-			case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return 16;
-			case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return 32;
-			case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return 32;
-			case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return 32;
-			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 36;
-			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 48;
-			case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24;
-			case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return 32;
-			case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return 40;
-			default: return 1;
+			case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return 8 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 15 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return 16 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return 16 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return 32 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return 32 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return 32 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 36 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 48 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return 32 * sample_count;
+			case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return 40 * sample_count;
+			default: return 1 * sample_count;
 		}
-	}
-	else {
-		switch(image_type & COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK) {
+	} else {
+		switch (image_type & COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK) {
 			case COMPUTE_IMAGE_TYPE::PVRTC: return (format == COMPUTE_IMAGE_TYPE::FORMAT_2 ? 2 : 4);
 			// TODO: other compressed formats
 			default: return 1;
@@ -483,32 +538,33 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 //! returns the amount of bits needed to store the specified channel
 //! NOTE: not viable for compressed image formats
 static constexpr uint32_t image_bits_of_channel(const COMPUTE_IMAGE_TYPE& image_type, const uint32_t& channel) {
-	if(channel >= image_channel_count(image_type)) return 0;
-	if(image_compressed(image_type)) return 0;
+	if (channel >= image_channel_count(image_type)) return 0;
+	if (image_compressed(image_type)) return 0;
 	
-	switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
+	const auto sample_count = image_sample_count(image_type);
+	switch (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
 		// arbitrary channel formats
-		case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2;
-		case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4;
-		case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8;
-		case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16;
-		case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32;
-		case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64;
+		case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64 * sample_count;
 			
 		// special channel specific formats
-		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel <= 1 ? 3 : 2);
-		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 5;
-		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return (channel <= 2 ? 5 : 1);
-		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel == 1 ? 6 : 5);
-		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return (channel <= 2 ? 14 : 0); // tricky
-		case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10;
-		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return (channel <= 2 ? 10 : 2);
-		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel <= 1 ? 11 : 10);
-		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 12;
-		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 12;
-		case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24;
-		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return (channel == 0 ? 24 : 8);
-		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return (channel == 0 ? 32 : 8);
+		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel <= 1 ? 3 : 2) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 5 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return (channel <= 2 ? 5 : 1) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel == 1 ? 6 : 5) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return (channel <= 2 ? 14 : 0) * sample_count; // tricky
+		case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return (channel <= 2 ? 10 : 2) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel <= 1 ? 11 : 10) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 12 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 12 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24 * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return (channel == 0 ? 24 : 8) * sample_count;
+		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return (channel == 0 ? 32 : 8) * sample_count;
 		default: return 0;
 	}
 }
@@ -523,16 +579,14 @@ static constexpr uint32_t image_bytes_per_pixel(const COMPUTE_IMAGE_TYPE& image_
 //! returns the total amount of bytes needed to store a slice of an image of the specified dimensions and types
 //! (or of the complete image w/o mip levels if it isn't an array or cube image)
 static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
-														 const COMPUTE_IMAGE_TYPE& image_type,
-														 const size_t sample_count = 1) {
+														 const COMPUTE_IMAGE_TYPE& image_type) {
 	const auto dim_count = image_dim_count(image_type);
 	size_t size = size_t(image_dim.x);
-	if(dim_count >= 2) size *= size_t(image_dim.y);
-	if(dim_count == 3) size *= size_t(image_dim.z);
+	if (dim_count >= 2) size *= size_t(image_dim.y);
+	if (dim_count == 3) size *= size_t(image_dim.z);
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-		// * sample count
-		size *= sample_count;
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+		size *= image_sample_count(image_type);
 	}
 	
 	// TODO: make sure special formats correspond to channel count
@@ -584,11 +638,10 @@ static constexpr uint32_t image_layer_count(const uint4& image_dim, const COMPUT
 	return layer_count;
 }
 
-//! returns the total amount of bytes needed to store the image of the specified dimensions, types, sample count and mip-levels
+//! returns the total amount of bytes needed to store the image of the specified dimensions, types and mip-levels
 //! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px for uncompressed images, or 8px for uncompressed ones
 static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 												   const COMPUTE_IMAGE_TYPE& image_type,
-												   const size_t sample_count = 1,
 												   const bool ignore_mip_levels = false) {
 	const auto dim_count = image_dim_count(image_type);
 	const auto mip_levels = (ignore_mip_levels ? 1 : image_mip_level_count(image_dim, image_type));
@@ -604,7 +657,7 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 		0u
 	};
 	for(size_t level = 0; level < mip_levels; ++level) {
-		size_t slice_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
+		size_t slice_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
 			slice_size *= array_dim;

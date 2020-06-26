@@ -70,6 +70,7 @@ FLOOR_POP_WARNINGS()
 }
 @property (unsafe_unretained, nonatomic) CAMetalLayer* metal_layer;
 @property (assign, nonatomic) bool is_hidpi;
+@property (assign, nonatomic) bool is_vsync;
 @property (assign, nonatomic) bool is_wide_gamut;
 @property (assign, nonatomic) bool is_hdr;
 @property (assign, nonatomic) bool is_hdr_linear;
@@ -80,6 +81,7 @@ FLOOR_POP_WARNINGS()
 @implementation metal_view
 @synthesize metal_layer = _metal_layer;
 @synthesize is_hidpi = _is_hidpi;
+@synthesize is_vsync = _is_vsync;
 @synthesize is_wide_gamut = _is_wide_gamut;
 @synthesize is_hdr = _is_hdr;
 @synthesize is_hdr_linear = _is_hdr_linear;
@@ -237,12 +239,14 @@ FLOOR_POP_WARNINGS()
 - (instancetype)initWithWindow:(wnd_type_ptr)wnd
 					withDevice:(id <MTLDevice>)device
 					 withHiDPI:(bool)hidpi
+					 withVSync:(bool)vsync
 				 withWideGamut:(bool)wide_gamut
 					   withHDR:(bool)hdr
 				 withHDRLinear:(bool)hdr_linear
 			   withHDRMetadata:(const hdr_metadata_t&)hdr_metadata {
 	self.wnd = wnd;
 	self.is_hidpi = hidpi;
+	self.is_vsync = vsync;
 	self.is_hdr = hdr;
 	self.is_hdr_linear = hdr_linear;
 	// enable if directly set or implicitly if HDR is set
@@ -256,6 +260,7 @@ FLOOR_POP_WARNINGS()
 #endif
 		self.metal_layer = (CAMetalLayer*)self.layer;
 		self.metal_layer.device = device;
+		self.metal_layer.displaySyncEnabled = self.is_vsync;
 		if (!self.is_wide_gamut) {
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 		} else {
@@ -411,6 +416,7 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 #endif
 						withDevice:device
 						withHiDPI:floor::get_hidpi()
+						withVSync:floor::get_vsync()
 						withWideGamut:floor::get_wide_gamut()
 						withHDR:(floor::get_hdr() && can_do_hdr)
 						withHDRLinear:floor::get_hdr_linear()
@@ -439,17 +445,19 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 	//const auto frame_num = view->max_scheduled_frames--;
 	//const auto ahead = max_drawables_in_flight - frame_num;
 	
-	for(;;) {
-		static const double time_den { chrono::high_resolution_clock::time_point::duration::period::den };
-		const auto now = chrono::high_resolution_clock::now();
-		const auto delta = now - view->tp_prev_frame;
-		const auto delta_s = ((double)delta.count()) / time_den;
-		const auto time_per_frame = (1.0 / double([view refresh_rate])) * 0.95 /* 5% margin */;
-		if(delta_s >= time_per_frame) {
-			view->tp_prev_frame = now;
-			break;
+	if ([view is_vsync]) {
+		for(;;) {
+			static const double time_den { chrono::high_resolution_clock::time_point::duration::period::den };
+			const auto now = chrono::high_resolution_clock::now();
+			const auto delta = now - view->tp_prev_frame;
+			const auto delta_s = ((double)delta.count()) / time_den;
+			const auto time_per_frame = (1.0 / double([view refresh_rate])) * 0.95 /* 5% margin */;
+			if(delta_s >= time_per_frame) {
+				view->tp_prev_frame = now;
+				break;
+			}
+			this_thread::yield();
 		}
-		this_thread::yield();
 	}
 	
 	__block atomic<uint32_t>& max_scheduled_frames_ = view->max_scheduled_frames;

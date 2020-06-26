@@ -40,6 +40,7 @@ metal_device::metal_device() : compute_device() {
 	image_offset_write_support = false;
 	image_depth_compare_support = true;
 	image_gather_support = true;
+	max_anisotropy = 16u;
 	
 	// good default
 #if !defined(FLOOR_IOS)

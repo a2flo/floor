@@ -19,8 +19,11 @@
 #ifndef __FLOOR_GRAPHICS_GRAPHICS_PIPELINE_HPP__
 #define __FLOOR_GRAPHICS_GRAPHICS_PIPELINE_HPP__
 
-#include <floor/compute/compute_kernel.hpp>
+#include <floor/core/essentials.hpp>
+#include <floor/core/enum_helpers.hpp>
+#include <floor/math/vector_lib.hpp>
 #include <floor/compute/device/image_types.hpp>
+#include <optional>
 
 enum class PRIMITIVE {
 	POINT,
@@ -84,6 +87,8 @@ enum class BLEND_OP {
 	MAX,
 };
 
+class compute_kernel;
+
 //! full pipeline description used to create pipeline objects
 struct render_pipeline_description {
 	//! shaders for this pipeline
@@ -98,6 +103,11 @@ struct render_pipeline_description {
 	
 	//! geometry front facing order
 	FRONT_FACE front_face { FRONT_FACE::COUNTER_CLOCKWISE };
+	
+	//! number of samples to be used for multi-sampling (must be a power-of-two in [0, 64])
+	//! NOTE: a value of 0 or 1 signals that no multi-sampling is used
+	//! NOTE: a minimum of 4 samples should be generally available on all targets
+	uint32_t sample_count { 0u };
 	
 	//! render viewport
 	//! NOTE: if set to ~0u, will cover the whole screen

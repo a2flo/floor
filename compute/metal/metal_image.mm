@@ -125,8 +125,13 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull
 		case MTLTextureType2DMultisample: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA; break;
 		case MTLTextureType3D: type = COMPUTE_IMAGE_TYPE::IMAGE_3D; break;
 		case MTLTextureTypeCube: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE; break;
-#if !defined(FLOOR_IOS)
 		case MTLTextureTypeCubeArray: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY; break;
+#if defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400
+		case MTLTextureType2DMultisampleArray: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY; break;
+#endif
+#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
+	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
+		case MTLTextureTypeTextureBuffer: type = COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER; break;
 #endif
 		
 		// yay for forwards compatibility, or at least detecting that something is wrong(tm) ...
@@ -234,9 +239,13 @@ FLOOR_POP_WARNINGS()
 		type |= COMPUTE_IMAGE_TYPE::READ_WRITE;
 	}
 	
-	// handle mip-mapping / msaa flags (although both are possible with == 1 as well)
+	// handle mip-mapping / MSAA (although both are possible with == 1 as well)
 	if([img mipmapLevelCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
-	if([img sampleCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
+	const auto sample_count = [img sampleCount];
+	if (sample_count > 1) {
+		type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
+		type |= image_sample_type_from_count((uint32_t)sample_count);
+	}
 	
 	if(([img usage] & MTLTextureUsageRenderTarget) != 0 ||
 	   [img isFramebufferOnly]) {
@@ -309,17 +318,13 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
+	const bool is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type);
 	const bool is_compressed = image_compressed(image_type);
 	auto mtl_device = mtl_dev.device;
-	if(is_msaa && is_array) {
-		log_error("msaa array image not supported by metal!");
+	if (is_msaa && is_cube) {
+		log_error("MSAA cube image is not supported");
 		return false;
 	}
-#if defined(FLOOR_IOS)
-	if(is_cube && is_array) {
-		log_error("cuba array image not support by metal (on ios)!");
-	}
-#endif
 	
 	const MTLRegion region {
 		.origin = { 0, 0, 0 },
@@ -335,29 +340,65 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	[desc setArrayLength:(!is_cube ? layer_count : layer_count / 6)];
 	
 	// type + nD handling
-	MTLTextureType tex_type;
-	switch(dim_count) {
+	MTLTextureType tex_type { MTLTextureType2D };
+	switch (dim_count) {
 		case 1:
-			if(!is_array) tex_type = MTLTextureType1D;
-			else tex_type = MTLTextureType1DArray;
+			if (is_cube || is_msaa) {
+				log_error("cube/MSAA is not supported for 1D images");
+				return false;
+			}
+			
+			if (!is_array && !is_buffer) {
+				tex_type = MTLTextureType1D;
+			} else if (is_array && !is_buffer) {
+				tex_type = MTLTextureType1DArray;
+			} else if (!is_array && is_buffer) {
+#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
+	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
+				tex_type = MTLTextureTypeTextureBuffer;
+#else
+				log_error("1D buffer image is not supported");
+				return false;
+#endif
+			} else if (is_array && is_buffer) {
+				log_error("1D array buffer image is not supported");
+				return false;
+			}
 			break;
 		case 2:
-			if(!is_array && !is_msaa && !is_cube) tex_type = MTLTextureType2D;
-			else if(is_msaa) tex_type = MTLTextureType2DMultisample;
-			else if(is_array) {
-				if(!is_cube) tex_type = MTLTextureType2DArray;
-#if !defined(FLOOR_IOS) // os x only for now
-				else tex_type = MTLTextureTypeCubeArray;
-#else
-				else {
-					log_error("cube array is not supported on iOS!");
-					return false;
-				}
-#endif
+			if (is_buffer) {
+				log_error("buffer is not supported for 2D images");
+				return false;
 			}
-			else /* is_cube */ tex_type = MTLTextureTypeCube;
+			
+			if (!is_cube) {
+				if (!is_msaa && !is_array) {
+					tex_type = MTLTextureType2D;
+				} else if (is_msaa && is_array) {
+#if defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400
+					tex_type = MTLTextureType2DMultisampleArray;
+#else
+					log_error("2D MSAA array image is not supported");
+					return false;
+#endif
+				} else if (is_msaa) {
+					tex_type = MTLTextureType2DMultisample;
+				} else if (is_array) {
+					tex_type = MTLTextureType2DArray;
+				}
+			} else {
+				if (!is_array) {
+					tex_type = MTLTextureTypeCube;
+				} else {
+					tex_type = MTLTextureTypeCubeArray;
+				}
+			}
 			break;
 		case 3:
+			if (is_array || is_cube || is_msaa || is_buffer) {
+				log_error("array/cube/MSAA/buffer is not supported for 3D images");
+				return false;
+			}
 			tex_type = MTLTextureType3D;
 			break;
 		default:
@@ -379,7 +420,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	
 	// misc options
 	[desc setMipmapLevelCount:mip_level_count];
-	[desc setSampleCount:1];
+	[desc setSampleCount:image_sample_count(image_type)];
 	
 	// usage/access options
 	[desc setResourceOptions:options];

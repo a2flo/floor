@@ -678,7 +678,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.image_cube_array_write_support = device.image_cube_array_support;
 		
 		device.anisotropic_support = features.samplerAnisotropy;
-		device.max_anisotropy = (device.anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
+		device.max_anisotropy = (device.anisotropic_support ? uint32_t(limits.maxSamplerAnisotropy) : 1u);
 		
 		device.int16_support = features.shaderInt16;
 		device.float16_support = shader_float16_int8_features.shaderFloat16;
@@ -1819,7 +1819,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			auto& vk_dev = (vulkan_device&)*dev;
 			if(sampler_create_info.anisotropyEnable) {
 				sampler_create_info.anisotropyEnable = vk_dev.anisotropic_support;
-				sampler_create_info.maxAnisotropy = vk_dev.max_anisotropy;
+				sampler_create_info.maxAnisotropy = float(vk_dev.max_anisotropy);
 			}
 			
 			VK_CALL_CONT(vkCreateSampler(vk_dev.device, &sampler_create_info, nullptr, &vk_dev.fixed_sampler_set[combination]),
