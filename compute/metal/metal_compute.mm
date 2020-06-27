@@ -167,8 +167,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 130000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_0;
+		if(darwin_helper::get_system_version() >= 140000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_3;
+			device.metal_language_version = METAL_VERSION::METAL_2_3;
+		} else if(darwin_helper::get_system_version() >= 130000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_2;
 			device.metal_language_version = METAL_VERSION::METAL_2_2;
 		} else if(darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_1;
@@ -184,6 +187,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.metal_language_version = METAL_VERSION::METAL_1_1;
 		}
 		
+		// TODO: switch over to new MTLGPUFamily
 		switch (feature_set) {
 			default:
 			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
@@ -265,9 +269,18 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_total_local_size = 1024;
 				break;
 			
-			// A12
+			// A12/A12X/A12Z
 			case 5:
 				device.units = 4; // Apple custom
+				device.mem_clock = 1600; // TODO: ram clock
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_total_local_size = 1024;
+				break;
+				
+			// A13
+			case 6:
+				device.units = 4; // Apple custom (TODO: correct number)
 				device.mem_clock = 1600; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
@@ -361,8 +374,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 101500) {
-			device.metal_software_version = METAL_VERSION::METAL_3_0;
+		if (darwin_helper::get_system_version() >= 110000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_3;
+			device.metal_language_version = METAL_VERSION::METAL_2_3;
+		} else if (darwin_helper::get_system_version() >= 101500) {
+			device.metal_software_version = METAL_VERSION::METAL_2_2;
 			device.metal_language_version = METAL_VERSION::METAL_2_2;
 		} else if (darwin_helper::get_system_version() >= 101400) {
 			device.metal_software_version = METAL_VERSION::METAL_2_1;

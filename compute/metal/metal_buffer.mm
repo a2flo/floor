@@ -166,12 +166,12 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
 																			length:size
 																		   options:(MTLResourceStorageModeManaged |
-																					MTLCPUCacheModeWriteCombined)];
+																					MTLResourceCPUCacheModeWriteCombined)];
 #else
 					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
 																			length:size
 																		   options:(MTLResourceStorageModeShared |
-																					MTLCPUCacheModeWriteCombined)];
+																					MTLResourceCPUCacheModeWriteCombined)];
 #endif
 					
 					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();

@@ -78,10 +78,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_TOOLCHAIN_VERSION 70000u
 #elif (__clang_major__ == 11 && __clang_minor__ == 0 && __clang_patchlevel__ < 3) // Xcode 11.0 - 11.3
 #define FLOOR_TOOLCHAIN_VERSION 80000u
-#elif (__clang_major__ == 11 && __clang_minor__ == 0 && __clang_patchlevel__ >= 3) // Xcode 11.4
+#elif (__clang_major__ == 11 && (__clang_minor__ > 0 || (__clang_minor__ == 0 && __clang_patchlevel__ >= 3))) // Xcode 11.4+
 #define FLOOR_TOOLCHAIN_VERSION 90000u
-#else // newer/unreleased Xcode, default to 9.0 for now
-#define FLOOR_TOOLCHAIN_VERSION 90000u
+#elif (__clang_major__ == 12 && __clang_minor__ == 0) // Xcode 12.0
+#define FLOOR_TOOLCHAIN_VERSION 100000u
+#else // newer/unreleased Xcode, default to 10.0 for now
+#define FLOOR_TOOLCHAIN_VERSION 100000u
 #endif
 
 #endif
@@ -130,8 +132,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101300
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101400 && FLOOR_COMPUTE_INFO_OS_VERSION < 101500
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101400
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101500
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101500 && FLOOR_COMPUTE_INFO_OS_VERSION < 110000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101500
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000
+#define FLOOR_COMPUTE_INFO_OS_VERSION_110000
 #endif
 
 #elif defined(__APPLE__) && defined(FLOOR_IOS) // ios
@@ -146,8 +150,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_110000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 120000 && FLOOR_COMPUTE_INFO_OS_VERSION < 130000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_120000
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 130000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 130000 && FLOOR_COMPUTE_INFO_OS_VERSION < 140000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_130000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 140000
+#define FLOOR_COMPUTE_INFO_OS_VERSION_140000
 #endif
 
 #else // all else

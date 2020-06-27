@@ -62,7 +62,7 @@ struct asio_error_stack {
 	}
 };
 
-static _Thread_local asio_error_stack asio_errors;
+static thread_local asio_error_stack asio_errors;
 
 void asio_error_handler::handle_exception(const exception& exc) {
 	log_error("asio/net error: %s", exc.what());

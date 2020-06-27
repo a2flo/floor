@@ -31,7 +31,7 @@ enum class METAL_VERSION : uint32_t {
 	METAL_2_0,
 	METAL_2_1,
 	METAL_2_2,
-	METAL_3_0,
+	METAL_2_3,
 };
 
 constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
@@ -42,7 +42,7 @@ constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
 		case METAL_VERSION::METAL_2_0: return "2.0";
 		case METAL_VERSION::METAL_2_1: return "2.1";
 		case METAL_VERSION::METAL_2_2: return "2.2";
-		case METAL_VERSION::METAL_3_0: return "3.0";
+		case METAL_VERSION::METAL_2_3: return "2.3";
 	}
 }
 constexpr const char* metal_major_version_to_string(const METAL_VERSION& version) {
@@ -52,8 +52,8 @@ constexpr const char* metal_major_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_1_2: return "1";
 		case METAL_VERSION::METAL_2_0:
 		case METAL_VERSION::METAL_2_1:
-		case METAL_VERSION::METAL_2_2: return "2";
-		case METAL_VERSION::METAL_3_0: return "3";
+		case METAL_VERSION::METAL_2_2:
+		case METAL_VERSION::METAL_2_3: return "2";
 	}
 }
 constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version) {
@@ -64,7 +64,7 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_2_0: return "0";
 		case METAL_VERSION::METAL_2_1: return "1";
 		case METAL_VERSION::METAL_2_2: return "2";
-		case METAL_VERSION::METAL_3_0: return "0";
+		case METAL_VERSION::METAL_2_3: return "3";
 	}
 }
 constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint32_t minor) {
@@ -82,14 +82,11 @@ constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint
 			case 0: return METAL_VERSION::METAL_2_0;
 			case 1: return METAL_VERSION::METAL_2_1;
 			case 2: return METAL_VERSION::METAL_2_2;
+			case 3: return METAL_VERSION::METAL_2_3;
 			default: return METAL_VERSION::NONE;
 		}
 	}
-	// major == 3
-	switch (minor) {
-		case 0: return METAL_VERSION::METAL_3_0;
-		default: return METAL_VERSION::NONE;
-	}
+	return METAL_VERSION::NONE;
 }
 
 #if !defined(FLOOR_NO_METAL)

@@ -499,9 +499,9 @@ static uint32_t floor_linear_local_work_size;
 uint3 floor_group_size;
 static uint32_t floor_linear_group_size;
 #if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
-_Thread_local uint3 floor_global_idx;
-_Thread_local uint3 floor_local_idx;
-_Thread_local uint3 floor_group_idx;
+thread_local uint3 floor_global_idx;
+thread_local uint3 floor_local_idx;
+thread_local uint3 floor_group_idx;
 #endif
 // will be initialized to "max h/w threads", note that this is stored in a global var,
 // so that core::get_hw_thread_count() doesn't have to called over and over again, and
@@ -517,12 +517,12 @@ static uint32_t barrier_users { 0 };
 #endif
 // -> mt-group
 #if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
-static _Thread_local uint32_t item_local_linear_idx { 0 };
-static _Thread_local fiber_context* item_contexts { nullptr };
+static thread_local uint32_t item_local_linear_idx { 0 };
+static thread_local fiber_context* item_contexts { nullptr };
 #endif
 // -> sanity check for correct barrier use
 #if defined(FLOOR_DEBUG)
-static _Thread_local uint32_t unfinished_items { 0 };
+static thread_local uint32_t unfinished_items { 0 };
 #endif
 
 // local memory management
@@ -533,8 +533,8 @@ static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr
 
 // extern in host_kernel.hpp and common.hpp
 #if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
-_Thread_local uint32_t floor_thread_idx { 0 };
-_Thread_local uint32_t floor_thread_local_memory_offset { 0 };
+thread_local uint32_t floor_thread_idx { 0 };
+thread_local uint32_t floor_thread_local_memory_offset { 0 };
 #endif
 
 // stack memory management
@@ -895,7 +895,7 @@ void host_kernel::execute_internal(const compute_queue& cqueue,
 #endif
 				
 				// run fibers/work-items for this group
-				static _Thread_local volatile bool done;
+				static thread_local volatile bool done;
 				done = false;
 				main_ctx.get_context();
 				if(!done) {

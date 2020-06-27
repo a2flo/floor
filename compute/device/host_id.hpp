@@ -25,15 +25,15 @@
 // this must be declared extern, so that it is properly visible to host compute code, so that
 // no "opaque" function has to called, which would be detrimental to vectorization.
 #if !defined(__WINDOWS__)
-extern _Thread_local uint32_t floor_thread_idx;
-extern _Thread_local uint32_t floor_thread_local_memory_offset;
+extern thread_local uint32_t floor_thread_idx;
+extern thread_local uint32_t floor_thread_local_memory_offset;
 #else // Windows workarounds for dllexport of TLS vars
 FLOOR_DLL_API inline auto& floor_thread_idx_get() {
-	static _Thread_local uint32_t floor_thread_idx_tls;
+	static thread_local uint32_t floor_thread_idx_tls;
 	return floor_thread_idx_tls;
 }
 FLOOR_DLL_API inline auto& floor_thread_local_memory_offset_get() {
-	static _Thread_local uint32_t floor_thread_local_memory_offset_tls;
+	static thread_local uint32_t floor_thread_local_memory_offset_tls;
 	return floor_thread_local_memory_offset_tls;
 }
 #define floor_thread_idx floor_thread_idx_get()
@@ -47,20 +47,20 @@ extern FLOOR_DLL_API uint3 floor_local_work_size;
 extern FLOOR_DLL_API uint3 floor_group_size;
 
 #if !defined(__WINDOWS__)
-extern _Thread_local uint3 floor_global_idx;
-extern _Thread_local uint3 floor_local_idx;
-extern _Thread_local uint3 floor_group_idx;
+extern thread_local uint3 floor_global_idx;
+extern thread_local uint3 floor_local_idx;
+extern thread_local uint3 floor_group_idx;
 #else // Windows workarounds for dllexport of TLS vars
 FLOOR_DLL_API inline auto& floor_global_idx_get() {
-	static _Thread_local uint3 floor_global_idx_tls;
+	static thread_local uint3 floor_global_idx_tls;
 	return floor_global_idx_tls;
 }
 FLOOR_DLL_API inline auto& floor_local_idx_get() {
-	static _Thread_local uint3 floor_local_idx_tls;
+	static thread_local uint3 floor_local_idx_tls;
 	return floor_local_idx_tls;
 }
 FLOOR_DLL_API inline auto& floor_group_idx_get() {
-	static _Thread_local uint3 floor_group_idx_tls;
+	static thread_local uint3 floor_group_idx_tls;
 	return floor_group_idx_tls;
 }
 #define floor_global_idx floor_global_idx_get()

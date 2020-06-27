@@ -1805,6 +1805,8 @@
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
 					"-Wno-return-std-move-in-c++11",
+					"-Wno-c11-extensions",
+					"-Wno-poison-system-directories",
 				);
 			};
 			name = Debug;
@@ -1943,6 +1945,8 @@
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
 					"-Wno-return-std-move-in-c++11",
+					"-Wno-c11-extensions",
+					"-Wno-poison-system-directories",
 				);
 			};
 			name = Release;
@@ -1950,6 +1954,7 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1983,12 +1988,14 @@
 					"-lopenal",
 					"-lopenvr_api",
 				);
+				VALID_ARCHS = x86_64;
 			};
 			name = Debug;
 		};
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2021,6 +2028,7 @@
 					"-lopenal",
 					"-lopenvr_api",
 				);
+				VALID_ARCHS = x86_64;
 			};
 			name = Release;
 		};
@@ -2166,6 +2174,8 @@
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
 					"-Wno-return-std-move-in-c++11",
+					"-Wno-c11-extensions",
+					"-Wno-poison-system-directories",
 				);
 			};
 			name = Debug_vulkan;
@@ -2173,6 +2183,7 @@
 		5C9D44BA226A7CD200D8E3E3 /* Debug_vulkan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2206,6 +2217,7 @@
 					"-lopenal",
 					"-lopenvr_api",
 				);
+				VALID_ARCHS = x86_64;
 			};
 			name = Debug_vulkan;
 		};
@@ -2410,6 +2422,8 @@
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
 					"-Wno-return-std-move-in-c++11",
+					"-Wno-c11-extensions",
+					"-Wno-poison-system-directories",
 				);
 			};
 			name = Release_vulkan;
@@ -2417,6 +2431,7 @@
 		5C9D44BE226A7CDE00D8E3E3 /* Release_vulkan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2449,6 +2464,7 @@
 					"-lopenal",
 					"-lopenvr_api",
 				);
+				VALID_ARCHS = x86_64;
 			};
 			name = Release_vulkan;
 		};
