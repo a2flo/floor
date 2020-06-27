@@ -4409,10 +4409,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..77e2cc21a85
+index 00000000000..9e02dd0a6a8
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,603 @@
+@@ -0,0 +1,612 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4485,7 +4485,7 @@ index 00000000000..77e2cc21a85
 +  uint32_t unknown_version_rev : 4;   // lo
 +  uint32_t unknown_version_minor : 4; // hi
 +
-+  // unknown: always 2 (macOS < 10.15), 3 (iOS and macOS 10.15+)
++  // unknown: always 2 (macOS < 10.15), 3 (iOS and macOS 10.15), 5 (macOS 10.16+/11.0)
 +  uint32_t unkown_version;
 +
 +  // unknown: always 0
@@ -4544,6 +4544,7 @@ index 00000000000..77e2cc21a85
 +    // TODO/TBD
 +    LAYR = make_tag_type('L', 'A', 'Y', 'R'),
 +    TESS = make_tag_type('T', 'E', 'S', 'S'),
++    SOFF = make_tag_type('S', 'O', 'F', 'F'),
 +    // generic end tag
 +    END = make_tag_type('E', 'N', 'D', 'T'),
 +  };
@@ -4608,6 +4609,7 @@ index 00000000000..77e2cc21a85
 +    //  * MDSZ
 +    //  * OFFT
 +    //  * VERS
++    //  * SOFF (TODO)
 +    //  * ENDT
 +    void update_length() {
 +      length = 4;                     // length info itself
@@ -4725,6 +4727,7 @@ index 00000000000..77e2cc21a85
 +        {200, {{{2, 0, 0}}, {{2, 0, 0}}}},
 +        {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
 +        {220, {{{2, 2, 0}}, {{2, 2, 0}}}},
++        {230, {{{2, 3, 0}}, {{2, 3, 0}}}},
 +    };
 +
 +//
@@ -4743,8 +4746,10 @@ index 00000000000..77e2cc21a85
 +      target_air_version = 200;
 +    } else if (ios_major == 12) {
 +      target_air_version = 210;
-+    } else if (ios_major >= 13) {
++    } else if (ios_major == 13) {
 +      target_air_version = 220;
++    } else if (ios_major >= 14) {
++      target_air_version = 230;
 +    }
 +
 +    if (target_air_version >= 200) {
@@ -4761,8 +4766,10 @@ index 00000000000..77e2cc21a85
 +      target_air_version = 200;
 +    } else if (osx_major == 10 && osx_minor == 14) {
 +      target_air_version = 210;
-+    } else if ((osx_major == 10 && osx_minor >= 15) || osx_major > 10) {
++    } else if (osx_major == 10 && osx_minor == 15) {
 +      target_air_version = 220;
++    } else if ((osx_major == 11 && osx_minor >= 0) || (osx_major == 10 && osx_minor >= 16) || osx_major > 11) {
++      target_air_version = 230;
 +    }
 +
 +    if (target_air_version >= 200) {
@@ -4962,7 +4969,9 @@ index 00000000000..77e2cc21a85
 +  header.unknown_version_major = 2;
 +  header.unknown_version_minor = 0;
 +  header.unknown_version_rev = 0;
-+  if (TT.isiOS() || (TT.isMacOSX() && !TT.isOSVersionLT(10, 15, 0))) {
++  if (TT.isMacOSX() && !TT.isOSVersionLT(10, 16, 0)) {
++    header.unkown_version = 5;
++  } else if (TT.isiOS() || (TT.isMacOSX() && !TT.isOSVersionLT(10, 15, 0))) {
 +    header.unkown_version = 3;
 +  } else { // macOS
 +    header.unkown_version = 2;
@@ -64981,10 +64990,10 @@ index 00000000000..806634a078e
 +required_libraries = Analysis BitReader
 diff --git a/tools/metallib-dis/metallib-dis.cpp b/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 00000000000..97a8da30953
+index 00000000000..fa80d6d1d67
 --- /dev/null
 +++ b/tools/metallib-dis/metallib-dis.cpp
-@@ -0,0 +1,508 @@
+@@ -0,0 +1,519 @@
 +//===-- metallib-dis.cpp - The low-level MetalLib + LLVM disassembler -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -65071,7 +65080,7 @@ index 00000000000..97a8da30953
 +	uint32_t unknown_version_rev : 4; // lo
 +	uint32_t unknown_version_minor : 4; // hi
 +
-+	// unknown: always 2 (macOS), 3 (iOS)
++	// unknown: always 2 (macOS), 3 (iOS), 5 (macOS since 10.16/11.0)
 +	uint32_t unkown_version;
 +	
 +	// unknown: always 0
@@ -65125,6 +65134,7 @@ index 00000000000..97a8da30953
 +		// TODO/TBD
 +		LAYR        = make_tag_type('L', 'A', 'Y', 'R'),
 +		TESS        = make_tag_type('T', 'E', 'S', 'S'),
++		SOFF        = make_tag_type('S', 'O', 'F', 'F'),
 +		// generic end tag
 +		END         = make_tag_type('E', 'N', 'D', 'T'),
 +	};
@@ -65164,6 +65174,7 @@ index 00000000000..97a8da30953
 +		version_info metal_version { 0, 0, 0 };
 +		version_info metal_language_version { 0, 0, 0 };
 +		uint8_t tess_info { 0 };
++		uint64_t soffset { 0 };
 +	};
 +	vector<entry> entries;
 +};
@@ -65350,6 +65361,14 @@ index 00000000000..97a8da30953
 +					entry.tess_info = *(const uint8_t*)program_ptr;
 +					break;
 +				}
++				case metallib_program_info::TAG_TYPE::SOFF: {
++					if(tag_length != 8) {
++						return make_error<StringError>("invalid SOFF size: " + to_string(tag_length),
++													   inconvertibleErrorCode());
++					}
++					entry.soffset = *(const uint64_t*)program_ptr;
++					break;
++				}
 +				case metallib_program_info::TAG_TYPE::END: {
 +					found_end_tag = true;
 +					break;
@@ -65404,6 +65423,7 @@ index 00000000000..97a8da30953
 +		}
 +		os << hash_hex.str() << '\n';
 +		os << "\ttess info: " << uint32_t(prog.tess_info) << '\n';
++		os << "\tsoffset: " << uint32_t(prog.soffset) << '\n';
 +		
 +		// output LLVM IR
 +		// TODO: could use stringref?
