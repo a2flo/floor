@@ -425,12 +425,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (global: %u MB, local: %u bytes): %s, Metal %s / %s, family type %u tier %u",
+		log_debug("GPU (global: %u MB, local: %u bytes): %s, Metal %s, family type %u tier %u",
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.local_mem_size,
 				  device.name,
 				  metal_version_to_string(device.metal_software_version),
-				  metal_version_to_string(device.metal_language_version),
 				  metal_device::family_type_to_string(device.family_type),
 				  device.family_tier);
 	}

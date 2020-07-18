@@ -232,6 +232,7 @@
 		5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */; };
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
 		5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */; };
+		5C93EB4424B10B54002588D5 /* soft_pack.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C93EB4324B10B54002588D5 /* soft_pack.hpp */; };
 		5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9C1377209E3C34005C516C /* universal_binary.hpp */; };
 		5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
 		5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
@@ -549,6 +550,7 @@
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
 		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
+		5C93EB4324B10B54002588D5 /* soft_pack.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = soft_pack.hpp; path = device/soft_pack.hpp; sourceTree = "<group>"; };
 		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
 		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
@@ -966,6 +968,7 @@
 				5C3B61D91C60FD4400358DAB /* opaque_image.hpp */,
 				5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */,
 				5C3B61DB1C61647600358DAB /* sampler.hpp */,
+				5C93EB4324B10B54002588D5 /* soft_pack.hpp */,
 				5C5FF22B22515775007457AF /* soft_printf.hpp */,
 			);
 			name = device;
@@ -1320,6 +1323,7 @@
 				5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */,
 				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
 				5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */,
+				5C93EB4424B10B54002588D5 /* soft_pack.hpp in Headers */,
 				5CBBFF581BC2B786001813E0 /* image.hpp in Headers */,
 				5C20C8CF1B4139260005F5EA /* host_program.hpp in Headers */,
 				5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */,

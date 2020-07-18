@@ -1647,7 +1647,7 @@ namespace math {
 #endif
 	
 	// non-standard and metal/vulkan/host-only for now
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmod, half)

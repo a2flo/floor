@@ -70,6 +70,71 @@
 #endif
 
 namespace std {
+	// half <-> float conversion
+	const_func floor_inline_always float half_to_float(half a) {
+		// for whatever reason, only the f2h function is defined, not the h2f
+		float ret;
+		asm("cvt.rn.ftz.f32.f16 %0, %1;" : "=f"(ret) : "h"(a));
+		return ret;
+	}
+	const_func floor_inline_always half float_to_half(float a) { return __nvvm_f2h_rn_ftz(a); }
+
+	// half math functions
+	const_func floor_inline_always half sqrt(half a) { return float_to_half(__nvvm_sqrt_rz_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half rsqrt(half a) { return float_to_half(__nvvm_rsqrt_approx_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half fmod(half x, half y) {
+		const auto fx = half_to_float(x);
+		const auto fy = half_to_float(y);
+		return float_to_half(fx - fy * __nvvm_trunc_ftz_f(fx / fy));
+	}
+	const_func floor_inline_always half fabs(half a) { return float_to_half(__nvvm_fabs_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half abs(half a) { return float_to_half(fabs(half_to_float(a))); }
+	const_func floor_inline_always half floor(half a) { return float_to_half(__nvvm_floor_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half ceil(half a) { return float_to_half(__nvvm_ceil_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half round(half a) { return float_to_half(__nvvm_round_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half trunc(half a) { return float_to_half(__nvvm_trunc_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half rint(half a) { return float_to_half(__nvvm_trunc_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half fmin(half a, half b) { return float_to_half(__nvvm_fmin_ftz_f(half_to_float(a), half_to_float(b))); }
+	const_func floor_inline_always half fmax(half a, half b) { return float_to_half(__nvvm_fmax_ftz_f(half_to_float(a), half_to_float(b))); }
+	
+	const_func floor_inline_always half sin(half a) { return float_to_half(__nvvm_sin_approx_ftz_f(a)); }
+	const_func floor_inline_always half cos(half a) { return float_to_half(__nvvm_cos_approx_ftz_f(a)); }
+	const_func floor_inline_always half tan(half a) { return float_to_half(__nvvm_sin_approx_ftz_f(a) / __nvvm_cos_approx_ftz_f(a)); }
+	
+#if FLOOR_COMPUTE_INFO_CUDA_SM < 53
+	const_func floor_inline_always half fma(half a, half b, half c) { return float_to_half(__nvvm_fma_rz_ftz_f(half_to_float(a),
+																											   half_to_float(b),
+																											   half_to_float(c))); }
+#else // natively supported since sm_53
+	const_func floor_inline_always half fma(half a, half b, half c) {
+		half ret;
+		asm("fma.rn.ftz.f16 %0, %1, %2, %3;" : "=h"(ret) : "h"(a), "h"(b), "h"(c));
+		return ret;
+	}
+#endif
+
+#if FLOOR_COMPUTE_INFO_CUDA_SM < 75 || FLOOR_COMPUTE_INFO_CUDA_PTX < 70
+	const_func floor_inline_always half exp2(half a) { return __nvvm_ex2_approx_ftz_f(a); }
+#else // natively supported since sm_75 and PTX 7.0
+	const_func floor_inline_always half exp2(half a) {
+		half ret;
+		asm("ex2.approx.f16 %0, %1;" : "=h"(ret) : "h"(a));
+		return ret;
+	}
+#endif
+
+	const_func floor_inline_always half log2(half a) { return float_to_half(__nvvm_lg2_approx_ftz_f(half_to_float(a))); }
+	const_func floor_inline_always half pow(half a, half b) { return exp2(b * log2(a)); }
+	const_func floor_inline_always half exp(half a) { return exp2(a * const_math::_1_DIV_LN_2<half>); } // 2^(x / ln(2))
+	const_func floor_inline_always half log(half a) { return log2(a) * const_math::_1_DIV_LD_E<half>; } // log_e(x) = log_2(x) / log_2(e)
+	
+	const_func floor_inline_always half copysign(half a, half b) {
+		float ret;
+		// NOTE: ptx has the a and b parameter reversed (in comparison to std c++ / llvm / opencl)
+		asm("copysign.f32 %0, %1, %2;" : "=f"(ret) : "f"(half_to_float(b)), "f"(half_to_float(a)));
+		return float_to_half(ret);
+	}
+
 	// float math functions
 	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
 	const_func floor_inline_always float rsqrt(float a) { return __nvvm_rsqrt_approx_ftz_f(a); }

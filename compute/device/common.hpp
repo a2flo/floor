@@ -110,7 +110,7 @@ typedef float clang_float1 __attribute__((ext_vector_type(1)));
 typedef float clang_float2 __attribute__((ext_vector_type(2)));
 typedef float clang_float3 __attribute__((ext_vector_type(3)));
 typedef float clang_float4 __attribute__((ext_vector_type(4)));
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA)
 typedef half clang_half1 __attribute__((ext_vector_type(1)));
 typedef half clang_half2 __attribute__((ext_vector_type(2)));
 typedef half clang_half3 __attribute__((ext_vector_type(3)));
@@ -426,6 +426,9 @@ template <typename T> using param = const T&;
 
 // compute algorithms
 #include <floor/compute/device/compute_algorithm.hpp>
+
+// software pack/unpack functions
+#include <floor/compute/device/soft_pack.hpp>
 
 // late function declarations that require any of the prior functionality
 #if defined(FLOOR_COMPUTE_METAL)
