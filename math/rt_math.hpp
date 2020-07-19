@@ -59,7 +59,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 					 || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 					 || is_same<rt_type, half>()
 #endif
 					 ) {
@@ -89,7 +89,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 					 || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 					 || is_same<rt_type, half>()
 #endif
 					 ) {
