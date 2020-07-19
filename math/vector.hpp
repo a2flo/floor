@@ -156,7 +156,7 @@ public:
 	template <typename vec_type, typename = void> struct clang_vector_type_spec {};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<vec_type::has_clang_vector_type()>> {
 		// special handling for half/fp16 types
-#if !defined(FLOOR_GRAPHICS_HOST)
+#if !defined(FLOOR_COMPUTE_HOST)
 		typedef scalar_type clang_scalar_type;
 #else
 		typedef conditional_t<!is_same<scalar_type, half>(), scalar_type,

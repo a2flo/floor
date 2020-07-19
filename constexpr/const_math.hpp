@@ -120,7 +120,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isinf(const fp_type val) {
-#if defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_HOST)
 		return val.isinf();
 #else
 		return __builtin_isinf(val);
@@ -134,7 +134,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isnan(const fp_type val) {
-#if defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_HOST)
 		return val.isnan();
 #else
 		return __builtin_isnan(val);
@@ -148,7 +148,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isnormal(const fp_type val) {
-#if defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_HOST)
 		return val.isnormal();
 #else
 		return __builtin_isnormal(val);
@@ -162,7 +162,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isfinite(const fp_type val) {
-#if defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_HOST)
 		return val.isfinite();
 #else
 		return __builtin_isfinite(val);
@@ -1076,7 +1076,7 @@ namespace const_math {
 #error "unsupported target"
 #endif
 	
-#if defined(FLOOR_GRAPHICS_HOST)
+#if defined(FLOOR_COMPUTE_HOST)
 	//! forward half to float fma
 	floor_inline_always floor_used static half native_fma(const half a, const half b, const half c) {
 		return (half)native_fma(float(a), float(b), float(c));
@@ -1647,7 +1647,7 @@ namespace math {
 #endif
 	
 	// non-standard and metal/vulkan/host-only for now
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmod, half)
