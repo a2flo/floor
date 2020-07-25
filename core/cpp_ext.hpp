@@ -50,4 +50,14 @@ floor_inline_always static bool stob(const string& str) {
 
 #endif // !FLOOR_COMPUTE || FLOOR_COMPUTE_HOST
 
+// provide a simplistic std::bit_cast until a proper one is available everywhere with C++20
+#if !__has_feature(__cpp_lib_bit_cast) && __has_builtin(__builtin_bit_cast)
+template <typename to_type, typename from_type, enable_if_t<(sizeof(to_type) == sizeof(from_type) &&
+															 is_trivially_copyable_v<to_type> &&
+															 is_trivially_copyable_v<from_type>)>* = nullptr>
+static constexpr inline auto bit_cast(const from_type& from) noexcept {
+	return __builtin_bit_cast(to_type, from);
+}
+#endif
+
 #endif
