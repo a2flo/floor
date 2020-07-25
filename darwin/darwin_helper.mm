@@ -273,9 +273,13 @@ FLOOR_POP_WARNINGS()
 			if (self.is_hdr) {
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 				if (!self.is_hdr_linear) {
-					// use BT.2020 colorspace with PQ transfer function
+					// use BT.2020/2100 colorspace with PQ transfer function
 					// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
+#if defined(CG_OS_VERSION_2020) && CG_OS_VERSION_2020
+					colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2100_PQ);
+#else
 					colorspace_ref = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
+#endif
 					self.metal_layer.colorspace = colorspace_ref;
 					[self set_hdr_metadata:hdr_metadata];
 				} else {
