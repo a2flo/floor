@@ -405,6 +405,27 @@ index 00000000000..c92b35793bc
 +#endif
 +
 +#endif
+diff --git a/include/llvm/ADT/APInt.h b/include/llvm/ADT/APInt.h
+index 6e106ff8bf5..d3aca90d947 100644
+--- a/include/llvm/ADT/APInt.h
++++ b/include/llvm/ADT/APInt.h
+@@ -2213,6 +2213,15 @@ Optional<APInt> SolveQuadraticEquationWrap(APInt A, APInt B, APInt C,
+ // See friend declaration above. This additional declaration is required in
+ // order to compile LLVM with IBM xlC compiler.
+ hash_code hash_value(const APInt &Arg);
+-} // End of llvm namespace
++
++/// StoreIntToMemory - Fills the StoreBytes bytes of memory starting from Dst
++/// with the integer held in IntVal.
++void StoreIntToMemory(const APInt &IntVal, uint8_t *Dst, unsigned StoreBytes);
++
++/// LoadIntFromMemory - Loads the integer stored in the LoadBytes bytes starting
++/// from Src into IntVal, which is assumed to be wide enough and to hold zero.
++void LoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes);
++
++} // namespace llvm
+ 
+ #endif
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
 index 04b64e2fa60..f0fd365aadb 100644
 --- a/include/llvm/ADT/Triple.h
@@ -17986,6 +18007,77 @@ index d45dc7c4008..db4455daa2c 100644
  add_subdirectory(ToolDrivers)
  add_subdirectory(XRay)
  add_subdirectory(Testing)
+diff --git a/lib/ExecutionEngine/ExecutionEngine.cpp b/lib/ExecutionEngine/ExecutionEngine.cpp
+index ae96c7f5955..1c8f26ebf71 100644
+--- a/lib/ExecutionEngine/ExecutionEngine.cpp
++++ b/lib/ExecutionEngine/ExecutionEngine.cpp
+@@ -1020,32 +1020,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
+   return Result;
+ }
+ 
+-/// StoreIntToMemory - Fills the StoreBytes bytes of memory starting from Dst
+-/// with the integer held in IntVal.
+-static void StoreIntToMemory(const APInt &IntVal, uint8_t *Dst,
+-                             unsigned StoreBytes) {
+-  assert((IntVal.getBitWidth()+7)/8 >= StoreBytes && "Integer too small!");
+-  const uint8_t *Src = (const uint8_t *)IntVal.getRawData();
+-
+-  if (sys::IsLittleEndianHost) {
+-    // Little-endian host - the source is ordered from LSB to MSB.  Order the
+-    // destination from LSB to MSB: Do a straight copy.
+-    memcpy(Dst, Src, StoreBytes);
+-  } else {
+-    // Big-endian host - the source is an array of 64 bit words ordered from
+-    // LSW to MSW.  Each word is ordered from MSB to LSB.  Order the destination
+-    // from MSB to LSB: Reverse the word order, but not the bytes in a word.
+-    while (StoreBytes > sizeof(uint64_t)) {
+-      StoreBytes -= sizeof(uint64_t);
+-      // May not be aligned so use memcpy.
+-      memcpy(Dst + StoreBytes, Src, sizeof(uint64_t));
+-      Src += sizeof(uint64_t);
+-    }
+-
+-    memcpy(Dst, Src + sizeof(uint64_t) - StoreBytes, StoreBytes);
+-  }
+-}
+-
+ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
+                                          GenericValue *Ptr, Type *Ty) {
+   const unsigned StoreBytes = getDataLayout().getTypeStoreSize(Ty);
+@@ -1093,33 +1067,6 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
+     std::reverse((uint8_t*)Ptr, StoreBytes + (uint8_t*)Ptr);
+ }
+ 
+-/// LoadIntFromMemory - Loads the integer stored in the LoadBytes bytes starting
+-/// from Src into IntVal, which is assumed to be wide enough and to hold zero.
+-static void LoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes) {
+-  assert((IntVal.getBitWidth()+7)/8 >= LoadBytes && "Integer too small!");
+-  uint8_t *Dst = reinterpret_cast<uint8_t *>(
+-                   const_cast<uint64_t *>(IntVal.getRawData()));
+-
+-  if (sys::IsLittleEndianHost)
+-    // Little-endian host - the destination must be ordered from LSB to MSB.
+-    // The source is ordered from LSB to MSB: Do a straight copy.
+-    memcpy(Dst, Src, LoadBytes);
+-  else {
+-    // Big-endian - the destination is an array of 64 bit words ordered from
+-    // LSW to MSW.  Each word must be ordered from MSB to LSB.  The source is
+-    // ordered from MSB to LSB: Reverse the word order, but not the bytes in
+-    // a word.
+-    while (LoadBytes > sizeof(uint64_t)) {
+-      LoadBytes -= sizeof(uint64_t);
+-      // May not be aligned so use memcpy.
+-      memcpy(Dst, Src + LoadBytes, sizeof(uint64_t));
+-      Dst += sizeof(uint64_t);
+-    }
+-
+-    memcpy(Dst + sizeof(uint64_t) - LoadBytes, Src, LoadBytes);
+-  }
+-}
+-
+ /// FIXME: document
+ ///
+ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
 index 36f4f3aa876..866c45169aa 100644
 --- a/lib/IR/AsmWriter.cpp
@@ -51374,6 +51466,67 @@ index 00000000000..01016b5ec44
 +namespace llvm {
 +  ModulePass *createSpirValidationPass() {
 +    return new SPIR::SpirValidation();
++  }
++}
+diff --git a/lib/Support/APInt.cpp b/lib/Support/APInt.cpp
+index a5f4f98c489..c9f5378c269 100644
+--- a/lib/Support/APInt.cpp
++++ b/lib/Support/APInt.cpp
+@@ -2923,3 +2923,56 @@ llvm::APIntOps::SolveQuadraticEquationWrap(APInt A, APInt B, APInt C,
+   LLVM_DEBUG(dbgs() << __func__ << ": solution (wrap): " << X << '\n');
+   return X;
+ }
++
++/// StoreIntToMemory - Fills the StoreBytes bytes of memory starting from Dst
++/// with the integer held in IntVal.
++void llvm::StoreIntToMemory(const APInt &IntVal, uint8_t *Dst,
++                            unsigned StoreBytes) {
++  assert((IntVal.getBitWidth()+7)/8 >= StoreBytes && "Integer too small!");
++  const uint8_t *Src = (const uint8_t *)IntVal.getRawData();
++
++  if (sys::IsLittleEndianHost) {
++    // Little-endian host - the source is ordered from LSB to MSB.  Order the
++    // destination from LSB to MSB: Do a straight copy.
++    memcpy(Dst, Src, StoreBytes);
++  } else {
++    // Big-endian host - the source is an array of 64 bit words ordered from
++    // LSW to MSW.  Each word is ordered from MSB to LSB.  Order the destination
++    // from MSB to LSB: Reverse the word order, but not the bytes in a word.
++    while (StoreBytes > sizeof(uint64_t)) {
++      StoreBytes -= sizeof(uint64_t);
++      // May not be aligned so use memcpy.
++      memcpy(Dst + StoreBytes, Src, sizeof(uint64_t));
++      Src += sizeof(uint64_t);
++    }
++
++    memcpy(Dst, Src + sizeof(uint64_t) - StoreBytes, StoreBytes);
++  }
++}
++
++/// LoadIntFromMemory - Loads the integer stored in the LoadBytes bytes starting
++/// from Src into IntVal, which is assumed to be wide enough and to hold zero.
++void llvm::LoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes) {
++  assert((IntVal.getBitWidth()+7)/8 >= LoadBytes && "Integer too small!");
++  uint8_t *Dst = reinterpret_cast<uint8_t *>(
++                   const_cast<uint64_t *>(IntVal.getRawData()));
++
++  if (sys::IsLittleEndianHost)
++    // Little-endian host - the destination must be ordered from LSB to MSB.
++    // The source is ordered from LSB to MSB: Do a straight copy.
++    memcpy(Dst, Src, LoadBytes);
++  else {
++    // Big-endian - the destination is an array of 64 bit words ordered from
++    // LSW to MSW.  Each word must be ordered from MSB to LSB.  The source is
++    // ordered from MSB to LSB: Reverse the word order, but not the bytes in
++    // a word.
++    while (LoadBytes > sizeof(uint64_t)) {
++      LoadBytes -= sizeof(uint64_t);
++      // May not be aligned so use memcpy.
++      memcpy(Dst, Src + LoadBytes, sizeof(uint64_t));
++      Dst += sizeof(uint64_t);
++    }
++
++    memcpy(Dst + sizeof(uint64_t) - LoadBytes, Src, LoadBytes);
 +  }
 +}
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp

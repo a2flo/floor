@@ -11,10 +11,23 @@ index 3ea38b6e00..1db8ab78e3 100644
  #==============================================================================#
  # Explicit files to ignore (only matches one).
 diff --git a/include/clang-c/Index.h b/include/clang-c/Index.h
-index c51dfb1598..cc29d5db2f 100644
+index c51dfb1598..f7c4a49e7e 100644
 --- a/include/clang-c/Index.h
 +++ b/include/clang-c/Index.h
-@@ -2562,7 +2562,7 @@ enum CXCursorKind {
+@@ -2531,7 +2531,11 @@ enum CXCursorKind {
+    */
+   CXCursor_OMPTargetTeamsDistributeSimdDirective = 279,
+ 
+-  CXCursor_LastStmt = CXCursor_OMPTargetTeamsDistributeSimdDirective,
++  /** C++2a std::bit_cast expression.
++   */
++  CXCursor_BuiltinBitCastExpr = 280,
++
++  CXCursor_LastStmt = CXCursor_BuiltinBitCastExpr,
+ 
+   /**
+    * Cursor that represents the translation unit itself.
+@@ -2562,7 +2566,7 @@ enum CXCursorKind {
    CXCursor_NoDuplicateAttr               = 411,
    CXCursor_CUDAConstantAttr              = 412,
    CXCursor_CUDADeviceAttr                = 413,
@@ -23,7 +36,7 @@ index c51dfb1598..cc29d5db2f 100644
    CXCursor_CUDAHostAttr                  = 415,
    CXCursor_CUDASharedAttr                = 416,
    CXCursor_VisibilityAttr                = 417,
-@@ -3254,6 +3254,7 @@ enum CXTypeKind {
+@@ -3254,6 +3258,7 @@ enum CXTypeKind {
    CXType_Pipe = 120,
  
    /* OpenCL builtin types. */
@@ -31,7 +44,7 @@ index c51dfb1598..cc29d5db2f 100644
    CXType_OCLImage1dRO = 121,
    CXType_OCLImage1dArrayRO = 122,
    CXType_OCLImage1dBufferRO = 123,
-@@ -3290,6 +3291,24 @@ enum CXTypeKind {
+@@ -3290,6 +3295,24 @@ enum CXTypeKind {
    CXType_OCLImage2dMSAADepthRW = 154,
    CXType_OCLImage2dArrayMSAADepthRW = 155,
    CXType_OCLImage3dRW = 156,
@@ -56,7 +69,7 @@ index c51dfb1598..cc29d5db2f 100644
    CXType_OCLSampler = 157,
    CXType_OCLEvent = 158,
    CXType_OCLQueue = 159,
-@@ -3333,10 +3352,14 @@ enum CXCallingConv {
+@@ -3333,10 +3356,14 @@ enum CXCallingConv {
    CXCallingConv_X86_64Win64 = CXCallingConv_Win64,
    CXCallingConv_X86_64SysV = 11,
    CXCallingConv_X86VectorCall = 12,
@@ -158,6 +171,52 @@ index d57c45eec0..041710df91 100644
  private:
    /// Location of sub-expressions.
    /// The location of Scope sub-expression is NumSubExprs - 1, which is
+diff --git a/include/clang/AST/ExprCXX.h b/include/clang/AST/ExprCXX.h
+index f39bddb040..244bb67f4b 100644
+--- a/include/clang/AST/ExprCXX.h
++++ b/include/clang/AST/ExprCXX.h
+@@ -4417,6 +4417,41 @@ public:
+   }
+ };
+ 
++/// Represents a C++2a __builtin_bit_cast(T, v) expression. Used to implement
++/// std::bit_cast. These can sometimes be evaluated as part of a constant
++/// expression, but otherwise CodeGen to a simple memcpy in general.
++class BuiltinBitCastExpr final
++    : public ExplicitCastExpr,
++      private llvm::TrailingObjects<BuiltinBitCastExpr, CastExpr::BasePathSizeTy, CXXBaseSpecifier *> {
++  friend class ASTStmtReader;
++  friend class CastExpr;
++  friend class TrailingObjects;
++
++  SourceLocation KWLoc;
++  SourceLocation RParenLoc;
++
++public:
++  BuiltinBitCastExpr(QualType T, ExprValueKind VK, CastKind CK, Expr *SrcExpr,
++                     TypeSourceInfo *DstType, SourceLocation KWLoc,
++                     SourceLocation RParenLoc)
++      : ExplicitCastExpr(BuiltinBitCastExprClass, T, VK, CK, SrcExpr, 0,
++                         DstType),
++        KWLoc(KWLoc), RParenLoc(RParenLoc) {}
++  BuiltinBitCastExpr(EmptyShell Empty)
++      : ExplicitCastExpr(BuiltinBitCastExprClass, Empty, 0) {}
++
++  SourceLocation getBeginLoc() const LLVM_READONLY { return KWLoc; }
++  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
++
++  static bool classof(const Stmt *T) {
++    return T->getStmtClass() == BuiltinBitCastExprClass;
++  }
++
++  size_t numTrailingObjects(OverloadToken<CastExpr::BasePathSizeTy>) const {
++    return 0;
++  }
++};
++
+ } // namespace clang
+ 
+ #endif // LLVM_CLANG_AST_EXPRCXX_H
 diff --git a/include/clang/AST/Mangle.h b/include/clang/AST/Mangle.h
 index c42fe91b32..8d91f209a9 100644
 --- a/include/clang/AST/Mangle.h
@@ -181,10 +240,22 @@ index c42fe91b32..8d91f209a9 100644
  };
  
 diff --git a/include/clang/AST/OperationKinds.def b/include/clang/AST/OperationKinds.def
-index cd19091e31..8ff745a81a 100644
+index cd19091e31..bac3484f6a 100644
 --- a/include/clang/AST/OperationKinds.def
 +++ b/include/clang/AST/OperationKinds.def
-@@ -330,6 +330,12 @@ CAST_OPERATION(BuiltinFnToFnPtr)
+@@ -67,6 +67,11 @@ CAST_OPERATION(BitCast)
+ ///    bool b; reinterpret_cast<char&>(b) = 'a';
+ CAST_OPERATION(LValueBitCast)
+ 
++/// CK_LValueToRValueBitCast - A conversion that causes us to reinterpret the
++/// object representation of an lvalue as an rvalue. Created by
++/// __builtin_bit_cast.
++CAST_OPERATION(LValueToRValueBitCast)
++
+ /// CK_LValueToRValue - A conversion which causes the extraction of
+ /// an r-value from the operand gl-value.  The result of an r-value
+ /// conversion is always unqualified.
+@@ -330,6 +335,12 @@ CAST_OPERATION(BuiltinFnToFnPtr)
  // queue_t, etc.)
  CAST_OPERATION(ZeroToOCLOpaqueType)
  
@@ -197,6 +268,21 @@ index cd19091e31..8ff745a81a 100644
  // Convert a pointer to a different address space.
  CAST_OPERATION(AddressSpaceConversion)
  
+diff --git a/include/clang/AST/RecursiveASTVisitor.h b/include/clang/AST/RecursiveASTVisitor.h
+index eb582c7a7a..1aaf554c49 100644
+--- a/include/clang/AST/RecursiveASTVisitor.h
++++ b/include/clang/AST/RecursiveASTVisitor.h
+@@ -2273,6 +2273,10 @@ DEF_TRAVERSE_STMT(CXXStaticCastExpr, {
+   TRY_TO(TraverseTypeLoc(S->getTypeInfoAsWritten()->getTypeLoc()));
+ })
+ 
++DEF_TRAVERSE_STMT(BuiltinBitCastExpr, {
++  TRY_TO(TraverseTypeLoc(S->getTypeInfoAsWritten()->getTypeLoc()));
++})
++
+ template <typename Derived>
+ bool RecursiveASTVisitor<Derived>::TraverseSynOrSemInitListExpr(
+     InitListExpr *S, DataRecursionQueue *Queue) {
 diff --git a/include/clang/AST/Type.h b/include/clang/AST/Type.h
 index 5b69570aab..40335b6f07 100644
 --- a/include/clang/AST/Type.h
@@ -711,6 +797,30 @@ index 0575e70333..ca9b759c5f 100644
    COMPUTE_AMDGCN,
  };
  const char *CudaVirtualArchToString(CudaVirtualArch A);
+diff --git a/include/clang/Basic/DiagnosticASTKinds.td b/include/clang/Basic/DiagnosticASTKinds.td
+index c39673a44a..564ac4dc00 100644
+--- a/include/clang/Basic/DiagnosticASTKinds.td
++++ b/include/clang/Basic/DiagnosticASTKinds.td
+@@ -186,6 +186,19 @@ def note_constexpr_memcpy_unsupported : Note<
+   "size to copy (%4) is not a multiple of size of element type %3 (%5)|"
+   "source is not a contiguous array of at least %4 elements of type %3|"
+   "destination is not a contiguous array of at least %4 elements of type %3}2">;
++def note_constexpr_bit_cast_unsupported_type : Note<
++  "constexpr bit_cast involving type %0 is not yet supported">;
++def note_constexpr_bit_cast_unsupported_bitfield : Note<
++  "constexpr bit_cast involving bit-field is not yet supported">;
++def note_constexpr_bit_cast_invalid_type : Note<
++  "bit_cast %select{from|to}0 a %select{|type with a }1"
++  "%select{union|pointer|member pointer|volatile|reference}2 "
++  "%select{type|member}1 is not allowed in a constant expression">;
++def note_constexpr_bit_cast_invalid_subtype : Note<
++  "invalid type %0 is a %select{member|base}1 of %2">;
++def note_constexpr_bit_cast_indet_dest : Note<
++  "indeterminate value can only initialize an object of type 'unsigned char'"
++  "%select{, 'char',|}1 or 'std::byte'; %0 is invalid">;
+ 
+ def warn_integer_constant_overflow : Warning<
+   "overflow in expression; result is %0 with type %1">,
 diff --git a/include/clang/Basic/DiagnosticDriverKinds.td b/include/clang/Basic/DiagnosticDriverKinds.td
 index af528e1718..7f08370ccf 100644
 --- a/include/clang/Basic/DiagnosticDriverKinds.td
@@ -780,7 +890,7 @@ index ec07bb5c4f..5f4317817c 100644
    "taking address of function is not allowed">;
  def err_opencl_logical_exclusive_or : Error<
 diff --git a/include/clang/Basic/DiagnosticSemaKinds.td b/include/clang/Basic/DiagnosticSemaKinds.td
-index 2e84f5fedf..31cbd97ba5 100644
+index 2e84f5fedf..a3c2746156 100644
 --- a/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/include/clang/Basic/DiagnosticSemaKinds.td
 @@ -718,6 +718,7 @@ def ext_main_used : Extension<
@@ -929,6 +1039,15 @@ index 2e84f5fedf..31cbd97ba5 100644
  def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
  def err_opencl_kernel_attr :
    Error<"attribute %0 can only be applied to an OpenCL kernel function">;
+@@ -9479,4 +9575,8 @@ def err_builtin_launder_invalid_arg : Error<
+   "%select{non-pointer|function pointer|void pointer}0 argument to "
+   "'__builtin_launder' is not allowed">;
+ 
++def err_bit_cast_non_trivially_copyable : Error<
++  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
++def err_bit_cast_type_size_mismatch : Error<
++  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
+ } // end of sema component.
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
 index be4491d512..171c88e60c 100644
 --- a/include/clang/Basic/LangOptions.def
@@ -1161,8 +1280,20 @@ index 0af01e4543..3321e72619 100644
      case CC_Swift:
        return false;
      default:
+diff --git a/include/clang/Basic/StmtNodes.td b/include/clang/Basic/StmtNodes.td
+index 9054fb11a6..f81e8e6113 100644
+--- a/include/clang/Basic/StmtNodes.td
++++ b/include/clang/Basic/StmtNodes.td
+@@ -187,6 +187,7 @@ def ConvertVectorExpr : DStmt<Expr>;
+ def BlockExpr : DStmt<Expr>;
+ def OpaqueValueExpr : DStmt<Expr>;
+ def TypoExpr : DStmt<Expr>;
++def BuiltinBitCastExpr : DStmt<ExplicitCastExpr>;
+ 
+ // Microsoft Extensions.
+ def MSPropertyRefExpr : DStmt<Expr>;
 diff --git a/include/clang/Basic/TokenKinds.def b/include/clang/Basic/TokenKinds.def
-index e4616c9a6a..5bfe178506 100644
+index e4616c9a6a..56cfde104e 100644
 --- a/include/clang/Basic/TokenKinds.def
 +++ b/include/clang/Basic/TokenKinds.def
 @@ -529,38 +529,21 @@ KEYWORD(__forceinline               , KEYMS)
@@ -1214,6 +1345,15 @@ index e4616c9a6a..5bfe178506 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
  
+@@ -660,7 +643,7 @@ ALIAS("_pascal"      , __pascal   , KEYBORLAND)
+ KEYWORD(__builtin_convertvector   , KEYALL)
+ ALIAS("__char16_t"   , char16_t   , KEYCXX)
+ ALIAS("__char32_t"   , char32_t   , KEYCXX)
+-
++KEYWORD(__builtin_bit_cast        , KEYALL)
+ KEYWORD(__builtin_available       , KEYALL)
+ 
+ // Clang-specific keywords enabled only in testing.
 diff --git a/include/clang/CodeGen/BackendUtil.h b/include/clang/CodeGen/BackendUtil.h
 index 3d1221a43b..a25d0e51eb 100644
 --- a/include/clang/CodeGen/BackendUtil.h
@@ -1596,10 +1736,20 @@ index f1ac72c474..4544996a5c 100644
    std::string ImplicitPCHInclude;
  
 diff --git a/include/clang/Parse/Parser.h b/include/clang/Parse/Parser.h
-index 09e81d22ae..4c249de19f 100644
+index 09e81d22ae..a0a790e64f 100644
 --- a/include/clang/Parse/Parser.h
 +++ b/include/clang/Parse/Parser.h
-@@ -2480,8 +2480,6 @@ private:
+@@ -1726,6 +1726,9 @@ private:
+   // C++ 5.2p1: C++ Casts
+   ExprResult ParseCXXCasts();
+ 
++  /// Parse a __builtin_bit_cast(T, E), used to implement C++2a std::bit_cast.
++  ExprResult ParseBuiltinBitCast();
++
+   //===--------------------------------------------------------------------===//
+   // C++ 5.2p1: C++ Type Identification
+   ExprResult ParseCXXTypeid();
+@@ -2480,8 +2483,6 @@ private:
    SourceLocation SkipExtendedMicrosoftTypeAttributes();
    void ParseMicrosoftInheritanceClassAttributes(ParsedAttributes &attrs);
    void ParseBorlandTypeAttributes(ParsedAttributes &attrs);
@@ -1677,7 +1827,7 @@ index 96fd5892da..7348d7e783 100644
  
      /// This candidate function was not viable because an enable_if
 diff --git a/include/clang/Sema/Sema.h b/include/clang/Sema/Sema.h
-index 4ddbf6caec..6720b8bf61 100644
+index 4ddbf6caec..7dd6110978 100644
 --- a/include/clang/Sema/Sema.h
 +++ b/include/clang/Sema/Sema.h
 @@ -312,7 +312,7 @@ public:
@@ -1689,7 +1839,21 @@ index 4ddbf6caec..6720b8bf61 100644
    FPOptions FPFeatures;
  
    const LangOptions &LangOpts;
-@@ -8746,6 +8746,10 @@ public:
+@@ -5048,6 +5048,13 @@ public:
+                                SourceRange AngleBrackets,
+                                SourceRange Parens);
+ 
++  ExprResult ActOnBuiltinBitCastExpr(SourceLocation KWLoc, Declarator &Dcl,
++                                     ExprResult Operand,
++                                     SourceLocation RParenLoc);
++
++  ExprResult BuildBuiltinBitCastExpr(SourceLocation KWLoc, TypeSourceInfo *TSI,
++                                     Expr *Operand, SourceLocation RParenLoc);
++
+   ExprResult BuildCXXTypeId(QualType TypeInfoType,
+                             SourceLocation TypeidLoc,
+                             TypeSourceInfo *Operand,
+@@ -8746,6 +8753,10 @@ public:
    /// \param Init First part of the for loop.
    void ActOnOpenMPLoopInitialization(SourceLocation ForLoc, Stmt *Init);
  
@@ -1712,6 +1876,20 @@ index c55e16a27c..d9788b68e4 100644
 +                          D->hasAttr<ComputeKernelAttr>();
    return isDeviceSideDecl == LangOpts.CUDAIsDevice;
  }
+ 
+diff --git a/include/clang/Serialization/ASTBitCodes.h b/include/clang/Serialization/ASTBitCodes.h
+index ec752fb7c7..360270fb1c 100644
+--- a/include/clang/Serialization/ASTBitCodes.h
++++ b/include/clang/Serialization/ASTBitCodes.h
+@@ -1852,6 +1852,9 @@ namespace serialization {
+       /// A CXXFunctionalCastExpr record.
+       EXPR_CXX_FUNCTIONAL_CAST,
+ 
++      /// A BuiltinBitCastExpr record.
++      EXPR_BUILTIN_BIT_CAST,
++
+       /// A UserDefinedLiteral record.
+       EXPR_USER_DEFINED_LITERAL,
  
 diff --git a/lib/AST/ASTContext.cpp b/lib/AST/ASTContext.cpp
 index fae1cf863c..f90a1d0ea5 100644
@@ -1862,7 +2040,7 @@ index 517851f9ee..274b148ba4 100644
      }
  
 diff --git a/lib/AST/Expr.cpp b/lib/AST/Expr.cpp
-index 5a80016850..1f08e46703 100644
+index 5a80016850..a212c015ae 100644
 --- a/lib/AST/Expr.cpp
 +++ b/lib/AST/Expr.cpp
 @@ -1653,6 +1653,8 @@ bool CastExpr::CastConsistency() const {
@@ -1874,11 +2052,60 @@ index 5a80016850..1f08e46703 100644
    case CK_IntToOCLSampler:
    case CK_FixedPointCast:
      assert(!getType()->isBooleanType() && "unheralded conversion to bool");
+@@ -1670,6 +1672,7 @@ bool CastExpr::CastConsistency() const {
+   case CK_FloatingComplexToBoolean:
+   case CK_IntegralComplexToBoolean:
+   case CK_LValueBitCast:            // -> bool&
++  case CK_LValueToRValueBitCast:
+   case CK_UserDefinedConversion:    // operator bool()
+   case CK_BuiltinFnToFnPtr:
+   case CK_FixedPointToBoolean:
+@@ -3253,7 +3256,8 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
+   case CXXStaticCastExprClass:
+   case CXXReinterpretCastExprClass:
+   case CXXConstCastExprClass:
+-  case CXXFunctionalCastExprClass: {
++  case CXXFunctionalCastExprClass:
++  case BuiltinBitCastExprClass: {
+     // While volatile reads are side-effecting in both C and C++, we treat them
+     // as having possible (not definite) side-effects. This allows idiomatic
+     // code to behave without warning, such as sizeof(*v) for a volatile-
+diff --git a/lib/AST/ExprClassification.cpp b/lib/AST/ExprClassification.cpp
+index e1d6a1c9ed..59580daa21 100644
+--- a/lib/AST/ExprClassification.cpp
++++ b/lib/AST/ExprClassification.cpp
+@@ -343,6 +343,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
+   case Expr::CXXReinterpretCastExprClass:
+   case Expr::CXXConstCastExprClass:
+   case Expr::ObjCBridgedCastExprClass:
++  case Expr::BuiltinBitCastExprClass:
+     // Only in C++ can casts be interesting at all.
+     if (!Lang.CPlusPlus) return Cl::CL_PRValue;
+     return ClassifyUnnamed(Ctx, cast<ExplicitCastExpr>(E)->getTypeAsWritten());
 diff --git a/lib/AST/ExprConstant.cpp b/lib/AST/ExprConstant.cpp
-index 837dc9c2a8..b42bf11cb7 100644
+index 837dc9c2a8..679f015663 100644
 --- a/lib/AST/ExprConstant.cpp
 +++ b/lib/AST/ExprConstant.cpp
-@@ -1243,7 +1243,8 @@ APValue &CallStackFrame::createTemporary(const void *Key,
+@@ -45,6 +45,7 @@
+ #include "clang/AST/TypeLoc.h"
+ #include "clang/Basic/Builtins.h"
+ #include "clang/Basic/TargetInfo.h"
++#include "llvm/ADT/Optional.h"
+ #include "llvm/Support/SaveAndRestore.h"
+ #include "llvm/Support/raw_ostream.h"
+ #include <cstring>
+@@ -53,8 +54,10 @@
+ #define DEBUG_TYPE "exprconstant"
+ 
+ using namespace clang;
++using llvm::APInt;
+ using llvm::APSInt;
+ using llvm::APFloat;
++using llvm::Optional;
+ 
+ static bool IsGlobalLValue(APValue::LValueBase B);
+ 
+@@ -1243,7 +1246,8 @@ APValue &CallStackFrame::createTemporary(const void *Key,
                                           bool IsLifetimeExtended) {
    unsigned Version = Info.CurrentCall->getTempVersion();
    APValue &Result = Temporaries[MapKeyTy(Key, Version)];
@@ -1888,7 +2115,540 @@ index 837dc9c2a8..b42bf11cb7 100644
    Info.CleanupStack.push_back(Cleanup(&Result, IsLifetimeExtended));
    return Result;
  }
-@@ -7337,7 +7338,8 @@ public:
+@@ -2522,10 +2526,6 @@ static bool HandleLValueComplexElement(EvalInfo &Info, const Expr *E,
+   return true;
+ }
+ 
+-static bool handleLValueToRValueConversion(EvalInfo &Info, const Expr *Conv,
+-                                           QualType Type, const LValue &LVal,
+-                                           APValue &RVal);
+-
+ /// Try to evaluate the initializer for a variable declaration.
+ ///
+ /// \param Info   Information about the ongoing evaluation.
+@@ -4651,6 +4651,488 @@ static bool HandleConstructorCall(const Expr *E, const LValue &This,
+ //===----------------------------------------------------------------------===//
+ namespace {
+ 
++class BitCastBuffer {
++  // FIXME: We're going to need bit-level granularity when we support
++  // bit-fields.
++  // FIXME: Its possible under the C++ standard for 'char' to not be 8 bits, but
++  // we don't support a host or target where that is the case. Still, we should
++  // use a more generic type in case we ever do.
++  SmallVector<Optional<unsigned char>, 32> Bytes;
++
++  static_assert(std::numeric_limits<unsigned char>::digits >= 8,
++                "Need at least 8 bit unsigned char");
++
++  bool TargetIsLittleEndian;
++
++public:
++  BitCastBuffer(CharUnits Width, bool TargetIsLittleEndian)
++      : Bytes(Width.getQuantity()),
++        TargetIsLittleEndian(TargetIsLittleEndian) {}
++
++  LLVM_NODISCARD
++  bool readObject(CharUnits Offset, CharUnits Width,
++                  SmallVectorImpl<unsigned char> &Output) const {
++    for (CharUnits I = Offset, E = Offset + Width; I != E; ++I) {
++      // If a byte of an integer is uninitialized, then the whole integer is
++      // uninitalized.
++      if (!Bytes[I.getQuantity()])
++        return false;
++      Output.push_back(*Bytes[I.getQuantity()]);
++    }
++    if (llvm::sys::IsLittleEndianHost != TargetIsLittleEndian)
++      std::reverse(Output.begin(), Output.end());
++    return true;
++  }
++
++  void writeObject(CharUnits Offset, SmallVectorImpl<unsigned char> &Input) {
++    if (llvm::sys::IsLittleEndianHost != TargetIsLittleEndian)
++      std::reverse(Input.begin(), Input.end());
++
++    size_t Index = 0;
++    for (unsigned char Byte : Input) {
++      assert(!Bytes[Offset.getQuantity() + Index] && "overwriting a byte?");
++      Bytes[Offset.getQuantity() + Index] = Byte;
++      ++Index;
++    }
++  }
++
++  size_t size() { return Bytes.size(); }
++};
++
++/// Traverse an APValue to produce an BitCastBuffer, emulating how the current
++/// target would represent the value at runtime.
++class APValueToBufferConverter {
++  EvalInfo &Info;
++  BitCastBuffer Buffer;
++  const CastExpr *BCE;
++
++  APValueToBufferConverter(EvalInfo &Info, CharUnits ObjectWidth,
++                           const CastExpr *BCE)
++      : Info(Info),
++        Buffer(ObjectWidth, Info.Ctx.getTargetInfo().isLittleEndian()),
++        BCE(BCE) {}
++
++  bool visit(const APValue &Val, QualType Ty) {
++    return visit(Val, Ty, CharUnits::fromQuantity(0));
++  }
++
++  // Write out Val with type Ty into Buffer starting at Offset.
++  bool visit(const APValue &Val, QualType Ty, CharUnits Offset) {
++    assert((size_t)Offset.getQuantity() <= Buffer.size());
++
++    // As a special case, nullptr_t has an indeterminate value.
++    if (Ty->isNullPtrType())
++      return true;
++
++    // Dig through Src to find the byte at SrcOffset.
++    switch (Val.getKind()) {
++    case APValue::Uninitialized:
++      return true;
++
++    case APValue::Int:
++      return visitInt(Val.getInt(), Ty, Offset);
++    case APValue::Float:
++      return visitFloat(Val.getFloat(), Ty, Offset);
++    case APValue::Array:
++      return visitArray(Val, Ty, Offset);
++    case APValue::Struct:
++      return visitRecord(Val, Ty, Offset);
++
++    case APValue::ComplexInt:
++    case APValue::ComplexFloat:
++    case APValue::Vector:
++      // FIXME: We should support these.
++
++    case APValue::Union:
++    case APValue::MemberPointer:
++    case APValue::AddrLabelDiff: {
++      Info.FFDiag(BCE->getBeginLoc(),
++                  diag::note_constexpr_bit_cast_unsupported_type)
++          << Ty;
++      return false;
++    }
++
++    case APValue::LValue:
++      llvm_unreachable("LValue subobject in bit_cast?");
++    }
++  }
++
++  bool visitRecord(const APValue &Val, QualType Ty, CharUnits Offset) {
++    const RecordDecl *RD = Ty->getAsRecordDecl();
++    const ASTRecordLayout &Layout = Info.Ctx.getASTRecordLayout(RD);
++
++    // Visit the base classes.
++    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
++      for (size_t I = 0, E = CXXRD->getNumBases(); I != E; ++I) {
++        const CXXBaseSpecifier &BS = CXXRD->bases_begin()[I];
++        CXXRecordDecl *BaseDecl = BS.getType()->getAsCXXRecordDecl();
++
++        if (!visitRecord(Val.getStructBase(I), BS.getType(),
++                         Layout.getBaseClassOffset(BaseDecl) + Offset))
++          return false;
++      }
++    }
++
++    // Visit the fields.
++    unsigned FieldIdx = 0;
++    for (FieldDecl *FD : RD->fields()) {
++      if (FD->isBitField()) {
++        Info.FFDiag(BCE->getBeginLoc(),
++                    diag::note_constexpr_bit_cast_unsupported_bitfield);
++        return false;
++      }
++
++      uint64_t FieldOffsetBits = Layout.getFieldOffset(FieldIdx);
++
++      assert(FieldOffsetBits % Info.Ctx.getCharWidth() == 0 &&
++             "only bit-fields can have sub-char alignment");
++      CharUnits FieldOffset =
++          Info.Ctx.toCharUnitsFromBits(FieldOffsetBits) + Offset;
++      QualType FieldTy = FD->getType();
++      if (!visit(Val.getStructField(FieldIdx), FieldTy, FieldOffset))
++        return false;
++      ++FieldIdx;
++    }
++
++    return true;
++  }
++
++  bool visitArray(const APValue &Val, QualType Ty, CharUnits Offset) {
++    const auto *CAT =
++        dyn_cast_or_null<ConstantArrayType>(Ty->getAsArrayTypeUnsafe());
++    if (!CAT)
++      return false;
++
++    CharUnits ElemWidth = Info.Ctx.getTypeSizeInChars(CAT->getElementType());
++    unsigned NumInitializedElts = Val.getArrayInitializedElts();
++    unsigned ArraySize = Val.getArraySize();
++    // First, initialize the initialized elements.
++    for (unsigned I = 0; I != NumInitializedElts; ++I) {
++      const APValue &SubObj = Val.getArrayInitializedElt(I);
++      if (!visit(SubObj, CAT->getElementType(), Offset + I * ElemWidth))
++        return false;
++    }
++
++    // Next, initialize the rest of the array using the filler.
++    if (Val.hasArrayFiller()) {
++      const APValue &Filler = Val.getArrayFiller();
++      for (unsigned I = NumInitializedElts; I != ArraySize; ++I) {
++        if (!visit(Filler, CAT->getElementType(), Offset + I * ElemWidth))
++          return false;
++      }
++    }
++
++    return true;
++  }
++
++  bool visitInt(const APSInt &Val, QualType Ty, CharUnits Offset) {
++    CharUnits Width = Info.Ctx.getTypeSizeInChars(Ty);
++    SmallVector<unsigned char, 8> Bytes(Width.getQuantity());
++    llvm::StoreIntToMemory(Val, &*Bytes.begin(), Width.getQuantity());
++    Buffer.writeObject(Offset, Bytes);
++    return true;
++  }
++
++  bool visitFloat(const APFloat &Val, QualType Ty, CharUnits Offset) {
++    APSInt AsInt(Val.bitcastToAPInt());
++    return visitInt(AsInt, Ty, Offset);
++  }
++
++public:
++  static Optional<BitCastBuffer> convert(EvalInfo &Info, const APValue &Src,
++                                         const CastExpr *BCE) {
++    CharUnits DstSize = Info.Ctx.getTypeSizeInChars(BCE->getType());
++    APValueToBufferConverter Converter(Info, DstSize, BCE);
++    if (!Converter.visit(Src, BCE->getSubExpr()->getType()))
++      return None;
++    return Converter.Buffer;
++  }
++};
++
++/// Write an BitCastBuffer into an APValue.
++class BufferToAPValueConverter {
++  EvalInfo &Info;
++  const BitCastBuffer &Buffer;
++  const CastExpr *BCE;
++
++  BufferToAPValueConverter(EvalInfo &Info, const BitCastBuffer &Buffer,
++                           const CastExpr *BCE)
++      : Info(Info), Buffer(Buffer), BCE(BCE) {}
++
++  // Emit an unsupported bit_cast type error. Sema refuses to build a bit_cast
++  // with an invalid type, so anything left is a deficiency on our part (FIXME).
++  // Ideally this will be unreachable.
++  llvm::NoneType unsupportedType(QualType Ty) {
++    Info.FFDiag(BCE->getBeginLoc(),
++                diag::note_constexpr_bit_cast_unsupported_type)
++        << Ty;
++    return None;
++  }
++
++  Optional<APValue> visit(const BuiltinType *T, CharUnits Offset,
++                          const EnumType *EnumSugar = nullptr) {
++    if (T->isNullPtrType()) {
++      uint64_t NullValue = Info.Ctx.getTargetNullPointerValue(QualType(T, 0));
++      return APValue((Expr *)nullptr,
++                     /*Offset=*/CharUnits::fromQuantity(NullValue),
++                     APValue::NoLValuePath{}, /*IsNullPtr=*/true);
++    }
++
++    CharUnits SizeOf = Info.Ctx.getTypeSizeInChars(T);
++    SmallVector<uint8_t, 8> Bytes;
++    if (!Buffer.readObject(Offset, SizeOf, Bytes)) {
++      // If this is std::byte or unsigned char, then its okay to store an
++      // indeterminate value.
++      bool IsStdByte = EnumSugar && EnumSugar->isStdByteType();
++      bool IsUChar =
++          !EnumSugar && (T->isSpecificBuiltinType(BuiltinType::UChar) ||
++                         T->isSpecificBuiltinType(BuiltinType::Char_U));
++      if (!IsStdByte && !IsUChar) {
++        QualType DisplayType(EnumSugar ? (Type *)EnumSugar : T, 0);
++        Info.FFDiag(BCE->getExprLoc(),
++                    diag::note_constexpr_bit_cast_indet_dest)
++            << DisplayType << Info.Ctx.getLangOpts().CharIsSigned;
++        return None;
++      }
++
++      // we don't have IndeterminateValue in clang 8.0 - so make this unsupported instead
++      return unsupportedType(QualType(T, 0));
++    }
++
++    APSInt Val(SizeOf.getQuantity() * Info.Ctx.getCharWidth(), true);
++    llvm::LoadIntFromMemory(Val, &*Bytes.begin(), Bytes.size());
++
++    if (T->isIntegralOrEnumerationType()) {
++      Val.setIsSigned(T->isSignedIntegerOrEnumerationType());
++      return APValue(Val);
++    }
++
++    if (T->isRealFloatingType()) {
++      const llvm::fltSemantics &Semantics =
++          Info.Ctx.getFloatTypeSemantics(QualType(T, 0));
++      return APValue(APFloat(Semantics, Val));
++    }
++
++    return unsupportedType(QualType(T, 0));
++  }
++
++  Optional<APValue> visit(const RecordType *RTy, CharUnits Offset) {
++    const RecordDecl *RD = RTy->getAsRecordDecl();
++    const ASTRecordLayout &Layout = Info.Ctx.getASTRecordLayout(RD);
++
++    unsigned NumBases = 0;
++    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD))
++      NumBases = CXXRD->getNumBases();
++
++    APValue ResultVal(APValue::UninitStruct(), NumBases,
++                      std::distance(RD->field_begin(), RD->field_end()));
++
++    // Visit the base classes.
++    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
++      for (size_t I = 0, E = CXXRD->getNumBases(); I != E; ++I) {
++        const CXXBaseSpecifier &BS = CXXRD->bases_begin()[I];
++        CXXRecordDecl *BaseDecl = BS.getType()->getAsCXXRecordDecl();
++        if (BaseDecl->isEmpty() ||
++            Info.Ctx.getASTRecordLayout(BaseDecl).getNonVirtualSize().isZero())
++          continue;
++
++        Optional<APValue> SubObj = visitType(
++            BS.getType(), Layout.getBaseClassOffset(BaseDecl) + Offset);
++        if (!SubObj)
++          return None;
++        ResultVal.getStructBase(I) = *SubObj;
++      }
++    }
++
++    // Visit the fields.
++    unsigned FieldIdx = 0;
++    for (FieldDecl *FD : RD->fields()) {
++      // FIXME: We don't currently support bit-fields. A lot of the logic for
++      // this is in CodeGen, so we need to factor it around.
++      if (FD->isBitField()) {
++        Info.FFDiag(BCE->getBeginLoc(),
++                    diag::note_constexpr_bit_cast_unsupported_bitfield);
++        return None;
++      }
++
++      uint64_t FieldOffsetBits = Layout.getFieldOffset(FieldIdx);
++      assert(FieldOffsetBits % Info.Ctx.getCharWidth() == 0);
++
++      CharUnits FieldOffset =
++          CharUnits::fromQuantity(FieldOffsetBits / Info.Ctx.getCharWidth()) +
++          Offset;
++      QualType FieldTy = FD->getType();
++      Optional<APValue> SubObj = visitType(FieldTy, FieldOffset);
++      if (!SubObj)
++        return None;
++      ResultVal.getStructField(FieldIdx) = *SubObj;
++      ++FieldIdx;
++    }
++
++    return ResultVal;
++  }
++
++  Optional<APValue> visit(const EnumType *Ty, CharUnits Offset) {
++    QualType RepresentationType = Ty->getDecl()->getIntegerType();
++    assert(!RepresentationType.isNull() &&
++           "enum forward decl should be caught by Sema");
++    const BuiltinType *AsBuiltin =
++        RepresentationType.getCanonicalType()->getAs<BuiltinType>();
++    assert(AsBuiltin && "non-integral enum underlying type?");
++    // Recurse into the underlying type. Treat std::byte transparently as
++    // unsigned char.
++    return visit(AsBuiltin, Offset, /*EnumTy=*/Ty);
++  }
++
++  Optional<APValue> visit(const ConstantArrayType *Ty, CharUnits Offset) {
++    size_t Size = Ty->getSize().getLimitedValue();
++    CharUnits ElementWidth = Info.Ctx.getTypeSizeInChars(Ty->getElementType());
++
++    APValue ArrayValue(APValue::UninitArray(), Size, Size);
++    for (size_t I = 0; I != Size; ++I) {
++      Optional<APValue> ElementValue =
++          visitType(Ty->getElementType(), Offset + I * ElementWidth);
++      if (!ElementValue)
++        return None;
++      ArrayValue.getArrayInitializedElt(I) = std::move(*ElementValue);
++    }
++
++    return ArrayValue;
++  }
++
++  Optional<APValue> visit(const Type *Ty, CharUnits Offset) {
++    return unsupportedType(QualType(Ty, 0));
++  }
++
++  Optional<APValue> visitType(QualType Ty, CharUnits Offset) {
++    QualType Can = Ty.getCanonicalType();
++
++    switch (Can->getTypeClass()) {
++#define TYPE(Class, Base)                                                      \
++  case Type::Class:                                                            \
++    return visit(cast<Class##Type>(Can.getTypePtr()), Offset);
++#define ABSTRACT_TYPE(Class, Base)
++#define NON_CANONICAL_TYPE(Class, Base)                                        \
++  case Type::Class:                                                            \
++    llvm_unreachable("non-canonical type should be impossible!");
++#define DEPENDENT_TYPE(Class, Base)                                            \
++  case Type::Class:                                                            \
++    llvm_unreachable(                                                          \
++        "dependent types aren't supported in the constant evaluator!");
++#define NON_CANONICAL_UNLESS_DEPENDENT(Class, Base)                            \
++  case Type::Class:                                                            \
++    llvm_unreachable("either dependent or not canonical!");
++#include "clang/AST/TypeNodes.def"
++    }
++  }
++
++public:
++  // Pull out a full value of type DstType.
++  static Optional<APValue> convert(EvalInfo &Info, BitCastBuffer &Buffer,
++                                   const CastExpr *BCE) {
++    BufferToAPValueConverter Converter(Info, Buffer, BCE);
++    return Converter.visitType(BCE->getType(), CharUnits::fromQuantity(0));
++  }
++};
++
++static bool checkBitCastConstexprEligibilityType(SourceLocation Loc,
++                                                 QualType Ty, EvalInfo *Info,
++                                                 const ASTContext &Ctx,
++                                                 bool CheckingDest) {
++  Ty = Ty.getCanonicalType();
++
++  auto diag = [&](int Reason) {
++    if (Info)
++      Info->FFDiag(Loc, diag::note_constexpr_bit_cast_invalid_type)
++          << CheckingDest << (Reason == 4) << Reason;
++    return false;
++  };
++  auto note = [&](int Construct, QualType NoteTy, SourceLocation NoteLoc) {
++    if (Info)
++      Info->Note(NoteLoc, diag::note_constexpr_bit_cast_invalid_subtype)
++          << NoteTy << Construct << Ty;
++    return false;
++  };
++
++  if (Ty->isUnionType())
++    return diag(0);
++  if (Ty->isPointerType())
++    return diag(1);
++  if (Ty->isMemberPointerType())
++    return diag(2);
++  if (Ty.isVolatileQualified())
++    return diag(3);
++
++  if (RecordDecl *Record = Ty->getAsRecordDecl()) {
++    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(Record)) {
++      for (CXXBaseSpecifier &BS : CXXRD->bases())
++        if (!checkBitCastConstexprEligibilityType(Loc, BS.getType(), Info, Ctx,
++                                                  CheckingDest))
++          return note(1, BS.getType(), BS.getBeginLoc());
++    }
++    for (FieldDecl *FD : Record->fields()) {
++      if (FD->getType()->isReferenceType())
++        return diag(4);
++      if (!checkBitCastConstexprEligibilityType(Loc, FD->getType(), Info, Ctx,
++                                                CheckingDest))
++        return note(0, FD->getType(), FD->getBeginLoc());
++    }
++  }
++
++  if (Ty->isArrayType() &&
++      !checkBitCastConstexprEligibilityType(Loc, Ctx.getBaseElementType(Ty),
++                                            Info, Ctx, CheckingDest))
++    return false;
++
++  return true;
++}
++
++static bool checkBitCastConstexprEligibility(EvalInfo *Info,
++                                             const ASTContext &Ctx,
++                                             const CastExpr *BCE) {
++  bool DestOK = checkBitCastConstexprEligibilityType(
++      BCE->getBeginLoc(), BCE->getType(), Info, Ctx, true);
++  bool SourceOK = DestOK && checkBitCastConstexprEligibilityType(
++                                BCE->getBeginLoc(),
++                                BCE->getSubExpr()->getType(), Info, Ctx, false);
++  return SourceOK;
++}
++
++static bool handleLValueToRValueBitCast(EvalInfo &Info, APValue &DestValue,
++                                        APValue &SourceValue,
++                                        const CastExpr *BCE) {
++  assert(CHAR_BIT == 8 && Info.Ctx.getTargetInfo().getCharWidth() == 8 &&
++         "no host or target supports non 8-bit chars");
++  assert(SourceValue.isLValue() &&
++         "LValueToRValueBitcast requires an lvalue operand!");
++
++  if (!checkBitCastConstexprEligibility(&Info, Info.Ctx, BCE))
++    return false;
++
++  LValue SourceLValue;
++  APValue SourceRValue;
++  SourceLValue.setFrom(Info.Ctx, SourceValue);
++  if (!handleLValueToRValueConversion(Info, BCE,
++                                      BCE->getSubExpr()->getType().withConst(),
++                                      SourceLValue, SourceRValue))
++    return false;
++
++  // Read out SourceValue into a char buffer.
++  Optional<BitCastBuffer> Buffer =
++      APValueToBufferConverter::convert(Info, SourceRValue, BCE);
++  if (!Buffer)
++    return false;
++
++  // Write out the buffer into a new APValue.
++  Optional<APValue> MaybeDestValue =
++      BufferToAPValueConverter::convert(Info, *Buffer, BCE);
++  if (!MaybeDestValue)
++    return false;
++
++  DestValue = std::move(*MaybeDestValue);
++  return true;
++}
++
+ template <class Derived>
+ class ExprEvaluatorBase
+   : public ConstStmtVisitor<Derived, bool> {
+@@ -4781,6 +5263,9 @@ public:
+     CCEDiag(E, diag::note_constexpr_invalid_cast) << 1;
+     return static_cast<Derived*>(this)->VisitCastExpr(E);
+   }
++  bool VisitBuiltinBitCastExpr(const BuiltinBitCastExpr *E) {
++    return static_cast<Derived*>(this)->VisitCastExpr(E);
++  }
+ 
+   bool VisitBinaryOperator(const BinaryOperator *E) {
+     switch (E->getOpcode()) {
+@@ -5057,6 +5542,14 @@ public:
+         return false;
+       return DerivedSuccess(RVal, E);
+     }
++    case CK_LValueToRValueBitCast: {
++      APValue DestValue, SourceValue;
++      if (!Evaluate(SourceValue, Info, E->getSubExpr()))
++        return false;
++      if (!handleLValueToRValueBitCast(Info, DestValue, SourceValue, E))
++        return false;
++      return DerivedSuccess(DestValue, E);
++    }
+     }
+ 
+     return Error(E);
+@@ -5865,7 +6358,6 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
+   switch (E->getCastKind()) {
+   default:
+     break;
+-
+   case CK_BitCast:
+   case CK_CPointerToObjCPointerCast:
+   case CK_BlockPointerToObjCPointerCast:
+@@ -7337,7 +7829,8 @@ public:
        : ExprEvaluatorBaseTy(info), Result(result) {}
  
    bool Success(const llvm::APSInt &SI, const Expr *E, APValue &Result) {
@@ -1898,7 +2658,7 @@ index 837dc9c2a8..b42bf11cb7 100644
             "Invalid evaluation result.");
      assert(SI.isSigned() == E->getType()->isSignedIntegerOrEnumerationType() &&
             "Invalid evaluation result.");
-@@ -7351,7 +7353,8 @@ public:
+@@ -7351,7 +7844,8 @@ public:
    }
  
    bool Success(const llvm::APInt &I, const Expr *E, APValue &Result) {
@@ -1908,7 +2668,7 @@ index 837dc9c2a8..b42bf11cb7 100644
             "Invalid evaluation result.");
      assert(I.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
             "Invalid evaluation result.");
-@@ -7365,7 +7368,8 @@ public:
+@@ -7365,7 +7859,8 @@ public:
    }
  
    bool Success(uint64_t Value, const Expr *E, APValue &Result) {
@@ -1918,7 +2678,7 @@ index 837dc9c2a8..b42bf11cb7 100644
             "Invalid evaluation result.");
      Result = APValue(Info.Ctx.MakeIntValue(Value, E->getType()));
      return true;
-@@ -9722,13 +9726,22 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
+@@ -9722,13 +10217,22 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
    case CK_IntegralComplexCast:
    case CK_IntegralComplexToFloatingComplex:
    case CK_BuiltinFnToFnPtr:
@@ -1942,7 +2702,15 @@ index 837dc9c2a8..b42bf11cb7 100644
    case CK_BitCast:
    case CK_Dependent:
    case CK_LValueBitCast:
-@@ -9994,10 +10007,12 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -9743,6 +10247,7 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
+   case CK_LValueToRValue:
+   case CK_AtomicToNonAtomic:
+   case CK_NoOp:
++  case CK_LValueToRValueBitCast:
+     return ExprEvaluatorBaseTy::VisitCastExpr(E);
+ 
+   case CK_MemberPointerToBoolean:
+@@ -9994,10 +10499,12 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_huge_valf:
    case Builtin::BI__builtin_huge_vall:
    case Builtin::BI__builtin_huge_valf128:
@@ -1956,7 +2724,7 @@ index 837dc9c2a8..b42bf11cb7 100644
      const llvm::fltSemantics &Sem =
        Info.Ctx.getFloatTypeSemantics(E->getType());
      Result = llvm::APFloat::getInf(Sem);
-@@ -10008,6 +10023,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -10008,6 +10515,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_nansf:
    case Builtin::BI__builtin_nansl:
    case Builtin::BI__builtin_nansf128:
@@ -1964,7 +2732,7 @@ index 837dc9c2a8..b42bf11cb7 100644
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
                                 true, Result))
        return Error(E);
-@@ -10017,6 +10033,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -10017,6 +10525,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_nanf:
    case Builtin::BI__builtin_nanl:
    case Builtin::BI__builtin_nanf128:
@@ -1972,7 +2740,7 @@ index 837dc9c2a8..b42bf11cb7 100644
      // If this is __builtin_nan() turn this into a nan, otherwise we
      // can't constant fold it.
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
-@@ -10265,6 +10282,8 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
+@@ -10265,6 +10774,8 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
    case CK_CopyAndAutoreleaseBlockObject:
    case CK_BuiltinFnToFnPtr:
    case CK_ZeroToOCLOpaqueType:
@@ -1981,7 +2749,15 @@ index 837dc9c2a8..b42bf11cb7 100644
    case CK_NonAtomicToAtomic:
    case CK_AddressSpaceConversion:
    case CK_IntToOCLSampler:
-@@ -10795,6 +10814,9 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
+@@ -10275,6 +10786,7 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
+   case CK_LValueToRValue:
+   case CK_AtomicToNonAtomic:
+   case CK_NoOp:
++  case CK_LValueToRValueBitCast:
+     return ExprEvaluatorBaseTy::VisitCastExpr(E);
+ 
+   case CK_Dependent:
+@@ -10795,6 +11307,9 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
        if (!EvaluateAtomic(E, nullptr, Result, Info))
          return false;
      }
@@ -1991,8 +2767,20 @@ index 837dc9c2a8..b42bf11cb7 100644
    } else if (Info.getLangOpts().CPlusPlus11) {
      Info.FFDiag(E, diag::note_constexpr_nonliteral) << E->getType();
      return false;
+@@ -11513,6 +12028,11 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
+   case Expr::ChooseExprClass: {
+     return CheckICE(cast<ChooseExpr>(E)->getChosenSubExpr(), Ctx);
+   }
++  case Expr::BuiltinBitCastExprClass: {
++    if (!checkBitCastConstexprEligibility(nullptr, Ctx, cast<CastExpr>(E)))
++      return ICEDiag(IK_NotICE, E->getBeginLoc());
++    return CheckICE(cast<CastExpr>(E)->getSubExpr(), Ctx);
++  }
+   }
+ 
+   llvm_unreachable("Invalid StmtClass!");
 diff --git a/lib/AST/ItaniumMangle.cpp b/lib/AST/ItaniumMangle.cpp
-index 8231ebe88b..dba68fe2c3 100644
+index 8231ebe88b..0153d016ba 100644
 --- a/lib/AST/ItaniumMangle.cpp
 +++ b/lib/AST/ItaniumMangle.cpp
 @@ -170,6 +170,9 @@ public:
@@ -2091,7 +2879,15 @@ index 8231ebe88b..dba68fe2c3 100644
    case CC_PreserveMost:
    case CC_PreserveAll:
      // FIXME: we should be mangling all of the above.
-@@ -5030,6 +5062,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
+@@ -3556,6 +3588,7 @@ recurse:
+   case Expr::PseudoObjectExprClass:
+   case Expr::AtomicExprClass:
+   case Expr::FixedPointLiteralClass:
++  case Expr::BuiltinBitCastExprClass:
+   {
+     if (!NullOut) {
+       // As bad as this diagnostic is, it's better than crashing.
+@@ -5030,6 +5063,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
    llvm_unreachable("Can't mangle string literals");
  }
  
@@ -2131,6 +2927,41 @@ index db0d770d9a..ba28e9316c 100644
      break;
  #include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
+diff --git a/lib/AST/StmtPrinter.cpp b/lib/AST/StmtPrinter.cpp
+index ae726e3871..16d4b2a4b4 100644
+--- a/lib/AST/StmtPrinter.cpp
++++ b/lib/AST/StmtPrinter.cpp
+@@ -1692,6 +1692,14 @@ void StmtPrinter::VisitCXXConstCastExpr(CXXConstCastExpr *Node) {
+   VisitCXXNamedCastExpr(Node);
+ }
+ 
++void StmtPrinter::VisitBuiltinBitCastExpr(BuiltinBitCastExpr *Node) {
++  OS << "__builtin_bit_cast(";
++  Node->getTypeInfoAsWritten()->getType().print(OS, Policy);
++  OS << ", ";
++  PrintExpr(Node->getSubExpr());
++  OS << ")";
++}
++
+ void StmtPrinter::VisitCXXTypeidExpr(CXXTypeidExpr *Node) {
+   OS << "typeid(";
+   if (Node->isTypeOperand()) {
+diff --git a/lib/AST/StmtProfile.cpp b/lib/AST/StmtProfile.cpp
+index ec4dac03d4..e33df111e2 100644
+--- a/lib/AST/StmtProfile.cpp
++++ b/lib/AST/StmtProfile.cpp
+@@ -1556,6 +1556,11 @@ void StmtProfiler::VisitCXXConstCastExpr(const CXXConstCastExpr *S) {
+   VisitCXXNamedCastExpr(S);
+ }
+ 
++void StmtProfiler::VisitBuiltinBitCastExpr(const BuiltinBitCastExpr *S) {
++  VisitExpr(S);
++  VisitType(S->getTypeInfoAsWritten()->getType());
++}
++
+ void StmtProfiler::VisitUserDefinedLiteral(const UserDefinedLiteral *S) {
+   VisitCallExpr(S);
+ }
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
 index 0dbc88c045..8c2afce4ef 100644
 --- a/lib/AST/Type.cpp
@@ -4387,7 +5218,7 @@ index f4fef45a12..e4cb99b07c 100644
    // If this isn't C++, we don't need a mangled name, just a pretty one.
    assert(!D.isExternallyVisible() && "name shouldn't matter");
 diff --git a/lib/CodeGen/CGExpr.cpp b/lib/CodeGen/CGExpr.cpp
-index 6ef1091cc0..4a7ab9835a 100644
+index 6ef1091cc0..62219ae6eb 100644
 --- a/lib/CodeGen/CGExpr.cpp
 +++ b/lib/CodeGen/CGExpr.cpp
 @@ -1619,6 +1619,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
@@ -4531,7 +5362,15 @@ index 6ef1091cc0..4a7ab9835a 100644
  
    // Make sure that the address is pointing to the right type.
    llvm::Type *llvmType = ConvertTypeForMem(FieldType);
-@@ -4168,7 +4185,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -4133,6 +4150,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+   switch (E->getCastKind()) {
+   case CK_ToVoid:
+   case CK_BitCast:
++  case CK_LValueToRValueBitCast:
+   case CK_ArrayToPointerDecay:
+   case CK_FunctionToPointerDecay:
+   case CK_NullToMemberPointer:
+@@ -4168,7 +4186,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    case CK_ARCReclaimReturnedObject:
    case CK_ARCExtendBlockObject:
    case CK_CopyAndAutoreleaseBlockObject:
@@ -4539,7 +5378,7 @@ index 6ef1091cc0..4a7ab9835a 100644
    case CK_FixedPointCast:
    case CK_FixedPointToBoolean:
      return EmitUnsupportedLValue(E, "unexpected cast lvalue");
-@@ -4282,6 +4298,12 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -4282,6 +4299,12 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    }
    case CK_ZeroToOCLOpaqueType:
      llvm_unreachable("NULL to OpenCL opaque type lvalue cast is not valid");
@@ -4553,10 +5392,36 @@ index 6ef1091cc0..4a7ab9835a 100644
  
    llvm_unreachable("Unhandled lvalue cast kind?");
 diff --git a/lib/CodeGen/CGExprAgg.cpp b/lib/CodeGen/CGExprAgg.cpp
-index db49b3f28a..c05348001a 100644
+index db49b3f28a..7a15f1e994 100644
 --- a/lib/CodeGen/CGExprAgg.cpp
 +++ b/lib/CodeGen/CGExprAgg.cpp
-@@ -852,6 +852,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
+@@ -711,6 +711,25 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
+     break;
+   }
+ 
++  case CK_LValueToRValueBitCast: {
++    if (Dest.isIgnored()) {
++      CGF.EmitAnyExpr(E->getSubExpr(), AggValueSlot::ignored(),
++                      /*ignoreResult=*/true);
++      break;
++    }
++
++    LValue SourceLV = CGF.EmitLValue(E->getSubExpr());
++    Address SourceAddress =
++        Builder.CreateElementBitCast(SourceLV.getAddress(), CGF.Int8Ty);
++    Address DestAddress =
++        Builder.CreateElementBitCast(Dest.getAddress(), CGF.Int8Ty);
++    llvm::Value *SizeVal = llvm::ConstantInt::get(
++        CGF.SizeTy,
++        CGF.getContext().getTypeSizeInChars(E->getType()).getQuantity());
++    Builder.CreateMemCpy(DestAddress, SourceAddress, SizeVal);
++    break;
++  }
++
+   case CK_DerivedToBase:
+   case CK_BaseToDerived:
+   case CK_UncheckedDerivedToBase: {
+@@ -852,6 +871,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
    case CK_CopyAndAutoreleaseBlockObject:
    case CK_BuiltinFnToFnPtr:
    case CK_ZeroToOCLOpaqueType:
@@ -4565,7 +5430,7 @@ index db49b3f28a..c05348001a 100644
    case CK_AddressSpaceConversion:
    case CK_IntToOCLSampler:
    case CK_FixedPointCast:
-@@ -1831,13 +1833,14 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
+@@ -1831,13 +1852,14 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
    if (getLangOpts().CPlusPlus) {
      if (const RecordType *RT = Ty->getAs<RecordType>()) {
        CXXRecordDecl *Record = cast<CXXRecordDecl>(RT->getDecl());
@@ -4611,10 +5476,26 @@ index 2e0d4ca767..48111e6f15 100644
    // If there is an implicit parameter (e.g. VTT), emit it.
    if (ImplicitParam) {
 diff --git a/lib/CodeGen/CGExprComplex.cpp b/lib/CodeGen/CGExprComplex.cpp
-index 2db693b44c..15dac03f98 100644
+index 2db693b44c..2d9edadde3 100644
 --- a/lib/CodeGen/CGExprComplex.cpp
 +++ b/lib/CodeGen/CGExprComplex.cpp
-@@ -509,6 +509,8 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
+@@ -467,6 +467,15 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
+     return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy), Op->getExprLoc());
+   }
+ 
++  case CK_LValueToRValueBitCast: {
++    LValue SourceLVal = CGF.EmitLValue(Op);
++    Address Addr = Builder.CreateElementBitCast(SourceLVal.getAddress(),
++                                                CGF.ConvertTypeForMem(DestTy));
++    LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
++    DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
++    return EmitLoadOfLValue(DestLV, Op->getExprLoc());
++  }
++
+   case CK_BitCast:
+   case CK_BaseToDerived:
+   case CK_DerivedToBase:
+@@ -509,6 +518,8 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
    case CK_CopyAndAutoreleaseBlockObject:
    case CK_BuiltinFnToFnPtr:
    case CK_ZeroToOCLOpaqueType:
@@ -4624,7 +5505,7 @@ index 2db693b44c..15dac03f98 100644
    case CK_IntToOCLSampler:
    case CK_FixedPointCast:
 diff --git a/lib/CodeGen/CGExprConstant.cpp b/lib/CodeGen/CGExprConstant.cpp
-index c9475840ae..2a4151ae7e 100644
+index c9475840ae..7cf255e2c2 100644
 --- a/lib/CodeGen/CGExprConstant.cpp
 +++ b/lib/CodeGen/CGExprConstant.cpp
 @@ -809,8 +809,14 @@ public:
@@ -4644,7 +5525,15 @@ index c9475840ae..2a4151ae7e 100644
  
      case CK_Dependent: llvm_unreachable("saw dependent cast!");
  
-@@ -876,6 +882,8 @@ public:
+@@ -840,6 +846,7 @@ public:
+     case CK_ToVoid:
+     case CK_Dynamic:
+     case CK_LValueBitCast:
++    case CK_LValueToRValueBitCast:
+     case CK_NullToMemberPointer:
+     case CK_UserDefinedConversion:
+     case CK_CPointerToObjCPointerCast:
+@@ -876,6 +883,8 @@ public:
      case CK_FixedPointCast:
      case CK_FixedPointToBoolean:
      case CK_ZeroToOCLOpaqueType:
@@ -4654,10 +5543,26 @@ index c9475840ae..2a4151ae7e 100644
      }
      llvm_unreachable("Invalid CastKind");
 diff --git a/lib/CodeGen/CGExprScalar.cpp b/lib/CodeGen/CGExprScalar.cpp
-index f53bb33e46..13502ffa73 100644
+index f53bb33e46..f1eaa7f539 100644
 --- a/lib/CodeGen/CGExprScalar.cpp
 +++ b/lib/CodeGen/CGExprScalar.cpp
-@@ -1983,9 +1983,15 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+@@ -1974,6 +1974,15 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+     return EmitLoadOfLValue(LV, CE->getExprLoc());
+   }
+ 
++  case CK_LValueToRValueBitCast: {
++    LValue SourceLVal = CGF.EmitLValue(E);
++    Address Addr = Builder.CreateElementBitCast(SourceLVal.getAddress(),
++                                                CGF.ConvertTypeForMem(DestTy));
++    LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
++    DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
++    return EmitLoadOfLValue(DestLV, CE->getExprLoc());
++  }
++
+   case CK_CPointerToObjCPointerCast:
+   case CK_BlockPointerToObjCPointerCast:
+   case CK_AnyPointerToBlockPointerCast:
+@@ -1983,9 +1992,15 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
      llvm::Type *DstTy = ConvertType(DestTy);
      if (SrcTy->isPtrOrPtrVectorTy() && DstTy->isPtrOrPtrVectorTy() &&
          SrcTy->getPointerAddressSpace() != DstTy->getPointerAddressSpace()) {
@@ -4673,7 +5578,7 @@ index f53bb33e46..13502ffa73 100644
  
      if (CGF.SanOpts.has(SanitizerKind::CFIUnrelatedCast)) {
        if (auto PT = DestTy->getAs<PointerType>())
-@@ -2241,6 +2247,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+@@ -2241,6 +2256,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
                                           CE->getExprLoc());
    }
  
@@ -4681,7 +5586,7 @@ index f53bb33e46..13502ffa73 100644
    case CK_ZeroToOCLOpaqueType: {
      assert((DestTy->isEventT() || DestTy->isQueueT() ||
              DestTy->isOCLIntelSubgroupAVCType()) &&
-@@ -2248,8 +2255,25 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+@@ -2248,8 +2264,25 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
      return llvm::Constant::getNullValue(ConvertType(DestTy));
    }
  
@@ -4709,7 +5614,7 @@ index f53bb33e46..13502ffa73 100644
  
    } // end of switch
  
-@@ -3221,9 +3245,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
+@@ -3221,9 +3254,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
    // GNU void* casts amount to no-ops since our void* type is i8*, but this is
    // future proof.
    if (elementType->isVoidType() || elementType->isFunctionType()) {
@@ -4721,7 +5626,7 @@ index f53bb33e46..13502ffa73 100644
    }
  
    if (CGF.getLangOpts().isSignedOverflowDefined())
-@@ -4042,35 +4066,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
+@@ -4042,35 +4075,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
      llvm::Type *condType = ConvertType(condExpr->getType());
      llvm::VectorType *vecTy = cast<llvm::VectorType>(condType);
  
@@ -4758,7 +5663,7 @@ index f53bb33e46..13502ffa73 100644
    }
  
    // If this is a really simple expression (like x ? 4 : 5), emit this as a
-@@ -4269,6 +4267,9 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -4269,6 +4276,9 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
      return Src;
    }
  
@@ -9905,10 +10810,18 @@ index 9d2737bbc7..c2d88456ff 100644
             .Case("CC", TY_CXX)
             .Case("cl", TY_CL)
 diff --git a/lib/Edit/RewriteObjCFoundationAPI.cpp b/lib/Edit/RewriteObjCFoundationAPI.cpp
-index 7c9ab17009..21a9eab512 100644
+index 7c9ab17009..c2fe053401 100644
 --- a/lib/Edit/RewriteObjCFoundationAPI.cpp
 +++ b/lib/Edit/RewriteObjCFoundationAPI.cpp
-@@ -1079,6 +1079,8 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
+@@ -1043,6 +1043,7 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
+     case CK_Dependent:
+     case CK_BitCast:
+     case CK_LValueBitCast:
++    case CK_LValueToRValueBitCast:
+     case CK_BaseToDerived:
+     case CK_DerivedToBase:
+     case CK_UncheckedDerivedToBase:
+@@ -1079,6 +1080,8 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
      case CK_CopyAndAutoreleaseBlockObject:
      case CK_BuiltinFnToFnPtr:
      case CK_ZeroToOCLOpaqueType:
@@ -10416,6 +11329,18 @@ index 15fc086f8a..cc85d0dc49 100644
          Diag(Tok, diag::err_pp_opencl_variadic_macros);
          return true;
        }
+diff --git a/lib/Lex/PPMacroExpansion.cpp b/lib/Lex/PPMacroExpansion.cpp
+index c70ff46ec9..95970d7a0c 100644
+--- a/lib/Lex/PPMacroExpansion.cpp
++++ b/lib/Lex/PPMacroExpansion.cpp
+@@ -1631,6 +1631,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
+                       .Case("__is_target_vendor", true)
+                       .Case("__is_target_os", true)
+                       .Case("__is_target_environment", true)
++                      .Case("__builtin_bit_cast", true)
+                       .Default(false);
+         }
+       });
 diff --git a/lib/Parse/ParseDecl.cpp b/lib/Parse/ParseDecl.cpp
 index 7538b635f0..eaa688427b 100644
 --- a/lib/Parse/ParseDecl.cpp
@@ -10661,7 +11586,7 @@ index 7538b635f0..eaa688427b 100644
      DeclSpec DS(AttrFactory);
      ParseTypeQualifierListOpt(DS);
 diff --git a/lib/Parse/ParseExpr.cpp b/lib/Parse/ParseExpr.cpp
-index 194b07df46..f7e9d949b8 100644
+index 194b07df46..b79e4afc4e 100644
 --- a/lib/Parse/ParseExpr.cpp
 +++ b/lib/Parse/ParseExpr.cpp
 @@ -1136,7 +1136,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
@@ -10683,7 +11608,17 @@ index 194b07df46..f7e9d949b8 100644
      if (getCurScope()->getFnParent() == nullptr)
        return ExprError(Diag(Tok, diag::err_address_of_label_outside_fn));
  
-@@ -1266,10 +1269,11 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
+@@ -1207,6 +1210,9 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
+   case tok::kw_static_cast:
+     Res = ParseCXXCasts();
+     break;
++  case tok::kw___builtin_bit_cast:
++    Res = ParseBuiltinBitCast();
++    break;
+   case tok::kw_typeid:
+     Res = ParseCXXTypeid();
+     break;
+@@ -1266,10 +1272,11 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
    case tok::kw_void:
    case tok::kw_typename:
    case tok::kw_typeof:
@@ -10699,7 +11634,7 @@ index 194b07df46..f7e9d949b8 100644
      if (!getLangOpts().CPlusPlus) {
        Diag(Tok, diag::err_expected_expression);
        return ExprError();
-@@ -1460,7 +1464,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
+@@ -1460,7 +1467,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
  
    // These can be followed by postfix-expr pieces.
    Res = ParsePostfixExpressionSuffix(Res);
@@ -10709,7 +11644,7 @@ index 194b07df46..f7e9d949b8 100644
        QualType Ty = PostfixExpr->getType();
        if (!Ty.isNull() && Ty->isFunctionType()) {
 diff --git a/lib/Parse/ParseExprCXX.cpp b/lib/Parse/ParseExprCXX.cpp
-index 359bcf9e71..18676db366 100644
+index 359bcf9e71..90129163d7 100644
 --- a/lib/Parse/ParseExprCXX.cpp
 +++ b/lib/Parse/ParseExprCXX.cpp
 @@ -1117,7 +1117,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
@@ -10721,6 +11656,44 @@ index 359bcf9e71..18676db366 100644
            Diag(A.getLoc(), diag::warn_cuda_attr_lambda_position)
                << A.getName()->getName();
    };
+@@ -3321,3 +3321,37 @@ Parser::ParseCXXAmbiguousParenExpression(ParenParseOption &ExprType,
+   ConsumeAnyToken();
+   return Result;
+ }
++
++/// Parse a __builtin_bit_cast(T, E).
++ExprResult Parser::ParseBuiltinBitCast() {
++  SourceLocation KWLoc = ConsumeToken();
++
++  BalancedDelimiterTracker T(*this, tok::l_paren);
++  if (T.expectAndConsume(diag::err_expected_lparen_after, "__builtin_bit_cast"))
++    return ExprError();
++
++  // Parse the common declaration-specifiers piece.
++  DeclSpec DS(AttrFactory);
++  ParseSpecifierQualifierList(DS);
++
++  // Parse the abstract-declarator, if present.
++  Declarator DeclaratorInfo(DS, DeclaratorContext::TypeNameContext);
++  ParseDeclarator(DeclaratorInfo);
++
++  if (ExpectAndConsume(tok::comma)) {
++    Diag(Tok.getLocation(), diag::err_expected) << tok::comma;
++    SkipUntil(tok::r_paren, StopAtSemi);
++    return ExprError();
++  }
++
++  ExprResult Operand = ParseExpression();
++
++  if (T.consumeClose())
++    return ExprError();
++
++  if (Operand.isInvalid() || DeclaratorInfo.isInvalidType())
++    return ExprError();
++
++  return Actions.ActOnBuiltinBitCastExpr(KWLoc, DeclaratorInfo, Operand,
++                                         T.getCloseLocation());
++}
 diff --git a/lib/Parse/ParsePragma.cpp b/lib/Parse/ParsePragma.cpp
 index e476c9b0f9..50bd330ef9 100644
 --- a/lib/Parse/ParsePragma.cpp
@@ -10959,10 +11932,57 @@ index 13dd8d936f..021b9decf6 100644
    copyAttrIfPresent<CUDADeviceAttr>(*this, FD, TemplateFD);
  }
 diff --git a/lib/Sema/SemaCast.cpp b/lib/Sema/SemaCast.cpp
-index 0b4645e11c..53aea1ebb2 100644
+index 0b4645e11c..af3f30ad92 100644
 --- a/lib/Sema/SemaCast.cpp
 +++ b/lib/Sema/SemaCast.cpp
-@@ -616,7 +616,7 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
+@@ -88,6 +88,7 @@ namespace {
+     void CheckDynamicCast();
+     void CheckCXXCStyleCast(bool FunctionalCast, bool ListInitialization);
+     void CheckCStyleCast();
++    void CheckBuiltinBitCast();
+ 
+     void updatePartOfExplicitCastFlags(CastExpr *CE) {
+       // Walk down from the CE to the OrigSrcExpr, and mark all immediate
+@@ -332,6 +333,38 @@ Sema::BuildCXXNamedCast(SourceLocation OpLoc, tok::TokenKind Kind,
+   }
+ }
+ 
++ExprResult Sema::ActOnBuiltinBitCastExpr(SourceLocation KWLoc, Declarator &D,
++                                         ExprResult Operand,
++                                         SourceLocation RParenLoc) {
++  assert(!D.isInvalidType());
++
++  TypeSourceInfo *TInfo = GetTypeForDeclaratorCast(D, Operand.get()->getType());
++  if (D.isInvalidType())
++    return ExprError();
++
++  return BuildBuiltinBitCastExpr(KWLoc, TInfo, Operand.get(), RParenLoc);
++}
++
++ExprResult Sema::BuildBuiltinBitCastExpr(SourceLocation KWLoc,
++                                         TypeSourceInfo *TSI, Expr *Operand,
++                                         SourceLocation RParenLoc) {
++  CastOperation Op(*this, TSI->getType(), Operand);
++  Op.OpRange = SourceRange(KWLoc, RParenLoc);
++  TypeLoc TL = TSI->getTypeLoc();
++  Op.DestRange = SourceRange(TL.getBeginLoc(), TL.getEndLoc());
++
++  if (!Operand->isTypeDependent() && !TSI->getType()->isDependentType()) {
++    Op.CheckBuiltinBitCast();
++    if (Op.SrcExpr.isInvalid())
++      return ExprError();
++  }
++
++  BuiltinBitCastExpr *BCE =
++      new (Context) BuiltinBitCastExpr(Op.ResultType, Op.ValueKind, Op.Kind,
++                                       Op.SrcExpr.get(), TSI, KWLoc, RParenLoc);
++  return Op.complete(BCE);
++}
++
+ /// Try to diagnose a failed overloaded cast.  Returns true if
+ /// diagnostics were emitted.
+ static bool tryDiagnoseOverloadedCast(Sema &S, CastType CT,
+@@ -616,7 +649,7 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
            *CastAwayQualifiers = SrcCvrQuals - DestCvrQuals;
  
          // If we removed a cvr-qualifier, this is casting away 'constness'.
@@ -10971,7 +11991,7 @@ index 0b4645e11c..53aea1ebb2 100644
            if (TheOffendingSrcType)
              *TheOffendingSrcType = PrevUnwrappedSrcType;
            if (TheOffendingDestType)
-@@ -1048,6 +1048,7 @@ void CastOperation::CheckStaticCast() {
+@@ -1048,6 +1081,7 @@ void CastOperation::CheckStaticCast() {
  }
  
  static bool IsAddressSpaceConversion(QualType SrcType, QualType DestType) {
@@ -10979,7 +11999,7 @@ index 0b4645e11c..53aea1ebb2 100644
    auto *SrcPtrType = SrcType->getAs<PointerType>();
    if (!SrcPtrType)
      return false;
-@@ -1056,6 +1057,9 @@ static bool IsAddressSpaceConversion(QualType SrcType, QualType DestType) {
+@@ -1056,6 +1090,9 @@ static bool IsAddressSpaceConversion(QualType SrcType, QualType DestType) {
      return false;
    return SrcPtrType->getPointeeType().getAddressSpace() !=
           DestPtrType->getPointeeType().getAddressSpace();
@@ -10989,7 +12009,7 @@ index 0b4645e11c..53aea1ebb2 100644
  }
  
  /// TryStaticCast - Check if a static cast can be performed, and do so if
-@@ -2651,6 +2655,12 @@ void CastOperation::CheckCStyleCast() {
+@@ -2651,6 +2688,12 @@ void CastOperation::CheckCStyleCast() {
        SrcExpr = ExprError();
        return;
      }
@@ -11002,6 +12022,54 @@ index 0b4645e11c..53aea1ebb2 100644
    }
  
    // ARC imposes extra restrictions on casts.
+@@ -2695,6 +2738,47 @@ void CastOperation::CheckCStyleCast() {
+     checkCastAlign();
+ }
+ 
++void CastOperation::CheckBuiltinBitCast() {
++  QualType SrcType = SrcExpr.get()->getType();
++
++  if (Self.RequireCompleteType(OpRange.getBegin(), DestType,
++                               diag::err_typecheck_cast_to_incomplete) ||
++      Self.RequireCompleteType(OpRange.getBegin(), SrcType,
++                               diag::err_incomplete_type)) {
++    SrcExpr = ExprError();
++    return;
++  }
++
++  if (SrcExpr.get()->isRValue())
++    SrcExpr = Self.CreateMaterializeTemporaryExpr(SrcType, SrcExpr.get(),
++                                                  /*IsLValueReference=*/false);
++
++  CharUnits DestSize = Self.Context.getTypeSizeInChars(DestType);
++  CharUnits SourceSize = Self.Context.getTypeSizeInChars(SrcType);
++  if (DestSize != SourceSize) {
++    Self.Diag(OpRange.getBegin(), diag::err_bit_cast_type_size_mismatch)
++        << (int)SourceSize.getQuantity() << (int)DestSize.getQuantity();
++    SrcExpr = ExprError();
++    return;
++  }
++
++  if (!DestType.isTriviallyCopyableType(Self.Context)) {
++    Self.Diag(OpRange.getBegin(), diag::err_bit_cast_non_trivially_copyable)
++        << 1;
++    SrcExpr = ExprError();
++    return;
++  }
++
++  if (!SrcType.isTriviallyCopyableType(Self.Context)) {
++    Self.Diag(OpRange.getBegin(), diag::err_bit_cast_non_trivially_copyable)
++        << 0;
++    SrcExpr = ExprError();
++    return;
++  }
++
++  Kind = CK_LValueToRValueBitCast;
++}
++
+ /// DiagnoseCastQual - Warn whenever casts discards a qualifiers, be it either
+ /// const, volatile or both.
+ static void DiagnoseCastQual(Sema &Self, const ExprResult &SrcExpr,
 diff --git a/lib/Sema/SemaChecking.cpp b/lib/Sema/SemaChecking.cpp
 index 46cac25eed..7f058c1d87 100644
 --- a/lib/Sema/SemaChecking.cpp
@@ -12215,6 +13283,18 @@ index 78374b8089..21414215f4 100644
        if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
          Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
              << A << ExpectedKernelFunction;
+diff --git a/lib/Sema/SemaExceptionSpec.cpp b/lib/Sema/SemaExceptionSpec.cpp
+index e0850feaff..7c589998d3 100644
+--- a/lib/Sema/SemaExceptionSpec.cpp
++++ b/lib/Sema/SemaExceptionSpec.cpp
+@@ -1179,6 +1179,7 @@ CanThrowResult Sema::canThrow(const Expr *E) {
+   case Expr::CoyieldExprClass:
+   case Expr::CXXConstCastExprClass:
+   case Expr::CXXReinterpretCastExprClass:
++  case Expr::BuiltinBitCastExprClass:
+   case Expr::CXXStdInitializerListExprClass:
+   case Expr::DesignatedInitExprClass:
+   case Expr::DesignatedInitUpdateExprClass:
 diff --git a/lib/Sema/SemaExpr.cpp b/lib/Sema/SemaExpr.cpp
 index 4ba0fb12e7..bdd61ca81b 100644
 --- a/lib/Sema/SemaExpr.cpp
@@ -13634,10 +14714,27 @@ index bd4a0e1407..65d85ad70d 100644
        break;
      case ParsedAttr::AT_LifetimeBound:
 diff --git a/lib/Sema/TreeTransform.h b/lib/Sema/TreeTransform.h
-index 3f4b21eb55..45c38fd4ad 100644
+index 3f4b21eb55..8aa600fd78 100644
 --- a/lib/Sema/TreeTransform.h
 +++ b/lib/Sema/TreeTransform.h
-@@ -4275,8 +4275,10 @@ QualType TreeTransform<Derived>::RebuildQualifiedType(QualType T,
+@@ -2601,6 +2601,16 @@ public:
+                                                ListInitialization);
+   }
+ 
++  /// Build a new C++ __builtin_bit_cast expression.
++  ///
++  /// By default, performs semantic analysis to build the new expression.
++  /// Subclasses may override this routine to provide different behavior.
++  ExprResult RebuildBuiltinBitCastExpr(SourceLocation KWLoc,
++                                       TypeSourceInfo *TSI, Expr *Sub,
++                                       SourceLocation RParenLoc) {
++    return getSema().BuildBuiltinBitCastExpr(KWLoc, TSI, Sub, RParenLoc);
++  }
++
+   /// Build a new C++ typeid(type) expression.
+   ///
+   /// By default, performs semantic analysis to build the new expression.
+@@ -4275,8 +4285,10 @@ QualType TreeTransform<Derived>::RebuildQualifiedType(QualType T,
    //   [When] adding cv-qualifications on top of the function type [...] the
    //   cv-qualifiers are ignored.
    if (T->isFunctionType()) {
@@ -13648,7 +14745,7 @@ index 3f4b21eb55..45c38fd4ad 100644
      return T;
    }
  
-@@ -5299,11 +5301,13 @@ QualType TreeTransform<Derived>::TransformFunctionProtoType(
+@@ -5299,11 +5311,13 @@ QualType TreeTransform<Derived>::TransformFunctionProtoType(
        return QualType();
  
      // Return type can not be qualified with an address space.
@@ -13662,6 +14759,29 @@ index 3f4b21eb55..45c38fd4ad 100644
  
      if (getDerived().TransformFunctionTypeParams(
              TL.getBeginLoc(), TL.getParams(),
+@@ -10025,6 +10039,22 @@ TreeTransform<Derived>::TransformCXXNamedCastExpr(CXXNamedCastExpr *E) {
+       E->getAngleBrackets().getEnd(), SubExpr.get(), E->getRParenLoc());
+ }
+ 
++template<typename Derived>
++ExprResult
++TreeTransform<Derived>::TransformBuiltinBitCastExpr(BuiltinBitCastExpr *BCE) {
++  TypeSourceInfo *TSI =
++      getDerived().TransformType(BCE->getTypeInfoAsWritten());
++  if (!TSI)
++    return ExprError();
++
++  ExprResult Sub = getDerived().TransformExpr(BCE->getSubExpr());
++  if (Sub.isInvalid())
++    return ExprError();
++
++  return getDerived().RebuildBuiltinBitCastExpr(BCE->getBeginLoc(), TSI,
++                                                Sub.get(), BCE->getEndLoc());
++}
++
+ template<typename Derived>
+ ExprResult
+ TreeTransform<Derived>::TransformCXXStaticCastExpr(CXXStaticCastExpr *E) {
 diff --git a/lib/Serialization/ASTReaderDecl.cpp b/lib/Serialization/ASTReaderDecl.cpp
 index 8c1710f660..9f82251ca3 100644
 --- a/lib/Serialization/ASTReaderDecl.cpp
@@ -13677,11 +14797,78 @@ index 8c1710f660..9f82251ca3 100644
      VD->setLocalExternDecl();
  
    if (uint64_t Val = Record.readInt()) {
+diff --git a/lib/Serialization/ASTReaderStmt.cpp b/lib/Serialization/ASTReaderStmt.cpp
+index 88e7bb6471..64ddd61f34 100644
+--- a/lib/Serialization/ASTReaderStmt.cpp
++++ b/lib/Serialization/ASTReaderStmt.cpp
+@@ -1437,6 +1437,12 @@ void ASTStmtReader::VisitCXXFunctionalCastExpr(CXXFunctionalCastExpr *E) {
+   E->setRParenLoc(ReadSourceLocation());
+ }
+ 
++void ASTStmtReader::VisitBuiltinBitCastExpr(BuiltinBitCastExpr *E) {
++  VisitExplicitCastExpr(E);
++  E->KWLoc = ReadSourceLocation();
++  E->RParenLoc = ReadSourceLocation();
++}
++
+ void ASTStmtReader::VisitUserDefinedLiteral(UserDefinedLiteral *E) {
+   VisitCallExpr(E);
+   E->UDSuffixLoc = ReadSourceLocation();
+@@ -3120,6 +3126,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
+                        /*PathSize*/ Record[ASTStmtReader::NumExprFields]);
+       break;
+ 
++    case EXPR_BUILTIN_BIT_CAST:
++      assert(Record[ASTStmtReader::NumExprFields] == 0 && "Wrong PathSize!");
++      S = new (Context) BuiltinBitCastExpr(Empty);
++      break;
++
+     case EXPR_USER_DEFINED_LITERAL:
+       S = new (Context) UserDefinedLiteral(
+           Context, /*NumArgs=*/Record[ASTStmtReader::NumExprFields], Empty);
+diff --git a/lib/Serialization/ASTWriterStmt.cpp b/lib/Serialization/ASTWriterStmt.cpp
+index 3a14c39fa1..dd04f35f86 100644
+--- a/lib/Serialization/ASTWriterStmt.cpp
++++ b/lib/Serialization/ASTWriterStmt.cpp
+@@ -1404,6 +1404,13 @@ void ASTStmtWriter::VisitCXXFunctionalCastExpr(CXXFunctionalCastExpr *E) {
+   Code = serialization::EXPR_CXX_FUNCTIONAL_CAST;
+ }
+ 
++void ASTStmtWriter::VisitBuiltinBitCastExpr(BuiltinBitCastExpr *E) {
++  VisitExplicitCastExpr(E);
++  Record.AddSourceLocation(E->getBeginLoc());
++  Record.AddSourceLocation(E->getEndLoc());
++  Code = serialization::EXPR_BUILTIN_BIT_CAST;
++}
++
+ void ASTStmtWriter::VisitUserDefinedLiteral(UserDefinedLiteral *E) {
+   VisitCallExpr(E);
+   Record.AddSourceLocation(E->UDSuffixLoc);
+diff --git a/lib/StaticAnalyzer/Core/ExprEngine.cpp b/lib/StaticAnalyzer/Core/ExprEngine.cpp
+index 151eef56fe..141e4579f4 100644
+--- a/lib/StaticAnalyzer/Core/ExprEngine.cpp
++++ b/lib/StaticAnalyzer/Core/ExprEngine.cpp
+@@ -1636,6 +1636,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
+     case Stmt::CXXReinterpretCastExprClass:
+     case Stmt::CXXConstCastExprClass:
+     case Stmt::CXXFunctionalCastExprClass:
++    case Stmt::BuiltinBitCastExprClass:
+     case Stmt::ObjCBridgedCastExprClass: {
+       Bldr.takeNodes(Pred);
+       const auto *C = cast<CastExpr>(S);
 diff --git a/lib/StaticAnalyzer/Core/ExprEngineC.cpp b/lib/StaticAnalyzer/Core/ExprEngineC.cpp
-index 7d47cf4f33..b7ab42aedf 100644
+index 7d47cf4f33..8bdfe8966f 100644
 --- a/lib/StaticAnalyzer/Core/ExprEngineC.cpp
 +++ b/lib/StaticAnalyzer/Core/ExprEngineC.cpp
-@@ -413,6 +413,8 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
+@@ -377,6 +377,7 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
+       case CK_Dependent:
+       case CK_ArrayToPointerDecay:
+       case CK_BitCast:
++      case CK_LValueToRValueBitCast:
+       case CK_AddressSpaceConversion:
+       case CK_BooleanToSignedIntegral:
+       case CK_NullToPointer:
+@@ -413,6 +414,8 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
        case CK_AnyPointerToBlockPointerCast:
        case CK_ObjCObjectLValueCast:
        case CK_ZeroToOCLOpaqueType:
@@ -13734,10 +14921,19 @@ index 7d21c6a671..57dd0bd1f6 100644
    llvm::InitializeAllTargets();
    llvm::InitializeAllTargetMCs();
 diff --git a/tools/libclang/CIndex.cpp b/tools/libclang/CIndex.cpp
-index ca8b4baf6c..351eb22832 100644
+index ca8b4baf6c..fafde8a249 100644
 --- a/tools/libclang/CIndex.cpp
 +++ b/tools/libclang/CIndex.cpp
-@@ -5280,11 +5280,11 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
+@@ -5179,6 +5179,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
+       return cxstring::createRef("CallExpr");
+   case CXCursor_ObjCMessageExpr:
+       return cxstring::createRef("ObjCMessageExpr");
++  case CXCursor_BuiltinBitCastExpr:
++    return cxstring::createRef("BuiltinBitCastExpr");
+   case CXCursor_UnexposedStmt:
+       return cxstring::createRef("UnexposedStmt");
+   case CXCursor_DeclStmt:
+@@ -5280,11 +5282,11 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
    case CXCursor_NoDuplicateAttr:
      return cxstring::createRef("attribute(noduplicate)");
    case CXCursor_CUDAConstantAttr:
@@ -13752,7 +14948,7 @@ index ca8b4baf6c..351eb22832 100644
    case CXCursor_CUDAHostAttr:
      return cxstring::createRef("attribute(host)");
    case CXCursor_CUDASharedAttr:
-@@ -7972,6 +7972,8 @@ enum CX_StorageClass clang_Cursor_getStorageClass(CXCursor C) {
+@@ -7972,6 +7974,8 @@ enum CX_StorageClass clang_Cursor_getStorageClass(CXCursor C) {
    }
    switch (sc) {
    case SC_None:
@@ -13762,7 +14958,7 @@ index ca8b4baf6c..351eb22832 100644
    case SC_Extern:
      return CX_SC_Extern;
 diff --git a/tools/libclang/CXCursor.cpp b/tools/libclang/CXCursor.cpp
-index b8c2529169..d831d9c700 100644
+index b8c2529169..f05b7997a4 100644
 --- a/tools/libclang/CXCursor.cpp
 +++ b/tools/libclang/CXCursor.cpp
 @@ -55,7 +55,7 @@ static CXCursorKind GetCursorKind(const Attr *A) {
@@ -13774,6 +14970,15 @@ index b8c2529169..d831d9c700 100644
      case attr::CUDAHost: return CXCursor_CUDAHostAttr;
      case attr::CUDAShared: return CXCursor_CUDASharedAttr;
      case attr::Visibility: return CXCursor_VisibilityAttr;
+@@ -709,6 +709,8 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
+   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
+     K = CXCursor_OMPTargetTeamsDistributeSimdDirective;
+     break;
++  case Stmt::BuiltinBitCastExprClass:
++    K = CXCursor_BuiltinBitCastExpr;
+   }
+ 
+   CXCursor C = { K, 0, { Parent, S, TU } };
 diff --git a/tools/libclang/CXType.cpp b/tools/libclang/CXType.cpp
 index b511046fe6..431ff51290 100644
 --- a/tools/libclang/CXType.cpp
