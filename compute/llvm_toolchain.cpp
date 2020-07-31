@@ -787,6 +787,8 @@ program_data compile_input(const string& input,
 		" -Wno-c++98-compat -Wno-c++98-compat-pedantic"
 		" -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 		" -Wno-c++14-compat -Wno-c++14-compat-pedantic"
+		" -Wno-c++17-compat -Wno-c++17-compat-pedantic"
+		" -Wno-c++2a-compat -Wno-c++2a-compat-pedantic -Wno-c++2a-extensions"
 		" -Wno-c99-extensions -Wno-c11-extensions"
 		" -Wno-gcc-compat -Wno-gnu"
 		// in case we're using warning options that aren't supported by other clang versions
