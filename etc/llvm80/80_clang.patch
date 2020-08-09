@@ -2963,7 +2963,7 @@ index ec4dac03d4..e33df111e2 100644
    VisitCallExpr(S);
  }
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index 0dbc88c045..8c2afce4ef 100644
+index 0dbc88c045..92ba911b19 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1927,6 +1927,13 @@ bool Type::isFloatingType() const {
@@ -3062,7 +3062,7 @@ index 0dbc88c045..8c2afce4ef 100644
      return true;
    }
    llvm_unreachable("invalid attr kind");
-@@ -4038,3 +4084,102 @@ void clang::FixedPointValueToString(SmallVectorImpl<char> &Str,
+@@ -4038,3 +4084,108 @@ void clang::FixedPointValueToString(SmallVectorImpl<char> &Str,
      FractPart = (FractPart * RadixInt) & FractPartMask;
    } while (FractPart != 0);
  }
@@ -3078,7 +3078,7 @@ index 0dbc88c045..8c2afce4ef 100644
 +	
 +	// iterate over all fields/members and check if all are image types
 +	bool has_any_image = false;
-+	for(const auto& field : decl->fields()) {
++	for(const auto* field : decl->fields()) {
 +		// direct image type or array thereof
 +		if(!field->getType()->isImageType() &&
 +		   !field->getType()->isArrayImageType(false)) {
@@ -3109,7 +3109,6 @@ index 0dbc88c045..8c2afce4ef 100644
 +  return valid_and_has_image.first && valid_and_has_image.second;
 +}
 +
-+// TODO: this probably isn't right (also detects other arrays)
 +bool Type::isArrayImageType(bool single_field_arr) const {
 +  // only check/match this for C-style arrays of builtin images
 +  if(!single_field_arr) {
@@ -3140,20 +3139,19 @@ index 0dbc88c045..8c2afce4ef 100644
 +
 +  // handle "array of agg images" (single_field_arr == true) and "agg image with array of *images" (false)
 +  if(single_field_arr) {
-+  if(field_count != 1) return false;
++    if(field_count != 1) return false;
 +
-+  // field must be an array
-+  const QualType arr_field_type = decl->field_begin()->getType();
-+  if(!arr_field_type->isArrayType()) return false;
++    // field must be an array
++    const QualType arr_field_type = decl->field_begin()->getType();
++    if(!arr_field_type->isArrayType()) return false;
 +
-+  // element type must be an aggregate image type
-+  return arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType();
-+}
-+  else {
++    // element type must be an aggregate image type
++    return arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType();
++  } else {
 +    // must have an array field
 +    bool has_array = false;
 +    QualType arr_field_type;
-+    for(const auto& field : decl->fields()) {
++    for(const auto* field : decl->fields()) {
 +      arr_field_type = field->getType();
 +      has_array = arr_field_type->isArrayType();
 +      if(has_array) break;
@@ -3161,8 +3159,16 @@ index 0dbc88c045..8c2afce4ef 100644
 +    if(!has_array) return false;
 +
 +    // either the enclosing/parent type or the array field type must be an aggregate image type
-+    return (isAggregateType() ||
-+            arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType());
++    if (arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType()) {
++      return true;
++    }
++    if (!arr_field_type->isStructureOrClassType()) {
++      return false;
++    }
++
++    // check if the aggregate contains an image type somewhere
++    auto st_arr_field_type = arr_field_type->getAsStructureType();
++    return st_arr_field_type->isAggregateImageType();
 +  }
 +}
 diff --git a/lib/AST/TypePrinter.cpp b/lib/AST/TypePrinter.cpp
@@ -6522,7 +6528,7 @@ index fd4506f2d1..c5bb140355 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..d5084beb48 100644
+index f012384f3d..65b228ecb4 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -6535,7 +6541,7 @@ index f012384f3d..d5084beb48 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,1890 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,2138 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -6912,6 +6918,8 @@ index f012384f3d..d5084beb48 100644
 +		else {
          accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
 -    } else
+-      accessQuals.push_back(llvm::MDString::get(Context, "none"));
+-
 +		}
 +		
 +		// image type / base type
@@ -6983,8 +6991,7 @@ index f012384f3d..d5084beb48 100644
 +			}
 +			argTypeQuals.push_back(llvm::MDString::get(Context, typeQuals));
 +			
-       accessQuals.push_back(llvm::MDString::get(Context, "none"));
--
++			accessQuals.push_back(llvm::MDString::get(Context, "none"));
 +			argNames.push_back(llvm::MDString::get(Context, parm->getName()));
 +		}
 +		// normal image
@@ -7247,13 +7254,12 @@ index f012384f3d..d5084beb48 100644
 +	//
 +	stage_infos.push_back(llvm::MDString::get(Context, "stage_input"));
 +	
-+	const auto add_image_arg = [&stage_infos,
-+								&Context, &ASTCtx, &CGM](const clang::QualType& type,
-+														 const ImageAccessAttr* access_attr,
-+														 const FloorImageDataTypeAttr* data_type,
-+														 const std::string& name,
-+														 const uint32_t elem_count = 1,
-+														 const bool is_array = false) {
++	const auto add_image_arg = [&stage_infos, &Context](const clang::QualType& type,
++														const ImageAccessAttr* access_attr,
++														const FloorImageDataTypeAttr* data_type,
++														const std::string& name,
++														const uint32_t elem_count = 1,
++														const bool is_array = false) {
 +		std::string access_str = "read";
 +		if(access_attr && access_attr->isWriteOnly()) {
 +			access_str = "write";
@@ -7397,9 +7403,49 @@ index f012384f3d..d5084beb48 100644
 +	vk_stage_io->addOperand(stage_infos_node);
 +}
 +
++static bool is_indirect_buffer(const clang::QualType& type, CodeGenModule &CGM) {
++	if (type.isNull()) {
++		return false;
++	}
++	
++	const auto clang_pointee_type = type->getPointeeType();
++	const auto llvm_type = CGM.getTypes().ConvertTypeForMem(type);
++	const auto llvm_pointee_type = llvm_type->getPointerElementType();
++	
++	if (type->isReferenceType() && llvm_pointee_type->isStructTy() && clang_pointee_type.getAddressSpace() == LangAS::opencl_constant) {
++		// initial requirements are fulfilled
++		// -> need to recursively check for any pointers/buffers/images now (if none are found, this is a normal struct/param)
++		const std::function<bool(const clang::QualType&)> indirect_checker = [&indirect_checker](const clang::QualType& type) {
++			if (type->isPointerType() ||
++				type->isReferenceType() ||
++				type->isImageType() ||
++				type->isArrayImageType(true) ||
++				type->isAggregateImageType()) {
++				return true;
++			} else if (const auto type_rdecl = type->getAsCXXRecordDecl()) {
++				// struct -> recursively check fields
++				const auto fields = get_aggregate_fields(type_rdecl);
++				for (const auto& field : fields) {
++					auto field_type = field->getType();
++					if (field_type->isArrayType()) {
++						field_type = field_type->getAsArrayTypeUnsafe()->getElementType();
++					}
++					if (indirect_checker(field_type)) {
++						return true;
++					}
++				}
++			}
++			// normal arg
++			return false;
++		};
++		return indirect_checker(clang_pointee_type);
++	}
++	return false;
++}
++
 +static void GenAIRMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 +						   const CGFunctionInfo &FnInfo,
-+						   CodeGenModule &CGM,llvm::LLVMContext &Context,
++						   CodeGenModule &CGM, llvm::LLVMContext &Context,
 +						   SmallVector <llvm::Metadata*, 5> &kernelMDArgs,
 +						   CGBuilderTy& Builder, ASTContext &ASTCtx) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
@@ -7433,15 +7479,15 @@ index f012384f3d..d5084beb48 100644
 +	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
 +	for(const auto& parm : FD->parameters()) {
 +		const auto clang_type = parm->getType();
-+		const auto llvm_type = std::next(Fn->arg_begin(), arg_idx)->getType();
 +		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +
++		//
 +		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx, &parm,
-+									&Context, &ASTCtx, &CGM](const clang::QualType& type,
-+															 const ImageAccessAttr* access_attr,
-+															 const FloorImageDataTypeAttr* data_type,
-+															 const std::string& name,
-+															 const uint32_t elem_count = 1) {
++									&Context, &CGM](const clang::QualType& type,
++													const ImageAccessAttr* access_attr,
++													const FloorImageDataTypeAttr* data_type,
++													const std::string& name,
++													const uint32_t elem_count = 1) {
 +			SmallVector<llvm::Metadata*, 16> arg_info;
 +			
 +			// #0: param index
@@ -7552,73 +7598,170 @@ index f012384f3d..d5084beb48 100644
 +			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		};
 +		
-+		// pointer / buffer
-+		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
-+			const auto pointee_type = llvm_type->getPointerElementType();
++		//
++		const auto add_indirect_constant = [&Builder, &Context, &make_type_name](const clang::QualType& type,
++																				 const NamedDecl& decl,
++																				 const bool is_top_level,
++																				 uint32_t& arg_idx_at_level,
++																				 uint32_t& buffer_idx_at_level,
++																				 const uint32_t buffer_array_size) -> SmallVector<llvm::Metadata*, 16> {
++			const auto clang_pointee_type = type->getPointeeType();
 +			
 +			SmallVector<llvm::Metadata*, 16> arg_info;
 +			
 +			// #0: param index
-+			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx_at_level)));
++			if (!is_top_level) {
++				++arg_idx_at_level;
++			}
 +			// #1: storage type
-+			arg_info.push_back(llvm::MDString::get(Context, "air.buffer"));
++			arg_info.push_back(llvm::MDString::get(Context, "air.indirect_constant"));
++			// #2/#3: location_index (note: even though this is a constant, it uses the same idx as buffers)
++			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(buffer_idx_at_level)));
++			buffer_idx_at_level += std::max(buffer_array_size, 1u);
++			// #4: index count/range
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
++			// #5/#6: type name
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++			// NOTE: air wants the pointed-to/pointee type here
++			arg_info.push_back(llvm::MDString::get(Context, make_type_name(!clang_pointee_type.isNull() ? clang_pointee_type : type)));
++			// #7/#8: arg name
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(Context, decl.getName()));
++			
++			return arg_info;
++		};
++		
++		//
++		const std::function<SmallVector<llvm::Metadata*, 16>(const clang::QualType&, const NamedDecl&, const bool, const bool, uint32_t&, uint32_t&, const uint32_t)>
++		add_buffer_arg = [&Builder, &Context, &CGM, &make_type_name, &add_buffer_arg, &add_indirect_constant](const clang::QualType& type,
++																											  const NamedDecl& decl,
++																											  const bool is_top_level,
++																											  const bool is_indirect, // specifies if we're within an indirect buffer
++																											  uint32_t& arg_idx_at_level,
++																											  uint32_t& buffer_idx_at_level,
++																											  const uint32_t buffer_array_size) -> SmallVector<llvm::Metadata*, 16> {
++			const auto clang_pointee_type = type->getPointeeType();
++			const auto llvm_type = CGM.getTypes().ConvertTypeForMem(type);
++			const auto llvm_pointee_type = llvm_type->getPointerElementType();
++			
++			// check if this is an indirect buffer
++			const auto indirect_buffer = is_indirect_buffer(type, CGM);
++			if (indirect_buffer && CGM.getLangOpts().MetalVersion < 200) {
++				CGM.Error(decl.getSourceRange().getBegin(), StringRef("indirect/argument buffer is only supported with Metal 2.0+"));
++				return {};
++			}
++			
++			SmallVector<llvm::Metadata*, 16> arg_info;
++			
++			// #0: param index
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx_at_level)));
++			if (!is_top_level) {
++				++arg_idx_at_level;
++			}
++			// #1: storage type
++			arg_info.push_back(llvm::MDString::get(Context, (!indirect_buffer ? "air.buffer" : "air.indirect_buffer")));
 +			
 +			// references / single-object parameters also store/require the buffer_size
-+			if(clang_type->isReferenceType()) {
++			if (type->isReferenceType()) {
 +				arg_info.push_back(llvm::MDString::get(Context, "air.buffer_size"));
-+				arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type))));
++				arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(llvm_pointee_type))));
 +			}
 +			
 +			// #2/#3: location_index (note: separate for buffers and textures)
 +			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
-+			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(buffer_idx)));
-+			++buffer_idx;
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(buffer_idx_at_level)));
++			buffer_idx_at_level += std::max(buffer_array_size, 1u);
 +			// #4: index count/range
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
 +			// #5: access (read/read_write, TODO: write?)
-+			const auto clang_pointee_type = clang_type->getPointeeType();
-+			if(clang_pointee_type.isConstQualified() ||
-+			   (clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
++			if (clang_pointee_type.isConstQualified() ||
++				(clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
 +				arg_info.push_back(llvm::MDString::get(Context, "air.read"));
-+			}
-+			else {
++			} else {
 +				arg_info.push_back(llvm::MDString::get(Context, "air.read_write"));
 +			}
 +			
 +			// #6/#7: struct info
-+			if(const auto pointee_rdecl = clang_pointee_type->getAsCXXRecordDecl()) {
++			if (const auto pointee_rdecl = clang_pointee_type->getAsCXXRecordDecl()) {
 +				SmallVector<llvm::Metadata*, 16> struct_info;
 +				// TODO: this is not ideal and doesn't handle properly handle unions
 +				const auto fields = get_aggregate_fields(pointee_rdecl);
 +				bool ignore = false;
-+				for(const auto& field : fields) {
-+					if(field->isAnonymousStructOrUnion() ||
-+					   field->isBitField()) {
++				for (const auto& field : fields) {
++					if (field->isAnonymousStructOrUnion() ||
++						field->isBitField()) {
 +						ignore = true;
 +						break;
 +					}
 +				}
 +				
 +				// TODO/NOTE: ignore anonymous structs/unions and bitfields for now
-+				if(!ignore) {
++				if (!ignore) {
 +					SmallVector<llvm::Metadata*, 16> struct_info;
 +					arg_info.push_back(llvm::MDString::get(Context, "air.struct_type_info"));
 +					
 +					uint32_t offset = 0;
++					uint32_t arg_idx_child = 0, buffer_idx_child = 0; // for indirect/arg buffers
 +					for(const auto& field : fields) {
++						auto field_type = field->getType();
++						auto llvm_field_type = CGM.getTypes().ConvertTypeForMem(field_type); // TODO: should use this _everywhere_ instead of llvm type tracking/matching!
++						uint32_t array_size = 0;
++						if (field_type->isArrayType()) {
++							field_type = field_type->getAsArrayTypeUnsafe()->getElementType();
++							array_size = (uint32_t)llvm_field_type->getArrayNumElements();
++							llvm_field_type = CGM.getTypes().ConvertTypeForMem(field_type);
++						}
++						auto field_pointee_type = field_type->getPointeeType();
++						
 +						// #0: offset
 +						struct_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(offset)));
 +						// #1: sizeof
-+						const auto llvm_mem_type = CGM.getTypes().ConvertTypeForMem(field->getType()); // TODO: should use this _everywhere_ instead of llvm type tracking/matching!
-+						const auto size = (uint32_t)CGM.getDataLayout().getTypeStoreSize(llvm_mem_type);
-+						offset += size;
++						const auto size = (uint32_t)CGM.getDataLayout().getTypeStoreSize(llvm_field_type);
++						offset += size * uint32_t(std::max(array_size, 1u));
 +						struct_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(size)));
-+						// #2: TODO? array or padding maybe?
-+						struct_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(0)));
++						// #2: array size (0 signals "no array")
++						struct_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(array_size)));
 +						// #3: type name
-+						struct_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++						struct_info.push_back(llvm::MDString::get(Context, make_type_name(!field_pointee_type.isNull() ? field_pointee_type : field_type)));
 +						// #4: name/identifier
 +						struct_info.push_back(llvm::MDString::get(Context, field->getName()));
++						// #5/#6: indirect argument (aka "argument buffer")
++						if (indirect_buffer || is_indirect) {
++							struct_info.push_back(llvm::MDString::get(Context, "air.indirect_argument"));
++							if (field_type->isPointerType() || field_type->isReferenceType()) {
++								// buffer field
++								auto field_arg_info = add_buffer_arg(field_type, **field, false, true, arg_idx_child, buffer_idx_child, array_size);
++								if (field_arg_info.empty()) {
++									return {};
++								}
++								struct_info.push_back(llvm::MDNode::get(Context, field_arg_info));
++							} else if (field_type->isImageType()) {
++								// TODO: support this
++								CGM.Error(decl.getSourceRange().getBegin(), StringRef("images are not yet supported in indirect/argument buffers"));
++								return {};
++							} else if (field_type->isArrayImageType(true)) {
++								// TODO: support this
++								CGM.Error(decl.getSourceRange().getBegin(), StringRef("image arrays are not yet supported in indirect/argument buffers"));
++								return {};
++							} else if (field_type->isAggregateImageType()) {
++								// TODO: support this
++								CGM.Error(decl.getSourceRange().getBegin(), StringRef("aggregate images are not yet supported in indirect/argument buffers"));
++								return {};
++							} else if (decl.hasAttr<GraphicsStageInputAttr>()) {
++								// hard error
++								CGM.Error(decl.getSourceRange().getBegin(), StringRef("stage input is not supported in indirect/argument buffers"));
++								return {};
++							} else {
++								// value / "indirect constant"
++								auto field_arg_info = add_indirect_constant(field_type, **field, false, arg_idx_child, buffer_idx_child, array_size);
++								if (field_arg_info.empty()) {
++									return {};
++								}
++								struct_info.push_back(llvm::MDNode::get(Context, field_arg_info));
++							}
++						}
 +					}
 +					arg_info.push_back(llvm::MDNode::get(Context, struct_info));
 +				}
@@ -7626,21 +7769,30 @@ index f012384f3d..d5084beb48 100644
 +			
 +			// #8/#9: type size
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_size"));
-+			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type))));
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(llvm_pointee_type))));
 +			// #10/#11: type alignment
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
 +			// max out at 16, anything higher is unreasonable
 +			// TODO: make sure this is POT
-+			const auto align_size = std::min(CGM.getDataLayout().getTypeAllocSize(pointee_type), uint64_t(16));
++			const auto align_size = std::min(CGM.getDataLayout().getTypeAllocSize(llvm_pointee_type), uint64_t(16));
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(align_size)));
 +			//getPrimitiveSizeInBits
 +			// #12/#13: type name
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
 +			// NOTE: air wants the pointed-to/pointee type here
-+			arg_info.push_back(llvm::MDString::get(Context, make_type_name(clang_type->getPointeeType())));
++			arg_info.push_back(llvm::MDString::get(Context, make_type_name(clang_pointee_type)));
 +			// #14/#15: arg name
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+			arg_info.push_back(llvm::MDString::get(Context, parm->getName()));
++			arg_info.push_back(llvm::MDString::get(Context, decl.getName()));
++			return arg_info;
++		};
++		
++		// pointer / buffer
++		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			auto arg_info = add_buffer_arg(clang_type, *parm, true, false, arg_idx, buffer_idx, 0);
++			if (arg_info.empty()) {
++				return;
++			}
 +			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		}
 +		// image
@@ -7851,9 +8003,8 @@ index f012384f3d..d5084beb48 100644
 +			++arg_idx; // next llvm arg
 +		}
 +		
-+		const auto add_vs_output = [&Context, &Builder, &ASTCtx, &CGM,
-+									&stage_infos, &make_type_name](const CodeGenTypes::aggregate_scalar_entry& entry,
-+																   const bool force_position = false) {
++		const auto add_vs_output = [&Context, &stage_infos, &make_type_name](const CodeGenTypes::aggregate_scalar_entry& entry,
++																			 const bool force_position = false) {
 +			SmallVector<llvm::Metadata*, 6> ret_info;
 +			
 +			if(entry.hasAttr<GraphicsVertexPositionAttr>() || force_position) {
@@ -7913,7 +8064,7 @@ index f012384f3d..d5084beb48 100644
 +		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		++arg_idx; // next llvm arg
 +		
-+		const auto add_fs_output = [&Context, &Builder, &ASTCtx, &CGM,
++		const auto add_fs_output = [&Context, &Builder, &CGM,
 +									&stage_infos, &make_type_name](const CodeGenTypes::aggregate_scalar_entry& entry,
 +																   const unsigned int& location) {
 +			SmallVector<llvm::Metadata*, 6> rtt_info;
@@ -8050,7 +8201,8 @@ index f012384f3d..d5084beb48 100644
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args,
-+											  const CGFunctionInfo &FnInfo) {
++											  const CGFunctionInfo &FnInfo,
++											  CodeGenModule &CGM) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
 +	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
@@ -8063,11 +8215,13 @@ index f012384f3d..d5084beb48 100644
 + 	}
 + 	std::fstream& file = *getLangOpts().floor_function_info;
 +	std::stringstream info;
++	std::stringstream arg_buf_info;
 +	
 +	const PrintingPolicy &Policy = getContext().getPrintingPolicy();
 +	
 +	// #0: info version
-+	info << "4,";
++	constexpr const uint32_t floor_info_version { 4u };
++	info << floor_info_version << ",";
 +	// #1: function name
 +	info << Fn->getName().str() << ",";
 +	// #2: function type
@@ -8147,6 +8301,7 @@ index f012384f3d..d5084beb48 100644
 +			SSBO						= (3ull << __SPECIAL_TYPE_SHIFT),
 +			IMAGE_ARRAY					= (4ull << __SPECIAL_TYPE_SHIFT),
 +			IUB							= (5ull << __SPECIAL_TYPE_SHIFT),
++			ARGUMENT_BUFFER				= (6ull << __SPECIAL_TYPE_SHIFT),
 +		};
 +		static const auto to_fas = [](const LangAS& addr_space) {
 +			if(addr_space == LangAS::opencl_global) {
@@ -8161,7 +8316,7 @@ index f012384f3d..d5084beb48 100644
 +			return FLOOR_ARG_INFO::AS_NONE;
 +		};
 +		
-+		const auto compute_type_size = [this, &parm, &Fn](llvm::Type* type) {
++		const auto compute_type_size = [&CGM, &parm, &Fn](llvm::Type* type) {
 +			if(!type->isSized()) {
 +				auto err_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Fatal, "%0");
 +				CGM.getDiags().Report(parm->getSourceRange().getBegin(), err_diagID) << "parameter uses a type with an unknown size (NOTE: this can happen when internal vector/array type conversion/replacement has failed)";
@@ -8236,9 +8391,9 @@ index f012384f3d..d5084beb48 100644
 +			}
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+ 		const auto add_image_arg = [this, &info](const FLOOR_ARG_INFO& floor_img_type,
-+ 												 const FLOOR_ARG_INFO& access,
-+												 const uint32_t elem_count = 1) {
++		const auto add_image_arg = [](const FLOOR_ARG_INFO& floor_img_type,
++									  const FLOOR_ARG_INFO& access,
++									  const uint32_t elem_count = 1) -> uint64_t /* arg info */ {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
@@ -8246,13 +8401,12 @@ index f012384f3d..d5084beb48 100644
 +				arg_info |= elem_count;
 +				arg_info |= uint64_t(FLOOR_ARG_INFO::IMAGE_ARRAY);
 +			}
-+			info << arg_info << ",";
++			return arg_info;
 +		};
 +		// anything that isn't a pointer or special type
-+		const auto add_normal_arg = [this, &info,
-+									 &compute_type_size](llvm::Type* llvm_type,
++		const auto add_normal_arg = [&compute_type_size](llvm::Type* llvm_type,
 +														 const clang::QualType& clang_type,
-+														 const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) {
++														 const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) -> uint64_t /* arg info */ {
 +			// for now: just use the direct type size + no address space
 +			uint64_t arg_info = (uint64_t)init_info;
 +			// handle some llvm weirdness? why can this be a pointer still?
@@ -8263,47 +8417,142 @@ index f012384f3d..d5084beb48 100644
 +				arg_info |= compute_type_size(llvm_type);
 +			}
 +			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
-+			info << arg_info << ",";
++			return arg_info;
 +		};
-+		
-+		// #2+: argument sizes + types
-+		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
-+			const auto clang_pointee_type = clang_type->getPointeeType();
-+			const auto pointee_type = llvm_type->getPointerElementType();
++		//
++		const std::function<uint64_t(const clang::QualType&, const NamedDecl&, const bool, const bool, const uint32_t)>
++		add_buffer_arg = [&CGM, &vulkan_iub_count, &compute_type_size, &arg_buf_info,
++						  &Fn, &add_buffer_arg, &add_normal_arg](const clang::QualType& type,
++																 const NamedDecl& decl,
++																 const bool is_top_level,
++																 const bool is_indirect, // specifies if we're within an indirect buffer
++																 const uint32_t arg_idx) -> uint64_t /* arg info */ {
++			const auto clang_pointee_type = type->getPointeeType();
++			const auto llvm_type = CGM.getTypes().ConvertTypeForMem(type);
++			const auto llvm_pointee_type = llvm_type->getPointerElementType();
 +			
-+			const uint64_t arg_size = compute_type_size(pointee_type);
++			const auto indirect_buffer = is_indirect_buffer(type, CGM);
++			
++			const uint64_t arg_size = compute_type_size(llvm_pointee_type);
 +			uint64_t arg_info = arg_size;
-+			if(getLangOpts().OpenCL) {
++			if (CGM.getLangOpts().OpenCL) {
 +				arg_info |= (uint64_t)to_fas(clang_pointee_type.getAddressSpace());
-+			}
-+			else if(getLangOpts().CUDA) {
++			} else if (CGM.getLangOpts().CUDA) {
 +				// always pretend this is global
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
-+			if(getLangOpts().Vulkan) {
++			if (indirect_buffer) {
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::ARGUMENT_BUFFER;
++			} else if (CGM.getLangOpts().Vulkan) {
 +				// NOTE: only using global& for const parameters (aka uniforms) right now,
 +				//       if this should change, this must also be modified
 +				//       -> global pointer must always be a SSBO
-+				if(!clang_type->isReferenceType() &&
-+				   clang_pointee_type.getAddressSpace() == LangAS::opencl_global) {
++				if (!type->isReferenceType() &&
++					clang_pointee_type.getAddressSpace() == LangAS::opencl_global) {
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::SSBO;
 +				}
 +				
 +				// make parameters a IUB if their size is <= the size limit and we are still below the IUB count limit
-+				if(clang_type->isReferenceType() &&
-+				   clang_pointee_type.getAddressSpace() == LangAS::opencl_global &&
-+				   arg_size <= CGM.getCodeGenOpts().VulkanIUBSize &&
-+				   vulkan_iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IUB;
-+					++vulkan_iub_count;
++				if (is_top_level) {
++					if (type->isReferenceType() &&
++						clang_pointee_type.getAddressSpace() == LangAS::opencl_global &&
++						arg_size <= CGM.getCodeGenOpts().VulkanIUBSize &&
++						vulkan_iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
++						arg_info |= (uint64_t)FLOOR_ARG_INFO::IUB;
++						++vulkan_iub_count;
++					}
 +				}
 +			}
++			
++			//
++			if (indirect_buffer || is_indirect) {
++				if (const auto pointee_rdecl = clang_pointee_type->getAsCXXRecordDecl()) {
++					// TODO: this is not ideal and doesn't handle properly handle unions
++					const auto fields = get_aggregate_fields(pointee_rdecl);
++					bool ignore = false;
++					for (const auto& field : fields) {
++						if (field->isAnonymousStructOrUnion() ||
++							field->isBitField()) {
++							ignore = true;
++							break;
++						}
++					}
++					
++					if (!ignore && indirect_buffer && is_indirect) {
++						// TODO/NOTE: for now, recursive argument buffers are not supported -> implement support for this
++						CGM.Error(decl.getSourceRange().getBegin(), StringRef("recursive argument buffers are currently not supported"));
++						return {};
++					}
++					
++					if (!ignore) {
++						std::stringstream this_arg_buf_info;
++						// #0: info version
++						this_arg_buf_info << floor_info_version << ",";
++						// #1: function name
++						this_arg_buf_info << Fn->getName().str() << ",";
++						// #2: function type
++						this_arg_buf_info << "100,";
++						// #3: function flags
++						this_arg_buf_info << "0,"; // none for argument buffers
++						// #4: argument index in function
++						this_arg_buf_info << arg_idx << ",";
++						// #5/6: 0 / unused for argument buffers
++						this_arg_buf_info << "0,0,";
++						
++						uint32_t field_arg_idx = 0;
++						for (const auto& field : fields) {
++							auto field_type = field->getType();
++							auto llvm_field_type = CGM.getTypes().ConvertTypeForMem(field_type);
++							
++							// TODO: do we need array size handling?
++							if (indirect_buffer || is_indirect) {
++								if (field_type->isPointerType() || field_type->isReferenceType()) {
++									// buffer field
++									// TODO: handle recursive arg buffers
++									const auto field_arg_info = add_buffer_arg(field_type, **field, false, true, field_arg_idx);
++									this_arg_buf_info << field_arg_info << ",";
++								} else if (field_type->isImageType()) {
++									// TODO: support this
++									CGM.Error(decl.getSourceRange().getBegin(), StringRef("images are not yet supported in indirect/argument buffers"));
++									return {};
++								} else if (field_type->isArrayImageType(true)) {
++									// TODO: support this
++									CGM.Error(decl.getSourceRange().getBegin(), StringRef("image arrays are not yet supported in indirect/argument buffers"));
++									return {};
++								} else if (field_type->isAggregateImageType()) {
++									// TODO: support this
++									CGM.Error(decl.getSourceRange().getBegin(), StringRef("aggregate images are not yet supported in indirect/argument buffers"));
++									return {};
++								} else if (decl.hasAttr<GraphicsStageInputAttr>()) {
++									// hard error
++									CGM.Error(decl.getSourceRange().getBegin(), StringRef("stage input is not supported in indirect/argument buffers"));
++									return {};
++								} else {
++									// value / "indirect constant"
++									const auto field_arg_info = add_normal_arg(llvm_field_type, field_type);
++									this_arg_buf_info << field_arg_info << ",";
++								}
++							}
++							++field_arg_idx;
++						}
++						arg_buf_info << this_arg_buf_info.str() << "\n";
++					}
++				}
++			}
++			
++			return arg_info;
++		};
++		
++		// #2+: argument sizes + types
++		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			const auto arg_info = add_buffer_arg(clang_type, *parm, true, false, arg_idx);
 +			info << arg_info << ",";
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
-+						  get_image_access(parm->getAttr<ImageAccessAttr>()));
++			const auto arg_info = add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
++												get_image_access(parm->getAttr<ImageAccessAttr>()));
++			info << arg_info << ",";
 +		}
 +		// image array (std::array<*image_*<type>, extent>)
 +		// NOTE: check before "isAggregateImageType()", because this is essentially a sub-type of it
@@ -8311,9 +8560,10 @@ index f012384f3d..d5084beb48 100644
 +			const auto array_image_info = get_array_image_info(cxx_rdecl, getContext());
 +			if(array_image_info.first != nullptr &&
 +			   array_image_info.second > 0) {
-+				add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
-+							  get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
-+							  array_image_info.second);
++				const auto arg_info = add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
++													get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
++													array_image_info.second);
++				info << arg_info << ",";
 +			}
 +			else {
 +				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
@@ -8387,7 +8637,8 @@ index f012384f3d..d5084beb48 100644
 +			// everything works out, add this as a single kernel argument (floor backends will handle r/w images as necessary)
 +			// NOTE: for aggregate images that contain an array of images we still only count this as one image,
 +			//       since this is behind-the-scenes stuff and not part of the user interface!
-+			add_image_arg(floor_img_type, (FLOOR_ARG_INFO)floor_img_access);
++			const auto arg_info = add_image_arg(floor_img_type, (FLOOR_ARG_INFO)floor_img_access);
++			info << arg_info << ",";
 +			
 +			// 1 clang aggregate-image == 2 llvm image types -> inc index once more
 +			if(field_count == 2) ++arg_idx;
@@ -8451,7 +8702,8 @@ index f012384f3d..d5084beb48 100644
 +				for(const auto& field : fields) {
 +					// TODO: check if field type is int or float!
 +					const auto field_llvm_type = std::next(Fn->arg_begin(), arg_idx)->getType();
-+					add_normal_arg(field_llvm_type, field.type, FLOOR_ARG_INFO::STAGE_INPUT);
++					const auto arg_info = add_normal_arg(field_llvm_type, field.type, FLOOR_ARG_INFO::STAGE_INPUT);
++					info << arg_info << ",";
 +					++arg_idx;
 +				}
 +				--arg_idx; // fixup, b/c of inc later
@@ -8459,11 +8711,13 @@ index f012384f3d..d5084beb48 100644
 +			else {
 +				// add as-is
 +				// TODO: check if type is int or float!
-+				add_normal_arg(llvm_type, clang_type, FLOOR_ARG_INFO::STAGE_INPUT);
++				const auto arg_info = add_normal_arg(llvm_type, clang_type, FLOOR_ARG_INFO::STAGE_INPUT);
++				info << arg_info << ",";
 +			}
 +		}
 +		else {
-+			add_normal_arg(llvm_type, clang_type);
++			const auto arg_info = add_normal_arg(llvm_type, clang_type);
++			info << arg_info << ",";
 +		}
 +		
 +		// next arg
@@ -8473,6 +8727,7 @@ index f012384f3d..d5084beb48 100644
 +	
 +	info << "\n";
 +	file << info.str();
++	file << arg_buf_info.str();
 +	
 +#if 0 // for debugging purposes
 +	printf("floor function info: %s", info.str().c_str()); fflush(stdout);
@@ -8553,7 +8808,7 @@ index f012384f3d..d5084beb48 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2471,116 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2719,116 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -8670,7 +8925,7 @@ index f012384f3d..d5084beb48 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2646,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2894,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -8683,7 +8938,7 @@ index f012384f3d..d5084beb48 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +2758,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +3006,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -8695,7 +8950,7 @@ index f012384f3d..d5084beb48 100644
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
 +    if(FD) {
 +      // add floor specific metadata for kernel functions
-+      EmitFloorKernelMetadata(FD, Fn, Args, FnInfo);
++      EmitFloorKernelMetadata(FD, Fn, Args, FnInfo, CGM);
 +    }
 +    
 +    // opencl/spir, metal and vulkan specific metadata
@@ -8713,7 +8968,7 @@ index f012384f3d..d5084beb48 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +2811,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +3059,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -8729,7 +8984,7 @@ index f012384f3d..d5084beb48 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +2911,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +3159,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -8747,7 +9002,7 @@ index f012384f3d..d5084beb48 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +2967,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +3215,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -8763,7 +9018,7 @@ index f012384f3d..d5084beb48 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3118,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3366,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -8773,7 +9028,7 @@ index f012384f3d..d5084beb48 100644
    return ResTy;
  }
  
-@@ -1356,7 +3189,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3437,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -8783,10 +9038,10 @@ index f012384f3d..d5084beb48 100644
    else if (isa<CXXMethodDecl>(FD) &&
             cast<CXXMethodDecl>(FD)->isLambdaStaticInvoker()) {
 diff --git a/lib/CodeGen/CodeGenFunction.h b/lib/CodeGen/CodeGenFunction.h
-index 8971accdcd..4f1c1bcec6 100644
+index 8971accdcd..59f8382333 100644
 --- a/lib/CodeGen/CodeGenFunction.h
 +++ b/lib/CodeGen/CodeGenFunction.h
-@@ -1585,8 +1585,14 @@ private:
+@@ -1585,8 +1585,15 @@ private:
    /// Add OpenCL kernel arg metadata and the kernel attribute metadata to
    /// the function metadata.
    void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -8798,12 +9053,13 @@ index 8971accdcd..4f1c1bcec6 100644
 +  void EmitFloorKernelMetadata(const FunctionDecl *FD,
 +                               llvm::Function *Fn,
 +                               const FunctionArgList &Args,
-+                               const CGFunctionInfo &FnInfo);
++                               const CGFunctionInfo &FnInfo,
++							   CodeGenModule &CGM);
 +	
  public:
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
-@@ -1751,6 +1757,11 @@ public:
+@@ -1751,6 +1758,11 @@ public:
    /// Check if \p T is a C++ class that has a destructor that can throw.
    static bool cxxDestructorCanThrow(QualType T);
  
@@ -8815,7 +9071,7 @@ index 8971accdcd..4f1c1bcec6 100644
    llvm::Constant *GenerateCopyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
-@@ -4137,14 +4148,16 @@ private:
+@@ -4137,14 +4149,16 @@ private:
    ///
    /// \param AI - The first function argument of the expansion.
    void ExpandTypeFromArgs(QualType Ty, LValue Dst,
@@ -11824,7 +12080,7 @@ index f6ac9b44a8..3aa17efac2 100644
    }
  }
 diff --git a/lib/Sema/SemaCUDA.cpp b/lib/Sema/SemaCUDA.cpp
-index 13dd8d936f..021b9decf6 100644
+index 13dd8d936f..e6d3afaa87 100644
 --- a/lib/Sema/SemaCUDA.cpp
 +++ b/lib/Sema/SemaCUDA.cpp
 @@ -63,7 +63,7 @@ Sema::IdentifyCUDATarget(const ParsedAttributesView &Attrs) {
@@ -11884,7 +12140,17 @@ index 13dd8d936f..021b9decf6 100644
    }
  
    return false;
-@@ -543,8 +534,8 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
+@@ -479,7 +470,8 @@ void Sema::checkAllowedCUDAInitializer(VarDecl *VD) {
+   const Expr *Init = VD->getInit();
+   if (VD->hasAttr<CUDADeviceAttr>() || VD->hasAttr<CUDAConstantAttr>() ||
+       VD->hasAttr<CUDASharedAttr>()) {
+-    assert(!VD->isStaticLocal() || VD->hasAttr<CUDASharedAttr>());
++    // NOTE: allowing this for "static constant constexpr const" init
++    //assert(!VD->isStaticLocal() || VD->hasAttr<CUDASharedAttr>());
+     bool AllowedInit = false;
+     if (const CXXConstructExpr *CE = dyn_cast<CXXConstructExpr>(Init))
+       AllowedInit =
+@@ -543,8 +535,8 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
    assert(getLangOpts().CUDA && "Should only be called during CUDA compilation");
  
    if (ForceCUDAHostDeviceDepth > 0) {
@@ -11895,7 +12161,7 @@ index 13dd8d936f..021b9decf6 100644
      if (!NewD->hasAttr<CUDADeviceAttr>())
        NewD->addAttr(CUDADeviceAttr::CreateImplicit(Context));
      return;
-@@ -552,7 +543,7 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
+@@ -552,7 +544,7 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
  
    if (!getLangOpts().CUDAHostDeviceConstexpr || !NewD->isConstexpr() ||
        NewD->isVariadic() || NewD->hasAttr<CUDAHostAttr>() ||
@@ -11904,7 +12170,7 @@ index 13dd8d936f..021b9decf6 100644
      return;
  
    // Is D a __device__ function with the same signature as NewD, ignoring CUDA
-@@ -583,7 +574,7 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
+@@ -583,7 +575,7 @@ void Sema::maybeAddCUDAHostDeviceAttrs(FunctionDecl *NewD,
      return;
    }
  
@@ -11913,7 +12179,7 @@ index 13dd8d936f..021b9decf6 100644
    NewD->addAttr(CUDADeviceAttr::CreateImplicit(Context));
  }
  
-@@ -908,7 +899,7 @@ void Sema::CUDASetLambdaAttrs(CXXMethodDecl *Method) {
+@@ -908,7 +900,7 @@ void Sema::CUDASetLambdaAttrs(CXXMethodDecl *Method) {
      Method->addAttr(CUDADeviceAttr::CreateImplicit(Context));
    } else if (Target == CFT_HostDevice) {
      Method->addAttr(CUDADeviceAttr::CreateImplicit(Context));
@@ -11922,7 +12188,7 @@ index 13dd8d936f..021b9decf6 100644
    }
  }
  
-@@ -954,7 +945,7 @@ static void copyAttrIfPresent(Sema &S, FunctionDecl *FD,
+@@ -954,7 +946,7 @@ static void copyAttrIfPresent(Sema &S, FunctionDecl *FD,
  void Sema::inheritCUDATargetAttrs(FunctionDecl *FD,
                                    const FunctionTemplateDecl &TD) {
    const FunctionDecl &TemplateFD = *TD.getTemplatedDecl();
