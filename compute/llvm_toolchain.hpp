@@ -38,7 +38,90 @@ namespace llvm_toolchain {
 		//! OpenCL SPIR-V 1.0+
 		SPIRV_OPENCL,
 	};
-	
+
+	//! known function types
+	enum class FUNCTION_TYPE : uint32_t {
+		NONE							= (0u),
+		KERNEL							= (1u),
+		VERTEX							= (2u),
+		FRAGMENT						= (3u),
+		//! NOTE: unsupported right now
+		GEOMETRY						= (4u),
+		//! NOTE: unsupported right now
+		TESSELLATION_CONTROL			= (5u),
+		//! NOTE: unsupported right now
+		TESSELLATION_EVALUATION			= (6u),
+		
+		//! argument buffer structs are treated the same way as actual functions
+		ARGUMENT_BUFFER_STRUCT			= (100u),
+	};
+
+	//! flags applying to the whole function
+	enum class FUNCTION_FLAGS : uint32_t {
+		NONE							= (0u),
+		//! function makes use of soft-printf
+		USES_SOFT_PRINTF				= (1u << 0u),
+	};
+	floor_global_enum_no_hash_ext(FUNCTION_FLAGS)
+
+	//! address space
+	enum class ARG_ADDRESS_SPACE : uint32_t {
+		UNKNOWN							= (0u),
+		GLOBAL							= (1u),
+		LOCAL							= (2u),
+		CONSTANT						= (3u),
+		IMAGE							= (4u),
+	};
+
+	//! image type
+	enum class ARG_IMAGE_TYPE : uint32_t {
+		NONE							= (0u),
+		IMAGE_1D						= (1u),
+		IMAGE_1D_ARRAY					= (2u),
+		IMAGE_1D_BUFFER					= (3u),
+		IMAGE_2D						= (4u),
+		IMAGE_2D_ARRAY					= (5u),
+		IMAGE_2D_DEPTH					= (6u),
+		IMAGE_2D_ARRAY_DEPTH			= (7u),
+		IMAGE_2D_MSAA					= (8u),
+		IMAGE_2D_ARRAY_MSAA				= (9u),
+		IMAGE_2D_MSAA_DEPTH				= (10u),
+		IMAGE_2D_ARRAY_MSAA_DEPTH		= (11u),
+		IMAGE_3D						= (12u),
+		IMAGE_CUBE						= (13u),
+		IMAGE_CUBE_ARRAY				= (14u),
+		IMAGE_CUBE_DEPTH				= (15u),
+		IMAGE_CUBE_ARRAY_DEPTH			= (16u),
+	};
+
+	//! r/w image access flags
+	enum class ARG_IMAGE_ACCESS : uint32_t {
+		NONE							= (0u),
+		READ							= (1u),
+		WRITE							= (2u),
+		READ_WRITE						= (READ | WRITE),
+	};
+
+	//! special types (backend or function type specific special args)
+	enum class SPECIAL_TYPE : uint32_t {
+		NONE							= (0u),
+		//! graphics-only: shader stage input
+		STAGE_INPUT						= (1u),
+		//! vulkan-only: constant parameter fast path
+		PUSH_CONSTANT					= (2u),
+		//! vulkan-only: param is BufferBlock/storage (not Block/uniform)
+		SSBO							= (3u),
+		//! array of images
+		IMAGE_ARRAY						= (4u),
+		//! vulkan-only: inline uniform block
+		IUB								= (5u),
+		//! argument/indirect buffer
+		ARGUMENT_BUFFER					= (6u),
+	};
+
+	//! need forward decl for function_info
+	struct arg_info;
+
 	//! this contains all necessary information of a function (types, args, arg types, sizes, ...)
 	struct function_info {
 		string name;
@@ -50,93 +133,31 @@ namespace llvm_toolchain {
 			return (local_size != 0u).all();
 		}
 		
-		enum class FUNCTION_TYPE : uint32_t {
-			NONE							= (0u),
-			KERNEL							= (1u),
-			VERTEX							= (2u),
-			FRAGMENT						= (3u),
-			//! NOTE: unsupported right now
-			GEOMETRY						= (4u),
-			//! NOTE: unsupported right now
-			TESSELLATION_CONTROL			= (5u),
-			//! NOTE: unsupported right now
-			TESSELLATION_EVALUATION			= (6u),
-		};
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
 		
-		enum class FUNCTION_FLAGS : uint32_t {
-			NONE							= (0u),
-			//! function makes use of soft-printf
-			USES_SOFT_PRINTF				= (1u << 0u),
-		};
-		floor_enum_ext(FUNCTION_FLAGS)
 		FUNCTION_FLAGS flags { FUNCTION_FLAGS::NONE };
 		
-		enum class ARG_ADDRESS_SPACE : uint32_t {
-			UNKNOWN							= (0u),
-			GLOBAL							= (1u),
-			LOCAL							= (2u),
-			CONSTANT						= (3u),
-			IMAGE							= (4u),
-		};
-		
-		enum class ARG_IMAGE_TYPE : uint32_t {
-			NONE							= (0u),
-			IMAGE_1D						= (1u),
-			IMAGE_1D_ARRAY					= (2u),
-			IMAGE_1D_BUFFER					= (3u),
-			IMAGE_2D						= (4u),
-			IMAGE_2D_ARRAY					= (5u),
-			IMAGE_2D_DEPTH					= (6u),
-			IMAGE_2D_ARRAY_DEPTH			= (7u),
-			IMAGE_2D_MSAA					= (8u),
-			IMAGE_2D_ARRAY_MSAA				= (9u),
-			IMAGE_2D_MSAA_DEPTH				= (10u),
-			IMAGE_2D_ARRAY_MSAA_DEPTH		= (11u),
-			IMAGE_3D						= (12u),
-			IMAGE_CUBE						= (13u),
-			IMAGE_CUBE_ARRAY				= (14u),
-			IMAGE_CUBE_DEPTH				= (15u),
-			IMAGE_CUBE_ARRAY_DEPTH			= (16u),
-		};
-		
-		enum class ARG_IMAGE_ACCESS : uint32_t {
-			NONE							= (0u),
-			READ							= (1u),
-			WRITE							= (2u),
-			READ_WRITE						= (READ | WRITE),
-		};
-		
-		enum class SPECIAL_TYPE : uint32_t {
-			NONE							= (0u),
-			//! graphics-only: shader stage input
-			STAGE_INPUT						= (1u),
-			//! vulkan-only: constant parameter fast path
-			PUSH_CONSTANT					= (2u),
-			//! vulkan-only: param is BufferBlock/storage (not Block/uniform)
-			SSBO							= (3u),
-			//! array of images
-			IMAGE_ARRAY						= (4u),
-			//! vulkan-only: inline uniform block
-			IUB								= (5u),
-		};
-		
-		struct arg_info {
-			//! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
-			uint32_t size;
-			
-			//! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
-			//! although some arguments might be marked with an address space nonetheless.
-			ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
-			
-			ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
-			
-			ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
-			
-			SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
-		};
 		vector<arg_info> args;
 	};
+
+	//! argument information
+   struct arg_info {
+	   //! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
+	   uint32_t size { 0 };
+	   
+	   //! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
+	   //! although some arguments might be marked with an address space nonetheless.
+	   ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
+	   
+	   ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
+	   
+	   ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
+	   
+	   SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
+	   
+	   //! if this is an argument buffer (special_type == ARGUMENT_BUFFER) then this contains the argument buffer struct info
+	   optional<function_info> argument_buffer_info {};
+   };
 	
 	//! internal: encoded floor metadata layout
 	enum class FLOOR_METADATA : uint64_t {

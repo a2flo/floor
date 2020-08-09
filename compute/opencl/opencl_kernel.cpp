@@ -67,12 +67,19 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			set_kernel_argument(total_idx, arg_idx, handler.get(), entry, *buf_ptr);
+		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+			log_error("array of buffers is not supported for OpenCL");
+		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+			log_error("array of buffers is not supported for OpenCL");
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			set_kernel_argument(total_idx, arg_idx, handler.get(), entry, *img_ptr);
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for OpenCL");
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for OpenCL");
+		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+			log_error("argument buffer handling is not implemented yet for OpenCL");
+			return;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			set_const_kernel_argument(total_idx, arg_idx, handler.get(), entry, const_cast<void*>(*generic_arg_ptr) /* non-const b/c OpenCL */, arg.size);
 		} else {
@@ -149,7 +156,7 @@ void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, 
 	++arg_idx;
 	
 	// legacy s/w read/write image -> set it twice
-	if(entry.info->args[total_idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE &&
+	if(entry.info->args[total_idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE &&
 	   !handler->device->image_read_write_support) {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 								   &((const opencl_image*)arg)->get_cl_image()),

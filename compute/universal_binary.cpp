@@ -661,7 +661,7 @@ namespace universal_binary {
 			// static header
 			binary_dynamic_v2 bin_data {
 				.static_binary_header = {
-					.function_count = uint32_t(bin.functions.size()),
+					.function_count = 0u, // -> will be incremented below
 					.function_info_size = 0, // N/A yet
 					.binary_size = uint32_t(bin.data_or_filename.size()),
 				},
@@ -670,24 +670,30 @@ namespace universal_binary {
 			
 			// convert function info
 			bin_data.functions.reserve(bin.functions.size());
-			for (const auto& func : bin.functions) {
+			const function<bool(const llvm_toolchain::function_info&, const uint32_t)> create_bin_function_info =
+			[&bin_data, &create_bin_function_info](const llvm_toolchain::function_info& func, const uint32_t argument_buffer_index) {
 				function_info_dynamic_v2 finfo {
 					.static_function_info = {
 						.function_info_version = function_info_version,
 						.type = func.type,
 						.flags = func.flags,
 						.arg_count = uint32_t(func.args.size()),
-						.local_size = func.local_size,
+						.details.local_size = func.local_size,
 					},
 					.name = func.name,
 					.args = {}, // need proper conversion
 				};
+				if (func.type == llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+					finfo.static_function_info.details.argument_buffer_index = argument_buffer_index;
+				}
 				bin_data.static_binary_header.function_info_size += sizeof(finfo.static_function_info);
 				bin_data.static_binary_header.function_info_size += finfo.name.size() + 1 /* \0 */;
 				
 				// convert/create args
 				finfo.args.reserve(func.args.size());
-				for (const auto& arg : func.args) {
+				vector<pair<const llvm_toolchain::function_info*, uint32_t>> arg_buffers;
+				for (uint32_t arg_idx = 0, arg_count = (uint32_t)func.args.size(); arg_idx < arg_count; ++arg_idx) {
+					const auto& arg = func.args[arg_idx];
 					finfo.args.emplace_back(function_info_dynamic_v2::arg_info {
 						.argument_size = arg.size,
 						.address_space = arg.address_space,
@@ -697,10 +703,30 @@ namespace universal_binary {
 						._unused_1 = 0,
 						.special_type = arg.special_type,
 					});
+					if (arg.special_type == llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+						if (!arg.argument_buffer_info) {
+							log_error("missing argument buffer info for function %s", finfo.name);
+							return false;
+						}
+						// delay argument buffer function info creation until after we have written the info for this function
+						arg_buffers.emplace_back(&*arg.argument_buffer_info, arg_idx);
+					}
 				}
+				++bin_data.static_binary_header.function_count;
 				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v2::arg_info) * finfo.args.size();
-				
 				bin_data.functions.emplace_back(move(finfo));
+				
+				// write argument buffer info
+				for (const auto& arg_buffer_info : arg_buffers) {
+					create_bin_function_info(*arg_buffer_info.first, arg_buffer_info.second);
+				}
+				
+				return true;
+			};
+			for (const auto& func : bin.functions) {
+				if (!create_bin_function_info(func, 0u)) {
+					return false;
+				}
 			}
 			
 			// write static header
@@ -1224,11 +1250,17 @@ namespace universal_binary {
 			llvm_toolchain::function_info entry;
 			entry.type = func.static_function_info.type;
 			entry.flags = func.static_function_info.flags;
-			entry.local_size = func.static_function_info.local_size;
 			entry.name = func.name;
 			
+			uint32_t arg_idx = 0u;
+			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+				entry.local_size = func.static_function_info.details.local_size;
+			} else {
+				arg_idx = func.static_function_info.details.argument_buffer_index;
+			}
+			
 			for (const auto& arg : func.args) {
-				llvm_toolchain::function_info::arg_info arg_entry;
+				llvm_toolchain::arg_info arg_entry;
 				arg_entry.size = arg.argument_size;
 				arg_entry.address_space = arg.address_space;
 				arg_entry.image_type = arg.image_type;
@@ -1237,7 +1269,33 @@ namespace universal_binary {
 				entry.args.emplace_back(arg_entry);
 			}
 			
-			ret.emplace_back(entry);
+			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+				ret.emplace_back(entry);
+			} else {
+				bool found_func = false;
+				for (auto riter = ret.rbegin(); riter != ret.rend(); ++riter) {
+					if (riter->name == entry.name) {
+						found_func = true;
+						if (arg_idx >= (uint32_t)riter->args.size()) {
+							log_error("argument index %u is out-of-bounds for function %s with %u args", arg_idx, entry.name, riter->args.size());
+							return {};
+						}
+						
+						auto& arg = riter->args[arg_idx];
+						if (arg.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+							log_error("argument index %u in function %s is not an argument buffer", arg_idx, entry.name);
+							return {};
+						}
+						
+						arg.argument_buffer_info = move(entry);
+						break;
+					}
+				}
+				if (!found_func) {
+					log_error("didn't find function %s for argument buffer", entry.name);
+					return {};
+				}
+			}
 		}
 		
 		return ret;

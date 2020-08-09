@@ -103,24 +103,30 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 				param = data;
 				memcpy(data, &((const cuda_buffer*)*buf_ptr)->get_cuda_buffer(), sizeof(cu_device_ptr));
 				data += sizeof(cu_device_ptr);
+			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+				log_error("array of buffers is not yet supported for CUDA");
+				return;
+			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+				log_error("array of buffers is not yet supported for CUDA");
+				return;
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 				auto cu_img = (const cuda_image*)*img_ptr;
 				
 #if defined(FLOOR_DEBUG)
 				// sanity checks
-				if (entry.info->args[idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::NONE) {
+				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::NONE) {
 					log_error("no image access qualifier specified!");
 					return;
 				}
-				if (entry.info->args[idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ ||
-					entry.info->args[idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ ||
+					entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
 					if (cu_img->get_cuda_textures()[0] == 0) {
 						log_error("image is set to be readable, but texture objects don't exist!");
 						return;
 					}
 				}
-				if (entry.info->args[idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
-					entry.info->args[idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::WRITE ||
+					entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
 					if (cu_img->get_cuda_surfaces()[0] == 0) {
 						log_error("image is set to be writable, but surface object doesn't exist!");
 						return;
@@ -161,6 +167,9 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 				return;
 			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 				log_error("array of images is not supported for CUDA");
+				return;
+			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+				log_error("argument buffer handling is not implemented yet for CUDA");
 				return;
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 				param = data;

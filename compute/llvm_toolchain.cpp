@@ -36,83 +36,148 @@ bool create_floor_function_info(const string& ffi_file_name,
 								vector<function_info>& functions,
 								const uint32_t toolchain_version floor_unused) {
 	string ffi = "";
-	if(!file_io::file_to_string(ffi_file_name, ffi)) {
+	if (!file_io::file_to_string(ffi_file_name, ffi)) {
 		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
 		return false;
 	}
 	
 	const auto lines = core::tokenize(ffi, '\n');
 	functions.reserve(max(lines.size(), size_t(1)) - 1);
-	for(const auto& line : lines) {
-		if(line.empty()) continue;
+	for (const auto& line : lines) {
+		if (line.empty()) continue;
 		const auto tokens = core::tokenize(line, ',');
 		
 		// at least 7 w/o any args:
-		// <version>,<func_name>,<type>,<flags>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
-		if(tokens.size() < 7) {
+		// functions : <version>,<func_name>,<type>,<flags>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
+		// arg-buffer: <version>,<func_name>,<type>,<flags>,<arg # in func/arg-buffer>,0,0,<args...>
+		// NOTE: arg-buffer entry must come after the function entry that uses it
+		// NOTE: for an argument buffer struct local_size_* is 0
+		if (tokens.size() < 7) {
 			log_error("invalid function info entry: %s", line);
 			return false;
 		}
+		const auto& token_version = tokens[0];
+		const auto& token_name = tokens[1];
+		const auto& token_type = tokens[2];
+		const auto& token_flags = tokens[3];
+		// -> functions
+		const auto& token_local_size_x = tokens[4];
+		const auto& token_local_size_y = tokens[5];
+		const auto& token_local_size_z = tokens[6];
+		// -> argument buffer
+		const auto& token_arg_num = tokens[4];
 		
+		//
 		static constexpr const char floor_functions_version[] { "4" };
-		if(tokens[0] != floor_functions_version) {
+		if (token_version != floor_functions_version) {
 			log_error("invalid floor function info version, expected %u, got %u!",
-					  floor_functions_version, tokens[0]);
+					  floor_functions_version, token_version);
 			return false;
 		}
 		
-		function_info::FUNCTION_TYPE func_type = function_info::FUNCTION_TYPE::NONE;
-		if(tokens[2] == "1") func_type = function_info::FUNCTION_TYPE::KERNEL;
-		else if(tokens[2] == "2") func_type = function_info::FUNCTION_TYPE::VERTEX;
-		else if(tokens[2] == "3") func_type = function_info::FUNCTION_TYPE::FRAGMENT;
-		else if(tokens[2] == "4") func_type = function_info::FUNCTION_TYPE::GEOMETRY;
-		else if(tokens[2] == "5") func_type = function_info::FUNCTION_TYPE::TESSELLATION_CONTROL;
-		else if(tokens[2] == "6") func_type = function_info::FUNCTION_TYPE::TESSELLATION_EVALUATION;
+		FUNCTION_TYPE func_type = FUNCTION_TYPE::NONE;
+		if (token_type == "1") func_type = FUNCTION_TYPE::KERNEL;
+		else if (token_type == "2") func_type = FUNCTION_TYPE::VERTEX;
+		else if (token_type == "3") func_type = FUNCTION_TYPE::FRAGMENT;
+		else if (token_type == "4") func_type = FUNCTION_TYPE::GEOMETRY;
+		else if (token_type == "5") func_type = FUNCTION_TYPE::TESSELLATION_CONTROL;
+		else if (token_type == "6") func_type = FUNCTION_TYPE::TESSELLATION_EVALUATION;
+		else if (token_type == "100") func_type = FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT;
 		
-		if(func_type != function_info::FUNCTION_TYPE::KERNEL &&
-		   func_type != function_info::FUNCTION_TYPE::VERTEX &&
-		   func_type != function_info::FUNCTION_TYPE::FRAGMENT) {
-			log_error("unsupported function type: %s", tokens[2]);
+		if (func_type != FUNCTION_TYPE::KERNEL &&
+			func_type != FUNCTION_TYPE::VERTEX &&
+			func_type != FUNCTION_TYPE::FRAGMENT &&
+			func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+			log_error("unsupported function type: %s", token_type);
 			return false;
 		}
 		
-		const auto func_flags = (function_info::FUNCTION_FLAGS)strtoull(tokens[3].c_str(), nullptr, 10);
+		const auto func_flags = (FUNCTION_FLAGS)strtoull(token_flags.c_str(), nullptr, 10);
+		
+		uint3 local_size {};
+		if (func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+			local_size = {
+				(uint32_t)strtoull(token_local_size_x.c_str(), nullptr, 10),
+				(uint32_t)strtoull(token_local_size_y.c_str(), nullptr, 10),
+				(uint32_t)strtoull(token_local_size_z.c_str(), nullptr, 10),
+			};
+		}
 		
 		function_info info {
-			.name = tokens[1],
-			.local_size = {
-				(uint32_t)strtoull(tokens[4].c_str(), nullptr, 10),
-				(uint32_t)strtoull(tokens[5].c_str(), nullptr, 10),
-				(uint32_t)strtoull(tokens[6].c_str(), nullptr, 10),
-			},
+			.name = token_name,
+			.local_size = local_size,
 			.type = func_type,
 			.flags = func_flags,
 		};
+		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT && !info.local_size.is_null()) {
+			log_error("local size must be 0 for argument buffer struct info");
+			return false;
+		}
 		
-		for(size_t i = 7, count = tokens.size(); i < count; ++i) {
-			if(tokens[i].empty()) continue;
+		for (size_t i = 7, count = tokens.size(); i < count; ++i) {
+			if (tokens[i].empty()) continue;
 			// function arg info: #elem_idx size, address space, image type, image access
 			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);
 			
-			if(data == ULLONG_MAX || data == 0) {
+			if (data == ULLONG_MAX || data == 0) {
 				log_error("invalid arg info (in %s): %s", ffi_file_name, tokens[i]);
 			}
 			
-			info.args.emplace_back(function_info::arg_info {
+			info.args.emplace_back(arg_info {
 				.size			= (uint32_t)
 				((data & uint64_t(FLOOR_METADATA::ARG_SIZE_MASK)) >> uint64_t(FLOOR_METADATA::ARG_SIZE_SHIFT)),
-				.address_space	= (function_info::ARG_ADDRESS_SPACE)
+				.address_space	= (ARG_ADDRESS_SPACE)
 				((data & uint64_t(FLOOR_METADATA::ADDRESS_SPACE_MASK)) >> uint64_t(FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-				.image_type		= (function_info::ARG_IMAGE_TYPE)
+				.image_type		= (ARG_IMAGE_TYPE)
 				((data & uint64_t(FLOOR_METADATA::IMAGE_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-				.image_access	= (function_info::ARG_IMAGE_ACCESS)
+				.image_access	= (ARG_IMAGE_ACCESS)
 				((data & uint64_t(FLOOR_METADATA::IMAGE_ACCESS_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-				.special_type	= (function_info::SPECIAL_TYPE)
+				.special_type	= (SPECIAL_TYPE)
 				((data & uint64_t(FLOOR_METADATA::SPECIAL_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
 			});
 		}
 		
-		functions.emplace_back(info);
+		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+			const auto arg_idx = (uint32_t)strtoull(token_arg_num.c_str(), nullptr, 10);
+			
+			bool found_func = false;
+			for (auto riter = functions.rbegin(); riter != functions.rend(); ++riter) {
+				if (riter->name == info.name) {
+					found_func = true;
+					
+					if (arg_idx >= riter->args.size()) {
+						log_error("argument index %u is out-of-bounds for function %s with %u args", arg_idx, info.name, riter->args.size());
+						return false;
+					}
+					
+					auto& arg = riter->args[arg_idx];
+					if (arg.special_type != SPECIAL_TYPE::ARGUMENT_BUFFER) {
+						log_error("argument index %u in function %s is not an argument buffer", arg_idx, info.name);
+						return false;
+					}
+					
+					arg.argument_buffer_info = move(info);
+					break;
+				}
+			}
+			if (!found_func) {
+				log_error("didn't find function %s for argument buffer", info.name);
+				return false;
+			}
+		} else {
+			functions.emplace_back(info);
+		}
+	}
+	
+	// check if all argument buffer info has been set for all functions
+	for (const auto& func : functions) {
+		for (size_t i = 0, count = func.args.size(); i < count; ++i) {
+			const auto& arg = func.args[i];
+			if (arg.special_type == SPECIAL_TYPE::ARGUMENT_BUFFER && !arg.argument_buffer_info) {
+				log_error("missing argument buffer info for argument #%u in function %s", i, func.name);
+				return false;
+			}
+		}
 	}
 
 	return true;

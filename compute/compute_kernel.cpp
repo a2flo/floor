@@ -17,6 +17,7 @@
  */
 
 #include <floor/compute/compute_kernel.hpp>
+#include <floor/compute/compute_queue.hpp>
 #include <floor/core/logger.hpp>
 
 uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& entry, const uint3& local_work_size) const {
@@ -49,4 +50,34 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 		}
 	}
 	return ret;
+}
+
+unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index) const {
+	const auto& dev = cqueue.get_device();
+	const auto entry = get_kernel_entry(dev);
+	if (!entry || !entry->info) {
+		log_error("no kernel entry/info for device %s", dev.name);
+		return {};
+	}
+	
+	if (arg_index >= entry->info->args.size()) {
+		log_error("argument index is out-of-bounds: %u", arg_index);
+		return {};
+	}
+	
+	const auto& arg_info = entry->info->args[arg_index];
+	if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+		log_error("argument #%u is not an argument buffer");
+		return {};
+	}
+	
+	return create_argument_buffer_internal(cqueue, *entry, arg_info, arg_index);
+}
+
+unique_ptr<argument_buffer> compute_kernel::create_argument_buffer_internal(const compute_queue&,
+																			const kernel_entry&,
+																			const llvm_toolchain::arg_info&,
+																			const uint32_t&) const {
+	log_error("argument buffer creation not implemented for this backend");
+	return {};
 }

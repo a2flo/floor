@@ -60,12 +60,12 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// TODO: make sure that _all_ of this is synchronized
 					
-					const VkShaderStageFlagBits stage = (info.type == function_info::FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
-														 info.type == function_info::FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
+					const VkShaderStageFlagBits stage = (info.type == FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
+														 info.type == FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
 														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
 					
 					// handle implicit args which add to the total #args
-					const auto is_soft_printf = function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(info.flags);
+					const auto is_soft_printf = has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(info.flags);
 					const uint32_t implicit_arg_count = (is_soft_printf ? 1u : 0u);
 					const uint32_t explicit_arg_count = uint32_t(info.args.size());
 					const uint32_t total_arg_count = explicit_arg_count + implicit_arg_count;
@@ -85,20 +85,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						if (i < info.args.size()) {
 							switch(info.args[i].address_space) {
 								// image
-								case function_info::ARG_ADDRESS_SPACE::IMAGE: {
-									const bool is_image_array = (info.args[i].special_type == function_info::SPECIAL_TYPE::IMAGE_ARRAY);
+								case ARG_ADDRESS_SPACE::IMAGE: {
+									const bool is_image_array = (info.args[i].special_type == SPECIAL_TYPE::IMAGE_ARRAY);
 									if (is_image_array) {
 										bindings[binding_idx].descriptorCount = info.args[i].size;
 									}
 									switch(info.args[i].image_access) {
-										case function_info::ARG_IMAGE_ACCESS::READ:
+										case ARG_IMAGE_ACCESS::READ:
 											bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 											if (is_image_array) {
 												read_image_desc += info.args[i].size;
 											}
 											else ++read_image_desc;
 											break;
-										case function_info::ARG_IMAGE_ACCESS::WRITE:
+										case ARG_IMAGE_ACCESS::WRITE:
 											bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 											bindings[binding_idx].descriptorCount *= max_mip_levels;
 											if (is_image_array) {
@@ -107,7 +107,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 												write_image_desc += max_mip_levels;
 											}
 											break;
-										case function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
+										case ARG_IMAGE_ACCESS::READ_WRITE: {
 											if (is_image_array) {
 												log_error("read/write image array not supported");
 												//valid_desc = false;
@@ -131,7 +131,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 											write_image_desc += max_mip_levels;
 											break;
 										}
-										case function_info::ARG_IMAGE_ACCESS::NONE:
+										case ARG_IMAGE_ACCESS::NONE:
 											log_error("unknown image access type");
 											valid_desc = false;
 											break;
@@ -139,12 +139,12 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									break;
 								}
 									// buffer and param (there are no proper constant parameters)
-								case function_info::ARG_ADDRESS_SPACE::GLOBAL:
-								case function_info::ARG_ADDRESS_SPACE::CONSTANT:
+								case ARG_ADDRESS_SPACE::GLOBAL:
+								case ARG_ADDRESS_SPACE::CONSTANT:
 									// NOTE: buffers are always SSBOs
 									// NOTE: uniforms/param can either be SSBOs or IUBs, dpending on their size and device support
 									// TODO: support push constants as well (size is at least 128 bytes)
-									if (info.args[i].special_type == function_info::SPECIAL_TYPE::IUB) {
+									if (info.args[i].special_type == SPECIAL_TYPE::IUB) {
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
 										// descriptor count == size, which must be a multiple of 4
 										const uint32_t arg_size_4 = ((info.args[i].size + 3u) / 4u) * 4u;
@@ -156,12 +156,12 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										++ssbo_desc;
 									}
 									break;
-								case function_info::ARG_ADDRESS_SPACE::LOCAL:
+								case ARG_ADDRESS_SPACE::LOCAL:
 									log_error("arg with a local address space is not supported (#%u in %s)", i, func_name);
 									valid_desc = false;
 									break;
-								case function_info::ARG_ADDRESS_SPACE::UNKNOWN:
-									if (info.args[i].special_type == function_info::SPECIAL_TYPE::STAGE_INPUT) {
+								case ARG_ADDRESS_SPACE::UNKNOWN:
+									if (info.args[i].special_type == SPECIAL_TYPE::STAGE_INPUT) {
 										// ignore + compact
 										bindings.pop_back();
 										continue;
@@ -300,7 +300,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// we can only actually create compute pipelines here, because they can exist on their own
 					// vertex/fragment/etc graphics pipelines would need much more information (which ones to combine to begin with)
-					if(info.type == function_info::FUNCTION_TYPE::KERNEL) {
+					if(info.type == FUNCTION_TYPE::KERNEL) {
 						// create the pipeline layout
 						const VkDescriptorSetLayout layouts[2] {
 							prog.first.get().fixed_sampler_desc_set_layout,

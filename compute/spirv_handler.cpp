@@ -138,7 +138,7 @@ spirv_handler::container load_container_from_memory(const uint8_t* data_ptr_,
 		const auto function_entry_count = (uint32_t)entry.function_types.size();
 		
 		//
-		const auto func_types_size = function_entry_count * sizeof(llvm_toolchain::function_info::FUNCTION_TYPE);
+		const auto func_types_size = function_entry_count * sizeof(llvm_toolchain::FUNCTION_TYPE);
 		if(cur_size + func_types_size > data_size) {
 			log_error("invalid function types size");
 			return {};

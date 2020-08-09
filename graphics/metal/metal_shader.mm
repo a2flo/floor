@@ -50,8 +50,8 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 
 	// create + init printf buffers if soft-printf is used
 	vector<shared_ptr<compute_buffer>> printf_buffers;
-	const auto is_vs_soft_printf = function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vertex_shader->info->flags);
-	const auto is_fs_soft_printf = (fragment_shader != nullptr && function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
+	const auto is_vs_soft_printf = has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(vertex_shader->info->flags);
+	const auto is_fs_soft_printf = (fragment_shader != nullptr && has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
 	if (is_vs_soft_printf || is_fs_soft_printf) {
 		const uint32_t printf_buffer_count = (is_vs_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
 		for (uint32_t i = 0; i < printf_buffer_count; ++i) {
@@ -64,7 +64,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 	}
 
 	// set and handle kernel arguments
-	metal_args::set_and_handle_arguments<metal_args::FUNCTION_TYPE::SHADER>(encoder, { vertex_shader, fragment_shader }, args, implicit_args);
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(encoder, { vertex_shader->info, fragment_shader->info }, args, implicit_args);
 	
 	// add completion handler to evaluate printf buffers on completion
 	if (is_vs_soft_printf || is_fs_soft_printf) {

@@ -581,6 +581,12 @@ void host_kernel::execute(const compute_queue& cqueue,
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr());
+		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+			log_error("array of buffers is not yet supported for Host-Compute");
+			return;
+		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+			log_error("array of buffers is not yet supported for Host-Compute");
+			return;
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info());
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
@@ -588,6 +594,9 @@ void host_kernel::execute(const compute_queue& cqueue,
 			return;
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
+			return;
+		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+			log_error("argument buffer handling is not implemented yet for Host-Compute");
 			return;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			vptr_args.emplace_back(*generic_arg_ptr);

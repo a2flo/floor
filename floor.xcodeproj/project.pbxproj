@@ -239,6 +239,13 @@
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAC7FB91D91D14D00994062 /* ext_traits.hpp */; };
+		5CAD573524D70EAC0022D36D /* argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAD573324D70EAB0022D36D /* argument_buffer.hpp */; };
+		5CAD573624D70EAC0022D36D /* argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573424D70EAB0022D36D /* argument_buffer.cpp */; };
+		5CAD573724D70EAC0022D36D /* argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573424D70EAB0022D36D /* argument_buffer.cpp */; };
+		5CAD573C24D728300022D36D /* metal_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAD573924D7282F0022D36D /* metal_argument_buffer.hpp */; };
+		5CAD573E24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573D24D73B190022D36D /* metal_argument_buffer.mm */; };
+		5CAD573F24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573D24D73B190022D36D /* metal_argument_buffer.mm */; };
+		5CAD574124D764BF0022D36D /* aligned_ptr.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAD574024D764BF0022D36D /* aligned_ptr.hpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -556,6 +563,11 @@
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
+		5CAD573324D70EAB0022D36D /* argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = argument_buffer.hpp; sourceTree = "<group>"; };
+		5CAD573424D70EAB0022D36D /* argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = argument_buffer.cpp; sourceTree = "<group>"; };
+		5CAD573924D7282F0022D36D /* metal_argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_argument_buffer.hpp; path = metal/metal_argument_buffer.hpp; sourceTree = "<group>"; };
+		5CAD573D24D73B190022D36D /* metal_argument_buffer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_argument_buffer.mm; path = metal/metal_argument_buffer.mm; sourceTree = "<group>"; };
+		5CAD574024D764BF0022D36D /* aligned_ptr.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = aligned_ptr.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
 		5CB95F8D229FF2520092D4C5 /* soft_printf.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_printf.hpp; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
@@ -726,6 +738,7 @@
 		5C10916917D1153E007F536E /* core */ = {
 			isa = PBXGroup;
 			children = (
+				5CAD574024D764BF0022D36D /* aligned_ptr.hpp */,
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
 				5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */,
@@ -1011,6 +1024,8 @@
 				5CEEA6D51A4EE171005239DA /* compute_program.hpp */,
 				5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */,
 				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
+				5CAD573424D70EAB0022D36D /* argument_buffer.cpp */,
+				5CAD573324D70EAB0022D36D /* argument_buffer.hpp */,
 				5C2A907D243B7CDE00C82150 /* hdr_metadata.hpp */,
 				5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */,
 				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
@@ -1097,6 +1112,8 @@
 		5C84613A1A91474A004D4745 /* metal */ = {
 			isa = PBXGroup;
 			children = (
+				5CAD573D24D73B190022D36D /* metal_argument_buffer.mm */,
+				5CAD573924D7282F0022D36D /* metal_argument_buffer.hpp */,
 				5C8461411A914758004D4745 /* metal_common.hpp */,
 				5C8461431A914758004D4745 /* metal_compute.mm */,
 				5C8461401A914758004D4745 /* metal_compute.hpp */,
@@ -1257,12 +1274,14 @@
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */,
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
+				5CAD574124D764BF0022D36D /* aligned_ptr.hpp in Headers */,
 				5C84530122B1A64D0014AECF /* graphics_pass.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5CD4E86A22B4449B00AE0385 /* metal_renderer.hpp in Headers */,
 				5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */,
 				5CEBAB361D55B8F700F5076F /* vulkan_post.hpp in Headers */,
 				5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */,
+				5CAD573C24D728300022D36D /* metal_argument_buffer.hpp in Headers */,
 				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
 				5C2B87D51C73893E00F11EA5 /* vulkan_compute.hpp in Headers */,
 				5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */,
@@ -1288,6 +1307,7 @@
 				5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */,
 				5C6C6B1E22D0D8A200AEE5F3 /* vulkan_shader.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
+				5CAD573524D70EAC0022D36D /* argument_buffer.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
 				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
@@ -1512,6 +1532,7 @@
 				5C20C8CE1B4139260005F5EA /* host_program.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
+				5CAD573E24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */,
 				5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
@@ -1553,6 +1574,7 @@
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
 				5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */,
+				5CAD573624D70EAC0022D36D /* argument_buffer.cpp in Sources */,
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
@@ -1646,6 +1668,7 @@
 				5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
+				5CAD573724D70EAC0022D36D /* argument_buffer.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
 				5C7C6F142348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
@@ -1662,6 +1685,7 @@
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
 				5C8461481A914759004D4745 /* metal_queue.mm in Sources */,
+				5CAD573F24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */,
 				5CE0BDCD19BA432C000B28B3 /* vector_lib.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

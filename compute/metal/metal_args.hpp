@@ -19,16 +19,24 @@
 #include <floor/compute/llvm_toolchain.hpp>
 using namespace llvm_toolchain;
 
-//! Metal compute/vertex/fragment argument handler/setter
+#include <floor/compute/metal/metal_buffer.hpp>
+#include <floor/compute/metal/metal_image.hpp>
+#include <Metal/MTLComputeCommandEncoder.h>
+#include <Metal/MTLRenderCommandEncoder.h>
+#include <Metal/MTLArgumentEncoder.h>
+
+//! Metal compute/vertex/fragment/argument-buffer argument handler/setter
 //! NOTE: do not include manually
 namespace metal_args {
-	enum class FUNCTION_TYPE {
+	enum class ENCODER_TYPE {
 		COMPUTE,
 		SHADER,
+		ARGUMENT,
 	};
 	
-	template <FUNCTION_TYPE func_type>
-	using encoder_selector_t = conditional_t<(func_type == FUNCTION_TYPE::COMPUTE), id <MTLComputeCommandEncoder>, id <MTLRenderCommandEncoder>>;
+	template <ENCODER_TYPE enc_type>
+	using encoder_selector_t = conditional_t<(enc_type == ENCODER_TYPE::COMPUTE), id <MTLComputeCommandEncoder>,
+											 conditional_t<(enc_type == ENCODER_TYPE::SHADER), id <MTLRenderCommandEncoder>, id <MTLArgumentEncoder>>>;
 	
 	struct idx_handler {
 		//! actual argument index (directly corresponding to the c++ source code)
@@ -46,24 +54,26 @@ namespace metal_args {
 	};
 	
 	//! actual kernel argument setters
-	template <FUNCTION_TYPE func_type>
+	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
+							 encoder_selector_t<enc_type> encoder, const function_info& entry,
 							 const void* ptr, const size_t& size) {
-		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBytes:ptr length:size atIndex:idx.buffer_idx];
-		} else {
-			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBytes:ptr length:size atIndex:idx.buffer_idx];
 			} else {
 				[encoder setFragmentBytes:ptr length:size atIndex:idx.buffer_idx];
 			}
+		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+			memcpy([encoder constantDataAtIndex:idx.buffer_idx], ptr, size);
 		}
 	}
 	
-	template <FUNCTION_TYPE func_type>
+	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
+							 encoder_selector_t<enc_type> encoder, const function_info& entry,
 							 const compute_buffer* arg) {
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
@@ -85,12 +95,12 @@ namespace metal_args {
 			mtl_buffer = (const metal_buffer*)arg;
 		}
 		
-		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setBuffer:mtl_buffer->get_metal_buffer()
 						offset:0
 					   atIndex:idx.buffer_idx];
-		} else {
-			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
 								  offset:0
 								 atIndex:idx.buffer_idx];
@@ -102,9 +112,101 @@ namespace metal_args {
 		}
 	}
 	
-	template <FUNCTION_TYPE func_type>
+	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry floor_unused,
+							 const vector<shared_ptr<compute_buffer>>& arg) {
+		const auto count = arg.size();
+		if (count < 1) return;
+		
+		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
+		vector<NSUInteger> offsets(count, 0);
+		for (size_t i = 0; i < count; ++i) {
+			mtl_buf_array[i] = ((metal_buffer*)arg[i].get())->get_metal_buffer();
+		}
+		
+		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+			[encoder setBuffers:mtl_buf_array.data()
+						offsets:offsets.data()
+					  withRange:NSRange { idx.buffer_idx, count }];
+		} else {
+			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
+			log_error("buffer arrays are only supported for argument buffers");
+		}
+	}
+	
+	template <ENCODER_TYPE enc_type>
+	static void set_argument(const idx_handler& idx,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry floor_unused,
+							 const vector<compute_buffer*>& arg) {
+		const auto count = arg.size();
+		if (count < 1) return;
+		
+		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
+		vector<NSUInteger> offsets(count, 0);
+		for (size_t i = 0; i < count; ++i) {
+			mtl_buf_array[i] = ((metal_buffer*)arg[i])->get_metal_buffer();
+		}
+		
+		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+			[encoder setBuffers:mtl_buf_array.data()
+						offsets:offsets.data()
+					  withRange:NSRange { idx.buffer_idx, count }];
+		} else {
+			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
+			log_error("buffer arrays are only supported for argument buffers");
+		}
+	}
+	
+	template <ENCODER_TYPE enc_type>
+	static void set_argument(const idx_handler& idx,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry,
+							 const argument_buffer* arg_buf) {
+		const auto buf = arg_buf->get_storage_buffer();
+		const metal_buffer* mtl_buffer = nullptr;
+		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(buf->get_flags())) {
+			mtl_buffer = buf->get_shared_metal_buffer();
+			if (mtl_buffer == nullptr) {
+				mtl_buffer = (const metal_buffer*)buf;
+	#if defined(FLOOR_DEBUG)
+				if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(buf); !test_cast_mtl_buffer) {
+					log_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
+					return;
+				}
+	#endif
+			} else {
+				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(buf->get_flags())) {
+					buf->sync_metal_buffer();
+				}
+			}
+		} else {
+			mtl_buffer = (const metal_buffer*)buf;
+		}
+		
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
+			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+						offset:0
+					   atIndex:idx.buffer_idx];
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
+				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
+								  offset:0
+								 atIndex:idx.buffer_idx];
+			} else {
+				[encoder setFragmentBuffer:mtl_buffer->get_metal_buffer()
+									offset:0
+								   atIndex:idx.buffer_idx];
+			}
+		}
+	}
+	
+	template <ENCODER_TYPE enc_type>
+	static void set_argument(const idx_handler& idx,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry,
 							 const compute_image* arg) {
 		const metal_image* mtl_image = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
@@ -127,11 +229,11 @@ namespace metal_args {
 		}
 		
 		
-		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTexture:mtl_image->get_metal_image()
 						atIndex:idx.texture_idx];
-		} else {
-			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexTexture:mtl_image->get_metal_image()
 								  atIndex:idx.texture_idx];
 			} else {
@@ -141,12 +243,12 @@ namespace metal_args {
 		}
 		
 		// if this is a read/write image, add it again (one is read-only, the other is write-only)
-		if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if (entry.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+			if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 				[encoder setTexture:mtl_image->get_metal_image()
 							atIndex:(idx.texture_idx + 1)];
-			} else {
-				if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+			} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+				if (entry.type == FUNCTION_TYPE::VERTEX) {
 					[encoder setVertexTexture:mtl_image->get_metal_image()
 									  atIndex:(idx.texture_idx + 1)];
 				} else {
@@ -157,9 +259,10 @@ namespace metal_args {
 		}
 	}
 	
-	template <FUNCTION_TYPE func_type>
+	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry,
 							 const vector<shared_ptr<compute_image>>& arg) {
 		const auto count = arg.size();
 		if (count < 1) return;
@@ -169,11 +272,11 @@ namespace metal_args {
 			mtl_img_array[i] = ((metal_image*)arg[i].get())->get_metal_image();
 		}
 		
-		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTextures:mtl_img_array.data()
 					   withRange:NSRange { idx.texture_idx, count }];
-		} else {
-			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexTextures:mtl_img_array.data()
 								 withRange:NSRange { idx.texture_idx, count }];
 			} else {
@@ -183,9 +286,10 @@ namespace metal_args {
 		}
 	}
 	
-	template <FUNCTION_TYPE func_type>
+	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<func_type> encoder, const compute_kernel::kernel_entry& entry,
+							 encoder_selector_t<enc_type> encoder,
+							 const function_info& entry,
 							 const vector<compute_image*>& arg) {
 		const auto count = arg.size();
 		if (count < 1) return;
@@ -195,11 +299,11 @@ namespace metal_args {
 			mtl_img_array[i] = ((metal_image*)arg[i])->get_metal_image();
 		}
 		
-		if constexpr (func_type == FUNCTION_TYPE::COMPUTE) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTextures:mtl_img_array.data()
 					   withRange:NSRange { idx.texture_idx, count }];
-		} else {
-			if (entry.info->type == function_info::FUNCTION_TYPE::VERTEX) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexTextures:mtl_img_array.data()
 								 withRange:NSRange { idx.texture_idx, count }];
 			} else {
@@ -210,9 +314,9 @@ namespace metal_args {
 	}
 	
 	//! returns the entry for the current indices and makes sure that stage_input args are ignored
-	static inline const compute_kernel::kernel_entry* arg_pre_handler(const vector<const compute_kernel::kernel_entry*>& entries, idx_handler& idx) {
+	static inline const function_info* arg_pre_handler(const vector<const function_info*>& entries, idx_handler& idx) {
 		// make sure we have a usable entry
-		const compute_kernel::kernel_entry* entry = nullptr;
+		const function_info* entry = nullptr;
 		for (;;) {
 			// get the next non-nullptr entry or use the current one if it's valid
 			while (entries[idx.entry] == nullptr) {
@@ -227,16 +331,16 @@ namespace metal_args {
 			entry = entries[idx.entry];
 			
 			// ignore any stage input args
-			while (idx.arg < entry->info->args.size() &&
-				   entry->info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			while (idx.arg < entry->args.size() &&
+				   entry->args[idx.arg].special_type == SPECIAL_TYPE::STAGE_INPUT) {
 				++idx.arg;
 			}
 			
 			// have all args been specified for this entry?
-			if (idx.arg >= entry->info->args.size()) {
+			if (idx.arg >= entry->args.size()) {
 				// implicit args at the end
-				const auto implicit_arg_count = (function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags) ? 1u : 0u);
-				if (idx.arg < entry->info->args.size() + implicit_arg_count) {
+				const auto implicit_arg_count = (has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->flags) ? 1u : 0u);
+				if (idx.arg < entry->args.size() + implicit_arg_count) {
 					idx.is_implicit = true;
 				} else { // actual end
 					// get the next entry
@@ -256,16 +360,22 @@ namespace metal_args {
 	}
 	
 	//! increments indicies dependent on the arg
-	static inline void arg_post_handler(const compute_kernel::kernel_entry& entry, idx_handler& idx, const compute_kernel_arg& arg) {
+	static inline void arg_post_handler(const function_info& entry, idx_handler& idx, const compute_kernel_arg& arg) {
 		// advance all indices
 		if (idx.is_implicit) {
 			++idx.implicit;
 			// always a buffer for now
 			++idx.buffer_idx;
 		} else {
-			if (entry.info->args[idx.arg].image_type == function_info::ARG_IMAGE_TYPE::NONE) {
+			if (entry.args[idx.arg].image_type == ARG_IMAGE_TYPE::NONE) {
 				// buffer
-				++idx.buffer_idx;
+				if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+					idx.buffer_idx += (*vec_buf_ptrs)->size();
+				} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+					idx.buffer_idx += (*vec_buf_sptrs)->size();
+				} else {
+					++idx.buffer_idx;
+				}
 			} else {
 				// texture
 				size_t tex_arg_count = 0;
@@ -278,7 +388,7 @@ namespace metal_args {
 				}
 				
 				idx.texture_idx += tex_arg_count;
-				if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+				if (entry.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 					// read/write images are implemented as two images -> add twice
 					idx.texture_idx += tex_arg_count;
 				}
@@ -289,9 +399,9 @@ namespace metal_args {
 	}
 	
 	//! sets and handles all arguments in the compute/vertex/fragment function
-	template <FUNCTION_TYPE func_type>
-	bool set_and_handle_arguments(encoder_selector_t<func_type> encoder,
-								  const vector<const compute_kernel::kernel_entry*>& entries,
+	template <ENCODER_TYPE enc_type>
+	bool set_and_handle_arguments(encoder_selector_t<enc_type> encoder,
+								  const vector<const function_info*>& entries,
 								  const vector<compute_kernel_arg>& args,
 								  const vector<compute_kernel_arg>& implicit_args) {
 		const size_t arg_count = args.size() + implicit_args.size();
@@ -302,15 +412,21 @@ namespace metal_args {
 			const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
 			
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-				set_argument<func_type>(idx, encoder, *entry, *buf_ptr);
+				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr);
+			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs);
+			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs);
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-				set_argument<func_type>(idx, encoder, *entry, *img_ptr);
+				set_argument<enc_type>(idx, encoder, *entry, *img_ptr);
 			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-				set_argument<func_type>(idx, encoder, *entry, **vec_img_ptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs);
 			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-				set_argument<func_type>(idx, encoder, *entry, **vec_img_sptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs);
+			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr);
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
-				set_argument<func_type>(idx, encoder, *entry, *generic_arg_ptr, arg.size);
+				set_argument<enc_type>(idx, encoder, *entry, *generic_arg_ptr, arg.size);
 			} else {
 				log_error("encountered invalid arg");
 				return false;

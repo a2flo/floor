@@ -30,10 +30,10 @@ static size_t compute_kernel_args_size(const llvm_toolchain::function_info& info
 	const auto arg_count = info.args.size();
 	for(size_t i = 0; i < arg_count; ++i) {
 		// actual arg or pointer?
-		if(info.args[i].address_space == llvm_toolchain::function_info::ARG_ADDRESS_SPACE::CONSTANT) {
+		if(info.args[i].address_space == llvm_toolchain::ARG_ADDRESS_SPACE::CONSTANT) {
 			ret += info.args[i].size;
 		}
-		else if(info.args[i].address_space == llvm_toolchain::function_info::ARG_ADDRESS_SPACE::IMAGE) {
+		else if(info.args[i].address_space == llvm_toolchain::ARG_ADDRESS_SPACE::IMAGE) {
 			ret += sizeof(uint32_t) * cuda_sampler::max_sampler_count;
 			ret += sizeof(uint64_t) * 1 /* surface */;
 			ret += sizeof(cu_device_ptr) * 1 /* surfaces lod buffer */;

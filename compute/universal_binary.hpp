@@ -285,13 +285,23 @@ namespace universal_binary {
 		//! == function_info_version
 		uint32_t function_info_version;
 		//! function type (kernel, fragment, vertex, ...)
-		llvm_toolchain::function_info::FUNCTION_TYPE type;
+		llvm_toolchain::FUNCTION_TYPE type;
 		//! function flags (uses-soft-printf, ...)
-		llvm_toolchain::function_info::FUNCTION_FLAGS flags;
+		llvm_toolchain::FUNCTION_FLAGS flags;
 		//! number of function arguments
 		uint32_t arg_count;
-		//! required local size/dim needed for execution
-		uint3 local_size;
+		union type_specific_data_t {
+			//! functions: required local size/dim needed for execution
+			uint3 local_size;
+			//! argument buffer: index of the argument buffer in the function
+			uint32_t argument_buffer_index;
+			
+			constexpr type_specific_data_t() noexcept : local_size(0u, 0u, 0u) {}
+			constexpr type_specific_data_t(const uint3& local_size_) noexcept : local_size(local_size_) {}
+			constexpr type_specific_data_t(const uint32_t& argument_buffer_index_) noexcept : argument_buffer_index(argument_buffer_index_) {}
+			constexpr type_specific_data_t(const type_specific_data_t& details_) noexcept : local_size(details_.local_size) {}
+			constexpr type_specific_data_t(type_specific_data_t&& details_) noexcept : local_size(details_.local_size) {}
+		} details {};
 	};
 	static_assert(sizeof(function_info_v2) == sizeof(uint32_t) * 7u);
 	
@@ -306,12 +316,12 @@ namespace universal_binary {
 		union arg_info {
 			struct {
 				uint32_t argument_size;
-				llvm_toolchain::function_info::ARG_ADDRESS_SPACE address_space : 3;
+				llvm_toolchain::ARG_ADDRESS_SPACE address_space : 3;
 				uint32_t _unused_0 : 5;
-				llvm_toolchain::function_info::ARG_IMAGE_TYPE image_type : 8;
-				llvm_toolchain::function_info::ARG_IMAGE_ACCESS image_access : 2;
+				llvm_toolchain::ARG_IMAGE_TYPE image_type : 8;
+				llvm_toolchain::ARG_IMAGE_ACCESS image_access : 2;
 				uint32_t _unused_1 : 6;
-				llvm_toolchain::function_info::SPECIAL_TYPE special_type : 8;
+				llvm_toolchain::SPECIAL_TYPE special_type : 8;
 			};
 			uint64_t value;
 		};

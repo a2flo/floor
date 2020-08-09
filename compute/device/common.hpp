@@ -289,8 +289,9 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 #include <floor/compute/device/logger.hpp>
 
 //! global memory buffer
+//! TODO: set proper base alignment on the compiler side
 #if !defined(FLOOR_COMPUTE_METAL)
-#define buffer __attribute__((align_value(1024))) compute_global_buffer
+#define buffer __restrict compute_global_buffer
 #else // align is not supported with metal
 #if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1) // all global buffers are noalias/restrict with Metal 2.1+
 #define buffer __restrict compute_global_buffer
@@ -383,17 +384,27 @@ public:
 #endif
 
 //! constant memory buffer
-// NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
-#if !defined(FLOOR_COMPUTE_METAL)
-#define constant_buffer __restrict __attribute__((align_value(1024))) constant compute_constant_buffer
-#else // align is not supported with metal
+//! TODO: set proper base alignment on the compiler side
+//! NOTE: again: need to workaround the issue that "constant" is not part of the type
 #define constant_buffer __restrict constant compute_constant_buffer
-#endif
 template <typename T> using compute_constant_buffer = const T* const;
 
 //! array for use with static constant memory
 #define constant_array constant compute_constant_array
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
+
+//! argument buffer
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_HOST)
+template <typename T> using arg_buffer = const T;
+#elif defined(FLOOR_COMPUTE_METAL)
+#if FLOOR_COMPUTE_METAL_MAJOR >= 2 // only available with Metal 2.0+
+template <typename T> using arg_buffer = const constant T& __restrict;
+#else
+#define arg_buffer ARGUMENT_BUFFERS_ARE_NOT_SUPPORTED_IN_METAL_1_X
+#endif
+#elif defined(FLOOR_COMPUTE_VULKAN) // TODO: check if this actually works
+template <typename T> using arg_buffer = const global T&;
+#endif
 
 //! generic parameter object/buffer
 #if (defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)) && !defined(FLOOR_COMPUTE_PARAM_WORKAROUND)

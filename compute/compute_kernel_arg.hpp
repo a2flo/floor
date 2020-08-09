@@ -30,12 +30,19 @@ using namespace std;
 
 class compute_buffer;
 class compute_image;
+class argument_buffer;
 
 struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const compute_buffer* buf) noexcept : var(buf) {}
 	constexpr compute_kernel_arg(const compute_buffer& buf) noexcept : var(&buf) {}
 	constexpr compute_kernel_arg(const shared_ptr<compute_buffer>& buf) noexcept : var(buf.get()) {}
 	constexpr compute_kernel_arg(const unique_ptr<compute_buffer>& buf) noexcept : var(buf.get()) {}
+	
+	constexpr compute_kernel_arg(const vector<compute_buffer*>* bufs) noexcept : var(bufs) {}
+	constexpr compute_kernel_arg(const vector<compute_buffer*>& bufs) noexcept : var(&bufs) {}
+	
+	constexpr compute_kernel_arg(const vector<shared_ptr<compute_buffer>>* bufs) noexcept : var(bufs) {}
+	constexpr compute_kernel_arg(const vector<shared_ptr<compute_buffer>>& bufs) noexcept : var(&bufs) {}
 	
 	constexpr compute_kernel_arg(const compute_image* img) noexcept : var(img) {}
 	constexpr compute_kernel_arg(const compute_image& img) noexcept : var(&img) {}
@@ -48,7 +55,12 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const vector<shared_ptr<compute_image>>* imgs) noexcept : var(imgs) {}
 	constexpr compute_kernel_arg(const vector<shared_ptr<compute_image>>& imgs) noexcept : var(&imgs) {}
 	
-	// adapters for derived compute_buffer/compute_image
+	constexpr compute_kernel_arg(const argument_buffer* arg_buf) noexcept : var(arg_buf) {}
+	constexpr compute_kernel_arg(const argument_buffer& arg_buf) noexcept : var(&arg_buf) {}
+	constexpr compute_kernel_arg(const shared_ptr<argument_buffer>& arg_buf) noexcept : var(arg_buf.get()) {}
+	constexpr compute_kernel_arg(const unique_ptr<argument_buffer>& arg_buf) noexcept : var(arg_buf.get()) {}
+	
+	// adapters for derived compute_buffer/compute_image/argument_buffer
 	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
 	constexpr compute_kernel_arg(const derived_buffer_t* buf) noexcept : var((const compute_buffer*)buf) {}
 	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
@@ -58,6 +70,11 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const derived_image_t* img) noexcept : var((const compute_image*)img) {}
 	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
 	constexpr compute_kernel_arg(const derived_image_t& img) noexcept : var((const compute_image*)&img) {}
+	
+	template <typename derived_arg_buffer_t, enable_if_t<is_convertible_v<derived_arg_buffer_t*, argument_buffer*>>* = nullptr>
+	constexpr compute_kernel_arg(const argument_buffer* arg_buf) noexcept : var((const argument_buffer*)arg_buf) {}
+	template <typename derived_arg_buffer_t, enable_if_t<is_convertible_v<derived_arg_buffer_t*, argument_buffer*>>* = nullptr>
+	constexpr compute_kernel_arg(const argument_buffer& arg_buf) noexcept : var((const argument_buffer*)&arg_buf) {}
 
 #if defined(FLOOR_CXX20)
 	// span arg with CPU storage
@@ -67,7 +84,8 @@ struct compute_kernel_arg {
 	
 	// generic arg with CPU storage
 	template <typename T, enable_if_t<(!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&
-									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*>)>* = nullptr>
+									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*> &&
+									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, argument_buffer*>)>* = nullptr>
 	constexpr compute_kernel_arg(const T& generic_arg) noexcept : var((const void*)&generic_arg), size(sizeof(T)) {}
 	
 	// forward generic shader_ptrs to one of the constructors above
@@ -81,9 +99,12 @@ struct compute_kernel_arg {
 	// canonical arg storage
 	variant<const void*, // generic arg
 			const compute_buffer*, // single buffer
+			const vector<compute_buffer*>*, // array of buffers
+			const vector<shared_ptr<compute_buffer>>*, // array of buffers
 			const compute_image*, // single image
 			const vector<compute_image*>*, // array of images
-			const vector<shared_ptr<compute_image>>* // array of images
+			const vector<shared_ptr<compute_image>>*, // array of images
+			const argument_buffer* // single argument buffer
 			> var;
 	size_t size { 0 };
 	

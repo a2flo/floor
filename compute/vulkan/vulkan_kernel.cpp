@@ -150,24 +150,24 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 	for(const auto& entry : entries) {
 		if(entry == nullptr) continue;
 		for(const auto& arg : entry->info->args) {
-			if(arg.special_type != function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			if(arg.special_type != SPECIAL_TYPE::STAGE_INPUT) {
 				++arg_count;
 				
 				// +1 for read/write images
-				if(arg.image_type != function_info::ARG_IMAGE_TYPE::NONE &&
-				   arg.image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+				if(arg.image_type != ARG_IMAGE_TYPE::NONE &&
+				   arg.image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 					++arg_count;
 				}
 				
 				// handle IUBs
-				if(arg.special_type == function_info::SPECIAL_TYPE::IUB) {
+				if(arg.special_type == SPECIAL_TYPE::IUB) {
 					++iub_count;
 				}
 			}
 		}
 		
 		// implicit printf buffer
-		if (function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
+		if (has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
 			++arg_count;
 		}
 	}
@@ -235,14 +235,14 @@ static inline const vulkan_kernel::vulkan_kernel_entry* arg_pre_handler(const ve
 		
 		// ignore any stage input args
 		while(idx.arg < entry->info->args.size() &&
-			  entry->info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			  entry->info->args[idx.arg].special_type == SPECIAL_TYPE::STAGE_INPUT) {
 			++idx.arg;
 		}
 		
 		// have all args been specified for this entry?
 		if(idx.arg >= entry->info->args.size()) {
 			// implicit args at the end
-			const auto implicit_arg_count = (function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags) ? 1u : 0u);
+			const auto implicit_arg_count = (has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags) ? 1u : 0u);
 			if (idx.arg < entry->info->args.size() + implicit_arg_count) {
 				idx.is_implicit = true;
 			} else { // actual end
@@ -266,10 +266,10 @@ static inline void arg_post_handler(const vulkan_kernel::vulkan_kernel_entry& en
 									vulkan_kernel::idx_handler& idx) {
 	// advance all indices
 	if (!idx.is_implicit) {
-		if (entry.info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::IUB) {
+		if (entry.info->args[idx.arg].special_type == SPECIAL_TYPE::IUB) {
 			++idx.iub;
 		}
-		if (entry.info->args[idx.arg].image_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if (entry.info->args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 			// read/write images are implemented as two args -> inc twice
 			++idx.write_desc;
 			++idx.binding;
@@ -295,12 +295,19 @@ bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
 		
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, *buf_ptr);
+		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+			log_error("array of buffers is not yet supported for Vulkan");
+		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+			log_error("array of buffers is not yet supported for Vulkan");
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, *img_ptr);
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, **vec_img_ptrs);
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, **vec_img_sptrs);
+		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+			log_error("argument buffer handling is not implemented yet for Vulkan");
+			return false;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, *generic_arg_ptr, arg.size);
 		} else {
@@ -362,7 +369,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// create + init printf buffer if this function uses soft-printf
 	shared_ptr<compute_buffer> printf_buffer;
-	const auto is_soft_printf = function_info::has_flag<function_info::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags);
+	const auto is_soft_printf = has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags);
 	if (is_soft_printf) {
 		printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
 		printf_buffer->set_debug_label("printf_buffer");
@@ -427,7 +434,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const idx_handler& idx,
 								 const void* ptr, const size_t& size) const {
 	// -> inline uniform buffer
-	if (!idx.is_implicit && entry.info->args[idx.arg].special_type == function_info::SPECIAL_TYPE::IUB) {
+	if (!idx.is_implicit && entry.info->args[idx.arg].special_type == SPECIAL_TYPE::IUB) {
 		// TODO: size must be a multiple of 4
 		auto& iub_write_desc = encoder.iub_descs[idx.iub];
 		iub_write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT;
@@ -522,19 +529,19 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	
 	// transition image to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(img_access == ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		vk_img->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 								 // also readable?
-								 img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE);
+								 img_access == ARG_IMAGE_ACCESS::READ_WRITE);
 	}
 	else { // READ
 		vk_img->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
 	}
 	
 	// read image desc/obj
-	if(img_access == function_info::ARG_IMAGE_ACCESS::READ ||
-	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(img_access == ARG_IMAGE_ACCESS::READ ||
+	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		auto& write_desc = encoder.write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
@@ -549,10 +556,10 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	}
 	
 	// write image descs/objs
-	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(img_access == ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		const auto& mip_info = vk_img->get_vulkan_mip_map_image_info();
-		const uint32_t rw_offset = (img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE ? 1u : 0u);
+		const uint32_t rw_offset = (img_access == ARG_IMAGE_ACCESS::READ_WRITE ? 1u : 0u);
 		
 		auto& write_desc = encoder.write_descs[idx.write_desc + rw_offset];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -582,12 +589,12 @@ floor_inline_always static void set_image_array_argument(vulkan_encoder& encoder
 	
 	// transition images to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == function_info::ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(img_access == ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
 			image_accessor(img)->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 												  // also readable?
-												  img_access == function_info::ARG_IMAGE_ACCESS::READ_WRITE);
+												  img_access == ARG_IMAGE_ACCESS::READ_WRITE);
 		}
 	}
 	else { // READ

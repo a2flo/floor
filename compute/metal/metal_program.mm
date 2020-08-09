@@ -45,7 +45,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
 					entry.max_local_size = prog.first.get().max_local_size;
-					if (entry.info->type != llvm_toolchain::function_info::FUNCTION_TYPE::KERNEL) {
+					if (entry.info->type != llvm_toolchain::FUNCTION_TYPE::KERNEL) {
 						is_kernel = false;
 					}
 					

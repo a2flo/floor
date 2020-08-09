@@ -25,6 +25,7 @@
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/argument_buffer.hpp>
 #include <floor/core/flat_map.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 
@@ -55,6 +56,10 @@ public:
 						 const uint3& local_work_size,
 						 const vector<compute_kernel_arg>& args) const = 0;
 	
+	//! creates an argument buffer for the specified argument index
+	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size
+	virtual unique_ptr<argument_buffer> create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index) const;
+	
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
@@ -68,6 +73,12 @@ protected:
 	//! NOTE: will only warn/error once per kernel per device
 	uint3 check_local_work_size(const kernel_entry& entry,
 								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
+	
+	//! internal function to create the actual argument buffer (should be implemented by backends)
+	virtual unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
+																		const kernel_entry& entry,
+																		const llvm_toolchain::arg_info& arg,
+																		const uint32_t& arg_index) const;
 	
 };
 

@@ -47,7 +47,7 @@ namespace spirv_handler {
 	
 	struct container {
 		struct entry {
-			vector<llvm_toolchain::function_info::FUNCTION_TYPE> function_types;
+			vector<llvm_toolchain::FUNCTION_TYPE> function_types;
 			vector<string> function_names;
 			uint32_t data_offset;
 			uint32_t data_word_count;
