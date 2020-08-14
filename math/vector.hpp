@@ -36,7 +36,7 @@ FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is alway
 #include <tuple>
 #include <functional>
 
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <array>
 #include <random>
 
@@ -50,7 +50,7 @@ namespace floor_vector_rand {
 #endif
 
 // for compute and graphics: signal that this vector type can be converted to the corresponding clang/llvm vector type
-#if defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) && defined(FLOOR_COMPUTE_HOST_DEVICE))
 #define FLOOR_CLANG_VECTOR_COMPAT __attribute__((vector_compat))
 #else
 #define FLOOR_CLANG_VECTOR_COMPAT
@@ -156,7 +156,7 @@ public:
 	template <typename vec_type, typename = void> struct clang_vector_type_spec {};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<vec_type::has_clang_vector_type()>> {
 		// special handling for half/fp16 types
-#if !defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 		typedef scalar_type clang_scalar_type;
 #else
 		typedef conditional_t<!is_same<scalar_type, half>(), scalar_type,
@@ -1966,7 +1966,7 @@ public:
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::parity FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	//! returns a randomized vector using a uniform distribution with each component in [0, max]
 	template <typename int_type = scalar_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static vector_type random(const scalar_type max = numeric_limits<int_type>::max()) {

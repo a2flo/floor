@@ -23,7 +23,7 @@
 #include <limits>
 
 // vector is not supported on compute/graphics backends
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <vector>
 #if defined(FLOOR_CXX20)
 #include <span>
@@ -84,7 +84,7 @@ namespace ext {
 	
 	template <typename T> constexpr bool is_scalar_v = ext::is_scalar<T>::value;
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	//! is_vector to detect vector<T>
 	template <typename any_type> struct is_vector : public false_type {};
 	template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};

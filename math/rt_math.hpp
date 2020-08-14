@@ -27,7 +27,7 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -521,7 +521,7 @@ namespace rt_math {
 
 // -> "std::" s/w half/fp16 math functions (simply forward to float functions)
 // (don't define for backends that have h/w support)
-#if !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
+#if !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #define FLOOR_HALF_SW_FUNC_1(func) static floor_inline_always auto func(half x) { return (half)std::func(float(x)); }
 #define FLOOR_HALF_SW_FUNC_2(func) static floor_inline_always auto func(half x, half y) { return (half)std::func(float(x), float(y)); }
 #define FLOOR_HALF_SW_FUNC_3(func) static floor_inline_always auto func(half x, half y, half z) { return (half)std::func(float(x), float(y), float(z)); }

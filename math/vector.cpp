@@ -18,7 +18,7 @@
 
 #include <floor/math/vector_lib.hpp>
 
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 namespace floor_vector_rand {
 static random_device vec_rd {};
 static mt19937 vec_gen { vec_rd() };

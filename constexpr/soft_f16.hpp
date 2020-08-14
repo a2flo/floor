@@ -20,7 +20,7 @@
 #define __FLOOR_SOFT_F16_HPP__
 
 // we don't want/need soft_f16 on any of the non-host compute/graphics backends
-#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 
 #include <type_traits>
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)

@@ -24,7 +24,7 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <cmath>
 #include <cstdint>
 #if !defined(_MSC_VER)
@@ -120,7 +120,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isinf(const fp_type val) {
-#if defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 		return val.isinf();
 #else
 		return __builtin_isinf(val);
@@ -134,7 +134,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isnan(const fp_type val) {
-#if defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 		return val.isnan();
 #else
 		return __builtin_isnan(val);
@@ -148,7 +148,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isnormal(const fp_type val) {
-#if defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 		return val.isnormal();
 #else
 		return __builtin_isnormal(val);
@@ -162,7 +162,7 @@ namespace const_math {
 	}
 	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
 	constexpr bool isfinite(const fp_type val) {
-#if defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 		return val.isfinite();
 #else
 		return __builtin_isfinite(val);
@@ -352,7 +352,7 @@ namespace const_math {
 		}
 	}
 	
-#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) // no 128-bit types
+#if (!defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))) // no 128-bit types
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
 	__attribute__((pure, const)) constexpr __uint128_t binomial_128(const __uint128_t n, __uint128_t k) {
@@ -875,7 +875,7 @@ namespace const_math {
 	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type interpolate(const fp_type a, const fp_type b, const fp_type t) {
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
 		return ((b - a) * t + a);
 #else
 		return ::fma(t, b, ::fma(-t, a, a));
@@ -1038,7 +1038,7 @@ namespace const_math {
 		return fp_type((ldbl_a * ldbl_b) + ldbl_c);
 	}
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static float native_fma(const float a, const float b, const float c) {
 		return __builtin_fmaf(a, b, c);
@@ -1061,7 +1061,7 @@ namespace const_math {
 	floor_inline_always static fp_type native_rsqrt(const fp_type a) {
 		return fp_type(1.0_fp) / std::sqrt((float)a);
 	}
-#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	floor_inline_always static fp_type native_fma(const fp_type a, const fp_type b, const fp_type c) {
@@ -1076,7 +1076,7 @@ namespace const_math {
 #error "unsupported target"
 #endif
 	
-#if defined(FLOOR_COMPUTE_HOST)
+#if (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	//! forward half to float fma
 	floor_inline_always floor_used static half native_fma(const half a, const half b, const half c) {
 		return (half)native_fma(float(a), float(b), float(c));
@@ -1423,7 +1423,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, std::copysign, double)
 #endif
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmodl, long double)
 	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, ::sqrtl, long double)
 	FLOOR_CONST_SELECT_1(abs, const_math::abs, ::fabsl, long double)
@@ -1567,7 +1567,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, bool)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, bool)
 	
-#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST))
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, __int128_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, __int128_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
@@ -1631,7 +1631,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, double)
 #endif
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, long double)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, long double)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, long double)

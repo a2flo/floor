@@ -23,7 +23,7 @@
 // NOTE: also don't include this header on its own, this is either included through core/cpp_headers.hpp or device/common.hpp
 
 // string is not supported on compute
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 
 // for whatever reason there is no "string to 32-bit uint" conversion function in the standard
 #if !defined(FLOOR_NO_STOU)

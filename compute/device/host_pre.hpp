@@ -25,6 +25,19 @@
 #include <AvailabilityMacros.h>
 #endif
 
+// kill address space keywords
+#if defined(FLOOR_COMPUTE_HOST_DEVICE)
+#define global
+#define local
+#define constant
+#endif
+
+// sized integer types
+#include <cstdint>
+#if defined(FLOOR_COMPUTE_HOST_DEVICE)
+typedef __SIZE_TYPE__ size_t;
+#endif
+
 // used to mark kernel functions which must be dynamically retrievable at runtime
 // extern "C": use C name mangling instead of C++ mangling (so function name is the same as written in the code)
 // inline: not actually inline, but makes sure that no prototype is required for global functions
@@ -45,19 +58,20 @@
 #define fragment FLOOR_ENTRY_POINT_SPEC
 
 // workaround use of "global" in locale header by including it before killing global
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <locale>
 // provide alternate function
 floor_inline_always static std::locale locale_global(const std::locale& loc) {
 	return std::locale::global(loc);
 }
+#endif
 
 // kill address space keywords
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #define global
 #define local
 #define constant
-
-// sized integer types
-#include <cstdint>
+#endif
 
 // limits
 #include <floor/compute/device/host_limits.hpp>
@@ -244,9 +258,11 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS 16u
 
 // other required c++ headers
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <vector>
-#include <limits>
 #include <string>
+#endif
+#include <limits>
 
 #endif
 

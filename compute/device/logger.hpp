@@ -24,7 +24,7 @@
 #include <floor/core/cpp_ext.hpp>
 #include <tuple>
 
-#if (!defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)) || defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
+#if (!defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN) && !defined(FLOOR_COMPUTE_HOST_DEVICE)) || defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
 
 // silence clang warnings about non-literal format strings - while it might be right that
 // these aren't proper c string literals, this whole thing wouldn't work if the input literals weren't

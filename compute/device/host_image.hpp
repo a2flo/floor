@@ -392,16 +392,15 @@ FLOOR_POP_WARNINGS()
 		
 		// determines which lod/bias value to use and clamps it to [0, max #mip-levels - 1]
 		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<is_lod_ || is_bias_>* = nullptr>
-		floor_inline_always static constexpr uint32_t select_lod(const int32_t lod_i,
-																 const float lod_or_bias_f) {
-			return min(host_limits::max_mip_levels - 1u, (is_lod_float || is_bias ?
-														  uint32_t(max(0.0f, roundf(lod_or_bias_f))) :
-														  uint32_t(max(0, lod_i))));
+		floor_inline_always static constexpr uint32_t select_lod(const int32_t lod_i, const float lod_or_bias_f) {
+			return ::min(host_limits::max_mip_levels - 1u, (is_lod_float || is_bias ?
+															uint32_t(::max(0.0f, ::round(lod_or_bias_f))) :
+															uint32_t(::max(0, lod_i))));
 		}
 		// clamps lod to [0, max #mip-levels - 1]
 		template <bool is_lod_ = is_lod, enable_if_t<is_lod_>* = nullptr>
 		floor_inline_always static constexpr uint32_t select_lod(const uint32_t lod) {
-			return min(host_limits::max_mip_levels - 1u, lod);
+			return ::min(host_limits::max_mip_levels - 1u, lod);
 		}
 		// no lod/bias -> always return 0
 		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<!is_lod_ && !is_bias_>* = nullptr>
@@ -451,7 +450,11 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 						ret[i] = (float)*(const soft_f16*)(raw_data + i * 2);
+#else
+						ret[i] = (float)*(const __fp16*)(raw_data + i * 2);
+#endif
 					}
 				}
 				else floor_unreachable();
@@ -628,19 +631,26 @@ FLOOR_POP_WARNINGS()
 				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32) {
 					memcpy(&img->data[offset], &color, sizeof(float) * channel_count);
 				}
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// TODO: should have a write function that accepts double4
 					const double4 double_color = color;
 					memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
 				}
+#endif
 				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// for 16-bit half float formats, data must be converted to 32-bit float data
-					soft_f16 half_vals[4];
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
+					using fp16_type = soft_f16;
+#else
+					using fp16_type = __fp16;
+#endif
+					fp16_type half_vals[4];
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
-						half_vals[i] = (soft_f16)color[i];
+						half_vals[i] = (fp16_type)color[i];
 					}
-					memcpy(&img->data[offset], half_vals, sizeof(soft_f16) * channel_count);
+					memcpy(&img->data[offset], half_vals, sizeof(fp16_type) * channel_count);
 				}
 				else floor_unreachable();
 			}

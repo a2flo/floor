@@ -25,14 +25,14 @@ using namespace std;
 
 namespace const_math {
 	//! largest supported floating point type at compile-time
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	typedef long double max_fp_type;
 #else
 	typedef double max_fp_type; // can only use double with opencl/cuda/metal
 #endif
 	
 	//! largest supported floating point type at run-time
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	typedef long double max_rt_fp_type;
 #elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	typedef double max_rt_fp_type; // can only use double with opencl/cuda/metal

@@ -20,7 +20,7 @@
 #define __FLOOR_CONST_STRING_HPP__
 
 #include <type_traits>
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <cstdlib>
 #endif
 #include <floor/core/essentials.hpp>
@@ -104,7 +104,7 @@ public:
 		}
 		return true;
 	}
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	bool operator==(const string& str) const {
 		if(str.size() != count) return false;
 		for(size_t i = 0; i < count; ++i) {
@@ -124,7 +124,7 @@ public:
 	constexpr bool operator!=(const char* str) const {
 		return !(*this == str);
 	}
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 	bool operator!=(const string& str) const {
 		return !(*this == str);
 	}
@@ -228,7 +228,7 @@ protected:
 	}
 };
 
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 //! prints/writes the content of the const_string to an ostream (note that this is obviously a non-constexpr function)
 template <size_t n> ostream& operator<<(ostream& output, const const_string<n>& cstr) {
 	output.write(&cstr.content.data[0], n);
@@ -243,7 +243,7 @@ template <size_t len_0, size_t len_1> constexpr bool operator==(const char (&str
 template <size_t len_0> constexpr bool operator==(const char* str, const const_string<len_0>& cstr) {
 	return (cstr == str);
 }
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 template <size_t len_0> bool operator==(const string& str, const const_string<len_0>& cstr) {
 	return (cstr == str);
 }
@@ -254,7 +254,7 @@ template <size_t len_0, size_t len_1> constexpr bool operator!=(const char (&str
 template <size_t len_0> constexpr bool operator!=(const char* str, const const_string<len_0>& cstr) {
 	return (cstr != str);
 }
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 template <size_t len_0> bool operator!=(const string& str, const const_string<len_0>& cstr) {
 	return (cstr != str);
 }

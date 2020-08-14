@@ -306,7 +306,8 @@ public:
 typedef quaternion<float> quaternionf;
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE) // disable double + long double if specified
 typedef quaternion<double> quaterniond;
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // always disable long double on compute platforms (except host)
+// always disable long double on compute platforms
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 typedef quaternion<long double> quaternionl;
 #endif
 #endif

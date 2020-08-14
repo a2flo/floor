@@ -21,7 +21,7 @@
 
 // provide compatibility/alias functions for libc++s <atomic> header (replacing the non-functional __c11_* builtins)
 
-#if !defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 typedef enum memory_order {
 	memory_order_relaxed,
 	

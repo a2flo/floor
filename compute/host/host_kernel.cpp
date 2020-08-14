@@ -232,7 +232,7 @@ struct alignas(128) fiber_context {
 
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 		
 		if(size_t(this) % 128u != 0u) {
@@ -261,7 +261,7 @@ struct alignas(128) fiber_context {
 		}
 	}
 
-	void reset() {
+	void reset() noexcept {
 		// reset registers, set rip to enter_context and reset rsp
 #if defined(FLOOR_DEBUG) // this isn't actually necessary
 		rbp = 0;
@@ -280,7 +280,7 @@ struct alignas(128) fiber_context {
 #endif
 	}
 
-	void get_context() {
+	void get_context() noexcept {
 		floor_get_context(this);
 	}
 
@@ -288,13 +288,13 @@ struct alignas(128) fiber_context {
 // (ud2 insertion at a point we don't want this to happen -> we already have a ud2 trap in enter_context)
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(missing-noreturn)
-	void set_context() {
+	void set_context() noexcept {
 		floor_set_context(this);
 		floor_unreachable();
 	}
 FLOOR_POP_WARNINGS()
 
-	void swap_context(fiber_context* next_ctx) {
+	void swap_context(fiber_context* next_ctx) noexcept {
 		// NOTE: order of operation in here:
 		// * fiber #1 enters
 		// * set swapped to false
@@ -323,7 +323,7 @@ FLOOR_POP_WARNINGS()
 	// the windows fiber context
 	void* ctx { nullptr };
 
-	static void fiber_run(void* data) {
+	static void fiber_run(void* data) noexcept {
 		auto this_ctx = (fiber_context*)data;
 		(*this_ctx->init_func)(this_ctx->init_arg);
 		if(this_ctx->exit_ctx != nullptr) {
@@ -333,7 +333,7 @@ FLOOR_POP_WARNINGS()
 
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 
 		if(stack_ptr == nullptr) {
@@ -363,7 +363,7 @@ FLOOR_POP_WARNINGS()
 		ctx = nullptr;
 	}
 
-	void reset() {
+	void reset() noexcept {
 		// don't do anything in the main fiber/thread
 		if(stack_ptr == nullptr) return;
 
@@ -382,15 +382,15 @@ FLOOR_POP_WARNINGS()
 		}
 	}
 
-	void get_context() {
+	void get_context() noexcept {
 		// nop
 	}
 
-	void set_context() {
+	void set_context() noexcept {
 		SwitchToFiber(ctx);
 	}
 
-	void swap_context(fiber_context* next_ctx) {
+	void swap_context(fiber_context* next_ctx) noexcept {
 		SwitchToFiber(next_ctx->ctx);
 	}
 #else
@@ -401,7 +401,7 @@ FLOOR_POP_WARNINGS()
 	
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 		
 		memset(&ctx, 0, sizeof(ucontext_t));
@@ -414,7 +414,7 @@ FLOOR_POP_WARNINGS()
 		}
 	}
 	
-	void reset() {
+	void reset() noexcept {
 		if(exit_ctx != nullptr) {
 			ctx.uc_link = &exit_ctx->ctx;
 		}
@@ -424,22 +424,22 @@ FLOOR_POP_WARNINGS()
 		makecontext(&ctx, (void (*)())init_func, 1, init_arg);
 	}
 	
-	void get_context() {
+	void get_context() noexcept {
 		getcontext(&ctx);
 	}
 	
-	void set_context() {
+	void set_context() noexcept {
 		setcontext(&ctx);
 	}
 	
-	void swap_context(fiber_context* next_ctx) {
+	void swap_context(fiber_context* next_ctx) noexcept {
 		swapcontext(&ctx, &next_ctx->ctx);
 	}
 #endif
 
 	void init_common(void* stack_ptr_, const size_t& stack_size_,
 					 init_func_type init_func_, const uint32_t& init_arg_,
-					 fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+					 fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
 		stack_ptr = stack_ptr_;
 		stack_size = stack_size_;
 		init_func = init_func_;
@@ -448,7 +448,7 @@ FLOOR_POP_WARNINGS()
 		init_arg = init_arg_;
 	}
 	
-	void exit_to_main() {
+	void exit_to_main() noexcept {
 		swap_context(main_ctx);
 	}
 	
@@ -1053,7 +1053,7 @@ void image_write_mem_fence() {
 
 // local memory management
 // NOTE: this is called when allocating storage for local buffers when using mt-group
-uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset) {
+uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset) noexcept {
 	// check if this allocation exceeds the max size
 	// note: using the unaligned size, since the padding isn't actually used
 	if((local_memory_alloc_offset + size) > floor_local_memory_max_size) {

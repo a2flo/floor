@@ -123,7 +123,9 @@ typedef double clang_double4 __attribute__((ext_vector_type(4)));
 
 // const attribute allows external functions to be optimized away when not needed
 // (used for asm label functions, functions containing non-side-effect asm code, other external functions)
+#if !defined(const_func)
 #define const_func __attribute__((const))
+#endif
 
 using namespace std;
 
@@ -144,6 +146,8 @@ using namespace std;
 // ring dependencies ftw
 #define min(x, y) (x <= y ? x : y)
 #define max(x, y) (x >= y ? x : y)
+// add atomic compat/forwarder/alias functions
+#include <floor/compute/device/atomic_compat.hpp>
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_atomic.hpp>
 #elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
@@ -156,9 +160,6 @@ using namespace std;
 // undef above min/max, we want the std::min/max
 #undef min
 #undef max
-
-// *_atomic.hpp headers included above, now add compat/forwarder/alias functions
-#include <floor/compute/device/atomic_compat.hpp>
 
 // stl headers that must be included after atomic functions
 #include <utility>
@@ -377,7 +378,7 @@ public:
 		return *(const array_1d_type*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128);
 	}
 	
-	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 128)) {}
+	compute_local_buffer() noexcept : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 128)) {}
 	
 };
 

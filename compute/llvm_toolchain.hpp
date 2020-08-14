@@ -141,23 +141,23 @@ namespace llvm_toolchain {
 	};
 
 	//! argument information
-   struct arg_info {
-	   //! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
-	   uint32_t size { 0 };
-	   
-	   //! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
-	   //! although some arguments might be marked with an address space nonetheless.
-	   ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
-	   
-	   ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
-	   
-	   ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
-	   
-	   SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
-	   
-	   //! if this is an argument buffer (special_type == ARGUMENT_BUFFER) then this contains the argument buffer struct info
-	   optional<function_info> argument_buffer_info {};
-   };
+	struct arg_info {
+		//! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
+		uint32_t size { 0 };
+		
+		//! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
+		//! although some arguments might be marked with an address space nonetheless.
+		ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
+		
+		ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
+		
+		ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
+		
+		SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
+		
+		//! if this is an argument buffer (special_type == ARGUMENT_BUFFER) then this contains the argument buffer struct info
+		optional<function_info> argument_buffer_info {};
+	};
 	
 	//! internal: encoded floor metadata layout
 	enum class FLOOR_METADATA : uint64_t {
