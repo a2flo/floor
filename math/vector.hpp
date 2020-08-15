@@ -50,7 +50,7 @@ namespace floor_vector_rand {
 #endif
 
 // for compute and graphics: signal that this vector type can be converted to the corresponding clang/llvm vector type
-#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) && defined(FLOOR_COMPUTE_HOST_DEVICE))
+#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE))
 #define FLOOR_CLANG_VECTOR_COMPAT __attribute__((vector_compat))
 #else
 #define FLOOR_CLANG_VECTOR_COMPAT
