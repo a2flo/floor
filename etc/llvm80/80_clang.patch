@@ -1049,10 +1049,10 @@ index 2e84f5fedf..a3c2746156 100644
 +  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
  } // end of sema component.
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
-index be4491d512..171c88e60c 100644
+index be4491d512..6d559fb08f 100644
 --- a/include/clang/Basic/LangOptions.def
 +++ b/include/clang/Basic/LangOptions.def
-@@ -189,8 +189,12 @@ ENUM_LANGOPT(DefaultCallingConv, DefaultCallingConvention, 3, DCC_None, "default
+@@ -189,14 +189,19 @@ ENUM_LANGOPT(DefaultCallingConv, DefaultCallingConvention, 3, DCC_None, "default
  
  LANGOPT(ShortEnums        , 1, 0, "short enum types")
  
@@ -1066,7 +1066,14 @@ index be4491d512..171c88e60c 100644
  LANGOPT(OpenCLCPlusPlus   , 1, 0, "OpenCL C++")
  LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "OpenCL C++ version")
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
-@@ -314,6 +318,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
+ LANGOPT(NativeHalfArgsAndReturns, 1, 0, "Native half args and returns")
+ LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")
+ LANGOPT(CUDA              , 1, 0, "CUDA")
++LANGOPT(FloorHostCompute  , 1, 0, "floor host-compute")
+ LANGOPT(HIP               , 1, 0, "HIP")
+ LANGOPT(OpenMP            , 32, 0, "OpenMP support and version of OpenMP (31, 40 or 45)")
+ LANGOPT(OpenMPSimd        , 1, 0, "Use SIMD only OpenMP support.")
+@@ -314,6 +319,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
  
  LANGOPT(RegisterStaticDestructors, 1, 1, "Register C++ static destructors")
  
@@ -3861,7 +3868,7 @@ index 05930ae9ee..a88417f122 100644
      default:
        return CCCR_Warning;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 52fc08de9b..a9c46fc3f9 100644
+index 52fc08de9b..622c1db5ab 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -41,9 +41,12 @@
@@ -3890,7 +3897,7 @@ index 52fc08de9b..a9c46fc3f9 100644
    PassManagerBuilderWrapper PMBuilder(TargetTriple, CodeGenOpts, LangOpts);
  
 +  // always inline everything for metal/cuda/opencl/vulkan, otherwise we run into trouble when fixing the IR
-+  if (LangOpts.Metal || LangOpts.CUDA || LangOpts.OpenCL || LangOpts.Vulkan) {
++  if (LangOpts.Metal || LangOpts.CUDA || LangOpts.OpenCL || LangOpts.Vulkan || LangOpts.FloorHostCompute) {
 +    PMBuilder.Inliner = createEverythingInlinerPass();
 +  } else {
    // At O0 and O1 we only run the always inliner which is more efficient. At
@@ -11102,7 +11109,7 @@ index f666745354..cd892defac 100644
      return InputKind::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index d491f35769..0672dee72b 100644
+index d491f35769..10df79a9c5 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -86,6 +86,7 @@
@@ -11269,7 +11276,7 @@ index d491f35769..0672dee72b 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -2145,18 +2232,23 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2145,18 +2232,29 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPC_On);
      Opts.NativeHalfType = 1;
      Opts.NativeHalfArgsAndReturns = 1;
@@ -11292,21 +11299,27 @@ index d491f35769..0672dee72b 100644
 +    Opts.NativeHalfType = 1;
 +    Opts.NativeHalfArgsAndReturns = 1;
 +  }
++
++  Opts.FloorHostCompute = (T.getEnvironment() == llvm::Triple::EnvironmentType::FloorHostCompute);
++  if (Opts.FloorHostCompute) {
++    // enable half precision support
++    Opts.HalfArgsAndReturns = true;
++  }
  
    Opts.RenderScript = IK.getLanguage() == InputKind::RenderScript;
    if (Opts.RenderScript) {
-@@ -2167,8 +2259,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2167,8 +2265,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    // OpenCL and C++ both have bool, true, false keywords.
    Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
  
 -  // OpenCL has half keyword
 -  Opts.Half = Opts.OpenCL;
-+  // OpenCL and CUDA have half keyword
-+  Opts.Half = Opts.OpenCL || Opts.CUDA;
++  // OpenCL, CUDA and floor host-compute have half keyword
++  Opts.Half = Opts.OpenCL || Opts.CUDA || Opts.FloorHostCompute;
  
    // C++ has wchar_t keyword.
    Opts.WChar = Opts.CPlusPlus;
-@@ -2215,6 +2307,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -2215,6 +2313,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
    case InputKind::OpenCL:
      return S.getLanguage() == InputKind::OpenCL;
  
@@ -11319,7 +11332,7 @@ index d491f35769..0672dee72b 100644
    case InputKind::CXX:
    case InputKind::ObjCXX:
      return S.getLanguage() == InputKind::CXX;
-@@ -2251,6 +2349,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -2251,6 +2355,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case InputKind::OpenCL:
      return "OpenCL";
@@ -11330,7 +11343,7 @@ index d491f35769..0672dee72b 100644
    case InputKind::CUDA:
      return "CUDA";
    case InputKind::RenderScript:
-@@ -2338,6 +2440,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2338,6 +2446,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -11339,7 +11352,7 @@ index d491f35769..0672dee72b 100644
          .Case("c++", LangStandard::lang_openclcpp)
          .Default(LangStandard::lang_unspecified);
  
-@@ -2364,6 +2468,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2364,6 +2474,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -11376,7 +11389,7 @@ index d491f35769..0672dee72b 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2577,7 +2711,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2577,7 +2717,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -11385,7 +11398,17 @@ index d491f35769..0672dee72b 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
  
-@@ -2830,7 +2964,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2691,7 +2831,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+   // Enable HalfArgsAndReturns if present in Args or if NativeHalfArgsAndReturns
+   // is enabled.
+   Opts.HalfArgsAndReturns = Args.hasArg(OPT_fallow_half_arguments_and_returns)
+-                            | Opts.NativeHalfArgsAndReturns;
++                            | Opts.NativeHalfArgsAndReturns
++                            | Opts.FloorHostCompute;
+   Opts.GNUAsm = !Args.hasArg(OPT_fno_gnu_inline_asm);
+ 
+   // __declspec is enabled by default for the PS4 by the driver, and also
+@@ -2830,7 +2971,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
@@ -11394,7 +11417,7 @@ index d491f35769..0672dee72b 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -2926,6 +3060,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2926,6 +3067,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -11415,7 +11438,7 @@ index d491f35769..0672dee72b 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -3018,6 +3166,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -3018,6 +3173,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -11428,7 +11451,7 @@ index d491f35769..0672dee72b 100644
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
-@@ -3284,6 +3438,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
+@@ -3284,6 +3445,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
        Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
    }
  

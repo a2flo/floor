@@ -427,7 +427,7 @@ index 6e106ff8bf5..d3aca90d947 100644
  
  #endif
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 04b64e2fa60..f0fd365aadb 100644
+index 04b64e2fa60..f35901e58e0 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -89,6 +89,7 @@ public:
@@ -438,14 +438,17 @@ index 04b64e2fa60..f0fd365aadb 100644
      kalimba,        // Kalimba: generic kalimba
      shave,          // SHAVE: Movidius vector VLIW processors
      lanai,          // Lanai: Lanai 32-bit
-@@ -209,6 +210,7 @@ public:
+@@ -209,8 +210,10 @@ public:
      MSVC,
      Itanium,
      Cygnus,
 +    Vulkan,
      CoreCLR,
      Simulator,  // Simulator variants of other systems, e.g., Apple's iOS
++    FloorHostCompute,
      LastEnvironmentType = Simulator
+   };
+   enum ObjectFormatType {
 diff --git a/include/llvm/Analysis/CodeMetrics.h b/include/llvm/Analysis/CodeMetrics.h
 index 75290223852..0e46c64be7e 100644
 --- a/include/llvm/Analysis/CodeMetrics.h
@@ -51530,7 +51533,7 @@ index a5f4f98c489..c9f5378c269 100644
 +  }
 +}
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 4471fd05181..5100fb67598 100644
+index 4471fd05181..9f94b567d86 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -64,6 +64,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -51549,15 +51552,18 @@ index 4471fd05181..5100fb67598 100644
    case kalimba:     return "kalimba";
    case lanai:       return "lanai";
    case shave:       return "shave";
-@@ -235,6 +237,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
+@@ -235,8 +237,10 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
    case MSVC: return "msvc";
    case Itanium: return "itanium";
    case Cygnus: return "cygnus";
 +  case Vulkan: return "vulkan";
    case CoreCLR: return "coreclr";
    case Simulator: return "simulator";
++  case FloorHostCompute: return "floor_host_compute";
    }
-@@ -304,6 +307,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+ 
+   llvm_unreachable("Invalid EnvironmentType!");
+@@ -304,6 +308,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("hsail64", hsail64)
      .Case("spir", spir)
      .Case("spir64", spir64)
@@ -51565,7 +51571,7 @@ index 4471fd05181..5100fb67598 100644
      .Case("kalimba", kalimba)
      .Case("lanai", lanai)
      .Case("shave", shave)
-@@ -431,6 +435,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -431,6 +436,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("hsail64", Triple::hsail64)
      .Case("spir", Triple::spir)
      .Case("spir64", Triple::spir64)
@@ -51573,15 +51579,18 @@ index 4471fd05181..5100fb67598 100644
      .StartsWith("kalimba", Triple::kalimba)
      .Case("lanai", Triple::lanai)
      .Case("shave", Triple::shave)
-@@ -531,6 +536,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
+@@ -531,8 +537,10 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
      .StartsWith("msvc", Triple::MSVC)
      .StartsWith("itanium", Triple::Itanium)
      .StartsWith("cygnus", Triple::Cygnus)
 +    .StartsWith("vulkan", Triple::Vulkan)
      .StartsWith("coreclr", Triple::CoreCLR)
      .StartsWith("simulator", Triple::Simulator)
++    .StartsWith("floor_host_compute", Triple::FloorHostCompute)
      .Default(Triple::UnknownEnvironment);
-@@ -680,6 +686,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+ }
+ 
+@@ -680,6 +688,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::sparcv9:
    case Triple::spir:
    case Triple::spir64:
@@ -51589,7 +51598,7 @@ index 4471fd05181..5100fb67598 100644
    case Triple::systemz:
    case Triple::tce:
    case Triple::tcele:
-@@ -1264,6 +1271,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1264,6 +1273,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::amdil64:
    case llvm::Triple::hsail64:
    case llvm::Triple::spir64:
@@ -51597,7 +51606,7 @@ index 4471fd05181..5100fb67598 100644
    case llvm::Triple::wasm64:
    case llvm::Triple::renderscript64:
      return 64;
-@@ -1294,6 +1302,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1294,6 +1304,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::msp430:
    case Triple::systemz:
    case Triple::ppc64le:
@@ -51605,7 +51614,7 @@ index 4471fd05181..5100fb67598 100644
      T.setArch(UnknownArch);
      break;
  
-@@ -1376,6 +1385,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1376,6 +1387,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::amdgcn:
    case Triple::hsail64:
    case Triple::spir64:
@@ -51613,7 +51622,7 @@ index 4471fd05181..5100fb67598 100644
    case Triple::mips64:
    case Triple::mips64el:
    case Triple::nvptx64:
-@@ -1438,6 +1448,7 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1438,6 +1450,7 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
@@ -51621,7 +51630,7 @@ index 4471fd05181..5100fb67598 100644
    case Triple::wasm32:
    case Triple::wasm64:
    case Triple::x86:
-@@ -1527,6 +1538,7 @@ bool Triple::isLittleEndian() const {
+@@ -1527,6 +1540,7 @@ bool Triple::isLittleEndian() const {
    case Triple::sparcel:
    case Triple::spir64:
    case Triple::spir:

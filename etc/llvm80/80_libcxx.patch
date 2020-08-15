@@ -2544,7 +2544,7 @@ index 5ea9a9e6f..9d4829fcc 100644
  _LIBCPP_END_NAMESPACE_STD
  
 diff --git a/include/memory b/include/memory
-index 3e8f5936e..f70ba5ea6 100644
+index 3e8f5936e..79f2ec95e 100644
 --- a/include/memory
 +++ b/include/memory
 @@ -651,9 +651,13 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
@@ -2624,6 +2624,15 @@ index 3e8f5936e..f70ba5ea6 100644
  #endif
  }
  
+@@ -3582,7 +3590,7 @@ public:
+     // Otherwise we may break clients who need to compile their projects with
+     // -fno-rtti and yet link against a libc++.dylib compiled
+     // without -fno-rtti.
+-#if !defined(_LIBCPP_NO_RTTI) || !defined(_LIBCPP_BUILD_STATIC)
++#if (!defined(_LIBCPP_NO_RTTI) || !defined(_LIBCPP_BUILD_STATIC)) && 0 // not supported/needed
+     virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
+ #endif
+ private:
 diff --git a/include/new b/include/new
 index 24ffcad5a..4bfc9920d 100644
 --- a/include/new
@@ -2948,6 +2957,20 @@ index 3ec79349a..81fd3b8ab 100644
 +    //_VSTD::abort();
  #endif
  }
+ 
+diff --git a/include/stdio.h b/include/stdio.h
+index 77a314bf3..88f8d48e9 100644
+--- a/include/stdio.h
++++ b/include/stdio.h
+@@ -105,7 +105,8 @@ void perror(const char* s);
+ #pragma GCC system_header
+ #endif
+ 
+-#include_next <stdio.h>
++// TODO: support this on CPU targets
++//#include_next <stdio.h>
+ 
+ #ifdef __cplusplus
  
 diff --git a/include/type_traits b/include/type_traits
 index ab010716f..408954f68 100644
