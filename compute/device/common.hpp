@@ -24,6 +24,15 @@
 
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_VULKAN)
 
+// libc++ STL functionality without (most of) the baggage
+#if !defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE)
+#define _LIBCPP_NO_RTTI 1
+#define _LIBCPP_BUILD_STATIC 1
+#define _LIBCPP_NO_EXCEPTIONS 1
+#define _LIBCPP_HAS_NO_THREADS 1
+#define assert(...)
+#endif
+
 // compute implementation specific headers (pre-std headers)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_pre.hpp>
@@ -130,14 +139,6 @@ typedef double clang_double4 __attribute__((ext_vector_type(4)));
 using namespace std;
 
 
-// libc++ stl functionality without (most of) the baggage
-#if !defined(FLOOR_COMPUTE_HOST)
-#define _LIBCPP_NO_RTTI 1
-#define _LIBCPP_BUILD_STATIC 1
-#define _LIBCPP_NO_EXCEPTIONS 1
-#define _LIBCPP_HAS_NO_THREADS 1
-#define assert(...)
-#endif
 // stl headers that can be included before atomic functions
 #include <type_traits>
 

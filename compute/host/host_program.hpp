@@ -25,14 +25,24 @@
 
 #include <floor/compute/compute_program.hpp>
 
+class host_device;
 class host_program final : public compute_program {
 public:
-	host_program(const compute_device& device);
+	//! stores a host program
+	struct host_program_entry : program_entry {
+		// TODO
+	};
+	
+	//! lookup map that contains the corresponding host program for multiple devices
+	typedef flat_map<const host_device&, host_program_entry> program_map_type;
+	
+	host_program(const compute_device& device, program_map_type&& programs);
 	
 	shared_ptr<compute_kernel> get_kernel(const string& func_name) const override;
 	
 protected:
 	const compute_device& device;
+	const program_map_type programs;
 	
 };
 

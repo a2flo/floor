@@ -62,13 +62,17 @@ floor_inline_always const_func half tanh(half x) { return (half)__builtin_tanhf(
 floor_inline_always const_func half asinh(half x) { return (half)__builtin_asinhf(float(x)); }
 floor_inline_always const_func half acosh(half x) { return (half)__builtin_acoshf(float(x)); }
 floor_inline_always const_func half atanh(half x) { return (half)__builtin_atanhf(float(x)); }
-floor_inline_always const_func half fma(half a, half b, half c) { return (half)__builtin_fmaf(float(a), float(b), float(c)); }
+floor_inline_always const_func half fma(half a, half b, half c) { return (a * b + c); }
 floor_inline_always const_func half exp(half x) { return (half)__builtin_expf(float(x)); }
 floor_inline_always const_func half exp2(half x) { return (half)__builtin_exp2f(float(x)); }
 floor_inline_always const_func half log(half x) { return (half)__builtin_logf(float(x)); }
 floor_inline_always const_func half log2(half x) { return (half)__builtin_log2f(float(x)); }
 floor_inline_always const_func half pow(half a, half b) { return (half)__builtin_powf(float(a), float(b)); }
+#if 0 // TODO: directly translate to asm instruction
 floor_inline_always const_func half fmod(half a, half b) { return (half)__builtin_fmodf(float(a), float(b)); }
+#else
+floor_inline_always const_func half fmod(half a, half b) { return a - half(__builtin_truncf(float(a) / float(b)) * float(b)); }
+#endif
 floor_inline_always const_func half copysign(half a, half b) { return (half)__builtin_copysignf(float(a), float(b)); }
 
 floor_inline_always const_func float sqrt(float x) { return __builtin_sqrtf(x); }
@@ -97,13 +101,17 @@ floor_inline_always const_func float tanh(float x) { return __builtin_tanhf(x); 
 floor_inline_always const_func float asinh(float x) { return __builtin_asinhf(x); }
 floor_inline_always const_func float acosh(float x) { return __builtin_acoshf(x); }
 floor_inline_always const_func float atanh(float x) { return __builtin_atanhf(x); }
-floor_inline_always const_func float fma(float a, float b, float c) { return __builtin_fmaf(a, b, c); }
+floor_inline_always const_func float fma(float a, float b, float c) { return (a * b + c); }
 floor_inline_always const_func float exp(float x) { return __builtin_expf(x); }
 floor_inline_always const_func float exp2(float x) { return __builtin_exp2f(x); }
 floor_inline_always const_func float log(float x) { return __builtin_logf(x); }
 floor_inline_always const_func float log2(float x) { return __builtin_log2f(x); }
 floor_inline_always const_func float pow(float a, float b) { return __builtin_powf(a, b); }
+#if 0 // TODO: directly translate to asm instruction
 floor_inline_always const_func float fmod(float a, float b) { return __builtin_fmodf(a, b); }
+#else
+floor_inline_always const_func float fmod(float a, float b) { return a - __builtin_truncf(a / b) * b; }
+#endif
 floor_inline_always const_func float copysign(float a, float b) { return __builtin_copysignf(a, b); }
 
 floor_inline_always const_func int8_t abs(int8_t x) { return __builtin_abs(x); }

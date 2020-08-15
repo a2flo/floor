@@ -314,6 +314,12 @@ public:
 	static const bool& get_vulkan_soft_printf();
 	
 	// host
+	static const string& get_host_base_path();
+	static const uint32_t& get_host_toolchain_version();
+	static const string& get_host_compiler();
+	static const string& get_host_llc();
+	static const string& get_host_as();
+	static const string& get_host_dis();
 	static const string& get_execution_model();
 	
 	//! returns the default compute/graphics context (CUDA/Host/Metal/OpenCL/Vulkan)
@@ -445,7 +451,13 @@ protected:
 		bool metal_soft_printf = false;
 		
 		// host
+		bool host_toolchain_exists = false;
+		uint32_t host_toolchain_version = 0;
 		string host_base_path = "";
+		string host_compiler = default_compiler;
+		string host_llc = default_llc;
+		string host_as = default_as;
+		string host_dis = default_dis;
 		string execution_model = "mt-group";
 		
 		// vulkan

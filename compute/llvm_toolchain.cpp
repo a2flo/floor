@@ -25,6 +25,7 @@
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/host/host_device.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -512,6 +513,28 @@ program_data compile_input(const string& input,
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
 		} break;
+		case TARGET::HOST_COMPUTE_CPU: {
+			toolchain_version = floor::get_host_toolchain_version();
+			output_file_type = "bin";
+			// const auto& cpu_device = (const host_device&)device;
+			
+			clang_cmd += {
+				"\"" + floor::get_host_compiler() + "\"" +
+				" -x c++ -std=gnu++2a" +
+				" -target x86_64-pc-none-floor_host_compute" \
+				" -nostdinc -fbuiltin -fno-math-errno" \
+				" -fPIC" /* must be relocatable */ \
+				" -march=haswell" /* TODO: proper arch targets */ \
+				" -DFLOOR_COMPUTE_HOST_DEVICE" \
+				" -DFLOOR_COMPUTE_HOST" +
+				// TODO/NOTE: for now, doubles are not supported
+				//(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				" -DFLOOR_COMPUTE_NO_DOUBLE"
+			};
+			libcxx_path += floor::get_host_base_path() + "libcxx";
+			clang_path += floor::get_host_base_path() + "clang";
+			floor_path += floor::get_host_base_path() + "floor";
+		} break;
 	}
 	libcxx_path += "\"";
 	clang_path += "\"";
@@ -880,14 +903,18 @@ program_data compile_input(const string& input,
 #endif
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR" +
-		clang_path + libcxx_path + floor_path +
-		" -include floor/compute/device/common.hpp"
-		" -fno-exceptions -fno-rtti -fno-pic -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
+		libcxx_path + clang_path + floor_path +
+		" -include floor/compute/device/common.hpp" +
+		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
+		" -fno-exceptions -fno-cxx-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
+		" -fno-stack-protector -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +
 		(options.enable_warnings ? warning_flags : " ") +
 		options.cli +
-		" -m64 -emit-llvm -c -o " + compiled_file_or_code + " " + input
+		" -m64" +
+		(options.target != TARGET::HOST_COMPUTE_CPU ? " -emit-llvm" : "") +
+		" -c -o " + compiled_file_or_code + " " + input
 	};
 	
 	// on sane systems, redirect errors to stdout so that we can grab them
@@ -1017,6 +1044,9 @@ program_data compile_input(const string& input,
 		}
 		
 		// NOTE: will cleanup the binary in opencl_compute/vulkan_compute
+	}
+	else if(options.target == TARGET::HOST_COMPUTE_CPU) {
+		// nop, already a binary
 	}
 	
 	return { true, compiled_file_or_code, functions, options };

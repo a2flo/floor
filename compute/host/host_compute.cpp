@@ -297,30 +297,108 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 #endif
 }
 
-shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name floor_unused) {
+shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: %s", file_name);
+		return {};
+	}
+	
+	// create the program
+	host_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+		const auto& host_dev = (const host_device&)*devices[i];
+		const auto& dev_best_bin = bins.dev_binaries[i];
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		prog_map.insert_or_assign(host_dev,
+								  create_host_program_internal(host_dev,
+															   dev_best_bin.first->data.data(),
+															   dev_best_bin.first->data.size(),
+															   func_info,
+															   false /* TODO: true? */));
+	}
+	
+	return add_program(move(prog_map));
+}
+
+shared_ptr<host_program> host_compute::add_program(host_program::program_map_type&& prog_map) {
+	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
+	// for all devices contained in the program map
+	auto prog = make_shared<host_program>(*fastest_cpu_device, move(prog_map));
+	{
+		GUARD(programs_lock);
+		programs.push_back(prog);
+	}
+	return prog;
+}
+
+shared_ptr<compute_program> host_compute::add_program_file(const string& file_name,
+														   const string additional_options) {
+	compile_options options { .cli = additional_options };
+	return add_program_file(file_name, options);
+}
+
+shared_ptr<compute_program> host_compute::add_program_file(const string& file_name,
+														   compile_options options) {
+	// compile the source file for all devices in the context
+	host_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	options.target = llvm_toolchain::TARGET::HOST_COMPUTE_CPU;
+	for(const auto& dev : devices) {
+		const auto& host_dev = (const host_device&)*dev;
+		prog_map.insert_or_assign(host_dev,
+								  create_host_program(host_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
+	}
+	return add_program(move(prog_map));
+}
+
+shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
+															 const string additional_options) {
+	compile_options options { .cli = additional_options };
+	return add_program_source(source_code, options);
+}
+
+shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
+															 compile_options options) {
+	// compile the source code for all devices in the context
+	host_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	options.target = llvm_toolchain::TARGET::HOST_COMPUTE_CPU;
+	for(const auto& dev : devices) {
+		const auto& host_dev = (const host_device&)*dev;
+		prog_map.insert_or_assign(host_dev,
+								  create_host_program(host_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
+	}
+	return add_program(move(prog_map));
+}
+
+host_program::host_program_entry host_compute::create_host_program(const host_device& device,
+																   llvm_toolchain::program_data program) {
+	if(!program.valid) {
+		return {};
+	}
+	return create_host_program_internal(device,
+										program.data_or_filename.data(), program.data_or_filename.size(),
+										program.functions, program.options.silence_debug_output);
+}
+
+host_program::host_program_entry host_compute::create_host_program_internal(const host_device& device floor_unused,
+																			const void* program_data floor_unused,
+																			const size_t& program_size floor_unused,
+																			const vector<llvm_toolchain::function_info>& functions,
+																			const bool& silence_debug_output) {
+	host_program::host_program_entry ret;
+	ret.functions = functions;
+	
 	// TODO: implement this
-	log_error("not yet implemented");
-	return {};
-}
-
-shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
-														   const string additional_options floor_unused) {
-	return make_shared<host_program>(*fastest_device);
-}
-
-shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
-														   compile_options options floor_unused) {
-	return make_shared<host_program>(*fastest_device);
-}
-
-shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
-															 const string additional_options floor_unused) {
-	return make_shared<host_program>(*fastest_device);
-}
-
-shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
-															 compile_options options floor_unused) {
-	return make_shared<host_program>(*fastest_device);
+	
+	if (!silence_debug_output) {
+		log_debug("successfully created host program!");
+	}
+	
+	ret.valid = true;
+	return ret;
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,

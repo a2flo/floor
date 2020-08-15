@@ -29,6 +29,7 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_program.hpp>
 #include <floor/compute/host/host_queue.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 class host_compute final : public compute_context {
 public:
@@ -124,22 +125,29 @@ public:
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
-	shared_ptr<compute_program> add_universal_binary(const string& file_name) override;
+	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
-												 const string additional_options) override;
+												 const string additional_options) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
-												 compile_options options = {}) override;
+												 compile_options options = {}) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_source(const string& source_code,
-												   const string additional_options) override;
+												   const string additional_options) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_source(const string& source_code,
-												   compile_options options = {}) override;
+												   compile_options options = {}) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_toolchain::function_info>& functions) override;
+	
+	//! NOTE: for internal purposes (not exposed by other backends)
+	host_program::host_program_entry create_host_program(const host_device& device,
+														 llvm_toolchain::program_data program);
+	
+	//! NOTE: for internal purposes (not exposed by other backends)
+	shared_ptr<host_program> add_program(host_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																	llvm_toolchain::program_data program,
@@ -149,7 +157,16 @@ public:
 	// host specific functions
 	
 protected:
+	atomic_spin_lock programs_lock;
+	vector<shared_ptr<host_program>> programs GUARDED_BY(programs_lock);
+	
 	shared_ptr<compute_queue> main_queue;
+	
+	host_program::host_program_entry create_host_program_internal(const host_device& device,
+																  const void* program_data,
+																  const size_t& program_size,
+																  const vector<llvm_toolchain::function_info>& functions,
+																  const bool& silence_debug_output);
 	
 };
 

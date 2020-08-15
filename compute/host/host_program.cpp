@@ -30,7 +30,7 @@
 static HMODULE exe_module { nullptr };
 #endif
 
-host_program::host_program(const compute_device& device_) : device(device_) {
+host_program::host_program(const compute_device& device_, program_map_type&& programs_) : device(device_), programs(programs_) {
 }
 
 shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {

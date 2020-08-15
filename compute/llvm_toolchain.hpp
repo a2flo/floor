@@ -37,6 +37,8 @@ namespace llvm_toolchain {
 		SPIRV_VULKAN,
 		//! OpenCL SPIR-V 1.0+
 		SPIRV_OPENCL,
+		//! Host-Compute CPU
+		HOST_COMPUTE_CPU,
 	};
 
 	//! known function types

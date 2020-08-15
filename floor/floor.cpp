@@ -282,7 +282,7 @@ bool floor::init(const init_state& state) {
 		json::json_value("%ProgramW6432%/floor/toolchain"),
 		json::json_value("%ProgramFiles%/floor/toolchain")
 	};
-	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths, vulkan_toolchain_paths;
+	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths, vulkan_toolchain_paths, host_toolchain_paths;
 	if(config_doc.valid) {
 		config.width = config_doc.get<uint32_t>("screen.width", 1280);
 		config.height = config_doc.get<uint32_t>("screen.height", 720);
@@ -425,6 +425,11 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_validator = config_doc.get<string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
 		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
 		
+		host_toolchain_paths = config_doc.get<json::json_array>("toolchain.host.paths", default_toolchain_paths);
+		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
+		config.host_llc = config_doc.get<string>("toolchain.host.llc", config.default_llc);
+		config.host_as = config_doc.get<string>("toolchain.host.as", config.default_as);
+		config.host_dis = config_doc.get<string>("toolchain.host.dis", config.default_dis);
 		config.execution_model = config_doc.get<string>("toolchain.host.exec_model", "mt-group");
 	}
 	
@@ -433,6 +438,7 @@ bool floor::init(const init_state& state) {
 	if(cuda_toolchain_paths.empty()) cuda_toolchain_paths = default_toolchain_paths;
 	if(metal_toolchain_paths.empty()) metal_toolchain_paths = default_toolchain_paths;
 	if(vulkan_toolchain_paths.empty()) vulkan_toolchain_paths = default_toolchain_paths;
+	if(host_toolchain_paths.empty()) host_toolchain_paths = default_toolchain_paths;
 	
 	const auto get_viable_toolchain_path = [](const json::json_array& paths,
 											  uint32_t& toolchain_version,
@@ -614,6 +620,23 @@ bool floor::init(const init_state& state) {
 			config.vulkan_spirv_as.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_spirv_dis.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_spirv_validator.insert(0, config.vulkan_base_path + "bin/");
+		}
+		
+		// -> host toolchain
+		config.host_base_path = get_viable_toolchain_path(host_toolchain_paths,
+														  config.host_toolchain_version,
+														  config.host_compiler, config.host_llc,
+														  config.host_as, config.host_dis);
+		if(config.host_base_path == "") {
+#if !defined(FLOOR_IOS) // not available on iOS anyways
+			log_error("host toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+#endif
+		} else {
+			config.host_toolchain_exists = true;
+			config.host_compiler.insert(0, config.host_base_path + "bin/");
+			config.host_llc.insert(0, config.host_base_path + "bin/");
+			config.host_as.insert(0, config.host_base_path + "bin/");
+			config.host_dis.insert(0, config.host_base_path + "bin/");
 		}
 	}
 	
@@ -923,7 +946,10 @@ bool floor::init_internal(const init_state& state) {
 			SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 #endif
 			
-			SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
+			int2 wnd_size;
+			SDL_GetWindowSize(window, (int*)&wnd_size.x, (int*)&wnd_size.y);
+			config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
+			config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
 			log_debug("video mode set: w%u h%u", config.width, config.height);
 		}
 		
@@ -1979,6 +2005,24 @@ const bool& floor::get_vulkan_soft_printf() {
 }
 
 
+const string& floor::get_host_base_path() {
+	return config.host_base_path;
+}
+const uint32_t& floor::get_host_toolchain_version() {
+	return config.host_toolchain_version;
+}
+const string& floor::get_host_compiler() {
+	return config.host_compiler;
+}
+const string& floor::get_host_llc() {
+	return config.host_llc;
+}
+const string& floor::get_host_as() {
+	return config.host_as;
+}
+const string& floor::get_host_dis() {
+	return config.host_dis;
+}
 const string& floor::get_execution_model() {
 	return config.execution_model;
 }
