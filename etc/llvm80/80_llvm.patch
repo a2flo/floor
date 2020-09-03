@@ -18010,6 +18010,24 @@ index d45dc7c4008..db4455daa2c 100644
  add_subdirectory(ToolDrivers)
  add_subdirectory(XRay)
  add_subdirectory(Testing)
+diff --git a/lib/CodeGen/MachineOutliner.cpp b/lib/CodeGen/MachineOutliner.cpp
+index ad96c0e579e..52cd989fa5a 100644
+--- a/lib/CodeGen/MachineOutliner.cpp
++++ b/lib/CodeGen/MachineOutliner.cpp
+@@ -1114,8 +1114,11 @@ MachineOutliner::createOutlinedFunction(Module &M, OutlinedFunction &OF,
+   F->setLinkage(GlobalValue::InternalLinkage);
+   F->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+ 
+-  // FIXME: Set nounwind, so we don't generate eh_frame? Haven't verified it's
+-  // necessary.
++  // Set nounwind, so we don't generate eh_frame.
++  if (llvm::all_of(OF.Candidates, [](const outliner::Candidate &C) {
++        return C.getMF()->getFunction().hasFnAttribute(Attribute::NoUnwind);
++      }))
++    F->addFnAttr(Attribute::NoUnwind);
+ 
+   // Set optsize/minsize, so we don't insert padding between outlined
+   // functions.
 diff --git a/lib/ExecutionEngine/ExecutionEngine.cpp b/lib/ExecutionEngine/ExecutionEngine.cpp
 index ae96c7f5955..1c8f26ebf71 100644
 --- a/lib/ExecutionEngine/ExecutionEngine.cpp
@@ -18446,6 +18464,42 @@ index 2f6628e318f..b9e03cae455 100644
   Support
   TableGen
   TextAPI
+diff --git a/lib/MC/ELFObjectWriter.cpp b/lib/MC/ELFObjectWriter.cpp
+index 89f3b30cddd..27c20b635f4 100644
+--- a/lib/MC/ELFObjectWriter.cpp
++++ b/lib/MC/ELFObjectWriter.cpp
+@@ -723,10 +723,12 @@ void ELFWriter::computeSymbolTable(
+ 
+   // File symbols are emitted first and handled separately from normal symbols,
+   // i.e. a non-STT_FILE symbol with the same name may appear.
++#if 0 // don't emit file names, we don't need them or want to expose them
+   for (const std::string &Name : FileNames)
+     Writer.writeSymbol(StrTabBuilder.getOffset(Name),
+                        ELF::STT_FILE | ELF::STB_LOCAL, 0, 0, ELF::STV_DEFAULT,
+                        ELF::SHN_ABS, true);
++#endif
+ 
+   // Symbols are required to be in lexicographic order.
+   array_pod_sort(LocalSymbolData.begin(), LocalSymbolData.end());
+diff --git a/lib/MC/MCObjectFileInfo.cpp b/lib/MC/MCObjectFileInfo.cpp
+index be671af1768..ba45711c4a1 100644
+--- a/lib/MC/MCObjectFileInfo.cpp
++++ b/lib/MC/MCObjectFileInfo.cpp
+@@ -472,8 +472,12 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
+   FaultMapSection =
+       Ctx->getELFSection(".llvm_faultmaps", ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
+ 
+-  EHFrameSection =
+-      Ctx->getELFSection(".eh_frame", EHSectionType, EHSectionFlags);
++  // don't emit eh_frame for host-compute
++  if (T.getEnvironment() == Triple::FloorHostCompute)
++    SupportsCompactUnwindWithoutEHFrame = true;
++  else
++    EHFrameSection =
++        Ctx->getELFSection(".eh_frame", EHSectionType, EHSectionFlags);
+ 
+   StackSizesSection = Ctx->getELFSection(".stack_sizes", ELF::SHT_PROGBITS, 0);
+ }
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
 new file mode 100644
 index 00000000000..fa9b2dda767
@@ -51840,7 +51894,7 @@ index 1ef7da328d3..8318790b1b8 100644
    default:
      return false;
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 3731b2f37f6..e073cf652b2 100644
+index 3731b2f37f6..9f850ed411e 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -51897,7 +51951,7 @@ index 3731b2f37f6..e073cf652b2 100644
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
                               "Use PTX version 3.2">;
-@@ -74,8 +91,16 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
+@@ -74,8 +91,18 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
                               "Use PTX version 6.0">;
  def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
                               "Use PTX version 6.1">;
@@ -51911,10 +51965,12 @@ index 3731b2f37f6..e073cf652b2 100644
 +                             "Use PTX version 6.5">;
 +def PTX70 : SubtargetFeature<"ptx70", "PTXVersion", "70",
 +                             "Use PTX version 7.0">;
++def PTX71 : SubtargetFeature<"ptx71", "PTXVersion", "71",
++                             "Use PTX version 7.1">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -98,7 +123,11 @@ def : Proc<"sm_61", [SM61, PTX50]>;
+@@ -98,7 +125,11 @@ def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
  def : Proc<"sm_70", [SM70, PTX60]>;
  def : Proc<"sm_72", [SM72, PTX61]>;
@@ -51922,7 +51978,7 @@ index 3731b2f37f6..e073cf652b2 100644
  def : Proc<"sm_75", [SM75, PTX63]>;
 +def : Proc<"sm_80", [SM80, PTX70]>;
 +def : Proc<"sm_82", [SM82, PTX70]>;
-+def : Proc<"sm_86", [SM86, PTX70]>;
++def : Proc<"sm_86", [SM86, PTX71]>;
  
  def NVPTXInstrInfo : InstrInfo {
  }
@@ -51990,6 +52046,25 @@ index e464f474b1d..8904c20dc37 100644
    }
    return (x == 1);
  }
+diff --git a/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp b/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
+index fa7c352a1b6..19a1caff71b 100644
+--- a/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
++++ b/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
+@@ -107,6 +107,14 @@ X86ELFMCAsmInfo::X86ELFMCAsmInfo(const Triple &T) {
+   // Always enable the integrated assembler by default.
+   // Clang also enabled it when the OS is Solaris but that is redundant here.
+   UseIntegratedAssembler = true;
++
++  // host-compute:
++  // * stack is always non-executable -> don't emit info section
++  // * don't emit .comment ident section
++  if (T.getEnvironment() == Triple::EnvironmentType::FloorHostCompute) {
++    UsesNonexecutableStackSection = false;
++	HasIdentDirective = false;
++  }
+ }
+ 
+ const MCExpr *
 diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
 index 7e2bca0f8f8..3958b4437e0 100644
 --- a/lib/Transforms/IPO/CMakeLists.txt
