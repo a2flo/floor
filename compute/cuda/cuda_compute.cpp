@@ -243,8 +243,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device.ptx = { 6, 4 };
 		} else if (driver_version < 11000) {
 			device.ptx = { 6, 5 };
-		} else {
+		} else if (driver_version < 11010) {
 			device.ptx = { 7, 0 };
+		} else {
+			device.ptx = { 7, 1 };
 		}
 		
 		device.min_req_ptx = { 4, 3 };
@@ -257,9 +259,13 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 				device.min_req_ptx = { 6, 3 };
 			}
 		} else if (device.sm.x == 8) {
-			device.min_req_ptx = { 7, 0 };
+			if (device.sm.y < 6) {
+				device.min_req_ptx = { 7, 0 };
+			} else {
+				device.min_req_ptx = { 7, 1 };
+			}
 		} else {
-			device.min_req_ptx = { 7, 0 };
+			device.min_req_ptx = { 7, 1 };
 		}
 		
 		// additional info
@@ -326,8 +332,8 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					multiplier = 64;
 					break;
 				case 8:
-					// sm_80/sm_82/sm_86/sm_8x: 64 cores/sm
-					multiplier = 64;
+					// sm_80/sm_82: 64 cores/sm, sm_86+: 128 cores/sm
+					multiplier = (dev.sm.y < 6 ? 64 : 128);
 					break;
 				default:
 					// default to 64 cores/sm

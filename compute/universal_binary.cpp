@@ -359,8 +359,12 @@ namespace universal_binary {
 				// handle PTX ISA version
 				if ((cuda_dev.sm.x == 6 && cuda_target.ptx_isa_major < 5) ||
 					(cuda_dev.sm.x == 7 && cuda_dev.sm.y < 5 && cuda_target.ptx_isa_major < 6) ||
-					(cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major < 6 || (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3))) ||
-					(cuda_dev.sm.x >= 8 && cuda_target.ptx_isa_major < 7)) {
+					(cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major < 6 ||
+																  (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3))) ||
+					(cuda_dev.sm.x == 8 && cuda_dev.sm.y < 6 && cuda_target.ptx_isa_major < 7) ||
+					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 6 && (cuda_target.ptx_isa_major < 7 ||
+																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
+					(cuda_dev.sm.x > 8 && (cuda_target.ptx_isa_major != 7 || cuda_target.ptx_isa_minor != 1))) {
 					log_error("invalid PTX version %u.%u for target %u",
 							  cuda_target.ptx_isa_major, cuda_target.ptx_isa_minor, cuda_dev.sm);
 					return {};
