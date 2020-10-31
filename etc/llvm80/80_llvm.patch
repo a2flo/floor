@@ -18465,14 +18465,24 @@ index 2f6628e318f..b9e03cae455 100644
   TableGen
   TextAPI
 diff --git a/lib/MC/ELFObjectWriter.cpp b/lib/MC/ELFObjectWriter.cpp
-index 89f3b30cddd..27c20b635f4 100644
+index 89f3b30cddd..e95fe6b8bc2 100644
 --- a/lib/MC/ELFObjectWriter.cpp
 +++ b/lib/MC/ELFObjectWriter.cpp
-@@ -723,10 +723,12 @@ void ELFWriter::computeSymbolTable(
+@@ -715,26 +715,34 @@ void ELFWriter::computeSymbolTable(
+     SymtabShndxSection->setAlignment(4);
+   }
  
++#if 0 // don't emit file names, we don't need them or want to expose them
+   ArrayRef<std::string> FileNames = Asm.getFileNames();
+   for (const std::string &Name : FileNames)
+     StrTabBuilder.add(Name);
++#endif
+ 
+   StrTabBuilder.finalize();
+ 
++#if 0 // see above, there are no filenames
    // File symbols are emitted first and handled separately from normal symbols,
    // i.e. a non-STT_FILE symbol with the same name may appear.
-+#if 0 // don't emit file names, we don't need them or want to expose them
    for (const std::string &Name : FileNames)
      Writer.writeSymbol(StrTabBuilder.getOffset(Name),
                         ELF::STT_FILE | ELF::STB_LOCAL, 0, 0, ELF::STV_DEFAULT,
@@ -18481,6 +18491,18 @@ index 89f3b30cddd..27c20b635f4 100644
  
    // Symbols are required to be in lexicographic order.
    array_pod_sort(LocalSymbolData.begin(), LocalSymbolData.end());
+   array_pod_sort(ExternalSymbolData.begin(), ExternalSymbolData.end());
+ 
++#if 0 // see above, there are no filenames
+   // Set the symbol indices. Local symbols must come before all other
+   // symbols with non-local bindings.
+   unsigned Index = FileNames.size() + 1;
++#else
++  unsigned Index = 1;
++#endif
+ 
+   for (ELFSymbolData &MSD : LocalSymbolData) {
+     unsigned StringIndex = MSD.Symbol->getType() == ELF::STT_SECTION
 diff --git a/lib/MC/MCObjectFileInfo.cpp b/lib/MC/MCObjectFileInfo.cpp
 index be671af1768..ba45711c4a1 100644
 --- a/lib/MC/MCObjectFileInfo.cpp
@@ -52047,7 +52069,7 @@ index e464f474b1d..8904c20dc37 100644
    return (x == 1);
  }
 diff --git a/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp b/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
-index fa7c352a1b6..19a1caff71b 100644
+index fa7c352a1b6..3f5f340a430 100644
 --- a/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
 +++ b/lib/Target/X86/MCTargetDesc/X86MCAsmInfo.cpp
 @@ -107,6 +107,14 @@ X86ELFMCAsmInfo::X86ELFMCAsmInfo(const Triple &T) {
@@ -52060,7 +52082,7 @@ index fa7c352a1b6..19a1caff71b 100644
 +  // * don't emit .comment ident section
 +  if (T.getEnvironment() == Triple::EnvironmentType::FloorHostCompute) {
 +    UsesNonexecutableStackSection = false;
-+	HasIdentDirective = false;
++    HasIdentDirective = false;
 +  }
  }
  
