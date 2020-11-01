@@ -450,9 +450,44 @@ namespace universal_binary {
 				}
 				break;
 			}
-			case COMPUTE_TYPE::HOST:
-				log_error("host compilation not supported yet");
-				return {};
+			case COMPUTE_TYPE::HOST: {
+				dev = make_shared<host_device>();
+				const auto& host_target = build_target.host;
+				auto& host_dev = (host_device&)*dev;
+				
+				toolchain_version = floor::get_host_toolchain_version();
+				options.target = llvm_toolchain::TARGET::HOST_COMPUTE_CPU;
+				host_dev.cpu_tier = host_target.cpu_tier;
+				host_dev.platform_vendor = COMPUTE_VENDOR::HOST;
+				host_dev.type = compute_device::TYPE::CPU0;
+				
+				// overwrite SIMD defaults based on target
+				switch (host_target.cpu_tier) {
+					case HOST_CPU_TIER::X86_TIER_1:
+						host_dev.simd_width = 4u; // SSE
+						break;
+					case HOST_CPU_TIER::X86_TIER_2:
+					case HOST_CPU_TIER::X86_TIER_3:
+						host_dev.simd_width = 8u; // AVX
+						break;
+					case HOST_CPU_TIER::X86_TIER_4:
+						host_dev.simd_width = 16u; // AVX-512
+						break;
+					case HOST_CPU_TIER::ARM_TIER_1:
+					case HOST_CPU_TIER::ARM_TIER_2:
+						host_dev.simd_width = 4u; // NEON
+						break;
+					default:
+						log_error("unknown/unhandled CPU tier");
+						return {};
+				}
+				host_dev.simd_range = { 1, host_dev.simd_width };
+				
+				// no double support for now
+				host_dev.double_support = false;
+				
+				break;
+			}
 			case COMPUTE_TYPE::VULKAN: {
 				dev = make_shared<vulkan_device>();
 				const auto& vlk_target = build_target.vulkan;
@@ -771,13 +806,12 @@ namespace universal_binary {
 		if (dev.context == nullptr) return { nullptr, {} };
 		
 		const auto type = dev.context->get_compute_type();
-		if (type == COMPUTE_TYPE::HOST) return { nullptr, {} }; // not implemented yet
 		
 		// for easier access
 		const auto& cl_dev = (const opencl_device&)dev;
 		const auto& cuda_dev = (const cuda_device&)dev;
 		const auto& mtl_dev = (const metal_device&)dev;
-		//const auto& host_dev = (const host_device&)dev;
+		const auto& host_dev = (const host_device&)dev;
 		const auto& vlk_dev = (const vulkan_device&)dev;
 		
 		size_t best_target_idx = ~size_t(0);
@@ -1134,7 +1168,38 @@ namespace universal_binary {
 					break;
 				}
 				case COMPUTE_TYPE::HOST: {
-					// TODO: implement this
+					const auto& host_target = target.host;
+					
+					// check for arch match
+					const auto is_target_x86 = (host_target.cpu_tier >= HOST_CPU_TIER::__X86_OFFSET && host_target.cpu_tier <= HOST_CPU_TIER::__X86_RANGE);
+					const auto is_target_arm = (host_target.cpu_tier >= HOST_CPU_TIER::__ARM_OFFSET && host_target.cpu_tier <= HOST_CPU_TIER::__ARM_RANGE);
+					const auto is_dev_x86 = (host_dev.cpu_tier >= HOST_CPU_TIER::__X86_OFFSET && host_dev.cpu_tier <= HOST_CPU_TIER::__X86_RANGE);
+					const auto is_dev_arm = (host_dev.cpu_tier >= HOST_CPU_TIER::__ARM_OFFSET && host_dev.cpu_tier <= HOST_CPU_TIER::__ARM_RANGE);
+					if (!(is_target_x86 && is_dev_x86) && !(is_target_arm && is_dev_arm)) {
+						continue;
+					}
+					
+					// CPU tier is too high for this device
+					if (host_target.cpu_tier > host_dev.cpu_tier) {
+						continue;
+					}
+					
+					// -> binary is compatible, now check for best match
+					if (best_target_idx != ~size_t(0)) {
+						const auto& best_host = ar.header.targets[best_target_idx].host;
+						
+						// use highest supported CPU tier
+						if (host_target.cpu_tier > best_host.cpu_tier) {
+							log_warn("using tier %u instead of %u", host_target.cpu_tier, best_host.cpu_tier);
+							best_target_idx = i;
+							continue;
+						}
+					} else {
+						// no best binary yet
+						log_warn("using tier %u", host_target.cpu_tier);
+						best_target_idx = i;
+						continue;
+					}
 					break;
 				}
 				case COMPUTE_TYPE::VULKAN: {

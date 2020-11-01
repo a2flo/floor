@@ -47,7 +47,7 @@
 #endif
 
 // sets a required local size/dim
-#if defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE))
 #define kernel_local_size(x, y, z) __attribute__((reqd_work_group_size(x, y, z)))
 #else // can't set this on the host
 #define kernel_local_size(x, y, z)
@@ -319,6 +319,7 @@ template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0> us
 
 #else // -> host-compute
 
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE) // -> host
 // NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
 #define local_buffer static compute_local_buffer
 
@@ -382,6 +383,13 @@ public:
 	compute_local_buffer() noexcept : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 128)) {}
 	
 };
+#else // -> host-device
+// NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
+// NOTE: for host-device execution this can be a simple array (-> part of the per-instance BSS)
+#define local_buffer static __attribute__((aligned(1024))) compute_local_buffer
+template <typename T, size_t count_1, size_t count_2 = 1, size_t count_3 = 1>
+using compute_local_buffer = T[count_1 * count_2 * count_3];
+#endif
 
 #endif
 

@@ -664,26 +664,22 @@ bool cpu_has_avx() {
 
 bool cpu_has_avx2() {
 #if !defined(FLOOR_IOS)
-	int eax, ebx, ecx, edx;
-	__cpuid(0, eax, ebx, ecx, edx);
-	if(eax < 7) return false;
-	__cpuid(7, eax, ebx, ecx, edx);
-	return (ebx & 0x00000020) > 0;
-#else
-	return false;
+	uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
+	if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 1) {
+		return (ebx & 0x00000020) > 0;
+	}
 #endif
+	return false;
 }
 
 bool cpu_has_avx512() {
 #if !defined(FLOOR_IOS)
-	int eax, ebx, ecx, edx;
-	__cpuid(0, eax, ebx, ecx, edx);
-	if(eax < 7) return false;
-	__cpuid(7, eax, ebx, ecx, edx);
-	return (ebx & 0x00010000) > 0;
-#else
-	return false;
+	uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
+	if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 1) {
+		return (ebx & 0x00010000) > 0;
+	}
 #endif
+	return false;
 }
 
 string create_tmp_file_name(const string prefix, const string suffix) {

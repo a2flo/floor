@@ -32,6 +32,7 @@
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
+#include <floor/compute/host/elf_binary.hpp>
 #include <floor/compute/device/host_limits.hpp>
 #include <floor/compute/device/host_id.hpp>
 
@@ -64,6 +65,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 //
 static const function<void()>* cur_kernel_function { nullptr };
 extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx);
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
 #if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
@@ -529,7 +531,7 @@ static thread_local uint32_t unfinished_items { 0 };
 static constexpr const size_t floor_local_memory_max_size { host_limits::local_memory_size };
 static uint32_t local_memory_alloc_offset { 0 };
 static bool local_memory_exceeded { false };
-static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr };
+static aligned_ptr<uint8_t> floor_local_memory_data;
 
 // extern in host_kernel.hpp and common.hpp
 #if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
@@ -541,28 +543,119 @@ thread_local uint32_t floor_thread_local_memory_offset { 0 };
 // 4k - 8k stack should be enough, considering this runs on gpus (min 32k with ucontext)
 // TODO: stack protection?
 static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
-static uint8_t* __attribute__((aligned(1024))) floor_stack_memory_data { nullptr };
+static aligned_ptr<uint8_t> floor_stack_memory_data;
 
-static void floor_alloc_host_memory() {
-	if(floor_local_memory_data == nullptr) {
-		floor_local_memory_data = new uint8_t[floor_max_thread_count * floor_local_memory_max_size] alignas(1024);
+static void floor_alloc_host_local_memory() {
+	if (!floor_local_memory_data) {
+		floor_local_memory_data = make_aligned_ptr<uint8_t>(floor_max_thread_count * floor_local_memory_max_size);
 	}
-	
-#if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
-	if(floor_stack_memory_data == nullptr) {
-		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * host_limits::max_total_local_size] alignas(1024);
+}
+
+static void floor_alloc_host_stack_memory() {
+#if defined(FLOOR_HOST_COMPUTE_MT_GROUP) || defined(FLOOR_COMPUTE_HOST_DEVICE)
+	if (!floor_stack_memory_data) {
+		floor_stack_memory_data = make_aligned_ptr<uint8_t>(floor_max_thread_count * item_stack_size * host_limits::max_total_local_size);
 	}
 #endif
 }
+
+// host-compute device execution context
+struct device_exec_context_t {
+	elf_binary::instance_ids_t* ids { nullptr };
+	function<void()> kernel_func;
+};
+static thread_local device_exec_context_t device_exec_context;
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
 kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(move(entry_)) {
 }
 
+host_kernel::host_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+}
+
+const host_kernel::kernel_entry* host_kernel::get_kernel_entry(const compute_device& dev) const {
+	if (kernel != nullptr) {
+		return &entry; // can't really check if the device is correct here
+	} else {
+		const auto ret = kernels.get((const host_device&)dev);
+		return !ret.first ? nullptr : &ret.second->second;
+	}
+}
+
+typename host_kernel::kernel_map_type::const_iterator host_kernel::get_kernel(const compute_queue& cqueue) const {
+	return kernels.find((const host_device&)cqueue.get_device());
+}
+
+static function<void()> make_callable_kernel_function(const host_kernel::kernel_func_type kernel_ptr, const vector<const void*>& vptr_args) {
+	function<void()> kernel_func;
+	switch (vptr_args.size()) {
+		case 0: kernel_func = [kernel_ptr]() { (*kernel_ptr)(); }; break;
+
+#define EXPAND_1(var, offset) var[0 + offset]
+#define EXPAND_2(var, offset) var[0 + offset], var[1 + offset]
+#define EXPAND_3(var, offset) var[0 + offset], var[1 + offset], var[2 + offset]
+#define EXPAND_4(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset]
+#define EXPAND_5(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset]
+#define EXPAND_6(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset]
+#define EXPAND_7(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset]
+#define EXPAND_8(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset], var[7 + offset]
+		
+		case 1: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_1(vptr_args, 0)); }; break;
+		case 2: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_2(vptr_args, 0)); }; break;
+		case 3: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_3(vptr_args, 0)); }; break;
+		case 4: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_4(vptr_args, 0)); }; break;
+		case 5: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_5(vptr_args, 0)); }; break;
+		case 6: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_6(vptr_args, 0)); }; break;
+		case 7: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_7(vptr_args, 0)); }; break;
+		case 8: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0)); }; break;
+		
+		case 9: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
+		case 10: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
+		case 11: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
+		case 12: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
+		case 13: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
+		case 14: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
+		case 15: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
+		case 16: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
+		
+		case 17: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
+		case 18: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
+		case 19: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
+		case 20: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
+		case 21: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
+		case 22: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
+		case 23: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
+		case 24: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
+		
+		case 25: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
+		case 26: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
+		case 27: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
+		case 28: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
+		case 29: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
+		case 30: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
+		case 31: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
+		case 32: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
+		
+#undef EXPAND_1
+#undef EXPAND_2
+#undef EXPAND_3
+#undef EXPAND_4
+#undef EXPAND_5
+#undef EXPAND_6
+#undef EXPAND_7
+#undef EXPAND_8
+		
+		default:
+			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");
+			return {};
+	}
+	return kernel_func;
+}
+
 void host_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
-						  const uint32_t& dim,
+						  const uint32_t& work_dim,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
 						  const vector<compute_kernel_arg>& args) const {
@@ -572,10 +665,7 @@ void host_kernel::execute(const compute_queue& cqueue,
 		return;
 	}
 	
-	// only a single kernel can be active/executed at one time
-	static safe_mutex exec_lock {};
-	GUARD(exec_lock);
-	
+	// extract/handle kernel arguments
 	vector<const void*> vptr_args;
 	vptr_args.reserve(args.size());
 	for (const auto& arg : args) {
@@ -606,121 +696,83 @@ void host_kernel::execute(const compute_queue& cqueue,
 		}
 	}
 	
-	static function<void()> kernel_func;
-	switch (vptr_args.size()) {
-		case 0: kernel_func = [this]() { (*kernel)(); }; break;
-
-#define EXPAND_1(var, offset) var[0 + offset]
-#define EXPAND_2(var, offset) var[0 + offset], var[1 + offset]
-#define EXPAND_3(var, offset) var[0 + offset], var[1 + offset], var[2 + offset]
-#define EXPAND_4(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset]
-#define EXPAND_5(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset]
-#define EXPAND_6(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset]
-#define EXPAND_7(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset]
-#define EXPAND_8(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset], var[7 + offset]
-		
-		case 1: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_1(vptr_args, 0)); }; break;
-		case 2: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_2(vptr_args, 0)); }; break;
-		case 3: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_3(vptr_args, 0)); }; break;
-		case 4: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_4(vptr_args, 0)); }; break;
-		case 5: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_5(vptr_args, 0)); }; break;
-		case 6: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_6(vptr_args, 0)); }; break;
-		case 7: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_7(vptr_args, 0)); }; break;
-		case 8: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0)); }; break;
-		
-		case 9: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
-		case 10: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
-		case 11: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
-		case 12: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
-		case 13: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
-		case 14: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
-		case 15: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
-		case 16: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
-		
-		case 17: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
-		case 18: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
-		case 19: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
-		case 20: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
-		case 21: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
-		case 22: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
-		case 23: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
-		case 24: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
-		
-		case 25: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
-		case 26: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
-		case 27: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
-		case 28: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
-		case 29: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
-		case 30: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
-		case 31: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
-		case 32: kernel_func = [this, &vptr_args]() { (*kernel)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
-		
-#undef EXPAND_1
-#undef EXPAND_2
-#undef EXPAND_3
-#undef EXPAND_4
-#undef EXPAND_5
-#undef EXPAND_6
-#undef EXPAND_7
-#undef EXPAND_8
-		
-		default:
-			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");
-			return;
-	}
-	
-	cur_kernel_function = &kernel_func;
-	execute_internal(cqueue, dim, global_work_size, check_local_work_size(entry, local_work_size));
-	cur_kernel_function = nullptr;
-}
-
-void host_kernel::execute_internal(const compute_queue& cqueue,
-								   const uint32_t work_dim,
-								   const uint3 global_work_size,
-								   const uint3 local_work_size) const {
 	// init max thread count (once!)
-	if(floor_max_thread_count == 0) {
+	if (floor_max_thread_count == 0) {
 		floor_max_thread_count = core::get_hw_thread_count();
 	}
 	
-	//
-	const auto cpu_count = cqueue.get_device().units;
 	// device cpu count must be <= h/w thread count, b/c local memory is only allocated for such many threads
-	if(cpu_count > floor_max_thread_count) {
+	const auto cpu_count = cqueue.get_device().units;
+	if (cpu_count > floor_max_thread_count) {
 		log_error("device cpu count exceeds h/w count");
 		return;
 	}
-	const uint3 local_dim { local_work_size.maxed(1u) };
-	const uint3 group_dim_overflow {
-		global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % local_dim.x), 1u) : 0u,
-		global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % local_dim.y), 1u) : 0u,
-		global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % local_dim.z), 1u) : 0u
-	};
-	uint3 group_dim { (global_work_size / local_dim) + group_dim_overflow };
-	group_dim.max(1u);
 	
-	// setup id handling
-	floor_work_dim = work_dim;
-	floor_global_work_size = global_work_size;
-	floor_local_work_size = local_dim;
-	
-	const auto mod_groups = floor_global_work_size % floor_local_work_size;
-	floor_group_size = floor_global_work_size / floor_local_work_size;
-	if(mod_groups.x > 0) ++floor_group_size.x;
-	if(mod_groups.y > 0) ++floor_group_size.y;
-	if(mod_groups.z > 0) ++floor_group_size.z;
-	
-	floor_linear_global_work_size = floor_global_work_size.x * floor_global_work_size.y * floor_global_work_size.z;
-	floor_linear_local_work_size = local_dim.x * local_dim.y * local_dim.z;
-	floor_linear_group_size = floor_group_size.x * floor_group_size.y * floor_group_size.z;
-	
-	// setup local memory management
-	// -> reset vars
-	local_memory_alloc_offset = 0;
-	local_memory_exceeded = false;
-	// alloc local and stack memory (for all threads) if it hasn't been allocated yet
-	floor_alloc_host_memory();
-	
+	// only a single kernel can be active/executed at one time
+	// TODO: can this be "fixed" by host-compute device execution?
+	static safe_mutex exec_lock {};
+	{
+		GUARD(exec_lock);
+		
+		const uint3 local_dim { check_local_work_size(entry, local_work_size).maxed(1u) };
+		const uint3 group_dim_overflow {
+			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % local_dim.x), 1u) : 0u,
+			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % local_dim.y), 1u) : 0u,
+			global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % local_dim.z), 1u) : 0u
+		};
+		uint3 group_dim { (global_work_size / local_dim) + group_dim_overflow };
+		group_dim.max(1u);
+		
+		const auto mod_groups = global_work_size % local_dim;
+		uint3 group_size = global_work_size / local_dim;
+		if (mod_groups.x > 0) ++group_size.x;
+		if (mod_groups.y > 0) ++group_size.y;
+		if (mod_groups.z > 0) ++group_size.z;
+		
+		// alloc stack memory (for all threads) if it hasn't been allocated yet
+		floor_alloc_host_stack_memory();
+
+		// device or host execution?
+		// NOTE: when using a kernel that has been compiled into the program (not host-compute device), "kernel" will be non-nullptr
+		if (kernel == nullptr) {
+			// -> device execution
+			const auto kernel_iter = get_kernel(cqueue);
+			if (kernel_iter == kernels.cend() || kernel_iter->second.program == nullptr) {
+				log_error("no program for this compute queue/device exists!");
+				return;
+			}
+			execute_device(kernel_iter->second, cpu_count, group_dim, local_dim, work_dim, vptr_args);
+		} else {
+			// -> host execution
+			auto kernel_func = make_callable_kernel_function(kernel, vptr_args);
+			if (!kernel_func) {
+				return;
+			}
+			
+			// setup/reset id and other global variables
+			floor_work_dim = work_dim;
+			floor_global_work_size = global_work_size;
+			floor_local_work_size = local_dim;
+			floor_group_size = group_size;
+			
+			floor_linear_global_work_size = floor_global_work_size.x * floor_global_work_size.y * floor_global_work_size.z;
+			floor_linear_local_work_size = local_dim.x * local_dim.y * local_dim.z;
+			floor_linear_group_size = floor_group_size.x * floor_group_size.y * floor_group_size.z;
+			
+			// setup local memory management
+			local_memory_alloc_offset = 0;
+			local_memory_exceeded = false;
+			// alloc local (for all threads) if it hasn't been allocated yet
+			floor_alloc_host_local_memory();
+			
+			cur_kernel_function = &kernel_func;
+			execute_host(cpu_count, group_dim, local_dim);
+			cur_kernel_function = nullptr;
+		}
+	}
+}
+
+void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim, const uint3& local_dim) const {
 #if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 	// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
 	uint3& global_idx = floor_global_idx;
@@ -873,7 +925,7 @@ void host_kernel::execute_internal(const compute_queue& cqueue,
 			
 			// init fibers
 			for(uint32_t i = 0; i < local_size; ++i) {
-				items[i].init(&floor_stack_memory_data[(i + local_size * cpu_idx) * fiber_context::min_stack_size],
+				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * fiber_context::min_stack_size],
 							  fiber_context::min_stack_size,
 							  run_mt_group_item, i,
 							  // continue with next on return, or return to main ctx when the last item returns
@@ -969,6 +1021,154 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
 #endif
 }
 
+void host_kernel::execute_device(const host_kernel_entry& func_entry,
+								 const uint32_t& cpu_count,
+								 const uint3& group_dim,
+								 const uint3& local_dim,
+								 const uint32_t& work_dim,
+								 const vector<const void*>& vptr_args) const {
+	// #work-groups
+	const auto group_count = group_dim.x * group_dim.y * group_dim.z;
+	// #work-items per group
+	const uint32_t local_size = local_dim.x * local_dim.y * local_dim.z;
+	// group ticketing system, each worker thread will grab a new group id, once it's done with one group
+	atomic<uint32_t> group_idx { 0 };
+	
+	// start worker threads
+#if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
+	const auto time_start = floor_timer::start();
+#endif
+	atomic<bool> success { true };
+	vector<unique_ptr<thread>> worker_threads(cpu_count);
+	for (uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
+		worker_threads[cpu_idx] = make_unique<thread>([this, &success, cpu_idx, &func_entry, &vptr_args,
+													   &group_idx, group_count, group_dim,
+													   local_size, local_dim, work_dim] {
+			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
+			// on different cpus (starting at index 1, with 0 representing no affinity)
+			floor_set_thread_affinity(cpu_idx + 1);
+			
+			// retrieve the instance for this CPU + reset/init it
+			auto instance = func_entry.program->get_instance(cpu_idx);
+			if (!instance) {
+				log_error("no instance for CPU #%u", cpu_idx);
+				success = false;
+				return;
+			}
+			instance->reset(local_dim * group_dim, local_dim, group_dim, work_dim);
+			device_exec_context.ids = &instance->ids;
+			auto& ids = instance->ids;
+			
+			// get and set the (kernel) function for this instance
+			const auto& func_info = *func_entry.info;
+			const auto func_iter = instance->functions.find(func_info.name);
+			if (func_iter == instance->functions.end()) {
+				log_error("failed to find function \"%s\" for CPU #%u", func_name, cpu_idx);
+				success = false;
+				return;
+			}
+			const auto func_ptr = (const kernel_func_type)const_cast<void*>(func_iter->second);
+			device_exec_context.kernel_func = make_callable_kernel_function(func_ptr, vptr_args);
+			if (!device_exec_context.kernel_func) {
+				log_error("failed to create kernel function for CPU #%u", cpu_idx);
+				success = false;
+				return;
+			}
+			
+			// init contexts (aka fibers)
+			fiber_context main_ctx;
+			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr, nullptr);
+			auto items = make_unique<fiber_context[]>(local_size);
+			item_contexts = items.get();
+			
+			// init fibers
+			for (uint32_t i = 0; i < local_size; ++i) {
+				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * fiber_context::min_stack_size],
+							  fiber_context::min_stack_size,
+							  run_host_device_group_item, i,
+							  // continue with next on return, or return to main ctx when the last item returns
+							  (i + 1 < local_size ? &items[i + 1] : &main_ctx),
+							  &main_ctx);
+			}
+			
+			for (; success;) {
+				// assign a new group to this thread/cpu and check if we're done
+				const auto group_linear_idx = group_idx++;
+				if (group_linear_idx >= group_count) {
+					break;
+				}
+				
+				// setup group
+				const uint3 group_id {
+					group_linear_idx % group_dim.x,
+					(group_linear_idx / group_dim.x) % group_dim.y,
+					group_linear_idx / (group_dim.x * group_dim.y)
+				};
+				ids.instance_group_idx = group_id;
+				
+				// reset fibers
+				for(uint32_t i = 0; i < local_size; ++i) {
+					items[i].reset();
+				}
+#if defined(FLOOR_DEBUG)
+				unfinished_items = local_size;
+#endif
+				
+				// run fibers/work-items for this group
+				static thread_local volatile bool done;
+				done = false;
+				main_ctx.get_context();
+				if(!done) {
+					done = true;
+					
+					// start first fiber
+					items[0].set_context();
+				}
+				
+				// check if any items are still unfinished (in a valid program, all must be finished at this point)
+				// NOTE: this won't detect all barrier misuses, doing so would require *a lot* of work
+#if defined(FLOOR_DEBUG)
+				if (unfinished_items > 0) {
+					log_error("barrier misuse detected in kernel \"%s\" - %u unfinished items in group %v",
+							  func_name, unfinished_items, group_id);
+					break;
+				}
+#endif
+			}
+		});
+	}
+	// wait for worker threads to finish
+	for(auto& item : worker_threads) {
+		item->join();
+	}
+}
+
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) {
+	// set ids for work-item
+	{
+		auto& ids = *device_exec_context.ids;
+		ids.instance_local_idx = {
+			local_linear_idx % ids.instance_local_work_size.x,
+			(local_linear_idx / ids.instance_local_work_size.x) % ids.instance_local_work_size.y,
+			local_linear_idx / (ids.instance_local_work_size.x * ids.instance_local_work_size.y)
+		};
+		ids.instance_local_linear_idx = local_linear_idx;
+		ids.instance_global_idx = {
+			ids.instance_group_idx.x * ids.instance_local_work_size.x + ids.instance_local_idx.x,
+			ids.instance_group_idx.y * ids.instance_local_work_size.y + ids.instance_local_idx.y,
+			ids.instance_group_idx.z * ids.instance_local_work_size.z + ids.instance_local_idx.z
+		};
+	}
+	
+	// execute work-item / kernel function
+	device_exec_context.kernel_func();
+	
+	// for barrier misuse checking
+#if defined(FLOOR_DEBUG)
+	--unfinished_items;
+#endif
+}
+
 // -> kernel lib function implementations
 #include <floor/compute/device/host.hpp>
 
@@ -1016,6 +1216,23 @@ void image_barrier() {
 }
 void barrier() {
 	global_barrier();
+}
+
+void host_compute_device_barrier() {
+	auto& ids = *device_exec_context.ids;
+	
+	// save indices, switch to next fiber and restore indices again
+	const auto saved_global_id = ids.instance_global_idx;
+	const auto saved_local_id = ids.instance_local_idx;
+	const auto save_item_local_linear_idx = ids.instance_local_linear_idx;
+	
+	fiber_context* this_ctx = &item_contexts[ids.instance_local_linear_idx];
+	fiber_context* next_ctx = &item_contexts[(ids.instance_local_linear_idx + 1u) % ids.instance_local_work_size.extent()];
+	this_ctx->swap_context(next_ctx);
+	
+	ids.instance_local_linear_idx = save_item_local_linear_idx;
+	ids.instance_local_idx = saved_local_id;
+	ids.instance_global_idx = saved_global_id;
 }
 
 // memory fence handling (all the same)
@@ -1069,7 +1286,7 @@ uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const siz
 	// adjust allocation offset for the next allocation
 	local_memory_alloc_offset += per_thread_alloc_size;
 	
-	return floor_local_memory_data;
+	return floor_local_memory_data.get();
 }
 
 #endif

@@ -522,7 +522,36 @@ program_data compile_input(const string& input,
 		case TARGET::HOST_COMPUTE_CPU: {
 			toolchain_version = floor::get_host_toolchain_version();
 			output_file_type = "bin";
-			// const auto& cpu_device = (const host_device&)device;
+			const auto& cpu_device = (const host_device&)device;
+			
+			string arch;
+			switch (cpu_device.cpu_tier) {
+#if !defined(FLOOR_IOS)
+				default:
+#endif
+				case HOST_CPU_TIER::X86_TIER_1:
+					arch = "corei7";
+					break;
+				case HOST_CPU_TIER::X86_TIER_2:
+					arch = "corei7-avx";
+					break;
+				case HOST_CPU_TIER::X86_TIER_3:
+					arch = "core-avx2";
+					break;
+				case HOST_CPU_TIER::X86_TIER_4:
+					arch = "skylake-avx512";
+					break;
+					
+#if defined(FLOOR_IOS)
+				default:
+#endif
+				case HOST_CPU_TIER::ARM_TIER_1:
+					arch = "arm64";
+					break;
+				case HOST_CPU_TIER::ARM_TIER_2:
+					arch = "arm64e";
+					break;
+			}
 			
 			clang_cmd += {
 				"\"" + floor::get_host_compiler() + "\"" +
@@ -530,9 +559,9 @@ program_data compile_input(const string& input,
 				" -target x86_64-pc-none-floor_host_compute" \
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
-				" -march=haswell" /* TODO: proper arch targets */ \
-				" -DFLOOR_COMPUTE_HOST_DEVICE" \
-				" -DFLOOR_COMPUTE_HOST" +
+				" -march=" + arch +
+				" -mcmodel=large" +
+				" -DFLOOR_COMPUTE_HOST_DEVICE -DFLOOR_COMPUTE_HOST" +
 				// TODO/NOTE: for now, doubles are not supported
 				//(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
@@ -912,7 +941,7 @@ program_data compile_input(const string& input,
 		libcxx_path + clang_path + floor_path +
 		" -include floor/compute/device/common.hpp" +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
-		" -fno-exceptions -fno-cxx-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
+		" -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-addrsig"
 		" -fno-stack-protector -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +

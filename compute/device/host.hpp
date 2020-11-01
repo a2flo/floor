@@ -164,11 +164,13 @@ floor_inline_always const_func static double rsqrt(double x) { return 1.0 / sqrt
 #endif // FLOOR_COMPUTE_HOST_DEVICE
 } // namespace std
 
-#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 // printf
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <cstdio>
 #else
-// no printf yet
+// only printf and puts are no supported (resolved at load time)
+extern "C" int printf(const char* __restrict format, ...);
+extern "C" int puts(const char* __restrict str);
 #endif
 
 // already need this here
@@ -178,37 +180,37 @@ floor_inline_always const_func static double rsqrt(double x) { return 1.0 / sqrt
 #include <floor/compute/device/host_id.hpp>
 
 floor_inline_always const_func static uint32_t get_global_id(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 0;
 #endif
 	return floor_global_idx[dim];
 }
 floor_inline_always const_func static uint32_t get_global_size(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 1;
 #endif
 	return floor_global_work_size[dim];
 }
 floor_inline_always const_func static uint32_t get_local_id(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 0;
 #endif
 	return floor_local_idx[dim];
 }
 floor_inline_always const_func static uint32_t get_local_size(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 1;
 #endif
 	return floor_local_work_size[dim];
 }
 floor_inline_always const_func static uint32_t get_group_id(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 0;
 #endif
 	return floor_group_idx[dim];
 }
 floor_inline_always const_func static uint32_t get_group_size(uint32_t dim) {
-#if defined(FLOOR_DEBUG) && !defined(FLOOR_HOST_COMPUTE_DEVICE)
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
 	if(dim >= floor_work_dim) return 1;
 #endif
 	return floor_group_size[dim];
@@ -218,6 +220,7 @@ floor_inline_always const_func static uint32_t get_work_dim() {
 }
 
 // barrier and mem_fence functionality (NOTE: implemented in host_kernel.cpp)
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 void global_barrier();
 void global_mem_fence();
 void global_read_mem_fence();
@@ -232,9 +235,48 @@ void image_barrier();
 void image_mem_fence();
 void image_read_mem_fence();
 void image_write_mem_fence();
+#else
+// host-compute device handling is slightly different
+extern "C" void global_barrier() __attribute__((noduplicate, sysv_abi));
+floor_inline_always void global_mem_fence() {
+	global_barrier();
+}
+floor_inline_always void global_read_mem_fence() {
+	global_barrier();
+}
+floor_inline_always void global_write_mem_fence() {
+	global_barrier();
+}
 
+extern "C" void local_barrier() __attribute__((noduplicate, sysv_abi));
+floor_inline_always void local_mem_fence() {
+	local_barrier();
+}
+floor_inline_always void local_read_mem_fence() {
+	local_barrier();
+}
+floor_inline_always void local_write_mem_fence() {
+	local_barrier();
+}
+
+extern "C" void barrier() __attribute__((noduplicate, sysv_abi));
+
+extern "C" void image_barrier() __attribute__((noduplicate, sysv_abi));
+floor_inline_always void image_mem_fence() {
+	image_barrier();
+}
+floor_inline_always void image_read_mem_fence() {
+	image_barrier();
+}
+floor_inline_always void image_write_mem_fence() {
+	image_barrier();
+}
+#endif
+
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE) // host-only (host-device deals with local memory differently)
 // local memory management (NOTE: implemented in host_kernel.cpp)
 uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset) noexcept;
+#endif
 
 #endif
 

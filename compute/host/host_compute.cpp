@@ -26,6 +26,7 @@
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/compute/device/host_limits.hpp>
+#include <floor/compute/host/elf_binary.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -41,6 +42,8 @@
 
 #if !defined(FLOOR_IOS)
 #include <cpuid.h>
+#else
+#include <mach-o/arch.h>
 #endif
 
 #if defined(__WINDOWS__)
@@ -82,11 +85,13 @@ host_compute::host_compute() : compute_context() {
 		}
 		cpu_name = core::trim(cpuid_name);
 	}
-#elif !defined(FLOOR_IOS)
-	// TODO: cpuid from elsewhere?
 #else // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
 	// -> hardcode the name for now
 	cpu_name = "Apple ARMv8";
+	const auto nx_info = NXGetLocalArchInfo();
+	if (nx_info) {
+		cpu_name += "(" + nx_info->name + ", " + nx_info->description + ")";
+	}
 #endif
 	
 	// now onto getting the cpu clock speed:
@@ -178,12 +183,32 @@ host_compute::host_compute() : compute_context() {
 #endif
 	device.max_image_1d_buffer_dim = { (size_t)std::min(device.max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	
+	// figure out CPU tier
+#if !defined(FLOOR_IOS)
+	if (core::cpu_has_avx512()) {
+		device.cpu_tier = HOST_CPU_TIER::X86_TIER_4;
+	} else if (core::cpu_has_avx2() && core::cpu_has_fma()) {
+		device.cpu_tier = HOST_CPU_TIER::X86_TIER_3;
+	} else if (core::cpu_has_avx()) {
+		device.cpu_tier = HOST_CPU_TIER::X86_TIER_2;
+	} else {
+		device.cpu_tier = HOST_CPU_TIER::X86_TIER_1;
+	}
+#else
+	if (nx_info && nx_info->cpusubtype >= CPU_SUBTYPE_ARM64E) {
+		device.cpu_tier = HOST_CPU_TIER::ARM_TIER_2;
+	} else {
+		device.cpu_tier = HOST_CPU_TIER::ARM_TIER_1;
+	}
+#endif
+	
 	//
 	supported = true;
 	fastest_cpu_device = devices[0].get();
 	fastest_device = fastest_cpu_device;
 	
-	log_debug("CPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s",
+	log_debug("CPU (%s, Units: %u, Clock: %u MHz, Memory: %u MB): %s",
+			  host_cpu_tier_to_string(device.cpu_tier),
 			  fastest_cpu_device->units,
 			  fastest_cpu_device->clock,
 			  (unsigned int)(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
@@ -313,6 +338,7 @@ shared_ptr<compute_program> host_compute::add_universal_binary(const string& fil
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		prog_map.insert_or_assign(host_dev,
 								  create_host_program_internal(host_dev,
+															   {},
 															   dev_best_bin.first->data.data(),
 															   dev_best_bin.first->data.size(),
 															   func_info,
@@ -335,12 +361,19 @@ shared_ptr<host_program> host_compute::add_program(host_program::program_map_typ
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
+	if (!has_host_device_support()) {
+		return make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
 	compile_options options { .cli = additional_options };
 	return add_program_file(file_name, options);
 }
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name,
 														   compile_options options) {
+	if (!has_host_device_support()) {
+		return make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
+	
 	// compile the source file for all devices in the context
 	host_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
@@ -355,12 +388,20 @@ shared_ptr<compute_program> host_compute::add_program_file(const string& file_na
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
 															 const string additional_options) {
+	if (!has_host_device_support()) {
+		return make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
+	
 	compile_options options { .cli = additional_options };
 	return add_program_source(source_code, options);
 }
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
 															 compile_options options) {
+	if (!has_host_device_support()) {
+		return make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
+	
 	// compile the source code for all devices in the context
 	host_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
@@ -378,20 +419,33 @@ host_program::host_program_entry host_compute::create_host_program(const host_de
 	if(!program.valid) {
 		return {};
 	}
-	return create_host_program_internal(device,
-										program.data_or_filename.data(), program.data_or_filename.size(),
+	return create_host_program_internal(device, program.data_or_filename.data(), nullptr, 0,
 										program.functions, program.options.silence_debug_output);
 }
 
-host_program::host_program_entry host_compute::create_host_program_internal(const host_device& device floor_unused,
-																			const void* program_data floor_unused,
-																			const size_t& program_size floor_unused,
+host_program::host_program_entry host_compute::create_host_program_internal(const host_device& device floor_unused /* TODO: use device */,
+																			const optional<string> elf_bin_file_name,
+																			const uint8_t* elf_bin_data,
+																			const size_t elf_bin_size,
 																			const vector<llvm_toolchain::function_info>& functions,
 																			const bool& silence_debug_output) {
 	host_program::host_program_entry ret;
 	ret.functions = functions;
 	
-	// TODO: implement this
+	unique_ptr<elf_binary> bin;
+	if (elf_bin_file_name && !elf_bin_file_name->empty()) {
+		bin = make_unique<elf_binary>(*elf_bin_file_name);
+	} else if (elf_bin_data != nullptr && elf_bin_size > 0) {
+		bin = make_unique<elf_binary>(elf_bin_data, elf_bin_size);
+	} else {
+		log_error("invalid ELF binary specification");
+		return {};
+	}
+	if (!bin->is_valid()) {
+		log_error("failed to load ELF binary");
+		return {};
+	}
+	ret.program = move(bin);
 	
 	if (!silence_debug_output) {
 		log_debug("successfully created host program!");
@@ -411,6 +465,14 @@ shared_ptr<compute_program::program_entry> host_compute::create_program_entry(co
 																			  llvm_toolchain::program_data program,
 																			  const llvm_toolchain::TARGET) {
 	return make_shared<compute_program::program_entry>(compute_program::program_entry { {}, program.functions, true });
+}
+
+bool host_compute::has_host_device_support() const {
+#if defined(__WINDOWS__) || defined(FLOOR_IOS)
+	return false;
+#else
+	return true;
+#endif
 }
 
 #endif

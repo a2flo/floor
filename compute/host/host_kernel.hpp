@@ -45,36 +45,61 @@
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
 #define FLOOR_HOST_COMPUTE_MT_GROUP 1
 
+class host_device;
+class elf_binary;
+
 class host_kernel final : public compute_kernel {
 public:
+	typedef void (*kernel_func_type)(...);
+	
+	struct host_kernel_entry : kernel_entry {
+		shared_ptr<elf_binary> program;
+	};
+	typedef flat_map<const host_device&, host_kernel_entry> kernel_map_type;
+	
+	//! constructor for kernels built using the host compiler / vanilla toolchain
 	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
+	//! constructor for kernels built using the floor host-compute device toolchain
+	host_kernel(kernel_map_type&& kernels);
 	~host_kernel() override = default;
 	
 	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
-				 const uint32_t& dim,
+				 const uint32_t& work_dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
 				 const vector<compute_kernel_arg>& args) const override;
 	
-	const kernel_entry* get_kernel_entry(const compute_device&) const override {
-		return &entry; // can't really check if the device is correct here
-	}
+	const kernel_entry* get_kernel_entry(const compute_device&) const override;
 	
 protected:
-	typedef void (*kernel_func_type)(...);
-	const kernel_func_type kernel;
+	const kernel_func_type kernel { nullptr };
 	const string func_name;
 	const compute_kernel::kernel_entry entry;
 	
+	const kernel_map_type kernels {};
+	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
-	void execute_internal(const compute_queue& cqueue,
-						  const uint32_t work_dim,
-						  const uint3 global_work_size,
-						  const uint3 local_work_size) const;
+	//! host-compute "host" execution
+	void execute_host(const uint32_t& cpu_count,
+					  const uint3& group_dim,
+					  const uint3& local_dim) const;
+	
+	//! host-compute "device" execution
+	void execute_device(const host_kernel_entry& func_entry,
+						const uint32_t& cpu_count,
+						const uint3& group_dim,
+						const uint3& local_dim,
+						const uint32_t& work_dim,
+						const vector<const void*>& vptr_args) const;
+	
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue& cqueue) const;
 	
 };
+
+//! host-compute device specific barrier
+extern "C" void host_compute_device_barrier();
 
 #endif
 

@@ -354,6 +354,9 @@
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 		5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */; };
+		5CF974C624E87F6600014CDC /* elf_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF974C424E87F6500014CDC /* elf_binary.cpp */; };
+		5CF974C724E87F6600014CDC /* elf_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF974C424E87F6500014CDC /* elf_binary.cpp */; };
+		5CF974C824E87F6600014CDC /* elf_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF974C524E87F6600014CDC /* elf_binary.hpp */; };
 		5CFB8CC922906D6500BF387F /* platform_windows.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CFB8CC822906D6200BF387F /* platform_windows.hpp */; };
 		5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */; };
 /* End PBXBuildFile section */
@@ -659,6 +662,8 @@
 		5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_queue.cpp; sourceTree = "<group>"; };
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
 		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
+		5CF974C424E87F6500014CDC /* elf_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = elf_binary.cpp; path = host/elf_binary.cpp; sourceTree = "<group>"; };
+		5CF974C524E87F6600014CDC /* elf_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = elf_binary.hpp; path = host/elf_binary.hpp; sourceTree = "<group>"; };
 		5CFB8CC822906D6200BF387F /* platform_windows.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = platform_windows.hpp; sourceTree = "<group>"; };
 		5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_memory_flags.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -857,6 +862,8 @@
 		5C20C8B31B4139140005F5EA /* host */ = {
 			isa = PBXGroup;
 			children = (
+				5CF974C424E87F6500014CDC /* elf_binary.cpp */,
+				5CF974C524E87F6600014CDC /* elf_binary.hpp */,
 				5C20C8B61B4139260005F5EA /* host_common.hpp */,
 				5C20C8B71B4139260005F5EA /* host_compute.cpp */,
 				5C20C8B81B4139260005F5EA /* host_compute.hpp */,
@@ -1308,6 +1315,7 @@
 				5C6C6B1E22D0D8A200AEE5F3 /* vulkan_shader.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5CAD573524D70EAC0022D36D /* argument_buffer.hpp in Headers */,
+				5CF974C824E87F6600014CDC /* elf_binary.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
 				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
@@ -1549,6 +1557,7 @@
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5C20C8CA1B4139260005F5EA /* host_image.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
+				5CF974C624E87F6600014CDC /* elf_binary.cpp in Sources */,
 				5C2B87D21C73893E00F11EA5 /* vulkan_compute.cpp in Sources */,
 				5CD4E87322B444CA00AE0385 /* vulkan_renderer.cpp in Sources */,
 				5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */,
@@ -1655,6 +1664,7 @@
 				5C4A85B018F953590039BFD4 /* lexer.cpp in Sources */,
 				5C6B6D8F1EC7381C00342E50 /* serializer.cpp in Sources */,
 				5C84530322B1A64D0014AECF /* graphics_pass.cpp in Sources */,
+				5CF974C724E87F6600014CDC /* elf_binary.cpp in Sources */,
 				5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */,
 				5C84531D22B1A99C0014AECF /* metal_pass.mm in Sources */,
 				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,

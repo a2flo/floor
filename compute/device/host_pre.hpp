@@ -44,6 +44,11 @@ typedef __SIZE_TYPE__ size_t;
 // attribute used: emit the function even if it apparently seems unused
 // visibility default: function name is publicly visible and can be retrieved at runtime
 // dllexport (windows only): necessary, so that the function can be retrieved via GetProcAddress
+#if defined(FLOOR_COMPUTE_HOST_DEVICE) // device toolchain
+#define kernel extern "C" __attribute__((compute_kernel, used, visibility("default")))
+#define vertex extern "C" __attribute__((vertex_shader, used, visibility("default")))
+#define fragment extern "C" __attribute__((fragment_shader, used, visibility("default")))
+#else // host toolchain
 #if !defined(__WINDOWS__)
 #define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default")))
 #else
@@ -56,6 +61,7 @@ typedef __SIZE_TYPE__ size_t;
 #define kernel FLOOR_ENTRY_POINT_SPEC_C
 #define vertex FLOOR_ENTRY_POINT_SPEC
 #define fragment FLOOR_ENTRY_POINT_SPEC
+#endif
 
 // workaround use of "global" in locale header by including it before killing global
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)

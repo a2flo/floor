@@ -25,6 +25,7 @@
 
 #include <floor/graphics/graphics_pass.hpp>
 #include <floor/core/flat_map.hpp>
+#include <memory>
 
 class compute_device;
 

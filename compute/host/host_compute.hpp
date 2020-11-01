@@ -156,6 +156,9 @@ public:
 	//////////////////////////////////////////
 	// host specific functions
 	
+	//! returns true if host-compute device support is available
+	bool has_host_device_support() const;
+	
 protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<host_program>> programs GUARDED_BY(programs_lock);
@@ -163,8 +166,9 @@ protected:
 	shared_ptr<compute_queue> main_queue;
 	
 	host_program::host_program_entry create_host_program_internal(const host_device& device,
-																  const void* program_data,
-																  const size_t& program_size,
+																  const optional<string> elf_bin_file_name,
+																  const uint8_t* elf_bin_data,
+																  const size_t elf_bin_size,
 																  const vector<llvm_toolchain::function_info>& functions,
 																  const bool& silence_debug_output);
 	

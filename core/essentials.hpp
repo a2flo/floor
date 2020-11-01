@@ -177,6 +177,9 @@
 #if defined(ERROR)
 #undef ERROR
 #endif
+#if defined(RELATIVE)
+#undef RELATIVE
+#endif
 
 // some os x security framework
 #if defined(INTEL)

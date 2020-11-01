@@ -270,7 +270,7 @@ namespace host_image_impl {
 				case COMPUTE_IMAGE_TYPE::FORMAT_16:
 				case COMPUTE_IMAGE_TYPE::FORMAT_32:
 				case COMPUTE_IMAGE_TYPE::FORMAT_64:
-					memcpy(&ret[0], raw_data, N);
+					__builtin_memcpy(&ret[0], raw_data, N);
 					break;
 				
 				//  TODO: special formats, implement this when needed, opencl/cuda don't support this either
@@ -340,7 +340,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 				
 				// uniform formats
 				case COMPUTE_IMAGE_TYPE::FORMAT_2:
-					memset(&raw_data[0], 0, bpp);
+					__builtin_memset(&raw_data[0], 0, bpp);
 					if constexpr(!is_signed_format) {
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[0] |= (scaled_color[i] & 0b11u) << (6u - 2u * i);
@@ -354,7 +354,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 					}
 					break;
 				case COMPUTE_IMAGE_TYPE::FORMAT_4:
-					memset(&raw_data[0], 0, bpp);
+					__builtin_memset(&raw_data[0], 0, bpp);
 					if constexpr(!is_signed_format) {
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[i / 2u] |= (scaled_color[i] & 0b1111u) << (i % 2u == 0 ? 4u : 0u);
@@ -371,7 +371,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 				case COMPUTE_IMAGE_TYPE::FORMAT_16:
 				case COMPUTE_IMAGE_TYPE::FORMAT_32:
 				case COMPUTE_IMAGE_TYPE::FORMAT_64:
-					memcpy(&raw_data[0], &scaled_color, bpp);
+					__builtin_memcpy(&raw_data[0], &scaled_color, bpp);
 					break;
 					
 				//  TODO: special formats, implement this when needed, opencl/cuda don't support this either
@@ -525,9 +525,9 @@ FLOOR_POP_WARNINGS()
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
-				memcpy(&ret, &img->data[offset], sizeof(float));
+				__builtin_memcpy(&ret, &img->data[offset], sizeof(float));
 				if constexpr(has_stencil) {
-					memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + sizeof(float)], sizeof(uint8_t));
+					__builtin_memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + sizeof(float)], sizeof(uint8_t));
 				}
 			}
 			else { // UINT
@@ -563,7 +563,7 @@ FLOOR_POP_WARNINGS()
 				
 				// finally, copy stencil
 				if constexpr(has_stencil) {
-					memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + depth_bytes], sizeof(uint8_t));
+					__builtin_memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + depth_bytes], sizeof(uint8_t));
 				}
 			}
 			return ret;
@@ -629,13 +629,13 @@ FLOOR_POP_WARNINGS()
 				
 				// for 32-bit/64-bit float formats, just pass-through
 				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32) {
-					memcpy(&img->data[offset], &color, sizeof(float) * channel_count);
+					__builtin_memcpy(&img->data[offset], &color, sizeof(float) * channel_count);
 				}
-#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// TODO: should have a write function that accepts double4
 					const double4 double_color = color;
-					memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
+					__builtin_memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
 				}
 #endif
 				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
@@ -650,7 +650,7 @@ FLOOR_POP_WARNINGS()
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						half_vals[i] = (fp16_type)color[i];
 					}
-					memcpy(&img->data[offset], half_vals, sizeof(fp16_type) * channel_count);
+					__builtin_memcpy(&img->data[offset], half_vals, sizeof(fp16_type) * channel_count);
 				}
 				else floor_unreachable();
 			}
@@ -659,7 +659,7 @@ FLOOR_POP_WARNINGS()
 				const auto converted_color = insert_channels(color);
 				
 				// note that two pixels never share the same byte -> can just memcpy, even for crooked formats
-				memcpy(&img->data[offset], &converted_color, sizeof(decltype(converted_color)));
+				__builtin_memcpy(&img->data[offset], &converted_color, sizeof(decltype(converted_color)));
 			}
 		}
 
@@ -687,9 +687,9 @@ FLOOR_POP_WARNINGS()
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
-				memcpy(&img->data[offset], &color, sizeof(float));
+				__builtin_memcpy(&img->data[offset], &color, sizeof(float));
 				if constexpr(has_stencil) {
-					memcpy(&img->data[offset + sizeof(float)], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					__builtin_memcpy(&img->data[offset + sizeof(float)], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}
 			else { // UINT
@@ -731,7 +731,7 @@ FLOOR_POP_WARNINGS()
 				
 				// finally, copy stencil
 				if constexpr(has_stencil) {
-					memcpy(&img->data[offset + depth_bytes], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					__builtin_memcpy(&img->data[offset + depth_bytes], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}
 		}
@@ -761,7 +761,7 @@ FLOOR_POP_WARNINGS()
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
-			memcpy(&img->data[offset], &raw_data, sizeof(raw_data));
+			__builtin_memcpy(&img->data[offset], &raw_data, sizeof(raw_data));
 		}
 	};
 }

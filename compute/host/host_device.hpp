@@ -21,6 +21,7 @@
 
 #include <floor/compute/compute_device.hpp>
 #include <floor/core/core.hpp>
+#include <floor/compute/host/host_common.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
@@ -30,6 +31,15 @@ class compute_context;
 class host_device final : public compute_device {
 public:
 	host_device();
+	
+	//! CPU tier
+	HOST_CPU_TIER cpu_tier {
+#if !defined(FLOOR_IOS)
+		HOST_CPU_TIER::X86_TIER_1
+#else
+		HOST_CPU_TIER::ARM_TIER_1
+#endif
+	};
 	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const host_device& dev) const {

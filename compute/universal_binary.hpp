@@ -21,6 +21,7 @@
 
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/host/host_common.hpp>
 #include <floor/constexpr/sha_256.hpp>
 
 //! Floor Universal Binary ARchive
@@ -184,34 +185,11 @@ namespace universal_binary {
 		
 		struct __attribute__((packed)) {
 			FLOOR_FUBAR_VERSION_AND_TYPE // see top
-
-			//! CPU architecture target
-			enum CPU_TARGET : uint64_t {
-				//! aka AMD64/Intel64
-				X64		= 0u,
-				//! aka ARMv8-A
-				ARM64	= 1u,
-			};
-			CPU_TARGET cpu_target : 4u;
 			
-			//! vector extension support
-			//! NOTE: x64 with SSE2 is the minimum requirement
-			//! TODO: ARM NEON?
-			enum VECTOR_TARGET : uint64_t {
-				SSE2	= 0u,
-				SSE3	= 1u,
-				SSSE3	= 2u,
-				SSE4_1	= 3u,
-				SSE4_2	= 4u,
-				AVX		= 5u,
-				//! NOTE: implies FMA3 and F16C support
-				AVX2	= 6u,
-				//! NOTE: implies F, CD, VL, DQ, BW support
-				AVX_512	= 7u,
-			};
-			VECTOR_TARGET vector_target : 8;
+			//! CPU tier (includes x86 and ARM)
+			HOST_CPU_TIER cpu_tier : 16;
 			
-			uint64_t _unused : 44;
+			uint64_t _unused : 40;
 		} host;
 		
 		struct __attribute__((packed)) {

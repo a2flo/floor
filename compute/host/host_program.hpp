@@ -26,11 +26,12 @@
 #include <floor/compute/compute_program.hpp>
 
 class host_device;
+class elf_binary;
 class host_program final : public compute_program {
 public:
 	//! stores a host program
 	struct host_program_entry : program_entry {
-		// TODO
+		shared_ptr<elf_binary> program;
 	};
 	
 	//! lookup map that contains the corresponding host program for multiple devices
@@ -43,6 +44,7 @@ public:
 protected:
 	const compute_device& device;
 	const program_map_type programs;
+	const bool has_device_binary { false };
 	
 };
 

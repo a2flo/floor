@@ -122,6 +122,37 @@ bool file_io::file_to_buffer(const string& filename, stringstream& buffer) {
 	return true;
 }
 
+pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filename) {
+	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
+	if (!file.is_open()) {
+		return {};
+	}
+	auto filestream = file.get_filestream();
+	if (!filestream) {
+		return {};
+	}
+	
+	const auto size_ll = file.get_filesize();
+	if (size_ll < 0) {
+		return {};
+	}
+	
+	const auto size = (size_t)size_ll;
+	auto data = make_unique<uint8_t[]>(size);
+	if (!data) {
+		return {};
+	}
+	
+	filestream->read((char*)data.get(), streamsize(size_ll));
+	const auto read_size = filestream->gcount();
+	if (read_size != (decltype(read_size))size_ll) {
+		log_error("expected %u bytes, but only read %u bytes", size_ll, read_size);
+		return {};
+	}
+	
+	return { move(data), size };
+}
+
 bool file_io::file_to_string(const string& filename, string& str) {
 	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
 	if(!file.is_open()) {

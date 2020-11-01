@@ -21,6 +21,9 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// host-compute
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 // this is used to compute the offset into local memory depending on the worker thread id.
 // this must be declared extern, so that it is properly visible to host compute code, so that
 // no "opaque" function has to called, which would be detrimental to vectorization.
@@ -68,6 +71,24 @@ FLOOR_DLL_API inline auto& floor_group_idx_get() {
 #define floor_group_idx floor_group_idx_get()
 #endif
 
-#endif
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// host-compute device
+#else
+
+// for host-compute device execution, each execution thread has its own memory space (initializes the binary + memory separately),
+// which allows use to avoid TLS (-> faster, better code gen) and simply put all IDs/size symbols in per-execution thread memory
+extern uint3 floor_global_idx;
+extern uint3 floor_global_work_size;
+extern uint3 floor_local_idx;
+extern uint3 floor_local_work_size;
+extern uint3 floor_group_idx;
+extern uint3 floor_group_size;
+extern uint32_t floor_work_dim;
+// we don't need to handle an offset per thread, this is always 0
+static constexpr const uint32_t floor_thread_local_memory_offset { 0u };
+
+#endif // !FLOOR_COMPUTE_HOST_DEVICE
+
+#endif // FLOOR_COMPUTE_HOST
 
 #endif

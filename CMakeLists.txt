@@ -54,8 +54,10 @@ add_compile_options(-Wno-unknown-warning-option)
 add_compile_options(-Wno-c++98-compat -Wno-c++98-compat-pedantic)
 add_compile_options(-Wno-c++11-compat -Wno-c++11-compat-pedantic)
 add_compile_options(-Wno-c++14-compat -Wno-c++14-compat-pedantic)
+add_compile_options(-Wno-c++17-compat -Wno-c++17-compat-pedantic)
 add_compile_options(-Wno-c99-extensions -Wno-c11-extensions)
 add_compile_options(-Wno-gnu -Wno-gcc-compat)
+add_compile_options( -Wno-nullability-extension)
 # don't be too pedantic
 add_compile_options(-Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast)
 add_compile_options(-Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-date-time)
@@ -99,6 +101,8 @@ add_library(${PROJECT_NAME} SHARED
 		audio/audio_source.hpp
 		audio/audio_store.cpp
 		audio/audio_store.hpp
+		compute/argument_buffer.cpp
+		compute/argument_buffer.hpp
 		compute/compute_buffer.cpp
 		compute/compute_buffer.hpp
 		compute/compute_common.hpp
@@ -113,6 +117,7 @@ add_library(${PROJECT_NAME} SHARED
 		compute/compute_kernel_arg.hpp
 		compute/compute_memory.cpp
 		compute/compute_memory.hpp
+		compute/compute_memory_flags.hpp
 		compute/compute_program.cpp
 		compute/compute_program.hpp
 		compute/compute_queue.cpp
@@ -181,6 +186,8 @@ add_library(${PROJECT_NAME} SHARED
 		compute/device/vulkan_image.hpp
 		compute/device/vulkan_post.hpp
 		compute/device/vulkan_pre.hpp
+		compute/host/elf_binary.cpp
+		compute/host/elf_binary.hpp
 		compute/host/host_buffer.cpp
 		compute/host/host_buffer.hpp
 		compute/host/host_common.hpp
@@ -196,6 +203,9 @@ add_library(${PROJECT_NAME} SHARED
 		compute/host/host_program.hpp
 		compute/host/host_queue.cpp
 		compute/host/host_queue.hpp
+		compute/metal/metal_args.hpp
+		compute/metal/metal_argument_buffer.hpp
+		compute/metal/metal_argument_buffer.mm
 		compute/metal/metal_buffer.hpp
 		compute/metal/metal_buffer.mm
 		compute/metal/metal_common.hpp
@@ -276,6 +286,7 @@ add_library(${PROJECT_NAME} SHARED
 		graphics/vulkan/vulkan_pipeline.hpp
 		graphics/vulkan/vulkan_shader.cpp
 		graphics/vulkan/vulkan_shader.hpp
+		core/aligned_ptr.hpp
 		core/core.cpp
 		core/core.hpp
 		core/cpp_ext.hpp

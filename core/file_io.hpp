@@ -51,6 +51,7 @@ public:
 	};
 	
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
+	static pair<unique_ptr<uint8_t[]>, size_t> file_to_buffer(const string& filename);
 	static bool file_to_string(const string& filename, string& str);
 	static string file_to_string(const string& filename);
 	

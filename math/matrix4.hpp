@@ -296,7 +296,7 @@ public:
 	
 	//! returns the inverted form of this matrix
 	constexpr matrix4 inverted() const {
-		matrix4 mat;
+		matrix4 mat {};
 		
 		const scalar_type p00(data[10] * data[15]);
 		const scalar_type p01(data[14] * data[11]);
@@ -534,7 +534,7 @@ public:
 			(fp_type)1 / const_math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};
 		
-		fp_type f_in_y;
+		fp_type f_in_y {};
 		if constexpr (is_right_handed) {
 			f_in_y = -f;
 		} else {
@@ -561,7 +561,7 @@ public:
 			(fp_type)1 / math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};
 		
-		fp_type f_in_y;
+		fp_type f_in_y {};
 		if constexpr (is_right_handed) {
 			f_in_y = -f;
 		} else {
@@ -591,8 +591,8 @@ public:
 		constexpr const fp_type nf_factor_1 = (is_only_positive_z ? scalar_type(0.5) : scalar_type(1));
 		constexpr const fp_type nf_factor_2 = (is_only_positive_z ? scalar_type(1) : scalar_type(2));
 
-		fp_type z_near_numerator;
-		fp_type fov_left, fov_right, fov_top, fov_bottom;
+		fp_type z_near_numerator {};
+		fp_type fov_left {}, fov_right {}, fov_top {}, fov_bottom {};
 		if constexpr (!pre_adjusted_fov) {
 			z_near_numerator = scalar_type(2) * z_near;
 			fov_left = -math::tan(const_math::deg_to_rad(fov_left_));
@@ -673,8 +673,10 @@ struct is_floor_matrix<mat_type, enable_if_t<is_same<decay_t<mat_type>, typename
 #if defined(FLOOR_EXPORT)
 // only instantiate this in the matrix4.cpp
 extern template class matrix4<float>;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 extern template class matrix4<double>;
 extern template class matrix4<long double>;
+#endif
 extern template class matrix4<int32_t>;
 extern template class matrix4<uint32_t>;
 #endif

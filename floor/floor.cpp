@@ -22,6 +22,7 @@
 #include <floor/audio/audio_controller.hpp>
 #include <floor/core/sig_handler.hpp>
 #include <floor/core/json.hpp>
+#include <floor/core/aligned_ptr.hpp>
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
@@ -152,6 +153,26 @@ bool floor::init(const init_state& state) {
 		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
+#endif
+	
+#if defined(_SC_PAGESIZE)
+	if (uint64_t(sysconf(_SC_PAGESIZE)) != aligned_ptr<int>::page_size) {
+		log_error("page size is not 4KiB");
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
+		return false;
+	}
+#elif defined(__WINDOWS__)
+	{
+		SYSTEM_INFO info;
+		GetNativeSystemInfo(&info);
+		if (uint64_t(info.dwPageSize) != aligned_ptr<int>::page_size) {
+			log_error("page size is not 4KiB");
+			floor_init_status = FLOOR_INIT_STATUS::FAILURE;
+			return false;
+		}
+	}
+#else
+#error "can not retrieve page size"
 #endif
 	
 	//
@@ -1155,7 +1176,7 @@ bool floor::init_internal(const init_state& state) {
 #else // x11
 				Display* display = wm_info.info.x11.display;
 				const size2 display_res((size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0));
-				const float2 display_phys_size(DisplayWidthMM(display, 0), DisplayHeightMM(display, 0));
+				const float2 display_phys_size(float(DisplayWidthMM(display, 0)), float(DisplayHeightMM(display, 0)));
 #endif
 				const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
 										 (float(display_res.y) / display_phys_size.y) * 25.4f);

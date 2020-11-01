@@ -315,8 +315,10 @@ typedef quaternion<long double> quaternionl;
 #if defined(FLOOR_EXPORT)
 // only instantiate this in the quaternion.cpp
 extern template class quaternion<float>;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 extern template class quaternion<double>;
 extern template class quaternion<long double>;
+#endif
 #endif
 
 #endif
