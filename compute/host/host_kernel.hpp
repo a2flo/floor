@@ -96,6 +96,11 @@ protected:
 	
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue& cqueue) const;
 	
+	unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
+																const kernel_entry& entry,
+																const llvm_toolchain::arg_info& arg,
+																const uint32_t& arg_index) const override;
+	
 };
 
 //! host-compute device specific barrier

@@ -67,7 +67,7 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 	
 	const auto& arg_info = entry->info->args[arg_index];
 	if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
-		log_error("argument #%u is not an argument buffer");
+		log_error("argument #%u is not an argument buffer", arg_index);
 		return {};
 	}
 	

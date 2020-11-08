@@ -29,10 +29,12 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
 #include <floor/compute/host/elf_binary.hpp>
+#include <floor/compute/host/host_argument_buffer.hpp>
 #include <floor/compute/device/host_limits.hpp>
 #include <floor/compute/device/host_id.hpp>
 
@@ -686,8 +688,8 @@ void host_kernel::execute(const compute_queue& cqueue,
 			log_error("array of images is not supported for Host-Compute");
 			return;
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-			log_error("argument buffer handling is not implemented yet for Host-Compute");
-			return;
+			const auto storage_buffer = (const host_buffer*)(*arg_buf_ptr)->get_storage_buffer();
+			vptr_args.emplace_back(storage_buffer->get_host_buffer_ptr());
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			vptr_args.emplace_back(*generic_arg_ptr);
 		} else {
@@ -1287,6 +1289,41 @@ uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const siz
 	local_memory_alloc_offset += per_thread_alloc_size;
 	
 	return floor_local_memory_data.get();
+}
+
+unique_ptr<argument_buffer> host_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
+																		 const kernel_entry& kern_entry,
+																		 const llvm_toolchain::arg_info& arg floor_unused,
+																		 const uint32_t& arg_index) const {
+	const auto& dev = cqueue.get_device();
+	const auto& host_entry = (const host_kernel_entry&)kern_entry;
+	
+	// check if info exists
+	const auto& arg_info = host_entry.info->args[arg_index].argument_buffer_info;
+	if (!arg_info) {
+		log_error("no argument buffer info for arg at index #%u", arg_index);
+		return {};
+	}
+	
+	// find the buffer index
+	uint32_t buffer_idx = 0;
+	for (uint32_t i = 0, count = uint32_t(host_entry.info->args.size()); i < min(arg_index, count); ++i) {
+		if (host_entry.info->args[i].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
+			// all args except for images are buffers
+			++buffer_idx;
+		}
+	}
+	
+	const auto arg_buffer_size = host_entry.info->args[arg_index].size;
+	if (arg_buffer_size == 0) {
+		log_error("computed argument buffer size is 0");
+		return {};
+	}
+	
+	// create the argument buffer
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
+	return make_unique<host_argument_buffer>(*this, buf, *arg_info);
 }
 
 #endif

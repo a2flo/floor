@@ -621,10 +621,11 @@ namespace universal_binary {
 					
 					// TODO: cleanup binary as in opencl_compute/vulkan_compute + in general for other backends?
 					
-					// for SPIR-V and AIR, the binary data is written as a file -> read it so we have it in memory
+					// for SPIR-V, AIR and Host-Compute, the binary data is written as a file -> read it so we have it in memory
 					if (compile_ret.prog_data.options.target == llvm_toolchain::TARGET::SPIRV_OPENCL ||
 						compile_ret.prog_data.options.target == llvm_toolchain::TARGET::SPIRV_VULKAN ||
-						compile_ret.prog_data.options.target == llvm_toolchain::TARGET::AIR) {
+						compile_ret.prog_data.options.target == llvm_toolchain::TARGET::AIR ||
+						compile_ret.prog_data.options.target == llvm_toolchain::TARGET::HOST_COMPUTE_CPU) {
 						string bin_data;
 						if (!file_io::file_to_string(compile_ret.prog_data.data_or_filename, bin_data)) {
 							compilation_successful = false;
@@ -1190,13 +1191,11 @@ namespace universal_binary {
 						
 						// use highest supported CPU tier
 						if (host_target.cpu_tier > best_host.cpu_tier) {
-							log_warn("using tier %u instead of %u", host_target.cpu_tier, best_host.cpu_tier);
 							best_target_idx = i;
 							continue;
 						}
 					} else {
 						// no best binary yet
-						log_warn("using tier %u", host_target.cpu_tier);
 						best_target_idx = i;
 						continue;
 					}

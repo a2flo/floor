@@ -972,6 +972,11 @@ bool floor::init_internal(const init_state& state) {
 			config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
 			config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
 			log_debug("video mode set: w%u h%u", config.width, config.height);
+			
+#if defined(__APPLE__)
+			// cache window scale factor while we're on the main thread
+			(void)darwin_helper::get_scale_factor(window, true /* force query */);
+#endif
 		}
 		
 #if defined(FLOOR_IOS)
@@ -1757,6 +1762,12 @@ bool floor::event_handler(EVENT_TYPE type, shared_ptr<event_object> obj) {
 		config.width = wnd_evt.size.x;
 		config.height = wnd_evt.size.y;
 		resize_gl_window();
+		
+#if defined(__APPLE__)
+		// cache window scale factor while we're on the main thread
+		(void)darwin_helper::get_scale_factor(window, true /* force query */);
+#endif
+		
 		return true;
 	}
 	else if(type == EVENT_TYPE::KERNEL_RELOAD) {

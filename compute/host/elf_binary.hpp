@@ -96,6 +96,9 @@ protected:
 		uint64_t GOT_entry_count { 1ull };
 		//! current global offset table index
 		uint64_t GOT_index { 1ull };
+		//! (optional) allocated read-only memory for this instance
+		//! NOTE: this is only allocated/set when read-only data must be relocated
+		aligned_ptr<uint8_t> ro_memory;
 		//! allocated r/w / BSS memory for this instance
 		aligned_ptr<uint8_t> rw_memory;
 		//! allocated executable memory for this instance
@@ -115,8 +118,8 @@ protected:
 	//! parses the ELF binary
 	bool parse_elf();
 	
-	//! maps the read-only parts of the binary into memory
-	bool map_ro_memory();
+	//! maps the read-only parts of the binary into memory (if it is the same for all instances)
+	bool map_global_ro_memory();
 	
 	//! instantiates the specified instance, returns true on success
 	bool instantiate(const uint32_t instance_idx);

@@ -171,7 +171,11 @@ namespace compute_algorithm {
 		local_barrier();
 		// reduce in the first work-item only
 		if(lid == 0) {
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 			auto& arr = lmem.as_array();
+#else
+			auto& arr = lmem;
+#endif
 			for(uint32_t i = 1; i < work_group_size; ++i) {
 				arr[0] = op(arr[0], arr[i]);
 			}
@@ -355,7 +359,11 @@ namespace compute_algorithm {
 			}
 			
 			// just forward scan
+#if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 			auto& arr = lmem.as_array();
+#else
+			auto& arr = lmem;
+#endif
 			for(uint32_t i = 1; i < work_group_size; ++i) {
 				arr[i] = op(arr[i - 1], arr[i]);
 			}

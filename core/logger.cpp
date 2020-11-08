@@ -30,7 +30,7 @@
 #include <SDL.h>
 #endif
 
-#if defined(FLOOR_IOS)
+#if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
@@ -239,22 +239,45 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 	}
 	
 	if(type != logger::LOG_TYPE::UNDECORATED) {
-		switch(type) {
-			case LOG_TYPE::ERROR_MSG:
-				buffer << (log_use_color ? "\033[31m" : "") << "[ERR]";
-				break;
-			case LOG_TYPE::WARNING_MSG:
-				buffer << (log_use_color ? "\033[33m" : "") << "[WRN]";
-				break;
-			case LOG_TYPE::DEBUG_MSG:
-				buffer << (log_use_color ? "\033[32m" : "") << "[DBG]";
-				break;
-			case LOG_TYPE::SIMPLE_MSG:
-				buffer << (log_use_color ? "\033[34m" : "") << "[MSG]";
-				break;
-			case LOG_TYPE::UNDECORATED: break;
+#if defined(__APPLE__)
+		if (log_use_color && darwin_helper::is_running_in_debugger()) {
+			switch (type) {
+				case LOG_TYPE::ERROR_MSG:
+					buffer << "[🔴]";
+					break;
+				case LOG_TYPE::WARNING_MSG:
+					buffer << "[🟡]";
+					break;
+				case LOG_TYPE::DEBUG_MSG:
+					buffer << "[🟢]";
+					break;
+				case LOG_TYPE::SIMPLE_MSG:
+					buffer << "[🔵]";
+					break;
+				case LOG_TYPE::UNDECORATED: break;
+			}
+		} else
+#endif
+		{
+			switch (type) {
+				case LOG_TYPE::ERROR_MSG:
+					buffer << (log_use_color ? "\033[31m" : "") << "[ERR]";
+					break;
+				case LOG_TYPE::WARNING_MSG:
+					buffer << (log_use_color ? "\033[33m" : "") << "[WRN]";
+					break;
+				case LOG_TYPE::DEBUG_MSG:
+					buffer << (log_use_color ? "\033[32m" : "") << "[DBG]";
+					break;
+				case LOG_TYPE::SIMPLE_MSG:
+					buffer << (log_use_color ? "\033[34m" : "") << "[MSG]";
+					break;
+				case LOG_TYPE::UNDECORATED: break;
+			}
+			if (log_use_color && type != LOG_TYPE::UNDECORATED) {
+				buffer << "\033[m";
+			}
 		}
-		if(log_use_color && type != LOG_TYPE::UNDECORATED) buffer << "\033[m";
 		
 		if(log_use_time) {
 			buffer << "[";

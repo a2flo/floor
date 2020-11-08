@@ -188,6 +188,8 @@ add_library(${PROJECT_NAME} SHARED
 		compute/device/vulkan_pre.hpp
 		compute/host/elf_binary.cpp
 		compute/host/elf_binary.hpp
+		compute/host/host_argument_buffer.cpp
+		compute/host/host_argument_buffer.hpp
 		compute/host/host_buffer.cpp
 		compute/host/host_buffer.hpp
 		compute/host/host_common.hpp

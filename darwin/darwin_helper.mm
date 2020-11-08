@@ -57,6 +57,7 @@ typedef UIWindow* wnd_type_ptr;
 #endif
 
 static constexpr const uint32_t max_drawables_in_flight { 3 };
+static atomic<bool> window_did_resize { true };
 
 // metal renderer NSView/UIView implementation
 @interface metal_view : UI_VIEW_CLASS <NSCoding> {
@@ -389,6 +390,9 @@ FLOOR_POP_WARNINGS()
 		frame.size.height *= self.metal_layer.contentsScale;
 		self.metal_layer.drawableSize = frame.size;
 	}
+	
+	// will force query of scaling factor in get_scale_factor()
+	window_did_resize = true;
 }
 @end
 
@@ -560,15 +564,25 @@ uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 #endif
 }
 
-float darwin_helper::get_scale_factor(SDL_Window* wnd) {
+float darwin_helper::get_scale_factor(SDL_Window* wnd, const bool force_query) {
 	SDL_SysWMinfo wm_info;
 	SDL_VERSION(&wm_info.version);
-	if(SDL_GetWindowWMInfo(wnd, &wm_info) == 1) {
+	if (SDL_GetWindowWMInfo(wnd, &wm_info) == 1) {
+		// NOTE: this is cached and first called on a main thread -> this prevents "calling from background thread" errors
+		static atomic<float> scale_factor;
+		static atomic<bool> is_set { false };
+		if (!is_set || force_query || window_did_resize) {
+			scale_factor = (
 #if !defined(FLOOR_IOS)
-		return (float)[wm_info.info.cocoa.window backingScaleFactor];
+				(float)[wm_info.info.cocoa.window backingScaleFactor]
 #else
-		return (float)[[wm_info.info.uikit.window screen] scale];
+				(float)[[wm_info.info.uikit.window screen] scale]
 #endif
+			);
+			is_set = true;
+			window_did_resize = false;
+		}
+		return scale_factor;
 	}
 	return 1.0f;
 }
@@ -703,6 +717,23 @@ string darwin_helper::get_pref_path() {
 		}
 	}
 	return ret;
+}
+
+bool darwin_helper::is_running_in_debugger() {
+#if !defined(FLOOR_DEBUG)
+	return false;
+#else
+	static const auto in_debugger = []() {
+		kinfo_proc info { .kp_proc.p_flag = 0 };
+		int mib[] { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+		auto info_size = sizeof(info);
+		if (sysctl(mib, size(mib), &info, &info_size, nullptr, 0) != 0) {
+			return false;
+		}
+		return ((info.kp_proc.p_flag & P_TRACED) != 0);
+	}();
+	return in_debugger;
+#endif
 }
 
 #if defined(FLOOR_IOS)

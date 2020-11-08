@@ -49,7 +49,7 @@ class darwin_helper {
 public:
 	// OS X and iOS
 	static uint32_t get_dpi(SDL_Window* wnd);
-	static float get_scale_factor(SDL_Window* wnd);
+	static float get_scale_factor(SDL_Window* wnd, const bool force_query = false);
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();
 	static string get_computer_name();
@@ -57,6 +57,7 @@ public:
 	static int64_t get_memory_size();
 	static string get_bundle_identifier();
 	static string get_pref_path();
+	static bool is_running_in_debugger();
 
 #if !defined(FLOOR_IOS)
 	// OS X specific

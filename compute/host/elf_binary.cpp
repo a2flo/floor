@@ -485,11 +485,15 @@ struct elf_binary::elf_info_t {
 	vector<const elf64_section_header_entry_t*> section_header_entries;
 	vector<section_t> sections;
 	vector<symbol_t> symbols;
-	vector<relocation_t> relocations;
+	vector<relocation_t> exec_relocations;
+	vector<relocation_t> rodata_relocations;
+	//! NOTE: this is only allocated/set when read-only data must _not_ be relocated (is global for all instances)
 	aligned_ptr<uint8_t> ro_memory;
+	bool relocate_rodata { false };
 	vector<string> function_names;
 	bool parsed_successfully { false };
-	//! section -> mapped address/pointer
+	//! rodata section -> mapped address/pointer
+	//! NOTE: this only exists when read-only data is global (is not relocated)
 	unordered_map<const section_t*, const uint8_t*> ro_section_map;
 	
 	//! contains all "internal" execution instances for this binary
@@ -568,7 +572,7 @@ void elf_binary::init_elf() {
 	}
 	
 	// map global r/o memory
-	if (!map_ro_memory()) {
+	if (!map_global_ro_memory()) {
 		return;
 	}
 	
@@ -608,7 +612,10 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align)
 
 bool elf_binary::parse_elf() {
-	try {
+#if !defined(FLOOR_NO_EXCEPTIONS)
+	try
+#endif
+	{
 		if (binary_size < sizeof(elf64_header_t)) {
 			log_error("invalid binary size");
 			return false;
@@ -804,6 +811,20 @@ bool elf_binary::parse_elf() {
 					log_error("relocation addend table is out-of-bounds");
 					return false;
 				}
+				
+				// we only support relocations in the .text/exec and .rodata/read-only section
+				vector<relocation_t>* relocations = nullptr;
+				if (section.name == ".rela.text") {
+					relocations = &info->exec_relocations;
+				} else if (section.name == ".rela.rodata") {
+					relocations = &info->rodata_relocations;
+					// signal that we need to relocate read-only data (-> need rodata per instance)
+					info->relocate_rodata = true;
+				} else {
+					log_error("relocations section %s is not supported", section.name);
+					return false;
+				}
+				
 				const auto relocs_start = (const elf64_relocation_addend_entry_t*)&binary[section.header_ptr->offset];
 				for (uint64_t rel_idx = 0, rel_count = section.header_ptr->size / sizeof(elf64_relocation_addend_entry_t); rel_idx < rel_count; ++rel_idx) {
 					relocation_t reloc {
@@ -816,7 +837,7 @@ bool elf_binary::parse_elf() {
 					}
 					reloc.symbol_ptr = &info->symbols[reloc.reloc_ptr->symbol_index];
 					
-					info->relocations.emplace_back(move(reloc));
+					relocations->emplace_back(move(reloc));
 				}
 			} else if (section.header_ptr->type == ELF_SECTION_TYPE::RELOCATION_ENTRIES) {
 				log_error("relocations without addend are not supported by the ABI");
@@ -925,19 +946,25 @@ bool elf_binary::parse_elf() {
 		}
 		
 		info->parsed_successfully = true;
-	} catch (exception& exc) {
+	}
+#if !defined(FLOOR_NO_EXCEPTIONS)
+	catch (exception& exc) {
 		log_error("error during ELF parsing: %s", exc.what());
 		return false;
 	}
+#endif
 	
 	return true;
 }
 
-bool elf_binary::map_ro_memory() {
+static bool map_ro_memory(aligned_ptr<uint8_t>& ro_memory,
+						  const vector<section_t>& sections,
+						  const uint8_t* binary,
+						  unordered_map<const section_t*, const uint8_t*>& section_map) {
 	// find all read-only sections that need to be allocated:
 	// section -> offset
 	vector<pair<const section_t*, uint64_t>> ro_sections;
-	for (const auto& section : info->sections) {
+	for (const auto& section : sections) {
 		if (!has_flag<ELF_SECTION_FLAG::ALLOCATE>(section.header_ptr->flags)) {
 			continue;
 		}
@@ -945,7 +972,12 @@ bool elf_binary::map_ro_memory() {
 		const auto is_writable = has_flag<ELF_SECTION_FLAG::WRITE>(section.header_ptr->flags);
 		const auto is_exec = has_flag<ELF_SECTION_FLAG::EXECUTABLE>(section.header_ptr->flags);
 		if (!is_writable && !is_exec) {
-			ro_sections.emplace_back(pair { &section, 0u });
+			if (section.name == ".rodata") {
+				// always place .rodata section at the front, since we might need to perform relocations on it
+				ro_sections.insert(ro_sections.begin(), pair { &section, 0u });
+			} else {
+				ro_sections.emplace_back(pair { &section, 0u });
+			}
 		}
 	}
 	
@@ -961,18 +993,33 @@ bool elf_binary::map_ro_memory() {
 		ro_size += sec.size;
 	}
 	
-	info->ro_memory = make_aligned_ptr<uint8_t>(ro_size);
-	memset(info->ro_memory.get(), 0, info->ro_memory.allocation_size());
+	ro_memory = make_aligned_ptr<uint8_t>(ro_size);
+	memset(ro_memory.get(), 0, ro_memory.allocation_size());
 	for (auto& section : ro_sections) {
 		const auto& sec = *section.first->header_ptr;
 		const auto& offset = section.second;
-		memcpy(info->ro_memory.get() + offset, &binary[sec.offset], sec.size);
-		info->ro_section_map.emplace(section.first, info->ro_memory.get() + offset);
+		memcpy(ro_memory.get() + offset, &binary[sec.offset], sec.size);
+		section_map.emplace(section.first, ro_memory.get() + offset);
 	}
-	if (!info->ro_memory.pin()) {
+	if (!ro_memory.pin()) {
 		log_error("failed to pin read-only memory: %s", strerror(errno));
 		return false;
 	}
+	
+	return true;
+}
+
+bool elf_binary::map_global_ro_memory() {
+	if (info->relocate_rodata) {
+		// nothing to do here
+		return true;
+	}
+	
+	if (!map_ro_memory(info->ro_memory, info->sections, binary.get(), info->ro_section_map)) {
+		return false;
+	}
+	
+	// no longer need to modify memory -> can set to read-only now
 	if (!info->ro_memory.set_protection(decltype(info->ro_memory)::PAGE_PROTECTION::READ_ONLY)) {
 		log_error("failed to set read-only memory protection");
 		return false;
@@ -1026,6 +1073,21 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 #endif
 	
 #if !defined(__WINDOWS__)
+	// allocate/map read-only memory (if necessary)
+	if (info->relocate_rodata) {
+		if (!map_ro_memory(instance.ro_memory, info->sections, binary.get(), instance.section_map)) {
+			log_error("failed to map read-only memory for instance");
+			return false;
+		}
+	}
+	// else: use the global read-only memory / section
+	else {
+		// add pre-existing global read-only sections
+		for (const auto& ro_section : info->ro_section_map) {
+			instance.section_map.emplace(ro_section.first, ro_section.second);
+		}
+	}
+	
 	// find all read-write and exec sections that need to be allocated:
 	// section -> offset
 	vector<pair<const section_t*, uint64_t>> rw_sections;
@@ -1052,11 +1114,6 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	if (rw_sections.size() > 1) {
 		log_error("must have zero or one BSS / read-write section");
 		return false;
-	}
-	
-	// add pre-existing global read-only sections
-	for (const auto& ro_section : info->ro_section_map) {
-		instance.section_map.emplace(ro_section.first, ro_section.second);
 	}
 	
 	// allocate read-write/BSS section
@@ -1197,7 +1254,17 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	
 	// figure out how many GOT entries we need
 	uint64_t got_entry_count = 0;
-	for (const auto& relocation : info->relocations) {
+	for (const auto& relocation : info->exec_relocations) {
+#if !defined(FLOOR_IOS)
+		if (relocation.reloc_ptr->type_x86_64 == ELF_RELOCATION_TYPE_X86_64::GOT64) {
+			++got_entry_count;
+		}
+#else
+		// TODO: implement this
+		break;
+#endif
+	}
+	for (const auto& relocation : info->rodata_relocations) {
 #if !defined(FLOOR_IOS)
 		if (relocation.reloc_ptr->type_x86_64 == ELF_RELOCATION_TYPE_X86_64::GOT64) {
 			++got_entry_count;
@@ -1209,77 +1276,108 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	}
 	instance.init_GOT(got_entry_count);
 	
-	for (const auto& relocation : info->relocations) {
-		const auto& reloc = *relocation.reloc_ptr;
+	// perform relocations in exec memory and optionally rodata memory
+	const auto perform_relocations = [&instance, &resolve](const vector<relocation_t>& relocations, aligned_ptr<uint8_t>& memory) {
+		for (const auto& relocation : relocations) {
+			const auto& reloc = *relocation.reloc_ptr;
 #if !defined(FLOOR_IOS)
-		switch (reloc.type_x86_64) {
-			case ELF_RELOCATION_TYPE_X86_64::GOT64: /* G (GOT offset) + Addend */ {
-				if (reloc.addend != 0) {
-					// TODO: handle/implement this
-					log_error("addend not handled yet for GOT64");
-					return false;
+			switch (reloc.type_x86_64) {
+				case ELF_RELOCATION_TYPE_X86_64::GOT64: /* G (GOT offset) + Addend */ {
+					if (reloc.addend != 0) {
+						// TODO: handle/implement this
+						log_error("addend not handled yet for GOT64");
+						return false;
+					}
+					
+					const auto GOT_offset = instance.allocate_GOT_entries(1);
+					const void* resolved_ptr = resolve(relocation);
+					if (resolved_ptr == nullptr) {
+						log_error("failed to resolve symbol");
+						return false;
+					}
+					
+					// update GOT entry
+					instance.GOT[GOT_offset] = (uint64_t)resolved_ptr;
+					const auto value = int64_t(GOT_offset * sizeof(uint64_t)) + reloc.addend;
+					
+					// relocate in code
+					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						return false;
+					}
+					memcpy(memory.get() + reloc.offset, &value, sizeof(value));
+					break;
 				}
-				
-				const auto GOT_offset = instance.allocate_GOT_entries(1);
-				const void* resolved_ptr = resolve(relocation);
-				if (resolved_ptr == nullptr) {
-					log_error("failed to resolve symbol");
-					return false;
+				case ELF_RELOCATION_TYPE_X86_64::GOTPC64: /* GOT - P (place/offset) + Addend */ {
+					// NOTE: specified symbol is ignored for this
+					const auto GOT_start_ptr = (int64_t)&instance.GOT[0];
+					const auto place = int64_t(memory.get() + reloc.offset);
+					const auto ptr_value = (GOT_start_ptr + reloc.addend) - place;
+					
+					// relocate in code
+					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						return false;
+					}
+					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
+					break;
 				}
-				
-				// update GOT entry
-				instance.GOT[GOT_offset] = (uint64_t)resolved_ptr;
-				const auto value = int64_t(GOT_offset * sizeof(uint64_t)) + reloc.addend;
-				
-				// relocate in code
-				if (reloc.offset + sizeof(uint64_t) > instance.exec_memory.allocation_size()) {
-					log_error("relocation offset is out-of-bounds: %u", reloc.offset);
-					return false;
+				case ELF_RELOCATION_TYPE_X86_64::GOTOFF64: /* L (PLT place) - GOT + Addend */ {
+					const auto resolved_ptr = (const uint8_t*)resolve(relocation);
+					if (resolved_ptr == nullptr) {
+						log_error("failed to resolve symbol");
+						return false;
+					}
+					
+					const auto GOT_start_ptr = (const uint8_t*)&instance.GOT[0];
+					const auto ptr_value = uint64_t(resolved_ptr - GOT_start_ptr + reloc.addend);
+					
+					// relocate in code
+					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						return false;
+					}
+					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
+					break;
 				}
-				memcpy(instance.exec_memory.get() + reloc.offset, &value, sizeof(uint64_t));
-				break;
+				case ELF_RELOCATION_TYPE_X86_64::PC32: /* Symbol + Addend - P (place/offset) */ {
+					const auto resolved_ptr = (const uint8_t*)resolve(relocation);
+					if (resolved_ptr == nullptr) {
+						log_error("failed to resolve symbol");
+						return false;
+					}
+					
+					const auto place = int64_t(memory.get() + reloc.offset);
+					const auto offset_value = int32_t(int64_t(resolved_ptr) + reloc.addend - place);
+					
+					// relocate in code
+					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						return false;
+					}
+					memcpy(memory.get() + reloc.offset, &offset_value, sizeof(offset_value));
+					break;
+				}
+				default:
+					log_error("unhandled relocation type: %u", reloc.type_x86_64);
+					return false;
 			}
-			case ELF_RELOCATION_TYPE_X86_64::GOTPC64: /* GOT - P (place/offset) + Addend */ {
-				// NOTE: specified symbol is ignored for this
-				const auto GOT_start_ptr = (int64_t)&instance.GOT[0];
-				const auto place = int64_t(instance.exec_memory.get() + reloc.offset);
-				const auto ptr_value = (GOT_start_ptr + reloc.addend) - place;
-				
-				// relocate in code
-				if (reloc.offset + sizeof(uint64_t) > instance.exec_memory.allocation_size()) {
-					log_error("relocation offset is out-of-bounds: %u", reloc.offset);
-					return false;
-				}
-				memcpy(instance.exec_memory.get() + reloc.offset, &ptr_value, sizeof(uint64_t));
-				break;
-			}
-			case ELF_RELOCATION_TYPE_X86_64::GOTOFF64: /* L (PLT place) - GOT + Addend */ {
-				const auto resolved_ptr = (const uint8_t*)resolve(relocation);
-				if (resolved_ptr == nullptr) {
-					log_error("failed to resolve symbol");
-					return false;
-				}
-				
-				const auto GOT_start_ptr = (const uint8_t*)&instance.GOT[0];
-				const auto ptr_value = uint64_t(resolved_ptr - GOT_start_ptr + reloc.addend);
-				
-				// relocate in code
-				if (reloc.offset + sizeof(uint64_t) > instance.exec_memory.allocation_size()) {
-					log_error("relocation offset is out-of-bounds: %u", reloc.offset);
-					return false;
-				}
-				memcpy(instance.exec_memory.get() + reloc.offset, &ptr_value, sizeof(uint64_t));
-				break;
-			}
-			default:
-				log_error("unhandled relocation type: %u", reloc.type_x86_64);
-				return false;
-		}
 #else
-		log_error("ARM relocation not implemented yet");
-		return false;
+			log_error("ARM relocation not implemented yet");
+			return false;
 #endif
+		}
+		return true;
+	};
+	if (!perform_relocations(info->exec_relocations, instance.exec_memory)) {
+		return false;
 	}
+	if (info->relocate_rodata) {
+		if (!perform_relocations(info->rodata_relocations, instance.ro_memory)) {
+			return false;
+		}
+	}
+	
 #else // TODO: Windows
 	(void)ext_instance;
 	log_error("not implemented yet");
@@ -1287,7 +1385,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 #endif
 
 #if !defined(__WINDOWS__) // TODO: remove this once Windows is supported, right now this is unreachable
-	// can now set the protection on the read-exec section
+	// can now set the protection on the read-exec and read-only sections
 	{
 		if (!instance.exec_memory.set_protection(decltype(instance.exec_memory)::PAGE_PROTECTION::READ_EXEC)) {
 			log_error("failed to set exec memory protection");
@@ -1302,6 +1400,13 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 			return false;
 		}
 #endif
+		
+		if (info->relocate_rodata) {
+			if (!instance.ro_memory.set_protection(decltype(instance.ro_memory)::PAGE_PROTECTION::READ_ONLY)) {
+				log_error("failed to set read-only memory protection");
+				return false;
+			}
+		}
 	}
 	
 	return true;
