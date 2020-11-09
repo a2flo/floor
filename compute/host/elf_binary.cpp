@@ -957,33 +957,37 @@ bool elf_binary::parse_elf() {
 	return true;
 }
 
-static bool map_ro_memory(aligned_ptr<uint8_t>& ro_memory,
-						  const vector<section_t>& sections,
-						  const uint8_t* binary,
-						  unordered_map<const section_t*, const uint8_t*>& section_map) {
-	// find all read-only sections that need to be allocated:
+//! maps the specified parts of the binary into memory (applicable for both read-only and read-write/BSS memory)
+template <ELF_SECTION_FLAG required_flags, ELF_SECTION_FLAG prohibited_flags>
+static bool map_memory(aligned_ptr<uint8_t>& mem,
+					   const vector<section_t>& sections,
+					   const uint8_t* binary,
+					   unordered_map<const section_t*, const uint8_t*>& section_map,
+					   const string& primary_section_name) {
+	// find all matching sections that need to be allocated:
 	// section -> offset
-	vector<pair<const section_t*, uint64_t>> ro_sections;
+	vector<pair<const section_t*, uint64_t>> alloc_sections;
 	for (const auto& section : sections) {
 		if (!has_flag<ELF_SECTION_FLAG::ALLOCATE>(section.header_ptr->flags)) {
 			continue;
 		}
 		
-		const auto is_writable = has_flag<ELF_SECTION_FLAG::WRITE>(section.header_ptr->flags);
-		const auto is_exec = has_flag<ELF_SECTION_FLAG::EXECUTABLE>(section.header_ptr->flags);
-		if (!is_writable && !is_exec) {
-			if (section.name == ".rodata") {
-				// always place .rodata section at the front, since we might need to perform relocations on it
-				ro_sections.insert(ro_sections.begin(), pair { &section, 0u });
+		const auto has_required_flags = (required_flags != ELF_SECTION_FLAG::NONE ?
+										 ((section.header_ptr->flags & required_flags) != ELF_SECTION_FLAG::NONE) : true);
+		const auto has_prohibited_flags = ((section.header_ptr->flags & prohibited_flags) != ELF_SECTION_FLAG::NONE);
+		if (has_required_flags && !has_prohibited_flags) {
+			if (section.name == primary_section_name) {
+				// always place primary section at the front, since we might need to perform relocations on it
+				alloc_sections.insert(alloc_sections.begin(), pair { &section, 0u });
 			} else {
-				ro_sections.emplace_back(pair { &section, 0u });
+				alloc_sections.emplace_back(pair { &section, 0u });
 			}
 		}
 	}
 	
-	// allocate all read-only sections
+	// allocate all sections
 	uint64_t ro_size = 0;
-	for (auto& section : ro_sections) {
+	for (auto& section : alloc_sections) {
 		const auto& sec = *section.first->header_ptr;
 		if (ro_size % sec.alignment != 0u) {
 			// alignment padding
@@ -993,16 +997,16 @@ static bool map_ro_memory(aligned_ptr<uint8_t>& ro_memory,
 		ro_size += sec.size;
 	}
 	
-	ro_memory = make_aligned_ptr<uint8_t>(ro_size);
-	memset(ro_memory.get(), 0, ro_memory.allocation_size());
-	for (auto& section : ro_sections) {
+	mem = make_aligned_ptr<uint8_t>(ro_size);
+	memset(mem.get(), 0, mem.allocation_size());
+	for (auto& section : alloc_sections) {
 		const auto& sec = *section.first->header_ptr;
 		const auto& offset = section.second;
-		memcpy(ro_memory.get() + offset, &binary[sec.offset], sec.size);
-		section_map.emplace(section.first, ro_memory.get() + offset);
+		memcpy(mem.get() + offset, &binary[sec.offset], sec.size);
+		section_map.emplace(section.first, mem.get() + offset);
 	}
-	if (!ro_memory.pin()) {
-		log_error("failed to pin read-only memory: %s", strerror(errno));
+	if (!mem.pin()) {
+		log_error("failed to pin memory: %s", strerror(errno));
 		return false;
 	}
 	
@@ -1015,7 +1019,10 @@ bool elf_binary::map_global_ro_memory() {
 		return true;
 	}
 	
-	if (!map_ro_memory(info->ro_memory, info->sections, binary.get(), info->ro_section_map)) {
+	if (!map_memory<ELF_SECTION_FLAG::NONE /* no req */, (ELF_SECTION_FLAG::WRITE |
+														  ELF_SECTION_FLAG::EXECUTABLE) /* must not be w/e */>(info->ro_memory, info->sections,
+																											   binary.get(), info->ro_section_map,
+																											   ".rodata")) {
 		return false;
 	}
 	
@@ -1075,7 +1082,10 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 #if !defined(__WINDOWS__)
 	// allocate/map read-only memory (if necessary)
 	if (info->relocate_rodata) {
-		if (!map_ro_memory(instance.ro_memory, info->sections, binary.get(), instance.section_map)) {
+		if (!map_memory<ELF_SECTION_FLAG::NONE /* no req */, (ELF_SECTION_FLAG::WRITE |
+															  ELF_SECTION_FLAG::EXECUTABLE) /* must not be w/e */>(instance.ro_memory, info->sections,
+																												   binary.get(), instance.section_map,
+																												   ".rodata")) {
 			log_error("failed to map read-only memory for instance");
 			return false;
 		}
@@ -1111,25 +1121,18 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 		log_error("must have exactly one exec section");
 		return false;
 	}
-	if (rw_sections.size() > 1) {
-		log_error("must have zero or one BSS / read-write section");
-		return false;
-	}
 	
-	// allocate read-write/BSS section
+	// allocate read-write/BSS section(s)
 	if (!rw_sections.empty()) {
-		const auto& sec = *rw_sections.front().first->header_ptr;
-		instance.rw_memory = make_aligned_ptr<uint8_t>(sec.size);
-		memset(instance.rw_memory.get(), 0, instance.rw_memory.allocation_size());
-		if (!instance.rw_memory.pin()) {
-			log_error("failed to pin read-write/BSS memory: %s", strerror(errno));
+		if (!map_memory<ELF_SECTION_FLAG::WRITE, ELF_SECTION_FLAG::EXECUTABLE>(instance.rw_memory, info->sections, binary.get(),
+																			   instance.section_map, ".bss")) {
+			log_error("failed to map read-write memory for instance");
 			return false;
 		}
 		if (!instance.rw_memory.set_protection(decltype(instance.rw_memory)::PAGE_PROTECTION::READ_WRITE)) {
 			log_error("failed to set read-write/BSS memory protection");
 			return false;
 		}
-		instance.section_map.emplace(rw_sections.front().first, instance.rw_memory.get());
 		
 		ext_instance.rw_memory = instance.rw_memory.get();
 		ext_instance.rw_memory_size = instance.rw_memory.allocation_size();
@@ -1234,10 +1237,12 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 					// -> external
 					resolved_ptr = resolve_symbol(sym);
 				} else {
-					if (sym.symbol_ptr->type == ELF_SYMBOL_TYPE::SECTION || sym.symbol_ptr->type == ELF_SYMBOL_TYPE::CODE) {
+					if (sym.symbol_ptr->type == ELF_SYMBOL_TYPE::SECTION ||
+						sym.symbol_ptr->type == ELF_SYMBOL_TYPE::CODE ||
+						sym.symbol_ptr->type == ELF_SYMBOL_TYPE::DATA) {
 						resolved_ptr = resolve_section(sym);
 					} else {
-						log_error("non-external symbol for relocation: %s", sym.name);
+						log_error("non-external symbol for relocation: %s (type: %u)", sym.name, (uint32_t)sym.symbol_ptr->type);
 						return nullptr;
 					}
 				}
