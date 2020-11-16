@@ -56,9 +56,9 @@
 *Build Instructions (Xcode / macOS / iOS):*
 * open floor.xcodeproj and build
 * some notes:
-** all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
+** almost all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
 ** "homebrew":http://brew.sh is the recommended way to install additional dependencies: ==ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"==
-** download "OpenVR":https://github.com/ValveSoftware/openvr/releases and manually install it:
+** (opt) download "OpenVR":https://github.com/ValveSoftware/openvr/releases and manually install it:
 *** mkdir -p {/usr/local/include/openvr,/usr/local/lib}
 *** cp openvr/headers/* /usr/local/include/openvr/
 *** cp openvr/bin/osx32/libopenvr_api.dylib /usr/local/lib/

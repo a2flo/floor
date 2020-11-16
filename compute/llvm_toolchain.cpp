@@ -320,8 +320,7 @@ program_data compile_input(const string& input,
 						os_target = "macosx10.15.0";
 						break;
 					case METAL_VERSION::METAL_2_3:
-						// TODO: might become macos11.0 in the future (Apples compiler still emits this however)
-						os_target = "macosx10.16.0";
+						os_target = "macosx11.0.0";
 						break;
 				}
 			} else {

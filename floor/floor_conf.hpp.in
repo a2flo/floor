@@ -84,8 +84,8 @@
 #define ASIO_DISABLE_BUFFER_DEBUGGING 1
 #endif
 
-// no VR support on iOS
-#if defined(FLOOR_IOS) && !defined(FLOOR_NO_VR)
+// no VR support on iOS/macOS
+#if defined(__APPLE__) && !defined(FLOOR_NO_VR)
 #define FLOOR_NO_VR 1
 #endif
 

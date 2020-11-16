@@ -2027,14 +2027,11 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
-					"-isystem",
-					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
-					"-lopenvr_api",
 				);
 				VALID_ARCHS = x86_64;
 			};
@@ -2067,14 +2064,11 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
-					"-isystem",
-					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
-					"-lopenvr_api",
 				);
 				VALID_ARCHS = x86_64;
 			};
@@ -2256,14 +2250,11 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
-					"-isystem",
-					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
-					"-lopenvr_api",
 				);
 				VALID_ARCHS = x86_64;
 			};
@@ -2503,14 +2494,11 @@
 					/usr/local/opt/openssl/include,
 					"-iframework",
 					/Library/Frameworks,
-					"-isystem",
-					/usr/local/include/openvr,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
-					"-lopenvr_api",
 				);
 				VALID_ARCHS = x86_64;
 			};

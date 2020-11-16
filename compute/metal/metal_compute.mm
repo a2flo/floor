@@ -812,12 +812,12 @@ shared_ptr<compute_image> metal_compute::get_metal_next_vr_drawable() const NO_T
 	return vr_images[vr_image_index].image;
 }
 
+#if !defined(FLOOR_NO_VR)
 void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue floor_unused_on_ios,
 											  const compute_image& img floor_unused_on_ios) const NO_THREAD_SAFETY_ANALYSIS {
 	if (!vr_ctx) {
 		return;
 	}
-#if !defined(FLOOR_NO_VR)
 	vr_ctx->present(cqueue, img);
 	vr_ctx->update();
 	
@@ -828,8 +828,12 @@ void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue floor_
 			break;
 		}
 	}
-#endif
 }
+#else
+void metal_compute::present_metal_vr_drawable(const compute_queue&, const compute_image&) const {
+	// nop
+}
+#endif
 
 unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
 	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices, vr_ctx != nullptr);

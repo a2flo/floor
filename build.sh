@@ -147,10 +147,10 @@ for arg in "$@"; do
 			echo "	no-opencl          disables opencl support"
 			echo "	no-cuda            disables cuda support"
 			echo "	no-host-compute    disables host compute support"
-			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
+			echo "	no-metal           disables metal support (default for non-iOS and non-macOS targets)"
 			echo "	no-vulkan          disables vulkan support"
 			echo "	no-openal          disables openal support"
-			echo "	no-vr              disables VR support"
+			echo "	no-vr              disables VR support (default for macOS and iOS targets)"
 			echo "	no-net             disables network support"
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
@@ -375,9 +375,14 @@ else
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}.so
 fi
 
-# disable metal support on non-iOS/-OS X targets
+# disable metal support on non-iOS/macOS targets
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	BUILD_CONF_METAL=0
+fi
+
+# disable VR support on macOS/iOS targets
+if [ $BUILD_OS == "osx" -o $BUILD_OS != "ios" ]; then
+	BUILD_CONF_VR=0
 fi
 
 # try using lld if it is available, otherwise fall back to using clangs default
