@@ -3710,10 +3710,10 @@ index 6df2f9a379a..313b7154f52 100644
  // ConstantPropagation - A worklist driven constant propagation pass
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 00000000000..5cb83adf437
+index 00000000000..d9208761d1f
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,426 @@
+@@ -0,0 +1,427 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4125,6 +4125,7 @@ index 00000000000..5cb83adf437
 +		bool was_modified { false };
 +		bool is_fragment_shader { false };
 +		bool is_metal_2 { false };
++		bool is_metal_2_3 { false };
 +		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
 +		
 +		llvm::AttributeList nounwind_readnone_attr;
@@ -4433,10 +4434,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..9e02dd0a6a8
+index 00000000000..743c408bb5d
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,612 @@
+@@ -0,0 +1,695 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4487,7 +4488,7 @@ index 00000000000..9e02dd0a6a8
 +    return false;
 +  }
 +};
-+}
++} // namespace
 +
 +char WriteMetalLibPass::ID = 0;
 +
@@ -4509,7 +4510,8 @@ index 00000000000..9e02dd0a6a8
 +  uint32_t unknown_version_rev : 4;   // lo
 +  uint32_t unknown_version_minor : 4; // hi
 +
-+  // unknown: always 2 (macOS < 10.15), 3 (iOS and macOS 10.15), 5 (macOS 10.16+/11.0)
++  // unknown: always 2 (macOS < 10.15), 3 (iOS and macOS 10.15),
++  // 5 (macOS 10.16+/11.0)
 +  uint32_t unkown_version;
 +
 +  // unknown: always 0
@@ -4537,9 +4539,9 @@ index 00000000000..9e02dd0a6a8
 +  const uint64_t file_length;
 +  const metallib_header_control header_control;
 +};
-+static_assert(sizeof(metallib_header) ==
-+                  4 + sizeof(metallib_version) + sizeof(uint64_t) +
-+                      sizeof(metallib_header_control),
++static_assert(sizeof(metallib_header) == 4 + sizeof(metallib_version) +
++                                             sizeof(uint64_t) +
++                                             sizeof(metallib_header_control),
 +              "invalid metallib header size");
 +
 +struct metallib_program_info {
@@ -4730,7 +4732,7 @@ index 00000000000..9e02dd0a6a8
 +        return true;
 +      }
 +    } else if (const auto const_expr = dyn_cast<ConstantExpr>(user)) {
-+      for (const auto& ce_user : const_expr->users()) {
++      for (const auto &ce_user : const_expr->users()) {
 +        if (const auto ce_instr = dyn_cast<Instruction>(ce_user)) {
 +          if (ce_instr->getParent()->getParent() == F) {
 +            return true;
@@ -4746,12 +4748,9 @@ index 00000000000..9e02dd0a6a8
 +static const unordered_map<uint32_t,
 +                           pair<array<uint32_t, 3>, array<uint32_t, 3>>>
 +    metal_versions{
-+        {110, {{{1, 8, 0}}, {{1, 1, 0}}}},
-+        {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
-+        {200, {{{2, 0, 0}}, {{2, 0, 0}}}},
-+        {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
-+        {220, {{{2, 2, 0}}, {{2, 2, 0}}}},
-+        {230, {{{2, 3, 0}}, {{2, 3, 0}}}},
++        {110, {{{1, 8, 0}}, {{1, 1, 0}}}}, {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
++        {200, {{{2, 0, 0}}, {{2, 0, 0}}}}, {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
++        {220, {{{2, 2, 0}}, {{2, 2, 0}}}}, {230, {{{2, 3, 0}}, {{2, 3, 0}}}},
 +    };
 +
 +//
@@ -4777,7 +4776,7 @@ index 00000000000..9e02dd0a6a8
 +    }
 +
 +    if (target_air_version >= 200) {
-+      M.setSDKVersion(VersionTuple {ios_major,ios_minor});
++      M.setSDKVersion(VersionTuple{ios_major, ios_minor});
 +    }
 +  } else {
 +    uint32_t osx_major, osx_minor, osx_micro;
@@ -4792,12 +4791,13 @@ index 00000000000..9e02dd0a6a8
 +      target_air_version = 210;
 +    } else if (osx_major == 10 && osx_minor == 15) {
 +      target_air_version = 220;
-+    } else if ((osx_major == 11 && osx_minor >= 0) || (osx_major == 10 && osx_minor >= 16) || osx_major > 11) {
++    } else if ((osx_major == 11 && osx_minor >= 0) ||
++               (osx_major == 10 && osx_minor >= 16) || osx_major > 11) {
 +      target_air_version = 230;
 +    }
 +
 +    if (target_air_version >= 200) {
-+      M.setSDKVersion(VersionTuple {osx_major,osx_minor});
++      M.setSDKVersion(VersionTuple{osx_major, osx_minor});
 +    }
 +  }
 +  const auto &metal_version = *metal_versions.find(target_air_version);
@@ -4838,7 +4838,7 @@ index 00000000000..9e02dd0a6a8
 +  // -> second pass to actually gather all functions
 +  // NOTE: we do it this way so that we maintain the order of functions
 +  vector<pair<const Function *, metallib_program_info::PROGRAM_TYPE>> functions;
-+  for (const auto& func : M.functions()) {
++  for (const auto &func : M.functions()) {
 +    if (!func.hasName()) {
 +      continue;
 +    }
@@ -4889,21 +4889,29 @@ index 00000000000..9e02dd0a6a8
 +      return false;
 +    });
 +
++    // update data layout
++    if (target_air_version >= 230) {
++      cloned_mod->setDataLayout(
++          "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
++          "f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:"
++          "128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:"
++          "1024-n8:16:32");
++    }
++
 +    // remove all unused functions and global vars, since CloneModule only sets
 +    // unused vars to external linkage and unused funcs are declarations only
-+    // NOTE: we won't remove entry points here, b/c metadata still references it and
-+    //       the Metal backends actively need to remove them
++    // NOTE: this also removes entry points that are now unused (metadata is
++    // removed later)
 +    for (auto I = cloned_mod->begin(), E = cloned_mod->end(); I != E;) {
 +      Function &F = *I++;
-+      if (F.isDeclaration() && F.use_empty() &&
-+          // note that we use a string here, b/c pointers don't work across modules
-+          function_set.count(F.getName().str()) == 0) {
++      if (F.isDeclaration() && F.use_empty()) {
 +        F.eraseFromParent();
 +        continue;
 +      }
 +    }
 +
-+    for (auto I = cloned_mod->global_begin(), E = cloned_mod->global_end(); I != E;) {
++    for (auto I = cloned_mod->global_begin(), E = cloned_mod->global_end();
++         I != E;) {
 +      GlobalVariable &GV = *I++;
 +      if (GV.isDeclaration() && GV.use_empty()) {
 +        GV.eraseFromParent();
@@ -4912,17 +4920,58 @@ index 00000000000..9e02dd0a6a8
 +    }
 +
 +    // clean up metadata
-+    if (auto sampler_states = cloned_mod->getNamedMetadata("air.sampler_states")) {
-+      vector<MDNode*> kept_nodes;
-+      for (auto op_iter = sampler_states->op_begin(); op_iter != sampler_states->op_end(); ++op_iter) {
-+        MDNode* node = *op_iter;
-+        if (node->getNumOperands() != 2 || node->getOperand(1).get() == nullptr) {
++    // * metadata of all entry points that no longer exist
++    static constexpr const std::array<const char *, 3> entry_point_md_names{{
++        "air.kernel",
++        "air.vertex",
++        "air.fragment",
++    }};
++    for (const auto &entry_point_md_name : entry_point_md_names) {
++      if (auto func_entries =
++              cloned_mod->getNamedMetadata(entry_point_md_name)) {
++        vector<MDNode *> kept_nodes;
++        for (auto op_iter = func_entries->op_begin();
++             op_iter != func_entries->op_end(); ++op_iter) {
++          MDNode *node = *op_iter;
++          if (node->getNumOperands() < 3) {
++            continue;
++          }
++          if (node->getOperand(0).get() == nullptr) {
++            continue;
++          }
++          kept_nodes.emplace_back(node);
++        }
++
++        // need to drop all references to existing nodes, b/c we can't directly
++        // remove operands
++        func_entries->dropAllReferences();
++        if (kept_nodes.empty()) {
++          // remove air.sampler_states altogether
++          func_entries->eraseFromParent();
++        } else {
++          // now, only add ones we want to keep
++          for (auto node : kept_nodes) {
++            func_entries->addOperand(node);
++          }
++        }
++      }
++    }
++    // * sample states of entry points that no longer exist
++    if (auto sampler_states =
++            cloned_mod->getNamedMetadata("air.sampler_states")) {
++      vector<MDNode *> kept_nodes;
++      for (auto op_iter = sampler_states->op_begin();
++           op_iter != sampler_states->op_end(); ++op_iter) {
++        MDNode *node = *op_iter;
++        if (node->getNumOperands() != 2 ||
++            node->getOperand(1).get() == nullptr) {
 +          continue;
 +        }
 +        kept_nodes.emplace_back(node);
 +      }
 +
-+      // need to drop all references to existing nodes, b/c we can't directly remove operands
++      // need to drop all references to existing nodes, b/c we can't directly
++      // remove operands
 +      sampler_states->dropAllReferences();
 +      if (kept_nodes.empty()) {
 +        // remove air.sampler_states altogether
@@ -4932,6 +4981,37 @@ index 00000000000..9e02dd0a6a8
 +        for (auto node : kept_nodes) {
 +          sampler_states->addOperand(node);
 +        }
++      }
++    }
++    // * set fake compiler ident
++    if (target_air_version >= 230) {
++      if (auto llvm_ident = cloned_mod->getNamedMetadata("llvm.ident")) {
++        if (MDNode *ident_op = llvm_ident->getOperand(0)) {
++          ident_op->replaceOperandWith(
++              0, llvm::MDString::get(
++                     cloned_mod->getContext(),
++                     "Apple LLVM version 31001.143 (metalfe-31001.143)"));
++        }
++      }
++    }
++
++    // modify local and constant memory GVs
++    const auto &DL = cloned_mod->getDataLayout();
++    for (auto I = cloned_mod->global_begin(), E = cloned_mod->global_end();
++         I != E;) {
++      GlobalVariable &GV = *I++;
++      if (GV.getAddressSpace() == 2 /* constant memory */ ||
++          GV.getAddressSpace() == 3 /* local memory */) {
++        auto value_type = GV.getValueType();
++        if (value_type && value_type->isSized() &&
++            DL.getTypeStoreSize(value_type) >= 16 && GV.getAlignment() < 16) {
++          // use at least 16-byte alignment
++          GV.setAlignment(16);
++        }
++      }
++      if (GV.getAddressSpace() == 3 /* local memory */) {
++        // always use undef initializer (instead of zeroinitializer)
++        GV.setInitializer(UndefValue::get(GV.getValueType()));
 +      }
 +    }
 +
@@ -5007,9 +5087,11 @@ index 00000000000..9e02dd0a6a8
 +  // file length
 +  static const uint64_t header_size = sizeof(metallib_header);
 +  static const uint64_t initial_offset = header_size + entries_size;
-+  static const uint64_t dummy_ENDT_size = sizeof(metallib_program_info::TAG_TYPE);
-+  const uint64_t file_length = initial_offset + dummy_ENDT_size + reflection_data_size +
-+                               debug_data_size + bitcode_data_size;
++  static const uint64_t dummy_ENDT_size =
++      sizeof(metallib_program_info::TAG_TYPE);
++  const uint64_t file_length = initial_offset + dummy_ENDT_size +
++                               reflection_data_size + debug_data_size +
++                               bitcode_data_size;
 +  OS.write((const char *)&file_length, sizeof(uint64_t));
 +
 +  // header control
@@ -5019,7 +5101,8 @@ index 00000000000..9e02dd0a6a8
 +  ctrl.reflection_length = reflection_data_size;
 +  ctrl.debug_offset = initial_offset + dummy_ENDT_size + reflection_data_size;
 +  ctrl.debug_length = debug_data_size;
-+  ctrl.bitcode_offset = initial_offset + dummy_ENDT_size + reflection_data_size + debug_data_size;
++  ctrl.bitcode_offset =
++      initial_offset + dummy_ENDT_size + reflection_data_size + debug_data_size;
 +  ctrl.bitcode_length = bitcode_data_size;
 +  OS.write((const char *)&ctrl, sizeof(metallib_header_control));
 +
@@ -5029,10 +5112,11 @@ index 00000000000..9e02dd0a6a8
 +  }
 +
 +  // write dummy ENDT
-+  // NOTE: no idea why this is needed and this is definitively not included by the "programs_length",
++  // NOTE: no idea why this is needed and this is definitively not included by
++  // the "programs_length",
 +  //       but iOS 12.0+ requires it, so just write it like this
 +  const auto dummy_ENDT = metallib_program_info::TAG_TYPE::END;
-+  OS.write((const char*)&dummy_ENDT, sizeof(metallib_program_info::TAG_TYPE));
++  OS.write((const char *)&dummy_ENDT, sizeof(metallib_program_info::TAG_TYPE));
 +
 +  // write reflection data
 +  for (const auto &entry : prog_info.entries) {
@@ -51609,7 +51693,7 @@ index a5f4f98c489..c9f5378c269 100644
 +  }
 +}
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 4471fd05181..9f94b567d86 100644
+index 4471fd05181..4dc7c8fe17d 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -64,6 +64,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -51674,7 +51758,36 @@ index 4471fd05181..9f94b567d86 100644
    case Triple::systemz:
    case Triple::tce:
    case Triple::tcele:
-@@ -1264,6 +1273,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1065,17 +1074,23 @@ bool Triple::getMacOSXVersion(unsigned &Major, unsigned &Minor,
+     // Darwin version numbers are skewed from OS X versions.
+     if (Major < 4)
+       return false;
+-    Micro = 0;
+-    Minor = Major - 4;
+-    Major = 10;
++    if (Major <= 19) {
++      Micro = 0;
++      Minor = Major - 4;
++      Major = 10;
++    } else {
++      Micro = 0;
++      Minor = 0;
++      // darwin20+ corresponds to macOS 11+.
++      Major = 11 + Major - 20;
++    }
+     break;
+   case MacOSX:
+     // Default to 10.4.
+     if (Major == 0) {
+       Major = 10;
+       Minor = 4;
+-    }
+-    if (Major != 10)
++    } else if (Major < 10)
+       return false;
+     break;
+   case IOS:
+@@ -1264,6 +1279,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::amdil64:
    case llvm::Triple::hsail64:
    case llvm::Triple::spir64:
@@ -51682,7 +51795,7 @@ index 4471fd05181..9f94b567d86 100644
    case llvm::Triple::wasm64:
    case llvm::Triple::renderscript64:
      return 64;
-@@ -1294,6 +1304,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1294,6 +1310,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::msp430:
    case Triple::systemz:
    case Triple::ppc64le:
@@ -51690,7 +51803,7 @@ index 4471fd05181..9f94b567d86 100644
      T.setArch(UnknownArch);
      break;
  
-@@ -1376,6 +1387,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1376,6 +1393,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::amdgcn:
    case Triple::hsail64:
    case Triple::spir64:
@@ -51698,7 +51811,7 @@ index 4471fd05181..9f94b567d86 100644
    case Triple::mips64:
    case Triple::mips64el:
    case Triple::nvptx64:
-@@ -1438,6 +1450,7 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1438,6 +1456,7 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
@@ -51706,7 +51819,7 @@ index 4471fd05181..9f94b567d86 100644
    case Triple::wasm32:
    case Triple::wasm64:
    case Triple::x86:
-@@ -1527,6 +1540,7 @@ bool Triple::isLittleEndian() const {
+@@ -1527,6 +1546,7 @@ bool Triple::isLittleEndian() const {
    case Triple::sparcel:
    case Triple::spir64:
    case Triple::spir:
@@ -55459,10 +55572,10 @@ index 00000000000..1fe7acb3ba7
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 00000000000..cd1d10fc33c
+index 00000000000..36c29884246
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,526 @@
+@@ -0,0 +1,532 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -55546,10 +55659,16 @@ index 00000000000..cd1d10fc33c
 +			if (major_version >= 11) {
 +				is_metal_2 = true;
 +			}
++			if (major_version >= 14) {
++				is_metal_2_3 = true;
++			}
 +		} else if (triple.getOS() == Triple::OSType::MacOSX) {
 +			if (triple.getMacOSXVersion(major_version, minor_version, micro_version)) {
 +				if (major_version > 10 || (major_version == 10 && minor_version >= 13)) {
 +					is_metal_2 = true;
++				}
++				if (major_version >= 11) {
++					is_metal_2_3 = true;
 +				}
 +			}
 +		}
@@ -56095,10 +56214,10 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..49551c997f3
+index 00000000000..40b2edd1cda
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,1073 @@
+@@ -0,0 +1,1083 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -56686,6 +56805,10 @@ index 00000000000..49551c997f3
 +				auto new_func_type = FunctionType::get(F.getReturnType(), param_types, false);
 +				F.mutateType(PointerType::get(new_func_type, 0));
 +				F.mutateFunctionType(new_func_type);
++				
++				// always remove "norecurse" and "min-legal-vector-width"
++				F.removeFnAttr(Attribute::NoRecurse);
++				F.removeFnAttr("min-legal-vector-width");
 +			}
 +			
 +			// visit everything in this function
@@ -56700,6 +56823,12 @@ index 00000000000..49551c997f3
 +		// InstVisitor overrides...
 +		using InstVisitor<MetalFinal>::visit;
 +		void visit(Instruction& I) {
++			// remove fpmath metadata from all instructions
++			if (MDNode* MD = I.getMetadata(LLVMContext::MD_fpmath)) {
++				I.setMetadata(LLVMContext::MD_fpmath, nullptr);
++				was_modified = true;
++			}
++			
 +			InstVisitor<MetalFinal>::visit(I);
 +		}
 +		
@@ -57174,10 +57303,10 @@ index 00000000000..49551c997f3
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 00000000000..b546c0952c1
+index 00000000000..cb31b54d9ee
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,690 @@
+@@ -0,0 +1,717 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -57546,6 +57675,12 @@ index 00000000000..b546c0952c1
 +						func_args.push_back(builder->getInt32(0));
 +					}
 +				}
++				
++				if (is_metal_2_3) {
++					// Metal 2.3+ has an additional (unknown) i32 0 argument
++					func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++					func_args.push_back(builder->getInt32(0));
++				}
 +			}
 +			else {
 +				// -> sample
@@ -57587,10 +57722,22 @@ index 00000000000..b546c0952c1
 +				}
 +				
 +				if (is_metal_2) {
++					if (is_metal_2_3) {
++						// Metal 2.3+ has an additional (unknown) f32 0.0 argument
++						func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
++						func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
++					}
++					
 +					// Metal 2.0+ has an additional (unknown) i32 0 argument
 +					func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
 +					func_args.push_back(builder->getInt32(0));
 +				}
++			}
++			
++			// Metal 2.3+: return type is now always { <sample/read-type>, i8 }
++			if (is_metal_2_3) {
++				ret_type = llvm::StructType::get(*ctx, { ret_type, llvm::Type::getInt8Ty(*ctx) }, false /* !packed */);
++				assert(((llvm::StructType*)ret_type)->isLiteral() && "must be literal");
 +			}
 +			
 +			// -> build read func name
@@ -57627,9 +57774,13 @@ index 00000000000..b546c0952c1
 +			
 +			// if this is a depth read/sample, the return type is a float -> create a float4
 +			llvm::Value* read_call_result = read_call;
++			if (is_metal_2_3) {
++				// we always ignore the i8 return value -> extract are wanted result
++				read_call_result = builder->CreateExtractValue(read_call_result, { 0 });
++			}
 +			if(is_depth) {
-+				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
-+				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
++				auto undef_vec = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
++				read_call_result = builder->CreateInsertElement(undef_vec, read_call_result, builder->getInt32(0));
 +				// rest is undef/zero (and will be stripped away again anyways)
 +			}
 +			
@@ -57761,11 +57912,16 @@ index 00000000000..b546c0952c1
 +			
 +			// -> lod
 +			func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
-+			if(!is_lod) {
++			if (!is_lod) {
 +				func_args.push_back(builder->getInt32(0));
-+			}
-+			else {
++			} else {
 +				func_args.push_back(lod_arg);
++			}
++			
++			if (is_metal_2_3) {
++				// Metal 2.3+ has an additional (unknown) i32 0 argument
++				func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++				func_args.push_back(builder->getInt32(0));
 +			}
 +			
 +			// -> build write func name
