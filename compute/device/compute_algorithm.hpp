@@ -407,20 +407,10 @@ namespace compute_algorithm {
 		if constexpr (has_sub_group_scan()) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= device_info::local_id_range_max(),
 						  "unexpected SIMD-width / max work-group size");
-#if !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
 			return device_info::simd_width();
-#else
-			// more padding on Metal/AMD
-			return device_info::simd_width() * 2u;
-#endif
 		}
 #endif
-#if !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
 		return work_group_size * 2u - 1u;
-#else
-		// need the padding on Metal/AMD
-		return work_group_size * 2u;
-#endif
 	}
 	
 }
