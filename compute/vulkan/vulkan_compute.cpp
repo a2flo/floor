@@ -588,8 +588,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
 		} else if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_2) {
 			// "A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V"
-			// TODO: add SPIR-V 1.5 target
-			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
+			device.spirv_version = SPIRV_VERSION::SPIRV_1_5;
 		}
 		
 		if(props.vendorID < 0x10000) {
