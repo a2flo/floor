@@ -68,8 +68,7 @@ public:
 		// actual argument index (directly corresponding to the c++ source code)
 		uint32_t arg { 0 };
 		// index into the descriptor set that will be updated/written
-		// NOTE: starts out at 1, because 0 is the fixed sampler set
-		uint32_t write_desc { 1 };
+		uint32_t write_desc { 0 };
 		// binding index in the resp. descriptor set
 		uint32_t binding { 0 };
 		// IUB index in the resp. descriptor set

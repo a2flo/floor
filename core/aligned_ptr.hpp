@@ -45,9 +45,9 @@ public:
 	static constexpr const uint64_t page_size { 4096u };
 	
 	constexpr aligned_ptr() noexcept = default;
-	explicit aligned_ptr(nullptr_t) noexcept : ptr(nullptr) {}
+	explicit aligned_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
 	explicit aligned_ptr(pointer ptr_, const size_t size_) noexcept : ptr(ptr_), size(size_) {}
-	explicit aligned_ptr(aligned_ptr&& aligned_ptr_) noexcept {
+	aligned_ptr(aligned_ptr&& aligned_ptr_) noexcept {
 		reset(aligned_ptr_.release());
 	}
 	~aligned_ptr() { reset(); }
@@ -57,7 +57,7 @@ public:
 		return *this;
 	}
 	
-	aligned_ptr& operator=(nullptr_t) noexcept {
+	aligned_ptr& operator=(std::nullptr_t) noexcept {
 		reset();
 		return *this;
 	}
@@ -66,7 +66,7 @@ public:
 		return (ptr != nullptr);
 	}
 
-	tuple<pointer, size_t, bool> release() noexcept {
+	std::tuple<pointer, size_t, bool> release() noexcept {
 		pointer ret = ptr;
 		size_t ret_size = size;
 		bool ret_pinned = pinned;
@@ -77,7 +77,7 @@ public:
 	}
 	
 	//! NOTE: reset also clears all page-locks and protection
-	void reset(tuple<pointer, size_t, bool> ptr_size_pinned_info = { pointer {}, 0u, false }) noexcept {
+	void reset(std::tuple<pointer, size_t, bool> ptr_size_pinned_info = { pointer {}, 0u, false }) noexcept {
 		if (ptr != nullptr) {
 			// must unpin before freeing
 			if (pinned) {
@@ -93,20 +93,20 @@ public:
 			size = 0;
 			pinned = false;
 		}
-		tie(ptr, size, pinned) = ptr_size_pinned_info;
+		std::tie(ptr, size, pinned) = ptr_size_pinned_info;
 	}
 	
 	void swap(aligned_ptr& rhs) noexcept {
-		swap(ptr, rhs.ptr);
-		swap(size, rhs.size);
-		swap(pinned, rhs.pinned);
+		std::swap(ptr, rhs.ptr);
+		std::swap(size, rhs.size);
+		std::swap(pinned, rhs.pinned);
 	}
 	
 	pointer get() noexcept {
 		return ptr;
 	}
-	
-	add_lvalue_reference_t<T> operator*() const {
+
+	std::add_lvalue_reference_t<T> operator*() const {
 		return *ptr;
 	}
 	

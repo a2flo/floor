@@ -69,7 +69,7 @@ public:
 				   compute_buffer* shared_buffer_ = nullptr) :
 	compute_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
 	
-	virtual ~compute_buffer() = default;
+	~compute_buffer() override = default;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer

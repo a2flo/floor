@@ -452,6 +452,10 @@ program_data compile_input(const string& input,
 				case VULKAN_VERSION::VULKAN_1_1:
 					vulkan_std = "vulkan1.1";
 					break;
+				case VULKAN_VERSION::VULKAN_1_2:
+					// TODO: vulkan1.2 target
+					vulkan_std = "vulkan1.1";
+					break;
 				default: break;
 			}
 			

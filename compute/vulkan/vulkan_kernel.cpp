@@ -72,7 +72,8 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		.pData = spec_entry.data.data(),
 	};
 	stage_info.pSpecializationInfo = &spec_entry.info;
-	
+	stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+
 	// create the compute pipeline for this kernel + device + work-group size
 	const VkComputePipelineCreateInfo pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
@@ -143,10 +144,9 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 		.pipeline_layout = pipeline_layout,
 	});
 	
-	// allocate #args write descriptor sets + 1 for the fixed sampler set
-	// + allocate #IUBs additional IUB write descriptor sets
+	// allocate #args write descriptor sets + allocate #IUBs additional IUB write descriptor sets
 	// NOTE: any stage_input arguments have to be ignored
-	size_t arg_count = 1, iub_count = 0;
+	size_t arg_count = 0, iub_count = 0;
 	for(const auto& entry : entries) {
 		if(entry == nullptr) continue;
 		for(const auto& arg : entry->info->args) {
@@ -174,21 +174,6 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 	encoder->write_descs.resize(arg_count);
 	if (iub_count > 0) {
 		encoder->iub_descs.resize(iub_count);
-	}
-	
-	// fixed sampler set
-	{
-		auto& write_desc = encoder->write_descs[0];
-		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		write_desc.pNext = nullptr;
-		write_desc.dstSet = vk_dev.fixed_sampler_desc_set;
-		write_desc.dstBinding = 0;
-		write_desc.dstArrayElement = 0;
-		write_desc.descriptorCount = (uint32_t)vk_dev.fixed_sampler_set.size();
-		write_desc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-		write_desc.pImageInfo = vk_dev.fixed_sampler_image_info.data();
-		write_desc.pBufferInfo = nullptr;
-		write_desc.pTexelBufferView = nullptr;
 	}
 	
 	success = true;

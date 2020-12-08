@@ -131,7 +131,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	
 	const vector<const char*> instance_layers {
 #if defined(FLOOR_DEBUG)
-		"VK_LAYER_LUNARG_standard_validation",
+		"VK_LAYER_KHRONOS_validation",
 #endif
 	};
 
@@ -433,6 +433,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_timeline_semaphore",
 			"VK_KHR_buffer_device_address",
 			"VK_KHR_separate_depth_stencil_layouts",
+			"VK_KHR_shader_non_semantic_info",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -582,8 +583,12 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
 		if (device.vulkan_version == VULKAN_VERSION::VULKAN_1_0) {
 			device.spirv_version = SPIRV_VERSION::SPIRV_1_0;
-		} else if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_1) {
+		} else if (device.vulkan_version == VULKAN_VERSION::VULKAN_1_1) {
 			// "A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V"
+			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
+		} else if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_2) {
+			// "A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V"
+			// TODO: add SPIR-V 1.5 target
 			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
 		}
 		

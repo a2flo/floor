@@ -41,6 +41,8 @@ typedef enum memory_order {
 	memory_order_seq_cst = memory_order_relaxed
 #endif
 } memory_order;
+#else
+#include <atomic>
 #endif
 
 constexpr bool floor_atomic_is_lock_free(const size_t& size) {

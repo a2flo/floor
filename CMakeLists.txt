@@ -401,7 +401,7 @@ if (UNIX OR MINGW)
 endif (UNIX OR MINGW)
 
 find_package(OpenGL REQUIRED)
-find_path(OPENGL_ARB_INCLUDE_DIR GL/glcorearb.h)
+find_path(OPENGL_ARB_INCLUDE_DIR GL/glcorearb.h PATH_SUFFIXES mesa)
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OPENGL_ARB_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL32)
 

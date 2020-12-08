@@ -29,7 +29,7 @@ class vr_context;
 class event : public thread_base {
 public:
 	event();
-	virtual ~event();
+	~event() override;
 
 	void handle_events();
 	void add_event(const EVENT_TYPE type, shared_ptr<event_object> obj);
@@ -66,7 +66,7 @@ protected:
 	SDL_Event event_handle;
 	vr_context* vr_ctx { nullptr };
 	
-	virtual void run();
+	void run() override;
 	
 	//
 	unordered_multimap<EVENT_TYPE, handler&> internal_handlers;

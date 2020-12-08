@@ -121,7 +121,7 @@ public:
 		// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
 	}
 	
-	virtual ~compute_image() = default;
+	~compute_image() override = default;
 	
 	// TODO: read, write, copy, fill
 	// TODO: map with dim size and dim coords/offset

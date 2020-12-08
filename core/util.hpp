@@ -28,7 +28,7 @@ protected:
 	string error_str;
 public:
 	floor_exception(const string& error_str_) : error_str(error_str_) {}
-	virtual const char* what() const noexcept;
+	const char* what() const noexcept override;
 };
 #endif
 

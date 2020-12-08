@@ -27,6 +27,7 @@ enum class VULKAN_VERSION : uint32_t {
 	NONE,
 	VULKAN_1_0,
 	VULKAN_1_1,
+	VULKAN_1_2,
 };
 
 constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const uint32_t minor) {
@@ -35,6 +36,7 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 	switch (minor) {
 		case 0: return VULKAN_VERSION::VULKAN_1_0;
 		case 1: return VULKAN_VERSION::VULKAN_1_1;
+		case 2: return VULKAN_VERSION::VULKAN_1_2;
 		default: return VULKAN_VERSION::NONE;
 	}
 }

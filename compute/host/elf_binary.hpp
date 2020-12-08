@@ -22,9 +22,9 @@
 #include <floor/compute/host/host_common.hpp>
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
-#include <floor/core/flat_map.hpp>
 #include <floor/core/aligned_ptr.hpp>
 #include <floor/math/vector_lib.hpp>
+#include <floor/core/flat_map.hpp>
 
 struct section_t;
 

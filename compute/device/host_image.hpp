@@ -394,7 +394,7 @@ FLOOR_POP_WARNINGS()
 		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<is_lod_ || is_bias_>* = nullptr>
 		floor_inline_always static constexpr uint32_t select_lod(const int32_t lod_i, const float lod_or_bias_f) {
 			return ::min(host_limits::max_mip_levels - 1u, (is_lod_float || is_bias ?
-															uint32_t(::max(0.0f, ::round(lod_or_bias_f))) :
+															uint32_t(::max(0.0f, ::roundf(lod_or_bias_f))) :
 															uint32_t(::max(0, lod_i))));
 		}
 		// clamps lod to [0, max #mip-levels - 1]
