@@ -31459,10 +31459,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..4d7bf8f5af1
+index 00000000000..2bd71c53234
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3817 @@
+@@ -0,0 +1,3820 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -34610,6 +34610,9 @@ index 00000000000..4d7bf8f5af1
 +      break;
 +    case 1:
 +      BM->setSPIRVVersion(SPIRV_1_3);
++      break;
++    case 2:
++      BM->setSPIRVVersion(SPIRV_1_5);
 +      break;
 +    default:
 +      return false;
@@ -38122,10 +38125,10 @@ index 00000000000..eaf98d52056
 +#endif /* SPIRVENTRY_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 new file mode 100644
-index 00000000000..dfe3e091206
+index 00000000000..ffef59609c1
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
-@@ -0,0 +1,419 @@
+@@ -0,0 +1,420 @@
 +//===- SPIRVEnum.h - SPIR-V enums -------------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -38194,7 +38197,8 @@ index 00000000000..dfe3e091206
 +  SPIRV_1_1 = 0x00010100,
 +  SPIRV_1_2 = 0x00010200,
 +  SPIRV_1_3 = 0x00010300,
-+  SPIRV_1_4 = 0x00010400
++  SPIRV_1_4 = 0x00010400,
++  SPIRV_1_5 = 0x00010500
 +};
 +
 +enum SPIRVGeneratorKind {
