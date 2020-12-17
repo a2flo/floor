@@ -466,8 +466,8 @@ namespace const_math {
 		if(val == (fp_type)0 || val == -(fp_type)0) return ln_ret { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
 		if(val == (fp_type)1) return ln_ret { false, (fp_type)0, 0.0_fp, 0.0_fp };
 		if(val < (fp_type)0) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
-		if(isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
-		if(isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		if(const_math::isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(const_math::isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
 		
 		// decompose into [1, 2) part and 2^x part
 		const auto decomp = const_math::decompose_fp(val);
@@ -579,15 +579,15 @@ namespace const_math {
 		}
 		
 		// * return unmodified +inf (note: support for __builtin_isinf_sign is problematic)
-		if(isinf(val) && val > (fp_type)0) {
+		if(const_math::isinf(val) && val > (fp_type)0) {
 			return { val, (fp_type)0 };
 		}
 		// * return NaN if val is NaN, -infinity or negative
-		if(isnan(val) || isinf(val) || val < -(fp_type)0) {
+		if(const_math::isnan(val) || const_math::isinf(val) || val < -(fp_type)0) {
 			return { numeric_limits<fp_type>::quiet_NaN(), numeric_limits<fp_type>::quiet_NaN() };
 		}
 		// * return 0 if val is a denormal
-		if(!isnormal(val)) {
+		if(!const_math::isnormal(val)) {
 			return { (fp_type)0, (fp_type)0 };
 		}
 		
@@ -722,7 +722,7 @@ namespace const_math {
 		if(val < (fp_type)-1 || val > (fp_type)1) {
 			return numeric_limits<fp_type>::quiet_NaN();
 		}
-		if(isnan(val)) {
+		if(const_math::isnan(val)) {
 			return val;
 		}
 		
