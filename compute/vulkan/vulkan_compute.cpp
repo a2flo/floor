@@ -434,6 +434,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_buffer_device_address",
 			"VK_KHR_separate_depth_stencil_layouts",
 			"VK_KHR_shader_non_semantic_info",
+			"VK_KHR_acceleration_structure",
+			"VK_KHR_fragment_shading_rate",
+			"VK_KHR_ray_query",
+			"VK_KHR_ray_tracing_pipeline",
+			"VK_KHR_shader_terminate_invocation",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -476,11 +481,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 
 		// add other required or optional extensions
-		//device_extensions_set.emplace(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME); // NOTE: will be required in the future
-		//device_extensions_set.emplace(VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME); // NOTE: will be required in the future
 		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
-		device_extensions_set.emplace(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
-		device_extensions_set.emplace(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
 #if defined(__WINDOWS__)
@@ -490,9 +491,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
 #endif
-		if (device_supported_extensions_set.count(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) { // NOTE: will be required in the future
-			device_extensions_set.emplace(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-		}
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_EXT_HDR_METADATA_EXTENSION_NAME);

@@ -83,7 +83,7 @@ public:
 		bool use_opengl_33 { true };
 		
 		//! min Vulkan API version that should be used
-		uint3 vulkan_api_version { 1, 1, 108 };
+		uint3 vulkan_api_version { 1, 2, 142 };
 		
 		//! SDL window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
