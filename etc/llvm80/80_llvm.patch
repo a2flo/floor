@@ -1248,6 +1248,18 @@ index 301688836f7..3b879f5a928 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/Demangle/MicrosoftDemangleNodes.h b/include/llvm/Demangle/MicrosoftDemangleNodes.h
+index 1d0b66a7bf4..ae4559f3e51 100644
+--- a/include/llvm/Demangle/MicrosoftDemangleNodes.h
++++ b/include/llvm/Demangle/MicrosoftDemangleNodes.h
+@@ -4,6 +4,7 @@
+ #include "llvm/Demangle/Compiler.h"
+ #include "llvm/Demangle/StringView.h"
+ #include <array>
++#include <cstdint>
+ 
+ class OutputStream;
+ 
 diff --git a/include/llvm/IR/BasicBlock.h b/include/llvm/IR/BasicBlock.h
 index 99eac33f742..7efde285687 100644
 --- a/include/llvm/IR/BasicBlock.h
@@ -3588,10 +3600,18 @@ index ab25fe08553..d038a1ef399 100644
  
  #endif
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 6df2f9a379a..313b7154f52 100644
+index 6df2f9a379a..1ce97dac632 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -29,6 +29,116 @@ class PassInfo;
+@@ -16,6 +16,7 @@
+ #define LLVM_TRANSFORMS_SCALAR_H
+ 
+ #include <functional>
++#include <cstdint>
+ 
+ namespace llvm {
+ 
+@@ -29,6 +30,116 @@ class PassInfo;
  class TargetLowering;
  class TargetMachine;
  
@@ -24321,10 +24341,10 @@ index 00000000000..619d0fcf29a
 +}
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 00000000000..2e29937a76d
+index 00000000000..5986eb96b64
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,934 @@
+@@ -0,0 +1,937 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -24522,6 +24542,7 @@ index 00000000000..2e29937a76d
 +  SPIRAS_PushConstant = 9,
 +  SPIRAS_AtomicCounter = 10,
 +  SPIRAS_Image = 11,
++  SPIRAS_StorageBuffer = 12,
 +  // Workgroup == SPIRAS_Local
 +  // CrossWorkgroup == SPIRAS_Global
 +  // Function = SPIRAS_Private
@@ -24542,6 +24563,7 @@ index 00000000000..2e29937a76d
 +  add(SPIRAS_PushConstant, "PushConstant");
 +  add(SPIRAS_AtomicCounter, "AtomicCounter");
 +  add(SPIRAS_Image, "Image");
++  add(SPIRAS_StorageBuffer, "StorageBuffer");
 +}
 +typedef SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind>
 +    SPIRAddrSpaceCapitalizedNameMap;
@@ -24560,6 +24582,7 @@ index 00000000000..2e29937a76d
 +  add(SPIRAS_PushConstant, StorageClassPushConstant);
 +  add(SPIRAS_AtomicCounter, StorageClassAtomicCounter);
 +  add(SPIRAS_Image, StorageClassImage);
++  add(SPIRAS_StorageBuffer, StorageClassStorageBuffer);
 +}
 +typedef SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind> SPIRSPIRVAddrSpaceMap;
 +
@@ -31459,10 +31482,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..2bd71c53234
+index 00000000000..cbdd727182a
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3820 @@
+@@ -0,0 +1,3867 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -33530,6 +33553,12 @@ index 00000000000..2bd71c53234
 +    storage_class = spv::StorageClassUniformConstant;
 +  } else if (global_type.is_uniform) {
 +    storage_class = spv::StorageClassUniform;
++    // with SPIR-V 1.4+ we have to use the "storage buffer" storage class
++    if (BM->getSPIRVVersion() >= SPIRV_1_4 &&
++        (!global_type.is_constant ||
++         (global_type.is_constant && !global_type.is_iub))) {
++      storage_class = spv::StorageClassStorageBuffer;
++    }
 +  } else {
 +    storage_class = spv::StorageClassOutput;
 +  }
@@ -33559,27 +33588,44 @@ index 00000000000..2bd71c53234
 +        auto enclosing_type = BM->openStructType(1, enclosing_type_name);
 +        enclosing_type->setMemberType(0, rtarr_type);
 +        BM->closeStructType(enclosing_type, false);
-+        mapped_type =
-+            BM->addPointerType(spv::StorageClassUniform, enclosing_type);
++        mapped_type = BM->addPointerType(storage_class, enclosing_type);
 +
 +        // add required deco
-+        enclosing_type->addDecorate(
-+            new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
++        if (BM->getSPIRVVersion() <= SPIRV_1_3) {
++          enclosing_type->addDecorate(
++              new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
++        } else {
++          enclosing_type->addDecorate(
++              new SPIRVDecorate(DecorationBlock, enclosing_type));
++        }
 +        enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
 +        rtarr_type->addDecorate(spv::DecorationArrayStride,
 +                                M->getDataLayout().getTypeStoreSize(elem_type));
 +      } else {
 +        assert(elem_type->isStructTy() && "uniform type must be a struct");
 +
-+        mapped_type = transType(GV.getType());
-+
 +        // deco
 +        if (global_type.is_iub) {
++          mapped_type = transType(GV.getType());
 +          spirv_elem_type->addDecorate(
 +              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +        } else {
-+          spirv_elem_type->addDecorate(
-+              new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
++          // with SPIR-V 1.4+ we need to use the storage buffer storage class
++          if (BM->getSPIRVVersion() >= SPIRV_1_4) {
++            auto ssbo_ptr_type = llvm::PointerType::get(
++                GV.getType()->getPointerElementType(), SPIRAS_StorageBuffer);
++            mapped_type = transType(ssbo_ptr_type);
++          } else {
++            mapped_type = transType(GV.getType());
++          }
++
++          if (BM->getSPIRVVersion() <= SPIRV_1_3) {
++            spirv_elem_type->addDecorate(
++                new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
++          } else {
++            spirv_elem_type->addDecorate(
++                new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++          }
 +        }
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
@@ -33696,7 +33742,7 @@ index 00000000000..2bd71c53234
 +    BVar->setBuiltin(builtin);
 +  }
 +
-+  if (!global_type.is_uniform) {
++  if (!global_type.is_uniform || BM->getSPIRVVersion() >= SPIRV_1_4) {
 +    BM->addEntryPointIO(spirv_func->getId(), BVar);
 +  }
 +
@@ -34025,8 +34071,8 @@ index 00000000000..2bd71c53234
 +              {spv::BuiltInInstanceIndex, VULKAN_STAGE::VERTEX},
 +              {spv::BuiltInViewIndex,
 +               (VULKAN_STAGE::VERTEX | VULKAN_STAGE::TESSELLATION_CONTROL |
-+                VULKAN_STAGE::TESSELLATION_EVALUATION |
-+                VULKAN_STAGE::GEOMETRY | VULKAN_STAGE::FRAGMENT)},
++                VULKAN_STAGE::TESSELLATION_EVALUATION | VULKAN_STAGE::GEOMETRY |
++                VULKAN_STAGE::FRAGMENT)},
 +          };
 +      static const std::unordered_map<spv::BuiltIn, VULKAN_STAGE>
 +          builtin_validity_output_lut{
@@ -34151,6 +34197,7 @@ index 00000000000..2bd71c53234
 +
 +        // -> globals
 +        SPIRVVariable *uniform_var = nullptr;
++        const auto ptr_as = arg_type->getPointerAddressSpace();
 +        if (arg.onlyReadsMemory() &&
 +            (arg.hasAttribute(Attribute::Dereferenceable) ||
 +             arg.hasAttribute(Attribute::DereferenceableOrNull))) {
@@ -34163,17 +34210,23 @@ index 00000000000..2bd71c53234
 +          global_type.is_constant = true;
 +          global_type.is_uniform = true;
 +          global_type.is_read_only = true;
++          auto storage_class = SPIRAS_Uniform;
 +          if (md_prefix == "iub") {
 +            global_type.is_iub = true;
++          } else {
++            if (BM->getSPIRVVersion() >= SPIRV_1_4) {
++              storage_class = SPIRAS_StorageBuffer;
++            }
 +          }
 +          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
-+                                     SPIRAS_Uniform, global_type, md_info,
++                                     storage_class, global_type, md_info,
 +                                     &uniform_var);
-+          arg.replaceAllUsesWith(GV);
-+        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Uniform) {
++          arg.replaceAllUsesWith(GV, true);
++        } else if (ptr_as == SPIRAS_Uniform || ptr_as == SPIRAS_StorageBuffer) {
 +          // all image types are opaque/unsized
 +          if (!elem_type->isSized()) {
 +            // -> image
++            assert(ptr_as == SPIRAS_Uniform);
 +            spirv_global_io_type global_type;
 +            global_type.is_image = true;
 +            global_type.is_constant = true;
@@ -34190,8 +34243,12 @@ index 00000000000..2bd71c53234
 +            global_type.is_write_only =
 +                (!global_type.is_read_only ? is_write_only_arg(*F, arg)
 +                                           : false);
++            auto storage_class = SPIRAS_Uniform;
++            if (BM->getSPIRVVersion() >= SPIRV_1_4) {
++              storage_class = SPIRAS_StorageBuffer;
++            }
 +            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
-+                                       elem_type, SPIRAS_Uniform, global_type,
++                                       elem_type, storage_class, global_type,
 +                                       md_info, &uniform_var);
 +            // any GEPs can be directly replaced with the new GV, all others can
 +            // no longer access it directly, but must go through a new "GEP #0"
@@ -34423,6 +34480,11 @@ index 00000000000..2bd71c53234
 +      }
 +    }
 +
++    // add immutable samples to the interface for SPIR-V 1.4+
++    if (immutable_samplers && BM->getSPIRVVersion() >= SPIRV_1_4) {
++      BM->addEntryPointIO(spirv_func->getId(), immutable_samplers);
++    }
++
 +    // Create all basic blocks before creating any instruction.
 +    for (Function::iterator FI = F->begin(), FE = F->end(); FI != FE; ++FI) {
 +      transValue(&*FI, nullptr);
@@ -34485,6 +34547,7 @@ index 00000000000..2bd71c53234
 +
 +  // handle global constant variables, these need to be lowered to
 +  // function-scope (duplicate per function)
++  // SPIR-V 1.4+: also handle local buffers (add to interface)
 +  // NOTE: needs to be done after basic blocks have been created (to add
 +  // OpVariables), but before being used when adding the instructions
 +  std::unordered_set<GlobalVariable *> added_globals;
@@ -34500,8 +34563,9 @@ index 00000000000..2bd71c53234
 +        GV.getLinkage() == GlobalValue::ExternalWeakLinkage)
 +      continue;
 +
-+    if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
-+            GV.getType()->getAddressSpace())) == spv::StorageClassFunction) {
++    const auto gv_as = GV.getType()->getAddressSpace();
++    if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(gv_as)) ==
++        spv::StorageClassFunction) {
 +      bool is_used_in_function = false;
 +      for (const auto &user : GV.users()) {
 +        if (const auto instr = dyn_cast<Instruction>(user)) {
@@ -34539,10 +34603,16 @@ index 00000000000..2bd71c53234
 +        }
 +      }
 +
-+      // translate value/duplicate at the beginnging of the entry BB of this
++      // translate value/duplicate at the beginning of the entry BB of this
 +      // function
 +      auto BB = (SPIRVBasicBlock *)transValue(&F->getEntryBlock(), nullptr);
 +      transValue(dup, BB);
++    } else if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
++                   gv_as)) == spv::StorageClassWorkgroup) {
++      if (BM->getSPIRVVersion() >= SPIRV_1_4) {
++        BM->addEntryPointIO(spirv_func->getId(),
++                            (SPIRVVariable *)transValue(&GV, nullptr));
++      }
 +    }
 +  }
 +
@@ -41769,10 +41839,10 @@ index 00000000000..f3a8e735d94
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 00000000000..dd6de4b6e2c
+index 00000000000..b780da6e66a
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
-@@ -0,0 +1,969 @@
+@@ -0,0 +1,970 @@
 +//===- SPIRVIsValidEnum.h - SPIR-V isValid enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -41940,6 +42010,7 @@ index 00000000000..dd6de4b6e2c
 +  case StorageClassPushConstant:
 +  case StorageClassAtomicCounter:
 +  case StorageClassImage:
++  case StorageClassStorageBuffer:
 +    return true;
 +  default:
 +    return false;
@@ -45067,10 +45138,10 @@ index 00000000000..ec894ba2202
 +#endif /* SPIRVMODULE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
 new file mode 100644
-index 00000000000..ebe17289112
+index 00000000000..11b0eba6673
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
-@@ -0,0 +1,473 @@
+@@ -0,0 +1,474 @@
 +//===- SPIRVNameMapEnum.h - SPIR-V NameMap enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -45208,6 +45279,7 @@ index 00000000000..ebe17289112
 +  add(StorageClassPushConstant, "PushConstant");
 +  add(StorageClassAtomicCounter, "AtomicCounter");
 +  add(StorageClassImage, "Image");
++  add(StorageClassStorageBuffer, "StorageBuffer");
 +}
 +SPIRV_DEF_NAMEMAP(StorageClass, SPIRVStorageClassNameMap)
 +
@@ -48520,10 +48592,10 @@ index 00000000000..a51d8432bac
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 00000000000..1dedb653a4d
+index 00000000000..203c309f056
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
-@@ -0,0 +1,913 @@
+@@ -0,0 +1,915 @@
 +// Copyright (c) 2014-2016 The Khronos Group Inc.
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48663,6 +48735,8 @@ index 00000000000..1dedb653a4d
 +    StorageClassPushConstant = 9,
 +    StorageClassAtomicCounter = 10,
 +    StorageClassImage = 11,
++    // SPIR-V 1.3+
++    StorageClassStorageBuffer = 12,
 +};
 +
 +enum Dim {
@@ -52779,10 +52853,10 @@ index 7c9dbcb66cc..184065ade31 100644
  void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 00000000000..153d948abbc
+index 00000000000..1da0a3dda09
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,555 @@
+@@ -0,0 +1,569 @@
 +//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -52913,8 +52987,9 @@ index 00000000000..153d948abbc
 +		void visit(Instruction& I) {
 +			InstVisitor<AddressSpaceFix>::visit(I);
 +		}
-+		
-+		void fix_users(Instruction* instr, Value* parent, const uint32_t address_space, std::vector<ReturnInst*>& returns) {
++
++		template <bool fix_call_instrs = true>
++		static void fix_users(AddressSpaceFix* asfix_pass, LLVMContext& ctx, Instruction* instr, Value* parent, const uint32_t address_space, std::vector<ReturnInst*>& returns) {
 +			// fix instruction
 +			switch(instr->getOpcode()) {
 +				case Instruction::GetElementPtr: {
@@ -52940,11 +53015,13 @@ index 00000000000..153d948abbc
 +					break;
 +				}
 +				case Instruction::Call: {
-+					// TODO: should accumulate all users to *this* call instruction (there can be multiple), might want to delay this until done with the function?
-+					auto CI = cast<CallInst>(instr);
-+					DBG(errs() << ">> call: " << *CI << "\n";)
-+					// -> recurse (note that the argument will already have the correct address space)
-+					fix_call_instr(*CI, false);
++					if constexpr (fix_call_instrs) {
++						// TODO: should accumulate all users to *this* call instruction (there can be multiple), might want to delay this until done with the function?
++						auto CI = cast<CallInst>(instr);
++						DBG(errs() << ">> call: " << *CI << "\n";)
++						// -> recurse (note that the argument will already have the correct address space)
++						asfix_pass->fix_call_instr(*CI, false);
++					}
 +					break;
 +				}
 +				case Instruction::Ret: {
@@ -52956,7 +53033,7 @@ index 00000000000..153d948abbc
 +				case Instruction::AddrSpaceCast:
 +				case Instruction::Invoke:
 +					// bad, should never happen
-+					ctx->emitError(instr, "encountered unsupported instruction");
++					ctx.emitError(instr, "encountered unsupported instruction");
 +					return;
 +
 +				// uninteresting instructions:
@@ -52974,12 +53051,12 @@ index 00000000000..153d948abbc
 +						case Instruction::BitCast:
 +						case Instruction::Call:
 +						case Instruction::Ret:
-+							fix_users(user_instr, instr, address_space, returns);
++							fix_users<fix_call_instrs>(asfix_pass, ctx, user_instr, instr, address_space, returns);
 +							break;
 +						case Instruction::AddrSpaceCast:
 +						case Instruction::Invoke:
 +							// bad, should never happen
-+							ctx->emitError(user_instr, "encountered unsupported instruction");
++							ctx.emitError(user_instr, "encountered unsupported instruction");
 +							break;
 +						default: break;
 +					}
@@ -53003,7 +53080,7 @@ index 00000000000..153d948abbc
 +				for(auto user : func_arg.users()) {
 +					DBG(errs() << ">> replacing use: " << *user << "\n";)
 +					if(auto instr = dyn_cast<Instruction>(user)) {
-+						fix_users(instr, &func_arg, arg.address_space, returns);
++						fix_users(this, *ctx, instr, &func_arg, arg.address_space, returns);
 +					}
 +					else {
 +						DBG(errs() << "   not an instruction\n";)
@@ -53324,6 +53401,17 @@ index 00000000000..153d948abbc
 +	};
 +}
 +
++namespace llvm {
++	void fix_instruction_users(LLVMContext &ctx,
++	                           Instruction &instr,
++	                           Value &parent,
++	                           const uint32_t address_space,
++	                           std::vector<ReturnInst *> &returns) {
++		// NOTE: we can't fix call instructions here
++		AddressSpaceFix::fix_users<false>(nullptr, ctx, &instr, &parent, address_space, returns);
++	}
++}
++
 +char AddressSpaceFix::ID = 0;
 +INITIALIZE_PASS_BEGIN(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
 +// add all the things (not fully depending on this in getAnalysisUsage)
@@ -53338,6 +53426,47 @@ index 00000000000..153d948abbc
 +ModulePass *llvm::createAddressSpaceFixPass() {
 +	return new AddressSpaceFix();
 +}
+diff --git a/lib/Transforms/Scalar/AddressSpaceFix.hpp b/lib/Transforms/Scalar/AddressSpaceFix.hpp
+new file mode 100644
+index 00000000000..dbc224a8343
+--- /dev/null
++++ b/lib/Transforms/Scalar/AddressSpaceFix.hpp
+@@ -0,0 +1,35 @@
++//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements an address space fixer for OpenCL/Metal/Vulkan.
++//
++// This is implemented as a module pass that iterates over all functions, then
++// over all call instructions in there, fixing all calls that require a
++// different address space then what is provided by the called function.
++// Since this requires the address space information "from the top",
++// this can't be implemented as a bottom-up SCC pass.
++// Note that this will duplicate any functions that don't have matching address
++// space parameters and thus heavily depends on proper inlining later on.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_TRANSFORMS_ADDRESSSPACEFIX_HPP
++#define LLVM_TRANSFORMS_ADDRESSSPACEFIX_HPP
++
++namespace llvm {
++	//! fixes the address space of all users of the specified instruction
++	//! NOTE: call instructions will *not* be fixed by this (there should be no functions/calls when calling this)
++	void fix_instruction_users(LLVMContext &ctx,
++	                           Instruction &instr,
++	                           Value &parent,
++	                           const uint32_t address_space,
++	                           std::vector<ReturnInst *> &returns);
++} // namespace llvm
++
++#endif //LLVM_TRANSFORMS_ADDRESSSPACEFIX_HPP
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
 index 00000000000..075eb793db7
@@ -62541,10 +62670,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..17036761546
+index 00000000000..4b6b3cc9394
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1522 @@
+@@ -0,0 +1,1604 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -62602,6 +62731,7 @@ index 00000000000..17036761546
 +#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 +#include "llvm/Transforms/Utils/LoopUtils.h"
 +#include "llvm/Transforms/Utils/Cloning.h"
++#include "AddressSpaceFix.hpp"
 +#include <algorithm>
 +#include <cstdarg>
 +#include <memory>
@@ -62624,7 +62754,8 @@ index 00000000000..17036761546
 +	static const uint32_t SPIRAS_Uniform = 5;
 +	//static const uint32_t SPIRAS_Input = 6;
 +	static const uint32_t SPIRAS_Output = 7;
-+	
++	static const uint32_t SPIRAS_StorageBuffer = 12;
++
 +	// VulkanBuiltinParamHandling
 +	struct VulkanBuiltinParamHandling : public FunctionPass, InstVisitor<VulkanBuiltinParamHandling> {
 +		friend class InstVisitor<VulkanBuiltinParamHandling>;
@@ -62974,7 +63105,51 @@ index 00000000000..17036761546
 +			AU.addRequired<AssumptionCacheTracker>();
 +			AU.addRequired<TargetLibraryInfoWrapperPass>();
 +		}
-+		
++
++                // retrieves the target Vulkan version from metadata
++                static std::pair<uint32_t, uint32_t> get_vulkan_version(Module& M) {
++                  const llvm::NamedMDNode *VulkanVersion =
++                      M.getNamedMetadata("vulkan.version");
++                  if (VulkanVersion == nullptr || VulkanVersion->getNumOperands() != 1) {
++                    return {};
++                  }
++
++                  const MDNode *vulkan_version_md = VulkanVersion->getOperand(0);
++                  if (vulkan_version_md->getNumOperands() < 2) {
++                    return {};
++                  }
++
++                  uint64_t version_major = 0, version_minor = 0;
++
++                  const MDOperand &version_major_op = vulkan_version_md->getOperand(0);
++                  if (const ConstantAsMetadata *version_major_md =
++                      dyn_cast_or_null<ConstantAsMetadata>(version_major_op.get())) {
++                    if (const ConstantInt *version_major_int =
++                        dyn_cast_or_null<ConstantInt>(version_major_md->getValue())) {
++                      version_major = version_major_int->getZExtValue();
++                    } else {
++                      return {};
++                    }
++                  } else {
++                    return {};
++                  }
++
++                  const MDOperand &version_minor_op = vulkan_version_md->getOperand(1);
++                  if (const ConstantAsMetadata *version_minor_md =
++                      dyn_cast_or_null<ConstantAsMetadata>(version_minor_op.get())) {
++                    if (const ConstantInt *version_minor_int =
++                        dyn_cast_or_null<ConstantInt>(version_minor_md->getValue())) {
++                      version_minor = version_minor_int->getZExtValue();
++                    } else {
++                      return {};
++                    }
++                  } else {
++                    return {};
++                  }
++
++                  return { version_major, version_minor };
++                }
++
 +		bool runOnFunction(Function &F) override {
 +			// exit if empty function
 +			if(F.empty()) return false;
@@ -62991,6 +63166,8 @@ index 00000000000..17036761546
 +			ctx = &M->getContext();
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			
++			const auto vulkan_version = get_vulkan_version(*M);
 +			
 +			// handle return value / output
 +			DBG(errs() << "> handling return values ...\n";)
@@ -63089,6 +63266,40 @@ index 00000000000..17036761546
 +					
 +					param_types.push_back(arg_type);
 +				}
++
++				// NOTE: for Vulkan 1.2 / SPIR-V 1.4+, change the AS of all SSBO pointers to StorageBuffer/12
++				if (vulkan_version.first > 1 || (vulkan_version.first == 1 && vulkan_version.second >= 2)) {
++					for (size_t arg_idx = 0, arg_count = param_types.size(); arg_idx < arg_count; ++arg_idx) {
++						auto &arg = *std::next(F.arg_begin(), arg_idx);
++						auto &arg_type = param_types[arg_idx];
++						if (auto ptr_type = dyn_cast<llvm::PointerType>(arg_type);
++								ptr_type &&
++								ptr_type->getAddressSpace() == SPIRAS_Uniform &&
++								ptr_type->getElementType()->isSized()) {
++							// skip IUBs
++							if (auto iub_attr = F.getAttribute(llvm::AttributeList::FirstArgIndex + arg_idx, "vulkan_iub"); iub_attr.getRawPointer() != nullptr) {
++								continue;
++							}
++
++							auto ssbo_ptr_type = PointerType::get(ptr_type->getElementType(), SPIRAS_StorageBuffer);
++							arg.mutateType(ssbo_ptr_type);
++							param_types[arg_idx] = ssbo_ptr_type;
++
++							std::vector<User*> users;
++							for (auto* user : arg.users()) {
++								users.emplace_back(user);
++							}
++							std::vector<ReturnInst*> returns; // returns to fix -> there shouldn't be any here
++							for (auto& user : users) {
++								if (auto instr = dyn_cast<Instruction>(user)) {
++									fix_instruction_users(*ctx, *instr, arg, SPIRAS_StorageBuffer, returns);
++								}
++							}
++							assert(returns.empty() && "unexpected return type change");
++						}
++					}
++				}
++
 +				auto new_func_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), param_types, false);
 +				F.mutateType(PointerType::get(new_func_type, 0));
 +				F.mutateFunctionType(new_func_type);
