@@ -31482,10 +31482,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..cbdd727182a
+index 00000000000..d888b0922d1
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3867 @@
+@@ -0,0 +1,3895 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -32895,10 +32895,36 @@ index 00000000000..cbdd727182a
 +                                       transValue(GEP->getPointerOperand(), BB),
 +                                       Indices, BB, GEP->isInBounds()));
 +    } else {
-+      return mapValue(
-+          V, BM->addAccessChainInst(transType(GEP->getType()),
-+                                    transValue(GEP->getPointerOperand(), BB),
-+                                    Indices, BB, GEP->isInBounds()));
++      // with variable pointers we can now use PtrAccessChain instead of the simple AccessChain (for SSBOs, local memory and physical SSBOs)
++      auto gep_type = transType(GEP->getType());
++      auto gep_value = transValue(GEP->getPointerOperand(), BB);
++      auto gep_value_type = gep_value->getType();
++      const auto storage_class = gep_value_type->getPointerStorageClass();
++      if (storage_class == spv::StorageClassWorkgroup ||
++		  storage_class == spv::StorageClassPhysicalStorageBuffer ||
++		  storage_class == spv::StorageClassStorageBuffer) {
++        // must still treat access to SSBO runtime arrays specially by adding two additional 0 indices
++        if (storage_class == spv::StorageClassStorageBuffer) {
++          auto gep_value_elem_type = gep_value_type->getPointerElementType();
++          if (gep_value_elem_type->isTypeStruct()) {
++            auto gep_struct_type = (SPIRV::SPIRVTypeStruct*)gep_value_elem_type;
++            if (gep_struct_type->getMemberCount() > 0 && gep_struct_type->getMemberType(0)->isTypeRuntimeArray()) {
++              auto zero_const = transValue(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*Ctx), 0), BB);
++              Indices.insert(Indices.begin(), zero_const);
++              Indices.insert(Indices.begin(), zero_const);
++            }
++          }
++        }
++        return mapValue(
++            V, BM->addPtrAccessChainInst(gep_type, gep_value,
++                                         Indices, BB, false /* never emit inbounds */));
++	  } else {
++        // for all other storage classes: fall back to (Inbounds)AccessChain
++        return mapValue(
++            V, BM->addAccessChainInst(transType(GEP->getType()),
++                                      transValue(GEP->getPointerOperand(), BB),
++                                      Indices, BB, GEP->isInBounds()));
++	  }
 +    }
 +  }
 +
@@ -33324,6 +33350,8 @@ index 00000000000..cbdd727182a
 +    BM->addCapability(CapabilityShader);
 +
 +    // always add these for now
++    BM->addCapability(CapabilityVariablePointersStorageBuffer);
++    BM->addCapability(CapabilityVariablePointers);
 +    BM->addCapability(CapabilityUniformBufferArrayDynamicIndexing);
 +    BM->addCapability(CapabilityStorageBufferArrayDynamicIndexing);
 +    BM->addCapability(CapabilitySampledImageArrayDynamicIndexing);
@@ -48592,10 +48620,10 @@ index 00000000000..a51d8432bac
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 00000000000..203c309f056
+index 00000000000..0814cc6ca15
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
-@@ -0,0 +1,915 @@
+@@ -0,0 +1,1069 @@
 +// Copyright (c) 2014-2016 The Khronos Group Inc.
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48737,6 +48765,24 @@ index 00000000000..203c309f056
 +    StorageClassImage = 11,
 +    // SPIR-V 1.3+
 +    StorageClassStorageBuffer = 12,
++    StorageClassCallableDataKHR = 5328,
++    StorageClassCallableDataNV = 5328,
++    StorageClassIncomingCallableDataKHR = 5329,
++    StorageClassIncomingCallableDataNV = 5329,
++    StorageClassRayPayloadKHR = 5338,
++    StorageClassRayPayloadNV = 5338,
++    StorageClassHitAttributeKHR = 5339,
++    StorageClassHitAttributeNV = 5339,
++    StorageClassIncomingRayPayloadKHR = 5342,
++    StorageClassIncomingRayPayloadNV = 5342,
++    StorageClassShaderRecordBufferKHR = 5343,
++    StorageClassShaderRecordBufferNV = 5343,
++    StorageClassPhysicalStorageBuffer = 5349,
++    StorageClassPhysicalStorageBufferEXT = 5349,
++    StorageClassCodeSectionINTEL = 5605,
++    StorageClassDeviceOnlyINTEL = 5936,
++    StorageClassHostOnlyINTEL = 5937,
++    StorageClassMax = 0x7fffffff,
 +};
 +
 +enum Dim {
@@ -49184,7 +49230,143 @@ index 00000000000..203c309f056
 +    CapabilitySubgroupDispatch = 58,
 +    CapabilityNamedBarrier = 59,
 +    CapabilityPipeStorage = 60,
++    CapabilityGroupNonUniform = 61,
++    CapabilityGroupNonUniformVote = 62,
++    CapabilityGroupNonUniformArithmetic = 63,
++    CapabilityGroupNonUniformBallot = 64,
++    CapabilityGroupNonUniformShuffle = 65,
++    CapabilityGroupNonUniformShuffleRelative = 66,
++    CapabilityGroupNonUniformClustered = 67,
++    CapabilityGroupNonUniformQuad = 68,
++    CapabilityShaderLayer = 69,
++    CapabilityShaderViewportIndex = 70,
++    CapabilityFragmentShadingRateKHR = 4422,
++    CapabilitySubgroupBallotKHR = 4423,
++    CapabilityDrawParameters = 4427,
++    CapabilitySubgroupVoteKHR = 4431,
++    CapabilityStorageBuffer16BitAccess = 4433,
++    CapabilityStorageUniformBufferBlock16 = 4433,
++    CapabilityStorageUniform16 = 4434,
++    CapabilityUniformAndStorageBuffer16BitAccess = 4434,
++    CapabilityStoragePushConstant16 = 4435,
++    CapabilityStorageInputOutput16 = 4436,
++    CapabilityDeviceGroup = 4437,
 +    CapabilityMultiView = 4439,
++    CapabilityVariablePointersStorageBuffer = 4441,
++    CapabilityVariablePointers = 4442,
++    CapabilityAtomicStorageOps = 4445,
++    CapabilitySampleMaskPostDepthCoverage = 4447,
++    CapabilityStorageBuffer8BitAccess = 4448,
++    CapabilityUniformAndStorageBuffer8BitAccess = 4449,
++    CapabilityStoragePushConstant8 = 4450,
++    CapabilityDenormPreserve = 4464,
++    CapabilityDenormFlushToZero = 4465,
++    CapabilitySignedZeroInfNanPreserve = 4466,
++    CapabilityRoundingModeRTE = 4467,
++    CapabilityRoundingModeRTZ = 4468,
++    CapabilityRayQueryProvisionalKHR = 4471,
++    CapabilityRayQueryKHR = 4472,
++    CapabilityRayTraversalPrimitiveCullingKHR = 4478,
++    CapabilityRayTracingKHR = 4479,
++    CapabilityFloat16ImageAMD = 5008,
++    CapabilityImageGatherBiasLodAMD = 5009,
++    CapabilityFragmentMaskAMD = 5010,
++    CapabilityStencilExportEXT = 5013,
++    CapabilityImageReadWriteLodAMD = 5015,
++    CapabilityInt64ImageEXT = 5016,
++    CapabilityShaderClockKHR = 5055,
++    CapabilitySampleMaskOverrideCoverageNV = 5249,
++    CapabilityGeometryShaderPassthroughNV = 5251,
++    CapabilityShaderViewportIndexLayerEXT = 5254,
++    CapabilityShaderViewportIndexLayerNV = 5254,
++    CapabilityShaderViewportMaskNV = 5255,
++    CapabilityShaderStereoViewNV = 5259,
++    CapabilityPerViewAttributesNV = 5260,
++    CapabilityFragmentFullyCoveredEXT = 5265,
++    CapabilityMeshShadingNV = 5266,
++    CapabilityImageFootprintNV = 5282,
++    CapabilityFragmentBarycentricNV = 5284,
++    CapabilityComputeDerivativeGroupQuadsNV = 5288,
++    CapabilityFragmentDensityEXT = 5291,
++    CapabilityShadingRateNV = 5291,
++    CapabilityGroupNonUniformPartitionedNV = 5297,
++    CapabilityShaderNonUniform = 5301,
++    CapabilityShaderNonUniformEXT = 5301,
++    CapabilityRuntimeDescriptorArray = 5302,
++    CapabilityRuntimeDescriptorArrayEXT = 5302,
++    CapabilityInputAttachmentArrayDynamicIndexing = 5303,
++    CapabilityInputAttachmentArrayDynamicIndexingEXT = 5303,
++    CapabilityUniformTexelBufferArrayDynamicIndexing = 5304,
++    CapabilityUniformTexelBufferArrayDynamicIndexingEXT = 5304,
++    CapabilityStorageTexelBufferArrayDynamicIndexing = 5305,
++    CapabilityStorageTexelBufferArrayDynamicIndexingEXT = 5305,
++    CapabilityUniformBufferArrayNonUniformIndexing = 5306,
++    CapabilityUniformBufferArrayNonUniformIndexingEXT = 5306,
++    CapabilitySampledImageArrayNonUniformIndexing = 5307,
++    CapabilitySampledImageArrayNonUniformIndexingEXT = 5307,
++    CapabilityStorageBufferArrayNonUniformIndexing = 5308,
++    CapabilityStorageBufferArrayNonUniformIndexingEXT = 5308,
++    CapabilityStorageImageArrayNonUniformIndexing = 5309,
++    CapabilityStorageImageArrayNonUniformIndexingEXT = 5309,
++    CapabilityInputAttachmentArrayNonUniformIndexing = 5310,
++    CapabilityInputAttachmentArrayNonUniformIndexingEXT = 5310,
++    CapabilityUniformTexelBufferArrayNonUniformIndexing = 5311,
++    CapabilityUniformTexelBufferArrayNonUniformIndexingEXT = 5311,
++    CapabilityStorageTexelBufferArrayNonUniformIndexing = 5312,
++    CapabilityStorageTexelBufferArrayNonUniformIndexingEXT = 5312,
++    CapabilityRayTracingNV = 5340,
++    CapabilityVulkanMemoryModel = 5345,
++    CapabilityVulkanMemoryModelKHR = 5345,
++    CapabilityVulkanMemoryModelDeviceScope = 5346,
++    CapabilityVulkanMemoryModelDeviceScopeKHR = 5346,
++    CapabilityPhysicalStorageBufferAddresses = 5347,
++    CapabilityPhysicalStorageBufferAddressesEXT = 5347,
++    CapabilityComputeDerivativeGroupLinearNV = 5350,
++    CapabilityRayTracingProvisionalKHR = 5353,
++    CapabilityCooperativeMatrixNV = 5357,
++    CapabilityFragmentShaderSampleInterlockEXT = 5363,
++    CapabilityFragmentShaderShadingRateInterlockEXT = 5372,
++    CapabilityShaderSMBuiltinsNV = 5373,
++    CapabilityFragmentShaderPixelInterlockEXT = 5378,
++    CapabilityDemoteToHelperInvocationEXT = 5379,
++    CapabilitySubgroupShuffleINTEL = 5568,
++    CapabilitySubgroupBufferBlockIOINTEL = 5569,
++    CapabilitySubgroupImageBlockIOINTEL = 5570,
++    CapabilitySubgroupImageMediaBlockIOINTEL = 5579,
++    CapabilityRoundToInfinityINTEL = 5582,
++    CapabilityFloatingPointModeINTEL = 5583,
++    CapabilityIntegerFunctions2INTEL = 5584,
++    CapabilityFunctionPointersINTEL = 5603,
++    CapabilityIndirectReferencesINTEL = 5604,
++    CapabilityAsmINTEL = 5606,
++    CapabilityVectorComputeINTEL = 5617,
++    CapabilityVectorAnyINTEL = 5619,
++    CapabilitySubgroupAvcMotionEstimationINTEL = 5696,
++    CapabilitySubgroupAvcMotionEstimationIntraINTEL = 5697,
++    CapabilitySubgroupAvcMotionEstimationChromaINTEL = 5698,
++    CapabilityVariableLengthArrayINTEL = 5817,
++    CapabilityFunctionFloatControlINTEL = 5821,
++    CapabilityFPGAMemoryAttributesINTEL = 5824,
++    CapabilityFPFastMathModeINTEL = 5837,
++    CapabilityArbitraryPrecisionIntegersINTEL = 5844,
++    CapabilityArbitraryPrecisionFloatingPointINTEL = 5845,
++    CapabilityUnstructuredLoopControlsINTEL = 5886,
++    CapabilityFPGALoopControlsINTEL = 5888,
++    CapabilityKernelAttributesINTEL = 5892,
++    CapabilityFPGAKernelAttributesINTEL = 5897,
++    CapabilityFPGAMemoryAccessesINTEL = 5898,
++    CapabilityFPGAClusterAttributesINTEL = 5904,
++    CapabilityLoopFuseINTEL = 5906,
++    CapabilityFPGABufferLocationINTEL = 5920,
++    CapabilityArbitraryPrecisionFixedPointINTEL = 5922,
++    CapabilityUSMStorageClassesINTEL = 5935,
++    CapabilityIOPipesINTEL = 5943,
++    CapabilityBlockingPipesINTEL = 5945,
++    CapabilityFPGARegINTEL = 5948,
++    CapabilityAtomicFloat32AddEXT = 6033,
++    CapabilityAtomicFloat64AddEXT = 6034,
++    CapabilityLongConstantCompositeINTEL = 6089,
++    CapabilityMax = 0x7fffffff,
 +};
 +
 +enum Op {
@@ -54926,10 +55108,10 @@ index 00000000000..5456f5c7db9
 +}
 diff --git a/lib/Transforms/Scalar/FMACombiner.cpp b/lib/Transforms/Scalar/FMACombiner.cpp
 new file mode 100644
-index 00000000000..1fe7acb3ba7
+index 00000000000..e6f2f84600d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FMACombiner.cpp
-@@ -0,0 +1,775 @@
+@@ -0,0 +1,784 @@
 +//===- FMACombiner.cpp - --------------------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -55656,11 +55838,20 @@ index 00000000000..1fe7acb3ba7
 +			
 +			// NOTE: don't fold: (fma x, -1, y) -> (fadd (fneg x), y)
 +			
++			// creates a fp constant of "value" using the same type/semantics as "copy_sema"
++			const auto ap_constant_from_type = [](const APFloat& copy_sema, const double& value) {
++				if (&copy_sema.getSemantics() == &APFloat::IEEEdouble()) {
++					return APFloat(value);
++				} else {
++					return APFloat(float(value));
++				}
++			};
++			
 +			// (fma x, c, x) -> (fmul x, (c+1))
 +			if(N1CFP && N0 == N2) {
 +				DBG(errs() << "fma -> fmul x c+1 fold\n";)
 +				APFloat c = N1CFP->getValueAPF();
-+				if(c.add(APFloat(1.0), APFloat::rmNearestTiesToEven) != APFloat::opInvalidOp) {
++				if(c.add(ap_constant_from_type(c, 1.0), APFloat::rmNearestTiesToEven) != APFloat::opInvalidOp) {
 +					auto fmul = BinaryOperator::CreateFMul(N0, ConstantFP::get(*ctx, c),
 +														   I.hasName() ? I.getName() + ".fmul_1c" : "fmul_1c", &I);
 +					fmul->setDebugLoc(I.getDebugLoc());
@@ -55677,7 +55868,7 @@ index 00000000000..1fe7acb3ba7
 +			   PatternMatch::match(N2I, PatternMatch::m_FNeg(PatternMatch::m_Value(fneg_val)))) { // TODO: is this correct?
 +				DBG(errs() << "fma -> fmul x c-1 fold\n";)
 +				APFloat c = N1CFP->getValueAPF();
-+				if(c.subtract(APFloat(1.0), APFloat::rmNearestTiesToEven) != APFloat::opInvalidOp) {
++				if(c.subtract(ap_constant_from_type(c, 1.0), APFloat::rmNearestTiesToEven) != APFloat::opInvalidOp) {
 +					auto fmul = BinaryOperator::CreateFMul(N0, ConstantFP::get(*ctx, c),
 +														   I.hasName() ? I.getName() + ".fmul_s1c" : "fmul_s1c", &I);
 +					fmul->setDebugLoc(I.getDebugLoc());
@@ -62672,10 +62863,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..4b6b3cc9394
+index 00000000000..3f696383544
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1604 @@
+@@ -0,0 +1,1623 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -63483,8 +63674,9 @@ index 00000000000..4b6b3cc9394
 +			was_modified = false;
 +			visit(F);
 +			
++			// NOTE: disabled for now as we don't need this any more (probably ...)
 +			// handle everything
-+			handle_pointers();
++			//handle_pointers();
 +			
 +			return was_modified;
 +		}
@@ -63502,8 +63694,8 @@ index 00000000000..4b6b3cc9394
 +		
 +		// fuses "base_gep" and "gep" to a single GEP, possibly replacing "gep" with the new GEP
 +		// NOTE: for simple cases, the returned GEP can be the input "gep" (with indices replaced)
-+		GetElementPtrInst* fuse_geps(GetElementPtrInst* base_gep, GetElementPtrInst* gep,
-+									 const bool replace_old_gep) {
++		std::pair<GetElementPtrInst*, bool /* abort */>
++		fuse_geps(GetElementPtrInst* base_gep, GetElementPtrInst* gep, const bool replace_old_gep) {
 +			const auto fuse_index = [this](Value* lhs, Value* rhs, Instruction* insert_pos) -> Value* {
 +				ConstantInt* lhs_const = dyn_cast_or_null<ConstantInt>(lhs);
 +				ConstantInt* rhs_const = dyn_cast_or_null<ConstantInt>(rhs);
@@ -63544,7 +63736,7 @@ index 00000000000..4b6b3cc9394
 +				gep->setOperand(1, fuse_index(base_gep->getOperand(1), gep->getOperand(1), gep));
 +				
 +				DBG(errs() << ", with " << *gep << "\n";)
-+				return gep;
++				return { gep, false };
 +			}
 +			else {
 +				// -> need to create a new GEP so that it can contain all indices from both GEPs
@@ -63569,7 +63761,15 @@ index 00000000000..4b6b3cc9394
 +				assert(idx_list.size() == fused_idx_count && "invalid idx list size");
 +				
 +				// create the new GEP
-+				auto fused_gep = GetElementPtrInst::CreateInBounds(base_gep->getPointerOperand(), idx_list,
++				auto gep_ptr = base_gep->getPointerOperand();
++				auto gep_ptr_type = cast<PointerType>(gep_ptr->getType()->getScalarType())->getElementType();
++				if (const auto idx_type = GetElementPtrInst::getIndexedType(gep_ptr_type, idx_list); !idx_type) {
++					// can't handle it -> ignore it
++					// NOTE: since variable pointers are now used by default, PtrAccessChain is possible -> we don't necessarily
++					// need fused GEPs (but it's still a good thing that enables other transformations)
++					return { gep, true };
++				}
++				auto fused_gep = GetElementPtrInst::CreateInBounds(gep_ptr_type, gep_ptr, idx_list,
 +																   gep->getName() + ".gep.fused", gep);
 +				fused_gep->setDebugLoc(gep->getDebugLoc());
 +				
@@ -63579,7 +63779,7 @@ index 00000000000..4b6b3cc9394
 +					gep->replaceAllUsesWith(fused_gep);
 +					gep->eraseFromParent();
 +				}
-+				return fused_gep;
++				return { fused_gep, false };
 +			}
 +		}
 +		
@@ -63606,7 +63806,11 @@ index 00000000000..4b6b3cc9394
 +			do {
 +				did_fuse = false;
 +				if(GetElementPtrInst* GEP = dyn_cast_or_null<GetElementPtrInst>(output_gep->getPointerOperand())) {
-+					output_gep = fuse_geps(GEP, output_gep, true /* replace_old_gep */);
++					bool abort = false;
++					std::tie(output_gep, abort) = fuse_geps(GEP, output_gep, true /* replace_old_gep */);
++					if (abort) {
++						break;
++					}
 +					did_fuse = true;
 +				}
 +			} while(did_fuse);
@@ -63911,7 +64115,9 @@ index 00000000000..4b6b3cc9394
 +								idx = SelectInst::Create(sel->getCondition(), idx_zero, idx_zero);
 +							}
 +							
-+							idx->setDebugLoc(prod->getDebugLoc());
++							if (auto dbg_loc = prod->getDebugLoc(); dbg_loc) {
++								idx->setDebugLoc(dbg_loc);
++							}
 +							index_map.emplace(prod, idx);
 +							DBG(errs() << "idx: " << *prod << " -> " << *idx << "\n";)
 +						}
@@ -64155,7 +64361,11 @@ index 00000000000..4b6b3cc9394
 +									mat_gep->setName(gep_chain.back()->getName());
 +									mat_gep->setDebugLoc(gep_chain.back()->getDebugLoc());
 +									for(size_t i = 1, count = gep_chain.size(); i < count; ++i) {
-+										mat_gep = fuse_geps(mat_gep, gep_chain[i], false); // TODO
++										bool abort = false;
++										std::tie(mat_gep, abort) = fuse_geps(mat_gep, gep_chain[i], false); // TODO
++										if (abort) {
++											break;
++										}
 +									}
 +									mat_gep->insertBefore(branch_term);
 +									DBG(errs() << ">> mat_gep: " << *mat_gep << "\n";)
