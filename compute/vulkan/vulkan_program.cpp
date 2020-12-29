@@ -318,6 +318,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						VK_CALL_CONT(vkCreatePipelineLayout(prog.first.get().device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 									 "failed to create pipeline layout (" + func_name + ")")
 						
+						GUARD(entry.specializations_lock);
 						const uint3 work_group_size = (info.has_valid_local_size() ?
 													   info.local_size :
 													   uint3 { entry.max_total_local_size, 1, 1 });
@@ -328,7 +329,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					}
 					
 					// success, insert into map
-					kernel_map.insert_or_assign(prog.first, entry);
+					kernel_map.emplace_or_assign(move(prog.first), move(entry));
 					break;
 				}
 			}

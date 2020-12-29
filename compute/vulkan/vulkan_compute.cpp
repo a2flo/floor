@@ -245,8 +245,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// get device props and features
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(phys_dev, &props);
-		VkPhysicalDeviceFeatures features;
-		vkGetPhysicalDeviceFeatures(phys_dev, &features);
 		
 		// check whitelist
 		if(!whitelist.empty()) {
@@ -259,12 +257,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				}
 			}
 			if(!found) continue;
-		}
-		
-		// devices must support int64
-		if (!features.shaderInt64) {
-			log_error("device %s does not support shaderInt64", props.deviceName);
-			continue;
 		}
 		
 		// handle device queue info + create queue info, we're going to create as many queues as are allowed by the device
@@ -301,16 +293,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
-		VkPhysicalDeviceMultiviewFeatures multiview_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
-			.pNext = nullptr,
-			.multiview = false,
-			.multiviewGeometryShader = false,
-			.multiviewTessellationShader = false,
-		};
 		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalar_block_layout_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
-			.pNext = &multiview_features,
+			.pNext = nullptr,
 			.scalarBlockLayout = false,
 		};
 		VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR uniform_buffer_standard_layout_features {
@@ -330,9 +315,28 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.inlineUniformBlock = false,
 			.descriptorBindingInlineUniformBlockUpdateAfterBind = false
 		};
+		VkPhysicalDeviceVulkan11Features vulkan11_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+			.pNext = &inline_uniform_block_features,
+			.storageBuffer16BitAccess = true,
+			.uniformAndStorageBuffer16BitAccess = true,
+			.storagePushConstant16 = false,
+			.storageInputOutput16 = false,
+			.multiview = true,
+			.multiviewGeometryShader = true,
+			.multiviewTessellationShader = true,
+			.variablePointersStorageBuffer = true,
+			.variablePointers = true,
+			.protectedMemory = false,
+			.samplerYcbcrConversion = false,
+			.shaderDrawParameters = false,
+		};
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = &inline_uniform_block_features
+			.pNext = &vulkan11_features,
+			.features = {
+				.shaderInt64 = true,
+			},
 		};
 		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
 
@@ -368,9 +372,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 
 #if !defined(FLOOR_NO_VR)
 		if (vr_ctx) {
-			if (!multiview_features.multiview ||
-				!multiview_features.multiviewGeometryShader ||
-				!multiview_features.multiviewTessellationShader) {
+			if (!vulkan11_features.multiview ||
+				!vulkan11_features.multiviewGeometryShader ||
+				!vulkan11_features.multiviewTessellationShader) {
 				log_error("VR requirements not met: multi-view features are not supported by %s", props.deviceName);
 				continue;
 			}
@@ -380,6 +384,24 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			}
 		}
 #endif
+		
+		// devices must support int64
+		if (!features_2.features.shaderInt64) {
+			log_error("device %s does not support shaderInt64", props.deviceName);
+			continue;
+		}
+		
+		if (!vulkan11_features.variablePointers ||
+			!vulkan11_features.variablePointersStorageBuffer) {
+			log_error("variable pointers are not supported by %s", props.deviceName);
+			continue;
+		}
+		
+		if (!vulkan11_features.storageBuffer16BitAccess ||
+			!vulkan11_features.uniformAndStorageBuffer16BitAccess) {
+			log_error("16-bit storage not supported by %s", props.deviceName);
+			continue;
+		}
 		
 		if (scalar_block_layout_features.scalarBlockLayout == 0) {
 			log_error("scalar block layout is not supported by %s", props.deviceName);
@@ -545,7 +567,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.pNext = &inline_uniform_block_features,
+			.pNext = &features_2,
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
@@ -553,7 +575,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.ppEnabledLayerNames = size(device_layers) > 0 ? device_layers.data() : nullptr,
 			.enabledExtensionCount = (uint32_t)size(device_extensions_ptrs),
 			.ppEnabledExtensionNames = size(device_extensions_ptrs) > 0 ? device_extensions_ptrs.data() : nullptr,
-			.pEnabledFeatures = &features // enable all that is supported
+			// NOTE: must be nullptr when using .pNext with VkPhysicalDeviceFeatures2
+			.pEnabledFeatures = nullptr,
 		};
 		
 		VkDevice dev;
@@ -674,17 +697,17 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				  device.max_image_1d_dim, device.max_image_2d_dim, device.max_image_3d_dim,
 				  device.max_mip_levels);
 		
-		device.image_msaa_array_support = features.shaderStorageImageMultisample;
+		device.image_msaa_array_support = features_2.features.shaderStorageImageMultisample;
 		device.image_msaa_array_write_support = device.image_msaa_array_support;
-		device.image_cube_array_support = features.imageCubeArray;
+		device.image_cube_array_support = features_2.features.imageCubeArray;
 		device.image_cube_array_write_support = device.image_cube_array_support;
 		
-		device.anisotropic_support = features.samplerAnisotropy;
+		device.anisotropic_support = features_2.features.samplerAnisotropy;
 		device.max_anisotropy = (device.anisotropic_support ? uint32_t(limits.maxSamplerAnisotropy) : 1u);
 		
-		device.int16_support = features.shaderInt16;
+		device.int16_support = features_2.features.shaderInt16;
 		device.float16_support = shader_float16_int8_features.shaderFloat16;
-		device.double_support = features.shaderFloat64;
+		device.double_support = features_2.features.shaderFloat64;
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
 		device.max_inline_uniform_block_count = inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks;
@@ -1595,7 +1618,7 @@ shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& f
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& vlk_dev = (const vulkan_device&)devices[i];
+		const auto& vlk_dev = (const vulkan_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		

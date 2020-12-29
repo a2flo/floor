@@ -51,8 +51,10 @@ public:
 			vector<VkSpecializationMapEntry> map_entries;
 			vector<uint32_t> data;
 		};
+		// must sync access to specializations
+		atomic_spin_lock specializations_lock;
 		// work-group size -> spec entry
-		flat_map<uint64_t, spec_entry> specializations;
+		flat_map<uint64_t, spec_entry> specializations GUARDED_BY(specializations_lock);
 		
 		//! creates a 64-bit key out of the specified uint3 work-group size
 		//! NOTE: components of the work-group size must fit into 16-bit
@@ -60,7 +62,7 @@ public:
 		
 		//! specializes/builds a compute pipeline for the specified work-group size
 		vulkan_kernel_entry::spec_entry* specialize(const vulkan_device& device,
-													const uint3& work_group_size);
+													const uint3& work_group_size) REQUIRES(specializations_lock);
 	};
 	typedef flat_map<const vulkan_device&, vulkan_kernel_entry> kernel_map_type;
 	
@@ -108,7 +110,7 @@ protected:
 											  bool& success) const;
 	VkPipeline get_pipeline_spec(const vulkan_device& device,
 								 vulkan_kernel_entry& entry,
-								 const uint3& work_group_size) const;
+								 const uint3& work_group_size) const REQUIRES(!entry.specializations_lock);
 	
 	bool set_and_handle_arguments(vulkan_encoder& encoder,
 								  const vector<const vulkan_kernel_entry*>& shader_entries,

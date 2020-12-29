@@ -23,7 +23,9 @@
 #define FLOOR_USER_EVENT_TYPES
 #endif
 
+#include <memory>
 #include <floor/math/vector_lib.hpp>
+#include <floor/core/enum_helpers.hpp>
 
 // general/global event types
 enum class EVENT_TYPE : uint32_t {

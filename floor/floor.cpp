@@ -1213,7 +1213,7 @@ bool floor::init_internal(const init_state& state) {
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
 #endif
 #else // linux, windows, ...
-		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::CUDA, COMPUTE_TYPE::VULKAN };
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::CUDA, COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::VULKAN };
 #endif
 		// always start with the configured one (if one has been set)
 		if(config_compute_type != COMPUTE_TYPE::NONE) {

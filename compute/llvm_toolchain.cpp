@@ -567,6 +567,7 @@ program_data compile_input(const string& input,
 				// TODO/NOTE: for now, doubles are not supported
 				//(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
+				" -fno-stack-protector"
 			};
 			libcxx_path += floor::get_host_base_path() + "libcxx";
 			clang_path += floor::get_host_base_path() + "clang";
@@ -944,7 +945,7 @@ program_data compile_input(const string& input,
 		" -include floor/compute/device/common.hpp" +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
 		" -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-addrsig"
-		" -fno-stack-protector -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
+		" -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +
 		(options.enable_warnings ? warning_flags : " ") +
@@ -960,6 +961,11 @@ program_data compile_input(const string& input,
 #endif
 	
 	// compile
+	if(floor::get_toolchain_log_commands() &&
+	   !options.silence_debug_output) {
+		log_debug("clang cmd: %s", clang_cmd);
+		logger::flush();
+	}
 	string compilation_output = "";
 	core::system(clang_cmd, compilation_output);
 	// check if the output contains an error string (yes, a bit ugly, but it works for now - can't actually check the return code)
@@ -973,10 +979,6 @@ program_data compile_input(const string& input,
 	if(compilation_output != "" &&
 	   !options.silence_debug_output) {
 		log_debug("compilation output:\n%s", compilation_output);
-	}
-	if(floor::get_toolchain_log_commands() &&
-	   !options.silence_debug_output) {
-		log_debug("clang cmd: %s", clang_cmd);
 	}
 	
 	// grab floor function info and create the internal per-function info

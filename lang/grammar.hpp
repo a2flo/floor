@@ -162,9 +162,17 @@ struct parser_context {
 		if(iter == end) return false;
 		
 		++iter;
+		// libstdc++ wrongly removes operator< (and others) in C++20 mode (defaults to <=> which throws a warning)
+#if defined(__GLIBCXX__)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(zero-as-null-pointer-constant)
+#endif
 		if(iter > deepest_iter) {
 			deepest_iter = iter;
 		}
+#if defined(__GLIBCXX__)
+FLOOR_POP_WARNINGS()
+#endif
 		return true;
 	}
 	bool at_end() const {

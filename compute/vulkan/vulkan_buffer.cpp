@@ -64,9 +64,24 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	}
 
 	// create the buffer
+	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
+	VkExternalMemoryBufferCreateInfo ext_create_info;
+	if (is_sharing) {
+		ext_create_info = {
+			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+			.pNext = nullptr,
+#if defined(__WINDOWS__)
+			.handleTypes = (core::is_windows_8_or_higher() ?
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+#else
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
+		};
+	}
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.pNext = nullptr,
+		.pNext = (is_sharing ? &ext_create_info : nullptr),
 		.flags = vk_create_flags,
 		.size = size,
 		// set all the bits here, might need some better restrictions later on
@@ -89,7 +104,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 #if defined(__WINDOWS__)
 	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
-	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (is_sharing) {
 #if defined(__WINDOWS__)
 		// Windows 8+ needs more detailed sharing info
 		if (core::is_windows_8_or_higher()) {

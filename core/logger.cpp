@@ -43,6 +43,7 @@ static safe_mutex log_store_lock;
 static vector<pair<logger::LOG_TYPE, string>> log_store GUARDED_BY(log_store_lock), log_output_store;
 static bool log_use_time { true };
 static bool log_use_color { true };
+static bool log_use_unicode_color { false };
 static atomic<bool> log_initialized { false };
 static atomic<bool> log_destroying { false };
 
@@ -204,6 +205,19 @@ void logger::init(const size_t verbosity,
 	log_append_mode = append_mode;
 	log_use_time = use_time;
 	log_use_color = use_color;
+#if defined(__WINDOWS__)
+	if (log_use_color) {
+		// disable color in Windows cmd/powershell
+		const auto session_name_cstr = SDL_getenv("SESSIONNAME");
+		const auto term_cstr = SDL_getenv("TERM");
+		const string session_name = (session_name_cstr ? session_name_cstr : "");
+		const string term = (term_cstr ? term_cstr : "");
+		log_use_color = !(session_name == "Console" && term.empty());
+	}
+#endif
+#if defined(__APPLE__)
+	log_use_unicode_color = darwin_helper::is_running_in_debugger();
+#endif
 	
 	// create+start the logger thread
 	log_thread = make_unique<logger_thread>();
@@ -239,8 +253,7 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 	}
 	
 	if(type != logger::LOG_TYPE::UNDECORATED) {
-#if defined(__APPLE__)
-		if (log_use_color && darwin_helper::is_running_in_debugger()) {
+		if (log_use_color && log_use_unicode_color) {
 			switch (type) {
 				case LOG_TYPE::ERROR_MSG:
 					buffer << "[🔴]";
@@ -256,9 +269,7 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 					break;
 				case LOG_TYPE::UNDECORATED: break;
 			}
-		} else
-#endif
-		{
+		} else {
 			switch (type) {
 				case LOG_TYPE::ERROR_MSG:
 					buffer << (log_use_color ? "\033[31m" : "") << "[ERR]";

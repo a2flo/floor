@@ -202,6 +202,17 @@ public:
 		return { true, data.emplace(end(), move(key), move(value)) };
 	}
 	
+	//! inserts a new <key, value> pair if no entry for 'key' exists yet, or replaces the current <key, value> entry if it does,
+	//! returns an iterator to the <key, value> pair
+	iterator emplace_or_assign(key_type&& key, value_type&& value) {
+		auto iter = find(key);
+		if(iter != end()) {
+			iter->second = move(value);
+			return iter;
+		}
+		return data.emplace(end(), forward<key_type>(key), forward<value_type>(value));
+	}
+	
 	//! erases the <key, value> pair at 'iter',
 	//! returns an iterator to the next entry
 	iterator erase(iterator iter) {

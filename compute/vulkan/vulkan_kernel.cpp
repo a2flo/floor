@@ -183,6 +183,8 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 VkPipeline vulkan_kernel::get_pipeline_spec(const vulkan_device& device,
 											vulkan_kernel_entry& entry,
 											const uint3& work_group_size) const {
+	GUARD(entry.specializations_lock);
+	
 	// try to find a pipeline that has already been built/specialized for this work-group size
 	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
 	const auto iter = entry.specializations.find(spec_key);

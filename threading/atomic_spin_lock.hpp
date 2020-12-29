@@ -35,6 +35,13 @@ public:
 
 	floor_inline_always atomic_spin_lock(atomic_spin_lock&& spin_lock) noexcept {
 		mtx = spin_lock.mtx.load();
+		spin_lock.mtx = false;
+	}
+	
+	floor_inline_always atomic_spin_lock& operator=(atomic_spin_lock&& spin_lock) noexcept {
+		mtx = spin_lock.mtx.load();
+		spin_lock.mtx = false;
+		return *this;
 	}
 
 	floor_inline_always void lock() ACQUIRE() {

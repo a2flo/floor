@@ -885,7 +885,7 @@ shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& f
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& cl_dev = (const opencl_device&)devices[i];
+		const auto& cl_dev = (const opencl_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
 		

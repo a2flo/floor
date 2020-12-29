@@ -86,8 +86,11 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 		case -10: return "VK_ERROR_TOO_MANY_OBJECTS";
 		case -11: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
 		case -12: return "VK_ERROR_FRAGMENTED_POOL";
+		case -13: return "VK_ERROR_UNKNOWN";
 		case -1000069000: return "VK_ERROR_OUT_OF_POOL_MEMORY";
 		case -1000072003: return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+		case -1000161000: return "VK_ERROR_FRAGMENTATION";
+		case -1000257000: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
 		case -1000000000: return "VK_ERROR_SURFACE_LOST_KHR";
 		case -1000000001: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
 		case 1000001003: return "VK_SUBOPTIMAL_KHR";
@@ -96,10 +99,14 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 		case -1000011001: return "VK_ERROR_VALIDATION_FAILED_EXT";
 		case -1000012000: return "VK_ERROR_INVALID_SHADER_NV";
 		case -1000158000: return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-		case -1000161000: return "VK_ERROR_FRAGMENTATION_EXT";
 		case -1000174001: return "VK_ERROR_NOT_PERMITTED_EXT";
 		case -1000244000: return "VK_ERROR_INVALID_DEVICE_ADDRESS_EXT";
 		case -1000255000: return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
+		case 1000268000: return "VK_THREAD_IDLE_KHR";
+		case 1000268001: return "VK_THREAD_DONE_KHR";
+		case 1000268002: return "VK_OPERATION_DEFERRED_KHR";
+		case 1000268003: return "VK_OPERATION_NOT_DEFERRED_KHR";
+		case 1000297000: return "VK_PIPELINE_COMPILE_REQUIRED_EXT";
 		default: break;
 	}
 	return "<UNKNOWN_ERROR>";

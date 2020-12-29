@@ -150,9 +150,24 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// create the image
+	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
+	VkExternalMemoryImageCreateInfo ext_create_info;
+	if (is_sharing) {
+		ext_create_info = {
+			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+			.pNext = nullptr,
+#if defined(__WINDOWS__)
+			.handleTypes = (core::is_windows_8_or_higher() ?
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
+							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+#else
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
+		};
+	}
 	const VkImageCreateInfo image_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-		.pNext = nullptr,
+		.pNext = (is_sharing ? &ext_create_info : nullptr),
 		.flags = vk_create_flags,
 		.imageType = vk_image_type,
 		.format = vk_format,
@@ -191,7 +206,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 #if defined(__WINDOWS__)
 	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
-	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (is_sharing) {
 #if defined(__WINDOWS__)
 		// Windows 8+ needs more detailed sharing info
 		if (core::is_windows_8_or_higher()) {
@@ -228,10 +243,10 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.pNext = (is_sharing ? &export_alloc_info : nullptr),
 		.allocationSize = allocation_size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
-												  has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) /* sharing requires device memory */),
+												  is_sharing /* sharing requires device memory */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
@@ -395,7 +410,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// get shared memory handle (if sharing is enabled)
-	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (is_sharing) {
 		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
 #if defined(__WINDOWS__)
 		VkMemoryGetWin32HandleInfoKHR get_win32_handle {
