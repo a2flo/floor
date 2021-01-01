@@ -223,6 +223,7 @@ protected:
 				if (i + 1 == len) {
 					// end of string with no format
 					handle_format(buffer, '\0', value);
+					log_internal(buffer, type, nullptr);
 					return;
 				} else if (i + 1 < len && str[i + 1] != '$') {
 					handle_format(buffer, str[i + 1], value);
