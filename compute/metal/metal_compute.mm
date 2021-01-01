@@ -414,9 +414,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			(uint32_t)[dev maxThreadsPerThreadgroup].height,
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
-		log_msg("max total local size: %v", device.max_total_local_size);
-		log_msg("max local size: %v", device.max_local_size);
-		log_msg("max global size: %v", device.max_global_size);
+		log_msg("max total local size: $'", device.max_total_local_size);
+		log_msg("max local size: $'", device.max_local_size);
+		log_msg("max global size: $'", device.max_global_size);
 		
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					 device.max_image_3d_dim.max_element()),
@@ -425,7 +425,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (global: %u MB, local: %u bytes): %s, Metal %s, family type %u tier %u",
+		log_debug("GPU (global: $' MB, local: $' bytes): $, Metal $, family type $ tier $",
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.local_mem_size,
 				  device.name,
@@ -463,7 +463,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	}
 	fastest_device = fastest_gpu_device;
 #endif
-	log_debug("fastest GPU device: %s", fastest_gpu_device->name);
+	log_debug("fastest GPU device: $", fastest_gpu_device->name);
 	
 	// create an internal queue for each device
 	for(auto& dev : devices) {
@@ -509,7 +509,7 @@ const compute_queue* metal_compute::get_device_default_queue(const compute_devic
 	if (const auto iter = internal_queues.find(dev); iter != internal_queues.end()) {
 		return iter->second.get();
 	}
-	log_error("no default queue exists for this device: %s!", dev.name);
+	log_error("no default queue exists for this device: $!", dev.name);
 	return nullptr;
 }
 
@@ -593,7 +593,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 shared_ptr<compute_program> metal_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: %s", file_name);
+		log_error("failed to load universal binary: $", file_name);
 		return {};
 	}
 	
@@ -619,7 +619,7 @@ shared_ptr<compute_program> metal_compute::add_universal_binary(const string& fi
 														dispatch_get_main_queue(), ^{} /* must be non-default */);
 		entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
 		if (!entry.program) {
-			log_error("failed to create metal program/library for device %s: %s",
+			log_error("failed to create metal program/library for device $: $",
 					  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 			return {};
 		}
@@ -653,7 +653,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 		}
 	}
 	if(!ret.program) {
-		log_error("failed to create metal program/library for device %s: %s",
+		log_error("failed to create metal program/library for device $: $",
 				  device.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 		return ret;
 	}
@@ -707,7 +707,7 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
 																		const vector<llvm_toolchain::function_info>& functions) {
-	log_debug("loading mtllib: %s", file_name);
+	log_debug("loading mtllib: $", file_name);
 	
 	// assume pre-compiled program is the same for all devices
 	metal_program::program_map_type prog_map;
@@ -721,7 +721,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		entry.program = [((const metal_device&)*dev).device newLibraryWithFile:lib_file_name
 																		 error:&err];
 		if(!entry.program) {
-			log_error("failed to create metal program/library for device %s: %s",
+			log_error("failed to create metal program/library for device $: $",
 					  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 			continue;
 		}
@@ -958,7 +958,7 @@ bool metal_compute::start_metal_capture(const compute_device& dev, const string&
 	
 	NSError* err { nil };
 	if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
-		log_error("failed to start GPU trace capture: %s",
+		log_error("failed to start GPU trace capture: $",
 				   (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 		return false;
 	}

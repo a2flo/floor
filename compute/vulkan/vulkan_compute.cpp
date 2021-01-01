@@ -420,15 +420,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// check IUB limits
 		if (inline_uniform_block_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
-			log_error("max inline uniform block size of %u is below the required limit of %u",
-					  props.deviceName, inline_uniform_block_props.maxInlineUniformBlockSize,
-					  vulkan_device::min_required_inline_uniform_block_size);
+			log_error("max inline uniform block size of %u is below the required limit of %u (for device %s)",
+					  inline_uniform_block_props.maxInlineUniformBlockSize, vulkan_device::min_required_inline_uniform_block_size,
+					  props.deviceName);
 			continue;
 		}
 		if (inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks < vulkan_device::min_required_inline_uniform_block_count) {
-			log_error("max inline uniform block count of %u is below the required limit of %u",
-					  props.deviceName, inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks,
-					  vulkan_device::min_required_inline_uniform_block_count);
+			log_error("max inline uniform block count of %u is below the required limit of %u (for device %s)",
+					  inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks, vulkan_device::min_required_inline_uniform_block_count,
+					  props.deviceName);
 			continue;
 		}
 		

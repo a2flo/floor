@@ -665,7 +665,7 @@ bool floor::init(const init_state& state) {
 	logger::init((uint32_t)config.verbosity, config.separate_msg_file, config.append_mode,
 				 config.log_use_time, config.log_use_color,
 				 config.log_filename, config.msg_filename);
-	log_debug((FLOOR_VERSION_STRING).c_str());
+	log_debug("$", (FLOOR_VERSION_STRING).c_str());
 	
 	// choose the renderer
 	if(state.renderer == RENDERER::DEFAULT) {

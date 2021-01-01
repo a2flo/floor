@@ -330,11 +330,10 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 
 void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str) {
 	// this is the final log function
-	while(*str) {
-		if(*str == '%' && *(++str) != '%') {
-			cerr << "LOG ERROR: invalid log format, missing arguments!" << endl;
+	if (str != nullptr) {
+		while (*str) {
+			buffer << *str++;
 		}
-		buffer << *str++;
 	}
 	buffer << endl;
 	
