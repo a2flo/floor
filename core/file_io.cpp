@@ -315,7 +315,7 @@ long long int file_io::get_filesize() {
 #else
 	struct stat file_stat;
 	if(stat(filename.c_str(), &file_stat) != 0) {
-		log_error("failed to get file size of \"%s\": ", filename, strerror(errno));
+		log_error("failed to get file size of \"$\": $", filename, strerror(errno));
 		return 0;
 	}
 	return file_stat.st_size;
