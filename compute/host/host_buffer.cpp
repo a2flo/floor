@@ -156,13 +156,13 @@ void host_buffer::copy(const compute_queue& cqueue floor_unused, const compute_b
 	src._unlock();
 }
 
-void host_buffer::fill(const compute_queue& cqueue floor_unused,
+bool host_buffer::fill(const compute_queue& cqueue floor_unused,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nullptr) return false;
 
 	const size_t fill_size = (size_ == 0 ? size : size_);
-	if(!fill_check(size, fill_size, pattern_size, offset)) return;
+	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
 	switch(pattern_size) {
 		case 1:
@@ -193,13 +193,16 @@ void host_buffer::fill(const compute_queue& cqueue floor_unused,
 			break;
 		}
 	}
+	
+	return true;
 }
 
-void host_buffer::zero(const compute_queue& cqueue floor_unused) {
-	if(buffer == nullptr) return;
+bool host_buffer::zero(const compute_queue& cqueue floor_unused) {
+	if(buffer == nullptr) return false;
 
 	GUARD(lock);
 	memset(buffer, 0, size);
+	return true;
 }
 
 bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
@@ -283,11 +286,12 @@ void* __attribute__((aligned(128))) host_buffer::map(const compute_queue& cqueue
 	return buffer + offset;
 }
 
-void host_buffer::unmap(const compute_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(buffer == nullptr) return;
-	if(mapped_ptr == nullptr) return;
+bool host_buffer::unmap(const compute_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(buffer == nullptr) return false;
+	if(mapped_ptr == nullptr) return false;
 
 	// nop
+	return true;
 }
 
 bool host_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused) {

@@ -232,4 +232,44 @@ void vulkan_queue::add_completion_handler(const vulkan_command_buffer& cmd_buffe
 	cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(completion_handler);
 }
 
+vulkan_command_block vulkan_queue::make_command_block(const char* name, bool& error_signal, const bool is_blocking,
+													  const VkSemaphore* wait_semas, const uint32_t wait_sema_count,
+													  const VkPipelineStageFlags wait_stage_flags) const {
+	return vulkan_command_block { *this, name, error_signal, is_blocking, wait_semas, wait_sema_count, wait_stage_flags };
+}
+
+vulkan_command_block::vulkan_command_block(const vulkan_queue& vk_queue_, const char* name, bool& error_signal_, const bool is_blocking_,
+										   const VkSemaphore* wait_semas_, const uint32_t wait_sema_count_,
+										   const VkPipelineStageFlags wait_stage_flags_) :
+vk_queue(vk_queue_), error_signal(error_signal_), is_blocking(is_blocking_),
+wait_semas(wait_semas_), wait_sema_count(wait_sema_count_), wait_stage_flags(wait_stage_flags_) {
+	// create new command buffer + begin
+	cmd_buffer = vk_queue.make_command_buffer(name);
+	const VkCommandBufferBeginInfo begin_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr,
+	};
+	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+					 "failed to begin command buffer",
+					 { error_signal = true; return; })
+	
+	// done
+	valid = true;
+}
+
+vulkan_command_block::~vulkan_command_block() {
+	if (!valid || !cmd_buffer.cmd_buffer) {
+		error_signal = true;
+		return;
+	}
+	
+	VK_CALL_ERR_EXEC(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
+					 "failed to end command buffer",
+					 { error_signal = true; return; })
+	
+	vk_queue.submit_command_buffer(cmd_buffer, is_blocking, wait_semas, wait_sema_count, wait_stage_flags);
+}
+
 #endif

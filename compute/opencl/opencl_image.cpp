@@ -250,8 +250,8 @@ opencl_image::~opencl_image() {
 	}
 }
 
-void opencl_image::zero(const compute_queue& cqueue) {
-	if(image == nullptr) return;
+bool opencl_image::zero(const compute_queue& cqueue) {
+	if(image == nullptr) return false;
 	
 	const float4 black { 0.0f }; // bit identical to uint4(0) and int4(0), so format doesn't matter here
 	const size4 origin { 0, 0, 0, 0 };
@@ -259,16 +259,16 @@ void opencl_image::zero(const compute_queue& cqueue) {
 	CL_CALL_RET(clEnqueueFillImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image,
 								   (const void*)&black, origin.data(), region.data(),
 								   0, nullptr, nullptr),
-				"failed to zero image")
+				"failed to zero image", false)
 	
 	// NOTE: clEnqueueFillImage is not listed as supporting mip-mapping by cl_khr_mipmap_image
 	// -> create a 0-buffer for all mip-levels > 0
 	if(is_mip_mapped) {
 		unique_ptr<uint8_t[]> zero_buffer;
-		apply_on_levels<true>([this, &cqueue, &zero_buffer](const uint32_t& level,
-															const uint4& mip_image_dim,
-															const uint32_t&,
-															const uint32_t& level_data_size) {
+		const auto success = apply_on_levels<true>([this, &cqueue, &zero_buffer](const uint32_t& level,
+																				 const uint4& mip_image_dim,
+																				 const uint32_t&,
+																				 const uint32_t& level_data_size) {
 			// level #0 already handled
 			if(level == 0) return true;
 			if(level == 1) {
@@ -289,7 +289,10 @@ void opencl_image::zero(const compute_queue& cqueue) {
 		
 		// block until all have been written
 		cqueue.finish();
+		
+		return success;
 	}
+	return true;
 }
 
 void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
@@ -375,15 +378,15 @@ void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueu
 	return ret_ptr;
 }
 
-void opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nullptr) return;
-	if(mapped_ptr == nullptr) return;
+bool opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(image == nullptr) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	// check if this is actually a mapped pointer
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
 	// when using manual mip-mapping and write/write_invalidate mapping,
@@ -403,7 +406,7 @@ void opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((align
 	
 	for(const auto& mptr : iter->second.mapped_ptrs) {
 		CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, mptr, 0, nullptr, nullptr),
-					"failed to unmap buffer")
+					"failed to unmap buffer", false)
 	}
 	mappings.erase(mapped_ptr);
 	
@@ -413,6 +416,8 @@ void opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((align
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		generate_mip_map_chain(cqueue);
 	}
+	
+	return true;
 }
 
 bool opencl_image::acquire_opengl_object(const compute_queue* cqueue) {

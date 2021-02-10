@@ -42,12 +42,12 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	void zero(const compute_queue& cqueue) override;
+	bool zero(const compute_queue& cqueue) override;
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the opencl specific image object/pointer
 	const cl_mem& get_cl_image() const {

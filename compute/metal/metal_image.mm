@@ -569,8 +569,8 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 	return true;
 }
 
-void metal_image::zero(const compute_queue& cqueue) {
-	if(image == nil) return;
+bool metal_image::zero(const compute_queue& cqueue) {
+	if(image == nil) return false;
 	
 	const bool is_compressed = image_compressed(image_type);
 	const auto dim_count = image_dim_count(image_type);
@@ -586,10 +586,10 @@ void metal_image::zero(const compute_queue& cqueue) {
 	
 	[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
 	
-	apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
-																							  const uint4& mip_image_dim,
-																							  const uint32_t& slice_data_size,
-																							  const uint32_t&) {
+	const auto success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
+																												   const uint4& mip_image_dim,
+																												   const uint32_t& slice_data_size,
+																												   const uint32_t&) {
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
 		for (size_t slice = 0; slice < layer_count; ++slice) {
 			const MTLSize copy_size {
@@ -613,6 +613,8 @@ void metal_image::zero(const compute_queue& cqueue) {
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
+	
+	return success;
 }
 
 void* floor_nullable __attribute__((aligned(128))) metal_image::map(const compute_queue& cqueue,
@@ -722,20 +724,21 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 	return host_buffer;
 }
 
-void metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nil) return;
-	if(mapped_ptr == nullptr) return;
+bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
+	if(image == nil) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	bool success = true;
+	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		// copy host memory to device memory
 		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -750,7 +753,7 @@ void metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 		}
 		
 		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
-		apply_on_levels([this, &cpy_host_ptr,
+		success = apply_on_levels([this, &cpy_host_ptr,
 						 &dim_count, &is_compressed](const uint32_t& level,
 													 const uint4& mip_image_dim,
 													 const uint32_t& slice_data_size,
@@ -794,6 +797,8 @@ void metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 	// free host memory again and remove the mapping
 	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
+	
+	return success;
 }
 
 bool metal_image::acquire_opengl_object(const compute_queue* floor_nullable cqueue floor_unused) {

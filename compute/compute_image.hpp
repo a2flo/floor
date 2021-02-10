@@ -147,10 +147,10 @@ public:
 		return (array<data_type, n>*)map(cqueue, flags_);
 	}
 	
-	//! unmaps a previously mapped memory pointer
+	//! unmaps a previously mapped memory pointer, returns true on success
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
 	//! return struct of get_opengl_image_info
 	struct opengl_image_info {

@@ -58,14 +58,14 @@ public:
 	bool acquire_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	bool release_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	
-	void zero(const compute_queue& cqueue) override;
+	bool zero(const compute_queue& cqueue) override;
 	
 	void* floor_nullable __attribute__((aligned(128))) map(const compute_queue& cqueue,
 														   const COMPUTE_MEMORY_MAP_FLAG flags =
 														   (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
 															COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(const compute_queue& cqueue,
+	bool unmap(const compute_queue& cqueue,
 			   void* floor_nullable __attribute__((aligned(128))) mapped_ptr) override;
 	
 	void set_debug_label(const string& label) override;

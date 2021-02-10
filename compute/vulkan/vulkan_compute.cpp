@@ -1346,44 +1346,30 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
-	auto cmd_buffer = vk_queue.make_command_buffer("image drawable transition");
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", { false, dummy_ret })
-	
 	const auto dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	const auto dst_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	const VkImageMemoryBarrier image_barrier {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = 0,
-		.dstAccessMask = dst_access_mask,
-		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.newLayout = dst_layout,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = screen.swapchain_images[screen.image_index],
-		.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
-		},
-	};
-	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-						 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
-	
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-				"failed to end command buffer", { false, dummy_ret })
-	vk_queue.submit_command_buffer(cmd_buffer, true, // TODO: don't block?
-								   &screen.render_semas[screen.image_index], 1,
-								   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	VK_CMD_BLOCK_RET(vk_queue, "image drawable transition", ({
+		const VkImageMemoryBarrier image_barrier {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.pNext = nullptr,
+			.srcAccessMask = 0,
+			.dstAccessMask = dst_access_mask,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = dst_layout,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = screen.swapchain_images[screen.image_index],
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		};
+		vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+	}), (pair { false, dummy_ret }), true /* always blocking */, &screen.render_semas[screen.image_index], 1, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	
 	return {
 		true,
@@ -1437,40 +1423,28 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	}
 	
 	// transition to present mode
-	auto cmd_buffer = vk_queue.make_command_buffer("image present transition");
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", false)
-	
-	const VkImageMemoryBarrier present_image_barrier {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = drawable.image,
-		.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
-		},
-	};
-	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-						 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
-	
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-				"failed to end command buffer", false)
-	vk_queue.submit_command_buffer(cmd_buffer, true); // TODO: don't block?
+	VK_CMD_BLOCK(vk_queue, "image present transition", ({
+		const VkImageMemoryBarrier present_image_barrier {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.pNext = nullptr,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = drawable.image,
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		};
+		vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+							 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
+	}), true /* always blocking */);
 	
 	return queue_present(drawable);
 }

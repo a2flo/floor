@@ -32,7 +32,7 @@ public:
 	metal_pipeline(const render_pipeline_description& pipeline_desc,
 				   const vector<unique_ptr<compute_device>>& devices,
 				   const bool with_multi_view_support = false);
-	virtual ~metal_pipeline();
+	~metal_pipeline() override;
 	
 	//! all Metal pipeline state
 	struct metal_pipeline_entry {

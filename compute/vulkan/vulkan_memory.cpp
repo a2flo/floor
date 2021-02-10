@@ -42,7 +42,9 @@ bool vulkan_memory::write_memory_data(const compute_queue& cqueue, const void* d
 	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
 	if(mapped_ptr != nullptr) {
 		memcpy(mapped_ptr, data, (non_shim_input_size == 0 ? size : non_shim_input_size));
-		unmap(cqueue, mapped_ptr);
+		if (!unmap(cqueue, mapped_ptr)) {
+			return false;
+		}
 	}
 	else {
 		if(error_msg_on_failure == nullptr) {
@@ -59,7 +61,9 @@ bool vulkan_memory::read_memory_data(const compute_queue& cqueue, void* data, co
 	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
 	if(mapped_ptr != nullptr) {
 		memcpy(data, mapped_ptr, (non_shim_input_size == 0 ? size : non_shim_input_size));
-		unmap(cqueue, mapped_ptr);
+		if (!unmap(cqueue, mapped_ptr)) {
+			return false;
+		}
 	}
 	else {
 		if(error_msg_on_failure == nullptr) {
@@ -164,61 +168,36 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		}
 		
 		// device -> host buffer copy
-		if(!device.unified_memory || is_image) {
-			auto cmd_buffer = vk_queue.make_command_buffer("dev -> host memory copy"); // TODO: should probably abstract this a little
-			const VkCommandBufferBeginInfo begin_info {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-				.pNext = nullptr,
-				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-				.pInheritanceInfo = nullptr,
-			};
-			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer", nullptr)
-			
-			if(!is_image) {
-				const VkBufferCopy region {
-					.srcOffset = mapping.offset,
-					.dstOffset = 0,
+		if (!device.unified_memory || is_image) {
+			VK_CMD_BLOCK(vk_queue, "dev -> host memory copy", ({
+				if (!is_image) {
+					const VkBufferCopy region {
+						.srcOffset = mapping.offset,
+						.dstOffset = 0,
+						.size = mapping.size,
+					};
+					vkCmdCopyBuffer(cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
+				} else {
+					image_copy_dev_to_host(cqueue, cmd_buffer.cmd_buffer, mapping.buffer);
+				}
+			}), blocking_map);
+		} else {
+			// TODO: make this actually work
+			VK_CMD_BLOCK(vk_queue, "dev -> host memory barrier", ({
+				const VkBufferMemoryBarrier buffer_barrier {
+					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+					.pNext = nullptr,
+					.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+					.dstAccessMask = VkAccessFlags(VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : VkAccessFlagBits(0u))),
+					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.buffer = mapping.buffer,
+					.offset = mapping.offset,
 					.size = mapping.size,
 				};
-				vkCmdCopyBuffer(cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
-			}
-			else {
-				image_copy_dev_to_host(cqueue, cmd_buffer.cmd_buffer, mapping.buffer);
-			}
-	
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
-			vk_queue.submit_command_buffer(cmd_buffer, blocking_map);
-		}
-		else {
-			// TODO: make this actually work
-			auto cmd_buffer = vk_queue.make_command_buffer("dev -> host memory barrier");
-			const VkCommandBufferBeginInfo begin_info {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-				.pNext = nullptr,
-				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-				.pInheritanceInfo = nullptr,
-			};
-			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer", nullptr)
-			
-			const VkBufferMemoryBarrier buffer_barrier {
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.pNext = nullptr,
-				.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-				.dstAccessMask = VkAccessFlags(VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : VkAccessFlagBits(0u))),
-				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-				.buffer = mapping.buffer,
-				.offset = mapping.offset,
-				.size = mapping.size,
-			};
-			
-			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
-			
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr)
-			vk_queue.submit_command_buffer(cmd_buffer, blocking_map);
+				vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+									 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+			}), blocking_map);
 		}
 	}
 	
@@ -234,9 +213,9 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 	return host_ptr;
 }
 
-void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(*object == 0) return;
-	if(mapped_ptr == nullptr) return;
+bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(*object == 0) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	auto vulkan_dev = device.device;
@@ -245,7 +224,7 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
@@ -255,30 +234,18 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 			do {
 				// host -> device copy
 				// TODO: sync ...
-				auto cmd_buffer = vk_queue.make_command_buffer("host -> dev memory copy"); // TODO: should probably abstract this a little
-				const VkCommandBufferBeginInfo begin_info {
-					.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-					.pNext = nullptr,
-					.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-					.pInheritanceInfo = nullptr,
-				};
-				VK_CALL_BREAK(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-							  "failed to begin command buffer")
-				
-				if(!is_image) {
-					const VkBufferCopy region {
-						.srcOffset = 0,
-						.dstOffset = iter->second.offset,
-						.size = iter->second.size,
-					};
-					vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
-				}
-				else {
-					image_copy_host_to_dev(cqueue, cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
-				}
-				
-				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-				vk_queue.submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+				VK_CMD_BLOCK(vk_queue, "host -> dev memory copy", ({
+					if(!is_image) {
+						const VkBufferCopy region {
+							.srcOffset = 0,
+							.dstOffset = iter->second.offset,
+							.size = iter->second.size,
+						};
+						vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
+					} else {
+						image_copy_host_to_dev(cqueue, cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
+					}
+				}), has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);
 		}
 	}
@@ -293,37 +260,26 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		if(device.unified_memory && !is_image) {
-			auto cmd_buffer = vk_queue.make_command_buffer("host -> dev memory barrier");
-			const VkCommandBufferBeginInfo begin_info {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-				.pNext = nullptr,
-				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-				.pInheritanceInfo = nullptr,
-			};
-			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer")
-			
-			const VkBufferMemoryBarrier buffer_barrier {
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.pNext = nullptr,
-				.srcAccessMask = VkAccessFlags(VK_ACCESS_HOST_WRITE_BIT |
-											   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
-				.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
-								  VK_ACCESS_MEMORY_WRITE_BIT |
-								  VK_ACCESS_SHADER_READ_BIT |
-								  VK_ACCESS_SHADER_WRITE_BIT),
-				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-				.buffer = iter->second.buffer,
-				.offset = iter->second.offset,
-				.size = iter->second.size,
-			};
-			
-			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
-			
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-			vk_queue.submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+			VK_CMD_BLOCK(vk_queue, "host -> dev memory barrier", ({
+				const VkBufferMemoryBarrier buffer_barrier {
+					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+					.pNext = nullptr,
+					.srcAccessMask = VkAccessFlags(VK_ACCESS_HOST_WRITE_BIT |
+												   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
+					.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
+									  VK_ACCESS_MEMORY_WRITE_BIT |
+									  VK_ACCESS_SHADER_READ_BIT |
+									  VK_ACCESS_SHADER_WRITE_BIT),
+					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.buffer = iter->second.buffer,
+					.offset = iter->second.offset,
+					.size = iter->second.size,
+				};
+				
+				vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+									 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+			}), has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 		}
 	}
 	
@@ -339,6 +295,8 @@ void vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	
 	// remove the mapping
 	mappings.erase(mapped_ptr);
+	
+	return true;
 }
 
 uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,

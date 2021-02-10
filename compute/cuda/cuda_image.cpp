@@ -791,8 +791,8 @@ cuda_image::~cuda_image() {
 	}
 }
 
-void cuda_image::zero(const compute_queue& cqueue) {
-	if(image == nullptr) return;
+bool cuda_image::zero(const compute_queue& cqueue) {
+	if(image == nullptr) return false;
 	
 	// NOTE: when using mip-mapping, we can reuse the zero data ptr from the first level (all levels will be smaller than the first)
 	const auto first_level_size = image_data_size_from_types(image_dim, image_type, true);
@@ -800,10 +800,10 @@ void cuda_image::zero(const compute_queue& cqueue) {
 	auto zero_data_ptr = zero_data.get();
 	memset(zero_data_ptr, 0, first_level_size);
 	
-	apply_on_levels<true>([this, &zero_data_ptr](const uint32_t& level,
-												 const uint4& mip_image_dim,
-												 const uint32_t& slice_data_size,
-												 const uint32_t&) {
+	const auto success = apply_on_levels<true>([this, &zero_data_ptr](const uint32_t& level,
+																	  const uint4& mip_image_dim,
+																	  const uint32_t& slice_data_size,
+																	  const uint32_t&) {
 		if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(zero_data_ptr,
 																	 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
 																	 slice_data_size / max(mip_image_dim.y, 1u),
@@ -815,6 +815,8 @@ void cuda_image::zero(const compute_queue& cqueue) {
 	});
 	
 	cqueue.finish();
+	
+	return success;
 }
 
 void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
@@ -884,26 +886,27 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 	return host_buffer;
 }
 
-void cuda_image::unmap(const compute_queue& cqueue,
+bool cuda_image::unmap(const compute_queue& cqueue,
 					   void* __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nullptr) return;
-	if(mapped_ptr == nullptr) return;
+	if(image == nullptr) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	bool success = true;
+	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		auto cpy_host_ptr = (uint8_t*)mapped_ptr;
-		apply_on_levels([this, &cpy_host_ptr](const uint32_t& level,
-											  const uint4& mip_image_dim,
-											  const uint32_t& slice_data_size,
-											  const uint32_t& level_data_size) {
+		success = apply_on_levels([this, &cpy_host_ptr](const uint32_t& level,
+														const uint4& mip_image_dim,
+														const uint32_t& slice_data_size,
+														const uint32_t& level_data_size) {
 			if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
 																		 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
@@ -924,6 +927,8 @@ void cuda_image::unmap(const compute_queue& cqueue,
 	// free host memory again and remove the mapping
 	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
+	
+	return success;
 }
 
 template <bool depth_to_color /* or color_to_depth if false */>

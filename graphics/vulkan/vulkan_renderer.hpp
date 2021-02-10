@@ -59,7 +59,7 @@ public:
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 
 protected:
-	vulkan_command_buffer cmd_buffer;
+	vulkan_command_buffer render_cmd_buffer;
 	unique_ptr<vulkan_drawable_t> cur_drawable;
 	VkFramebuffer cur_framebuffer { nullptr };
 	vector<VkFramebuffer> framebuffers;

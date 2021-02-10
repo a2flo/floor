@@ -171,26 +171,26 @@ void opencl_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 						0, nullptr, nullptr);
 }
 
-void opencl_buffer::fill(const compute_queue& cqueue,
+bool opencl_buffer::fill(const compute_queue& cqueue,
 						 const void* pattern, const size_t& pattern_size,
 						 const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nullptr) return false;
 	
 	const size_t fill_size = (size_ == 0 ? size : size_);
-	if(!fill_check(size, fill_size, pattern_size, offset)) return;
+	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
 	// NOTE: opencl spec says that this ignores kernel/host read/write flags
-	clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, pattern, pattern_size, offset, fill_size,
-						0, nullptr, nullptr);
+	return (clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, pattern, pattern_size, offset, fill_size,
+								0, nullptr, nullptr) == CL_SUCCESS);
 }
 
-void opencl_buffer::zero(const compute_queue& cqueue) {
-	if(buffer == nullptr) return;
+bool opencl_buffer::zero(const compute_queue& cqueue) {
+	if(buffer == nullptr) return false;
 	
 	// TODO: figure out the fastest way to do this here (write 8-bit, 16-bit, 32-bit, ...?)
 	static constexpr const uint32_t zero_pattern { 0u };
-	clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, &zero_pattern, sizeof(zero_pattern),
-						0, size, 0, nullptr, nullptr);
+	return (clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, &zero_pattern, sizeof(zero_pattern),
+								0, size, 0, nullptr, nullptr) == CL_SUCCESS);
 }
 
 bool opencl_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
@@ -302,12 +302,13 @@ void* __attribute__((aligned(128))) opencl_buffer::map(const compute_queue& cque
 	return ret_ptr;
 }
 
-void opencl_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(buffer == nullptr) return;
-	if(mapped_ptr == nullptr) return;
+bool opencl_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(buffer == nullptr) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, mapped_ptr, 0, nullptr, nullptr),
-				"failed to unmap buffer")
+				"failed to unmap buffer", false)
+	return true;
 }
 
 bool opencl_buffer::acquire_opengl_object(const compute_queue* cqueue) {

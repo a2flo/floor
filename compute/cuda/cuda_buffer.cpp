@@ -295,49 +295,49 @@ void cuda_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 				"failed to copy memory on device")
 }
 
-void cuda_buffer::fill(const compute_queue& cqueue,
+bool cuda_buffer::fill(const compute_queue& cqueue,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
-	if(buffer == 0) return;
+	if(buffer == 0) return false;
 	
 	const size_t fill_size = (size_ == 0 ? size : size_);
-	if(!fill_check(size, fill_size, pattern_size, offset)) return;
+	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
 	// TODO: blocking flag
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
 			CU_CALL_RET(cu_memset_d8_async(buffer + offset, *(const uint8_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
-						"failed to fill device memory (8-bit memset)")
+						"failed to fill device memory (8-bit memset)", false)
 			break;
 		case 2:
 			CU_CALL_RET(cu_memset_d16_async(buffer + offset, *(const uint16_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
-						"failed to fill device memory (16-bit memset)")
+						"failed to fill device memory (16-bit memset)", false)
 			break;
 		case 4:
 			CU_CALL_RET(cu_memset_d32_async(buffer + offset, *(const uint32_t*)pattern, pattern_count, (const_cu_stream)cqueue.get_queue_ptr()),
-						"failed to fill device memory (32-bit memset)")
+						"failed to fill device memory (32-bit memset)", false)
 			break;
 		default:
 			// not a pattern size that allows a fast memset
 			// -> create a host buffer with the pattern and upload it
-			unsigned char* pattern_buffer = new unsigned char[fill_size];
-			unsigned char* write_ptr = pattern_buffer;
+			auto pattern_buffer = make_unique<uint8_t[]>(fill_size);
+			uint8_t* write_ptr = pattern_buffer.get();
 			for(size_t i = 0; i < pattern_count; i++) {
 				memcpy(write_ptr, pattern, pattern_size);
 				write_ptr += pattern_size;
 			}
-			CU_CALL_NO_ACTION(cu_memcpy_htod(buffer + offset, pattern_buffer, fill_size),
-							  "failed to fill device memory (arbitrary memcpy)")
-			delete [] pattern_buffer;
+			CU_CALL_RET(cu_memcpy_htod(buffer + offset, pattern_buffer.get(), fill_size),
+						"failed to fill device memory (arbitrary memcpy)", false)
 			break;
 	}
+	return true;
 }
 
-void cuda_buffer::zero(const compute_queue& cqueue) {
-	if(buffer == 0) return;
+bool cuda_buffer::zero(const compute_queue& cqueue) {
+	if(buffer == 0) return false;
 	static constexpr const uint32_t zero_pattern { 0u };
-	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
+	return fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
 bool cuda_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
@@ -483,28 +483,31 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue
 	return host_buffer;
 }
 
-void cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
+bool cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
 						void* __attribute__((aligned(128))) mapped_ptr) {
-	if(buffer == 0) return;
-	if(mapped_ptr == nullptr) return;
+	if(buffer == 0) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		CU_CALL_NO_ACTION(cu_memcpy_htod(buffer + iter->second.offset, mapped_ptr, iter->second.size),
-						  "failed to copy host memory to device")
+	bool success = true;
+	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		CU_CALL_ERROR_EXEC(cu_memcpy_htod(buffer + iter->second.offset, mapped_ptr, iter->second.size),
+						   "failed to copy host memory to device", { success = false; })
 	}
 	
 	// free host memory again and remove the mapping
 	delete [] (unsigned char*)mapped_ptr;
 	mappings.erase(mapped_ptr);
+	
+	return success;
 }
 
 bool cuda_buffer::acquire_opengl_object(const compute_queue* cqueue) {

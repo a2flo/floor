@@ -308,13 +308,13 @@ void metal_buffer::copy(const compute_queue& cqueue floor_unused_on_ios, const c
 #endif
 }
 
-void metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
+bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
-	if(buffer == nil) return;
+	if(buffer == nil) return false;
 	
 	const size_t fill_size = (size_ == 0 ? size : size_);
-	if(!fill_check(size, fill_size, pattern_size, offset)) return;
+	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
 	GUARD(lock);
 	
@@ -333,7 +333,7 @@ void metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 				[blit_encoder endEncoding];
 				[cmd_buffer commit];
 				[cmd_buffer waitUntilCompleted];
-				return;
+				return true;
 			}
 #endif
 			fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
@@ -366,11 +366,13 @@ void metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 		copy(cqueue, *staging_buffer, fill_size, offset, offset);
 	}
 #endif
+	
+	return true;
 }
 
-void metal_buffer::zero(const compute_queue& cqueue) {
+bool metal_buffer::zero(const compute_queue& cqueue) {
 	const uint8_t zero_pattern = 0u;
-	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
+	return fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
 bool metal_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
@@ -465,20 +467,21 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 #endif
 }
 
-void metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
+bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
-	if(buffer == nil) return;
-	if(mapped_ptr == nullptr) return;
+	if(buffer == nil) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 #if !defined(FLOOR_IOS)
 	const bool is_managed = ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
 	const bool has_staging_buffer = (staging_buffer != nullptr);
+	bool success = true;
 	if(is_managed || has_staging_buffer) {
 		// check if this is actually a mapped pointer (+get the mapped size)
 		const auto iter = mappings.find(mapped_ptr);
 		if(iter == mappings.end()) {
 			log_error("invalid mapped pointer: %X", mapped_ptr);
-			return;
+			return false;
 		}
 		
 		if (is_managed) {
@@ -501,7 +504,7 @@ void metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 		}
 		else if(has_staging_buffer) {
 			// perform unmap on the staging buffer, then update this buffer if necessary
-			staging_buffer->unmap(cqueue, mapped_ptr);
+			success = staging_buffer->unmap(cqueue, mapped_ptr);
 			if (iter->second.write_only || !iter->second.read_only) {
 				copy(cqueue, *staging_buffer, iter->second.size, iter->second.offset);
 			}
@@ -514,6 +517,8 @@ void metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 	// else: don't need to do anything for shared host/device memory
 	
 	_unlock();
+	
+	return success;
 }
 
 // NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline

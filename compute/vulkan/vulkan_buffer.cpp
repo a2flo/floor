@@ -237,32 +237,24 @@ void vulkan_buffer::copy(const compute_queue& cqueue floor_unused, const compute
 	log_error("vulkan_buffer::copy not implemented yet");
 }
 
-void vulkan_buffer::fill(const compute_queue& cqueue floor_unused,
+bool vulkan_buffer::fill(const compute_queue& cqueue floor_unused,
 						 const void* pattern floor_unused, const size_t& pattern_size floor_unused,
 						 const size_t size_ floor_unused, const size_t offset floor_unused) {
-	if(buffer == nullptr) return;
+	if(buffer == nullptr) return false;
 	
 	// TODO: implement this
 	log_error("vulkan_buffer::fill not implemented yet");
+	return false;
 }
 
-void vulkan_buffer::zero(const compute_queue& cqueue) {
-	if(buffer == nullptr) return;
+bool vulkan_buffer::zero(const compute_queue& cqueue) {
+	if(buffer == nullptr) return false;
 	
-	auto cmd_buffer = ((const vulkan_queue&)cqueue).make_command_buffer("buffer zero"); // TODO: abstract
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer")
-	
-	vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
-	
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
-	((const vulkan_queue&)cqueue).submit_command_buffer(cmd_buffer);
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	VK_CMD_BLOCK(vk_queue, "buffer zero", ({
+		vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
+	}), true /* always blocking */);
+	return true;
 }
 
 bool vulkan_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
@@ -280,7 +272,7 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(const compute_queue& cque
 	return vulkan_memory::map(cqueue, flags_, map_size, offset);
 }
 
-void vulkan_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+bool vulkan_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	return vulkan_memory::unmap(cqueue, mapped_ptr);
 }
 

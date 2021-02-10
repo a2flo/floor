@@ -524,9 +524,11 @@ vulkan_image::~vulkan_image() {
 	}
 }
 
-void vulkan_image::zero(const compute_queue& cqueue floor_unused) {
-	if(image == nullptr) return;
+bool vulkan_image::zero(const compute_queue& cqueue floor_unused) {
+	if(image == nullptr) return false;
 	// TODO: implement this
+	log_error("vulkan_image::zero not implemented yet");
+	return false;
 }
 
 void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueue,
@@ -535,15 +537,17 @@ void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueu
 											   image_data_size : shim_image_data_size), 0);
 }
 
-void vulkan_image::unmap(const compute_queue& cqueue,
+bool vulkan_image::unmap(const compute_queue& cqueue,
 						 void* __attribute__((aligned(128))) mapped_ptr) {
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: %X", mapped_ptr);
-		return;
+		return false;
 	}
 	
-	vulkan_memory::unmap(cqueue, mapped_ptr);
+	if (!vulkan_memory::unmap(cqueue, mapped_ptr)) {
+		return false;
+	}
 	
 	// manually create mip-map chain
 	if(generate_mip_maps &&
@@ -551,6 +555,8 @@ void vulkan_image::unmap(const compute_queue& cqueue,
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		generate_mip_map_chain(cqueue);
 	}
+	
+	return true;
 }
 
 void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
@@ -649,8 +655,8 @@ static VkPipelineStageFlags stage_mask_from_access(const VkAccessFlags& access_m
 	return stage_mask_in;
 }
 
-void vulkan_image::transition(const compute_queue& cqueue,
-							  VkCommandBuffer cmd_buffer,
+bool vulkan_image::transition(const compute_queue& cqueue,
+							  VkCommandBuffer cmd_buffer_,
 							  const VkAccessFlags dst_access,
 							  const VkImageLayout new_layout,
 							  const VkPipelineStageFlags src_stage_mask_in,
@@ -687,33 +693,22 @@ void vulkan_image::transition(const compute_queue& cqueue,
 		},
 	};
 	
-	if(cmd_buffer == nullptr) {
+	if (cmd_buffer_ == nullptr) {
 		const auto& vk_queue = (const vulkan_queue&)cqueue;
-		auto cmd = vk_queue.make_command_buffer("image transition");
-		const VkCommandBufferBeginInfo begin_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.pNext = nullptr,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-		VK_CALL_RET(vkBeginCommandBuffer(cmd.cmd_buffer, &begin_info),
-					"failed to begin command buffer")
-		
-		vkCmdPipelineBarrier(cmd.cmd_buffer, src_stage_mask, dst_stage_mask,
-							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
-		
-		VK_CALL_RET(vkEndCommandBuffer(cmd.cmd_buffer),
-					"failed to end command buffer")
-		vk_queue.submit_command_buffer(cmd);
-	}
-	else {
-		vkCmdPipelineBarrier(cmd_buffer, src_stage_mask, dst_stage_mask,
+		VK_CMD_BLOCK(vk_queue, "image transition", ({
+			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, src_stage_mask, dst_stage_mask,
+								 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+		}), true /* always blocking */);
+	} else {
+		vkCmdPipelineBarrier(cmd_buffer_, src_stage_mask, dst_stage_mask,
 							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
 	}
 	
 	cur_access_mask = dst_access;
 	image_info.imageLayout = new_layout;
 	update_mip_map_info();
+	
+	return true;
 }
 
 void vulkan_image::transition_read(const compute_queue& cqueue,

@@ -88,7 +88,7 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 
 bool vulkan_renderer::create_cmd_buffer() {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	cmd_buffer = vk_queue.make_command_buffer("vk_renderer_cmd_buffer");
+	render_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_cmd_buffer");
 	const VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -96,11 +96,11 @@ bool vulkan_renderer::create_cmd_buffer() {
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		.pInheritanceInfo = nullptr,
 	};
-	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(render_cmd_buffer.cmd_buffer, &begin_info),
 					 "failed to begin command buffer", valid = false; return false;)
 
 	// register completion callback to destroy all framebuffers once we're done
-	vk_queue.add_completion_handler(cmd_buffer, [this]() {
+	vk_queue.add_completion_handler(render_cmd_buffer, [this]() {
 		for (const auto& fb : framebuffers) {
 			vkDestroyFramebuffer(((const vulkan_device&)cqueue.get_device()).device, fb, nullptr);
 		}
@@ -108,7 +108,7 @@ bool vulkan_renderer::create_cmd_buffer() {
 	});
 	
 	// register completion callback to make all attachments readable once we're done (except for the drawable, which is dealt with differently)
-	vk_queue.add_completion_handler(cmd_buffer, [this]() {
+	vk_queue.add_completion_handler(render_cmd_buffer, [this]() {
 		if (attachments_map.empty() && !depth_attachment) {
 			return; // nop
 		}
@@ -133,27 +133,16 @@ bool vulkan_renderer::create_cmd_buffer() {
 		
 		// transition all except "cur_drawable_img"
 		const auto& transition_vk_queue = (const vulkan_queue&)cqueue;
-		auto transition_cmd_buffer = transition_vk_queue.make_command_buffer("vk_renderer_transition_read_attachments_cmd_buffer");
-		const VkCommandBufferBeginInfo transition_begin_info{
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.pNext = nullptr,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-		VK_CALL_ERR_EXEC(vkBeginCommandBuffer(transition_cmd_buffer.cmd_buffer, &transition_begin_info),
-						 "failed to begin command buffer for attachments read transition", return;)
-		
-		for (auto& att : attachments_map) {
-			if (att.second.image != cur_drawable_img) {
-				((vulkan_image*)att.second.image)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
+		VK_CMD_BLOCK_RET(transition_vk_queue, "vk_renderer_transition_read_attachments_cmd_buffer", ({
+			for (auto& att : attachments_map) {
+				if (att.second.image != cur_drawable_img) {
+					((vulkan_image*)att.second.image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
+				}
 			}
-		}
-		if (depth_attachment) {
-			((vulkan_image*)depth_attachment->image)->transition_read(cqueue, transition_cmd_buffer.cmd_buffer);
-		}
-		
-		VK_CALL_RET(vkEndCommandBuffer(transition_cmd_buffer.cmd_buffer), "failed to end command buffer for attachments read transition")
-		transition_vk_queue.submit_command_buffer(transition_cmd_buffer, true);
+			if (depth_attachment) {
+				((vulkan_image*)depth_attachment->image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
+			}
+		}), , true /* always blocking */);
 	});
 
 	// can now use this cmd buffer + reuse it for every begin/end until commit is called
@@ -202,7 +191,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.maxDepth = 1.0f,
 		};
 	}
-	vkCmdSetViewport(cmd_buffer.cmd_buffer, 0, 1, &viewport);
+	vkCmdSetViewport(render_cmd_buffer.cmd_buffer, 0, 1, &viewport);
 	
 	VkRect2D render_area;
 	if (!dynamic_render_state.scissor) {
@@ -224,7 +213,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 				  float2 { viewport.width, viewport.height });
 		return false;
 	}
-	vkCmdSetScissor(cmd_buffer.cmd_buffer, 0, 1, &render_area);
+	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &render_area);
 	
 	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);
 	vector<VkClearValue> clear_values;
@@ -262,13 +251,13 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		.clearValueCount = (uint32_t)clear_values.size(),
 		.pClearValues = clear_values.data(),
 	};
-	vkCmdBeginRenderPass(cmd_buffer.cmd_buffer, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(render_cmd_buffer.cmd_buffer, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 	
 	return true;
 }
 
 bool vulkan_renderer::end() {
-	vkCmdEndRenderPass(cmd_buffer.cmd_buffer);
+	vkCmdEndRenderPass(render_cmd_buffer.cmd_buffer);
 	return true;
 }
 
@@ -276,8 +265,8 @@ bool vulkan_renderer::commit() {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 
 	// TODO: blocking or not? yes for now, until we can ensure that everything gets cleaned up properly + is synced properly
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", false)
-	vk_queue.submit_command_buffer(cmd_buffer, true);
+	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)
+	vk_queue.submit_command_buffer(render_cmd_buffer, true);
 	
 	// if present has been called earlier, we can now actually present the image to the screen
 	if (is_presenting) {
@@ -327,7 +316,7 @@ void vulkan_renderer::present() {
 	}
 	
 	// transition drawable image back to present mode
-	cur_drawable->vk_image->transition(cqueue, cmd_buffer.cmd_buffer, VK_ACCESS_MEMORY_READ_BIT, cur_drawable->vk_drawable.present_layout,
+	cur_drawable->vk_image->transition(cqueue, render_cmd_buffer.cmd_buffer, VK_ACCESS_MEMORY_READ_BIT, cur_drawable->vk_drawable.present_layout,
 	                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
 
 	// actual queue present must happen after the command buffer has been submitted and finished
@@ -362,28 +351,13 @@ bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
 
 static inline bool attachment_transition_write(const compute_queue& cqueue, compute_image& img, optional<vulkan_command_buffer> transition_cmd_buffer) {
 	// make attachments writable
-	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	VkCommandBuffer vk_cmd_buffer = (transition_cmd_buffer ? transition_cmd_buffer->cmd_buffer : nullptr);
-	vulkan_command_buffer tmp_cmd_buffer {};
-	if (vk_cmd_buffer == nullptr) {
-		// use a tmp command buffer if we don't have one (set_attachments creates a single one for bulk transition)
-		tmp_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_transition_write_attachment_cmd_buffer");
-		const VkCommandBufferBeginInfo begin_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.pNext = nullptr,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-		VK_CALL_ERR_EXEC(vkBeginCommandBuffer(tmp_cmd_buffer.cmd_buffer, &begin_info),
-						 "failed to begin command buffer for attachment write transition", return false;)
-		vk_cmd_buffer = tmp_cmd_buffer.cmd_buffer;
-	}
-	((vulkan_image&)img).transition_write(cqueue, vk_cmd_buffer);
-	
-	if (tmp_cmd_buffer) {
-		// with a tmp buffer, we need to block here already
-		VK_CALL_RET(vkEndCommandBuffer(tmp_cmd_buffer.cmd_buffer), "failed to end command buffer for attachment write transition", false)
-		vk_queue.submit_command_buffer(tmp_cmd_buffer, true);
+	if (!transition_cmd_buffer) {
+		const auto& vk_queue = (const vulkan_queue&)cqueue;
+		VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_write_attachment_cmd_buffer", ({
+			((vulkan_image&)img).transition_write(cqueue, cmd_buffer.cmd_buffer);
+		}), true /* always blocking */);
+	} else {
+		((vulkan_image&)img).transition_write(cqueue, transition_cmd_buffer->cmd_buffer);
 	}
 	return true;
 }
@@ -425,7 +399,7 @@ void vulkan_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries
 									const vector<compute_kernel_arg>& args) const {
 	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
 	vs->draw(cqueue,
-			 cmd_buffer,
+			 render_cmd_buffer,
 			 vk_pipeline_state->pipeline,
 			 vk_pipeline_state->layout,
 			 (const vulkan_kernel::vulkan_kernel_entry*)vk_pipeline_state->vs_entry,

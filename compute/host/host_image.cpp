@@ -162,11 +162,12 @@ host_image::~host_image() {
 	}
 }
 
-void host_image::zero(const compute_queue& cqueue) {
-	if(image == nullptr) return;
+bool host_image::zero(const compute_queue& cqueue) {
+	if(image == nullptr) return false;
 	
 	cqueue.finish();
 	memset(image, 0, image_data_size_mip_maps);
+	return true;
 }
 
 void* __attribute__((aligned(128))) host_image::map(const compute_queue& cqueue,
@@ -180,14 +181,16 @@ void* __attribute__((aligned(128))) host_image::map(const compute_queue& cqueue,
 	return image;
 }
 
-void host_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nullptr) return;
-	if(mapped_ptr == nullptr) return;
+bool host_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(image == nullptr) return false;
+	if(mapped_ptr == nullptr) return false;
 	
 	// manually create mip-map chain
 	if(generate_mip_maps) {
 		generate_mip_map_chain(cqueue);
 	}
+	
+	return true;
 }
 
 bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused) {

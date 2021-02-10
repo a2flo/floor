@@ -51,14 +51,14 @@ public:
 	bool acquire_vulkan_image(const compute_queue& cqueue) override;
 	bool release_vulkan_image(const compute_queue& cqueue) override;
 	
-	void zero(const compute_queue& cqueue) override;
+	bool zero(const compute_queue& cqueue) override;
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags =
 											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
 											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the cuda specific image pointer (array or mip-mapped array)
 	const void* get_cuda_image() const { return image; }

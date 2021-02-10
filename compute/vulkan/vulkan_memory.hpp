@@ -78,7 +78,7 @@ protected:
 											const COMPUTE_MEMORY_MAP_FLAG flags,
 											const size_t size = 0, const size_t offset = 0);
 	
-	void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr);
+	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr);
 	
 	virtual void image_copy_dev_to_host(const compute_queue&, VkCommandBuffer, VkBuffer) {}
 	virtual void image_copy_host_to_dev(const compute_queue&, VkCommandBuffer, VkBuffer, void*) {}

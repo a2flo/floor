@@ -92,10 +92,10 @@ public:
 		return mtl_object_state;
 	}
 	
-	//! zeros/clears the complete memory object
-	virtual void zero(const compute_queue& cqueue) = 0;
-	//! zeros/clears the complete memory object
-	void clear(const compute_queue& cqueue) { zero(cqueue); }
+	//! zeros/clears the complete memory object, returns true on success
+	virtual bool zero(const compute_queue& cqueue) = 0;
+	//! zeros/clears the complete memory object, returns true on success
+	bool clear(const compute_queue& cqueue) { return zero(cqueue); }
 	
 	//! sets the debug label for this memory object (e.g. for display in a debugger)
 	virtual void set_debug_label(const string& label);

@@ -114,9 +114,10 @@ public:
 	virtual shared_ptr<compute_buffer> clone(const compute_queue& cqueue, const bool copy_contents = false,
 											 const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE);
 	
-	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes)
-	//! NOTE: filling the buffer with patterns that are 1 byte, 2 bytes or 4 bytes in size might be faster than other sizes
-	virtual void fill(const compute_queue& cqueue,
+	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes),
+	//! returns true on success
+	//! NOTE: filling the buffer with patterns that are 1 byte, 2 bytes, 4 bytes, 8 bytes or 16 bytes in size might be faster than other sizes
+	virtual bool fill(const compute_queue& cqueue,
 					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
 	
@@ -147,10 +148,10 @@ public:
 		return (array<data_type, n>*)map(cqueue, flags_, size_, offset_);
 	}
 	
-	//! unmaps a previously mapped memory pointer
+	//! unmaps a previously mapped memory pointer, returns true on success
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual void unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
 	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }
