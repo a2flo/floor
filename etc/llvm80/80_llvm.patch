@@ -31482,10 +31482,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..d888b0922d1
+index 00000000000..b9375eb60dd
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3895 @@
+@@ -0,0 +1,3899 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -32588,6 +32588,10 @@ index 00000000000..d888b0922d1
 +  // as stated above this should be done properly at some point
 +  // -> fixup superficial stuff caused by unary int conversion translation
 +  const auto type = transType(U->getType());
++  if (Op->getType() == type) {
++    // also take care of id-conversion
++    return BM->addCopyObjectInst(type, Op, BB);
++  }
 +  const auto is_int = type->isTypeInt();
 +  const auto is_sint = (is_int ? ((SPIRVTypeInt *)type)->isSigned() : false);
 +  const auto is_uint = (is_int ? !((SPIRVTypeInt *)type)->isSigned() : false);
@@ -53653,10 +53657,10 @@ index 00000000000..dbc224a8343
 +#endif //LLVM_TRANSFORMS_ADDRESSSPACEFIX_HPP
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 00000000000..075eb793db7
+index 00000000000..61b0c8c2b40
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
-@@ -0,0 +1,575 @@
+@@ -0,0 +1,581 @@
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -54214,7 +54218,13 @@ index 00000000000..075eb793db7
 +#endif
 +				
 +			DBG(errs() << "verifying ...\n";)
-+			assert(!verifyFunction(F, &errs()) && "verification failed");
++#if !defined(NDEBUG)
++			const auto verify_failed = verifyFunction(F, &errs());
++			if (verify_failed) {
++				errs().flush();
++				assert(!verify_failed && "verification failed");
++			}
++#endif
 +			DBG(errs() << "verifying done\n";)
 +			
 +			DBG(errs() << "## " << F.getName() << " modified? " << was_modified << "\n";)
