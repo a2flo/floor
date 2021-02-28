@@ -170,6 +170,10 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		const auto& vk_queue = (const vulkan_queue&)cqueue;
 		vk_queue.add_retained_buffers(cmd_buffer, encoder->constant_buffers);
 	}
+	
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
+#endif
 }
 
 #endif

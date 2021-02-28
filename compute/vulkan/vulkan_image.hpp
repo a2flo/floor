@@ -147,6 +147,8 @@ public:
 	//! NOTE: this is useful when the Vulkan image/state is changed externally and we want to keep this in sync
 	void update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags& access);
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };

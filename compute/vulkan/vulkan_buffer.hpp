@@ -119,6 +119,8 @@ FLOOR_POP_WARNINGS()
 		return allocation_size;
 	}
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	VkBuffer buffer { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };

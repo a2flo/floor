@@ -4,16 +4,16 @@
 
 ## compile flags
 target_compile_definitions(${PROJECT_NAME} PUBLIC _ENABLE_EXTENDED_ALIGNED_STORAGE)
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:-DFLOOR_DEBUG>")
 
 if (MSVC)
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")
-	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:-gcodeview>")
-	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:/Zi>")
+	if (CMAKE_BUILD_TYPE MATCHES "DEBUG" OR CMAKE_BUILD_TYPE MATCHES "Debug")
+		target_compile_options(${PROJECT_NAME} PUBLIC -gcodeview /Zi -DFLOOR_DEBUG -D_DEBUG)
+	endif ()
 else ()
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem ")
 	if (CMAKE_BUILD_TYPE MATCHES "DEBUG" OR CMAKE_BUILD_TYPE MATCHES "Debug")
-		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-2 -D_DEBUG -fno-omit-frame-pointer -fstandalone-debug)
+		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-2 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -fstandalone-debug)
 	endif ()
 endif (MSVC)
 

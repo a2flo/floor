@@ -22,6 +22,7 @@
 #include <floor/compute/vulkan/vulkan_program.hpp>
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 
 using namespace llvm_toolchain;
 
@@ -277,6 +278,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						};
 						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first.get().device, &desc_set_alloc_info, &entry.desc_set),
 									 "failed to allocate descriptor set (" + func_name + ")")
+#if defined(FLOOR_DEBUG)
+						string desc_set_label = "desc_set:" + func_name;
+						((const vulkan_compute*)prog.first.get().context)->set_vulkan_debug_label(prog.first.get(), VK_OBJECT_TYPE_DESCRIPTOR_SET,
+																								  uint64_t(entry.desc_set), desc_set_label);
+#endif
 					}
 					// else: no descriptors entry.desc_* already nullptr
 					

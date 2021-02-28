@@ -1080,4 +1080,12 @@ void vulkan_image::update_with_external_vulkan_state(const VkImageLayout& layout
 	update_mip_map_info();
 }
 
+void vulkan_image::set_debug_label(const string& label) {
+	compute_memory::set_debug_label(label);
+	((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_IMAGE, uint64_t(image), label);
+	if (image_view) {
+		((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_IMAGE_VIEW, uint64_t(image_view), label);
+	}
+}
+
 #endif

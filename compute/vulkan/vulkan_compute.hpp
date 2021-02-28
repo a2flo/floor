@@ -273,6 +273,34 @@ public:
 		ignore_validation = state;
 	}
 	
+	//! sets a Vulkan debug label on the specified object/handle, on the specified device
+	void set_vulkan_debug_label(const vulkan_device& dev [[maybe_unused]],
+								const VkObjectType type [[maybe_unused]],
+								const uint64_t& handle [[maybe_unused]],
+								const string& name [[maybe_unused]]) const
+#if defined(FLOOR_DEBUG)
+	;
+#else
+	{}
+#endif
+	
+	//! begins a Vulkan command buffer debug label block
+	void vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer [[maybe_unused]],
+									  const string& label [[maybe_unused]]) const
+#if defined(FLOOR_DEBUG)
+	;
+#else
+	{}
+#endif
+	
+	//! ends a Vulkan command buffer debug label block
+	void vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffer [[maybe_unused]]) const
+#if defined(FLOOR_DEBUG)
+	;
+#else
+	{}
+#endif
+	
 protected:
 	VkInstance ctx { nullptr };
 	vr_context* vr_ctx { nullptr };
@@ -337,6 +365,9 @@ protected:
 	PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger { nullptr };
 	PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger { nullptr };
 	VkDebugUtilsMessengerEXT debug_utils_messenger { nullptr };
+	PFN_vkSetDebugUtilsObjectNameEXT set_debug_utils_object_name { nullptr };
+	PFN_vkCmdBeginDebugUtilsLabelEXT cmd_begin_debug_utils_label { nullptr };
+	PFN_vkCmdEndDebugUtilsLabelEXT cmd_end_debug_utils_label { nullptr };
 #endif
 	
 #if defined(__WINDOWS__)

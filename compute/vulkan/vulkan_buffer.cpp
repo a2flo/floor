@@ -286,4 +286,9 @@ bool vulkan_buffer::release_opengl_object(const compute_queue*) {
 	return false;
 }
 
+void vulkan_buffer::set_debug_label(const string& label) {
+	compute_memory::set_debug_label(label);
+	((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_BUFFER, uint64_t(buffer), label);
+}
+
 #endif

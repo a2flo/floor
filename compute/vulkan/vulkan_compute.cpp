@@ -252,6 +252,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		return;
 	}
 	destroy_debug_utils_messenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugUtilsMessengerEXT");
+	set_debug_utils_object_name = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(ctx, "vkSetDebugUtilsObjectNameEXT");
+	cmd_begin_debug_utils_label = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdBeginDebugUtilsLabelEXT");
+	cmd_end_debug_utils_label = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdEndDebugUtilsLabelEXT");
 	const VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.pNext = nullptr,
@@ -680,6 +683,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.physical_device = phys_dev;
 		device.device = dev;
 		device.name = props.deviceName;
+		set_vulkan_debug_label(device, VK_OBJECT_TYPE_DEVICE, uint64_t(dev), device.name);
 		copy_n(begin(device_id_props.deviceUUID), device.uuid.size(), begin(device.uuid));
 		device.has_uuid = true;
 		device.platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
@@ -1330,6 +1334,8 @@ bool vulkan_compute::init_renderer() {
 		image_view_create_info.image = screen.swapchain_images[i];
 		VK_CALL_RET(vkCreateImageView(screen.render_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
 					"image view creation failed", false)
+		set_vulkan_debug_label(*screen.render_device, VK_OBJECT_TYPE_IMAGE_VIEW, uint64_t(screen.swapchain_image_views[i]),
+							   "screen_image:" + to_string(i));
 	}
 
 #if !defined(FLOOR_NO_VR)
@@ -1605,6 +1611,9 @@ shared_ptr<compute_queue> vulkan_compute::create_queue(const compute_device& dev
 		return {};
 	}
 	
+	const string queue_name = "queue:" + (next_queue_index == 0 ? "default" : to_string(next_queue_index));
+	set_vulkan_debug_label(vulkan_dev, VK_OBJECT_TYPE_QUEUE, uint64_t(queue_obj), queue_name);
+	
 	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index);
 	queues.push_back(ret);
 	return ret;
@@ -1795,6 +1804,7 @@ vulkan_compute::create_vulkan_program_internal(const vulkan_device& device,
 		VkShaderModule module { nullptr };
 		VK_CALL_RET(vkCreateShaderModule(device.device, &module_info, nullptr, &module),
 					"failed to create shader module (\"" + identifier + "\") for device \"" + device.name + "\"", ret)
+		set_vulkan_debug_label(device, VK_OBJECT_TYPE_SHADER_MODULE, uint64_t(module), identifier);
 		ret.programs.emplace_back(module);
 	}
 
@@ -1825,8 +1835,10 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		entry.functions = functions;
 		
 		VkShaderModule module { nullptr };
-		VK_CALL_CONT(vkCreateShaderModule(((const vulkan_device&)dev).device, &module_info, nullptr, &module),
+		const auto& vk_dev = (const vulkan_device&)dev;
+		VK_CALL_CONT(vkCreateShaderModule(vk_dev.device, &module_info, nullptr, &module),
 					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"")
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_SHADER_MODULE, uint64_t(module), file_name);
 		entry.programs.emplace_back(module);
 		entry.valid = true;
 		
@@ -1917,6 +1929,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			
 			VK_CALL_CONT(vkCreateSampler(vk_dev.device, &sampler_create_info, nullptr, &vk_dev.fixed_sampler_set[combination]),
 						 "failed to create sampler (#" + to_string(combination) + ")")
+			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_SAMPLER, uint64_t(vk_dev.fixed_sampler_set[combination]),
+								   "immutable_sampler:" + to_string(combination));
 			
 			vk_dev.fixed_sampler_image_info[combination].sampler = vk_dev.fixed_sampler_set[combination];
 		}
@@ -1943,6 +1957,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
 												 &vk_dev.fixed_sampler_desc_set_layout),
 					 "failed to create fixed sampler set descriptor set layout")
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
+							   "immutable_sampler_descriptor_set");
 		
 		// TODO: use device global desc pool allocation once this is in place
 		const VkDescriptorPoolSize desc_pool_size {
@@ -1959,6 +1975,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		};
 		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &vk_dev.fixed_sampler_desc_pool),
 					 "failed to create fixed sampler set descriptor pool")
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_POOL, uint64_t(vk_dev.fixed_sampler_desc_pool),
+							   "immutable_sampler_descriptor_pool");
 		
 		// allocate descriptor set
 		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
@@ -2055,5 +2073,43 @@ void vulkan_compute::set_vk_screen_hdr_metadata() {
 		.maxFrameAverageLightLevel = hdr_metadata.max_average_light_level,
 	};
 }
+
+#if defined(FLOOR_DEBUG)
+void vulkan_compute::set_vulkan_debug_label(const vulkan_device& dev, const VkObjectType type, const uint64_t& handle, const string& label) const {
+	if (set_debug_utils_object_name == nullptr) {
+		return;
+	}
+	
+	const VkDebugUtilsObjectNameInfoEXT name_info {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = type,
+		.objectHandle = handle,
+		.pObjectName = label.c_str(),
+	};
+	set_debug_utils_object_name(dev.device, &name_info);
+}
+
+void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer, const string& label) const {
+	if (cmd_begin_debug_utils_label == nullptr) {
+		return;
+	}
+	
+	const VkDebugUtilsLabelEXT debug_label {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pNext = nullptr,
+		.pLabelName = label.c_str(),
+		.color = {},
+	};
+	cmd_begin_debug_utils_label(cmd_buffer, &debug_label);
+}
+
+void vulkan_compute::vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffer) const {
+	if (cmd_end_debug_utils_label == nullptr) {
+		return;
+	}
+	cmd_end_debug_utils_label(cmd_buffer);
+}
+#endif
 
 #endif

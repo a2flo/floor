@@ -89,6 +89,8 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 										 &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
 				nullptr)
+	((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_PIPELINE, uint64_t(spec_entry.pipeline),
+																	"pipeline:" + info->name + ":spec:" + work_group_size.to_string());
 	
 	auto spec_iter = specializations.insert(spec_key, spec_entry);
 	if(!spec_iter.first) return nullptr;
@@ -130,12 +132,21 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 		cmd_buffer = *(const vulkan_command_buffer*)cmd_buffer_;
 	}
 	
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	
+#if defined(FLOOR_DEBUG)
+	string encoder_label = "encoder_"s + (entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ? "compute" : "graphics");
+	if (entries[0]->info) {
+		encoder_label += "_" + entries[0]->info->name;
+	}
+	((const vulkan_compute*)vk_dev.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
+#endif
+	
 	vkCmdBindPipeline(cmd_buffer.cmd_buffer,
 					  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
 					  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
 					  pipeline);
 	
-	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = cmd_buffer,
 		.cqueue = (const vulkan_queue&)cqueue,
@@ -400,6 +411,9 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
+#endif
 	((const vulkan_queue&)cqueue).submit_command_buffer(encoder->cmd_buffer,
 														[encoder](const vulkan_command_buffer&) {
 															// -> completion handler

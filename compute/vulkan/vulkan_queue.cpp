@@ -20,7 +20,9 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
 
 //! returns the debug name of the specified buffer or "unknown"
@@ -240,6 +242,17 @@ struct vulkan_queue_impl {
 					"failed to create command pool", false)
 		// TODO: vkDestroyCommandPool in destructor! this will live as long as the context/instance does
 		
+#if defined(FLOOR_DEBUG)
+		auto thread_name = core::get_current_thread_name();
+		if (thread_name.empty()) {
+			stringstream sstr;
+			sstr << this_thread::get_id();
+			thread_name = sstr.str();
+		}
+		((const vulkan_compute*)dev.context)->set_vulkan_debug_label(dev, VK_OBJECT_TYPE_COMMAND_POOL, uint64_t(thread_cmd_pool->cmd_pool),
+																	 "command_pool:" + thread_name);
+#endif
+		
 		// allocate initial command buffers
 		// TODO: manage this dynamically (for now: 64 must be enough)
 		const VkCommandBufferAllocateInfo cmd_buffer_info {
@@ -254,6 +267,14 @@ struct vulkan_queue_impl {
 					"failed to create command buffers", false)
 		thread_cmd_pool->cmd_buffers_in_use.reset();
 		
+#if defined(FLOOR_DEBUG)
+		const auto cmd_buf_prefix = "command_buffer:" + thread_name + ":";
+		for (uint32_t cmd_buf_idx = 0; cmd_buf_idx < vulkan_command_pool_t::cmd_buffer_count; ++cmd_buf_idx) {
+			((const vulkan_compute*)dev.context)->set_vulkan_debug_label(dev, VK_OBJECT_TYPE_COMMAND_BUFFER, uint64_t(thread_cmd_pool->cmd_buffers[cmd_buf_idx]),
+																		 cmd_buf_prefix + to_string(cmd_buf_idx));
+		}
+#endif
+		
 		// create fences
 		static constexpr const VkFenceCreateInfo fence_info {
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -265,6 +286,14 @@ struct vulkan_queue_impl {
 						"failed to create fence #" + to_string(i), false)
 		}
 		thread_cmd_pool->fences_in_use.reset();
+		
+#if defined(FLOOR_DEBUG)
+		const auto fence_prefix = "fence:" + thread_name + ":";
+		for (uint32_t fence_idx = 0; fence_idx < vulkan_command_pool_t::fence_count; ++fence_idx) {
+			((const vulkan_compute*)dev.context)->set_vulkan_debug_label(dev, VK_OBJECT_TYPE_FENCE, uint64_t(thread_cmd_pool->fences[fence_idx]),
+																		 fence_prefix + to_string(fence_idx));
+		}
+#endif
 		
 		return true;
 	}
@@ -354,6 +383,10 @@ wait_semas(wait_semas_), wait_sema_count(wait_sema_count_), wait_stage_flags(wai
 					 "failed to begin command buffer",
 					 { error_signal = true; return; })
 	
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)vk_queue.get_device().context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, name);
+#endif
+	
 	// done
 	valid = true;
 }
@@ -367,6 +400,10 @@ vulkan_command_block::~vulkan_command_block() {
 	VK_CALL_ERR_EXEC(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
 					 "failed to end command buffer",
 					 { error_signal = true; return; })
+	
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)vk_queue.get_device().context)->vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
+#endif
 	
 	vk_queue.submit_command_buffer(cmd_buffer, is_blocking, wait_semas, wait_sema_count, wait_stage_flags);
 }
