@@ -540,12 +540,18 @@ void set_current_thread_name(const string&
 							 ) {
 #if defined(_PTHREAD_H)
 	// pthreads restricts name sizes to 15 characters (+one \0)
+	if (thread_name.size() > 15) {
+		log_error("thread name is too long: $", thread_name);
+	}
 	const string name = (thread_name.size() > 15 ? thread_name.substr(0, 15) : thread_name);
-	pthread_setname_np(
+	const auto err = pthread_setname_np(
 #if !defined(__APPLE__)
-					   pthread_self(),
+										pthread_self(),
 #endif
-					   name.c_str());
+										name.c_str());
+	 if (err != 0) {
+		 log_error("failed to set thread name: $", err);
+	 }
 #endif
 }
 

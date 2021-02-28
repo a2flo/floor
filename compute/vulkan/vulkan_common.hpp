@@ -112,6 +112,55 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 	return "<UNKNOWN_ERROR>";
 }
 
+//! converts a VkObjectType to a human-readable string
+constexpr const char* vulkan_object_type_to_string(const int& object_type) {
+	switch (object_type) {
+		case 0: return "unknown";
+		case 1: return "instance";
+		case 2: return "physical-device";
+		case 3: return "device";
+		case 4: return "queue";
+		case 5: return "semaphore";
+		case 6: return "command-buffer";
+		case 7: return "fence";
+		case 8: return "device-memory";
+		case 9: return "buffer";
+		case 10: return "image";
+		case 11: return "event";
+		case 12: return "query-pool";
+		case 13: return "buffer-view";
+		case 14: return "image-view";
+		case 15: return "shader-module";
+		case 16: return "pipeline-cache";
+		case 17: return "pipeline-layout";
+		case 18: return "render-pass";
+		case 19: return "pipeline";
+		case 20: return "descriptor-set-layout";
+		case 21: return "sampler";
+		case 22: return "descriptor-pool";
+		case 23: return "descriptor-set";
+		case 24: return "framebuffer";
+		case 25: return "command-pool";
+		case 1000156000: return "sampler-ycbcr-conversion";
+		case 1000085000: return "descriptor-update-template";
+		case 1000000000: return "surface-khr";
+		case 1000001000: return "swapchain-khr";
+		case 1000002000: return "display-khr";
+		case 1000002001: return "display-mode-khr";
+		case 1000011000: return "debug-report-callback-ext";
+		case 1000128000: return "debug-utils-messenger-ext";
+		case 1000150000: return "acceleration-structure-khr";
+		case 1000160000: return "validation-cache-ext";
+		case 1000165000: return "acceleration-structure-nv";
+		case 1000210000: return "performance-configuration-intel";
+		case 1000268000: return "deferred-operation-khr";
+		case 1000277000: return "indirect-commands-layout-nv";
+		case 1000295000: return "private-data-slot-ext";
+		default: break;
+	}
+	return "<unknown-object-type>";
+}
+
 #define VK_CALL_RET(call, error_msg, ...) { \
 	const auto call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \

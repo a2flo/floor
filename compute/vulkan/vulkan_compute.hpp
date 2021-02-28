@@ -334,9 +334,9 @@ protected:
 								   const string& identifier);
 	
 #if defined(FLOOR_DEBUG)
-	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback { nullptr };
-	PFN_vkDestroyDebugReportCallbackEXT destroy_debug_report_callback { nullptr };
-	VkDebugReportCallbackEXT debug_callback { nullptr };
+	PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger { nullptr };
+	PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger { nullptr };
+	VkDebugUtilsMessengerEXT debug_utils_messenger { nullptr };
 #endif
 	
 #if defined(__WINDOWS__)

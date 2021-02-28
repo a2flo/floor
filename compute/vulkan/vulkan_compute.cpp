@@ -34,6 +34,7 @@
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 #include <floor/graphics/vulkan/vulkan_renderer.hpp>
 #include <floor/vr/vr_context.hpp>
+#include <regex>
 
 #include <floor/core/platform_windows.hpp>
 
@@ -49,17 +50,103 @@
 #include <floor/core/essentials.hpp> // cleanup
 
 #if defined(FLOOR_DEBUG)
-static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugReportFlagsEXT flags floor_unused,
-															VkDebugReportObjectTypeEXT object_type floor_unused,
-															uint64_t object floor_unused,
-															size_t location floor_unused,
-															int32_t message_code,
-															const char* layer_prefix,
-															const char* message,
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+															VkDebugUtilsMessageTypeFlagsEXT message_types floor_unused,
+															const VkDebugUtilsMessengerCallbackDataEXT* cb_data,
 															/* vulkan_compute* */ void* ctx) {
 	const auto vk_ctx = (const vulkan_compute*)ctx;
-	if (!vk_ctx->is_vulkan_validation_ignored()) {
-		log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
+	if (vk_ctx->is_vulkan_validation_ignored()) {
+		return VK_FALSE; // don't abort
+	}
+	
+	string debug_message;
+	if (cb_data != nullptr) {
+		debug_message += "\n\t";
+		if (cb_data->pMessageIdName) {
+			debug_message += cb_data->pMessageIdName + " ("s + to_string(cb_data->messageIdNumber) + ")\n";
+		} else {
+			debug_message += to_string(cb_data->messageIdNumber) + "\n";
+		}
+		
+		vector<uint64_t> thread_ids;
+		if (cb_data->pMessage) {
+			auto tokens = core::tokenize(cb_data->pMessage, '|');
+			for (auto& token : tokens) {
+				token = core::trim(token);
+				debug_message += "\t" + token + "\n";
+				
+				// if this is a threading error, extract the thread ids
+				if (token.find("THREADING") != string::npos) {
+					static const regex rx_thread_id("thread 0x([0-9a-fA-F]+)");
+					smatch regex_result;
+					while (regex_search(token, regex_result, rx_thread_id)) {
+						thread_ids.emplace_back(strtoull(regex_result[1].str().c_str(), nullptr, 16));
+						token = regex_result.suffix();
+					}
+				}
+			}
+		}
+		
+		if (cb_data->queueLabelCount > 0 && cb_data->pQueueLabels != nullptr) {
+			debug_message += "\tqueue labels: ";
+			for (uint32_t qidx = 0; qidx < cb_data->queueLabelCount; ++qidx) {
+				debug_message += (cb_data->pQueueLabels[qidx].pLabelName ? cb_data->pQueueLabels[qidx].pLabelName : "<no-queue-label>");
+				if (qidx + 1 < cb_data->queueLabelCount){
+					debug_message += ", ";
+				}
+			}
+			debug_message += '\n';
+		}
+		if (cb_data->cmdBufLabelCount > 0 && cb_data->pCmdBufLabels != nullptr) {
+			debug_message += "\tcommand buffer labels: ";
+			for (uint32_t cidx = 0; cidx < cb_data->cmdBufLabelCount; ++cidx) {
+				debug_message += (cb_data->pCmdBufLabels[cidx].pLabelName ? cb_data->pCmdBufLabels[cidx].pLabelName : "<no-command-buffer-label>");
+				if (cidx + 1 < cb_data->cmdBufLabelCount){
+					debug_message += ", ";
+				}
+			}
+			debug_message += '\n';
+		}
+		if (cb_data->objectCount > 0 && cb_data->pObjects != nullptr) {
+			debug_message += "\tobjects:\n";
+			for (uint32_t oidx = 0; oidx < cb_data->objectCount; ++oidx) {
+				debug_message += "\t\t";
+				debug_message += (cb_data->pObjects[oidx].pObjectName ? cb_data->pObjects[oidx].pObjectName : "<no-object-name>");
+				debug_message += " ("s + vulkan_object_type_to_string(cb_data->pObjects[oidx].objectType) + ", ";
+				debug_message += to_string(cb_data->pObjects[oidx].objectHandle) + ")\n";
+			}
+		}
+		if (!thread_ids.empty()) {
+			debug_message += "\tthreads:\n";
+			for (const auto& tid : thread_ids) {
+				debug_message += "\t\t" + to_string(tid);
+#if !defined(__WINDOWS__)
+				static constexpr const size_t max_thread_name_length { 16 };
+				char thread_name[max_thread_name_length];
+				if (pthread_getname_np((pthread_t)tid, thread_name, max_thread_name_length) == 0) {
+					thread_name[max_thread_name_length - 1] = '\0';
+					if (strlen(thread_name) > 0) {
+						debug_message += " ("s + thread_name + ")";
+					}
+				}
+#endif
+				debug_message += '\n';
+			}
+		}
+	} else {
+		debug_message = " <callback-data-is-nullptr>";
+	}
+	
+	if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) > 0) {
+		log_error("Vulkan error:%s", debug_message);
+	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) > 0) {
+		log_warn("Vulkan warning:%s", debug_message);
+	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) > 0) {
+		log_msg("Vulkan info:%s", debug_message);
+	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) > 0) {
+		log_debug("Vulkan verbose:%s", debug_message);
+	} else {
+		assert(false && "unknown severity");
 	}
 	return VK_FALSE; // don't abort
 }
@@ -94,7 +181,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
 	set<string> instance_extensions {
 #if defined(FLOOR_DEBUG)
-		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
@@ -158,27 +245,30 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance")
 	
 #if defined(FLOOR_DEBUG)
-	// register debug callback
-	create_debug_report_callback = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugReportCallbackEXT");
-	if(create_debug_report_callback == nullptr) {
-		log_error("failed to retrieve vkCreateDebugReportCallbackEXT function pointer");
+	// create and register debug messenger
+	create_debug_utils_messenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugUtilsMessengerEXT");
+	if (create_debug_utils_messenger == nullptr) {
+		log_error("failed to retrieve vkCreateDebugUtilsMessengerEXT function pointer");
 		return;
 	}
-	destroy_debug_report_callback = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugReportCallbackEXT");
-	const VkDebugReportCallbackCreateInfoEXT debug_cb_info {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT,
+	destroy_debug_utils_messenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugUtilsMessengerEXT");
+	const VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.pNext = nullptr,
-		.flags = (VK_DEBUG_REPORT_WARNING_BIT_EXT |
-				  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-				  VK_DEBUG_REPORT_ERROR_BIT_EXT
-				  //| VK_DEBUG_REPORT_DEBUG_BIT_EXT
-				  //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT
-				  ),
-		.pfnCallback = &vulkan_debug_callback,
+		.flags = 0,
+		.messageSeverity = (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+							VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+							// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+							// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+							),
+		.messageType = (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+						VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+						VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT),
+		.pfnUserCallback = &vulkan_debug_callback,
 		.pUserData = this,
 	};
-	VK_CALL_RET(create_debug_report_callback(ctx, &debug_cb_info, nullptr, &debug_callback),
-				"failed to register debug callback")
+	VK_CALL_RET(create_debug_utils_messenger(ctx, &debug_messenger_info, nullptr, &debug_utils_messenger),
+				"failed to create debug messenger")
 #endif
 	
 	// get external memory functions
@@ -845,9 +935,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 
 vulkan_compute::~vulkan_compute() {
 #if defined(FLOOR_DEBUG)
-	if(destroy_debug_report_callback != nullptr &&
-	   debug_callback != nullptr) {
-		destroy_debug_report_callback(ctx, debug_callback, nullptr);
+	if (destroy_debug_utils_messenger != nullptr && debug_utils_messenger != nullptr) {
+		destroy_debug_utils_messenger(ctx, debug_utils_messenger, nullptr);
 	}
 #endif
 	
