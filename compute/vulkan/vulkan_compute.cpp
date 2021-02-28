@@ -37,11 +37,7 @@
 
 #include <floor/core/platform_windows.hpp>
 
-#if defined(__WINDOWS__) || defined(__APPLE__)
 #include <SDL2/SDL_syswm.h>
-#else
-#include <SDL_syswm.h>
-#endif
 
 #if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(__WINDOWS__)
 #include <vulkan/vulkan_win32.h>
@@ -461,6 +457,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_ray_query",
 			"VK_KHR_ray_tracing_pipeline",
 			"VK_KHR_shader_terminate_invocation",
+			"VK_KHR_synchronization2",
+			"VK_KHR_workgroup_memory_explicit_layout",
+			"VK_KHR_zero_initialize_workgroup_memory",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -889,6 +888,12 @@ bool vulkan_compute::init_renderer() {
 		screen.image_count = 1;
 		screen.format = VK_FORMAT_B8G8R8A8_UNORM;
 		screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		if (const auto screen_img_type = vulkan_image::image_type_from_vulkan_format(screen.format); screen_img_type) {
+			screen.image_type = *screen_img_type;
+		} else {
+			log_error("invalid screen format");
+			return false;
+		}
 		screen.x11_screen = static_pointer_cast<vulkan_image>(create_image(vk_queue, screen.size,
 																		   COMPUTE_IMAGE_TYPE::IMAGE_2D |
 																		   COMPUTE_IMAGE_TYPE::BGRA8UI_NORM |

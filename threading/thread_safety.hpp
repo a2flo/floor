@@ -100,7 +100,11 @@
 // wrappers / replacements
 #include <mutex>
 
-#if defined(__clang__) && !defined(_MSC_VER)
+// must use clang
+#if !defined(__clang__)
+#error "unsupported compiler"
+#endif
+
 // wrapper around std::mutex, based on libc++
 class CAPABILITY("mutex") safe_mutex {
 protected:
@@ -180,15 +184,52 @@ public:
 	safe_guard& operator=(safe_guard const&) = delete;
 };
 
-#else
-// for gcc and older clang: simply use std mutex/recursive_mutex/lock_guard
-#define safe_mutex mutex
-#define safe_recursive_mutex recursive_mutex
-#define safe_guard lock_guard
-#endif
+//! holder class (+actual locking and unlocking) for the MULTI_GUARD/multi_guard_*
+template <class mtxs_tuple_type>
+class safe_multi_guard_holder {
+protected:
+	mtxs_tuple_type mtxs;
+	
+	//! unlocks all contained mutexes
+	//! NOTE: disabled thread-safety analysis here, because it can't be properly handled here and RELEASE() in multi_guard_* destructor already signals it
+	template <size_t... Indices>
+	inline void unlock_all(std::index_sequence<Indices...>) NO_THREAD_SAFETY_ANALYSIS {
+		((void)std::get<Indices>(mtxs).unlock(), ...);
+	}
+	
+public:
+	template <typename... mutex_types>
+	explicit safe_multi_guard_holder(mutex_types&... mtx_refs) : mtxs(mtx_refs...) {
+		std::lock(mtx_refs...);
+	}
+	safe_multi_guard_holder(safe_multi_guard_holder&& holder) : mtxs(move(holder.mtxs)) {}
+	~safe_multi_guard_holder() {
+		unlock_all(std::make_index_sequence<std::tuple_size<mtxs_tuple_type>::value> {});
+	}
+	
+};
+
+//! creates a tuple of references to the specified arguments
+template <typename... Args>
+static constexpr inline auto make_refs_tuple(Args&&... args) {
+	return std::tuple<std::decay_t<Args>&...> { args... };
+}
 
 #define GUARD_ID_CONCAT(num) guard_ ## num
 #define GUARD_ID_EVAL(num) GUARD_ID_CONCAT(num)
 #define GUARD(mtx) safe_guard<decay<decltype(mtx)>::type> GUARD_ID_EVAL(__LINE__) (mtx)
+
+#define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
+#define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
+//! variadic all-or-nothing locking of multiple locks
+//! NOTE: we need to construct a local temporary class, so that the ACQUIRE() attribute can actually be used with variadic parameters
+//! NOTE: this acts as a replacement for std::scoped_lock
+#define MULTI_GUARD(...) \
+using MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t) = decltype(make_refs_tuple(__VA_ARGS__)); \
+struct SCOPED_CAPABILITY MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) { \
+	safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> holder; \
+	MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) (decltype(holder)&& holder_) ACQUIRE(__VA_ARGS__) : holder(move(holder_)) {} \
+	~ MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) () RELEASE() {} \
+} MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> { __VA_ARGS__ } }
 
 #endif

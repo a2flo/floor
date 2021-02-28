@@ -77,26 +77,11 @@
 
 
 // general includes
-#if defined(__APPLE__)
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
 #include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <unistd.h>
-
-#elif defined(__WINDOWS__)
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_thread.h>
-#include <SDL2/SDL_cpuinfo.h>
-#include <SDL2/SDL_platform.h>
-
-#else
-#include <SDL.h>
-#include <SDL_thread.h>
-#include <SDL_cpuinfo.h>
-#include <SDL_platform.h>
+#if !defined(__WINDOWS__)
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>

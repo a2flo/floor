@@ -24,11 +24,7 @@
 #include <floor/core/cpp_headers.hpp>
 #include <floor/constexpr/const_math.hpp>
 
-#if defined(__APPLE__) || defined(__WINDOWS__)
 #include <SDL2/SDL.h>
-#else
-#include <SDL.h>
-#endif
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>

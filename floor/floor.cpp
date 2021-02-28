@@ -42,10 +42,8 @@
 #if defined(_MSC_VER)
 #include <direct.h>
 #endif
-#elif defined(__APPLE__)
+#else
 #include <SDL2/SDL_syswm.h>
-#else // !__WINDOWS__ && !__APPLE__
-#include <SDL_syswm.h>
 #endif
 
 //// init statics
@@ -830,9 +828,12 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
 		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
 		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
-			if(getenv("SSH_CONNECTION") != nullptr) {
-				x11_forwarding = true;
-				log_debug("detected X11 forwarding");
+			const auto display = getenv("DISPLAY");
+			if (display != nullptr && strlen(display) > 1 && display[0] != ':') {
+				if (getenv("SSH_CONNECTION") != nullptr) {
+					x11_forwarding = true;
+					log_debug("detected X11 forwarding");
+				}
 			}
 		}
 #endif
