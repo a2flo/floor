@@ -534,7 +534,9 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		vk_img->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 								 // also readable?
-								 img_access == ARG_IMAGE_ACCESS::READ_WRITE);
+								 img_access == ARG_IMAGE_ACCESS::READ_WRITE,
+								 // always direct-write, never attachment
+								 true);
 	}
 	else { // READ
 		vk_img->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
@@ -595,7 +597,9 @@ floor_inline_always static void set_image_array_argument(vulkan_encoder& encoder
 		for(auto& img : image_array) {
 			image_accessor(img)->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 												  // also readable?
-												  img_access == ARG_IMAGE_ACCESS::READ_WRITE);
+												  img_access == ARG_IMAGE_ACCESS::READ_WRITE,
+												  // always direct-write, never attachment
+												  true);
 		}
 	}
 	else { // READ

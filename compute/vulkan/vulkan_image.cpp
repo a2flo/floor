@@ -745,10 +745,10 @@ void vulkan_image::transition_read(const compute_queue& cqueue,
 	}
 }
 
-void vulkan_image::transition_write(const compute_queue& cqueue,
-									VkCommandBuffer cmd_buffer, const bool read_write) {
+void vulkan_image::transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
+									const bool read_write, const bool is_rt_direct_write) {
 	// normal images
-	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) || is_rt_direct_write) {
 		VkAccessFlags access_flags = VK_ACCESS_SHADER_WRITE_BIT;
 		if(read_write) access_flags |= VK_ACCESS_SHADER_READ_BIT;
 		

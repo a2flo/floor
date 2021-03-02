@@ -83,8 +83,10 @@ public:
 	//! transition for shader or attachment read (if not already in this mode)
 	void transition_read(const compute_queue& cqueue, VkCommandBuffer cmd_buffer);
 	//! transition for shader or attachment write (if not already in this mode)
-	//! if 'read_write' is set, will also make the image readable
-	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, const bool read_write = false);
+	//! if "read_write" is set, will also make the image readable
+	//! if "is_rt_direct_write" is set and the image is a render-target, transition to "general" layout instead of "attachment" layout
+	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, const bool read_write = false,
+						  const bool is_rt_direct_write = false);
 	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {

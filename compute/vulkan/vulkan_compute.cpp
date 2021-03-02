@@ -1957,8 +1957,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
 												 &vk_dev.fixed_sampler_desc_set_layout),
 					 "failed to create fixed sampler set descriptor set layout")
-		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
-							   "immutable_sampler_descriptor_set");
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
+							   "immutable_sampler_descriptor_set_layout");
 		
 		// TODO: use device global desc pool allocation once this is in place
 		const VkDescriptorPoolSize desc_pool_size {
@@ -1988,6 +1988,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		};
 		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &vk_dev.fixed_sampler_desc_set),
 					 "failed to allocate fixed sampler set descriptor set")
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.fixed_sampler_desc_set),
+							   "immutable_sampler_descriptor_set");
 	}
 	
 	// TODO: cleanup!
