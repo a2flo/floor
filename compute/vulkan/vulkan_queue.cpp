@@ -33,7 +33,7 @@ static inline const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffe
 //! per-thread Vulkan command pool and command buffer management
 //! NOTE: since Vulkan is *not* thread-safe, we need to manage this on our own
 struct vulkan_command_pool_t {
-	VkCommandPool cmd_pool;
+	VkCommandPool cmd_pool { nullptr };
 	const vulkan_device& dev;
 	const vulkan_queue& queue;
 	
@@ -50,14 +50,14 @@ struct vulkan_command_pool_t {
 		// make use of optimized bitset
 		64
 	};
-	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
-	array<command_buffer_internal, cmd_buffer_count> cmd_buffer_internals GUARDED_BY(cmd_buffers_lock);
-	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);
+	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock) {};
+	array<command_buffer_internal, cmd_buffer_count> cmd_buffer_internals GUARDED_BY(cmd_buffers_lock) {};
+	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock) {};
 	
 	static constexpr const uint32_t fence_count { 32 };
 	safe_mutex fence_lock;
-	array<VkFence, fence_count> fences GUARDED_BY(fence_lock);
-	bitset<fence_count> fences_in_use GUARDED_BY(fence_lock);
+	array<VkFence, fence_count> fences GUARDED_BY(fence_lock) {};
+	bitset<fence_count> fences_in_use GUARDED_BY(fence_lock) {};
 	
 	//! acquire an unused fence
 	pair<VkFence, uint32_t> acquire_fence() REQUIRES(!fence_lock) {
@@ -112,7 +112,7 @@ struct vulkan_command_pool_t {
 	}
 	
 	//! submits a command buffer to the device queue
-	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer, function<void(const vulkan_command_buffer&)> completion_handler,
+	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer, function<void(const vulkan_command_buffer&)>&& completion_handler,
 							   const bool blocking = true, const VkSemaphore* wait_semas = nullptr, const uint32_t wait_sema_count = 0,
 							   const VkPipelineStageFlags wait_stage_flags = 0) REQUIRES(!cmd_buffers_lock) {
 		const auto submit_func = [this, cmd_buffer, completion_handler,
@@ -205,9 +205,9 @@ struct vulkan_command_pool_t {
 	
 	//! adds a completion handler to the specified command buffer (called once the command buffer has completed execution, successfully or not)
 	void add_completion_handler(const vulkan_command_buffer& cmd_buffer,
-								vulkan_queue::vulkan_completion_handler_t completion_handler) REQUIRES(!cmd_buffers_lock) {
+								vulkan_queue::vulkan_completion_handler_t&& completion_handler) REQUIRES(!cmd_buffers_lock) {
 		GUARD(cmd_buffers_lock);
-		cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(completion_handler);
+		cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(move(completion_handler));
 	}
 };
 
@@ -339,13 +339,13 @@ VkResult vulkan_queue::queue_submit(const VkSubmitInfo& submit_info, VkFence& fe
 }
 
 void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
-										 function<void(const vulkan_command_buffer&)> completion_handler,
+										 function<void(const vulkan_command_buffer&)>&& completion_handler,
 										 const bool blocking,
 										 const VkSemaphore* wait_semas,
 										 const uint32_t wait_sema_count,
 										 const VkPipelineStageFlags wait_stage_flags) const {
 	impl->create_thread_command_pool();
-	impl->thread_cmd_pool->submit_command_buffer(cmd_buffer, completion_handler, blocking, wait_semas, wait_sema_count, wait_stage_flags);
+	impl->thread_cmd_pool->submit_command_buffer(cmd_buffer, move(completion_handler), blocking, wait_semas, wait_sema_count, wait_stage_flags);
 }
 
 void vulkan_queue::add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
@@ -355,9 +355,9 @@ void vulkan_queue::add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
 }
 
 void vulkan_queue::add_completion_handler(const vulkan_command_buffer& cmd_buffer,
-										  vulkan_completion_handler_t completion_handler) const {
+										  vulkan_completion_handler_t&& completion_handler) const {
 	impl->create_thread_command_pool();
-	impl->thread_cmd_pool->add_completion_handler(cmd_buffer, completion_handler);
+	impl->thread_cmd_pool->add_completion_handler(cmd_buffer, move(completion_handler));
 }
 
 vulkan_command_block vulkan_queue::make_command_block(const char* name, bool& error_signal, const bool is_blocking,

@@ -90,6 +90,20 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		}
 	}
 	
+	// acquire shader descriptor sets, or set dummy one if shader stage doesn't exist
+	if (vertex_shader->desc_set_container) {
+		encoder->acquired_descriptor_sets.emplace_back(vertex_shader->desc_set_container->acquire_descriptor_set());
+	} else {
+		// add dummy
+		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {});
+	}
+	if (fragment_shader != nullptr && fragment_shader->desc_set_container) {
+		encoder->acquired_descriptor_sets.emplace_back(fragment_shader->desc_set_container->acquire_descriptor_set());
+	} else {
+		// add dummy
+		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {});
+	}
+	
 	// set and handle arguments
 	idx_handler idx;
 	if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
@@ -105,15 +119,17 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	// final desc set binding after all parameters have been updated/set
 	// note that we need to take care of the situation where the vertex shader doesn't have a desc set,
 	// but the fragment shader does -> binding discontiguous sets is not directly possible
-	const bool has_vs_desc = (vertex_shader->desc_set != nullptr);
-	const bool has_fs_desc = (fragment_shader != nullptr && fragment_shader->desc_set != nullptr);
+	const bool has_vs_desc = (vertex_shader->desc_set_container != nullptr);
+	const bool has_fs_desc = (fragment_shader != nullptr && fragment_shader->desc_set_container != nullptr);
 	const bool discontiguous = (!has_vs_desc && has_fs_desc);
 	
-	const array<VkDescriptorSet, 3> desc_sets {{
+	array<VkDescriptorSet, 3> desc_sets {{
 		vk_dev.fixed_sampler_desc_set,
-		vertex_shader->desc_set,
-		has_fs_desc ? fragment_shader->desc_set : nullptr,
+		// NOTE: these may be nullptr / dummy ones (see above)
+		encoder->acquired_descriptor_sets[0].desc_set,
+		encoder->acquired_descriptor_sets[1].desc_set,
 	}};
+	
 	// either binds everything or just the fixed sampler set
 	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -132,7 +148,7 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 								encoder->pipeline_layout,
 								2,
 								1,
-								&fragment_shader->desc_set,
+								&desc_sets[2],
 								encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
 								encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
 	}
@@ -152,9 +168,10 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		}
 	}
 	
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	
 	// add completion handler to evaluate printf buffers on completion
 	if (is_vs_soft_printf || is_fs_soft_printf) {
-		const auto& vk_queue = (const vulkan_queue&)cqueue;
 		vk_queue.add_completion_handler(cmd_buffer, [printf_buffers, dev = &vk_dev]() {
 			const auto default_queue = ((const vulkan_compute*)dev->context)->get_device_default_queue(*dev);
 			for (const auto& printf_buffer : printf_buffers) {
@@ -167,8 +184,15 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 
 	// attach constant buffers to queue+cmd_buffer so that they will be destroyed once this is completed
 	if (!encoder->constant_buffers.empty()) {
-		const auto& vk_queue = (const vulkan_queue&)cqueue;
 		vk_queue.add_retained_buffers(cmd_buffer, encoder->constant_buffers);
+	}
+	
+	// release acquired descriptor sets again after completion
+	if (has_vs_desc || has_fs_desc) {
+		auto acq_desc_sets_local = make_shared<decltype(encoder->acquired_descriptor_sets)>(move(encoder->acquired_descriptor_sets));
+		vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local)]() {
+			acq_desc_sets->clear();
+		});
 	}
 	
 #if defined(FLOOR_DEBUG)

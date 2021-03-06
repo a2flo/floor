@@ -251,8 +251,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 							.pNext = nullptr,
 							.flags = 0,
-							// we only need one set for now
-							.maxSets = 1,
+							// we only need a fixed number of sets for now
+							.maxSets = vulkan_descriptor_set_container::descriptor_count,
 							.poolSizeCount = pool_count,
 							.pPoolSizes = pool_sizes.data(),
 						};
@@ -268,21 +268,29 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						VK_CALL_CONT(vkCreateDescriptorPool(prog.first.get().device, &desc_pool_info, nullptr, &entry.desc_pool),
 									 "failed to create descriptor pool (" + func_name + ")")
 						
-						// allocate descriptor set
+						// allocate fixed number of descriptor sets
+						array<VkDescriptorSet, vulkan_descriptor_set_container::descriptor_count> desc_sets;
+						array<VkDescriptorSetLayout, vulkan_descriptor_set_container::descriptor_count> desc_set_layouts;
+						desc_set_layouts.fill(entry.desc_set_layout);
 						const VkDescriptorSetAllocateInfo desc_set_alloc_info {
 							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 							.pNext = nullptr,
 							.descriptorPool = entry.desc_pool,
-							.descriptorSetCount = 1,
-							.pSetLayouts = &entry.desc_set_layout,
+							.descriptorSetCount = vulkan_descriptor_set_container::descriptor_count,
+							.pSetLayouts = &desc_set_layouts[0],
 						};
-						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first.get().device, &desc_set_alloc_info, &entry.desc_set),
-									 "failed to allocate descriptor set (" + func_name + ")")
+						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first.get().device, &desc_set_alloc_info, &desc_sets[0]),
+									 "failed to allocate descriptor sets (" + func_name + ")")
 #if defined(FLOOR_DEBUG)
-						string desc_set_label = "desc_set:" + func_name;
-						((const vulkan_compute*)prog.first.get().context)->set_vulkan_debug_label(prog.first.get(), VK_OBJECT_TYPE_DESCRIPTOR_SET,
-																								  uint64_t(entry.desc_set), desc_set_label);
+						string desc_set_label_stem = "desc_set:" + func_name + "#";
+						for (uint32_t desc_set_idx = 0; desc_set_idx < vulkan_descriptor_set_container::descriptor_count; ++desc_set_idx) {
+							((const vulkan_compute*)prog.first.get().context)->set_vulkan_debug_label(prog.first.get(), VK_OBJECT_TYPE_DESCRIPTOR_SET,
+																									  uint64_t(desc_sets[desc_set_idx]),
+																									  desc_set_label_stem + to_string(desc_set_idx));
+							
+						}
 #endif
+						entry.desc_set_container = make_unique<vulkan_descriptor_set_container>(move(desc_sets));
 					}
 					// else: no descriptors entry.desc_* already nullptr
 					

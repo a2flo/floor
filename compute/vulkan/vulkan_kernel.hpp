@@ -27,6 +27,7 @@
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
+#include <floor/compute/vulkan/vulkan_descriptor_set.hpp>
 #include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
 
@@ -42,7 +43,7 @@ public:
 		VkPipelineShaderStageCreateInfo stage_info;
 		VkDescriptorSetLayout desc_set_layout { nullptr };
 		VkDescriptorPool desc_pool { nullptr };
-		VkDescriptorSet desc_set { nullptr };
+		unique_ptr<vulkan_descriptor_set_container> desc_set_container;
 		vector<VkDescriptorType> desc_types;
 		
 		struct spec_entry {

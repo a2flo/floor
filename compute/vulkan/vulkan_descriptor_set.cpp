@@ -16,23 +16,24 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
-#define __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
+#include <floor/compute/vulkan/vulkan_descriptor_set.hpp>
 
-// NOTE: only included from vulkan_kernel and vulkan_shader
+#if !defined(FLOOR_NO_VULKAN)
 
-struct vulkan_encoder {
-	vulkan_command_buffer cmd_buffer;
-	const vulkan_queue& cqueue;
-	const vulkan_device& device;
-	vector<VkWriteDescriptorSet> write_descs;
-	vector<VkWriteDescriptorSetInlineUniformBlockEXT> iub_descs;
-	vector<shared_ptr<compute_buffer>> constant_buffers;
-	vector<uint32_t> dyn_offsets;
-	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
-	const VkPipeline pipeline { nullptr };
-	const VkPipelineLayout pipeline_layout { nullptr };
-	vector<descriptor_set_instance_t> acquired_descriptor_sets;
-};
+descriptor_set_instance_t vulkan_descriptor_set_container::acquire_descriptor_set() {
+	auto [desc_set, index] = descriptor_sets.acquire();
+	return { desc_set, index, *this };
+}
+
+void vulkan_descriptor_set_container::release_descriptor_set(descriptor_set_instance_t& instance) {
+	if (instance.desc_set == nullptr || instance.index == ~0u) {
+		return;
+	}
+	
+	descriptor_sets.release({ instance.desc_set, instance.index });
+	
+	instance.desc_set = nullptr;
+	instance.index = ~0u;
+}
 
 #endif

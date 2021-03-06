@@ -87,6 +87,9 @@ struct render_pass_description {
 	//! if enabled, performs automatic modification of this render pass description to enable multi-view rendering
 	//! if not enabled, this render pass description must already be multi-view capable when used for multi-view rendering
 	bool automatic_multi_view_handling { true };
+	
+	//! sets the debug label for passes created from this description (e.g. for display in a debugger)
+	string debug_label;
 };
 
 FLOOR_PUSH_WARNINGS()

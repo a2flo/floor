@@ -53,6 +53,10 @@
 		5C15E35D223E797E001F53A2 /* compute_kernel_arg.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */; };
 		5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */; };
 		5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */; };
+		5C1E6FBB25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1E6FB925EF0E510030786F /* vulkan_descriptor_set.cpp */; };
+		5C1E6FBC25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1E6FB925EF0E510030786F /* vulkan_descriptor_set.cpp */; };
+		5C1E6FBD25EF0E510030786F /* vulkan_descriptor_set.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1E6FBA25EF0E510030786F /* vulkan_descriptor_set.hpp */; };
+		5C1E6FC225EF21800030786F /* safe_resource_container.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1E6FBF25EF21800030786F /* safe_resource_container.hpp */; };
 		5C20C8C31B4139260005F5EA /* host_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B41B4139260005F5EA /* host_buffer.cpp */; };
 		5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C20C8B51B4139260005F5EA /* host_buffer.hpp */; };
 		5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C20C8B61B4139260005F5EA /* host_common.hpp */; };
@@ -422,6 +426,9 @@
 		5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel_arg.hpp; sourceTree = "<group>"; };
 		5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = serializer_storage.hpp; sourceTree = "<group>"; };
 		5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_compat.hpp; path = device/atomic_compat.hpp; sourceTree = "<group>"; };
+		5C1E6FB925EF0E510030786F /* vulkan_descriptor_set.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_descriptor_set.cpp; path = vulkan/vulkan_descriptor_set.cpp; sourceTree = "<group>"; };
+		5C1E6FBA25EF0E510030786F /* vulkan_descriptor_set.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = vulkan_descriptor_set.hpp; path = vulkan/vulkan_descriptor_set.hpp; sourceTree = "<group>"; };
+		5C1E6FBF25EF21800030786F /* safe_resource_container.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = safe_resource_container.hpp; sourceTree = "<group>"; };
 		5C20C8B41B4139260005F5EA /* host_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_buffer.cpp; path = host/host_buffer.cpp; sourceTree = "<group>"; };
 		5C20C8B51B4139260005F5EA /* host_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_buffer.hpp; path = host/host_buffer.hpp; sourceTree = "<group>"; };
 		5C20C8B61B4139260005F5EA /* host_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_common.hpp; path = host/host_common.hpp; sourceTree = "<group>"; };
@@ -811,6 +818,7 @@
 				5C10919E17D1153E007F536E /* thread_base.cpp */,
 				5C10919F17D1153E007F536E /* thread_base.hpp */,
 				5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */,
+				5C1E6FBF25EF21800030786F /* safe_resource_container.hpp */,
 			);
 			path = threading;
 			sourceTree = "<group>";
@@ -913,6 +921,8 @@
 				5C2B87CE1C73893E00F11EA5 /* vulkan_queue.hpp */,
 				5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */,
 				5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */,
+				5C1E6FB925EF0E510030786F /* vulkan_descriptor_set.cpp */,
+				5C1E6FBA25EF0E510030786F /* vulkan_descriptor_set.hpp */,
 			);
 			name = vulkan;
 			sourceTree = "<group>";
@@ -1358,6 +1368,7 @@
 				5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */,
 				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
 				5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */,
+				5C1E6FBD25EF0E510030786F /* vulkan_descriptor_set.hpp in Headers */,
 				5C93EB4424B10B54002588D5 /* soft_pack.hpp in Headers */,
 				5CBBFF581BC2B786001813E0 /* image.hpp in Headers */,
 				5C20C8CF1B4139260005F5EA /* host_program.hpp in Headers */,
@@ -1365,6 +1376,7 @@
 				5C0C3DC822BE9F2B00501B16 /* metal_args.hpp in Headers */,
 				5C20C8CD1B4139260005F5EA /* host_kernel.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
+				5C1E6FC225EF21800030786F /* safe_resource_container.hpp in Headers */,
 				5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */,
 				5C20C8C71B4139260005F5EA /* host_compute.hpp in Headers */,
 				5C84531922B1A6D80014AECF /* vulkan_pass.hpp in Headers */,
@@ -1589,6 +1601,7 @@
 				5C6B6D8E1EC7381C00342E50 /* serializer.cpp in Sources */,
 				5C8FD0C71AD38F9700215230 /* opencl_image.cpp in Sources */,
 				5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
+				5C1E6FBB25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
 				5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */,
@@ -1701,6 +1714,7 @@
 				5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
 				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
+				5C1E6FBC25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */,
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
@@ -1809,6 +1823,7 @@
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
+					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -1949,6 +1964,7 @@
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
+					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -2170,6 +2186,7 @@
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
+					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -2415,6 +2432,7 @@
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
+					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",

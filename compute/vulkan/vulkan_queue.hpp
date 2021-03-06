@@ -98,7 +98,7 @@ public:
 							   const uint32_t wait_sema_count = 0,
 							   const VkPipelineStageFlags wait_stage_flags = 0) const REQUIRES(!queue_lock);
 	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
-							   function<void(const vulkan_command_buffer&)> completion_handler,
+							   function<void(const vulkan_command_buffer&)>&& completion_handler,
 							   const bool blocking = true,
 							   const VkSemaphore* wait_semas = nullptr,
 							   const uint32_t wait_sema_count = 0,
@@ -115,7 +115,7 @@ public:
 	//! adds a completion handler to the specified command buffer that is called once the command buffer has finished execution
 	//! NOTE: must be called before submit_command_buffer, otherwise this has no effect
 	void add_completion_handler(const vulkan_command_buffer& cmd_buffer,
-								vulkan_completion_handler_t completion_handler) const;
+								vulkan_completion_handler_t&& completion_handler) const;
 	
 protected:
 	VkQueue vk_queue GUARDED_BY(queue_lock);

@@ -23,6 +23,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 
 struct vulkan_render_pass_info {
 	vector<VkAttachmentDescription> attachment_desc;
@@ -178,16 +179,29 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 	}
 	
 	for (const auto& dev : devices) {
+		const auto& vk_dev = (const vulkan_device&)*dev;
 		VkRenderPass sv_render_pass { nullptr };
 		if (create_sv_pass) {
-			VK_CALL_RET(vkCreateRenderPass(((const vulkan_device*)dev.get())->device, &sv_render_pass_info->render_pass_info, nullptr, &sv_render_pass),
+			VK_CALL_RET(vkCreateRenderPass(vk_dev.device, &sv_render_pass_info->render_pass_info, nullptr, &sv_render_pass),
 						"failed to create render pass")
+#if defined(FLOOR_DEBUG)
+			if (!pass_desc.debug_label.empty()) {
+				((const vulkan_compute*)vk_dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_RENDER_PASS, uint64_t(sv_render_pass),
+																				pass_desc.debug_label);
+			}
+#endif
 		}
 
 		VkRenderPass mv_render_pass { nullptr };
 		if (create_mv_pass) {
-			VK_CALL_RET(vkCreateRenderPass(((const vulkan_device*)dev.get())->device, &mv_render_pass_info->render_pass_info, nullptr, &mv_render_pass),
+			VK_CALL_RET(vkCreateRenderPass(vk_dev.device, &mv_render_pass_info->render_pass_info, nullptr, &mv_render_pass),
 						"failed to create multi-view render pass")
+#if defined(FLOOR_DEBUG)
+			if (!pass_desc.debug_label.empty()) {
+				((const vulkan_compute*)vk_dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_RENDER_PASS, uint64_t(mv_render_pass),
+																				pass_desc.debug_label);
+			}
+#endif
 		}
 
 		render_passes.insert_or_assign(*dev, { sv_render_pass, mv_render_pass });

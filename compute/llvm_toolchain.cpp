@@ -905,8 +905,8 @@ program_data compile_input(const string& input,
 		clang_cmd += " -gline-tables-only";
 	}
 	
-	// default warning flags (note that these cost a significant amount of compilation time)
-	const char* warning_flags {
+	// default disabled warning flags
+	static constexpr const char disabled_warning_flags[] {
 		// let's start with everything
 		" -Weverything"
 		// remove compat warnings
@@ -948,7 +948,9 @@ program_data compile_input(const string& input,
 		" -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +
-		(options.enable_warnings ? warning_flags : " ") +
+		// note that enabling warnings costs a significant amount of compilation time
+		(options.enable_warnings ? " -Weverything" : " ") +
+		disabled_warning_flags +
 		options.cli +
 		" -m64" +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -emit-llvm" : "") +

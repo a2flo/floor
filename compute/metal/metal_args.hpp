@@ -409,6 +409,9 @@ namespace metal_args {
 		size_t explicit_idx = 0, implicit_idx = 0;
 		for (size_t i = 0; i < arg_count; ++i) {
 			auto entry = arg_pre_handler(entries, idx);
+			if (entry == nullptr) {
+				return false;
+			}
 			const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
 			
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {

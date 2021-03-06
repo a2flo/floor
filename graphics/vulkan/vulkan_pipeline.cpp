@@ -19,9 +19,9 @@
 #include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
-
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 
 static unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pipeline_description& pipeline_desc,
 															const vector<unique_ptr<compute_device>>& devices,
@@ -79,6 +79,12 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 	};
 	VK_CALL_RET(vkCreatePipelineLayout(vk_dev.device, &pipeline_layout_info, nullptr, &state.layout),
 				"failed to create pipeline layout", false)
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_desc.debug_label.empty()) {
+		((const vulkan_compute*)vk_dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_PIPELINE_LAYOUT, uint64_t(state.layout),
+																		"layout:" + pipeline_desc.debug_label);
+	}
+#endif
 
 	// setup the pipeline
 	const VkPipelineVertexInputStateCreateInfo vertex_input_state {
@@ -264,6 +270,12 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 	};
 	VK_CALL_RET(vkCreateGraphicsPipelines(vk_dev.device, nullptr, 1, &gfx_pipeline_info, nullptr, &state.pipeline),
 				"failed to create pipeline", false)
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_desc.debug_label.empty()) {
+		((const vulkan_compute*)vk_dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_PIPELINE, uint64_t(state.pipeline),
+																		pipeline_desc.debug_label);
+	}
+#endif
 
 	return true;
 }

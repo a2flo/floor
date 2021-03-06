@@ -64,7 +64,10 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 	}
 
 	// set and handle kernel arguments
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(encoder, { vertex_shader->info, fragment_shader->info }, args, implicit_args);
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(encoder, {
+		(vertex_shader ? vertex_shader->info : nullptr),
+		(fragment_shader ? fragment_shader->info : nullptr),
+	}, args, implicit_args);
 	
 	// add completion handler to evaluate printf buffers on completion
 	if (is_vs_soft_printf || is_fs_soft_printf) {

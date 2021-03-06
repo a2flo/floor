@@ -375,6 +375,12 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		implicit_args.emplace_back(printf_buffer);
 	}
 	
+	// acquire kernel descriptor sets
+	const auto& entry = kernel_iter->second;
+	if (entry.desc_set_container) {
+		encoder->acquired_descriptor_sets.emplace_back(entry.desc_set_container->acquire_descriptor_set());
+	}
+	
 	// set and handle arguments
 	idx_handler idx;
 	if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
@@ -382,7 +388,6 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	}
 	
 	// run
-	const auto& entry = kernel_iter->second;
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	// set/write/update descriptors
@@ -392,15 +397,19 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 						   0, nullptr);
 	
 	// final desc set binding after all parameters have been updated/set
+	VkDescriptorSet entry_desc_set { nullptr };
+	if (!encoder->acquired_descriptor_sets.empty()) {
+		entry_desc_set = encoder->acquired_descriptor_sets[0].desc_set;
+	}
 	const VkDescriptorSet desc_sets[2] {
 		vk_dev.fixed_sampler_desc_set,
-		entry.desc_set,
+		entry_desc_set,
 	};
 	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
 							VK_PIPELINE_BIND_POINT_COMPUTE,
 							entry.pipeline_layout,
 							0,
-							(entry.desc_set != nullptr ? 2 : 1),
+							(entry_desc_set != nullptr ? 2 : 1),
 							desc_sets,
 							encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
 							encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
@@ -421,6 +430,12 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 															// kill constant buffers after the kernel has finished execution
 															encoder->constant_buffers.clear();
 														}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
+	
+	// release all acquired descriptor sets again
+	for (auto& desc_set_instance : encoder->acquired_descriptor_sets) {
+		entry.desc_set_container->release_descriptor_set(desc_set_instance);
+	}
+	encoder->acquired_descriptor_sets.clear();
 	
 	// if soft-printf is being used, read-back results
 	if (is_soft_printf) {
@@ -446,7 +461,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 		auto& write_desc = encoder.write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = &iub_write_desc;
-		write_desc.dstSet = entry.desc_set;
+		write_desc.dstSet = encoder.acquired_descriptor_sets[idx.entry].desc_set;
 		write_desc.dstBinding = idx.binding;
 		write_desc.dstArrayElement = 0;
 		write_desc.descriptorCount = uint32_t(size);
@@ -490,7 +505,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	auto& write_desc = encoder.write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
-	write_desc.dstSet = entry.desc_set;
+	write_desc.dstSet = encoder.acquired_descriptor_sets[idx.entry].desc_set;
 	write_desc.dstBinding = idx.binding;
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = 1;
@@ -548,7 +563,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 		auto& write_desc = encoder.write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
-		write_desc.dstSet = entry.desc_set;
+		write_desc.dstSet = encoder.acquired_descriptor_sets[idx.entry].desc_set;
 		write_desc.dstBinding = idx.binding;
 		write_desc.dstArrayElement = 0;
 		write_desc.descriptorCount = 1;
@@ -567,7 +582,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 		auto& write_desc = encoder.write_descs[idx.write_desc + rw_offset];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
-		write_desc.dstSet = entry.desc_set;
+		write_desc.dstSet = encoder.acquired_descriptor_sets[idx.entry].desc_set;
 		write_desc.dstBinding = idx.binding + rw_offset;
 		write_desc.dstArrayElement = 0;
 		write_desc.descriptorCount = uint32_t(mip_info.size());
@@ -627,7 +642,7 @@ floor_inline_always static void set_image_array_argument(vulkan_encoder& encoder
 	auto& write_desc = encoder.write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
-	write_desc.dstSet = entry.desc_set;
+	write_desc.dstSet = encoder.acquired_descriptor_sets[idx.entry].desc_set;
 	write_desc.dstBinding = idx.binding;
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = elem_count;

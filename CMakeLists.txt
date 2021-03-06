@@ -176,6 +176,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/vulkan/vulkan_common.hpp
 	compute/vulkan/vulkan_compute.cpp
 	compute/vulkan/vulkan_compute.hpp
+	compute/vulkan/vulkan_descriptor_set.cpp
+	compute/vulkan/vulkan_descriptor_set.hpp
 	compute/vulkan/vulkan_device.cpp
 	compute/vulkan/vulkan_device.hpp
 	compute/vulkan/vulkan_encoder.hpp

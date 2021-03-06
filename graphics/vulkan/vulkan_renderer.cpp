@@ -52,8 +52,8 @@ vulkan_renderer::~vulkan_renderer() {
 	// TODO: implement this
 }
 
-VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_render_pass) {
-	const auto& vk_dev = ((const vulkan_device&)cqueue.get_device()).device;
+VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label [[maybe_unused]]) {
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	vector<VkImageView> vk_attachments;
 	for (const auto& att : attachments_map) {
@@ -75,8 +75,15 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 		.layers = (!multi_view ? 1 : 2),
 	};
 	VkFramebuffer framebuffer { nullptr };
-	VK_CALL_RET(vkCreateFramebuffer(vk_dev, &framebuffer_create_info, nullptr, &framebuffer),
+	VK_CALL_RET(vkCreateFramebuffer(vk_dev.device, &framebuffer_create_info, nullptr, &framebuffer),
 				"failed to create framebuffer", nullptr)
+#if defined(FLOOR_DEBUG)
+	string debug_label = "framebuffer";
+	if (!pass_debug_label.empty()) {
+		debug_label += ":" + pass_debug_label;
+	}
+	((const vulkan_compute*)vk_dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_FRAMEBUFFER, uint64_t(framebuffer), debug_label);
+#endif
 	
 	if (framebuffer != nullptr) {
 		// need to store these and destroy them again once we're finished
@@ -155,7 +162,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	// create framebuffer(s) for this pass
 	const auto vk_render_pass = vk_pass.get_vulkan_render_pass(cqueue.get_device(), multi_view);
-	cur_framebuffer = create_vulkan_framebuffer(vk_render_pass);
+	cur_framebuffer = create_vulkan_framebuffer(vk_render_pass, vk_pass.get_description(multi_view).debug_label);
 	if (cur_framebuffer == nullptr) {
 		return false;
 	}

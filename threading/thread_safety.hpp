@@ -202,7 +202,7 @@ public:
 	explicit safe_multi_guard_holder(mutex_types&... mtx_refs) : mtxs(mtx_refs...) {
 		std::lock(mtx_refs...);
 	}
-	safe_multi_guard_holder(safe_multi_guard_holder&& holder) : mtxs(move(holder.mtxs)) {}
+	safe_multi_guard_holder(safe_multi_guard_holder&& holder) : mtxs(std::move(holder.mtxs)) {}
 	~safe_multi_guard_holder() {
 		unlock_all(std::make_index_sequence<std::tuple_size<mtxs_tuple_type>::value> {});
 	}
@@ -217,7 +217,7 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 
 #define GUARD_ID_CONCAT(num) guard_ ## num
 #define GUARD_ID_EVAL(num) GUARD_ID_CONCAT(num)
-#define GUARD(mtx) safe_guard<decay<decltype(mtx)>::type> GUARD_ID_EVAL(__LINE__) (mtx)
+#define GUARD(mtx) safe_guard<std::decay_t<decltype(mtx)>> GUARD_ID_EVAL(__LINE__) (mtx)
 
 #define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
 #define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
@@ -228,7 +228,7 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 using MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t) = decltype(make_refs_tuple(__VA_ARGS__)); \
 struct SCOPED_CAPABILITY MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) { \
 	safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> holder; \
-	MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) (decltype(holder)&& holder_) ACQUIRE(__VA_ARGS__) : holder(move(holder_)) {} \
+	explicit MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) (decltype(holder)&& holder_) ACQUIRE(__VA_ARGS__) : holder(std::move(holder_)) {} \
 	~ MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) () RELEASE() {} \
 } MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> { __VA_ARGS__ } }
 
