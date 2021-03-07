@@ -148,6 +148,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	} else {
 		assert(false && "unknown severity");
 	}
+	logger::flush();
 	return VK_FALSE; // don't abort
 }
 #endif

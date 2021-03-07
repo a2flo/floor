@@ -81,12 +81,17 @@ public:
 					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
 	
 	//! transition for shader or attachment read (if not already in this mode)
-	void transition_read(const compute_queue& cqueue, VkCommandBuffer cmd_buffer);
+	//! if "allow_general_layout" is set and the current layout is "general", the transition will be skipped
+	void transition_read(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
+						 const bool allow_general_layout = false);
 	//! transition for shader or attachment write (if not already in this mode)
 	//! if "read_write" is set, will also make the image readable
 	//! if "is_rt_direct_write" is set and the image is a render-target, transition to "general" layout instead of "attachment" layout
-	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, const bool read_write = false,
-						  const bool is_rt_direct_write = false);
+	//! if "allow_general_layout" is set and the current layout is "general", the transition will be skipped
+	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
+						  const bool read_write = false,
+						  const bool is_rt_direct_write = false,
+						  const bool allow_general_layout = false);
 	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {

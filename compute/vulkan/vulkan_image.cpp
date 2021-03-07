@@ -68,6 +68,11 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 		} else {
 			usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		}
+		
+		// if readable: allow use as an input attachment
+		if (has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
+			usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		}
 	}
 	
 	// must be able to write to the image when mip-map generation is enabled
@@ -549,6 +554,16 @@ bool vulkan_image::unmap(const compute_queue& cqueue,
 		return false;
 	}
 	
+	// if we transitioned to a transfer layout during mapping, transition back now
+	if (image_info.imageLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL ||
+		image_info.imageLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		if (has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
+			transition_read(cqueue, nullptr);
+		} else {
+			transition_write(cqueue, nullptr);
+		}
+	}
+	
 	// manually create mip-map chain
 	if(generate_mip_maps &&
 	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
@@ -712,13 +727,16 @@ bool vulkan_image::transition(const compute_queue& cqueue,
 }
 
 void vulkan_image::transition_read(const compute_queue& cqueue,
-								   VkCommandBuffer cmd_buffer) {
+								   VkCommandBuffer cmd_buffer,
+								   const bool allow_general_layout) {
 	// normal images
-	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+	if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		const VkAccessFlags access_flags = VK_ACCESS_SHADER_READ_BIT;
-		if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
-		   cur_access_mask == access_flags) {
-			return;
+		if ((cur_access_mask & access_flags) == access_flags) {
+			if (image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
+				return;
+			}
 		}
 		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
@@ -727,17 +745,18 @@ void vulkan_image::transition_read(const compute_queue& cqueue,
 	else {
 		VkImageLayout layout;
 		VkAccessFlags access_flags;
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			access_flags = VK_ACCESS_SHADER_READ_BIT;
-		}
-		else {
+		} else {
 			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 		}
-		if(image_info.imageLayout == layout &&
-		   cur_access_mask == access_flags) {
-			return;
+		if ((cur_access_mask & access_flags) == access_flags) {
+			if (image_info.imageLayout == layout ||
+				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
+				return;
+			}
 		}
 		
 		transition(cqueue, cmd_buffer, access_flags, layout,
@@ -746,14 +765,16 @@ void vulkan_image::transition_read(const compute_queue& cqueue,
 }
 
 void vulkan_image::transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
-									const bool read_write, const bool is_rt_direct_write) {
+									const bool read_write, const bool is_rt_direct_write, const bool allow_general_layout) {
 	// normal images
-	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) || is_rt_direct_write) {
+	if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) || is_rt_direct_write) {
 		VkAccessFlags access_flags = VK_ACCESS_SHADER_WRITE_BIT;
-		if(read_write) access_flags |= VK_ACCESS_SHADER_READ_BIT;
+		if (read_write) {
+			access_flags |= VK_ACCESS_SHADER_READ_BIT;
+		}
 		
-		if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL &&
-		   cur_access_mask == access_flags) {
+		if (image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL &&
+			(cur_access_mask & access_flags) == access_flags) {
 			return;
 		}
 		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
@@ -762,20 +783,26 @@ void vulkan_image::transition_write(const compute_queue& cqueue, VkCommandBuffer
 	// attachments / render-targets
 	else {
 #if defined(FLOOR_DEBUG)
-		if(read_write) log_error("attachment / render-target can't be read-write");
+		if(read_write) {
+			log_error("attachment / render-target can't be read-write");
+		}
 #endif
 		
 		VkImageLayout layout;
 		VkAccessFlags access_flags;
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		}
-		else {
+		} else {
 			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
-		if(image_info.imageLayout == layout) return;
+		if ((cur_access_mask & access_flags) == access_flags) {
+			if (image_info.imageLayout == layout ||
+				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
+				return;
+			}
+		}
 		
 		transition(cqueue, cmd_buffer, access_flags, layout,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);

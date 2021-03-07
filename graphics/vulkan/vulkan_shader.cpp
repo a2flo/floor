@@ -71,6 +71,10 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		return;
 	}
 	
+	// for shader execution: leave images in general layout if necessary, since we can't have arbitrary pipeline barriers for image layout transitions,
+	// because that would require passes to have self-dependencies that would need to be correctl set up (with the current design, this isn't possible)
+	encoder->allow_generic_layout = true;
+	
 	// create implicit args
 	vector<compute_kernel_arg> implicit_args;
 	

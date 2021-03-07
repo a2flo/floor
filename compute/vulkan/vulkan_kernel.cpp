@@ -545,16 +545,18 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	
 	// transition image to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+	if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		vk_img->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 								 // also readable?
 								 img_access == ARG_IMAGE_ACCESS::READ_WRITE,
 								 // always direct-write, never attachment
-								 true);
-	}
-	else { // READ
-		vk_img->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
+								 true,
+								 // allow general layout?
+								 encoder.allow_generic_layout);
+	} else { // READ
+		vk_img->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
+								// allow general layout?
+								encoder.allow_generic_layout);
 	}
 	
 	// read image desc/obj
@@ -607,19 +609,21 @@ floor_inline_always static void set_image_array_argument(vulkan_encoder& encoder
 	
 	// transition images to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
-	if(img_access == ARG_IMAGE_ACCESS::WRITE ||
-	   img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+	if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
 			image_accessor(img)->transition_write(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
 												  // also readable?
 												  img_access == ARG_IMAGE_ACCESS::READ_WRITE,
 												  // always direct-write, never attachment
-												  true);
+												  true,
+												  // allow general layout?
+												  encoder.allow_generic_layout);
 		}
-	}
-	else { // READ
-		for(auto& img : image_array) {
-			image_accessor(img)->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer);
+	} else { // READ
+		for (auto& img : image_array) {
+			image_accessor(img)->transition_read(encoder.cqueue, encoder.cmd_buffer.cmd_buffer,
+												 // allow general layout?
+												 encoder.allow_generic_layout);
 		}
 	}
 	

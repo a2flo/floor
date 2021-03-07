@@ -33,6 +33,9 @@ struct vulkan_encoder {
 	const VkPipeline pipeline { nullptr };
 	const VkPipelineLayout pipeline_layout { nullptr };
 	vector<descriptor_set_instance_t> acquired_descriptor_sets;
+	//! if set, won't transition kernel/shader image arguments to read or write optimal layout during argument encoding
+	//! NOTE: this is useful in cases we don't want to or can't have a pipeline barrier
+	bool allow_generic_layout { false };
 };
 
 #endif

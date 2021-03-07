@@ -50,12 +50,13 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 	for (const auto& att : desc.attachments) {
 		const auto load_op = vulkan_pass::vulkan_load_op_from_load_op(att.load_op);
 		const auto store_op = vulkan_pass::vulkan_store_op_from_store_op(att.store_op);
+		const auto is_read_only = (att.store_op == STORE_OP::DONT_CARE);
 
 		VkImageLayout layout;
 		const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(att.format);
 		if (is_depth) {
 			// depth attachment
-			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			layout = (!is_read_only ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 			has_depth_attachment = true;
 			info->depth_attachment_ref.attachment = 0; // -> set at the end
 			info->depth_attachment_ref.layout = layout;
@@ -67,7 +68,7 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 			};
 		} else {
 			// color attachment
-			layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			layout = (!is_read_only ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			info->color_attachment_refs.emplace_back(VkAttachmentReference {
 				.attachment = color_att_counter++,
 				.layout = layout,

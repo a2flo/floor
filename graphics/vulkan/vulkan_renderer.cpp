@@ -334,7 +334,7 @@ bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
 	// TODO: check if we actually need to transition any attachment in the specified container
 	// try to use a single cmd buffer for all attachment transitions
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	att_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_transition_write_attachments_cmd_buffer");
+	att_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_transition_attachments_cmd_buffer");
 	const VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -342,13 +342,13 @@ bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
 		.pInheritanceInfo = nullptr,
 	};
 	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(att_cmd_buffer->cmd_buffer, &begin_info),
-					 "failed to begin command buffer for attachments write transition", return false;)
+					 "failed to begin command buffer for attachments transition", return false;)
 	
 	if (!graphics_renderer::set_attachments(attachments)) {
 		return false;
 	}
 	
-	VK_CALL_RET(vkEndCommandBuffer(att_cmd_buffer->cmd_buffer), "failed to end command buffer for attachments write transition", false)
+	VK_CALL_RET(vkEndCommandBuffer(att_cmd_buffer->cmd_buffer), "failed to end command buffer for attachments transition", false)
 	((const vulkan_queue&)cqueue).submit_command_buffer(*att_cmd_buffer, true);
 	
 	att_cmd_buffer.reset();
@@ -356,15 +356,28 @@ bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
 	return true;
 }
 
-static inline bool attachment_transition_write(const compute_queue& cqueue, compute_image& img, optional<vulkan_command_buffer> transition_cmd_buffer) {
-	// make attachments writable
-	if (!transition_cmd_buffer) {
-		const auto& vk_queue = (const vulkan_queue&)cqueue;
-		VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_write_attachment_cmd_buffer", ({
-			((vulkan_image&)img).transition_write(cqueue, cmd_buffer.cmd_buffer);
-		}), true /* always blocking */);
+static inline bool attachment_transition(const compute_queue& cqueue, compute_image& img, optional<vulkan_command_buffer> transition_cmd_buffer,
+										 const bool is_read_only = false) {
+	if (!is_read_only) {
+		// make attachment writable
+		if (!transition_cmd_buffer) {
+			const auto& vk_queue = (const vulkan_queue&)cqueue;
+			VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_write_attachment_cmd_buffer", ({
+				((vulkan_image&)img).transition_write(cqueue, cmd_buffer.cmd_buffer);
+			}), true /* always blocking */);
+		} else {
+			((vulkan_image&)img).transition_write(cqueue, transition_cmd_buffer->cmd_buffer);
+		}
 	} else {
-		((vulkan_image&)img).transition_write(cqueue, transition_cmd_buffer->cmd_buffer);
+		// make attachment readable
+		if (!transition_cmd_buffer) {
+			const auto& vk_queue = (const vulkan_queue&)cqueue;
+			VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_read_attachment_cmd_buffer", ({
+				((vulkan_image&)img).transition_read(cqueue, cmd_buffer.cmd_buffer);
+			}), true /* always blocking */);
+		} else {
+			((vulkan_image&)img).transition_read(cqueue, transition_cmd_buffer->cmd_buffer);
+		}
 	}
 	return true;
 }
@@ -373,14 +386,16 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 	if (!graphics_renderer::set_attachment(index, attachment)) {
 		return false;
 	}
-	return attachment_transition_write(cqueue, *attachment.image, att_cmd_buffer);
+	const auto is_read_only_color = cur_pipeline->get_description(multi_view).color_attachments[index].blend.write_mask.none();
+	return attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_color);
 }
 
 bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 	if (!graphics_renderer::set_depth_attachment(attachment)) {
 		return false;
 	}
-	return attachment_transition_write(cqueue, *attachment.image, att_cmd_buffer);
+	const auto is_read_only_depth = !cur_pipeline->get_description(multi_view).depth.write;
+	return attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_depth);
 }
 
 bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {

@@ -1344,7 +1344,7 @@ public:
 	//! returns true if all components are false
 	template <class B = scalar_type, enable_if_t<is_same<B, bool>::value>* = nullptr>
 	constexpr bool none() const {
-		return !FLOOR_VEC_EXPAND(||);
+		return !(FLOOR_VEC_EXPAND(||));
 	}
 	
 	//! explicit bool conversion/eval for vector*<bool>: returns true if all components are true
