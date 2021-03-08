@@ -529,11 +529,51 @@ vulkan_image::~vulkan_image() {
 	}
 }
 
-bool vulkan_image::zero(const compute_queue& cqueue floor_unused) {
-	if(image == nullptr) return false;
-	// TODO: implement this
-	log_error("vulkan_image::zero not implemented yet");
-	return false;
+bool vulkan_image::zero(const compute_queue& cqueue) {
+	if (image == nullptr) {
+		return false;
+	}
+	
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	VK_CMD_BLOCK_RET(vk_queue, "image zero", ({
+		// transition to optimal layout, then back to our current one at the end
+
+		const auto restore_access_mask = cur_access_mask;
+		const auto restore_layout = image_info.imageLayout;
+		
+		transition(cqueue, cmd_buffer.cmd_buffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		
+		VkImageSubresourceRange zero_range {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = mip_level_count,
+			.baseArrayLayer = 0,
+			.layerCount = layer_count,
+		};
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			zero_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+				zero_range.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			}
+			
+			const VkClearDepthStencilValue clear_value {
+				.depth = 0.0f,
+				.stencil = 0u,
+			};
+			vkCmdClearDepthStencilImage(cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
+		} else {
+			const VkClearColorValue clear_value {
+				.float32 = { 0.0f, 0.0f, 0.0f, 0.0f },
+			};
+			vkCmdClearColorImage(cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
+		}
+		
+		transition(cqueue, cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	}), false /* return false on error */, true /* always blocking */);
+	
+	return true;
 }
 
 void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueue,
