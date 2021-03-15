@@ -58,6 +58,9 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 	vector<VkImageView> vk_attachments;
 	for (const auto& att : attachments_map) {
 		vk_attachments.emplace_back(((const vulkan_image*)att.second.image)->get_vulkan_image_view());
+		if (att.second.resolve_image) {
+			vk_attachments.emplace_back(((const vulkan_image*)att.second.resolve_image)->get_vulkan_image_view());
+		}
 	}
 	if (depth_attachment) {
 		vk_attachments.emplace_back(((const vulkan_image*)depth_attachment->image)->get_vulkan_image_view());
@@ -132,6 +135,10 @@ bool vulkan_renderer::create_cmd_buffer() {
 					has_non_swapchain_iamge = true;
 					break;
 				}
+				if (att.second.resolve_image && att.second.resolve_image != cur_drawable_img) {
+					has_non_swapchain_iamge = true;
+					break;
+				}
 			}
 			if (!has_non_swapchain_iamge) {
 				return; // nothing to transition
@@ -142,11 +149,16 @@ bool vulkan_renderer::create_cmd_buffer() {
 		const auto& transition_vk_queue = (const vulkan_queue&)cqueue;
 		VK_CMD_BLOCK_RET(transition_vk_queue, "vk_renderer_transition_read_attachments_cmd_buffer", ({
 			for (auto& att : attachments_map) {
-				if (att.second.image != cur_drawable_img) {
+				if (att.second.image != cur_drawable_img &&
+					!has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(att.second.image->get_image_type())) {
 					((vulkan_image*)att.second.image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
 				}
+				if (att.second.resolve_image && att.second.resolve_image != cur_drawable_img) {
+					((vulkan_image*)att.second.resolve_image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
+				}
 			}
-			if (depth_attachment) {
+			if (depth_attachment &&
+				!has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(depth_attachment->image->get_image_type())) {
 				((vulkan_image*)depth_attachment->image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
 			}
 		}), , true /* always blocking */);
@@ -387,7 +399,11 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 		return false;
 	}
 	const auto is_read_only_color = cur_pipeline->get_description(multi_view).color_attachments[index].blend.write_mask.none();
-	return attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_color);
+	auto ret = attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_color);
+	if (ret && attachment.resolve_image) {
+		ret |= attachment_transition(cqueue, *attachment.resolve_image, att_cmd_buffer, false);
+	}
+	return ret;
 }
 
 bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {

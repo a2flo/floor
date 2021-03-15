@@ -112,6 +112,11 @@ public:
 			log_error("generating mip-maps for compressed image data is not supported!");
 			return;
 		}
+		// can't generate mip-levels for transient images
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type) && generate_mip_maps) {
+			log_error("generating mip-maps for a transient image is not supported!");
+			return;
+		}
 		// warn about missing sharing flag if shared image is set
 		if (shared_image != nullptr) {
 			if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {

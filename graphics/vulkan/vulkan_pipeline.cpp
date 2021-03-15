@@ -31,10 +31,14 @@ static unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pipelin
 		// disable automatic transformation, since we already have made it
 		base_pass_desc.automatic_multi_view_handling = false;
 	}
+	const COMPUTE_IMAGE_TYPE msaa_format = (pipeline_desc.sample_count > 1 ?
+											(COMPUTE_IMAGE_TYPE::FLAG_MSAA | image_sample_type_from_count(pipeline_desc.sample_count)) :
+											COMPUTE_IMAGE_TYPE::NONE);
 	for (const auto& color_att : pipeline_desc.color_attachments) {
 		base_pass_desc.attachments.emplace_back(render_pass_description::attachment_desc_t {
-			.format = color_att.format
-			// NOTE: load op, store op, clear color/depth do not matter (any combination is compatible)
+			.format = color_att.format | msaa_format,
+			.store_op = (pipeline_desc.sample_count > 1 ? STORE_OP::RESOLVE : STORE_OP::STORE),
+			// NOTE: load op, clear color/depth do not matter (any combination is compatible)
 		});
 	}
 	if (pipeline_desc.depth_attachment.format != COMPUTE_IMAGE_TYPE::NONE) {
@@ -145,7 +149,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.rasterizationSamples = vulkan_image::sample_count_to_vulkan_sample_count(pipeline_desc.sample_count),
 		.sampleShadingEnable = false,
 		.minSampleShading = 0.0f,
 		.pSampleMask = nullptr,

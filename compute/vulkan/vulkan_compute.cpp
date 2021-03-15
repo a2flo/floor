@@ -554,6 +554,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_synchronization2",
 			"VK_KHR_workgroup_memory_explicit_layout",
 			"VK_KHR_zero_initialize_workgroup_memory",
+			"VK_KHR_copy_commands2",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;

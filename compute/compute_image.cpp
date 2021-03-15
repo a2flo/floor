@@ -1050,6 +1050,7 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 	
 	// other
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(type)) ret << " mip-mapped";
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(type)) ret << " transient";
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(type)) ret << " render-target";
 	
 	return ret.str();

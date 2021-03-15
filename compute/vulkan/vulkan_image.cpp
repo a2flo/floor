@@ -45,21 +45,26 @@ vulkan_image::vulkan_image(const compute_queue& cqueue,
 compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
-	const bool is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
+	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
+	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	
 	VkImageUsageFlags usage = 0;
-	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-		case COMPUTE_MEMORY_FLAG::READ:
-			usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-			break;
-		case COMPUTE_MEMORY_FLAG::WRITE:
-			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-			break;
-		case COMPUTE_MEMORY_FLAG::READ_WRITE:
-			usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-			break;
-		// all possible cases handled
-		default: floor_unreachable();
+	if (!is_transient) {
+		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_FLAG::READ:
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+				break;
+			case COMPUTE_MEMORY_FLAG::WRITE:
+				usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+				break;
+			case COMPUTE_MEMORY_FLAG::READ_WRITE:
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+				break;
+				// all possible cases handled
+			default: floor_unreachable();
+		}
+	} else {
+		usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 	}
 	
 	if (is_render_target) {
@@ -70,19 +75,21 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
 		}
 		
 		// if readable: allow use as an input attachment
-		if (has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
+		if (!is_transient && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
 			usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 		}
 	}
 	
-	// must be able to write to the image when mip-map generation is enabled
-	if(generate_mip_maps) {
-		usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+	if (!is_transient) {
+		// must be able to write to the image when mip-map generation is enabled
+		if (generate_mip_maps) {
+			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+		}
+		
+		// always need this for now
+		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
-	
-	// always need this for now
-	usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	
 	// actually create the image
 	if(!create_internal(true, cqueue, usage)) {
@@ -95,7 +102,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	const auto dim_count = image_dim_count(image_type);
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
-	//const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type); // TODO: msaa support
+	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
 	const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 	//const bool is_compressed = image_compressed(image_type); // TODO: check incompatible usage
 	const bool is_read_only = has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type);
@@ -179,7 +186,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.extent = extent,
 		.mipLevels = mip_level_count,
 		.arrayLayers = layer_count,
-		.samples = VK_SAMPLE_COUNT_1_BIT, // TODO: msaa support
+		.samples = is_msaa ? sample_count_to_vulkan_sample_count(image_sample_count(image_type)) : VK_SAMPLE_COUNT_1_BIT,
 		.tiling = VK_IMAGE_TILING_OPTIMAL, // TODO: might want linear as well later on?
 		.usage = usage,
 		// NOTE: for performance reasons, we always want exclusive sharing
@@ -534,6 +541,11 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 		return false;
 	}
 	
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type)) {
+		// nothing to clear
+		return true;
+	}
+	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	VK_CMD_BLOCK_RET(vk_queue, "image zero", ({
 		// transition to optimal layout, then back to our current one at the end
@@ -553,7 +565,7 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 		};
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			zero_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-			if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
 				zero_range.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			}
 			
@@ -1152,6 +1164,24 @@ void vulkan_image::set_debug_label(const string& label) {
 	((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_IMAGE, uint64_t(image), label);
 	if (image_view) {
 		((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_IMAGE_VIEW, uint64_t(image_view), label);
+	}
+}
+
+VkSampleCountFlagBits vulkan_image::sample_count_to_vulkan_sample_count(const uint32_t& sample_count) {
+	if (sample_count <= 1) {
+		return VK_SAMPLE_COUNT_1_BIT;
+	} else if (sample_count < 4) {
+		return VK_SAMPLE_COUNT_2_BIT;
+	} else if (sample_count < 8) {
+		return VK_SAMPLE_COUNT_4_BIT;
+	} else if (sample_count < 16) {
+		return VK_SAMPLE_COUNT_8_BIT;
+	} else if (sample_count < 32) {
+		return VK_SAMPLE_COUNT_16_BIT;
+	} else if (sample_count < 64) {
+		return VK_SAMPLE_COUNT_32_BIT;
+	} else {
+		return VK_SAMPLE_COUNT_64_BIT;
 	}
 }
 

@@ -62,7 +62,7 @@ struct render_pass_description {
 	//! per-attachment description, i.e. how and which values are loaded from and stored to an attachment
 	struct attachment_desc_t {
 		//! base pixel format of the attachment
-		//! requires: FORMAT, CHANNELS, DATA_TYPE, FLAG_DEPTH (if depth), FLAG_MSAA (if MSAA)
+		//! requires: FORMAT, CHANNELS, DATA_TYPE, FLAG_DEPTH (if depth), FLAG_MSAA/FLAG_TRANSIENT/SAMPLE_COUNT_* (if MSAA)
 		//! optional: LAYOUT, COMPRESSION, FLAG_NORMALIZED, FLAG_SRGB, FLAG_ARRAY, FLAG_STENCIL (not supported yet)
 		//! e.g.: specify BGRA8UI_NORM, RGBA16F or D32F
 		COMPUTE_IMAGE_TYPE format { COMPUTE_IMAGE_TYPE::NONE };
