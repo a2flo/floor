@@ -4354,7 +4354,7 @@ index eea9207a34..9dc1999123 100644
          break;
        }
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 64e18e171e..929579b69e 100644
+index 64e18e171e..3030c3ba97 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -60,8 +60,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -4913,7 +4913,48 @@ index 64e18e171e..929579b69e 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      ComplexPairTy CV = Arg.getKnownRValue().getComplexVal();
-@@ -1386,11 +1726,11 @@ class ClangToLLVMArgMapping {
+@@ -1267,6 +1607,11 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
+   return CGF.Builder.CreateLoad(Tmp);
+ }
+ 
++static void CreateCoercedStore(llvm::Value *Src,
++							   Address Dst,
++							   bool DstIsVolatile,
++							   CodeGenFunction &CGF);
++
+ // Function to store a first-class aggregate into memory.  We prefer to
+ // store the elements rather than the aggregate to be more friendly to
+ // fast-isel.
+@@ -1283,6 +1628,13 @@ static void BuildAggStore(CodeGenFunction &CGF, llvm::Value *Val,
+       auto EltOffset = CharUnits::fromQuantity(Layout->getElementOffset(i));
+       Address EltPtr = CGF.Builder.CreateStructGEP(Dest, i, EltOffset);
+       llvm::Value *Elt = CGF.Builder.CreateExtractValue(Val, i);
++
++      // handle [[vector_compat]] stores from an aggregate to a vector type
++      if (EltPtr.getType()->getPointerElementType()->isVectorTy()) {
++        CreateCoercedStore(Elt, EltPtr, DestIsVolatile, CGF);
++        continue;
++      }
++
+       CGF.Builder.CreateStore(Elt, EltPtr, DestIsVolatile);
+     }
+   } else {
+@@ -1296,10 +1648,10 @@ static void BuildAggStore(CodeGenFunction &CGF, llvm::Value *Val,
+ ///
+ /// This safely handles the case when the src type is larger than the
+ /// destination type; the upper bits of the src will be lost.
+-static void CreateCoercedStore(llvm::Value *Src,
+-                               Address Dst,
+-                               bool DstIsVolatile,
+-                               CodeGenFunction &CGF) {
++void CreateCoercedStore(llvm::Value *Src,
++                        Address Dst,
++                        bool DstIsVolatile,
++                        CodeGenFunction &CGF) {
+   llvm::Type *SrcTy = Src->getType();
+   llvm::Type *DstTy = Dst.getType()->getElementType();
+   if (SrcTy == DstTy) {
+@@ -1386,11 +1738,11 @@ class ClangToLLVMArgMapping {
    SmallVector<IRArgs, 8> ArgInfo;
  
  public:
@@ -4927,7 +4968,7 @@ index 64e18e171e..929579b69e 100644
    }
  
    bool hasInallocaArg() const { return InallocaArgNo != InvalidIndex; }
-@@ -1425,12 +1765,13 @@ public:
+@@ -1425,12 +1777,13 @@ public:
    }
  
  private:
@@ -4942,7 +4983,7 @@ index 64e18e171e..929579b69e 100644
                                        bool OnlyRequiredArgs) {
    unsigned IRArgNo = 0;
    bool SwapThisWithSRet = false;
-@@ -1478,7 +1819,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+@@ -1478,7 +1831,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
        IRArgs.NumberOfArgs = AI.getCoerceAndExpandTypeSequence().size();
        break;
      case ABIArgInfo::Expand:
@@ -4951,7 +4992,7 @@ index 64e18e171e..929579b69e 100644
        break;
      }
  
-@@ -1586,7 +1927,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1586,7 +1939,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
      break;
    }
  
@@ -4960,7 +5001,7 @@ index 64e18e171e..929579b69e 100644
    SmallVector<llvm::Type*, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
  
    // Add type for sret argument.
-@@ -1663,7 +2004,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1663,7 +2016,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
  
      case ABIArgInfo::Expand:
        auto ArgTypesIter = ArgTypes.begin() + FirstIRArg;
@@ -4969,7 +5010,7 @@ index 64e18e171e..929579b69e 100644
        assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
        break;
      }
-@@ -1918,7 +2259,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1918,7 +2271,7 @@ void CodeGenModule::ConstructAttributeList(
      }
    }
  
@@ -4978,7 +5019,7 @@ index 64e18e171e..929579b69e 100644
      if (getLangOpts().OpenCLVersion <= 120) {
        // OpenCL v1.2 Work groups are always uniform
        FuncAttrs.addAttribute("uniform-work-group-size", "true");
-@@ -1954,7 +2295,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1954,7 +2307,7 @@ void CodeGenModule::ConstructAttributeList(
      GetCPUAndFeaturesAttributes(CalleeInfo.getCalleeDecl(), FuncAttrs);
    }
  
@@ -4987,7 +5028,7 @@ index 64e18e171e..929579b69e 100644
  
    QualType RetTy = FI.getReturnType();
    const ABIArgInfo &RetAI = FI.getReturnInfo();
-@@ -2244,7 +2585,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2244,7 +2597,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
    // FIXME: We no longer need the types from FunctionArgList; lift up and
    // simplify.
  
@@ -4996,7 +5037,7 @@ index 64e18e171e..929579b69e 100644
    // Flattened function arguments.
    SmallVector<llvm::Value *, 16> FnArgs;
    FnArgs.reserve(IRFunctionArgs.totalIRArgs());
-@@ -2547,7 +2888,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2547,7 +2900,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
        ArgVals.push_back(ParamValue::forIndirect(Alloca));
  
        auto FnArgIter = FnArgs.begin() + FirstIRArg;
@@ -5005,7 +5046,7 @@ index 64e18e171e..929579b69e 100644
        assert(FnArgIter == FnArgs.begin() + FirstIRArg + NumIRArgs);
        for (unsigned i = 0, e = NumIRArgs; i != e; ++i) {
          auto AI = FnArgs[FirstIRArg + i];
-@@ -3844,7 +4185,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3844,7 +4197,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      return Builder.CreateStructGEP(ArgMemory, FieldIndex, FieldOffset);
    };
  
@@ -5014,7 +5055,7 @@ index 64e18e171e..929579b69e 100644
    SmallVector<llvm::Value *, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
  
    // If the call returns a temporary with struct return, create a temporary
-@@ -4046,9 +4387,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4046,9 +4399,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
          if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -5032,7 +5073,7 @@ index 64e18e171e..929579b69e 100644
          IRCallArgs[FirstIRArg] = V;
          break;
        }
-@@ -4159,7 +4505,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4159,7 +4517,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
  
      case ABIArgInfo::Expand:
        unsigned IRArgPos = FirstIRArg;
@@ -5042,7 +5083,7 @@ index 64e18e171e..929579b69e 100644
        assert(IRArgPos == FirstIRArg + NumIRArgs);
        break;
      }
-@@ -4259,9 +4606,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4259,9 +4618,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      if (IRFunctionArgs.hasInallocaArg() &&
          i == IRFunctionArgs.getInallocaArgNo())
        continue;
@@ -5062,7 +5103,7 @@ index 64e18e171e..929579b69e 100644
  #endif
  
    // Update the largest vector width if any arguments have vector types.
-@@ -4482,6 +4838,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4482,6 +4850,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
              DestPtr = CreateMemTemp(RetTy, "agg.tmp");
              DestIsVolatile = false;
            }
@@ -5076,7 +5117,7 @@ index 64e18e171e..929579b69e 100644
            BuildAggStore(*this, CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -4539,6 +4902,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4539,6 +4914,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      }
    }
  
