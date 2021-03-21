@@ -1997,16 +1997,18 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	// TODO: cleanup!
 }
 
-unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
-	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc, devices, vr_ctx != nullptr);
+unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
+																	   const bool with_multi_view_support) const {
+	auto pipeline = make_unique<vulkan_pipeline>(pipeline_desc, devices, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
 	return pipeline;
 }
 
-unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
-	auto pass = make_unique<vulkan_pass>(pass_desc, devices, vr_ctx != nullptr);
+unique_ptr<graphics_pass> vulkan_compute::create_graphics_pass(const render_pass_description& pass_desc,
+															   const bool with_multi_view_support) const {
+	auto pass = make_unique<vulkan_pass>(pass_desc, devices, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pass || !pass->is_valid()) {
 		return {};
 	}

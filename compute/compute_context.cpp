@@ -121,12 +121,12 @@ shared_ptr<compute_image> compute_context::wrap_image(const compute_queue&, meta
 	return {};
 }
 
-unique_ptr<graphics_pipeline> compute_context::create_graphics_pipeline(const render_pipeline_description&) const {
+unique_ptr<graphics_pipeline> compute_context::create_graphics_pipeline(const render_pipeline_description&, const bool) const {
 	log_error("graphics not supported by this backend");
 	return {};
 }
 
-unique_ptr<graphics_pass> compute_context::create_graphics_pass(const render_pass_description&) const {
+unique_ptr<graphics_pass> compute_context::create_graphics_pass(const render_pass_description&, const bool) const {
 	log_error("graphics not supported by this backend");
 	return {};
 }

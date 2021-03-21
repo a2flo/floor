@@ -148,9 +148,11 @@ public:
 	//////////////////////////////////////////
 	// graphics functionality
 	
-	unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const override;
+	unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
+														   const bool with_multi_view_support = true) const override;
 	
-	unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc) const override;
+	unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc,
+												   const bool with_multi_view_support = true) const override;
 	
 	unique_ptr<graphics_renderer> create_graphics_renderer(const compute_queue& cqueue,
 														   const graphics_pass& pass,

@@ -75,7 +75,7 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 		.pAttachments = vk_attachments.data(),
 		.width = cur_pipeline->get_description(multi_view).viewport.x,
 		.height = cur_pipeline->get_description(multi_view).viewport.y,
-		.layers = (!multi_view ? 1 : 2),
+		.layers = 1,
 	};
 	VkFramebuffer framebuffer { nullptr };
 	VK_CALL_RET(vkCreateFramebuffer(vk_dev.device, &framebuffer_create_info, nullptr, &framebuffer),
@@ -336,7 +336,7 @@ void vulkan_renderer::present() {
 	
 	// transition drawable image back to present mode
 	cur_drawable->vk_image->transition(cqueue, render_cmd_buffer.cmd_buffer, VK_ACCESS_MEMORY_READ_BIT, cur_drawable->vk_drawable.present_layout,
-	                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
+									   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
 
 	// actual queue present must happen after the command buffer has been submitted and finished
 	is_presenting = true;

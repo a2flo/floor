@@ -835,16 +835,18 @@ void metal_compute::present_metal_vr_drawable(const compute_queue&, const comput
 }
 #endif
 
-unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const {
-	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices, vr_ctx != nullptr);
+unique_ptr<graphics_pipeline> metal_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
+																	  const bool with_multi_view_support) const {
+	auto pipeline = make_unique<metal_pipeline>(pipeline_desc, devices, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
 	return pipeline;
 }
 
-unique_ptr<graphics_pass> metal_compute::create_graphics_pass(const render_pass_description& pass_desc) const {
-	auto pass = make_unique<metal_pass>(pass_desc, vr_ctx != nullptr);
+unique_ptr<graphics_pass> metal_compute::create_graphics_pass(const render_pass_description& pass_desc,
+															  const bool with_multi_view_support) const {
+	auto pass = make_unique<metal_pass>(pass_desc, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pass || !pass->is_valid()) {
 		return {};
 	}

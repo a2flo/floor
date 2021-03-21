@@ -27,6 +27,9 @@
 #endif
 #include <bitset>
 #include <thread>
+#include <array>
+#include <cassert>
+using namespace std;
 
 //! a thread-safe container of multiple resources of the same type, allowing thread-safe resource allocation/usage/release
 template <typename resource_type, uint32_t resource_count>

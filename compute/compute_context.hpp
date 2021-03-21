@@ -277,13 +277,17 @@ public:
 	//////////////////////////////////////////
 	// graphics functionality
 	
-	//! creates a graphics render pipline with the specified description
+	//! creates a graphics render pipeline with the specified description
+	//! if "with_multi_view_support" is false, neither manual nor automatic multi-view support will be enabled
 	//! NOTE: only available on backends with graphics support
-	virtual unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc) const;
+	virtual unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
+																   const bool with_multi_view_support = true) const;
 	
 	//! creates a graphics render pass with the specified description
+	//! if "with_multi_view_support" is false, neither manual nor automatic multi-view support will be enabled
 	//! NOTE: only available on backends with graphics support
-	virtual unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc) const;
+	virtual unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc,
+														   const bool with_multi_view_support = true) const;
 	
 	//! creates a graphics renderer
 	//! NOTE: only available on backends with graphics support
