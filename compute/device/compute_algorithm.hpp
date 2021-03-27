@@ -28,18 +28,17 @@ namespace compute_algorithm {
 	
 #if defined(FLOOR_COMPUTE_CUDA)
 	//! performs a butterfly reduction inside the sub-group using the specific operation/function
-	//! NOTE: sm_30 or higher only
 	template <typename T, typename F, enable_if_t<sizeof(T) == 4>* = nullptr>
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		T shfled_var;
 #pragma unroll
 		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
 			if constexpr(is_floating_point_v<T>) {
-				asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+				asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 							 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
 			}
 			else {
-				asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+				asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 							 : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
 			}
 			lane_var = op(lane_var, shfled_var);
@@ -58,8 +57,8 @@ namespace compute_algorithm {
 			else {
 				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "l"(lane_var));
 			}
-			asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %2, %4, %5" FLOOR_CUDA_SHFL_MASK ";\n"
-						 "\t" FLOOR_CUDA_SHFL ".bfly.b32 %1, %3, %4, %5" FLOOR_CUDA_SHFL_MASK ";"
+			asm volatile("shfl.sync.bfly.b32 %0, %2, %4, %5, 0xFFFFFFFF;\n"
+						 "\tshfl.sync.bfly.b32 %1, %3, %4, %5, 0xFFFFFFFF;"
 						 : "=r"(shfled_lo), "=r"(shfled_hi)
 						 : "r"(lo), "r"(hi), "i"(lane), "i"(device_info::simd_width() - 1));
 			if constexpr(is_floating_point_v<T>) {
