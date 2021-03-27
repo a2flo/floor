@@ -11,10 +11,10 @@
 ** FreeBSD: 10.0+
 ** other Unix: if other requirements are met
 * compiler/toolchain:
-** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 6.0+ and "libc++":http://libcxx.llvm.org 6.0+
-** macOS/iOS: "Xcode":https://developer.apple.com/xcode/downloads 10.0+
-** Windows (VS): "VS2019":https://visualstudio.microsoft.com/vs/preview with "Clang / LLVM for Windows":http://llvm.org/builds
-** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 6.0+ and libc++ 6.0+
+** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 10.0+ and "libc++":http://libcxx.llvm.org 10.0+
+** macOS/iOS: "Xcode":https://developer.apple.com/xcode/downloads 12.0+
+** Windows (VS): "VS2019":https://visualstudio.microsoft.com/vs with provided clang/LLVM or "Clang / LLVM for Windows":http://llvm.org/builds
+** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 10.0+ and libc++ 10.0+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
@@ -48,10 +48,8 @@
    define "FLOOR_NO_VR" or "./build.sh no-vr"
 ** to disable C++ exceptions:
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
-** to build with libstdc++ instead of libc++:
+** to build with libstdc++ (gcc 10.0+) instead of libc++:
    "./build.sh libstdc++"
-** to build with C++20 support (requires Clang 9.0+):
-   "./build.sh c++20"
 
 *Build Instructions (Xcode / macOS / iOS):*
 * open floor.xcodeproj and build
@@ -67,7 +65,7 @@
 ** iOS linker flags for a depending project: -lSDL2 -lfloor -lcrypto -lssl
 
 *Build Instructions (Visual Studio 2019 / CMake / vcpkg / Windows):*
-* install "VS2019 16.1+":https://visualstudio.microsoft.com/vs/preview
+* install "VS2019 16.9+":https://visualstudio.microsoft.com/vs/preview
 * install "Clang / LLVM for Windows":http://llvm.org/builds
 * install "Vulkan SDK":https://vulkan.lunarg.com/sdk/home
 * install vcpkg (somewhere, not within libfloor):

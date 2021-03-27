@@ -1819,7 +1819,7 @@
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++17",
+					"-std=gnu++2a",
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
@@ -1960,7 +1960,7 @@
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++17",
+					"-std=gnu++2a",
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
@@ -2182,7 +2182,7 @@
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++17",
+					"-std=gnu++2a",
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
@@ -2428,7 +2428,7 @@
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++17",
+					"-std=gnu++2a",
 					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
