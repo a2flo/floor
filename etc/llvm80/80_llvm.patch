@@ -52251,7 +52251,7 @@ index 1ef7da328d3..8318790b1b8 100644
    default:
      return false;
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 3731b2f37f6..6b686a3dfb4 100644
+index 3731b2f37f6..9354d15f422 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -52329,8 +52329,30 @@ index 3731b2f37f6..6b686a3dfb4 100644
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -98,7 +127,11 @@ def : Proc<"sm_61", [SM61, PTX50]>;
- def : Proc<"sm_62", [SM62, PTX50]>;
+@@ -86,19 +115,23 @@ class Proc<string Name, list<SubtargetFeature> Features>
+ 
+ def : Proc<"sm_20", [SM20]>;
+ def : Proc<"sm_21", [SM21]>;
+-def : Proc<"sm_30", [SM30]>;
+-def : Proc<"sm_32", [SM32, PTX40]>;
+-def : Proc<"sm_35", [SM35]>;
+-def : Proc<"sm_37", [SM37, PTX41]>;
+-def : Proc<"sm_50", [SM50, PTX40]>;
+-def : Proc<"sm_52", [SM52, PTX41]>;
+-def : Proc<"sm_53", [SM53, PTX42]>;
+-def : Proc<"sm_60", [SM60, PTX50]>;
+-def : Proc<"sm_61", [SM61, PTX50]>;
+-def : Proc<"sm_62", [SM62, PTX50]>;
++def : Proc<"sm_30", [SM30, PTX60]>;
++def : Proc<"sm_32", [SM32, PTX60]>;
++def : Proc<"sm_35", [SM35, PTX60]>;
++def : Proc<"sm_37", [SM37, PTX60]>;
++def : Proc<"sm_50", [SM50, PTX60]>;
++def : Proc<"sm_52", [SM52, PTX60]>;
++def : Proc<"sm_53", [SM53, PTX60]>;
++def : Proc<"sm_60", [SM60, PTX60]>;
++def : Proc<"sm_61", [SM61, PTX60]>;
++def : Proc<"sm_62", [SM62, PTX60]>;
  def : Proc<"sm_70", [SM70, PTX60]>;
  def : Proc<"sm_72", [SM72, PTX61]>;
 +def : Proc<"sm_73", [SM73, PTX63]>;
@@ -52359,18 +52381,23 @@ index 44a09f5fe51..3ab14d503af 100644
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
 diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
-index acbee86ae38..66a43920569 100644
+index acbee86ae38..1b8f4718c17 100644
 --- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
 +++ b/lib/Target/NVPTX/NVPTXSubtarget.cpp
-@@ -38,9 +38,9 @@ NVPTXSubtarget &NVPTXSubtarget::initializeSubtargetDependencies(StringRef CPU,
+@@ -34,13 +34,13 @@ void NVPTXSubtarget::anchor() {}
+ NVPTXSubtarget &NVPTXSubtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                                 StringRef FS) {
+     // Provide the default CPU if we don't have one.
+-  TargetName = CPU.empty() ? "sm_20" : CPU;
++  TargetName = CPU.empty() ? "sm_30" : CPU;
  
    ParseSubtargetFeatures(TargetName, FS);
  
 -  // Set default to PTX 3.2 (CUDA 5.5)
-+  // Set default to PTX 4.3
++  // Set default to PTX 6.0
    if (PTXVersion == 0) {
 -    PTXVersion = 32;
-+    PTXVersion = 43;
++    PTXVersion = 60;
    }
  
    return *this;
