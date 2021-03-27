@@ -25,9 +25,7 @@
 //! metal version of the platform/driver/device
 enum class METAL_VERSION : uint32_t {
 	NONE,
-	// NOTE: Metal 1.1 is the min supported version right now
-	METAL_1_1,
-	METAL_1_2,
+	// NOTE: Metal 2.0 is the min supported version right now
 	METAL_2_0,
 	METAL_2_1,
 	METAL_2_2,
@@ -35,10 +33,8 @@ enum class METAL_VERSION : uint32_t {
 };
 
 constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
-	switch(version) {
+	switch (version) {
 		case METAL_VERSION::NONE: return "";
-		case METAL_VERSION::METAL_1_1: return "1.1";
-		case METAL_VERSION::METAL_1_2: return "1.2";
 		case METAL_VERSION::METAL_2_0: return "2.0";
 		case METAL_VERSION::METAL_2_1: return "2.1";
 		case METAL_VERSION::METAL_2_2: return "2.2";
@@ -46,10 +42,8 @@ constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
 	}
 }
 constexpr const char* metal_major_version_to_string(const METAL_VERSION& version) {
-	switch(version) {
+	switch (version) {
 		case METAL_VERSION::NONE: return "";
-		case METAL_VERSION::METAL_1_1:
-		case METAL_VERSION::METAL_1_2: return "1";
 		case METAL_VERSION::METAL_2_0:
 		case METAL_VERSION::METAL_2_1:
 		case METAL_VERSION::METAL_2_2:
@@ -57,10 +51,8 @@ constexpr const char* metal_major_version_to_string(const METAL_VERSION& version
 	}
 }
 constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version) {
-	switch(version) {
+	switch (version) {
 		case METAL_VERSION::NONE: return "";
-		case METAL_VERSION::METAL_1_1: return "1";
-		case METAL_VERSION::METAL_1_2: return "2";
 		case METAL_VERSION::METAL_2_0: return "0";
 		case METAL_VERSION::METAL_2_1: return "1";
 		case METAL_VERSION::METAL_2_2: return "2";
@@ -68,23 +60,14 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 	}
 }
 constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint32_t minor) {
-	if (major == 0 || major > 3) return METAL_VERSION::NONE;
-	if (major == 1) {
-		switch (minor) {
-			case 1: return METAL_VERSION::METAL_1_1;
-			case 2: return METAL_VERSION::METAL_1_2;
-			case 0:
-			default: return METAL_VERSION::NONE;
-		}
-	} else if (major == 2) {
-		// major == 2
-		switch (minor) {
-			case 0: return METAL_VERSION::METAL_2_0;
-			case 1: return METAL_VERSION::METAL_2_1;
-			case 2: return METAL_VERSION::METAL_2_2;
-			case 3: return METAL_VERSION::METAL_2_3;
-			default: return METAL_VERSION::NONE;
-		}
+	if (major < 2 || major > 3) return METAL_VERSION::NONE;
+	// major == 2
+	switch (minor) {
+		case 0: return METAL_VERSION::METAL_2_0;
+		case 1: return METAL_VERSION::METAL_2_1;
+		case 2: return METAL_VERSION::METAL_2_2;
+		case 3: return METAL_VERSION::METAL_2_3;
+		default: return METAL_VERSION::NONE;
 	}
 	return METAL_VERSION::NONE;
 }

@@ -112,12 +112,7 @@ namespace metal_image {
 						  const COORD_MODE coord_mode_ = PIXEL,
 						  const FILTER_MODE filter_mode = NEAREST,
 						  const MIP_FILTER_MODE mip_filter_mode = MIP_NONE,
-#if FLOOR_COMPUTE_METAL_MAJOR >= 2
-						  const COMPARE_FUNCTION compare_function_ = NEVER
-#else
-						  const COMPARE_FUNCTION compare_function_ = NONE
-#endif
-						  ) :
+						  const COMPARE_FUNCTION compare_function_ = NEVER) :
 		s_address(address_mode), t_address(address_mode), r_address(address_mode),
 		coord_mode(coord_mode_),
 		mag_filter(filter_mode), min_filter(filter_mode),

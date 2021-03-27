@@ -25,47 +25,40 @@
 // NOTE: only supported memory order is _AIR_MEM_ORDER_RELAXED (0)
 #define FLOOR_METAL_MEM_ORDER_RELAXED 0
 
-// Metal/AIR 2.0 added a "bool volatile" argument to all atomic functions
-#if FLOOR_COMPUTE_METAL_MAJOR >= 2
-#define FLOOR_METAL_VOLATILE_ATOMIC_ARG , bool is_volatile = false
-#else
-#define FLOOR_METAL_VOLATILE_ATOMIC_ARG
-#endif
+metal_func void metal_atomic_store(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.store.i32");
+metal_func void metal_atomic_store(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.store.i32");
 
-metal_func void metal_atomic_store(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.store.i32");
-metal_func void metal_atomic_store(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.store.i32");
+metal_func uint32_t metal_atomic_load(const volatile global uint32_t* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.load.i32");
+metal_func uint32_t metal_atomic_load(const volatile local uint32_t* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.load.i32");
 
-metal_func uint32_t metal_atomic_load(const volatile global uint32_t* p, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.load.i32");
-metal_func uint32_t metal_atomic_load(const volatile local uint32_t* p, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.load.i32");
-
-metal_func uint32_t metal_atomic_xchg(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.xchg.i32");
-metal_func uint32_t metal_atomic_xchg(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.xchg.i32");
+metal_func uint32_t metal_atomic_xchg(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.xchg.i32");
+metal_func uint32_t metal_atomic_xchg(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.xchg.i32");
 
 metal_func uint32_t metal_atomic_cmpxchg(volatile global uint32_t* p, uint32_t* expected, uint32_t desired,
-										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.cmpxchg.weak.i32"); //!< weak
+										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.cmpxchg.weak.i32"); //!< weak
 metal_func uint32_t metal_atomic_cmpxchg(volatile local uint32_t* p, uint32_t* expected, uint32_t desired,
-										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.cmpxchg.weak.i32"); //!< weak
+										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.cmpxchg.weak.i32"); //!< weak
 
-metal_func uint32_t metal_atomic_add(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.add.u.i32");
-metal_func int32_t metal_atomic_add(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.add.s.i32");
-metal_func uint32_t metal_atomic_add(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.add.u.i32");
-metal_func int32_t metal_atomic_add(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.add.s.i32");
+metal_func uint32_t metal_atomic_add(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.add.u.i32");
+metal_func int32_t metal_atomic_add(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.add.s.i32");
+metal_func uint32_t metal_atomic_add(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.add.u.i32");
+metal_func int32_t metal_atomic_add(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.add.s.i32");
 
-metal_func uint32_t metal_atomic_sub(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.sub.u.i32");
-metal_func int32_t metal_atomic_sub(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.sub.s.i32");
-metal_func uint32_t metal_atomic_sub(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.sub.u.i32");
-metal_func int32_t metal_atomic_sub(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.sub.s.i32");
+metal_func uint32_t metal_atomic_sub(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.sub.u.i32");
+metal_func int32_t metal_atomic_sub(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.sub.s.i32");
+metal_func uint32_t metal_atomic_sub(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.sub.u.i32");
+metal_func int32_t metal_atomic_sub(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.sub.s.i32");
 
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
-metal_func uint32_t metal_atomic_min(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.min.u.i32");
-metal_func int32_t metal_atomic_min(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.min.s.i32");
-metal_func uint32_t metal_atomic_min(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.min.u.i32");
-metal_func int32_t metal_atomic_min(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.min.s.i32");
+metal_func uint32_t metal_atomic_min(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.min.u.i32");
+metal_func int32_t metal_atomic_min(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.min.s.i32");
+metal_func uint32_t metal_atomic_min(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.min.u.i32");
+metal_func int32_t metal_atomic_min(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.min.s.i32");
 
-metal_func uint32_t metal_atomic_max(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.max.u.i32");
-metal_func int32_t metal_atomic_max(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.max.s.i32");
-metal_func uint32_t metal_atomic_max(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.max.u.i32");
-metal_func int32_t metal_atomic_max(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.max.s.i32");
+metal_func uint32_t metal_atomic_max(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.max.u.i32");
+metal_func int32_t metal_atomic_max(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.max.s.i32");
+metal_func uint32_t metal_atomic_max(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.max.u.i32");
+metal_func int32_t metal_atomic_max(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.max.s.i32");
 #else
 // workaround for broken atomic_min/atomic_max on intel gpus (backend doesn't differentiate between signed and unsigned)
 metal_func uint32_t igil_atomic_min(int32_t zero, volatile global uint32_t* p, uint32_t val) asm("llvm.igil.atom.minu32.global");
@@ -105,20 +98,20 @@ floor_inline_always metal_func int32_t metal_atomic_max(volatile local int32_t* 
 }
 #endif
 
-metal_func uint32_t metal_atomic_and(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.and.u.i32");
-metal_func int32_t metal_atomic_and(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.and.s.i32");
-metal_func uint32_t metal_atomic_and(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.and.u.i32");
-metal_func int32_t metal_atomic_and(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.and.s.i32");
+metal_func uint32_t metal_atomic_and(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.and.u.i32");
+metal_func int32_t metal_atomic_and(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.and.s.i32");
+metal_func uint32_t metal_atomic_and(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.and.u.i32");
+metal_func int32_t metal_atomic_and(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.and.s.i32");
 
-metal_func uint32_t metal_atomic_or(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.or.u.i32");
-metal_func int32_t metal_atomic_or(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.or.s.i32");
-metal_func uint32_t metal_atomic_or(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.or.u.i32");
-metal_func int32_t metal_atomic_or(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.or.s.i32");
+metal_func uint32_t metal_atomic_or(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.or.u.i32");
+metal_func int32_t metal_atomic_or(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.or.s.i32");
+metal_func uint32_t metal_atomic_or(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.or.u.i32");
+metal_func int32_t metal_atomic_or(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.or.s.i32");
 
-metal_func uint32_t metal_atomic_xor(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.xor.u.i32");
-metal_func int32_t metal_atomic_xor(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.global.xor.s.i32");
-metal_func uint32_t metal_atomic_xor(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.xor.u.i32");
-metal_func int32_t metal_atomic_xor(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope FLOOR_METAL_VOLATILE_ATOMIC_ARG) asm("air.atomic.local.xor.s.i32");
+metal_func uint32_t metal_atomic_xor(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.xor.u.i32");
+metal_func int32_t metal_atomic_xor(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.xor.s.i32");
+metal_func uint32_t metal_atomic_xor(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.xor.u.i32");
+metal_func int32_t metal_atomic_xor(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.xor.s.i32");
 
 // add
 floor_inline_always int32_t atomic_add(volatile global int32_t* p, int32_t val) {

@@ -179,12 +179,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		} else if(darwin_helper::get_system_version() >= 110000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_0;
 			device.metal_language_version = METAL_VERSION::METAL_2_0;
-		} else if(darwin_helper::get_system_version() >= 100000) {
-			device.metal_software_version = METAL_VERSION::METAL_1_2;
-			device.metal_language_version = METAL_VERSION::METAL_1_2;
-		} else {
-			device.metal_software_version = METAL_VERSION::METAL_1_1;
-			device.metal_language_version = METAL_VERSION::METAL_1_1;
 		}
 		
 		// TODO: switch over to new MTLGPUFamily
@@ -288,9 +282,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				break;
 		}
 		device.local_mem_size = 16384; // fallback
-		if ([dev respondsToSelector:@selector(maxThreadgroupMemoryLength)]) {
-			device.local_mem_size = [dev maxThreadgroupMemoryLength]; // iOS 11.0+
-		}
+		device.local_mem_size = [dev maxThreadgroupMemoryLength]; // iOS 11.0+
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
@@ -386,27 +378,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		} else if (darwin_helper::get_system_version() >= 101300) {
 			device.metal_software_version = METAL_VERSION::METAL_2_0;
 			device.metal_language_version = METAL_VERSION::METAL_2_0;
-		} else if (darwin_helper::get_system_version() >= 101200) {
-			device.metal_software_version = METAL_VERSION::METAL_1_2;
-			device.metal_language_version = METAL_VERSION::METAL_1_2;
-		} else {
-			device.metal_software_version = METAL_VERSION::METAL_1_1;
-			device.metal_language_version = METAL_VERSION::METAL_1_1;
 		}
 		
 		// Metal 2.0+ on macOS supports sub-groups and shuffle
-		if (device.metal_language_version >= METAL_VERSION::METAL_2_0) {
-			device.sub_group_support = true;
-			device.sub_group_shuffle_support = true;
-		}
+		device.sub_group_support = true;
+		device.sub_group_shuffle_support = true;
 #endif
-		device.max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
-		if (device.family_type == metal_device::FAMILY_TYPE::MAC &&
-			device.metal_software_version >= METAL_VERSION::METAL_1_2) {
-			device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
-		}
+		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
-			device.max_mem_alloc = [dev maxBufferLength]; // iOS 12.0+ / macOS 14.0+
+			device.max_mem_alloc = [dev maxBufferLength]; // iOS 12.0+ / macOS 10.14+
 		}
 		device.max_group_size = { 0xFFFFFFFFu };
 		device.max_local_size = {

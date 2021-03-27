@@ -410,11 +410,7 @@ template <typename T> using arg_buffer = const T;
 // NOTE: "constant_as" attribute has no physical effect on the reference, but we need/use it to distinguish it from normal pointers/refs
 template <typename T> using arg_buffer = const __attribute__((constant_as)) T& __restrict;
 #elif defined(FLOOR_COMPUTE_METAL)
-#if FLOOR_COMPUTE_METAL_MAJOR >= 2 // only available with Metal 2.0+
 template <typename T> using arg_buffer = const constant T& __restrict;
-#else
-#define arg_buffer ARGUMENT_BUFFERS_ARE_NOT_SUPPORTED_IN_METAL_1_X
-#endif
 #elif defined(FLOOR_COMPUTE_VULKAN) // TODO: check if this actually works
 template <typename T> using arg_buffer = const global T&;
 #endif

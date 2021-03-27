@@ -208,9 +208,9 @@ cd build
 # TODO: cmake!
 EXTRA_OPTIONS=""
 if [ $BUILD_OS == "osx" ]; then
-	EXTRA_OPTIONS="-mmacosx-version-min=10.11"
+	EXTRA_OPTIONS="-mmacosx-version-min=10.13"
 elif [ $BUILD_OS == "ios" ]; then
-	EXTRA_OPTIONS="-miphoneos-version-min=9.0"
+	EXTRA_OPTIONS="-miphoneos-version-min=11.0"
 fi
 
 CONFIG_OPTIONS=

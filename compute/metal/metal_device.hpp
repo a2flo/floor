@@ -35,10 +35,10 @@ public:
 	metal_device();
 	
 	// Metal software version (Metal API) which this device supports
-	METAL_VERSION metal_software_version { METAL_VERSION::METAL_1_1 };
+	METAL_VERSION metal_software_version { METAL_VERSION::METAL_2_0 };
 	
 	// Metal language version (kernels/shaders) which this device supports
-	METAL_VERSION metal_language_version { METAL_VERSION::METAL_1_1 };
+	METAL_VERSION metal_language_version { METAL_VERSION::METAL_2_0 };
 	
 	enum class FAMILY_TYPE : uint32_t {
 		APPLE, //!< iOS, tvOS, ...

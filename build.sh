@@ -595,7 +595,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# add all libs to LDFLAGS
 	LDFLAGS="${LDFLAGS} ${LIBS}"
 else
-	# aligned allocation is only available with macOS 10.14+, so disable it while we're still targeting 10.11+
+	# aligned allocation is only available with macOS 10.14+, so disable it while we're still targeting 10.13+
 	COMMON_FLAGS="${COMMON_FLAGS} -fno-aligned-allocation"
 
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
@@ -787,9 +787,9 @@ REL_OPT_LD_FLAGS="-flto"
 # osx/ios: set min version
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
-		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.11"
+		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.13"
 	else # ios
-		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=9.0"
+		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=11.0"
 	fi
 	
 	# set lib version

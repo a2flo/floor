@@ -432,9 +432,8 @@ namespace universal_binary {
 							mtl_dev.simd_width = 64;
 							break;
 					}
-					// sub-group/shuffle support on Metal 2.0+, if SIMD width is known as well
-					if (mtl_dev.metal_language_version >= METAL_VERSION::METAL_2_0 &&
-						mtl_dev.simd_width > 0) {
+					// sub-group/shuffle support if SIMD width is known as well
+					if (mtl_dev.simd_width > 0) {
 						mtl_dev.sub_group_support = true;
 						mtl_dev.sub_group_shuffle_support = true;
 					}

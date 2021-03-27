@@ -610,11 +610,6 @@ size_t darwin_helper::get_system_version() {
 		// * <= 10.15: not os x version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
 		// * >= 11.0: 100 + x
 		const size_t os_major_version = (major_version >= 20 ? 100 + (major_version - 20) : major_version - 4);
-		
-		// 10.12.2+ kernels have a minor version that is one higher than the OS minor version -> dec
-		if(os_major_version == 12 && os_minor_version > 1) {
-			--os_minor_version;
-		}
 #else
 		// osrelease = kernel version, not ios version -> substract 7 (NOTE: this won't run on anything < iOS 7.0,
 		// so any differentiation below doesn't matter (5.0: darwin 11, 6.0: darwin 13, 7.0: darwin 14)
@@ -636,18 +631,12 @@ size_t darwin_helper::get_system_version() {
 		const string os_major_version_str = to_string(os_major_version);
 		
 		// mimic the compiled version string:
-		// OS X <= 10.9              :  10xy,   x = major, y = minor
 		// OS X >= 10.10 and <= 10.15:  10xxyy, x = major, y = minor
 		// OS X >= 11.00             :  1xxyyy, x = major, y = minor
 		// iOS                       :  xxyy00, x = major, y = minor
 		size_t condensed_version;
 #if !defined(FLOOR_IOS)
-		if (major_version <= 9) { // 1000 - 1090
-			condensed_version = 1000;
-			condensed_version += os_major_version * 10;
-			// -> single digit minor version (cut off at 9, this should probably suffice)
-			condensed_version += (os_minor_version < 10 ? os_minor_version : 9);
-		} else if (major_version < 20) { // 101000+
+		if (major_version < 20) { // 101000+
 			condensed_version = 100000;
 			condensed_version += os_major_version * 100;
 			condensed_version += os_minor_version;
@@ -666,10 +655,10 @@ size_t darwin_helper::get_system_version() {
 	// just return lowest supported version
 #if !defined(FLOOR_IOS)
 	log_error("unable to retrieve OS X version!");
-	return 101100;
+	return 101300;
 #else
 	log_error("unable to retrieve iOS version!");
-	return 90000;
+	return 110000;
 #endif
 }
 

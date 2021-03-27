@@ -95,11 +95,7 @@ namespace floor_image {
 	constexpr metal_image::sampler::COMPARE_FUNCTION compare_function_floor_to_metal(const COMPARE_FUNCTION& func) {
 		switch(func) {
 			// Metal has both a "never" and "none" -> map these dependent on the metal version mirroring what the metal compiler is doing
-#if FLOOR_COMPUTE_METAL_MAJOR >= 2 // Metal 2.0+
 			case COMPARE_FUNCTION::NEVER: return metal_image::sampler::COMPARE_FUNCTION::NEVER;
-#else // Metal 1.x
-			case COMPARE_FUNCTION::NEVER: return metal_image::sampler::COMPARE_FUNCTION::NONE;
-#endif
 			case COMPARE_FUNCTION::LESS: return metal_image::sampler::COMPARE_FUNCTION::LESS;
 			case COMPARE_FUNCTION::LESS_OR_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::LESS_EQUAL;
 			case COMPARE_FUNCTION::GREATER: return metal_image::sampler::COMPARE_FUNCTION::GREATER;

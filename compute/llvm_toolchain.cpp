@@ -245,12 +245,6 @@ program_data compile_input(const string& input,
 			const auto metal_force_version = (!options.ignore_runtime_info ? floor::get_metal_force_version() : 0);
 			if (metal_force_version != 0) {
 				switch (metal_force_version) {
-					case 11:
-						metal_version = METAL_VERSION::METAL_1_1;
-						break;
-					case 12:
-						metal_version = METAL_VERSION::METAL_1_2;
-						break;
 					case 20:
 						metal_version = METAL_VERSION::METAL_2_0;
 						break;
@@ -267,11 +261,6 @@ program_data compile_input(const string& input,
 						log_error("invalid force_version: %u", metal_force_version);
 						break;
 				}
-				
-				if (metal_version < METAL_VERSION::METAL_2_0) {
-					// no sub-group and shuffle support here
-					disable_sub_groups = true;
-				}
 			}
 			if (metal_version > METAL_VERSION::METAL_2_3) {
 				log_error("unsupported Metal language version: %u", metal_version_to_string(metal_version));
@@ -280,14 +269,9 @@ program_data compile_input(const string& input,
 			
 			string os_target;
 			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE) {
-				// -> iOS 9.0+
+				// -> iOS 11.0+
 				switch (metal_version) {
 					default:
-						os_target = "ios9.0.0";
-						break;
-					case METAL_VERSION::METAL_1_2:
-						os_target = "ios10.0.0";
-						break;
 					case METAL_VERSION::METAL_2_0:
 						os_target = "ios11.0.0";
 						break;
@@ -302,14 +286,9 @@ program_data compile_input(const string& input,
 						break;
 				}
 			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC) {
-				// -> OS X 10.11+
+				// -> OS X 10.13+
 				switch (metal_version) {
 					default:
-						os_target = "macosx10.11.0";
-						break;
-					case METAL_VERSION::METAL_1_2:
-						os_target = "macosx10.12.0";
-						break;
 					case METAL_VERSION::METAL_2_0:
 						os_target = "macosx10.13.0";
 						break;
@@ -328,14 +307,8 @@ program_data compile_input(const string& input,
 				return {};
 			}
 			
-			string metal_std = "metal1.1";
+			string metal_std = "metal2.0";
 			switch (metal_version) {
-				case METAL_VERSION::METAL_1_2:
-					metal_std = "metal1.2";
-					break;
-				case METAL_VERSION::METAL_2_0:
-					metal_std = "metal2.0";
-					break;
 				case METAL_VERSION::METAL_2_1:
 					metal_std = "metal2.1";
 					break;
@@ -361,10 +334,7 @@ program_data compile_input(const string& input,
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
-				// enable nvidia workarounds on osx 10.12+ (array load/store problems)
-				(!options.ignore_runtime_info &&
-				 device.vendor == COMPUTE_VENDOR::NVIDIA &&
-				 darwin_helper::get_system_version() >= 101200 ?
+				(!options.ignore_runtime_info && device.vendor == COMPUTE_VENDOR::NVIDIA ?
 				 " -Xclang -metal-nvidia-workarounds" : "") +
 #endif
 				(soft_printf ? " -Xclang -metal-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +

@@ -88,19 +88,11 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #if !defined(__apple_build_version__)
 #define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #else // map apple version scheme ... (*sigh*)
-#if (__clang_major__ < 10) // Xcode 10.0 with clang 6.0 is the min req.
+#if (__clang_major__ < 12) // Xcode 12.0 with clang 10.0 is the min req.
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ == 10 && __clang_minor__ == 0) // Xcode 10.0 - 10.1
-#define FLOOR_TOOLCHAIN_VERSION 60000u
-#elif (__clang_major__ == 10 && __clang_minor__ >= 1) // Xcode 10.2
-#define FLOOR_TOOLCHAIN_VERSION 70000u
-#elif (__clang_major__ == 11 && __clang_minor__ == 0 && __clang_patchlevel__ < 3) // Xcode 11.0 - 11.3
-#define FLOOR_TOOLCHAIN_VERSION 80000u
-#elif (__clang_major__ == 11 && (__clang_minor__ > 0 || (__clang_minor__ == 0 && __clang_patchlevel__ >= 3))) // Xcode 11.4+
-#define FLOOR_TOOLCHAIN_VERSION 90000u
-#elif (__clang_major__ == 12 && __clang_minor__ == 0 && __clang_patchlevel__ < 5) // Xcode 12.0 - 12.4
+#if (__clang_major__ == 12 && __clang_minor__ == 0 && __clang_patchlevel__ < 5) // Xcode 12.0 - 12.4
 #define FLOOR_TOOLCHAIN_VERSION 100000u
 #elif (__clang_major__ == 12 && (__clang_minor__ > 0 || (__clang_minor__ == 0 && __clang_patchlevel__ >= 5))) // Xcode 12.5+
 #define FLOOR_TOOLCHAIN_VERSION 110000u
@@ -144,12 +136,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #if defined(__APPLE__) && !defined(FLOOR_IOS) // osx
 #define FLOOR_COMPUTE_INFO_OS_VERSION MAC_OS_X_VERSION_MAX_ALLOWED
-#if FLOOR_COMPUTE_INFO_OS_VERSION < 101100
+#if FLOOR_COMPUTE_INFO_OS_VERSION < 101300
 #error "invalid os version"
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101100 && FLOOR_COMPUTE_INFO_OS_VERSION < 101200
-#define FLOOR_COMPUTE_INFO_OS_VERSION_101100
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101200 && FLOOR_COMPUTE_INFO_OS_VERSION < 101300
-#define FLOOR_COMPUTE_INFO_OS_VERSION_101200
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101300 && FLOOR_COMPUTE_INFO_OS_VERSION < 101400
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101300
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101400 && FLOOR_COMPUTE_INFO_OS_VERSION < 101500
@@ -162,12 +150,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #elif defined(__APPLE__) && defined(FLOOR_IOS) // ios
 #define FLOOR_COMPUTE_INFO_OS_VERSION __IPHONE_OS_VERSION_MAX_ALLOWED
-#if FLOOR_COMPUTE_INFO_OS_VERSION < 90000
+#if FLOOR_COMPUTE_INFO_OS_VERSION < 110000
 #error "invalid os version"
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 90000 && FLOOR_COMPUTE_INFO_OS_VERSION < 100000
-#define FLOOR_COMPUTE_INFO_OS_VERSION_90000
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 100000 && FLOOR_COMPUTE_INFO_OS_VERSION < 110000
-#define FLOOR_COMPUTE_INFO_OS_VERSION_100000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000 && FLOOR_COMPUTE_INFO_OS_VERSION < 120000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_110000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 120000 && FLOOR_COMPUTE_INFO_OS_VERSION < 130000
