@@ -55,7 +55,7 @@ bool graphics_renderer::set_attachments(vector<attachment_t>& attachments) {
 				continue; // depth attachment is not assigned to an index
 			}
 			if (const auto [iter, success] = occupied_att_indices.emplace(att.index); !success) {
-				log_error("attachment index %u is specified multiple times!", att.index);
+				log_error("attachment index $ is specified multiple times!", att.index);
 				return false;
 			}
 		}

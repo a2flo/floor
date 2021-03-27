@@ -50,7 +50,7 @@ bool vulkan_memory::write_memory_data(const compute_queue& cqueue, const void* d
 		if(error_msg_on_failure == nullptr) {
 			log_error("failed to write vulkan memory data (map failed)");
 		}
-		else log_error("%s", error_msg_on_failure);
+		else log_error("$", error_msg_on_failure);
 		return false;
 	}
 	return true;
@@ -69,7 +69,7 @@ bool vulkan_memory::read_memory_data(const compute_queue& cqueue, void* data, co
 		if(error_msg_on_failure == nullptr) {
 			log_error("failed to read vulkan memory data (map failed)");
 		}
-		else log_error("%s", error_msg_on_failure);
+		else log_error("$", error_msg_on_failure);
 		return false;
 	}
 	return true;
@@ -223,7 +223,7 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	
@@ -344,7 +344,7 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 	if(ret.first) return ret.second;
 	
 	// no memory found for this
-	log_error("could not find a memory type index for the request memory type bits %X (device memory wanted: %v)",
+	log_error("could not find a memory type index for the request memory type bits $X (device memory wanted: $)",
 			  memory_type_bits, want_device_memory);
 	return 0;
 }

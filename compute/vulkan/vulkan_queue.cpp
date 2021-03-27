@@ -136,7 +136,7 @@ struct vulkan_command_pool_t {
 			};
 			const auto submit_err = queue.queue_submit(submit_info, fence.first);
 			if(submit_err != VK_SUCCESS) {
-				log_error("failed to submit queue (%s): %u: %s",
+				log_error("failed to submit queue ($): $: $",
 						  cmd_buffer_name(cmd_buffer), submit_err, vulkan_error_to_string(submit_err));
 				// still continue here to free the cmd buffer
 			}
@@ -150,7 +150,7 @@ struct vulkan_command_pool_t {
 				if (wait_ret == VK_TIMEOUT) {
 					log_error("waiting for fence timed out");
 				} else {
-					log_error("waiting for fence failed: %s (%u)", vulkan_error_to_string(wait_ret), wait_ret);
+					log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
 				}
 			}
 			

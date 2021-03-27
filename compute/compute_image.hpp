@@ -104,7 +104,7 @@ public:
 		}
 		// TODO: make sure format is supported, fail early if not
 		if(!image_format_valid(image_type)) {
-			log_error("invalid image format: %X", image_type);
+			log_error("invalid image format: $X", image_type);
 			return;
 		}
 		// can't generate compressed mip-levels right now

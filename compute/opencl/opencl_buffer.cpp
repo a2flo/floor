@@ -87,7 +87,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, const compute_que
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_ptr, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create buffer: %u: %s", create_err, cl_error_to_string(create_err));
+			log_error("failed to create buffer: $: $", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
 			return false;
 		}
@@ -100,7 +100,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, const compute_que
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
 		buffer = clCreateFromGLBuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create shared opengl/opencl buffer: %u: %s", create_err, cl_error_to_string(create_err));
+			log_error("failed to create shared opengl/opencl buffer: $: $", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
 			return false;
 		}
@@ -208,7 +208,7 @@ bool opencl_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	
 	const size_t new_size = align_size(new_size_);
 	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
 				  min_multiple(), new_size, new_size_);
 	}
 	
@@ -296,7 +296,7 @@ void* __attribute__((aligned(128))) opencl_buffer::map(const compute_queue& cque
 									  buffer, blocking_map, map_flags, offset, map_size,
 									  0, nullptr, nullptr, &map_err);
 	if(map_err != CL_SUCCESS) {
-		log_error("failed to map buffer: %u: %s!", map_err, cl_error_to_string(map_err));
+		log_error("failed to map buffer: $: $!", map_err, cl_error_to_string(map_err));
 		return nullptr;
 	}
 	return ret_ptr;

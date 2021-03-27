@@ -88,7 +88,7 @@ vr_context::vr_context() {
 	vr::EVRInitError err { vr::EVRInitError::VRInitError_None };
 	system = vr::VR_Init(&err, vr::EVRApplicationType::VRApplication_Scene, nullptr);
 	if (system == nullptr) {
-		log_error("failed to initialize VR: %s", VR_GetVRInitErrorAsEnglishDescription(err));
+		log_error("failed to initialize VR: $", VR_GetVRInitErrorAsEnglishDescription(err));
 		return;
 	}
 
@@ -111,7 +111,7 @@ vr_context::vr_context() {
 		display_frequency = -1.0f;
 	}
 	system->GetRecommendedRenderTargetSize(&recommended_render_size.x, &recommended_render_size.y);
-	log_debug("VR HMD: %s (%s) -> %u*%u @%fHz", hmd_name, vendor_name,
+	log_debug("VR HMD: $ ($) -> $*$ @$Hz", hmd_name, vendor_name,
 			  recommended_render_size.x, recommended_render_size.y, display_frequency);
 
 	// input setup
@@ -119,13 +119,13 @@ vr_context::vr_context() {
 	if (file_io::is_file(vr_action_manifest_file)) {
 		const auto input_err = input->SetActionManifestPath(vr_action_manifest_file.c_str());
 		if (input_err != vr::EVRInputError::VRInputError_None) {
-			log_error("VR: failed to set action manifest: %u", input_err);
+			log_error("VR: failed to set action manifest: $", input_err);
 			return;
 		}
 
 		const auto action_set_err = input->GetActionSetHandle("/actions/main", &main_action_set);
 		if (action_set_err != vr::EVRInputError::VRInputError_None || main_action_set == vr::k_ulInvalidActionSetHandle) {
-			log_error("VR: failed to get main action set: %u", action_set_err);
+			log_error("VR: failed to get main action set: $", action_set_err);
 			return;
 		}
 
@@ -178,7 +178,7 @@ vr_context::vr_context() {
 		for (auto& action : actions) {
 			const auto handle_err = input->GetActionHandle(action.first.c_str(), &action.second.handle);
 			if (handle_err != vr::EVRInputError::VRInputError_None || action.second.handle == vr::k_ulInvalidActionHandle) {
-				log_error("VR: failed to get action handle %s: %u", action.first, handle_err);
+				log_error("VR: failed to get action handle $: $", action.first, handle_err);
 				return;
 			}
 		}
@@ -233,7 +233,7 @@ bool vr_context::update() {
 	array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount> vr_poses {};
 	const auto err = compositor->WaitGetPoses(&vr_poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to update VR poses: %u", err);
+		log_error("failed to update VR poses: $", err);
 		return false;
 	}
 
@@ -288,7 +288,7 @@ vector<shared_ptr<event_object>> vr_context::update_input() {
 	};
 	const auto update_act_err = input->UpdateActionState(&active_action_set, sizeof(vr::VRActiveActionSet_t), 1);
 	if (update_act_err != vr::EVRInputError::VRInputError_None) {
-		log_error("failed to update action state: %u", update_act_err);
+		log_error("failed to update action state: $", update_act_err);
 		return {};
 	}
 
@@ -349,7 +349,7 @@ vector<shared_ptr<event_object>> vr_context::update_input() {
 							events.emplace_back(make_shared<vr_grip_touch_event>(cur_time, action.second.side, data.bState));
 							break;
 						default:
-							log_error("unknown/unhandled VR event: %s", action.first);
+							log_error("unknown/unhandled VR event: $", action.first);
 							break;
 					}
 				}
@@ -385,7 +385,7 @@ vector<shared_ptr<event_object>> vr_context::update_input() {
 							events.emplace_back(make_shared<vr_grip_force_event>(cur_time, action.second.side, data.x, data.deltaX));
 							break;
 						default:
-							log_error("unknown/unhandled VR event: %s", action.first);
+							log_error("unknown/unhandled VR event: $", action.first);
 							break;
 					}
 				}
@@ -396,7 +396,7 @@ vector<shared_ptr<event_object>> vr_context::update_input() {
 				break;
 		}
 		if (err != vr::EVRInputError::VRInputError_None) {
-			log_error("failed to update action %s: %u", action.first, err);
+			log_error("failed to update action $: $", action.first, err);
 			continue;
 		}
 	}
@@ -449,14 +449,14 @@ bool vr_context::present(const compute_queue& cqueue, const compute_image& image
 
 	auto err = compositor->Submit(vr::EVREye::Eye_Left, &vr_image, nullptr, vr::EVRSubmitFlags::Submit_Default);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to submit left VR eye image: %u", err);
+		log_error("failed to submit left VR eye image: $", err);
 		return false;
 	}
 
 	vr_vk_image.m_nImage = uint64_t(right_eye_image);
 	err = compositor->Submit(vr::EVREye::Eye_Right, &vr_image, nullptr, vr::EVRSubmitFlags::Submit_Default);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to submit right VR eye image: %u", err);
+		log_error("failed to submit right VR eye image: $", err);
 		return false;
 	}
 
@@ -481,13 +481,13 @@ bool vr_context::present(const compute_queue& cqueue, const compute_image& image
 
 	auto err = compositor->Submit(vr::EVREye::Eye_Left, &vr_image, nullptr, vr::EVRSubmitFlags::Submit_Default);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to submit left VR eye image: %u", err);
+		log_error("failed to submit left VR eye image: $", err);
 		return false;
 	}
 
 	err = compositor->Submit(vr::EVREye::Eye_Right, &vr_image, nullptr, vr::EVRSubmitFlags::Submit_Default);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to submit right VR eye image: %u", err);
+		log_error("failed to submit right VR eye image: $", err);
 		return false;
 	}
 	

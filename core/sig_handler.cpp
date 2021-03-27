@@ -45,7 +45,7 @@ static void sighandler(int, siginfo_t*, void*) {
 	void* stack_ptrs[STACK_PTR_COUNT];
 	const int ptr_count = (int)backtrace(stack_ptrs, STACK_PTR_COUNT);
 	const auto thread_name = core::get_current_thread_name();
-	log_error("segfault/trap/abort in thread/process \"%s\":", thread_name);
+	log_error("segfault/trap/abort in thread/process \"$\":", thread_name);
 	
 	// converts a stack and load address of a specified binary into a line number,
 	// using atos (on OS X) or addr2line (everywhere else)
@@ -96,7 +96,7 @@ static void sighandler(int, siginfo_t*, void*) {
 			int demangle_status = 0;
 			char* demangled_func_name = abi::__cxa_demangle(nearest_symbol_name, nullptr, nullptr, &demangle_status);
 			
-			log_error("[%d][%Y] %s -> %s %s",
+			log_error("[$][$Y] $ -> $ $",
 					  i, stack_ptrs[i],
 					  (dl_info.dli_fname != nullptr ? dl_info.dli_fname : "<unknown>"),
 					  (demangled_func_name != nullptr ? demangled_func_name :
@@ -106,7 +106,7 @@ static void sighandler(int, siginfo_t*, void*) {
 			if(demangled_func_name != nullptr) free(demangled_func_name);
 		}
 		else {
-			log_error("[%d][%Y] <unknown> -> <unknown>", i, stack_ptrs[i]);
+			log_error("[$][$Y] <unknown> -> <unknown>", i, stack_ptrs[i]);
 		}
 	}
 

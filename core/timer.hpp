@@ -72,7 +72,7 @@ public:
 			}
 		}
 		const auto total_diff = entries.back().second - entries.front().second;
-		log_undecorated("[TOTAL] %_s # %_ms # %_",
+		log_undecorated("[TOTAL] $s # $ms # $",
 						to_s(entries.back().second, entries.front().second),
 						to_ms(entries.back().second, entries.front().second),
 						(uint64_t)chrono::duration_cast<chrono::nanoseconds>(entries.back().second, entries.front().second).count());
@@ -86,7 +86,7 @@ protected:
 		// don't print the start entry
 		if(iter == entries.cbegin()) return;
 		
-		log_undecorated("[%_] %_ms # %_",
+		log_undecorated("[$] $ms # $",
 						iter->first,
 						to_ms(iter->second, prev(iter)->second),
 						to_s(iter->second, prev(iter)->second));

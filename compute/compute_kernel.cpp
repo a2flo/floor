@@ -45,7 +45,7 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 		else ret = { (uint32_t)entry.max_total_local_size, 1, 1 };
 		
 		if(do_warn) {
-			log_error("specified work-group size (%u) too large for this device (max: %u) - using %v now!",
+			log_error("specified work-group size ($) too large for this device (max: $) - using $ now!",
 					  work_group_size, entry.max_total_local_size, ret);
 		}
 	}
@@ -56,18 +56,18 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 	const auto& dev = cqueue.get_device();
 	const auto entry = get_kernel_entry(dev);
 	if (!entry || !entry->info) {
-		log_error("no kernel entry/info for device %s", dev.name);
+		log_error("no kernel entry/info for device $", dev.name);
 		return {};
 	}
 	
 	if (arg_index >= entry->info->args.size()) {
-		log_error("argument index is out-of-bounds: %u", arg_index);
+		log_error("argument index is out-of-bounds: $", arg_index);
 		return {};
 	}
 	
 	const auto& arg_info = entry->info->args[arg_index];
 	if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
-		log_error("argument #%u is not an argument buffer", arg_index);
+		log_error("argument #$ is not an argument buffer", arg_index);
 		return {};
 	}
 	

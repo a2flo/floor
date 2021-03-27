@@ -287,14 +287,14 @@ constexpr const char* cl_error_to_string(const int& error_code) {
 #define CL_CALL_RET(call, error_msg, ...) { \
 	const cl_int call_err_var = call; \
 	if(call_err_var != CL_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
 		return __VA_ARGS__; \
 	} \
 }
 #define CL_CALL_CONT(call, error_msg) { \
 	const cl_int call_err_var = call; \
 	if(call_err_var != CL_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
 		continue; \
 	} \
 }
@@ -302,7 +302,7 @@ constexpr const char* cl_error_to_string(const int& error_code) {
 	cl_int err_var_name = CL_SUCCESS; \
 	call; \
 	if(err_var_name != CL_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, err_var_name, cl_error_to_string(err_var_name)); \
+		log_error("$: $: $", error_msg, err_var_name, cl_error_to_string(err_var_name)); \
 		return __VA_ARGS__; \
 	} \
 }
@@ -310,14 +310,14 @@ constexpr const char* cl_error_to_string(const int& error_code) {
 	cl_int err_var_name = CL_SUCCESS; \
 	call; \
 	if(err_var_name != CL_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, err_var_name, cl_error_to_string(err_var_name)); \
+		log_error("$: $: $", error_msg, err_var_name, cl_error_to_string(err_var_name)); \
 		continue; \
 	} \
 }
 #define CL_CALL_IGNORE(call, error_msg) { \
 	const cl_int call_err_var = call; \
 	if(call_err_var != CL_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
 	} \
 }
 
@@ -551,7 +551,7 @@ vector<string> cl_get_info(const cl_program& program) {
 	size_t expected_size = 0;
 	clGetProgramInfo(program, CL_PROGRAM_BINARIES, 0, nullptr, &expected_size);
 	if(expected_size % sizeof(uint8_t*) != 0u) {
-		log_error("clGetProgramInfo(CL_PROGRAM_BINARIES) returned an invalid size of %u, this is not a multiple of the platform pointer size!",
+		log_error("clGetProgramInfo(CL_PROGRAM_BINARIES) returned an invalid size of $, this is not a multiple of the platform pointer size!",
 				  expected_size);
 		return {};
 	}

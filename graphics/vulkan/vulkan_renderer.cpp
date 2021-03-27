@@ -227,7 +227,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	}
 	if (uint32_t(render_area.offset.x) + render_area.extent.width > (uint32_t)viewport.width ||
 		uint32_t(render_area.offset.y) + render_area.extent.height > (uint32_t)viewport.height) {
-		log_error("scissor rectangle is out-of-bounds: @%v + %v > %v",
+		log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
 				  int2 { render_area.offset.x, render_area.offset.y }, uint2 { render_area.extent.width, render_area.extent.height },
 				  float2 { viewport.width, viewport.height });
 		return false;
@@ -238,7 +238,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	vector<VkClearValue> clear_values;
 	if (dynamic_render_state.clear_values) {
 		if (dynamic_render_state.clear_values->size() != pass_clear_values.size()) {
-			log_error("invalid clear values size: %u", dynamic_render_state.clear_values->size());
+			log_error("invalid clear values size: $", dynamic_render_state.clear_values->size());
 			return false;
 		}
 		
@@ -426,7 +426,7 @@ bool vulkan_renderer::update_vulkan_pipeline() {
 	const auto& vk_pipeline = (const vulkan_pipeline&)*cur_pipeline;
 	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_state(dev, multi_view);
 	if (vk_pipeline_state == nullptr) {
-		log_error("no pipeline entry for device %s", dev.name);
+		log_error("no pipeline entry for device $", dev.name);
 		return false;
 	}
 	return true;

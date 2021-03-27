@@ -138,13 +138,13 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	}
 	
 	if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) > 0) {
-		log_error("Vulkan error:%s", debug_message);
+		log_error("Vulkan error:$", debug_message);
 	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) > 0) {
-		log_warn("Vulkan warning:%s", debug_message);
+		log_warn("Vulkan warning:$", debug_message);
 	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) > 0) {
-		log_msg("Vulkan info:%s", debug_message);
+		log_msg("Vulkan info:$", debug_message);
 	} else if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) > 0) {
-		log_debug("Vulkan verbose:%s", debug_message);
+		log_debug("Vulkan verbose:$", debug_message);
 	} else {
 		assert(false && "unknown severity");
 	}
@@ -234,8 +234,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		inst_layers_str += layer;
 		inst_layers_str += " ";
 	}
-	log_debug("using instance extensions: %s", inst_exts_str);
-	log_debug("using instance layers: %s", inst_layers_str);
+	log_debug("using instance extensions: $", inst_exts_str);
+	log_debug("using instance layers: $", inst_layers_str);
 
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -324,14 +324,14 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(layer_count > 0) {
 		VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, layers.data()), "failed to retrieve instance layer properties")
 	}
-	log_debug("found %u vulkan layer%s", layer_count, (layer_count == 1 ? "" : "s"));
+	log_debug("found $ vulkan layer$", layer_count, (layer_count == 1 ? "" : "s"));
 	
 	// get devices
 	uint32_t device_count = 0;
 	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, nullptr), "failed to retrieve device count")
 	vector<VkPhysicalDevice> queried_devices(device_count);
 	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, queried_devices.data()), "failed to retrieve devices")
-	log_debug("found %u vulkan device%s", device_count, (device_count == 1 ? "" : "s"));
+	log_debug("found $ vulkan device$", device_count, (device_count == 1 ? "" : "s"));
 
 	auto gpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::GPU0;
 	auto cpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::CPU0;
@@ -357,7 +357,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		uint32_t queue_family_count = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, nullptr);
 		if(queue_family_count == 0) {
-			log_error("device %s supports no queue families", props.deviceName);
+			log_error("device $ supports no queue families", props.deviceName);
 			continue;
 		}
 		
@@ -370,7 +370,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			max_queue_count = max(max_queue_count, dev_queue_family_props[i].queueCount);
 		}
 		if(max_queue_count == 0) {
-			log_error("device %s supports no queues", props.deviceName);
+			log_error("device $ supports no queues", props.deviceName);
 			continue;
 		}
 		const vector<float> priorities(max_queue_count, 0.0f);
@@ -469,11 +469,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			if (!vulkan11_features.multiview ||
 				!vulkan11_features.multiviewGeometryShader ||
 				!vulkan11_features.multiviewTessellationShader) {
-				log_error("VR requirements not met: multi-view features are not supported by %s", props.deviceName);
+				log_error("VR requirements not met: multi-view features are not supported by $", props.deviceName);
 				continue;
 			}
 			if (multiview_properties.maxMultiviewViewCount < 2) {
-				log_error("VR requirements not met: multi-view count must be >= 2 for device %s", props.deviceName);
+				log_error("VR requirements not met: multi-view count must be >= 2 for device $", props.deviceName);
 				continue;
 			}
 		}
@@ -481,46 +481,46 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// devices must support int64
 		if (!features_2.features.shaderInt64) {
-			log_error("device %s does not support shaderInt64", props.deviceName);
+			log_error("device $ does not support shaderInt64", props.deviceName);
 			continue;
 		}
 		
 		if (!vulkan11_features.variablePointers ||
 			!vulkan11_features.variablePointersStorageBuffer) {
-			log_error("variable pointers are not supported by %s", props.deviceName);
+			log_error("variable pointers are not supported by $", props.deviceName);
 			continue;
 		}
 		
 		if (!vulkan11_features.storageBuffer16BitAccess ||
 			!vulkan11_features.uniformAndStorageBuffer16BitAccess) {
-			log_error("16-bit storage not supported by %s", props.deviceName);
+			log_error("16-bit storage not supported by $", props.deviceName);
 			continue;
 		}
 		
 		if (scalar_block_layout_features.scalarBlockLayout == 0) {
-			log_error("scalar block layout is not supported by %s", props.deviceName);
+			log_error("scalar block layout is not supported by $", props.deviceName);
 			continue;
 		}
 		
 		if (uniform_buffer_standard_layout_features.uniformBufferStandardLayout == 0) {
-			log_error("uniform buffer standard layout is not supported by %s", props.deviceName);
+			log_error("uniform buffer standard layout is not supported by $", props.deviceName);
 			continue;
 		}
 		
 		if (inline_uniform_block_features.inlineUniformBlock == 0) {
-			log_error("inline uniform blocks are not supported by %s", props.deviceName);
+			log_error("inline uniform blocks are not supported by $", props.deviceName);
 			continue;
 		}
 		
 		// check IUB limits
 		if (inline_uniform_block_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
-			log_error("max inline uniform block size of %u is below the required limit of %u (for device %s)",
+			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",
 					  inline_uniform_block_props.maxInlineUniformBlockSize, vulkan_device::min_required_inline_uniform_block_size,
 					  props.deviceName);
 			continue;
 		}
 		if (inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks < vulkan_device::min_required_inline_uniform_block_count) {
-			log_error("max inline uniform block count of %u is below the required limit of %u (for device %s)",
+			log_error("max inline uniform block count of $ is below the required limit of $ (for device $)",
 					  inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks, vulkan_device::min_required_inline_uniform_block_count,
 					  props.deviceName);
 			continue;
@@ -625,7 +625,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (swapchain_ext_iter == device_extensions_set.end()) {
-				log_error("%s extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+				log_error("$ extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 				continue;
 			}
 		} else {
@@ -649,8 +649,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			dev_layers_str += layer;
 			dev_layers_str += " ";
 		}
-		log_debug("using device extensions: %s", dev_exts_str);
-		log_debug("using device layers: %s", dev_layers_str);
+		log_debug("using device extensions: $", dev_exts_str);
+		log_debug("using device layers: $", dev_layers_str);
 		
 		vector<const char*> device_extensions_ptrs;
 		for(const auto& ext : device_extensions) {
@@ -785,7 +785,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					  device.max_image_3d_dim.max_element()),
 																			 device.max_image_1d_dim));
-		log_debug("max img / mip: %v, %v, %v -> %u",
+		log_debug("max img / mip: $, $, $ -> $",
 				  device.max_image_1d_dim, device.max_image_2d_dim, device.max_image_3d_dim,
 				  device.max_mip_levels);
 		
@@ -803,7 +803,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
 		device.max_inline_uniform_block_count = inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks;
-		log_msg("inline uniform block: max size %u, max IUBs %u",
+		log_msg("inline uniform block: max size $, max IUBs $",
 				device.max_inline_uniform_block_size,
 				device.max_inline_uniform_block_count);
 
@@ -826,7 +826,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			if(device.device_mem_index == ~0u &&
 			   mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
 				device.device_mem_index = i;
-				log_msg("using memory type #%u for device allocations", device.device_mem_index);
+				log_msg("using memory type #$ for device allocations", device.device_mem_index);
 			}
 			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 				// we preferably want to allocate both cached and uncached host visible memory,
@@ -868,34 +868,34 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			else if(device.host_mem_uncached_index == ~0u) {
 				device.host_mem_uncached_index = device.host_mem_cached_index;
 			}
-			log_msg("using memory type #%u for cached host-visible allocations", device.host_mem_cached_index);
-			log_msg("using memory type #%u for uncached host-visible allocations", device.host_mem_uncached_index);
+			log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
+			log_msg("using memory type #$ for uncached host-visible allocations", device.host_mem_uncached_index);
 		}
 		if(device.device_mem_index == device.host_mem_cached_index ||
 		   device.device_mem_index == device.host_mem_uncached_index) {
 			//device.unified_memory = true; // TODO: -> vulkan_memory.cpp
 		}
 		
-		log_msg("max mem alloc: %u bytes / %u MB",
+		log_msg("max mem alloc: $ bytes / $ MB",
 				device.max_mem_alloc,
 				device.max_mem_alloc / 1024ULL / 1024ULL);
-		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+		log_msg("mem size: $ MB (global), $ KB (local), $ KB (constant)",
 				device.global_mem_size / 1024ULL / 1024ULL,
 				device.local_mem_size / 1024ULL,
 				device.constant_mem_size / 1024ULL);
 		
-		log_msg("max total local size: %u", device.max_total_local_size);
-		log_msg("max local size: %v", device.max_local_size);
-		log_msg("max global size: %v", device.max_global_size);
-		log_msg("max group size: %v", device.max_group_size);
-		log_msg("queue families: %u", queue_family_count);
-		log_msg("max queues (family #0): %u", device.queue_counts[0]);
+		log_msg("max total local size: $", device.max_total_local_size);
+		log_msg("max local size: $", device.max_local_size);
+		log_msg("max global size: $", device.max_global_size);
+		log_msg("max group size: $", device.max_group_size);
+		log_msg("queue families: $", queue_family_count);
+		log_msg("max queues (family #0): $", device.queue_counts[0]);
 		
 		// TODO: other device flags
 		// TODO: fastest device selection, tricky to do without a unit count
 		
 		// done
-		log_debug("%s (Memory: %u MB): %s %s, API: %s, driver: %s",
+		log_debug("$ (Memory: $ MB): $ $, API: $, driver: $",
 				  (device.is_gpu() ? "GPU" : (device.is_cpu() ? "CPU" : "UNKNOWN")),
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.vendor_name,
@@ -1009,7 +1009,7 @@ bool vulkan_compute::init_renderer() {
 	SDL_SysWMinfo wm_info;
 	SDL_VERSION(&wm_info.version)
 	if(!SDL_GetWindowWMInfo(floor::get_window(), &wm_info)) {
-		log_error("failed to retrieve window info: %s", SDL_GetError());
+		log_error("failed to retrieve window info: $", SDL_GetError());
 		return false;
 	}
 	
@@ -1062,7 +1062,7 @@ bool vulkan_compute::init_renderer() {
 				"failed to query presentable surface formats", false)
 #if 0
 	for (const auto& format : formats) {
-		log_msg("supported screen format: %X, %X", format.format, format.colorSpace);
+		log_msg("supported screen format: $X, $X", format.format, format.colorSpace);
 	}
 #endif
 	
@@ -1082,7 +1082,7 @@ bool vulkan_compute::init_renderer() {
 			}
 		}
 		const auto img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
-		log_debug("using screen format %s (%X)", compute_image::image_type_to_string(*img_type), screen.format);
+		log_debug("using screen format $ ($X)", compute_image::image_type_to_string(*img_type), screen.format);
 	} else {
 		// checks if the color space actually is wide-gamut
 		const auto is_wide_gamut_color_space = [](const auto& color_space) {
@@ -1135,7 +1135,7 @@ bool vulkan_compute::init_renderer() {
 		if (found_format) {
 			// if we get here, we know that the format is also representable by COMPUTE_IMAGE_TYPE
 			const auto img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
-			log_debug("wide-gamut enabled (using format %s (%X))", compute_image::image_type_to_string(*img_type), screen.format);
+			log_debug("wide-gamut enabled (using format $ ($X))", compute_image::image_type_to_string(*img_type), screen.format);
 			screen.has_wide_gamut = true;
 		} else {
 			log_error("did not find a supported wide-gamut format");
@@ -1144,7 +1144,7 @@ bool vulkan_compute::init_renderer() {
 	
 	const auto screen_img_type = vulkan_image::image_type_from_vulkan_format(screen.format);
 	if (!screen_img_type) {
-		log_error("no matching image type for Vulkan format: %X", screen.format);
+		log_error("no matching image type for Vulkan format: $X", screen.format);
 		return false;
 	}
 	screen.image_type = *screen_img_type;
@@ -1224,13 +1224,13 @@ bool vulkan_compute::init_renderer() {
 			}
 			
 			if (!has_hdr_color_space) {
-				log_error("can't enable/use HDR with a non-HDR color space (%X: %s)", screen.color_space, color_space_name);
+				log_error("can't enable/use HDR with a non-HDR color space ($X: $)", screen.color_space, color_space_name);
 				hdr_supported = false;
 			} else {
 				// create/set HDR metadata
 				screen.hdr_metadata = VkHdrMetadataEXT {};
 				set_vk_screen_hdr_metadata();
-				log_debug("HDR enabled (using color space %s (%X))", color_space_name, screen.color_space);
+				log_debug("HDR enabled (using color space $ ($X))", color_space_name, screen.color_space);
 			}
 		}
 	}
@@ -1597,7 +1597,7 @@ shared_ptr<compute_queue> vulkan_compute::create_queue(const compute_device& dev
 	
 	// can only create a certain amount of queues per device with vulkan, so handle this + handle the queue index
 	if(vulkan_dev.cur_queue_idx >= vulkan_dev.queue_counts[0]) {
-		log_warn("too many queues were created (max: %u), wrapping around to #0 again", vulkan_dev.queue_counts[0]);
+		log_warn("too many queues were created (max: $), wrapping around to #0 again", vulkan_dev.queue_counts[0]);
 		vulkan_dev.cur_queue_idx = 0;
 	}
 	const auto next_queue_index = vulkan_dev.cur_queue_idx++;
@@ -1686,7 +1686,7 @@ shared_ptr<compute_image> vulkan_compute::wrap_image(const compute_queue&, const
 shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: %s", file_name);
+		log_error("failed to load universal binary: $", file_name);
 		return {};
 	}
 	

@@ -119,7 +119,7 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 
 		const auto vk_format = vulkan_image::vulkan_format_from_image_type(att.format);
 		if (!vk_format) {
-			log_error("unsupported Vulkan format: %X", att.format);
+			log_error("unsupported Vulkan format: $X", att.format);
 			return {};
 		}
 

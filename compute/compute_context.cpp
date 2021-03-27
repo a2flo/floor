@@ -40,7 +40,7 @@ const compute_device* compute_context::get_device(const compute_device::TYPE typ
 		case compute_device::TYPE::ALL_CPU:
 		case compute_device::TYPE::ALL_GPU:
 		case compute_device::TYPE::ALL_DEVICES:
-			log_warn("shouldn't use type %X to get a device!", type);
+			log_warn("shouldn't use type $X to get a device!", type);
 			return (!devices.empty() ? devices[0].get() : nullptr);
 		default: break;
 	}
@@ -66,7 +66,7 @@ const compute_device* compute_context::get_device(const compute_device::TYPE typ
 		}
 	}
 	// else: didn't find any or type is a weird mixture
-	log_error("couldn't find a device matching the specified type %X, returning the first device instead!", type);
+	log_error("couldn't find a device matching the specified type $X, returning the first device instead!", type);
 	return (!devices.empty() ? devices[0].get() : nullptr);
 }
 

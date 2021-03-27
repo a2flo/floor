@@ -75,10 +75,10 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 				try {
 					this_thread_obj->run();
 				} catch(exception& exc) {
-					log_error("encountered an unhandled exception while running a thread \"%s\": %s",
+					log_error("encountered an unhandled exception while running a thread \"$\": $",
 							  core::get_current_thread_name(), exc.what());
 				} catch(...) {
-					log_error("encountered an unhandled exception while running a thread \"%s\"",
+					log_error("encountered an unhandled exception while running a thread \"$\"",
 							  core::get_current_thread_name());
 				}
 			}

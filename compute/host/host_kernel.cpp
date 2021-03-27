@@ -345,7 +345,7 @@ FLOOR_POP_WARNINGS()
 			// -> need to convert to fiber before creating/using all other fibers
 			ctx = ConvertThreadToFiber(nullptr);
 			if(ctx == nullptr) {
-				log_error("failed to convert thread to fiber: %u", GetLastError());
+				log_error("failed to convert thread to fiber: $", GetLastError());
 				logger::flush();
 			}
 		}
@@ -356,7 +356,7 @@ FLOOR_POP_WARNINGS()
 		if(stack_ptr == nullptr) {
 			// main thread, convert fiber back to thread
 			if(!ConvertFiberToThread()) {
-				log_error("failed to convert fiber to thread: %u", GetLastError());
+				log_error("failed to convert fiber to thread: $", GetLastError());
 				logger::flush();
 			}
 		}
@@ -381,7 +381,7 @@ FLOOR_POP_WARNINGS()
 		// -> create a new windows fiber context for this
 		ctx = CreateFiberEx(stack_size, stack_size, 0, fiber_run, this);
 		if(ctx == nullptr) {
-			log_error("failed to create worker fiber context: %u", GetLastError());
+			log_error("failed to create worker fiber context: $", GetLastError());
 			logger::flush();
 		}
 	}
@@ -970,7 +970,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 				
 				// exit due to excessive local memory allocation?
 				if(local_memory_exceeded) {
-					log_error("exceeded local memory allocation in kernel \"%s\" - requested %u bytes, limit is %u bytes",
+					log_error("exceeded local memory allocation in kernel \"$\" - requested $ bytes, limit is $ bytes",
 							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
 					break;
 				}
@@ -979,7 +979,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 				// NOTE: this won't detect all barrier misuses, doing so would require *a lot* of work
 #if defined(FLOOR_DEBUG)
 				if(unfinished_items > 0) {
-					log_error("barrier misuse detected in kernel \"%s\" - %u unfinished items in group %v",
+					log_error("barrier misuse detected in kernel \"$\" - $ unfinished items in group $",
 							  func_name, unfinished_items, group_id);
 					break;
 				}
@@ -992,7 +992,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 		item->join();
 	}
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
-	log_debug("kernel time: %ums", double(floor_timer::stop<chrono::microseconds>(time_start)) / 1000.0);
+	log_debug("kernel time: $ms", double(floor_timer::stop<chrono::microseconds>(time_start)) / 1000.0);
 #endif
 #endif
 }
@@ -1053,7 +1053,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			// retrieve the instance for this CPU + reset/init it
 			auto instance = func_entry.program->get_instance(cpu_idx);
 			if (!instance) {
-				log_error("no instance for CPU #%u", cpu_idx);
+				log_error("no instance for CPU #$", cpu_idx);
 				success = false;
 				return;
 			}
@@ -1065,14 +1065,14 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			const auto& func_info = *func_entry.info;
 			const auto func_iter = instance->functions.find(func_info.name);
 			if (func_iter == instance->functions.end()) {
-				log_error("failed to find function \"%s\" for CPU #%u", func_name, cpu_idx);
+				log_error("failed to find function \"$\" for CPU #$", func_name, cpu_idx);
 				success = false;
 				return;
 			}
 			const auto func_ptr = (const kernel_func_type)const_cast<void*>(func_iter->second);
 			device_exec_context.kernel_func = make_callable_kernel_function(func_ptr, vptr_args);
 			if (!device_exec_context.kernel_func) {
-				log_error("failed to create kernel function for CPU #%u", cpu_idx);
+				log_error("failed to create kernel function for CPU #$", cpu_idx);
 				success = false;
 				return;
 			}
@@ -1131,7 +1131,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 				// NOTE: this won't detect all barrier misuses, doing so would require *a lot* of work
 #if defined(FLOOR_DEBUG)
 				if (unfinished_items > 0) {
-					log_error("barrier misuse detected in kernel \"%s\" - %u unfinished items in group %v",
+					log_error("barrier misuse detected in kernel \"$\" - $ unfinished items in group $",
 							  func_name, unfinished_items, group_id);
 					break;
 				}
@@ -1301,7 +1301,7 @@ unique_ptr<argument_buffer> host_kernel::create_argument_buffer_internal(const c
 	// check if info exists
 	const auto& arg_info = host_entry.info->args[arg_index].argument_buffer_info;
 	if (!arg_info) {
-		log_error("no argument buffer info for arg at index #%u", arg_index);
+		log_error("no argument buffer info for arg at index #$", arg_index);
 		return {};
 	}
 	

@@ -91,7 +91,7 @@ bool file_io::open(const string& filename_, OPEN_TYPE open_type_) {
 	}
 
 	if(!filestream.is_open()) {
-		log_error("error while loading file %s!", filename);
+		log_error("error while loading file $!", filename);
 		filestream.clear();
 		return false;
 	}
@@ -146,7 +146,7 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 	filestream->read((char*)data.get(), streamsize(size_ll));
 	const auto read_size = filestream->gcount();
 	if (read_size != (decltype(read_size))size_ll) {
-		log_error("expected %u bytes, but only read %u bytes", size_ll, read_size);
+		log_error("expected $ bytes, but only read $ bytes", size_ll, read_size);
 		return {};
 	}
 	
@@ -526,7 +526,7 @@ bool file_io::read_file(stringstream& buffer) {
 	filestream.read(data.get(), streamsize(size_ll));
 	const auto read_size = filestream.gcount();
 	if(read_size != (decltype(read_size))size_ll) {
-		log_error("expected %u bytes, but only read %u bytes", size_ll, read_size);
+		log_error("expected $ bytes, but only read $ bytes", size_ll, read_size);
 		return false;
 	}
 	filestream.seekg(0, ios::beg);
@@ -543,7 +543,7 @@ bool file_io::read_file(string& str) {
 	filestream.read(&str.front(), (streamsize)size);
 	const auto read_size = filestream.gcount();
 	if(read_size != (decltype(read_size))size) {
-		log_error("expected %u bytes, but only read %u bytes", size, read_size);
+		log_error("expected $ bytes, but only read $ bytes", size, read_size);
 		return false;
 	}
 	filestream.seekg(0, ios::beg);

@@ -83,7 +83,7 @@ id <MTLCommandBuffer> metal_queue::make_command_buffer() const {
 			return (elem.first == buffer);
 		});
 		if(iter == cend(cmd_buffers)) {
-			log_error("failed to find metal command buffer %X!", buffer);
+			log_error("failed to find metal command buffer $X!", buffer);
 			return;
 		}
 		

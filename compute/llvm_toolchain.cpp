@@ -38,7 +38,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 								const uint32_t toolchain_version floor_unused) {
 	string ffi;
 	if (!file_io::file_to_string(ffi_file_name, ffi)) {
-		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
+		log_error("failed to retrieve floor function info from \"$\"", ffi_file_name);
 		return false;
 	}
 	
@@ -54,7 +54,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 		// NOTE: arg-buffer entry must come after the function entry that uses it
 		// NOTE: for an argument buffer struct local_size_* is 0
 		if (tokens.size() < 7) {
-			log_error("invalid function info entry: %s", line);
+			log_error("invalid function info entry: $", line);
 			return false;
 		}
 		const auto& token_version = tokens[0];
@@ -71,7 +71,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 		//
 		static constexpr const char floor_functions_version[] { "4" };
 		if (token_version != floor_functions_version) {
-			log_error("invalid floor function info version, expected %u, got %u!",
+			log_error("invalid floor function info version, expected $, got $!",
 					  floor_functions_version, token_version);
 			return false;
 		}
@@ -89,7 +89,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 			func_type != FUNCTION_TYPE::VERTEX &&
 			func_type != FUNCTION_TYPE::FRAGMENT &&
 			func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
-			log_error("unsupported function type: %s", token_type);
+			log_error("unsupported function type: $", token_type);
 			return false;
 		}
 		
@@ -121,7 +121,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);
 			
 			if (data == ULLONG_MAX || data == 0) {
-				log_error("invalid arg info (in %s): %s", ffi_file_name, tokens[i]);
+				log_error("invalid arg info (in $): $", ffi_file_name, tokens[i]);
 			}
 			
 			info.args.emplace_back(arg_info {
@@ -147,13 +147,13 @@ bool create_floor_function_info(const string& ffi_file_name,
 					found_func = true;
 					
 					if (arg_idx >= riter->args.size()) {
-						log_error("argument index %u is out-of-bounds for function %s with %u args", arg_idx, info.name, riter->args.size());
+						log_error("argument index $ is out-of-bounds for function $ with $ args", arg_idx, info.name, riter->args.size());
 						return false;
 					}
 					
 					auto& arg = riter->args[arg_idx];
 					if (arg.special_type != SPECIAL_TYPE::ARGUMENT_BUFFER) {
-						log_error("argument index %u in function %s is not an argument buffer", arg_idx, info.name);
+						log_error("argument index $ in function $ is not an argument buffer", arg_idx, info.name);
 						return false;
 					}
 					
@@ -162,7 +162,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 				}
 			}
 			if (!found_func) {
-				log_error("didn't find function %s for argument buffer", info.name);
+				log_error("didn't find function $ for argument buffer", info.name);
 				return false;
 			}
 		} else {
@@ -175,7 +175,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 		for (size_t i = 0, count = func.args.size(); i < count; ++i) {
 			const auto& arg = func.args[i];
 			if (arg.special_type == SPECIAL_TYPE::ARGUMENT_BUFFER && !arg.argument_buffer_info) {
-				log_error("missing argument buffer info for argument #%u in function %s", i, func.name);
+				log_error("missing argument buffer info for argument #$ in function $", i, func.name);
 				return false;
 			}
 		}
@@ -258,12 +258,12 @@ program_data compile_input(const string& input,
 						metal_version = METAL_VERSION::METAL_2_3;
 						break;
 					default:
-						log_error("invalid force_version: %u", metal_force_version);
+						log_error("invalid force_version: $", metal_force_version);
 						break;
 				}
 			}
 			if (metal_version > METAL_VERSION::METAL_2_3) {
-				log_error("unsupported Metal language version: %u", metal_version_to_string(metal_version));
+				log_error("unsupported Metal language version: $", metal_version_to_string(metal_version));
 				return {};
 			}
 			
@@ -303,7 +303,7 @@ program_data compile_input(const string& input,
 						break;
 				}
 			} else {
-				log_error("unsupported Metal device family type: %u", uint32_t(mtl_dev.family_type));
+				log_error("unsupported Metal device family type: $", uint32_t(mtl_dev.family_type));
 				return {};
 			}
 			
@@ -924,7 +924,7 @@ program_data compile_input(const string& input,
 	// compile
 	if(floor::get_toolchain_log_commands() &&
 	   !options.silence_debug_output) {
-		log_debug("clang cmd: %s", clang_cmd);
+		log_debug("clang cmd: $", clang_cmd);
 		logger::flush();
 	}
 	string compilation_output;
@@ -932,14 +932,14 @@ program_data compile_input(const string& input,
 	// check if the output contains an error string (yes, a bit ugly, but it works for now - can't actually check the return code)
 	if(compilation_output.find(" error: ") != string::npos ||
 	   compilation_output.find(" errors:") != string::npos) {
-		log_error("compilation failed! failed cmd was:\n%s", clang_cmd);
-		log_error("compilation errors:\n%s", compilation_output);
+		log_error("compilation failed! failed cmd was:\n$", clang_cmd);
+		log_error("compilation errors:\n$", compilation_output);
 		return {};
 	}
 	// also print the output if it is non-empty
 	if(compilation_output != "" &&
 	   !options.silence_debug_output) {
-		log_debug("compilation output:\n%s", compilation_output);
+		log_debug("compilation output:\n$", compilation_output);
 	}
 	
 	// grab floor function info and create the internal per-function info
@@ -985,7 +985,7 @@ program_data compile_input(const string& input,
 		};
 		if(floor::get_toolchain_log_commands() &&
 		   !options.silence_debug_output) {
-			log_debug("llc cmd: %s", llc_cmd);
+			log_debug("llc cmd: $", llc_cmd);
 		}
 		string ptx_code;
 		core::system(llc_cmd, ptx_code);
@@ -999,7 +999,7 @@ program_data compile_input(const string& input,
 		
 		// check if we have sane output
 		if(ptx_code == "" || ptx_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
-			log_error("llc/ptx compilation failed (%s)!\n%s", llc_cmd, ptx_code);
+			log_error("llc/ptx compilation failed ($)!\n$", llc_cmd, ptx_code);
 			return {};
 		}
 		
@@ -1038,7 +1038,7 @@ program_data compile_input(const string& input,
 					log_msg("spir-v validator: valid");
 				}
 				else {
-					log_error("spir-v validator: %s", spirv_validator_output);
+					log_error("spir-v validator: $", spirv_validator_output);
 				}
 			}
 		}

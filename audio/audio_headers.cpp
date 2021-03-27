@@ -39,7 +39,7 @@ LPALDELETEFILTERS alDeleteFilters;
 
 bool floor_audio::check_openal_efx_funcs() {
 	const auto fail = [](const string& name) -> bool {
-		log_error("failed to get function pointer for \"%s\"!", name);
+		log_error("failed to get function pointer for \"$\"!", name);
 		return false;
 	};
 	

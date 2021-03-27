@@ -241,7 +241,7 @@ bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused)
 		// check memory protection strip
 		for(size_t i = 0; i < protection_size; ++i) {
 			if(*(image + image_data_size_mip_maps + i) != protection_byte) {
-				log_error("DO PANIC: opengl wrote too many bytes: image: %X, gl object: %u, @ protection byte #%u, expected data size %u",
+				log_error("DO PANIC: opengl wrote too many bytes: image: $X, gl object: $, @ protection byte #$, expected data size $",
 						  this, gl_object, i, image_data_size_mip_maps);
 				logger::flush();
 				break;

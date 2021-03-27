@@ -46,7 +46,7 @@ namespace universal_binary {
 		// parse header
 		cur_size += sizeof(header_v2);
 		if (cur_size > data_size) {
-			log_error("universal binary %s: invalid header size, expected %u, got %u",
+			log_error("universal binary $: invalid header size, expected $, got $",
 					  file_name, cur_size, data_size);
 			return {};
 		}
@@ -54,11 +54,11 @@ namespace universal_binary {
 		data_ptr += sizeof(header_v2);
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
-			log_error("universal binary %s: invalid header magic", file_name);
+			log_error("universal binary $: invalid header magic", file_name);
 			return {};
 		}
 		if (header.binary_format_version != binary_format_version) {
-			log_error("universal binary %s: unsupported binary version %u", file_name, header.binary_format_version);
+			log_error("universal binary $: unsupported binary version $", file_name, header.binary_format_version);
 			return {};
 		}
 		memcpy(&ar->header.static_header, &header, sizeof(header_v2));
@@ -82,7 +82,7 @@ namespace universal_binary {
 		const auto dyn_header_size = targets_size + offsets_size + toolchain_versions_size + hashes_size;
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
-			log_error("universal binary %s: invalid dynamic header size, expected %u, got %u",
+			log_error("universal binary $: invalid dynamic header size, expected $, got $",
 					  file_name, cur_size, data_size);
 			return {};
 		}
@@ -102,7 +102,7 @@ namespace universal_binary {
 		// verify targets
 		for (const auto& target : ar->header.targets) {
 			if (target.common.version != target_format_version) {
-				log_error("universal binary %s: unsupported target version, expected %u, got %u",
+				log_error("universal binary $: unsupported target version, expected $, got $",
 						  file_name, target_format_version, target.common.version);
 				return {};
 			}
@@ -111,7 +111,7 @@ namespace universal_binary {
 		// verify toolchain versions
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
 			if (toolchain_version < min_required_toolchain_version_v2) {
-				log_error("universal binary %s: unsupported toolchain version, expected %u, got %u",
+				log_error("universal binary $: unsupported toolchain version, expected $, got $",
 						  file_name, min_required_toolchain_version_v2, toolchain_version);
 				return {};
 			}
@@ -123,7 +123,7 @@ namespace universal_binary {
 			
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
-				log_error("universal binary %s: invalid binary offset, expected %u, got %u",
+				log_error("universal binary $: invalid binary offset, expected $, got $",
 						  file_name, ar->header.offsets[bin_idx], cur_size);
 				return {};
 			}
@@ -131,7 +131,7 @@ namespace universal_binary {
 			// static binary header
 			cur_size += sizeof(binary_v2);
 			if (cur_size > data_size) {
-				log_error("universal binary %s: invalid static binary header size, expected %u, got %u",
+				log_error("universal binary $: invalid static binary header size, expected $, got $",
 						  file_name, cur_size, data_size);
 				return {};
 			}
@@ -140,12 +140,12 @@ namespace universal_binary {
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
-				log_error("universal binary %s: invalid binary function info size (pre-check), expected %u, got %u",
+				log_error("universal binary $: invalid binary function info size (pre-check), expected $, got $",
 						  file_name, cur_size + bin.static_binary_header.function_info_size, data_size);
 				return {};
 			}
 			if (cur_size + bin.static_binary_header.function_info_size + bin.static_binary_header.binary_size > data_size) {
-				log_error("universal binary %s: invalid binary size (pre-check), expected %u, got %u",
+				log_error("universal binary $: invalid binary size (pre-check), expected $, got $",
 						  file_name,
 						  cur_size + bin.static_binary_header.function_info_size + bin.static_binary_header.binary_size,
 						  data_size);
@@ -162,7 +162,7 @@ namespace universal_binary {
 				// static function info
 				cur_size += sizeof(function_info_v2);
 				if (cur_size > data_size) {
-					log_error("universal binary %s: invalid static function info size, expected %u, got %u",
+					log_error("universal binary $: invalid static function info size, expected $, got $",
 							  file_name, cur_size, data_size);
 					return {};
 				}
@@ -170,7 +170,7 @@ namespace universal_binary {
 				data_ptr += sizeof(function_info_v2);
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
-					log_error("universal binary %s: unsupported function info version %u",
+					log_error("universal binary $: unsupported function info version $",
 							  file_name, func_info.static_function_info.function_info_version);
 					return {};
 				}
@@ -180,7 +180,7 @@ namespace universal_binary {
 					// name (\0 terminated)
 					++cur_size;
 					if (cur_size > data_size) {
-						log_error("universal binary %s: invalid function info name size, expected %u, got %u",
+						log_error("universal binary $: invalid function info name size, expected $, got $",
 								  file_name, cur_size, data_size);
 						return {};
 					}
@@ -197,7 +197,7 @@ namespace universal_binary {
 					
 					cur_size += sizeof(function_info_dynamic_v2::arg_info);
 					if (cur_size > data_size) {
-						log_error("universal binary %s: invalid function info arg size, expected %u, got %u",
+						log_error("universal binary $: invalid function info arg size, expected $, got $",
 								  file_name, cur_size, data_size);
 						return {};
 					}
@@ -212,7 +212,7 @@ namespace universal_binary {
 			const auto func_info_end_size = cur_size;
 			const auto func_info_size = func_info_end_size - func_info_start_size;
 			if (func_info_size != size_t(bin.static_binary_header.function_info_size)) {
-				log_error("universal binary %s: invalid binary function info size, expected %u, got %u",
+				log_error("universal binary $: invalid binary function info size, expected $, got $",
 						  file_name, bin.static_binary_header.function_info_size, func_info_size);
 				return {};
 			}
@@ -220,7 +220,7 @@ namespace universal_binary {
 			// binary data
 			cur_size += bin.static_binary_header.binary_size;
 			if (cur_size > data_size) {
-				log_error("universal binary %s: invalid binary size, expected %u, got %u",
+				log_error("universal binary $: invalid binary size, expected $, got $",
 						  file_name, cur_size, data_size);
 				return {};
 			}
@@ -231,7 +231,7 @@ namespace universal_binary {
 			// verify binary
 			const auto hash = sha_256::compute_hash(bin.data.data(), bin.data.size());
 			if (hash != ar->header.hashes[bin_idx]) {
-				log_error("universal binary %s: invalid binary (hash mismatch)", file_name);
+				log_error("universal binary $: invalid binary (hash mismatch)", file_name);
 				return {};
 			}
 			
@@ -362,7 +362,7 @@ namespace universal_binary {
 					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 6 && (cuda_target.ptx_isa_major < 7 ||
 																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
 					(cuda_dev.sm.x > 8 && (cuda_target.ptx_isa_major != 7 || cuda_target.ptx_isa_minor != 1))) {
-					log_error("invalid PTX version %u.%u for target %u",
+					log_error("invalid PTX version $.$ for target $",
 							  cuda_target.ptx_isa_major, cuda_target.ptx_isa_minor, cuda_dev.sm);
 					return {};
 				}
@@ -438,7 +438,7 @@ namespace universal_binary {
 						// fixed SIMD width must match requested one
 						if (mtl_dev.simd_width != mtl_target.simd_width &&
 							mtl_target.simd_width > 0) {
-							log_error("invalid required SIMD width: %u", mtl_target.simd_width);
+							log_error("invalid required SIMD width: $", mtl_target.simd_width);
 							return {};
 						}
 					}
@@ -544,7 +544,7 @@ namespace universal_binary {
 		// make sure we can open the output file before we start doing anything else
 		file_io archive(dst_archive_file_name, file_io::OPEN_TYPE::WRITE_BINARY);
 		if (!archive.is_open()) {
-			log_error("can't write archive to %s", dst_archive_file_name);
+			log_error("can't write archive to $", dst_archive_file_name);
 			return false;
 		}
 		
@@ -741,7 +741,7 @@ namespace universal_binary {
 					});
 					if (arg.special_type == llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
 						if (!arg.argument_buffer_info) {
-							log_error("missing argument buffer info for function %s", finfo.name);
+							log_error("missing argument buffer info for function $", finfo.name);
 							return false;
 						}
 						// delay argument buffer function info creation until after we have written the info for this function
@@ -1341,13 +1341,13 @@ namespace universal_binary {
 					if (riter->name == entry.name) {
 						found_func = true;
 						if (arg_idx >= (uint32_t)riter->args.size()) {
-							log_error("argument index %u is out-of-bounds for function %s with %u args", arg_idx, entry.name, riter->args.size());
+							log_error("argument index $ is out-of-bounds for function $ with $ args", arg_idx, entry.name, riter->args.size());
 							return {};
 						}
 						
 						auto& arg = riter->args[arg_idx];
 						if (arg.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
-							log_error("argument index %u in function %s is not an argument buffer", arg_idx, entry.name);
+							log_error("argument index $ in function $ is not an argument buffer", arg_idx, entry.name);
 							return {};
 						}
 						
@@ -1356,7 +1356,7 @@ namespace universal_binary {
 					}
 				}
 				if (!found_func) {
-					log_error("didn't find function %s for argument buffer", entry.name);
+					log_error("didn't find function $ for argument buffer", entry.name);
 					return {};
 				}
 			}
@@ -1368,7 +1368,7 @@ namespace universal_binary {
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const vector<const compute_device*>& devices) {
 		auto ar = universal_binary::load_archive(file_name);
 		if (ar == nullptr) {
-			log_error("failed to load universal binary: %s", file_name);
+			log_error("failed to load universal binary: $", file_name);
 			return {};
 		}
 		
@@ -1378,7 +1378,7 @@ namespace universal_binary {
 		for (const auto& dev : devices) {
 			const auto best_bin = universal_binary::find_best_match_for_device(*dev, *ar);
 			if (best_bin.first == nullptr) {
-				log_error("no matching binary found for device %s", dev->name);
+				log_error("no matching binary found for device $", dev->name);
 				return {};
 			}
 			dev_binaries.emplace_back(best_bin);

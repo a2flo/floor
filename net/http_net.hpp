@@ -119,7 +119,7 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	if(!(use_ssl ?
 		 (server.size() >= 8 && server.substr(0, 8) == "https://") :
 		 (server.size() >= 7 && server.substr(0, 7) == "http://"))) {
-		log_error("invalid request: %s", server);
+		log_error("invalid request: $", server);
 		failure = true;
 		return;
 	}
@@ -151,7 +151,7 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	
 	// finally: open connection ...
 	if(!reconnect()) {
-		log_error("couldn't connect to server: %s", server);
+		log_error("couldn't connect to server: $", server);
 		failure = true;
 		return;
 	}
@@ -235,7 +235,7 @@ void http_net::run() {
 		if(status_code == HTTP_STATUS::NONE) {
 			status_code = HTTP_STATUS::TIMEOUT;
 		}
-		log_error("timeout for %s%s request!", server_name, server_url);
+		log_error("timeout for $$ request!", server_name, server_url);
 		receive_cb(this, status_code, server_name, "timeout");
 		this->set_thread_should_finish();
 	}

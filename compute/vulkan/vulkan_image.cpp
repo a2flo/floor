@@ -112,7 +112,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// format conversion
 	const auto vk_format_opt = vulkan_format_from_image_type(image_type);
 	if (!vk_format_opt) {
-		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
+		log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	vk_format = *vk_format_opt;
@@ -464,7 +464,7 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 	// handle the pixel format
 	const auto img_type = vulkan_image::image_type_from_vulkan_format(info.format);
 	if (!img_type) {
-		log_error("unsupported image format: %X", info.format);
+		log_error("unsupported image format: $X", info.format);
 		return COMPUTE_IMAGE_TYPE::NONE;
 	}
 	type |= *img_type;
@@ -598,7 +598,7 @@ bool vulkan_image::unmap(const compute_queue& cqueue,
 						 void* __attribute__((aligned(128))) mapped_ptr) {
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	

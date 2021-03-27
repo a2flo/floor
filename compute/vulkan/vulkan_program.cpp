@@ -158,7 +158,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									}
 									break;
 								case ARG_ADDRESS_SPACE::LOCAL:
-									log_error("arg with a local address space is not supported (#%u in %s)", i, func_name);
+									log_error("arg with a local address space is not supported (#$ in $)", i, func_name);
 									valid_desc = false;
 									break;
 								case ARG_ADDRESS_SPACE::UNKNOWN:
@@ -180,11 +180,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 									++ssbo_desc;
 								} else {
-									log_error("invalid implicit arg count for function \"%s\": %u is out-of-bounds", func_name, implicit_arg_num);
+									log_error("invalid implicit arg count for function \"$\": $ is out-of-bounds", func_name, implicit_arg_num);
 									valid_desc = false;
 								}
 							} else {
-								log_error("invalid arg count for function \"%s\": %u is out-of-bounds", func_name, i);
+								log_error("invalid arg count for function \"$\": $ is out-of-bounds", func_name, i);
 								valid_desc = false;
 							}
 						}
@@ -194,7 +194,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						++binding_idx;
 					}
 					if(!valid_desc) {
-						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", func_name, prog.first.get().name);
+						log_error("invalid descriptor bindings for function \"$\" for device \"$\"!", func_name, prog.first.get().name);
 						continue;
 					}
 					
@@ -297,7 +297,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// find spir-v module index for this function
 					const auto mod_iter = prog.second.func_to_mod_map.find(func_name);
 					if(mod_iter == prog.second.func_to_mod_map.end()) {
-						log_error("did not find a module mapping for function \"%s\"", func_name);
+						log_error("did not find a module mapping for function \"$\"", func_name);
 						continue;
 					}
 					

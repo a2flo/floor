@@ -30,7 +30,7 @@ using namespace std;
 //! floor logging functions, use appropriately
 //! note that you don't actually have to use a specific character for %_ to print the
 //! correct type (the ostream operator<< is used and the %_ character is ignored - except
-//! for %x (lowercase), %X (uppercase) and %Y (uppercase + fill to width) which will print
+//! for $x (lowercase), $X (uppercase) and $Y (uppercase + fill to width) which will print
 //! out an integer in hex format)
 #define log_error(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, str, ##__VA_ARGS__)
 #define log_warn(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::WARNING_MSG, __FILE__, __func__, str, ##__VA_ARGS__)
@@ -54,17 +54,8 @@ public:
 		size_t arg_count = 0;
 		for (size_t i = 0, len = __builtin_strlen(str); i < len; ++i) {
 			const auto& ch = str[i];
-			// expecting "%_" for arguments, "%%" for '%', and single '%' at end of string is ignored
-			if (ch == '%') {
-				if (i + 1 < len && str[i + 1] != '%') {
-					++arg_count;
-					++i;
-				} else {
-					++i; // skip '%'
-				}
-			}
 			// expecting "$" for arguments, "$$" for '$', single '$' at the end of string is an argument
-			else if (ch == '$') {
+			if (ch == '$') {
 				if (i + 1 == len || (i + 1 < len && str[i + 1] != '$')) {
 					++arg_count;
 					++i;
@@ -132,7 +123,7 @@ protected:
 		typedef underlying_type_t<U> type;
 	};
 	//! handles the log format
-	//! only %x, %X and %Y are supported at the moment, in all other cases the standard ostream operator<< is used!
+	//! only $x, $X and $Y are supported at the moment, in all other cases the standard ostream operator<< is used!
 	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
 		using decayed_type = decay_t<T>;
 		using print_type = conditional_t<is_enum<decayed_type>::value,
@@ -206,20 +197,7 @@ protected:
 																	 const char* str, T&& value, Args&&... args) {
 		for (size_t i = 0, len = __builtin_strlen(str); i < len; ++i) {
 			const auto& ch = str[i];
-			// expecting "%_" for arguments, "%%" for '%', and single '%' at end of string is ignored
-			if (ch == '%') {
-				if (i + 1 < len && str[i + 1] != '%') {
-					handle_format(buffer, str[i + 1], value);
-					if (i + 2 < len) {
-						log_internal(buffer, type, &str[i + 2], std::forward<Args>(args)...);
-					} else {
-						log_internal(buffer, type, nullptr);
-					}
-					return;
-				}
-			}
-			// expecting "$" for arguments, "$$" for '$', single '$' at the end of string is an argument
-			else if (ch == '$') {
+			if (ch == '$') {
 				if (i + 1 == len) {
 					// end of string with no format
 					handle_format(buffer, '\0', value);

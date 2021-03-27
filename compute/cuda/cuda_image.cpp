@@ -81,13 +81,13 @@ namespace cuda_image_support {
 		// compile internal shaders
 		const auto depth_to_color_shd = floor_compile_shader("BLIT_DEPTH_TO_COLOR", blit_vs_text, blit_to_color_fs_text);
 		if(!depth_to_color_shd.first) {
-			log_error("failed to compile internal shader: %s", depth_to_color_shd.second.name);
+			log_error("failed to compile internal shader: $", depth_to_color_shd.second.name);
 		}
 		else shaders[(uint32_t)CUDA_SHADER::BLIT_DEPTH_TO_COLOR] = depth_to_color_shd.second;
 		
 		const auto color_to_depth_shd = floor_compile_shader("BLIT_COLOR_TO_DEPTH", blit_vs_text, blit_to_depth_fs_text);
 		if(!color_to_depth_shd.first) {
-			log_error("failed to compile internal shader: %s", color_to_depth_shd.second.name);
+			log_error("failed to compile internal shader: $", color_to_depth_shd.second.name);
 		}
 		else shaders[(uint32_t)CUDA_SHADER::BLIT_COLOR_TO_DEPTH] = color_to_depth_shd.second;
 	}
@@ -253,7 +253,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	if(is_cube) {
 		// make sure width == height
 		if(image_dim.x != image_dim.y) {
-			log_error("cube map side width and height must be equal (%u != %u)!", image_dim.x, image_dim.y);
+			log_error("cube map side width and height must be equal ($ != $)!", image_dim.x, image_dim.y);
 			return false;
 		}
 	}
@@ -308,7 +308,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 														   COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
 														   COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
 	if(cuda_format == end(format_lut)) {
-		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
+		log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	
@@ -371,7 +371,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	};
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
 	   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-		log_debug("surf/tex %u/%u; dim %u: %v; channels %u; flags %u; format: %X",
+		log_debug("surf/tex $/$; dim $: $; channels $; flags $; format: $X",
 				  need_surf, need_tex, dim_count, array_desc.dim, array_desc.channel_count, array_desc.flags, array_desc.format);
 		if(!is_mip_mapped) {
 			CU_CALL_RET(cu_array_3d_create(&image_array, &array_desc),
@@ -392,7 +392,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			log_debug("copying %u bytes from %X to array %X",
+			log_debug("copying $ bytes from $X to array $X",
 					  image_data_size, host_ptr, image);
 			auto cpy_host_ptr = (uint8_t*)host_ptr;
 			apply_on_levels([this, &cpy_host_ptr](const uint32_t& level,
@@ -421,7 +421,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		// import
 		const auto vk_image_size = shared_vk_image->get_vulkan_allocation_size();
 		if (vk_image_size < image_data_size) {
-			log_error("Vulkan image allocation size (%u) is smaller than the specified CUDA image size (%u)",
+			log_error("Vulkan image allocation size ($) is smaller than the specified CUDA image size ($)",
 					  vk_image_size, image_data_size);
 			return false;
 		}
@@ -474,7 +474,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	// -> OpenGL image
 	else {
 		if(!create_gl_image(copy_host_data)) return false;
-		log_debug("surf/tex %u/%u", need_surf, need_tex);
+		log_debug("surf/tex $/$", need_surf, need_tex);
 		
 		// cuda doesn't support depth textures
 		// -> need to create a compatible texture and copy it on the gpu
@@ -503,7 +503,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 					rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::FLOAT_1X32;
 					break;
 				default:
-					log_error("can't share opengl depth format %X with cuda", gl_internal_format);
+					log_error("can't share opengl depth format $X with cuda", gl_internal_format);
 					return false;
 			}
 			
@@ -529,7 +529,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 				// check if depth 2D image, others are not supported (stencil should work by simply being dropped)
 				if(is_array || is_cube ||
 				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					log_error("unsupported depth image format (%X), only 2D depth or depth+stencil is supported!",
+					log_error("unsupported depth image format ($X), only 2D depth or depth+stencil is supported!",
 							  image_type);
 					return false;
 				}
@@ -547,7 +547,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 				const auto err = glGetError();
 				const auto fbo_err = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 				if(err != 0 || fbo_err != GL_FRAMEBUFFER_COMPLETE) {
-					log_error("depth compat fbo/tex error: %X %X", err, fbo_err);
+					log_error("depth compat fbo/tex error: $X $X", err, fbo_err);
 					return false;
 				}
 				
@@ -888,7 +888,7 @@ bool cuda_image::unmap(const compute_queue& cqueue,
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	

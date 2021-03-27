@@ -220,7 +220,7 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 
 	const size_t new_size = align_size(new_size_);
 	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
 				  min_multiple(), new_size, new_size_);
 	}
 	

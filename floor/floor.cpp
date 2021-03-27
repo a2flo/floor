@@ -814,7 +814,7 @@ bool floor::init_internal(const init_state& state) {
 
 	// initialize sdl
 	if(SDL_Init(console_only ? 0 : SDL_INIT_VIDEO) == -1) {
-		log_error("failed to initialize SDL: %s", SDL_GetError());
+		log_error("failed to initialize SDL: $", SDL_GetError());
 		return false;
 	}
 	else {
@@ -869,7 +869,7 @@ bool floor::init_internal(const init_state& state) {
 		config.flags |= SDL_WINDOW_SHOWN;
 #endif
 		
-		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
+		log_debug("vsync $", config.vsync ? "enabled" : "disabled");
 		
 		// handle hidpi
 		int2 init_screen_size{ (int)config.width, (int)config.height };
@@ -878,7 +878,7 @@ bool floor::init_internal(const init_state& state) {
 		}
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		SDL_SetHint("SDL_HINT_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
-		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
+		log_debug("hidpi $", config.hidpi ? "enabled" : "disabled");
 
 #if defined(__WINDOWS__)
 		if (config.hidpi) {
@@ -888,7 +888,7 @@ bool floor::init_internal(const init_state& state) {
 				// update wanted window size based on DPI scaler
 				if (!config.fullscreen) {
 					init_screen_size = (init_screen_size.cast<double>() * windows_dpi_scaler).cast<int>();
-					log_debug("DPI-scaled window size: (%v, %v) -> %v", config.width, config.height, init_screen_size);
+					log_debug("DPI-scaled window size: ($, $) -> $", config.width, config.height, init_screen_size);
 				}
 			}
 		}
@@ -944,11 +944,11 @@ bool floor::init_internal(const init_state& state) {
 		
 #if 0 // for debugging purposes: dump all display modes
 		const auto disp_num = SDL_GetNumDisplayModes(0);
-		log_debug("#disp modes: %u", disp_num);
+		log_debug("#disp modes: $", disp_num);
 		for(int32_t i = 0; i < disp_num; ++i) {
 			SDL_DisplayMode mode;
 			SDL_GetDisplayMode(0, i, &mode);
-			log_debug("disp mode #%i: %i x %i, %i Hz, format %X", i, mode.w, mode.h, mode.refresh_rate, mode.format);
+			log_debug("disp mode #$: $ x $, $ Hz, format $X", i, mode.w, mode.h, mode.refresh_rate, mode.format);
 		}
 #endif
 		
@@ -959,7 +959,7 @@ bool floor::init_internal(const init_state& state) {
 		window = SDL_CreateWindow(app_name.c_str(), 0, 0, (int)config.width, (int)config.height, config.flags);
 #endif
 		if(window == nullptr) {
-			log_error("can't create window: %s", SDL_GetError());
+			log_error("can't create window: $", SDL_GetError());
 			return false;
 		}
 		else {
@@ -972,7 +972,7 @@ bool floor::init_internal(const init_state& state) {
 			SDL_GetWindowSize(window, (int*)&wnd_size.x, (int*)&wnd_size.y);
 			config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
 			config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
-			log_debug("video mode set: w%u h%u", config.width, config.height);
+			log_debug("video mode set: w$ h$", config.width, config.height);
 			
 #if defined(__APPLE__)
 			// cache window scale factor while we're on the main thread
@@ -982,11 +982,11 @@ bool floor::init_internal(const init_state& state) {
 		
 #if defined(FLOOR_IOS)
 		if(SDL_SetWindowDisplayMode(window, &fullscreen_mode) < 0) {
-			log_error("can't set up fullscreen display mode: %s", SDL_GetError());
+			log_error("can't set up fullscreen display mode: $", SDL_GetError());
 			return false;
 		}
 		SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
-		log_debug("fullscreen mode set: w%u h%u", config.width, config.height);
+		log_debug("fullscreen mode set: w$ h$", config.width, config.height);
 		SDL_ShowWindow(window);
 #endif
 
@@ -1004,7 +1004,7 @@ bool floor::init_internal(const init_state& state) {
 				if (config.vr_height == 0) {
 					config.vr_height = vr_ctx->get_recommended_render_size().y;
 				}
-				log_debug("VR per-eye render size: w%u h%u", config.vr_width, config.vr_height);
+				log_debug("VR per-eye render size: w$ h$", config.vr_width, config.vr_height);
 
 				evt->set_vr_context(vr_ctx.get());
 			}
@@ -1017,7 +1017,7 @@ bool floor::init_internal(const init_state& state) {
 			if (renderer == RENDERER::OPENGL) {
 				opengl_ctx = SDL_GL_CreateContext(window);
 				if (opengl_ctx == nullptr) {
-					log_error("can't create OpenGL context: %s", SDL_GetError());
+					log_error("can't create OpenGL context: $", SDL_GetError());
 					renderer = RENDERER::NONE;
 					break;
 				}
@@ -1025,7 +1025,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_IOS)
 				// has to be set after context creation
 				if (SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-					log_error("error setting the OpenGL swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
+					log_error("error setting the OpenGL swap interval to $ (vsync): $", config.vsync, SDL_GetError());
 					SDL_ClearError();
 				}
 				
@@ -1035,7 +1035,7 @@ bool floor::init_internal(const init_state& state) {
 				CGLContextObj cgl_ctx = CGLGetCurrentContext();
 				CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
 				if (cgl_err != kCGLNoError) {
-					log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
+					log_error("unable to set multi-threaded opengl context ($X: $X): $!",
 							  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
 				} else {
 					log_debug("multi-threaded opengl context enabled!");
@@ -1089,15 +1089,15 @@ bool floor::init_internal(const init_state& state) {
 #endif
 	
 	if(!console_only) {
-		log_debug("window %screated and acquired!",
+		log_debug("window $created and acquired!",
 				  renderer == RENDERER::OPENGL ? "and OpenGL context " :
 				  renderer == RENDERER::METAL ? "and Metal context " :
 				  renderer == RENDERER::VULKAN ? "and Vulkan context " : "");
 		
 		if(SDL_GetCurrentVideoDriver() == nullptr) {
-			log_error("couldn't get video driver: %s!", SDL_GetError());
+			log_error("couldn't get video driver: $!", SDL_GetError());
 		}
-		else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
+		else log_debug("video driver: $", SDL_GetCurrentVideoDriver());
 		
 		if(renderer == RENDERER::OPENGL) {
 			// initialize opengl functions (get function pointers) on non-apple platforms
@@ -1146,13 +1146,13 @@ bool floor::init_internal(const init_state& state) {
 			//
 			int tmp = 0;
 			SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
-			log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
+			log_debug("double buffering $", tmp == 1 ? "enabled" : "disabled");
 			
 			// print out some opengl informations
 			gl_vendor = (const char*)glGetString(GL_VENDOR);
-			log_debug("vendor: %s", gl_vendor);
-			log_debug("renderer: %s", glGetString(GL_RENDERER));
-			log_debug("version: %s", glGetString(GL_VERSION));
+			log_debug("vendor: $", gl_vendor);
+			log_debug("renderer: $", glGetString(GL_RENDERER));
+			log_debug("version: $", glGetString(GL_VERSION));
 			
 			// initialize ogl
 			init_gl();
@@ -1193,7 +1193,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// set dpi lower bound to 72
 		if(config.dpi < 72) config.dpi = 72;
-		log_debug("dpi: %u", config.dpi);
+		log_debug("dpi: $", config.dpi);
 	}
 	
 	// always create and init compute context (even in console-only mode)
@@ -1280,7 +1280,7 @@ bool floor::init_internal(const init_state& state) {
 			
 			if(compute_ctx != nullptr) {
 				if(!compute_ctx->is_supported()) {
-					log_error("failed to create a \"%s\" context, trying next backend ...", compute_type_to_string(backend));
+					log_error("failed to create a \"$\" context, trying next backend ...", compute_type_to_string(backend));
 					compute_ctx = nullptr;
 				}
 				else {
@@ -1326,7 +1326,7 @@ void floor::set_fullscreen(const bool& state) {
 	if(state == config.fullscreen) return;
 	config.fullscreen = state;
 	if(SDL_SetWindowFullscreen(window, (SDL_bool)state) != 0) {
-		log_error("failed to %s fullscreen: %s!",
+		log_error("failed to $ fullscreen: $!",
 				  (state ? "enable" : "disable"), SDL_GetError());
 	}
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
@@ -1371,7 +1371,7 @@ void floor::end_frame(const bool window_swap) {
 				log_error("OpenGL error: invalid framebuffer operation!");
 				break;
 			default:
-				log_error("unknown OpenGL error: %u!", error);
+				log_error("unknown OpenGL error: $!", error);
 				break;
 		}
 	}
@@ -1610,7 +1610,7 @@ uint32_t floor::get_window_refresh_rate() {
 	else {
 		SDL_DisplayMode mode;
 		if(SDL_GetCurrentDisplayMode(display_index, &mode) < 0) {
-			log_error("failed to retrieve current display mode (for display #%u)", display_index);
+			log_error("failed to retrieve current display mode (for display #$)", display_index);
 			return 60;
 		}
 		return (mode.refresh_rate < 0 ? 60 : uint32_t(mode.refresh_rate));
@@ -1728,7 +1728,7 @@ void floor::acquire_context() {
 	if(use_gl_context && opengl_ctx != nullptr) {
 		if(cur_active_locks == 0) {
 			if(SDL_GL_MakeCurrent(window, opengl_ctx) != 0) {
-				log_error("couldn't make gl context current: %s!", SDL_GetError());
+				log_error("couldn't make gl context current: $!", SDL_GetError());
 				return;
 			}
 		}
@@ -1743,7 +1743,7 @@ void floor::release_context() {
 	const uint32_t cur_active_locks = --ctx_active_locks;
 	if(use_gl_context && opengl_ctx != nullptr && cur_active_locks == 0) {
 		if(SDL_GL_MakeCurrent(window, nullptr) != 0) {
-			log_error("couldn't release current gl context: %s!", SDL_GetError());
+			log_error("couldn't release current gl context: $!", SDL_GetError());
 			return;
 		}
 	}
@@ -2138,7 +2138,7 @@ bool enable_windows_hidpi() {
 	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
 	const auto max_dpi = max(max(max(hdpi, vdpi), ddpi), 96.0f);
 	windows_dpi_scaler = double(max_dpi) / 96.0;
-	log_debug("DPI scaler: %v", windows_dpi_scaler);
+	log_debug("DPI scaler: $", windows_dpi_scaler);
 
 	return true;
 }

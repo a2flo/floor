@@ -56,9 +56,9 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 					
 #if 0 // dump kernel + kernel args info
 					const auto arg_count = cl_get_info<CL_KERNEL_NUM_ARGS>(entry.kernel);
-					log_debug("kernel %s: arg count: %u", kernel_name, arg_count);
+					log_debug("kernel $: arg count: $", kernel_name, arg_count);
 					for(uint32_t i = 0; i < arg_count; ++i) {
-						log_debug("\targ #%u: %s: %u %u %s %u", i,
+						log_debug("\targ #$: $: $ $ $ $", i,
 								  cl_get_info<CL_KERNEL_ARG_NAME>(entry.kernel, i),
 								  cl_get_info<CL_KERNEL_ARG_ADDRESS_QUALIFIER>(entry.kernel, i),
 								  cl_get_info<CL_KERNEL_ARG_ACCESS_QUALIFIER>(entry.kernel, i),

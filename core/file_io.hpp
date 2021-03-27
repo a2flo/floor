@@ -132,7 +132,7 @@ public:
 		file.get_filestream()->read((char*)&ret[0], (streamsize)readable_size);
 		const auto read_size = file.get_filestream()->gcount();
 		if (read_size != (decltype(read_size))readable_size) {
-			log_error("expected %u bytes, but only read %u bytes", readable_size, read_size);
+			log_error("expected $ bytes, but only read $ bytes", readable_size, read_size);
 			return {};
 		}
 		file.close();

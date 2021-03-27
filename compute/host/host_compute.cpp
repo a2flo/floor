@@ -207,13 +207,13 @@ host_compute::host_compute() : compute_context() {
 	fastest_cpu_device = devices[0].get();
 	fastest_device = fastest_cpu_device;
 	
-	log_debug("CPU (%s, Units: %u, Clock: %u MHz, Memory: %u MB): %s",
+	log_debug("CPU ($, Units: $, Clock: $ MHz, Memory: $ MB): $",
 			  host_cpu_tier_to_string(device.cpu_tier),
 			  fastest_cpu_device->units,
 			  fastest_cpu_device->clock,
 			  uint32_t(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
 			  fastest_cpu_device->name);
-	log_debug("fastest CPU device: %s, %s (score: %u)",
+	log_debug("fastest CPU device: $, $ (score: $)",
 			  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_device->units * fastest_cpu_device->clock);
 	
 	// for now: only maintain a single queue
@@ -325,7 +325,7 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: %s", file_name);
+		log_error("failed to load universal binary: $", file_name);
 		return {};
 	}
 	

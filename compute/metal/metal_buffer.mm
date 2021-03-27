@@ -480,7 +480,7 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 		// check if this is actually a mapped pointer (+get the mapped size)
 		const auto iter = mappings.find(mapped_ptr);
 		if(iter == mappings.end()) {
-			log_error("invalid mapped pointer: %X", mapped_ptr);
+			log_error("invalid mapped pointer: $X", mapped_ptr);
 			return false;
 		}
 		

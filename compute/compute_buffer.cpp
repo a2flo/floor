@@ -33,7 +33,7 @@ compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), si
 		log_error("can't allocate a buffer of size 0!");
 	}
 	else if(size_ != size) {
-		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
 				  min_multiple(), size, size_);
 	}
 	else if(size > 0xFFFFFFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
@@ -65,7 +65,7 @@ bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
 	glGenBuffers(1, &gl_object);
 	glBindBuffer(opengl_type, gl_object);
 	if(gl_object == 0 || !glIsBuffer(gl_object)) {
-		log_error("created opengl buffer %u is invalid!", gl_object);
+		log_error("created opengl buffer $ is invalid!", gl_object);
 		return false;
 	}
 	
@@ -90,7 +90,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		return {};
 	}
 	if(!glIsBuffer(opengl_buffer)) {
-		log_error("opengl object %u is not a buffer!", opengl_buffer);
+		log_error("opengl object $ is not a buffer!", opengl_buffer);
 		return {};
 	}
 	
@@ -180,7 +180,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_COPY_WRITE_BUFFER:
 		case GL_PIXEL_PACK_BUFFER:
 		case GL_PIXEL_UNPACK_BUFFER:
-			log_error("can't create a buffer of opengl type %X!", opengl_type_);
+			log_error("can't create a buffer of opengl type $X!", opengl_type_);
 			break;
 		default:
 			// unknown buffer type, can't do anything here
@@ -196,7 +196,7 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	
 	// size check
 	if(buffer_size % int(min_multiple()) != 0) {
-		log_warn("opengl buffer size should be aligned to %u bytes!", min_multiple());
+		log_warn("opengl buffer size should be aligned to $ bytes!", min_multiple());
 	}
 	
 	// restore/rebind

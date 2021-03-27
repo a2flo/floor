@@ -184,7 +184,7 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 	
 	const auto written_args_size = distance(&kernel_params_data[0], data);
 	if((size_t)written_args_size != kernel_iter->second.kernel_args_size) {
-		log_error("invalid kernel parameters size (in %s): got %u, expected %u",
+		log_error("invalid kernel parameters size (in $): got $, expected $",
 				  kernel_iter->second.info->name,
 				  written_args_size, kernel_iter->second.kernel_args_size);
 		return;

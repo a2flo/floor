@@ -46,12 +46,12 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 			break;
 		}
 		if (entry_size % 4u != 0u) {
-			log_error("invalid entry size: %u (expected multiple of 4)", entry_size);
+			log_error("invalid entry size: $ (expected multiple of 4)", entry_size);
 			break;
 		}
 		
 		if (cur_size + entry_size > bytes_written) {
-			log_error("out-of-bounds entry: total %u, entry: %u", bytes_written, cur_size + entry_size);
+			log_error("out-of-bounds entry: total $, entry: $", bytes_written, cur_size + entry_size);
 			break;
 		}
 		uint32_t entry_bytes_parsed = 4;
@@ -145,7 +145,7 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 					case 't': // ptrdiff
 					case 'L': // long double
 						if (++ch == format_str.cend()) {
-							log_error("premature end of format string after '%c'", cur_ch);
+							log_error("premature end of format string after '$'", cur_ch);
 							is_invalid = true;
 							break;
 						}
@@ -201,11 +201,11 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 					case 'g':
 					case 'n':
 					case 'p':
-						log_error("unsupported format specifier: %c", *ch);
+						log_error("unsupported format specifier: $", *ch);
 						is_invalid = true;
 						break;
 					default:
-						log_error("unknown/invalid format specifier: %c", *ch);
+						log_error("unknown/invalid format specifier: $", *ch);
 						is_invalid = true;
 						break;
 				}

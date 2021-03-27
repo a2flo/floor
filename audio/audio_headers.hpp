@@ -55,13 +55,13 @@ namespace floor_audio {
 
 #define AL_IS_ERROR() ([]() -> bool { \
 	int al_error = alGetError(); \
-	if(al_error != AL_NO_ERROR) { log_error("OpenAL Error in line #%u: %X: %s", __LINE__, al_error, AL_ERROR_TO_STR(al_error)); } \
+	if(al_error != AL_NO_ERROR) { log_error("OpenAL Error in line #$: $X: $", __LINE__, al_error, AL_ERROR_TO_STR(al_error)); } \
 	return (al_error != AL_NO_ERROR); \
 }())
 
 #define AL_CLEAR_ERROR() ([]() { \
 	int al_error = alGetError(); \
-	if(al_error != AL_NO_ERROR) { log_error("(CLEAR) OpenAL Error in line #%u: %X: %s", __LINE__, al_error, AL_ERROR_TO_STR(al_error)); } \
+	if(al_error != AL_NO_ERROR) { log_error("(CLEAR) OpenAL Error in line #$: $X: $", __LINE__, al_error, AL_ERROR_TO_STR(al_error)); } \
 }())
 
 #define AL(_AL_CALL) {\

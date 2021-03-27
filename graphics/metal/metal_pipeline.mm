@@ -59,7 +59,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			
 			const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(color_att.format);
 			if (!metal_pixel_format) {
-				log_error("no matching Metal pixel format found for color image type %X", color_att.format);
+				log_error("no matching Metal pixel format found for color image type $X", color_att.format);
 				return;
 			}
 			mtl_pipeline_desc.colorAttachments[i].pixelFormat = *metal_pixel_format;
@@ -100,7 +100,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		if (pipeline_desc.depth_attachment.format != COMPUTE_IMAGE_TYPE::NONE) {
 			const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
 			if (!metal_pixel_format) {
-				log_error("no matching Metal pixel format found for depth image type %X", pipeline_desc.depth_attachment.format);
+				log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
 				return;
 			}
 			mtl_pipeline_desc.depthAttachmentPixelFormat = *metal_pixel_format;
@@ -136,7 +136,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		NSError* error = nullptr;
 		entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc error:&error];
 		if (!entry.pipeline_state) {
-			log_error("failed to create pipeline state for device %s: %s", dev->name,
+			log_error("failed to create pipeline state for device $: $", dev->name,
 					  (error != nullptr ? [[error localizedDescription] UTF8String] : "unknown error"));
 			return;
 		}
@@ -150,7 +150,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		depth_stencil_desc.depthCompareFunction = metal_compare_func_from_depth_compare(pipeline_desc.depth.compare);
 		entry.depth_stencil_state = [mtl_dev newDepthStencilStateWithDescriptor:depth_stencil_desc];
 		if (!entry.depth_stencil_state) {
-			log_error("failed to create depth/stencil state for device %s", dev->name);
+			log_error("failed to create depth/stencil state for device $", dev->name);
 			return;
 		}
 		

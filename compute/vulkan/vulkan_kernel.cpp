@@ -32,7 +32,7 @@ using namespace llvm_toolchain;
 uint64_t vulkan_kernel::vulkan_kernel_entry::make_spec_key(const uint3& work_group_size) {
 #if defined(FLOOR_DEBUG)
 	if((work_group_size.yz >= 65536u).any()) {
-		log_error("work-group size is too big: %v", work_group_size);
+		log_error("work-group size is too big: $", work_group_size);
 		return 0;
 	}
 #endif
@@ -84,7 +84,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
-	log_debug("specializing %s for %v ...", info->name, work_group_size); logger::flush();
+	log_debug("specializing $ for $ ...", info->name, work_group_size); logger::flush();
 	VK_CALL_RET(vkCreateComputePipelines(device.device, nullptr, 1, &pipeline_info, nullptr,
 										 &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
@@ -206,7 +206,7 @@ VkPipeline vulkan_kernel::get_pipeline_spec(const vulkan_device& device,
 	// not built/specialized yet, do so now
 	const auto spec_entry = entry.specialize(device, work_group_size);
 	if(spec_entry == nullptr) {
-		log_error("run-time specialization of kernel %s with work-group size %v failed",
+		log_error("run-time specialization of kernel $ with work-group size $ failed",
 				  entry.info->name, work_group_size);
 		return entry.specializations.begin()->second.pipeline;
 	}
@@ -358,7 +358,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 								  kernel_iter->second.pipeline_layout,
 								  shader_entries, encoder_success);
 	if(!encoder_success) {
-		log_error("failed to create vulkan encoder / command buffer for kernel \"%s\"", kernel_iter->second.info->name);
+		log_error("failed to create vulkan encoder / command buffer for kernel \"$\"", kernel_iter->second.info->name);
 		return;
 	}
 	
@@ -631,7 +631,7 @@ floor_inline_always static void set_image_array_argument(vulkan_encoder& encoder
 	const auto elem_count = entry.info->args[idx.arg].size;
 #if defined(FLOOR_DEBUG)
 	if(elem_count != image_array.size()) {
-		log_error("invalid image array: expected %u elements, got %u elements", elem_count, image_array.size());
+		log_error("invalid image array: expected $ elements, got $ elements", elem_count, image_array.size());
 		return;
 	}
 #endif

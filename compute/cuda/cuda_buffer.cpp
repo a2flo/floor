@@ -131,7 +131,7 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 			// import
 			const auto vk_buffer_size = shared_vk_buffer->get_vulkan_allocation_size();
 			if (vk_buffer_size < size) {
-				log_error("Vulkan buffer allocation size (%u) is smaller than the specified CUDA buffer size (%u)",
+				log_error("Vulkan buffer allocation size ($) is smaller than the specified CUDA buffer size ($)",
 						  vk_buffer_size, size);
 				return false;
 			}
@@ -355,7 +355,7 @@ bool cuda_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	
 	const size_t new_size = align_size(new_size_);
 	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
 				  min_multiple(), new_size, new_size_);
 	}
 	
@@ -491,7 +491,7 @@ bool cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	
@@ -529,7 +529,7 @@ bool cuda_buffer::acquire_opengl_object(const compute_queue* cqueue) {
 				"failed to retrieve mapped cuda buffer pointer from opengl buffer!", false)
 	
 	if(ret_size != size) {
-		log_warn("size mismatch between shared opengl buffer and mapped cuda buffer: expected %u, got %u!",
+		log_warn("size mismatch between shared opengl buffer and mapped cuda buffer: expected $, got $!",
 				 size, ret_size);
 	}
 	if(buffer == 0) {

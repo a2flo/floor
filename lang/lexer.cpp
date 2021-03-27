@@ -69,7 +69,7 @@ void lexer::map_characters(translation_unit& tu) {
 lexer::lex_return_type lexer::handle_error(const translation_unit& tu, const source_iterator& iter, const string& error_msg) {
 	// print the error (<file>:<line>:<column>: error: <error-text>)
 	const auto line_and_column = get_line_and_column_from_iter(tu, iter);
-	log_error("%s:%u:%u: error: %s",
+	log_error("$:$:$: error: $",
 			  tu.file_name, line_and_column.first, line_and_column.second, error_msg);
 	
 	// print erroneous line if possible
@@ -79,12 +79,12 @@ lexer::lex_return_type lexer::handle_error(const translation_unit& tu, const sou
 		const auto line_end = tu.lines.lower_bound(iter);
 		const auto line_start = prev(line_end);
 		const string line_str = tu.source.substr(size_t(distance(*lines_begin, *line_start)), size_t(*line_end - *line_start) - 1u);
-		log_undecorated("%s", line_str);
+		log_undecorated("$", line_str);
 		
 		// print '^' at erroneous character if possible
 		if(line_and_column.second != 0) {
 			const string caret_string(line_and_column.second - 1, ' ');
-			log_undecorated("%s^", caret_string);
+			log_undecorated("$^", caret_string);
 		}
 	}
 	

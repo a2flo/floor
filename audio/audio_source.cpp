@@ -57,7 +57,7 @@ identifier(identifier_), type(type_), data(data_) {
 		//
 		const auto max_effect_count = std::min((size_t)2u, data_ptr->effects.size());
 		if(max_effect_count < data_ptr->effects.size()) {
-			log_error("can't use #%u effects specified in the audio data!",
+			log_error("can't use #$ effects specified in the audio data!",
 					  data_ptr->effects.size() - max_effect_count);
 		}
 		

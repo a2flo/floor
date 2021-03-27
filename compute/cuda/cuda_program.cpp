@@ -79,7 +79,7 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 					int min_grid_size = 0, block_size = 0;
 					CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, entry.kernel, nullptr, 0, 0),
 									  "failed to compute max potential occupancy");
-					log_debug("%s max occupancy: grid size >= %u with block size %u", kernel_name, min_grid_size, block_size);
+					log_debug("$ max occupancy: grid size >= $ with block size $", kernel_name, min_grid_size, block_size);
 					
 					//
 					static const array<uint32_t, 6> check_local_sizes {{
@@ -90,7 +90,7 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 						CU_CALL_NO_ACTION(cu_occupancy_max_active_blocks_per_multiprocessor(&block_count, entry.kernel,
 																							int(local_size), 0),
 										  "failed to compute max active blocks per mp");
-						log_debug("%s: #blocks: %u for local-size %u", kernel_name, block_count, local_size);
+						log_debug("$: #blocks: $ for local-size $", kernel_name, block_count, local_size);
 					}
 #endif
 					

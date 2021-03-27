@@ -46,7 +46,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	const auto to_driver_minor = [](const uint32_t& version) { return (version % 100) / 10; };
 	cu_driver_get_version((int*)&driver_version);
 	if(driver_version < FLOOR_CUDA_API_VERSION_MIN) {
-		log_error("at least CUDA %u.%u is required, got CUDA %u.%u!",
+		log_error("at least CUDA $.$ is required, got CUDA $.$!",
 				  to_driver_major(FLOOR_CUDA_API_VERSION_MIN), to_driver_minor(FLOOR_CUDA_API_VERSION_MIN),
 				  to_driver_major(driver_version), to_driver_minor(driver_version));
 		return;
@@ -61,14 +61,14 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	}
 	
 	has_external_memory_support = cuda_can_use_external_memory();
-	log_msg("CUDA external memory support: %v", has_external_memory_support ? "yes" : "no");
+	log_msg("CUDA external memory support: $", has_external_memory_support ? "yes" : "no");
 	
 	// sm force debug info
 	if(!floor::get_cuda_force_driver_sm().empty()) {
-		log_debug("forced driver sm: sm_%s", floor::get_cuda_force_driver_sm());
+		log_debug("forced driver sm: sm_$", floor::get_cuda_force_driver_sm());
 	}
 	if(!floor::get_cuda_force_compile_sm().empty()) {
-		log_debug("forced compile sm: sm_%s", floor::get_cuda_force_compile_sm());
+		log_debug("forced compile sm: sm_$", floor::get_cuda_force_compile_sm());
 	}
 
 	// go through all available devices and check if we can use them
@@ -103,7 +103,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		int2 cc;
 		CU_CALL_IGNORE(cu_device_compute_capability(&cc.x, &cc.y, cuda_dev))
 		if(cc.x < 3) {
-			log_error("unsupported cuda device \"%s\": at least compute capability 3.0 is required (has %u.%u)!",
+			log_error("unsupported cuda device \"$\": at least compute capability 3.0 is required (has $.$)!",
 					  dev_name, cc.x, cc.y);
 			continue;
 		}
@@ -260,26 +260,26 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		}
 		
 		// additional info
-		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+		log_msg("mem size: $ MB (global), $ KB (local), $ KB (constant)",
 				device.global_mem_size / 1024ULL / 1024ULL,
 				device.local_mem_size / 1024ULL,
 				device.constant_mem_size / 1024ULL);
-		log_msg("host unified memory: %u", device.unified_memory);
-		log_msg("coop kernels: %u", device.cooperative_kernel_support);
-		log_msg("max total local size: %u", device.max_total_local_size);
-		log_msg("max local size: %v", device.max_local_size);
-		log_msg("max global size: %v", device.max_global_size);
-		log_msg("max cuda grid-dim: %u", max_grid_dim);
-		log_msg("max mip-levels: %u", device.max_mip_levels);
+		log_msg("host unified memory: $", device.unified_memory);
+		log_msg("coop kernels: $", device.cooperative_kernel_support);
+		log_msg("max total local size: $", device.max_total_local_size);
+		log_msg("max local size: $", device.max_local_size);
+		log_msg("max global size: $", device.max_global_size);
+		log_msg("max cuda grid-dim: $", max_grid_dim);
+		log_msg("max mip-levels: $", device.max_mip_levels);
 		
 		size_t printf_buffer_size = 0;
 		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);
-		log_msg("printf buffer size: %u bytes / %u MB",
+		log_msg("printf buffer size: $ bytes / $ MB",
 				printf_buffer_size,
 				printf_buffer_size / 1024ULL / 1024ULL);
 		
 		//
-		log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, SM %s / CUDA %s",
+		log_debug("GPU (Units: $, Clock: $ MHz, Memory: $ MB): $ $, SM $ / CUDA $",
 				  device.units,
 				  device.clock,
 				  uint32_t(device.global_mem_size / 1024ull / 1024ull),
@@ -344,7 +344,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	
 	//
 	if(fastest_gpu_device != nullptr) {
-		log_debug("fastest GPU device: %s %s (score: %u)",
+		log_debug("fastest GPU device: $ $ (score: $)",
 				  fastest_gpu_device->vendor_name, fastest_gpu_device->name, fastest_gpu_score);
 		
 		fastest_device = fastest_gpu_device;
@@ -482,7 +482,7 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 shared_ptr<compute_program> cuda_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: %s", file_name);
+		log_error("failed to load universal binary: $", file_name);
 		return {};
 	}
 	
@@ -635,7 +635,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(cons
 		const auto print_error_log = [&error_log] {
 			if(error_log[0] != 0) {
 				error_log[log_size - 1] = 0;
-				log_error("ptx build errors: %s", error_log);
+				log_error("ptx build errors: $", error_log);
 			}
 		};
 		
@@ -685,7 +685,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(cons
 							   print_error_log();
 							   if(info_log[0] != 0) {
 								   info_log[log_size - 1] = 0;
-								   log_debug("ptx build info: %s", info_log);
+								   log_debug("ptx build info: $", info_log);
 							   }
 							   cu_link_destroy(link_state);
 							   return ret;
@@ -695,7 +695,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(cons
 		
 		if(info_log[0] != 0 && !silence_debug_output) {
 			info_log[log_size - 1] = 0;
-			log_debug("ptx build info: %s", info_log);
+			log_debug("ptx build info: $", info_log);
 		}
 	
 		if(floor::get_toolchain_log_binaries()) {

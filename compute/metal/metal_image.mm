@@ -138,7 +138,7 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(covered-switch-default)
 		default:
-			log_error("invalid or unknown metal texture type: %X", [img textureType]);
+			log_error("invalid or unknown metal texture type: $X", [img textureType]);
 			return COMPUTE_IMAGE_TYPE::NONE;
 FLOOR_POP_WARNINGS()
 	}
@@ -226,7 +226,7 @@ FLOOR_POP_WARNINGS()
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
 	if(metal_format == end(format_lut)) {
-		log_error("unsupported image pixel format: %X", [img pixelFormat]);
+		log_error("unsupported image pixel format: $X", [img pixelFormat]);
 		return COMPUTE_IMAGE_TYPE::NONE;
 	}
 	type |= metal_format->second;
@@ -402,7 +402,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			tex_type = MTLTextureType3D;
 			break;
 		default:
-			log_error("invalid dim count: %u", dim_count);
+			log_error("invalid dim count: $", dim_count);
 			return false;
 	}
 	[desc setTextureType:tex_type];
@@ -410,7 +410,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	// and now for the fun bit: pixel format conversion ...
 	const auto metal_format = metal_pixel_format_from_image_type(image_type);
 	if (!metal_format) {
-		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
+		log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	[desc setPixelFormat:*metal_format];
@@ -518,26 +518,26 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 	
 	const auto src_image_dim = src.get_image_dim();
 	if ((src_image_dim != image_dim).any()) {
-		log_error("blit: dim mismatch: src %v != dst %v", src_image_dim, image_dim);
+		log_error("blit: dim mismatch: src $ != dst $", src_image_dim, image_dim);
 		return false;
 	}
 	
 	const auto src_layer_count = src.get_layer_count();
 	if (src_layer_count != layer_count) {
-		log_error("blit: layer count mismatch: src %v != dst %v", src_layer_count, layer_count);
+		log_error("blit: layer count mismatch: src $ != dst $", src_layer_count, layer_count);
 		return false;
 	}
 	
 	const auto src_data_size = src.get_image_data_size();
 	if (src_data_size != image_data_size) {
-		log_error("blit: size mismatch: src %v != dst %v", src_data_size, image_data_size);
+		log_error("blit: size mismatch: src $ != dst $", src_data_size, image_data_size);
 		return false;
 	}
 	
 	const auto src_format = image_format(src.get_image_type());
 	const auto dst_format = image_format(image_type);
 	if (src_format != dst_format) {
-		log_error("blit: format mismatch (%u != %u)", src_format, dst_format);
+		log_error("blit: format mismatch ($ != $)", src_format, dst_format);
 		return false;
 	}
 	
@@ -731,7 +731,7 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	

@@ -57,12 +57,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		log_error("no opencl platforms found!");
 		return;
 	}
-	log_debug("found %u opencl platform%s", platforms.size(), (platforms.size() == 1 ? "" : "s"));
+	log_debug("found $ opencl platform$", platforms.size(), (platforms.size() == 1 ? "" : "s"));
 	
 	// go through all platforms, starting with the user-specified one
 	size_t first_platform_index = platform_index;
 	if(platform_index >= platforms.size()) {
-		log_warn("invalid platform index \"%s\" - starting at 0 instead!", platform_index);
+		log_warn("invalid platform index \"$\" - starting at 0 instead!", platform_index);
 		first_platform_index = 0;
 	}
 	
@@ -70,7 +70,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		// skip already checked platform
 		if(i > 0 && first_platform_index == p_idx) continue;
 		const auto& platform = platforms[p_idx];
-		log_debug("checking opencl platform #%u \"%s\" ...",
+		log_debug("checking opencl platform #$ \"$\" ...",
 				  p_idx, cl_get_info<CL_PLATFORM_NAME>(platform));
 		
 		// get devices
@@ -81,7 +81,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		CL_CALL_CONT(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, all_device_count, all_cl_devices.data(), nullptr),
 					 "failed to get devices for platform")
 		
-		log_debug("found %u opencl device%s", all_cl_devices.size(), (all_cl_devices.size() == 1 ? "" : "s"));
+		log_debug("found $ opencl device$", all_cl_devices.size(), (all_cl_devices.size() == 1 ? "" : "s"));
 		
 		// device whitelist
 		vector<cl_device_id> ctx_cl_devices;
@@ -154,12 +154,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 							   ctx_error, "failed to create opencl context")
 		
 		// success
-		log_debug("created opencl context on platform \"%s\"!",
+		log_debug("created opencl context on platform \"$\"!",
 				  cl_get_info<CL_PLATFORM_NAME>(platform));
-		log_msg("platform vendor: \"%s\"", cl_get_info<CL_PLATFORM_VENDOR>(platform));
-		log_msg("platform version: \"%s\"", cl_get_info<CL_PLATFORM_VERSION>(platform));
-		log_msg("platform profile: \"%s\"", cl_get_info<CL_PLATFORM_PROFILE>(platform));
-		log_msg("platform extensions: \"%s\"", core::trim(cl_get_info<CL_PLATFORM_EXTENSIONS>(platform)));
+		log_msg("platform vendor: \"$\"", cl_get_info<CL_PLATFORM_VENDOR>(platform));
+		log_msg("platform version: \"$\"", cl_get_info<CL_PLATFORM_VERSION>(platform));
+		log_msg("platform profile: \"$\"", cl_get_info<CL_PLATFORM_PROFILE>(platform));
+		log_msg("platform extensions: \"$\"", core::trim(cl_get_info<CL_PLATFORM_EXTENSIONS>(platform)));
 		
 		// get platform vendor
 		const string platform_vendor_str = core::str_to_lower(cl_get_info<CL_PLATFORM_VENDOR>(platform));
@@ -213,14 +213,14 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		const string cl_version_str = cl_get_info<CL_PLATFORM_VERSION>(platform);
 		const auto extracted_cl_version = extract_cl_version(cl_version_str, "OpenCL "); // "OpenCL X.Y" required by spec
 		if(!extracted_cl_version.first) {
-			log_error("invalid opencl platform version string: %s", cl_version_str);
+			log_error("invalid opencl platform version string: $", cl_version_str);
 		}
 		platform_cl_version = extracted_cl_version.second;
 		bool check_spirv_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		bool check_sub_group_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		
 		//
-		log_msg("opencl platform \"%s\" version recognized as CL%s",
+		log_msg("opencl platform \"$\" version recognized as CL$",
 				  compute_vendor_to_string(platform_vendor),
 				  (platform_cl_version == OPENCL_VERSION::OPENCL_1_0 ? "1.0" :
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
@@ -231,7 +231,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		// handle device init
 		ctx_devices.clear();
 		ctx_devices = cl_get_info<CL_CONTEXT_DEVICES>(ctx);
-		log_debug("found %u opencl device%s in context", ctx_devices.size(), (ctx_devices.size() == 1 ? "" : "s"));
+		log_debug("found $ opencl device$ in context", ctx_devices.size(), (ctx_devices.size() == 1 ? "" : "s"));
 		
 		string dev_type_str;
 		auto gpu_counter = (uint32_t)compute_device::TYPE::GPU0;
@@ -272,7 +272,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			device.max_total_local_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
 			const auto max_local_size = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
 			if(max_local_size.size() != 3) {
-				log_warn("max local size dim != 3: %u", max_local_size.size());
+				log_warn("max local size dim != 3: $", max_local_size.size());
 			}
 			if(max_local_size.size() >= 1) device.max_local_size.x = (uint32_t)max_local_size[0];
 			if(max_local_size.size() >= 2) device.max_local_size.y = (uint32_t)max_local_size[1];
@@ -293,7 +293,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
 			if(!device.image_support) {
-				log_error("device \"%s\" does not have basic image support, removing it!", device.name);
+				log_error("device \"$\" does not have basic image support, removing it!", device.name);
 				devices.pop_back();
 				continue;
 			}
@@ -314,7 +314,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			device.image_offset_write_support = false;
 			const auto read_write_images = cl_get_info<CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS>(cl_dev);
 			device.image_read_write_support = (read_write_images > 0);
-			log_msg("read/write images: %u", read_write_images);
+			log_msg("read/write images: $", read_write_images);
 			
 			device.max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
 			device.max_image_1d_dim = (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
@@ -332,7 +332,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			device.double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
 			const auto device_bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
 			if (device_bitness != 64) {
-				log_error("device \"%s\" has an unsupported bitness %u (must be 64)!", device.name, device_bitness);
+				log_error("device \"$\" has an unsupported bitness $ (must be 64)!", device.name, device_bitness);
 				devices.pop_back();
 				continue;
 			}
@@ -353,32 +353,32 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				for(const auto& sg_size : sub_group_sizes) {
 					sub_group_sizes_str += to_string(sg_size) + " ";
 				}
-				log_msg("supported sub-group sizes: %v", sub_group_sizes_str);
+				log_msg("supported sub-group sizes: $", sub_group_sizes_str);
 			}
 			
-			log_msg("max mem alloc: %u bytes / %u MB",
+			log_msg("max mem alloc: $ bytes / $ MB",
 					device.max_mem_alloc,
 					device.max_mem_alloc / 1024ULL / 1024ULL);
-			log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+			log_msg("mem size: $ MB (global), $ KB (local), $ KB (constant)",
 					device.global_mem_size / 1024ULL / 1024ULL,
 					device.local_mem_size / 1024ULL,
 					device.constant_mem_size / 1024ULL);
-			log_msg("mem base address alignment: %u", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
-			log_msg("min data type alignment size: %u", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
-			log_msg("host unified memory: %u", device.unified_memory);
-			log_msg("max total local size: %u", device.max_total_local_size);
-			log_msg("max local size: %v", device.max_local_size);
-			log_msg("max global size: %v", device.max_global_size);
-			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
-			log_msg("double support: %b", device.double_support);
-			log_msg("image support: %b", device.image_support);
+			log_msg("mem base address alignment: $", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
+			log_msg("min data type alignment size: $", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
+			log_msg("host unified memory: $", device.unified_memory);
+			log_msg("max total local size: $", device.max_total_local_size);
+			log_msg("max local size: $", device.max_local_size);
+			log_msg("max global size: $", device.max_global_size);
+			log_msg("max param size: $", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
+			log_msg("double support: $", device.double_support);
+			log_msg("image support: $", device.image_support);
 			const auto printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
-			log_msg("printf buffer size: %u bytes / %u MB",
+			log_msg("printf buffer size: $ bytes / $ MB",
 					printf_buffer_size,
 					printf_buffer_size / 1024ULL / 1024ULL);
-			log_msg("max sub-devices: %u", cl_get_info<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>(cl_dev));
-			log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
-			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
+			log_msg("max sub-devices: $", cl_get_info<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>(cl_dev));
+			log_msg("built-in kernels: $", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
+			log_msg("extensions: \"$\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
 			device.platform_vendor = platform_vendor;
 			device.vendor = COMPUTE_VENDOR::UNKNOWN;
@@ -428,16 +428,16 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			const string cl_c_version_str = cl_get_info<CL_DEVICE_OPENCL_C_VERSION>(cl_dev);
 			const auto extracted_cl_c_version = extract_cl_version(cl_c_version_str, "OpenCL C "); // "OpenCL C X.Y" required by spec
 			if(!extracted_cl_c_version.first) {
-				log_error("invalid opencl c version string: %s", cl_c_version_str);
+				log_error("invalid opencl c version string: $", cl_c_version_str);
 			}
 			device.c_version = extracted_cl_c_version.second;
 			
 			if(!core::contains(device.extensions, "cl_khr_spir")) {
-				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
+				log_error("device \"$\" does not support \"cl_khr_spir\", removing it!", device.name);
 				devices.pop_back();
 				continue;
 			}
-			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
+			log_msg("spir versions: $", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 			
 			// check spir-v support (core, extension, or forced for testing purposes)
 			if((platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
@@ -448,7 +448,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				check_spirv_support = true;
 				
 				const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
-				log_msg("IL versions: %s", il_versions);
+				log_msg("IL versions: $", il_versions);
 				
 				// find the max supported spir-v opencl version
 				const auto il_version_tokens = core::tokenize(core::trim(il_versions), ' ');
@@ -502,7 +502,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			
 			//
-			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
+			log_debug("$(Units: $, Clock: $ MHz, Memory: $ MB): $ $, $ / $ / $",
 					  dev_type_str,
 					  device.units,
 					  device.clock,
@@ -662,11 +662,11 @@ FLOOR_POP_WARNINGS()
 		
 		//
 		if(fastest_cpu_device != nullptr) {
-			log_debug("fastest CPU device: %s %s (score: %u)",
+			log_debug("fastest CPU device: $ $ (score: $)",
 					  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_score);
 		}
 		if(fastest_gpu_device != nullptr) {
-			log_debug("fastest GPU device: %s %s (score: %u)",
+			log_debug("fastest GPU device: $ $ (score: $)",
 					  fastest_gpu_device->vendor_name, fastest_gpu_device->name, fastest_gpu_score);
 		}
 		
@@ -743,7 +743,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 FLOOR_POP_WARNINGS()
 #endif
 	if(create_err != CL_SUCCESS) {
-		log_error("failed to create command queue: %u: %s", create_err, cl_error_to_string(create_err));
+		log_error("failed to create command queue: $: $", create_err, cl_error_to_string(create_err));
 		return {};
 	}
 	
@@ -848,7 +848,7 @@ shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue
 shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: %s", file_name);
+		log_error("failed to load universal binary: $", file_name);
 		return {};
 	}
 	
@@ -979,8 +979,8 @@ opencl_compute::create_opencl_program_internal(const opencl_device& cl_dev,
 												&program_size, (const unsigned char**)&program_data,
 												&binary_status, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
-			log_error("devices binary status: %s", to_string(binary_status));
+			log_error("failed to create opencl program: $: $", create_err, cl_error_to_string(create_err));
+			log_error("devices binary status: $", to_string(binary_status));
 			return ret;
 		}
 		else if(!silence_debug_output) {
@@ -990,7 +990,7 @@ opencl_compute::create_opencl_program_internal(const opencl_device& cl_dev,
 	else {
 		ret.program = cl_create_program_with_il(ctx, program_data, program_size, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
+			log_error("failed to create opencl program from IL/SPIR-V: $: $", create_err, cl_error_to_string(create_err));
 			return ret;
 		}
 		else if(!silence_debug_output) {
@@ -1010,7 +1010,7 @@ opencl_compute::create_opencl_program_internal(const opencl_device& cl_dev,
 	
 	// print out build log
 	if(!silence_debug_output) {
-		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev.device_id));
+		log_debug("build log: $", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev.device_id));
 	}
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again

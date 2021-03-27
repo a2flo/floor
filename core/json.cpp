@@ -764,7 +764,7 @@ struct json_grammar {
 							else if(token_str == "true") type = json_value::VALUE_TYPE::TRUE_VALUE;
 							else if(token_str == "false") type = json_value::VALUE_TYPE::FALSE_VALUE;
 							else {
-								log_error("invalid IDENTIFIER: %s", token_str);
+								log_error("invalid IDENTIFIER: $", token_str);
 								return { make_unique<value_node>(nullptr) };
 							}
 							json_value val { type };
@@ -779,7 +779,7 @@ struct json_grammar {
 							return { make_unique<value_node>(move(val)) };
 						}
 						default:
-							log_error("invalid token type: %X!", token_type);
+							log_error("invalid token type: $X!", token_type);
 							return { make_unique<value_node>(nullptr) };
 					}
 				}
@@ -832,7 +832,7 @@ struct json_grammar {
 				// empty
 				return { make_unique<object_node>(nullptr) };
 			}
-			log_error("invalid object match size: %u!", matches.size());
+			log_error("invalid object match size: $!", matches.size());
 			return { make_unique<object_node>(nullptr) };
 		});
 		member_list.on_match(push_to_parent_even);
@@ -844,7 +844,7 @@ struct json_grammar {
 				key.pop_back();
 				return { make_unique<member_node>(move(key), move(matches[2].ast_node)) };
 			}
-			log_error("invalid member match size: %u!", matches.size());
+			log_error("invalid member match size: $!", matches.size());
 			return { make_unique<member_node>(nullptr) };
 		});
 		array_matcher.on_match([](auto& matches) -> parser_context::match_list {
@@ -860,7 +860,7 @@ struct json_grammar {
 				// empty
 				return { make_unique<array_node>(nullptr) };
 			}
-			log_error("invalid array match size: %u!", matches.size());
+			log_error("invalid array match size: $!", matches.size());
 			return { make_unique<array_node>(nullptr) };
 		});
 		element_list.on_match(push_to_parent_even);
@@ -884,7 +884,7 @@ struct json_grammar {
 			error_msg += " \"" + ctx.deepest_iter->second.to_string() + "\"";
 			
 			const auto line_and_column = json_lexer::get_line_and_column_from_iter(ctx.tu, ctx.deepest_iter->second.begin);
-			log_error("%s:%u:%u: %s",
+			log_error("$:$:$: $",
 					  ctx.tu.file_name, line_and_column.first, line_and_column.second, error_msg);
 			return false;
 		}
@@ -898,7 +898,7 @@ struct json_grammar {
 document create_document(const string& filename) {
 	string json_data;
 	if(!file_io::file_to_string(filename, json_data)) {
-		log_error("failed to read json file \"%s\"!", filename);
+		log_error("failed to read json file \"$\"!", filename);
 		return {};
 	}
 	return create_document_from_string(json_data, filename);
@@ -907,7 +907,7 @@ document create_document(const string& filename) {
 document create_document_from_string(const string& json_data, const string identifier) {
 	const auto is_valid_utf8 = unicode::validate_utf8_string(json_data);
 	if(!is_valid_utf8.first) {
-		log_error("JSON data \"%s\" is not UTF-8 encoded or contains invalid UTF-8 code points!",
+		log_error("JSON data \"$\" is not UTF-8 encoded or contains invalid UTF-8 code points!",
 				  identifier);
 		return {};
 	}
@@ -919,7 +919,7 @@ document create_document_from_string(const string& json_data, const string ident
 	// lexing
 	json_lexer::map_characters(*json_tu);
 	if(!json_lexer::lex(*json_tu)) {
-		log_error("lexing of JSON data \"%s\" failed!", identifier);
+		log_error("lexing of JSON data \"$\" failed!", identifier);
 		return {};
 	}
 	json_lexer::assign_token_sub_types(*json_tu);
@@ -929,7 +929,7 @@ document create_document_from_string(const string& json_data, const string ident
 	parser_context json_parser_ctx { *json_tu };
 	json_grammar json_grammar_parser;
 	if(!json_grammar_parser.parse(json_parser_ctx, doc)) {
-		log_error("parsing of JSON data \"%s\" failed!", identifier);
+		log_error("parsing of JSON data \"$\" failed!", identifier);
 		return {};
 	}
 	return doc;
@@ -961,7 +961,7 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 				if(i == count - 1) {
 					const auto ret = member.second.get<T>();
 					if(!ret.first) {
-						log_error("type mismatch: value of \"%s\" is not of the requested type!", path);
+						log_error("type mismatch: value of \"$\" is not of the requested type!", path);
 					}
 					return ret;
 				}
@@ -979,7 +979,7 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 		
 		// check if child node is actually a json object
 		if(cur_node->type != json_value::VALUE_TYPE::OBJECT) {
-			log_error("found child node (%s) is not a json object (path: %s)!", key, path);
+			log_error("found child node ($) is not a json object (path: $)!", key, path);
 			return { false, T {} };
 		}
 	}

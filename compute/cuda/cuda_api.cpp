@@ -71,7 +71,7 @@ bool cuda_api_init(const bool use_internal_api) {
 	
 	cuda_lib = open_dynamic_library(cuda_lib_name);
 	if (cuda_lib == nullptr) {
-		log_error("failed to open cuda library \"%s\"!", cuda_lib_name);
+		log_error("failed to open cuda library \"$\"!", cuda_lib_name);
 		return false;
 	}
 	
@@ -421,7 +421,7 @@ bool cuda_api_init(const bool use_internal_api) {
 				cuda_device_sampler_func_offset = device_sampler_func_offset;
 				cuda_device_in_ctx_offset = device_in_ctx_offset;
 			} else {
-				log_error("device sampler function pointer offset / device in context offset invalid or not found: %X, %X",
+				log_error("device sampler function pointer offset / device in context offset invalid or not found: $X, $X",
 						  device_sampler_func_offset, device_in_ctx_offset);
 			}
 		} else {

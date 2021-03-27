@@ -66,7 +66,7 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	auto encoder = create_encoder(cqueue, &cmd_buffer, pipeline, pipeline_layout,
 								  shader_entries, encoder_success);
 	if (!encoder_success) {
-		log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
+		log_error("failed to create vulkan encoder / command buffer for shader \"$\"",
 				  vertex_shader->info->name);
 		return;
 	}

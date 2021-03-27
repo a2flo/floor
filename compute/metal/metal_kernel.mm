@@ -130,7 +130,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	// check if info exists
 	const auto& arg_info = mtl_entry.info->args[arg_index].argument_buffer_info;
 	if (!arg_info) {
-		log_error("no argument buffer info for arg at index #%u", arg_index);
+		log_error("no argument buffer info for arg at index #$", arg_index);
 		return {};
 	}
 	

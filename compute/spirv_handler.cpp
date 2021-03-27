@@ -27,13 +27,13 @@ unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size) {
 	
 	file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
 	if(!binary.is_open()) {
-		log_error("failed to load spir-v binary (\"%s\")", file_name);
+		log_error("failed to load spir-v binary (\"$\")", file_name);
 		return {};
 	}
 	
 	code_size = (size_t)binary.get_filesize();
 	if(code_size % 4u != 0u) {
-		log_error("invalid spir-v binary size %u (\"%s\"): must be a multiple of 4!", code_size, file_name);
+		log_error("invalid spir-v binary size $ (\"$\"): must be a multiple of 4!", code_size, file_name);
 		return {};
 	}
 	
@@ -41,7 +41,7 @@ unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size) {
 	binary.get_block((char*)code.get(), (streamsize)code_size);
 	const auto read_size = binary.get_filestream()->gcount();
 	if(read_size != (decltype(read_size))code_size) {
-		log_error("failed to read spir-v binary (\"%s\"): expected %u bytes, but only read %u bytes", file_name, code_size, read_size);
+		log_error("failed to read spir-v binary (\"$\"): expected $ bytes, but only read $ bytes", file_name, code_size, read_size);
 		return {};
 	}
 	
@@ -51,7 +51,7 @@ unique_ptr<uint32_t[]> load_binary(const string& file_name, size_t& code_size) {
 spirv_handler::container load_container(const string& file_name) {
 	string data { "" };
 	if(!file_io::file_to_string(file_name, data)) {
-		log_error("failed to load spir-v container (\"%s\")", file_name);
+		log_error("failed to load spir-v container (\"$\")", file_name);
 		return {};
 	}
 	return load_container_from_memory((const uint8_t*)data.data(), data.size(), file_name);
@@ -75,13 +75,13 @@ spirv_handler::container load_container_from_memory(const uint8_t* data_ptr_,
 	auto data_ptr = data_ptr_;
 	const auto data_end_ptr = data_ptr + data_size;
 	if(memcmp(data_ptr, "SPVC", 4) != 0) {
-		log_error("invalid spir-v container header%s", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
+		log_error("invalid spir-v container header$", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
 		return {};
 	}
 	data_ptr += 4;
 	
 	if(memcmp(data_ptr, &container_version, sizeof(container_version)) != 0) {
-		log_error("invalid spir-v container version%s", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
+		log_error("invalid spir-v container version$", identifier.empty() ? ""s : "(in \"" + identifier + "\")");
 		return {};
 	}
 	data_ptr += sizeof(container_version);

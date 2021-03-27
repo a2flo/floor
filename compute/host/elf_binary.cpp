@@ -585,7 +585,7 @@ void elf_binary::init_elf() {
 	// TODO: multi-threaded init
 	for (uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
 		if (!instantiate(cpu_idx)) {
-			log_error("ELF binary instantiation for instance index %u failed", cpu_idx);
+			log_error("ELF binary instantiation for instance index $ failed", cpu_idx);
 			return;
 		}
 	}
@@ -818,7 +818,7 @@ bool elf_binary::parse_elf() {
 					// signal that we need to relocate read-only data (-> need rodata per instance)
 					info->relocate_rodata = true;
 				} else {
-					log_error("relocations section %s is not supported", section.name);
+					log_error("relocations section $ is not supported", section.name);
 					return false;
 				}
 				
@@ -926,7 +926,7 @@ bool elf_binary::parse_elf() {
 					return false;
 				}
 			} else {
-				log_error("invalid or unhandled section: %s (type %X)", section.name, sec_header.type);
+				log_error("invalid or unhandled section: $ (type $X)", section.name, sec_header.type);
 				return false;
 			}
 		}
@@ -944,7 +944,7 @@ bool elf_binary::parse_elf() {
 		
 		info->parsed_successfully = true;
 	} catch (exception& exc) {
-		log_error("error during ELF parsing: %s", exc.what());
+		log_error("error during ELF parsing: $", exc.what());
 		return false;
 	}
 	
@@ -1000,7 +1000,7 @@ static bool map_memory(aligned_ptr<uint8_t>& mem,
 		section_map.emplace(section.first, mem.get() + offset);
 	}
 	if (!mem.pin()) {
-		log_error("failed to pin memory: %s", strerror(errno));
+		log_error("failed to pin memory: $", strerror(errno));
 		return false;
 	}
 	
@@ -1035,7 +1035,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 		return false;
 	}
 	if (instance_idx >= info->instances.size()) {
-		log_error("instance index is out-of-bounds: %u", instance_idx);
+		log_error("instance index is out-of-bounds: $", instance_idx);
 		return false;
 	}
 	
@@ -1046,7 +1046,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	uint64_t req_memory = 0;
 	for (const auto& section : info->sections) {
 		if (has_flag<ELF_SECTION_FLAG::ALLOCATE>(section.header_ptr->flags)) {
-			log_undecorated("section %s is in memory, using %u bytes (addr: %u)",
+			log_undecorated("section $ is in memory, using $ bytes (addr: $)",
 							section.name, section.header_ptr->size, section.header_ptr->address);
 			req_memory += section.header_ptr->size;
 		}
@@ -1141,7 +1141,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 			memset(instance.exec_memory.get() + sec.size, 0, instance.exec_memory.allocation_size() - sec.size);
 		}
 		if (!instance.exec_memory.pin()) {
-			log_error("failed to pin exec memory: %s", strerror(errno));
+			log_error("failed to pin exec memory: $", strerror(errno));
 			return false;
 		}
 		// NOTE: delay rx protection to after we've done the relocations
@@ -1199,7 +1199,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 			ext_sym_ptr = get_external_symbol_ptr(sym.name);
 		}
 		if (ext_sym_ptr == nullptr) {
-			log_error("external symbol %u could not be resolved", sym.name);
+			log_error("external symbol $ could not be resolved", sym.name);
 			return nullptr;
 		}
 		return ext_sym_ptr;
@@ -1207,13 +1207,13 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	
 	const auto resolve_section = [this, &instance](const symbol_t& sym) -> const void* {
 		if (sym.symbol_ptr->section_header_table_index >= info->sections.size()) {
-			log_error("section index is out-of-bounds: %u", sym.symbol_ptr->section_header_table_index);
+			log_error("section index is out-of-bounds: $", sym.symbol_ptr->section_header_table_index);
 			return nullptr;
 		}
 		const auto& sec = info->sections[sym.symbol_ptr->section_header_table_index];
 		const auto sec_iter = instance.section_map.find(&sec);
 		if (sec_iter == instance.section_map.end()) {
-			log_error("failed to find section: %u", sym.symbol_ptr->section_header_table_index);
+			log_error("failed to find section: $", sym.symbol_ptr->section_header_table_index);
 			return nullptr;
 		}
 		return sec_iter->second;
@@ -1236,12 +1236,12 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 						sym.symbol_ptr->type == ELF_SYMBOL_TYPE::DATA) {
 						resolved_ptr = resolve_section(sym);
 					} else {
-						log_error("non-external symbol for relocation: %s (type: %u)", sym.name, (uint32_t)sym.symbol_ptr->type);
+						log_error("non-external symbol for relocation: $ (type: $)", sym.name, (uint32_t)sym.symbol_ptr->type);
 						return nullptr;
 					}
 				}
 			} else {
-				log_error("invalid symbol index for relocation: %u", reloc.symbol_index);
+				log_error("invalid symbol index for relocation: $", reloc.symbol_index);
 				return nullptr;
 			}
 		} else {
@@ -1301,7 +1301,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 					
 					// relocate in code
 					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						log_error("relocation offset is out-of-bounds: $", reloc.offset);
 						return false;
 					}
 					memcpy(memory.get() + reloc.offset, &value, sizeof(value));
@@ -1315,7 +1315,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 					
 					// relocate in code
 					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						log_error("relocation offset is out-of-bounds: $", reloc.offset);
 						return false;
 					}
 					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
@@ -1333,7 +1333,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 					
 					// relocate in code
 					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						log_error("relocation offset is out-of-bounds: $", reloc.offset);
 						return false;
 					}
 					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
@@ -1351,14 +1351,14 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 					
 					// relocate in code
 					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: %u", reloc.offset);
+						log_error("relocation offset is out-of-bounds: $", reloc.offset);
 						return false;
 					}
 					memcpy(memory.get() + reloc.offset, &offset_value, sizeof(offset_value));
 					break;
 				}
 				default:
-					log_error("unhandled relocation type: %u", reloc.type_x86_64);
+					log_error("unhandled relocation type: $", reloc.type_x86_64);
 					return false;
 			}
 #else

@@ -48,7 +48,7 @@
 		const char* err_name, *err_str;														\
 		cu_get_error_name(_cu_err, &err_name);												\
 		cu_get_error_string(_cu_err, &err_str);												\
-		log_error("%s: line %u: cuda error %s (#%u): %s (call: %s)",						\
+		log_error("$: line $: cuda error $ (#$): $ (call: $)",						\
 				  error_msg, line_num, (err_name != nullptr ? err_name : "INVALID"),		\
 				  _cu_err, (err_str != nullptr ? err_str : "INVALID"), #call);				\
 		CU_DBG_BREAKPOINT()																	\

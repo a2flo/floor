@@ -42,10 +42,10 @@ void task::run(task* this_task, std::function<void()> task_op) {
 		// NOTE: this is the function object created above (not the users task op!)
 		task_op();
 	} catch(exception& exc) {
-		log_error("encountered an unhandled exception while running task \"%s\": %s",
+		log_error("encountered an unhandled exception while running task \"$\": $",
 				  core::get_current_thread_name(), exc.what());
 	} catch(...) {
-		log_error("encountered an unhandled exception while running task \"%s\"",
+		log_error("encountered an unhandled exception while running task \"$\"",
 				  core::get_current_thread_name());
 	}
 	delete this_task;

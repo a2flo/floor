@@ -47,12 +47,12 @@ weak_ptr<audio_store::audio_data> audio_store::add_file(const string& filename,
 	Uint32 audio_len = 0;
 	SDL_AudioSpec audio_spec;
 	if(!SDL_LoadWAV(filename.c_str(), &audio_spec, &audio_buffer, &audio_len)) {
-		log_error("couldn't load audio file %s \"%s\": %s",
+		log_error("couldn't load audio file $ \"$\": $",
 				  identifier, filename, SDL_GetError());
 		return weak_ptr<audio_store::audio_data> {};
 	}
 	
-	log_debug("\"%s\": rate %u, channels %u, encoding %X",
+	log_debug("\"$\": rate $, channels $, encoding $X",
 			  identifier, audio_spec.freq, (size_t)audio_spec.channels, audio_spec.format);
 	
 	ALenum format;
@@ -69,7 +69,7 @@ weak_ptr<audio_store::audio_data> audio_store::add_file(const string& filename,
 			break;
 		default:
 			// S32/F32
-			log_error("couldn't load audio file %s \"%s\": S32 and F32 formats are currently unsupported!",
+			log_error("couldn't load audio file $ \"$\": S32 and F32 formats are currently unsupported!",
 					  identifier, filename);
 			SDL_FreeWAV(audio_buffer);
 			return weak_ptr<audio_store::audio_data> {};

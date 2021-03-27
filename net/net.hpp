@@ -106,7 +106,7 @@ bool net<protocol_policy, reception_policy>::connect_to_server(const string& ser
 	if(!protocol.is_valid() ||
 	   // connect to the server
 	   !protocol.connect(server_name, port)) {
-		log_error("failed to connect to server: %s:%u!", server_name, port);
+		log_error("failed to connect to server: $:$!", server_name, port);
 	}
 	else {
 		// connection created - data transfer is now possible
@@ -125,7 +125,7 @@ bool net<protocol_policy, reception_policy>::listen_as_server(const string& serv
 	if(!protocol.is_valid() ||
 	   // listen as server on "server_name":"port"
 	   !protocol.listen(server_name, port)) {
-		log_error("failed to listen as server: %s:%u!", server_name, port);
+		log_error("failed to listen as server: $:$!", server_name, port);
 	}
 	else {
 		// connection created - data transfer is now possible
@@ -178,7 +178,7 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 	else connected = false;
 	
 	if(!connected) {
-		log_error("net error: %s", asio_error_handler::handle_all());
+		log_error("net error: $", asio_error_handler::handle_all());
 		connected = false;
 		set_thread_should_finish();
 		return;

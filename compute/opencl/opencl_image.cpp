@@ -124,7 +124,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 														 COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 														 COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED));
 	if(cl_format == end(format_lut)) {
-		log_error("unsupported image format: %s (%X)", image_type_to_string(image_type), image_type);
+		log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 		return false;
 	}
 	cl_img_format.image_channel_data_type = cl_format->second;
@@ -177,7 +177,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 		image = clCreateImage(cl_dev.ctx, cl_flags, &cl_img_format, &cl_img_desc,
 							  (copy_host_data && !is_mip_mapped ? host_ptr : nullptr), &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image: %s", cl_error_to_string(create_err));
+			log_error("failed to create image: $", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
 		}
@@ -217,7 +217,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 			image = clCreateFromGLRenderbuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
 		}
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image from opengl object: %s", cl_error_to_string(create_err));
+			log_error("failed to create image from opengl object: $", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
 		}
@@ -345,7 +345,7 @@ void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueu
 											&image_row_pitch, &image_slice_pitch,
 											0, nullptr, nullptr, &map_err);
 		if(map_err != CL_SUCCESS) {
-			log_error("failed to map image%s: %s!",
+			log_error("failed to map image$: $!",
 					  (generate_mip_maps ? " (level #" + to_string(level) + ")" : ""),
 					  cl_error_to_string(map_err));
 			return false;
@@ -385,7 +385,7 @@ bool opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((align
 	// check if this is actually a mapped pointer
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
-		log_error("invalid mapped pointer: %X", mapped_ptr);
+		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	

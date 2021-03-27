@@ -69,7 +69,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			context.set_default_verify_paths();
 			
 			if(asio_error_handler::is_error()) {
-				log_error("error on setting context options: %s", asio_error_handler::handle_all());
+				log_error("error on setting context options: $", asio_error_handler::handle_all());
 			}
 			
 			// enable ecdh(e)
@@ -91,7 +91,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 											std::placeholders::_1, std::placeholders::_2));
 			
 			if(asio_error_handler::is_error()) {
-				log_error("error on setting socket options: %s", asio_error_handler::handle_all());
+				log_error("error on setting socket options: $", asio_error_handler::handle_all());
 			}
 		}
 		~protocol_details<true>() {
@@ -108,7 +108,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			char subject_name[256];
 			X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
 			X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
-			log_msg("cert subject name: %s", subject_name);
+			log_msg("cert subject name: $", subject_name);
 			return true;
 		}
 		
@@ -116,11 +116,11 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			asio::error_code ec;
 			socket.handshake(asio::ssl::stream_base::client, ec);
 			if(ec) {
-				log_error("handshake failed: %s", ec.message());
+				log_error("handshake failed: $", ec.message());
 				return false;
 			}
 			if(asio_error_handler::is_error()) {
-				log_error("handshake failed: %s", asio_error_handler::handle_all());
+				log_error("handshake failed: $", asio_error_handler::handle_all());
 				return false;
 			}
 			return true;
@@ -129,11 +129,11 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			asio::error_code ec;
 			socket.handshake(asio::ssl::stream_base::server, ec);
 			if(ec) {
-				log_error("handshake failed: %s", ec.message());
+				log_error("handshake failed: $", ec.message());
 				return false;
 			}
 			if(asio_error_handler::is_error()) {
-				log_error("handshake failed: %s", asio_error_handler::handle_all());
+				log_error("handshake failed: $", asio_error_handler::handle_all());
 				return false;
 			}
 			return true;
@@ -172,12 +172,12 @@ public:
 		asio::connect(data.socket_layer, endpoint_iterator, ec);
 		
 		if(ec) {
-			log_error("socket connection error: %s", ec.message());
+			log_error("socket connection error: $", ec.message());
 			valid = false;
 			return false;
 		}
 		if(asio_error_handler::is_error()) {
-			log_error("socket connection error: %s", asio_error_handler::handle_all());
+			log_error("socket connection error: $", asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
@@ -212,12 +212,12 @@ public:
 		tcp::endpoint endpoint = *resolver.resolve({ address, to_string(port) });
 		acceptor.open(endpoint.protocol(), ec);
 		if(ec) {
-			log_error("couldn't open server socket: %s", ec.message());
+			log_error("couldn't open server socket: $", ec.message());
 			valid = false;
 			return false;
 		}
 		if(asio_error_handler::is_error()) {
-			log_error("couldn't open server socket: %s", asio_error_handler::handle_all());
+			log_error("couldn't open server socket: $", asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
@@ -225,19 +225,19 @@ public:
 		acceptor.set_option(tcp::acceptor::reuse_address(true));
 		acceptor.bind(endpoint, ec);
 		if(ec) {
-			log_error("couldn't bind to endpoint: %s", ec.message());
+			log_error("couldn't bind to endpoint: $", ec.message());
 			valid = false;
 			return false;
 		}
 		if(asio_error_handler::is_error()) {
-			log_error("couldn't bind to endpoint: %s", asio_error_handler::handle_all());
+			log_error("couldn't bind to endpoint: $", asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
 		
 		acceptor.listen();
 		if(asio_error_handler::is_error()) {
-			log_error("acceptor failed to listen: %s", asio_error_handler::handle_all());
+			log_error("acceptor failed to listen: $", asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
@@ -253,12 +253,12 @@ public:
 			return 0;
 		}
 		if(ec) {
-			log_error("error while receiving data (received %u): %s", data_received, ec.message());
+			log_error("error while receiving data (received $): $", data_received, ec.message());
 			valid = false;
 			return 0;
 		}
 		if(asio_error_handler::is_error()) {
-			log_error("error while receiving data (received %u): %s", data_received, asio_error_handler::handle_all());
+			log_error("error while receiving data (received $): $", data_received, asio_error_handler::handle_all());
 			valid = false;
 			return 0;
 		}
@@ -279,17 +279,17 @@ public:
 			return false;
 		}
 		if(ec) {
-			log_error("error while sending data (sent %u): %s", data_sent, ec.message());
+			log_error("error while sending data (sent $): $", data_sent, ec.message());
 			valid = false;
 			return false;
 		}
 		if(asio_error_handler::is_error()) {
-			log_error("error while sending data (sent %u): %s", data_sent, asio_error_handler::handle_all());
+			log_error("error while sending data (sent $): $", data_sent, asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
 		if(data_sent != (size_t)len) {
-			log_error("error while sending data: sent data length (%u) != requested data length (%u)!",
+			log_error("error while sending data: sent data length ($) != requested data length ($)!",
 					  data_sent, len);
 			valid = false;
 			return false;

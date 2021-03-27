@@ -229,11 +229,11 @@ protected:
 			log_warn("read: trying to read 0 bytes!");
 		}
 		if(offset >= buffer_size) {
-			log_error("read: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			log_error("read: invalid offset (>= size): offset: $X, size: $X", offset, buffer_size);
 			return false;
 		}
 		if(offset + read_size > buffer_size) {
-			log_error("read: invalid offset/read size (offset + read size > buffer size): offset: %X, read size: %X, size: %X",
+			log_error("read: invalid offset/read size (offset + read size > buffer size): offset: $X, read size: $X, size: $X",
 					  offset, read_size, buffer_size);
 			return false;
 		}
@@ -253,11 +253,11 @@ protected:
 			log_warn("write: trying to write 0 bytes!");
 		}
 		if(offset >= buffer_size) {
-			log_error("write: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			log_error("write: invalid offset (>= size): offset: $X, size: $X", offset, buffer_size);
 			return false;
 		}
 		if(offset + write_size > buffer_size) {
-			log_error("write: invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
+			log_error("write: invalid offset/write size (offset + write size > buffer size): offset: $X, write size: $X, size: $X",
 					  offset, write_size, buffer_size);
 			return false;
 		}
@@ -278,20 +278,20 @@ protected:
 			log_warn("copy: trying to copy 0 bytes!");
 		}
 		if(src_offset >= src_size) {
-			log_error("copy: invalid src offset (>= size): offset: %X, size: %X", src_offset, src_size);
+			log_error("copy: invalid src offset (>= size): offset: $X, size: $X", src_offset, src_size);
 			return false;
 		}
 		if(dst_offset >= buffer_size) {
-			log_error("copy: invalid dst offset (>= size): offset: %X, size: %X", dst_offset, buffer_size);
+			log_error("copy: invalid dst offset (>= size): offset: $X, size: $X", dst_offset, buffer_size);
 			return false;
 		}
 		if(src_offset + copy_size > src_size) {
-			log_error("copy: invalid src offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+			log_error("copy: invalid src offset/copy size (offset + copy size > buffer size): offset: $X, copy size: $X, size: $X",
 					  src_offset, copy_size, src_size);
 			return false;
 		}
 		if(dst_offset + copy_size > buffer_size) {
-			log_error("copy: invalid dst offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+			log_error("copy: invalid dst offset/copy size (offset + copy size > buffer size): offset: $X, copy size: $X, size: $X",
 					  dst_offset, copy_size, buffer_size);
 			return false;
 		}
@@ -307,19 +307,19 @@ protected:
 			return false;
 		}
 		if((offset % pattern_size) != 0) {
-			log_error("fill: fill offset must be a multiple of pattern size: offset: %X, pattern size: %X", offset, pattern_size);
+			log_error("fill: fill offset must be a multiple of pattern size: offset: $X, pattern size: $X", offset, pattern_size);
 			return false;
 		}
 		if((fill_size % pattern_size) != 0) {
-			log_error("fill: fill size must be a multiple of pattern size: fille size: %X, pattern size: %X", fill_size, pattern_size);
+			log_error("fill: fill size must be a multiple of pattern size: fille size: $X, pattern size: $X", fill_size, pattern_size);
 			return false;
 		}
 		if(offset >= buffer_size) {
-			log_error("fill: invalid fill offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			log_error("fill: invalid fill offset (>= size): offset: $X, size: $X", offset, buffer_size);
 			return false;
 		}
 		if(offset + fill_size > buffer_size) {
-			log_error("fill: invalid fill offset/fill size (offset + size > buffer size): offset: %X, fill size: %X, size: %X",
+			log_error("fill: invalid fill offset/fill size (offset + size > buffer size): offset: $X, fill size: $X, size: $X",
 					  offset, fill_size, buffer_size);
 			return false;
 		}
@@ -346,11 +346,11 @@ protected:
 			return false;
 		}
 		if(offset >= buffer_size) {
-			log_error("map: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			log_error("map: invalid offset (>= size): offset: $X, size: $X", offset, buffer_size);
 			return false;
 		}
 		if(offset + map_size > buffer_size) {
-			log_error("map: invalid offset/map size (offset + map size > buffer size): offset: %X, map size: %X, size: %X",
+			log_error("map: invalid offset/map size (offset + map size > buffer size): offset: $X, map size: $X, size: $X",
 					  offset, map_size, buffer_size);
 			return false;
 		}

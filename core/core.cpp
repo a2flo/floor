@@ -746,7 +746,7 @@ string expand_path_with_env(const string& in) {
 	static thread_local char expanded_path[32768]; // 32k is the max
 	const auto expanded_size = ExpandEnvironmentStringsA(in.c_str(), expanded_path, 32767);
 	if(expanded_size == 0 || expanded_size == 32767) {
-		log_error("failed to expand file path: %s", in);
+		log_error("failed to expand file path: $", in);
 		return in;
 	}
 	return string(expanded_path, std::min(uint32_t(expanded_size - 1), uint32_t(size(expanded_path) - 1)));

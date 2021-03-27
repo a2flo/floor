@@ -49,7 +49,7 @@ void audio_controller::init() {
 		// check how many aux send slots we actually got + create efx slots
 		alcGetIntegerv(device, ALC_MAX_AUXILIARY_SENDS, 1, &aux_sends);
 	}
-	log_debug("openal: got %u auxillary send slots", aux_sends);
+	log_debug("openal: got $ auxillary send slots", aux_sends);
 	
 	// create context
 	aux_sends = std::max(aux_sends, 2); // request 2 aux sends max
@@ -181,7 +181,7 @@ weak_ptr<audio_source> audio_controller::internal_add_source(const string& store
 															 const string source_identifier) {
 	auto data_ptr = data.lock();
 	if(!data_ptr) {
-		log_error("there is no such file/identifier \"%s\" in the audio store", store_identifier);
+		log_error("there is no such file/identifier \"$\" in the audio store", store_identifier);
 		return weak_ptr<audio_source> {};
 	}
 	
@@ -211,7 +211,7 @@ bool audio_controller::remove_source(weak_ptr<audio_source> source) {
 	
 	const auto iter = sources.find(src_ptr->get_identifier());
 	if(iter == sources.end()) {
-		log_error("source \"%s\" doesn't exist in the audio controller!",
+		log_error("source \"$\" doesn't exist in the audio controller!",
 				  src_ptr->get_identifier());
 		return false;
 	}
@@ -224,7 +224,7 @@ bool audio_controller::remove_source(weak_ptr<audio_source> source) {
 bool audio_controller::remove_source(const string& source_identifier) {
 	const auto iter = sources.find(source_identifier);
 	if(iter == sources.end()) {
-		log_error("source \"%s\" doesn't exist in the audio controller!",
+		log_error("source \"$\" doesn't exist in the audio controller!",
 				  source_identifier);
 		return false;
 	}

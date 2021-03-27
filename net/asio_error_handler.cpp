@@ -38,7 +38,7 @@ struct asio_error_stack {
 		idx = (idx + 1u) % size;
 		if(unhandled < size) ++unhandled;
 		else {
-			log_error("error overflow (full error ring buffer - %u errors have not been handled)", size_t(size));
+			log_error("error overflow (full error ring buffer - $ errors have not been handled)", size_t(size));
 		}
 	}
 	
@@ -65,7 +65,7 @@ struct asio_error_stack {
 static thread_local asio_error_stack asio_errors;
 
 void asio_error_handler::handle_exception(const exception& exc) {
-	log_error("asio/net error: %s", exc.what());
+	log_error("asio/net error: $", exc.what());
 	asio_errors.add(exc.what());
 }
 

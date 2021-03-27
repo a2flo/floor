@@ -65,7 +65,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	if (dynamic_render_state.clear_values &&
 		dynamic_render_state.clear_values->size() != attachments_map.size() + (depth_attachment ? 1u : 0u)) {
-		log_error("invalid clear values size: %u", dynamic_render_state.clear_values->size());
+		log_error("invalid clear values size: $", dynamic_render_state.clear_values->size());
 		return false;
 	}
 	
@@ -149,7 +149,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	}
 	if (scissor_rect.x + scissor_rect.width > (uint32_t)viewport.width ||
 		scissor_rect.y + scissor_rect.height > (uint32_t)viewport.height) {
-		log_error("scissor rectangle is out-of-bounds: @%v + %v > %v",
+		log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
 				  ulong2 { scissor_rect.x, scissor_rect.y }, ulong2 { scissor_rect.width, scissor_rect.height },
 				  double2 { viewport.width, viewport.height });
 		return false;
@@ -254,7 +254,7 @@ bool metal_renderer::update_metal_pipeline() {
 	const auto& mtl_pipeline = (const metal_pipeline&)*cur_pipeline;
 	mtl_pipeline_state = mtl_pipeline.get_metal_pipeline_entry(dev);
 	if (mtl_pipeline_state == nullptr) {
-		log_error("no pipeline state for device %s", dev.name);
+		log_error("no pipeline state for device $", dev.name);
 		return false;
 	}
 	return true;

@@ -75,7 +75,7 @@ device(device_), programs(programs_), has_device_binary(!programs.empty()) {
 				if (info.has_valid_local_size()) {
 					const auto local_size_extent = info.local_size.extent();
 					if (local_size_extent > host_limits::max_total_local_size) {
-						log_error("kernel %s local size extent of %u is larger than the max supported local size of %u",
+						log_error("kernel $ local size extent of $ is larger than the max supported local size of $",
 								  info.name, local_size_extent, host_limits::max_total_local_size);
 						continue;
 					}
@@ -122,9 +122,9 @@ FLOOR_POP_WARNINGS()
 #endif
 	if(func_ptr == nullptr) {
 #if !defined(__WINDOWS__)
-		log_error("failed to retrieve function pointer to \"%s\": %s", func_name, dlerror());
+		log_error("failed to retrieve function pointer to \"$\": $", func_name, dlerror());
 #else
-		log_error("failed to retrieve function pointer to \"%s\": %u", func_name, GetLastError());
+		log_error("failed to retrieve function pointer to \"$\": $", func_name, GetLastError());
 #endif
 		return {};
 	}

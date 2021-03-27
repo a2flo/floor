@@ -159,7 +159,7 @@ FLOOR_POP_WARNINGS()
 		// 1 unit == 0.00002
 		auto conv = uint32_t(color * 50000.0f);
 		if (conv < range.x || conv > range.y) {
-			log_error("invalid color %u, must be in [%u, %u]", conv, range.x, range.y);
+			log_error("invalid color $, must be in [$, $]", conv, range.x, range.y);
 			conv = math::clamp(conv, range.x, range.y);
 		}
 		return SDL_Swap16(uint16_t(conv));
@@ -174,7 +174,7 @@ FLOOR_POP_WARNINGS()
 		// 1 unit == 0.0001 cd
 		auto conv = uint32_t(cd * 10000.0f);
 		if (conv < range.x || conv > range.y) {
-			log_error("invalid luminance %u, must be in [%u, %u]", conv, range.x, range.y);
+			log_error("invalid luminance $, must be in [$, $]", conv, range.x, range.y);
 			conv = math::clamp(conv, range.x, range.y);
 		}
 		// SMPTE ST 2086 requires that luminance is a certain multiple
@@ -401,7 +401,7 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
 	if(!SDL_GetWindowWMInfo(wnd, &info)) {
-		log_error("failed to retrieve window info: %s", SDL_GetError());
+		log_error("failed to retrieve window info: $", SDL_GetError());
 		return nullptr;
 	}
 

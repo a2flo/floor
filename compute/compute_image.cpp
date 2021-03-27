@@ -45,7 +45,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	glGenTextures(1, &gl_object);
 	glBindTexture(opengl_type, gl_object);
 	if(gl_object == 0 || !glIsTexture(gl_object)) {
-		log_error("created opengl image %u is invalid!", gl_object);
+		log_error("created opengl image $ is invalid!", gl_object);
 		return false;
 	}
 	
@@ -96,7 +96,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
 					break;
 				default:
-					log_error("format not supported for depth image: %X", image_format);
+					log_error("format not supported for depth image: $X", image_format);
 					return false;
 			}
 		}
@@ -122,7 +122,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					}
 					break;
 				default:
-					log_error("format not supported for depth image: %X", image_format);
+					log_error("format not supported for depth image: $X", image_format);
 					return false;
 			}
 		}
@@ -188,10 +188,10 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_64:
 					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
 					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
-						log_error("format not supported for unsigned data type: %X", image_format);
+						log_error("format not supported for unsigned data type: $X", image_format);
 						return false;
 					default:
-						log_error("unknown format: %X", image_format);
+						log_error("unknown format: $X", image_format);
 						return false;
 				}
 				break;
@@ -224,10 +224,10 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_24:
 					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
 					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
-						log_error("format not supported for signed data type: %X", image_format);
+						log_error("format not supported for signed data type: $X", image_format);
 						return false;
 					default:
-						log_error("unknown format: %X", image_format);
+						log_error("unknown format: $X", image_format);
 						return false;
 				}
 				break;
@@ -262,15 +262,15 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_24:
 					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
 					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
-						log_error("format not supported for float data type: %X", image_format);
+						log_error("format not supported for float data type: $X", image_format);
 						return false;
 					default:
-						log_error("unknown format: %X", image_format);
+						log_error("unknown format: $X", image_format);
 						return false;
 				}
 				break;
 			default:
-				log_error("unknown data type: %X", data_type);
+				log_error("unknown data type: $X", data_type);
 				return false;
 		}
 	}
@@ -531,7 +531,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 				log_error("GL_TEXTURE_BUFFER and GL_TEXTURE_RECTANGLE targets are currently unsupported");
 				return {};
 			default:
-				log_error("unknown opengl texture target: %X", opengl_target);
+				log_error("unknown opengl texture target: $X", opengl_target);
 				return {};
 		}
 		
@@ -573,7 +573,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 		glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)cur_bound_rb);
 	}
 	else {
-		log_error("opengl object is neither a texture nor a renderbuffer: %u", opengl_image);
+		log_error("opengl object is neither a texture nor a renderbuffer: $", opengl_image);
 		return {};
 	}
 	info.image_dim = {
@@ -649,7 +649,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 	};
 	const auto format_iter = format_map.find(internal_format);
 	if(format_iter == cend(format_map)) {
-		log_error("unknown internal format: %X", internal_format);
+		log_error("unknown internal format: $X", internal_format);
 		return {};
 	}
 	info.image_type |= format_iter->second;
@@ -859,7 +859,7 @@ void compute_image::build_mip_map_minification_program() const {
 		for(auto& entry : minify_kernels) {
 			entry.second.second = prog->program->get_kernel(entry.second.first);
 			if(entry.second.second == nullptr) {
-				log_error("failed to retrieve kernel \"%s\" from minify program", entry.second.first);
+				log_error("failed to retrieve kernel \"$\" from minify program", entry.second.first);
 				return;
 			}
 		}
@@ -906,7 +906,7 @@ void compute_image::generate_mip_map_chain(const compute_queue& cqueue) {
 		const auto image_base_type = minify_image_base_type(image_type);
 		const auto kernel_iter = prog->kernels.find(image_base_type);
 		if(kernel_iter == prog->kernels.end()) {
-			log_error("no minification kernel for this image type exists: %s (%X)", image_type_to_string(image_type), image_type);
+			log_error("no minification kernel for this image type exists: $ ($X)", image_type_to_string(image_type), image_type);
 			return;
 		}
 		auto minify_kernel = kernel_iter->second.second;

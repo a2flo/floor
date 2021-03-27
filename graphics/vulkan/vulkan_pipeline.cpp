@@ -48,7 +48,7 @@ static unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pipelin
 	}
 	auto vulkan_base_pass = make_unique<vulkan_pass>(base_pass_desc, devices, is_multi_view);
 	if (!vulkan_base_pass || !vulkan_base_pass->is_valid()) {
-		log_error("failed to create%s Vulkan base pass for pipeline", (is_multi_view ? " multi-view" : ""));
+		log_error("failed to create$ Vulkan base pass for pipeline", (is_multi_view ? " multi-view" : ""));
 		return {};
 	}
 	return vulkan_base_pass;
@@ -235,7 +235,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 
 	const auto render_pass = vulkan_base_pass.get_vulkan_render_pass(vk_dev, is_multi_view);
 	if (render_pass == nullptr) {
-		log_error("no base render pass for device %s", vk_dev.name);
+		log_error("no base render pass for device $", vk_dev.name);
 		return false;
 	}
 

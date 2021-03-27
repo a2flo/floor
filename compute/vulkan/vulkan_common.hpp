@@ -154,21 +154,21 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 #define VK_CALL_RET(call, error_msg, ...) { \
 	const auto call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 		return __VA_ARGS__; \
 	} \
 }
 #define VK_CALL_CONT(call, error_msg) { \
 	const int32_t call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 		continue; \
 	} \
 }
 #define VK_CALL_BREAK(call, error_msg) { \
 	const int32_t call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 		break; \
 	} \
 }
@@ -176,7 +176,7 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 	int32_t err_var_name = VK_SUCCESS; \
 	call; \
 	if(err_var_name != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, err_var_name, vulkan_error_to_string(err_var_name)); \
+		log_error("$: $: $", error_msg, err_var_name, vulkan_error_to_string(err_var_name)); \
 		return __VA_ARGS__; \
 	} \
 }
@@ -184,21 +184,21 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 	int32_t err_var_name = VK_SUCCESS; \
 	call; \
 	if(err_var_name != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, err_var_name, vulkan_error_to_string(err_var_name)); \
+		log_error("$: $: $", error_msg, err_var_name, vulkan_error_to_string(err_var_name)); \
 		continue; \
 	} \
 }
 #define VK_CALL_ERR_EXEC(call, error_msg, do_stuff) { \
 	const auto call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 		do_stuff \
 	} \
 }
 #define VK_CALL_IGNORE(call, error_msg) { \
 	const auto call_err_var = call; \
 	if(call_err_var != VK_SUCCESS) { \
-		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 	} \
 }
 

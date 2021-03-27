@@ -53,7 +53,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
 					id <MTLFunction> func = [prog.second.program newFunctionWithName:func_name];
 					if(!func) {
-						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first.get().name);
+						log_error("failed to get function \"$\" for device \"$\"", info.name, prog.first.get().name);
 						continue;
 					}
 					
@@ -62,12 +62,12 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					if([func functionType] == MTLFunctionTypeKernel) {
 						kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:func error:&err];
 						if(!kernel_state) {
-							log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first.get().name,
+							log_error("failed to create kernel state \"$\" for device \"$\": $", info.name, prog.first.get().name,
 									  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 							continue;
 						}
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS)
-						log_debug("%s (%s): max work-items: %u, simd width: %u, local mem: %u",
+						log_debug("$ ($): max work-items: $, simd width: $, local mem: $",
 								  info.name, prog.first.get().name,
 								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);
 #endif
