@@ -197,20 +197,12 @@ aligned_ptr<T> make_aligned_ptr(const size_t count = 1u) {
 	T* ptr = nullptr;
 #if !defined(__WINDOWS__)
 	if (posix_memalign((void**)&ptr, aligned_ptr<T>::page_size, size) != 0 || ptr == nullptr) {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 		throw std::runtime_error("failed to allocated aligned_ptr");
-#else
-		return aligned_ptr<T> { nullptr, 0u };
-#endif
 	}
 #else
 	ptr = (T*)_aligned_malloc(size, aligned_ptr<T>::page_size);
 	if (ptr == nullptr) {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 		throw std::runtime_error("failed to allocated aligned_ptr");
-#else
-		return aligned_ptr<T> { nullptr, 0u };
-#endif
 	}
 #endif
 	return aligned_ptr<T> { ptr, size };

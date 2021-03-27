@@ -72,21 +72,15 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 		if(this_thread_obj->try_lock()) {
 			// if the "finish flag" has been set in the mean time, don't call the run method!
 			if(!this_thread_obj->thread_should_finish()) {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 				try {
-#endif
 					this_thread_obj->run();
-#if !defined(FLOOR_NO_EXCEPTIONS)
-				}
-				catch(exception& exc) {
+				} catch(exception& exc) {
 					log_error("encountered an unhandled exception while running a thread \"%s\": %s",
 							  core::get_current_thread_name(), exc.what());
-				}
-				catch(...) {
+				} catch(...) {
 					log_error("encountered an unhandled exception while running a thread \"%s\"",
 							  core::get_current_thread_name());
 				}
-#endif
 			}
 			this_thread_obj->unlock();
 			
@@ -147,56 +141,38 @@ void thread_base::finish() {
 }
 
 void thread_base::lock() {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 	try {
-#endif
 		thread_lock.lock();
 		thread_lock_count++;
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	}
-	catch(system_error& sys_err) {
+	} catch(system_error& sys_err) {
 		cout << "unable to lock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
-	}
-	catch(...) {
+	} catch(...) {
 		cout << "unable to lock thread" << endl;
 	}
-#endif
 }
 
 bool thread_base::try_lock() {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 	try {
-#endif
 		const bool ret = thread_lock.try_lock();
 		if(ret) thread_lock_count++;
 		return ret;
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	}
-	catch(system_error& sys_err) {
+	} catch(system_error& sys_err) {
 		cout << "unable to try-lock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
-	}
-	catch(...) {
+	} catch(...) {
 		cout << "unable to try-lock thread" << endl;
 	}
 	return false;
-#endif
 }
 
 void thread_base::unlock() {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 	try {
-#endif
 		thread_lock.unlock();
 		thread_lock_count--;
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	}
-	catch(system_error& sys_err) {
+	} catch(system_error& sys_err) {
 		cout << "unable to unlock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
-	}
-	catch(...) {
+	} catch(...) {
 		cout << "unable to unlock thread" << endl;
 	}
-#endif
 }
 
 void thread_base::set_thread_status(const thread_base::THREAD_STATUS status) {

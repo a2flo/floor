@@ -147,11 +147,7 @@ namespace json {
 		T get_or_throw() const {
 			const auto ret = get<T>();
 			if (!ret.first) {
-#if !defined(FLOOR_NO_EXCEPTIONS)
 				throw runtime_error("json_value is not of type "s + typeid(T).name());
-#else
-				return {};
-#endif
 			}
 			return ret.second;
 		}

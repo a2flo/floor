@@ -46,8 +46,6 @@
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
 ** to disable VR:
    define "FLOOR_NO_VR" or "./build.sh no-vr"
-** to disable C++ exceptions:
-   define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ (gcc 10.0+) instead of libc++:
    "./build.sh libstdc++"
 

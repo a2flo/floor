@@ -38,21 +38,15 @@ void task::run(task* this_task, std::function<void()> task_op) {
 	
 	core::set_current_thread_name(this_task->task_name);
 	
-#if !defined(FLOOR_NO_EXCEPTIONS)
 	try {
-#endif
 		// NOTE: this is the function object created above (not the users task op!)
 		task_op();
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	}
-	catch(exception& exc) {
+	} catch(exception& exc) {
 		log_error("encountered an unhandled exception while running task \"%s\": %s",
 				  core::get_current_thread_name(), exc.what());
-	}
-	catch(...) {
+	} catch(...) {
 		log_error("encountered an unhandled exception while running task \"%s\"",
 				  core::get_current_thread_name());
 	}
-#endif
 	delete this_task;
 }

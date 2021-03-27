@@ -95,7 +95,6 @@ BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
 BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
-BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_VR=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
@@ -144,7 +143,6 @@ for arg in "$@"; do
 			echo "	no-openal          disables openal support"
 			echo "	no-vr              disables VR support (default for macOS and iOS targets)"
 			echo "	no-net             disables network support"
-			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	native             optimize and specifically build for the host cpu"
@@ -219,9 +217,6 @@ for arg in "$@"; do
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
-			;;
-		"no-exceptions")
-			BUILD_CONF_EXCEPTIONS=0
 			;;
 		"pocl")
 			BUILD_CONF_POCL=1
@@ -686,7 +681,6 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 	set_conf_val "###FLOOR_VR###" "FLOOR_NO_VR" ${BUILD_CONF_VR}
 	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
-	set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 	echo "${CONF}" > floor/floor_conf.hpp.tmp
 
 	# check if this is an entirely new conf or if it differs from the existing conf
@@ -729,11 +723,6 @@ CFLAGS="${CFLAGS} -std=gnu11"
 OBJCFLAGS="${OBJCFLAGS} -fno-objc-exceptions"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	OBJCFLAGS="${OBJCFLAGS} -fobjc-arc"
-fi
-
-# disable exception support
-if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
-	CXXFLAGS="${CXXFLAGS} -fno-exceptions"
 fi
 
 # so not standard compliant ...

@@ -47,10 +47,7 @@ public:
 			}
 			
 			// for all other options: call the registered function and provide the current context
-#if !defined(FLOOR_NO_EXCEPTIONS)
-			try
-#endif
-			{
+			try {
 				// if there is no function registered for an option, this will print an error and abort further parsing
 				const auto opt_iter = find_if(cbegin(const_options), cend(const_options), [&arg](const auto& elem) {
 					return (elem.first == arg);
@@ -60,12 +57,9 @@ public:
 					return;
 				}
 				opt_iter->second(option_ctx, arg_ptr);
-			}
-#if !defined(FLOOR_NO_EXCEPTIONS)
-			catch(...) {
+			} catch(...) {
 				log_error("caught unknown exception");
 			}
-#endif
 		}
 		
 		// handle additional options after "--"

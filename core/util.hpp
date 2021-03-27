@@ -21,15 +21,4 @@
 
 #include <floor/core/cpp_headers.hpp>
 
-// misc
-#if !defined(FLOOR_NO_EXCEPTIONS)
-class floor_exception : public exception {
-protected:
-	string error_str;
-public:
-	explicit floor_exception(const string& error_str_) : error_str(error_str_) {}
-	const char* what() const noexcept override;
-};
-#endif
-
 #endif

@@ -612,10 +612,7 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align)
 
 bool elf_binary::parse_elf() {
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	try
-#endif
-	{
+	try {
 		if (binary_size < sizeof(elf64_header_t)) {
 			log_error("invalid binary size");
 			return false;
@@ -946,13 +943,10 @@ bool elf_binary::parse_elf() {
 		}
 		
 		info->parsed_successfully = true;
-	}
-#if !defined(FLOOR_NO_EXCEPTIONS)
-	catch (exception& exc) {
+	} catch (exception& exc) {
 		log_error("error during ELF parsing: %s", exc.what());
 		return false;
 	}
-#endif
 	
 	return true;
 }
