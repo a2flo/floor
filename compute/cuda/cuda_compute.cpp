@@ -41,7 +41,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	// init cuda itself
 	CU_CALL_RET(cu_init(0), "failed to initialize CUDA")
 	
-	// need at least 7.5 right now
+	// need at least 9.0 right now
 	const auto to_driver_major = [](const uint32_t& version) { return version / 1000; };
 	const auto to_driver_minor = [](const uint32_t& version) { return (version % 100) / 10; };
 	cu_driver_get_version((int*)&driver_version);
@@ -99,11 +99,11 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			if(!found) continue;
 		}
 		
-		// need at least sm_20 capability (fermi)
+		// need at least sm_30 capability (Kepler)
 		int2 cc;
 		CU_CALL_IGNORE(cu_device_compute_capability(&cc.x, &cc.y, cuda_dev))
-		if(cc.x < 2) {
-			log_error("unsupported cuda device \"%s\": at least compute capability 2.0 is required (has %u.%u)!",
+		if(cc.x < 3) {
+			log_error("unsupported cuda device \"%s\": at least compute capability 3.0 is required (has %u.%u)!",
 					  dev_name, cc.x, cc.y);
 			continue;
 		}
@@ -201,7 +201,6 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device.unified_memory = (unified_memory != 0);
 		device.cooperative_kernel_support = (coop_launch != 0);
 		
-		device.sub_group_shuffle_support = (device.sm.x >= 3); // supported with sm_30+
 		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
 		
 		// get UUID if CUDA 9.2+
@@ -227,11 +226,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		}
 		
 		// set max supported PTX version and min required PTX version
-		if (driver_version >= 7050 && driver_version < 8000) {
-			device.ptx = { 4, 3 };
-		} else if (driver_version < 9000) {
-			device.ptx = { 5, 0 };
-		} else if (driver_version < 9010) {
+		if (driver_version >= 9000 && driver_version < 9010) {
 			device.ptx = { 6, 0 };
 		} else if (driver_version < 9020) {
 			device.ptx = { 6, 1 };
@@ -251,15 +246,9 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device.ptx = { 7, 2 };
 		}
 		
-		device.min_req_ptx = { 4, 3 };
-		if (device.sm.x == 6) {
-			device.min_req_ptx = { 5, 0 };
-		} else if (device.sm.x == 7) {
-			if (device.sm.y < 5) {
-				device.min_req_ptx = { 6, 0 };
-			} else {
-				device.min_req_ptx = { 6, 3 };
-			}
+		device.min_req_ptx = { 6, 0 };
+		if (device.sm.x == 7 && device.sm.x >= 5) {
+			device.min_req_ptx = { 6, 3 };
 		} else if (device.sm.x == 8) {
 			if (device.sm.y < 6) {
 				device.min_req_ptx = { 7, 0 };
@@ -313,10 +302,6 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		const auto compute_gpu_score = [](const cuda_device& dev) -> uint32_t {
 			uint32_t multiplier = 1;
 			switch(dev.sm.x) {
-				case 2:
-					// sm_20: 32 cores/sm, sm_21: 48 cores/sm
-					multiplier = (dev.sm.y == 0 ? 32 : 48);
-					break;
 				case 3:
 					// sm_3x: 192 cores/sm
 					multiplier = 192;

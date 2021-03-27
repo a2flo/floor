@@ -20,7 +20,6 @@
 #define __FLOOR_COMPUTE_DEVICE_CUDA_COOP_HPP__
 
 #if defined(FLOOR_COMPUTE_CUDA)
-#if FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
 
 #if FLOOR_COMPUTE_INFO_CUDA_SM >= 60
 // NOTE: these must be linked by the driver
@@ -71,7 +70,6 @@ namespace coop {
 	
 }
 
-#endif
 #endif
 
 #endif

@@ -29,7 +29,7 @@ namespace compute_algorithm {
 #if defined(FLOOR_COMPUTE_CUDA)
 	//! performs a butterfly reduction inside the sub-group using the specific operation/function
 	//! NOTE: sm_30 or higher only
-	template <typename T, typename F, enable_if_t<device_info::cuda_sm() >= 30 && sizeof(T) == 4>* = nullptr>
+	template <typename T, typename F, enable_if_t<sizeof(T) == 4>* = nullptr>
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		T shfled_var;
 #pragma unroll
@@ -46,7 +46,7 @@ namespace compute_algorithm {
 		}
 		return lane_var;
 	}
-	template <typename T, typename F, enable_if_t<device_info::cuda_sm() >= 30 && sizeof(T) == 8>* = nullptr>
+	template <typename T, typename F, enable_if_t<sizeof(T) == 8>* = nullptr>
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		T shfled_var;
 #pragma unroll

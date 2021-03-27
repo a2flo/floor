@@ -21,8 +21,8 @@
 
 #include <floor/core/essentials.hpp>
 
-// need at least cuda 7.5 to compile and run
-#define FLOOR_CUDA_API_VERSION_MIN 7050
+// need at least cuda 9.0 to compile and run
+#define FLOOR_CUDA_API_VERSION_MIN 9000
 
 #if !defined(FLOOR_NO_CUDA)
 

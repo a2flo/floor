@@ -204,7 +204,6 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	MANAGED_MEMORY = 83,
 	MULTI_GPU_BOARD = 84,
 	MULTI_GPU_BOARD_GROUP_ID = 85,
-	// CUDA 8.0+
 	HOST_NATIVE_ATOMIC_SUPPORTED = 86,
 	SINGLE_TO_DOUBLE_PRECISION_PERF_RATIO = 87,
 	PAGEABLE_MEMORY_ACCESS = 88,
@@ -214,7 +213,6 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	CAN_USE_STREAM_MEM_OPS = 92,
 	CAN_USE_64_BIT_STREAM_MEM_OPS = 93,
 	CAN_USE_STREAM_WAIT_VALUE_NOR = 94,
-	// CUDA 9.0+
 	COOPERATIVE_LAUNCH_SUPPORTED = 95,
 	COOPERATIVE_MULTI_DEVICE_LAUNCH_SUPPORTED = 96,
 	MAX_SHARED_MEMORY_PER_BLOCK_OPTIN = 97,
@@ -253,7 +251,6 @@ enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
 	PTX_VERSION = 5,
 	BINARY_VERSION = 6,
 	CACHE_MODE_CA = 7,
-	// CUDA 9.0+
 	//! NOTE: cl naming
 	MAX_DYNAMIC_LOCAL_SIZE_BYTES = 8,
 	//! NOTE: cl naming
@@ -275,7 +272,6 @@ enum class CU_JIT_OPTION : uint32_t {
 	LOG_VERBOSE,
 	GENERATE_LINE_INFO,
 	CACHE_MODE,
-	// CUDA 8.0+
 	NEW_SM3X_OPT,
 	FAST_COMPILE,
 };
@@ -580,11 +576,10 @@ struct cu_texture_descriptor {
 	float mip_map_level_bias;
 	float min_mip_map_level_clamp;
 	float max_mip_map_level_clamp;
-	float4 _border_color; // cuda 8.0+
+	float4 _border_color;
 	int32_t _reserved[12];
 };
 
-// cuda 9.0+
 struct cu_launch_params {
 	cu_function function;
 	uint32_t grid_dim_x;

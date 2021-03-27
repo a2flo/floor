@@ -31,13 +31,13 @@ public:
 	cuda_device();
 	
 	//! compute capability (aka sm_xx)
-	uint2 sm { 2, 0 };
+	uint2 sm { 3, 0 };
 	
 	//! max supported PTX version
-	uint2 ptx { 4, 3 };
+	uint2 ptx { 6, 0 };
 	
 	//! minimum required PTX version
-	uint2 min_req_ptx { 4, 3 };
+	uint2 min_req_ptx { 6, 0 };
 	
 	//!
 	uint32_t max_registers_per_block { 0u };

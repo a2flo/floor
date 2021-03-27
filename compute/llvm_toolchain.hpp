@@ -29,11 +29,11 @@ namespace llvm_toolchain {
 	enum class TARGET {
 		//! OpenCL SPIR 1.2
 		SPIR,
-		//! Nvidia CUDA PTX 4.3+
+		//! Nvidia CUDA PTX 6.0+
 		PTX,
-		//! Metal Apple-IR 1.1+
+		//! Metal Apple-IR 2.0+
 		AIR,
-		//! Vulkan SPIR-V 1.0+
+		//! Vulkan SPIR-V 1.5+
 		SPIRV_VULKAN,
 		//! OpenCL SPIR-V 1.0+
 		SPIRV_OPENCL,
@@ -225,8 +225,8 @@ namespace llvm_toolchain {
 		
 		//! CUDA specific options
 		struct {
-			//! sets the PTX version that should be used (4.3 by default)
-			uint32_t ptx_version { 43 };
+			//! sets the PTX version that should be used (6.0 by default)
+			uint32_t ptx_version { 60 };
 			
 			//! sets the maximum amount of registers that may be used
 			//! if 0, the global config setting is used

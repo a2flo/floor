@@ -139,7 +139,7 @@ static bool cuda_memcpy(const void* host,
 	return true;
 }
 
-static uint32_t cuda_driver_version { 7050 };
+static uint32_t cuda_driver_version { 9000 };
 void cuda_image::init_internal(cuda_compute* ctx) {
 	// only need to (can) init gl shaders when there's a window / gl context
 	if(!floor::is_console_only()) {
@@ -167,14 +167,8 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 	// only modify the sampler enum if this is wanted (i.e. this will be false when not setting depth compare state)
 	if(apply_sampler_modifications) {
 		// NOTE: need cuda version dependent offset for this (differs by 16 bytes for cuda 7.5/8.0)
-		if(cuda_driver_version < 8000) {
-			((cu_texture_ref_75*)tex_ref)->sampler_enum.low |= cuda_sampler_or.low;
-			((cu_texture_ref_75*)tex_ref)->sampler_enum.high |= cuda_sampler_or.high;
-		}
-		else {
-			((cu_texture_ref_80*)tex_ref)->sampler_enum.low |= cuda_sampler_or.low;
-			((cu_texture_ref_80*)tex_ref)->sampler_enum.high |= cuda_sampler_or.high;
-		}
+		((cu_texture_ref_80*)tex_ref)->sampler_enum.low |= cuda_sampler_or.low;
+		((cu_texture_ref_80*)tex_ref)->sampler_enum.high |= cuda_sampler_or.high;
 	}
 	
 	return ret;
@@ -589,7 +583,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		acquire_opengl_object(&cqueue);
 	}
 	
-	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
+	// create texture/surface objects, depending on read/write flags and sampler support
 	cu_resource_descriptor rsrc_desc;
 	cu_resource_view_descriptor rsrc_view_desc;
 	memset(&rsrc_desc, 0, sizeof(cu_resource_descriptor));

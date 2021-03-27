@@ -204,8 +204,8 @@ program_data compile_input(const string& input,
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
-	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
-	uint32_t ptx_version = max(43u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 4.3)
+	string sm_version = "30"; // handle cuda sm version (default to Kepler/sm_30)
+	uint32_t ptx_version = max(60u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 6.0)
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
@@ -361,20 +361,15 @@ program_data compile_input(const string& input,
 			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
 
 			// handle ptx version:
-			// * 4.3 is the minimum requirement for floor
-			// * 5.0 for sm_6x
-			// * 6.0 for sm_7x < 75
+			// * 6.0 is the minimum requirement for floor
 			// * 6.3 for sm_75+
 			// * 7.0 for sm_80/sm_82
 			// * 7.1 for sm_86+
 			switch(cuda_dev.sm.x) {
-				case 2:
 				case 3:
 				case 5:
-					// already 43
-					break;
 				case 6:
-					ptx_version = max(50u, ptx_version);
+					// already 60
 					break;
 				case 7:
 					ptx_version = max(cuda_dev.sm.y < 5 ? 60u : 63u, ptx_version);
@@ -388,7 +383,7 @@ program_data compile_input(const string& input,
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
 				const auto forced_version = stou(floor::get_cuda_force_ptx());
-				if(forced_version >= 43 && forced_version < numeric_limits<uint32_t>::max()) {
+				if(forced_version >= 60 && forced_version < numeric_limits<uint32_t>::max()) {
 					ptx_version = forced_version;
 				}
 			}

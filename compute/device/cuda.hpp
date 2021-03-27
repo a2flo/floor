@@ -52,22 +52,8 @@
 #define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 0
 #endif
 
-// sm_30+ with ptx 6.0+ has a "find nth set" instruction
-#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30 && FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
+// we always have a "find nth set" instruction
 #define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 1
-#else
-#define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 0
-#endif
-
-// shfl.sync was introduced with PTX 6.0 and is required for Volta
-// -> for backwards compat, use the non-sync version when targeting PTX < 6.0
-#if FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
-#define FLOOR_CUDA_SHFL "shfl.sync"
-#define FLOOR_CUDA_SHFL_MASK ", 0xFFFFFFFF"
-#else
-#define FLOOR_CUDA_SHFL "shfl"
-#define FLOOR_CUDA_SHFL_MASK
-#endif
 
 namespace std {
 	// half <-> float conversion
@@ -308,30 +294,26 @@ namespace std {
 	}
 #endif
 	
-#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30 && FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
 	const_func floor_inline_always uint32_t floor_rt_find_nth_set(const uint32_t value, const uint32_t base, const int32_t offset) {
 		uint32_t ret = 0;
 		asm("fns.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(value), "r"(base), "r"(offset));
 		return ret;
 	}
-#endif
 	
-#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30
 	template <uint32_t width, typename any_type, typename = enable_if_t<sizeof(any_type) == 4>>
 	volatile floor_inline_always any_type sub_group_shuffle_index(const any_type lane_var, const uint32_t src_lane_idx) {
 		constexpr const auto mask = ((device_info::simd_width() - width) << 8u) | 0x1Fu;
 		any_type ret;
 		if constexpr(is_floating_point_v<any_type>) {
-			asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+			asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 						 : "=f"(ret) : "f"(lane_var), "r"(src_lane_idx), "i"(mask));
 		}
 		else {
-			asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+			asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 						  : "=r"(ret) : "r"(lane_var), "r"(src_lane_idx), "i"(mask));
 		}
 		return ret;
 	}
-#endif
 	
 	// asin/acos/atan s/w computation
 	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
@@ -543,84 +525,82 @@ floor_inline_always static void image_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 
-#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30
 // shuffle functionality
 floor_inline_always static float simd_shuffle(const float lane_var, const uint16_t lane_id) {
 	float ret;
-	asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static uint32_t simd_shuffle(const uint32_t lane_var, const uint16_t lane_id) {
 	uint32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static int32_t simd_shuffle(const int32_t lane_var, const uint16_t lane_id) {
 	int32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 
 floor_inline_always static float simd_shuffle_down(const float lane_var, const uint16_t delta) {
 	float ret;
-	asm volatile(FLOOR_CUDA_SHFL ".down.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static uint32_t simd_shuffle_down(const uint32_t lane_var, const uint16_t delta) {
 	uint32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".down.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static int32_t simd_shuffle_down(const int32_t lane_var, const uint16_t delta) {
 	int32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".down.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 
 floor_inline_always static float simd_shuffle_up(const float lane_var, const uint16_t delta) {
 	float ret;
-	asm volatile(FLOOR_CUDA_SHFL ".up.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static uint32_t simd_shuffle_up(const uint32_t lane_var, const uint16_t delta) {
 	uint32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".up.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static int32_t simd_shuffle_up(const int32_t lane_var, const uint16_t delta) {
 	int32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".up.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 
 floor_inline_always static float simd_shuffle_xor(const float lane_var, const uint16_t mask) {
 	float ret;
-	asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static uint32_t simd_shuffle_xor(const uint32_t lane_var, const uint16_t mask) {
 	uint32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 floor_inline_always static int32_t simd_shuffle_xor(const int32_t lane_var, const uint16_t mask) {
 	int32_t ret;
-	asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-#endif
 
 // done
 #undef FLOOR_CUDA_DIM0

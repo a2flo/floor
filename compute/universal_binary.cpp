@@ -357,10 +357,7 @@ namespace universal_binary {
 				cuda_dev.sm = { cuda_target.sm_major, cuda_target.sm_minor };
 				
 				// handle PTX ISA version
-				if ((cuda_dev.sm.x == 6 && cuda_target.ptx_isa_major < 5) ||
-					(cuda_dev.sm.x == 7 && cuda_dev.sm.y < 5 && cuda_target.ptx_isa_major < 6) ||
-					(cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major < 6 ||
-																  (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3))) ||
+				if ((cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3)) ||
 					(cuda_dev.sm.x == 8 && cuda_dev.sm.y < 6 && cuda_target.ptx_isa_major < 7) ||
 					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 6 && (cuda_target.ptx_isa_major < 7 ||
 																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
@@ -379,7 +376,7 @@ namespace universal_binary {
 				// NOTE: other fixed device info is already set in the cuda_device constructor
 				
 				// TODO: handle CUBIN output
-				// TODO: -> need multiple CUDA toolchains (sm_2x requires 7.5 or 8.0, sm_6x requires 8.0+, sm_7x requires 9.0+, sm_8x requires 11.0+)
+				// TODO: -> need multiple CUDA toolchains (sm_7x requires 9.0+, sm_8x requires 11.0+)
 				if (!cuda_target.is_ptx) {
 					log_error("CUBIN building not supported yet");
 				}

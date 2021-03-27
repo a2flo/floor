@@ -33,6 +33,7 @@ cuda_device::cuda_device() : compute_device() {
 	double_support = true; // true for all gpus since fermi/sm_20
 	basic_64_bit_atomics_support = true; // always true since fermi/sm_20
 	sub_group_support = true;
+	sub_group_shuffle_support = true; // since Kepler/sm_30
 	
 	image_support = true;
 	image_depth_support = true;

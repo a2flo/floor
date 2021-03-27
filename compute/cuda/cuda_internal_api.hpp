@@ -145,7 +145,7 @@ struct cu_texture_ref_template {
 	float mip_level_clamp_min;
 	float mip_level_clamp_max;
 	uint32_t max_anisotropic;
-	float4 border_color[cuda_version >= 8000 ? 1 : 0]; // cuda 8.0+
+	float4 border_color;
 	// -- x64: 4 bytes padding
 	size_t _init_unknown_3;
 	uint32_t flags;
@@ -160,13 +160,10 @@ struct cu_texture_ref_template {
 	void* _unknown_obj_ref_dep2;
 	void* _unknown_obj_ref_dep;
 };
-using cu_texture_ref_75 = cu_texture_ref_template<7050>;
 using cu_texture_ref_80 = cu_texture_ref_template<8000>;
 
 // check if sizes/offsets are correct
-static_assert(sizeof(cu_texture_ref_75) == 0x1B0, "invalid cu_texture_ref size");
 static_assert(sizeof(cu_texture_ref_80) == 0x1C0, "invalid cu_texture_ref size");
-static_assert(offsetof(cu_texture_ref_75, sampler_enum) == 352, "invalid sampler enum offset");
 static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 368, "invalid sampler enum offset");
 
 #endif
