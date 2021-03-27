@@ -51,7 +51,6 @@ enum class COMPUTE_VENDOR : uint32_t {
 	INTEL,
 	AMD,
 	APPLE,
-	POCL,
 	HOST,
 	KHRONOS,
 };
@@ -63,7 +62,6 @@ floor_inline_always static constexpr const char* compute_vendor_to_string(const 
 		case COMPUTE_VENDOR::INTEL: return "INTEL";
 		case COMPUTE_VENDOR::AMD: return "AMD";
 		case COMPUTE_VENDOR::APPLE: return "APPLE";
-		case COMPUTE_VENDOR::POCL: return "POCL";
 		case COMPUTE_VENDOR::HOST: return "HOST";
 		case COMPUTE_VENDOR::KHRONOS: return "KHRONOS";
 		default: return "UNKNOWN";

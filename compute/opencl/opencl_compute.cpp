@@ -219,11 +219,6 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		bool check_spirv_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		bool check_sub_group_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		
-		// pocl only identifies itself in the platform version string, not the vendor string
-		if(cl_version_str.find("pocl") != string::npos) {
-			platform_vendor = COMPUTE_VENDOR::POCL;
-		}
-		
 		//
 		log_msg("opencl platform \"%s\" version recognized as CL%s",
 				  compute_vendor_to_string(platform_vendor),
@@ -377,15 +372,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
 			log_msg("double support: %b", device.double_support);
 			log_msg("image support: %b", device.image_support);
-			if(// pocl has no support for this yet
-			   platform_vendor != COMPUTE_VENDOR::POCL) {
-				const unsigned long long int printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
-				log_msg("printf buffer size: %u bytes / %u MB",
-						printf_buffer_size,
-						printf_buffer_size / 1024ULL / 1024ULL);
-				log_msg("max sub-devices: %u", cl_get_info<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>(cl_dev));
-				log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
-			}
+			const auto printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
+			log_msg("printf buffer size: %u bytes / %u MB",
+					printf_buffer_size,
+					printf_buffer_size / 1024ULL / 1024ULL);
+			log_msg("max sub-devices: %u", cl_get_info<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>(cl_dev));
+			log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
 			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
 			device.platform_vendor = platform_vendor;
@@ -416,16 +408,6 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				// -> cpu simd width later
 			}
 			
-			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
-			if(device.version_str.find("pocl") != string::npos) {
-				device.vendor = COMPUTE_VENDOR::POCL;
-				
-				// device unit count on pocl is 0 -> figure out how many logical cpus actually exist
-				if(device.units == 0) {
-					device.units = core::get_hw_thread_count();
-				}
-			}
-			
 			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
 				device.type = (compute_device::TYPE)cpu_counter;
 				cpu_counter++;
@@ -450,9 +432,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			device.c_version = extracted_cl_c_version.second;
 			
-			// pocl doesn't support spir, but can apparently handle llvm bitcode files
-			if(!core::contains(device.extensions, "cl_khr_spir") &&
-			   device.vendor != COMPUTE_VENDOR::POCL) {
+			if(!core::contains(device.extensions, "cl_khr_spir")) {
 				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
 				devices.pop_back();
 				continue;
@@ -703,21 +683,12 @@ FLOOR_POP_WARNINGS()
 	
 	// context has been created, query image format information
 	image_formats.clear();
-	if(platform_vendor != COMPUTE_VENDOR::POCL) {
-		cl_uint image_format_count = 0;
-		clGetSupportedImageFormats(ctx, CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, 0, nullptr, &image_format_count);
-		image_formats.resize(image_format_count);
-		clGetSupportedImageFormats(ctx, CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, image_format_count, image_formats.data(), nullptr);
-		if(image_formats.empty()) {
-			log_error("no supported image formats!");
-		}
-	}
-	else {
-		// pocl has too many issues and doesn't have full image support
-		// -> disable it and don't get any "supported" image formats
-		for(auto& dev : devices) {
-			dev->image_support = false;
-		}
+	cl_uint image_format_count = 0;
+	clGetSupportedImageFormats(ctx, CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, 0, nullptr, &image_format_count);
+	image_formats.resize(image_format_count);
+	clGetSupportedImageFormats(ctx, CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, image_format_count, image_formats.data(), nullptr);
+	if(image_formats.empty()) {
+		log_error("no supported image formats!");
 	}
 	
 	// already create command queues for all devices, these will serve as the default queues and the ones returned

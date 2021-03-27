@@ -31,7 +31,6 @@ namespace device_info {
 		INTEL,
 		AMD,
 		APPLE,
-		POCL,
 		HOST,
 		KHRONOS,
 		UNKNOWN

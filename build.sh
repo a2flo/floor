@@ -96,7 +96,6 @@ BUILD_CONF_METAL=1
 BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
 BUILD_CONF_VR=1
-BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 BUILD_CONF_NATIVE=0
 
@@ -143,7 +142,6 @@ for arg in "$@"; do
 			echo "	no-openal          disables openal support"
 			echo "	no-vr              disables VR support (default for macOS and iOS targets)"
 			echo "	no-net             disables network support"
-			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	native             optimize and specifically build for the host cpu"
 			echo ""
@@ -217,9 +215,6 @@ for arg in "$@"; do
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
-			;;
-		"pocl")
-			BUILD_CONF_POCL=1
 			;;
 		"libstdc++")
 			BUILD_CONF_LIBSTDCXX=1
@@ -482,9 +477,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_VR} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openvr"
 	fi
-	if [ ${BUILD_CONF_POCL} -gt 0 ]; then
-		PACKAGES_OPT="${PACKAGES_OPT} pocl"
-	fi
 
 	# TODO: error checking + check if libs exist
 	for pkg in ${PACKAGES}; do
@@ -505,7 +497,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		# must link winpthread instead on windows/mingw
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} winpthread"
 	fi
-	if [ ${BUILD_CONF_OPENCL} -gt 0 -a ${BUILD_CONF_POCL} -eq 0 ]; then
+	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
 	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
