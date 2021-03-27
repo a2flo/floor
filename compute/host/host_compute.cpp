@@ -61,7 +61,7 @@ host_compute::host_compute() : compute_context() {
 	device.context = this;
 	
 	// gather "device"/cpu information, this is very platform dependent
-	string cpu_name = "";
+	string cpu_name;
 	uint64_t cpu_clock = 0;
 	
 	// we can get the actual cpu name quite easily on x86 through cpuid instructions
@@ -211,7 +211,7 @@ host_compute::host_compute() : compute_context() {
 			  host_cpu_tier_to_string(device.cpu_tier),
 			  fastest_cpu_device->units,
 			  fastest_cpu_device->clock,
-			  (unsigned int)(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
+			  uint32_t(fastest_cpu_device->global_mem_size / 1024ull / 1024ull),
 			  fastest_cpu_device->name);
 	log_debug("fastest CPU device: %s, %s (score: %u)",
 			  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_device->units * fastest_cpu_device->clock);

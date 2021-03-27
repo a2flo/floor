@@ -308,8 +308,8 @@ bool cuda_api_init(const bool use_internal_api) {
 	// if this is enabled, we need to look up offsets of cuda internal structs for later use
 	if (use_internal_api) {
 		bool has_cuda_lib_data = false;
-		string cuda_lib_data = "";
-		string cuda_lib_path = "";
+		string cuda_lib_data;
+		string cuda_lib_path;
 #if defined(__APPLE__)
 		// get a list of all loaded dylibs
 		task_dyld_info dyld_info;

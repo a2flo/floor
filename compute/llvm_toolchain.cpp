@@ -36,7 +36,7 @@ namespace llvm_toolchain {
 bool create_floor_function_info(const string& ffi_file_name,
 								vector<function_info>& functions,
 								const uint32_t toolchain_version floor_unused) {
-	string ffi = "";
+	string ffi;
 	if (!file_io::file_to_string(ffi_file_name, ffi)) {
 		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
 		return false;
@@ -927,7 +927,7 @@ program_data compile_input(const string& input,
 		log_debug("clang cmd: %s", clang_cmd);
 		logger::flush();
 	}
-	string compilation_output = "";
+	string compilation_output;
 	core::system(clang_cmd, compilation_output);
 	// check if the output contains an error string (yes, a bit ugly, but it works for now - can't actually check the return code)
 	if(compilation_output.find(" error: ") != string::npos ||
@@ -954,7 +954,7 @@ program_data compile_input(const string& input,
 	
 	// final target specific processing/compilation
 	if(options.target == TARGET::SPIR) {
-		string spir_bc_data = "";
+		string spir_bc_data;
 		if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
 			log_error("failed to read SPIR 1.2 .bc file");
 			return {};
@@ -987,7 +987,7 @@ program_data compile_input(const string& input,
 		   !options.silence_debug_output) {
 			log_debug("llc cmd: %s", llc_cmd);
 		}
-		string ptx_code = "";
+		string ptx_code;
 		core::system(llc_cmd, ptx_code);
 		ptx_code += '\0'; // make sure there is a \0 terminator
 		
@@ -1028,7 +1028,7 @@ program_data compile_input(const string& input,
 				+ " 2>&1"
 #endif
 			};
-			string spirv_validator_output = "";
+			string spirv_validator_output;
 			core::system(spirv_validator_cmd, spirv_validator_output);
 			if(!spirv_validator_output.empty() && spirv_validator_output[spirv_validator_output.size() - 1] == '\n') {
 				spirv_validator_output.pop_back(); // trim last newline

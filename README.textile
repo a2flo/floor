@@ -4,7 +4,7 @@
 *Requirements:*
 * OS:
 ** only AMD64/Intel64/ARM64 is supported
-** Windows: NT 6.0+
+** Windows: NT 6.1+
 ** macOS: 10.13+
 ** iOS: 11.0+
 ** Linux: any current distribution

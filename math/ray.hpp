@@ -26,8 +26,8 @@ public:
 	float3 origin;
 	float3 direction;
 	
-	constexpr ray() noexcept : origin(), direction() {}
-	constexpr ray(const ray& r) noexcept : origin(r.origin), direction(r.direction) {}
+	constexpr ray() noexcept = default;
+	constexpr ray(const ray& r) noexcept = default;
 	constexpr ray(const float3& rorigin, const float3& rdirection) noexcept : origin(rorigin), direction(rdirection) {}
 	
 	constexpr ray& operator=(const ray& r) noexcept {

@@ -640,7 +640,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device_extensions.reserve(device_extensions_set.size());
 		device_extensions.assign(begin(device_extensions_set), end(device_extensions_set));
 		
-		string dev_exts_str = "", dev_layers_str = "";
+		string dev_exts_str, dev_layers_str;
 		for(const auto& ext : device_extensions) {
 			dev_exts_str += ext;
 			dev_exts_str += " ";

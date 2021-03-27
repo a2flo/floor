@@ -28,7 +28,7 @@
 #include <floor/audio/audio_headers.hpp>
 
 //! these are the only effects supported by all openal implementations
-enum class AUDIO_EFFECT : unsigned int {
+enum class AUDIO_EFFECT : uint32_t {
 	REVERB,
 	ECHO
 };

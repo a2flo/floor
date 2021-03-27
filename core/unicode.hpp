@@ -27,8 +27,8 @@ using namespace std;
 
 //! unicode routines
 namespace unicode {
-	vector<unsigned int> utf8_to_unicode(const string& str);
-	string unicode_to_utf8(const vector<unsigned int>& codes);
+	vector<uint32_t> utf8_to_unicode(const string& str);
+	string unicode_to_utf8(const vector<uint32_t>& codes);
 	
 	//! decodes a single multi-byte utf-8 character to a utf-32/32-bit uint,
 	//! returns <false, 0> if the utf-8 code point is invalid and <true, utf-32 code> if valid

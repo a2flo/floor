@@ -166,7 +166,7 @@ bool file_io::file_to_string(const string& filename, string& str) {
 }
 
 string file_io::file_to_string(const string& filename) {
-	string ret = "";
+	string ret;
 	file_to_string(filename, ret);
 	return ret;
 }
@@ -197,7 +197,7 @@ bool file_io::file_to_string_poll(const string& filename, string& str) {
 }
 
 string file_io::file_to_string_poll(const string& filename) {
-	string ret = "";
+	string ret;
 	file_to_string_poll(filename, ret);
 	return ret;
 }
@@ -498,7 +498,7 @@ void file_io::get_terminated_block(string& str, const uint8_t terminator) {
 }
 
 string file_io::get_terminated_block(const uint8_t terminator) {
-	string str = "";
+	string str;
 	for(uint8_t c = get_char(); c != terminator; c = get_char()) {
 		str += (char&)c;
 	}
@@ -506,7 +506,7 @@ string file_io::get_terminated_block(const uint8_t terminator) {
 }
 
 void file_io::write_terminated_block(const string& str, const uint8_t terminator) {
-	write_block(str.c_str(), (unsigned int)str.length());
+	write_block(str.c_str(), (uint32_t)str.length());
 	filestream.put((const char&)terminator);
 }
 
@@ -518,7 +518,7 @@ bool file_io::read_file(stringstream& buffer) {
 	auto size_ll = get_filesize();
 	if(size_ll < 0) return false;
 	
-	const unsigned long long int size = (unsigned long long int)size_ll;
+	const auto size = (unsigned long long int)size_ll;
 	auto data = make_unique<char[]>(size_t(size + 1u));
 	if(data == nullptr) return false;
 	
@@ -537,7 +537,7 @@ bool file_io::read_file(stringstream& buffer) {
 }
 
 bool file_io::read_file(string& str) {
-	const size_t size = (size_t)get_filesize();
+	const auto size = (size_t)get_filesize();
 	str.resize(size);
 	if(str.size() != size) return false;
 	filestream.read(&str.front(), (streamsize)size);

@@ -35,10 +35,10 @@ using namespace std;
 template <typename resource_type, uint32_t resource_count>
 class safe_resource_container {
 public:
-	safe_resource_container(array<resource_type, resource_count>&& resources_) : resources(resources_) {}
+	explicit safe_resource_container(array<resource_type, resource_count>&& resources_) : resources(resources_) {}
 	
 	//! tries to acquire a resource,
-	//! returns { resource, index } on sucess,
+	//! returns { resource, index } on success,
 	//! returns { {}, ~0u } on failure
 	pair<resource_type, uint32_t> try_acquire() REQUIRES(!resource_lock) {
 		for (uint32_t trial = 0, limiter = 10; trial < limiter; ++trial) {
@@ -83,7 +83,7 @@ public:
 		}
 	}
 	
-	//! release a resoure again
+	//! release a resource again
 	void release(const pair<resource_type, uint32_t>& resource) REQUIRES(!resource_lock) {
 		GUARD(resource_lock);
 		resources_in_use.reset(resource.second);

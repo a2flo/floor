@@ -30,9 +30,9 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-static string log_filename { "" }, msg_filename { "" };
+static string log_filename, msg_filename;
 static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
-static atomic<unsigned int> log_err_counter { 0u };
+static atomic<uint32_t> log_err_counter { 0u };
 static atomic<logger::LOG_TYPE> log_verbosity { logger::LOG_TYPE::UNDECORATED };
 static bool log_append_mode { false };
 static safe_mutex log_store_lock;
@@ -51,7 +51,7 @@ public:
 		this->set_thread_delay(20); // lower to 20ms
 		this->start();
 	}
-	virtual ~logger_thread() override {
+	~logger_thread() override {
 		// finish (kill the logger thread) and run once more to make sure everything has been saved/printed
 		finish();
 		run();
@@ -151,8 +151,8 @@ void logger::init(const size_t verbosity,
 				  const bool append_mode,
 				  const bool use_time,
 				  const bool use_color,
-				  const string log_filename_,
-				  const string msg_filename_) {
+				  const string& log_filename_,
+				  const string& msg_filename_) {
 	// only allow single init
 	if(log_initialized.exchange(true)) {
 		return;
@@ -315,7 +315,7 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 			// prettify file string (aka strip path)
 			string file_str = file;
 			size_t slash_pos = string::npos;
-			if((slash_pos = file_str.rfind("/")) == string::npos) slash_pos = file_str.rfind("\\");
+			if((slash_pos = file_str.rfind('/')) == string::npos) slash_pos = file_str.rfind('\\');
 			file_str = (slash_pos != string::npos ? file_str.substr(slash_pos+1, file_str.size()-slash_pos-1) : file_str);
 			buffer << file_str;
 			buffer << ": " << func << "(): ";

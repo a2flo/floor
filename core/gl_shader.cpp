@@ -207,7 +207,7 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	
 	// create the program object
 	shd_obj.program = glCreateProgram();
-	// attach the vertex and fragment shader progam to it
+	// attach the vertex and fragment shader program to it
 	glAttachShader(shd_obj.program, shd_obj.vertex_shader);
 	if(gs_text != nullptr) {
 		glAttachShader(shd_obj.program, shd_obj.geometry_shader);

@@ -26,7 +26,7 @@ bool source_range::operator==(const char* str) const {
 		if(*cptr == '\0') {
 			return (iter == end);
 		}
-		// if thats not the case and iter is at end: #source_range < #str
+		// if that's not the case and iter is at end: #source_range < #str
 		else if(iter == end) {
 			return false;
 		}

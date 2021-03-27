@@ -60,7 +60,7 @@ public:
 		(scalar_type)0, (scalar_type)0, (scalar_type)0, (scalar_type)1 }} {}
 	
 	//! constructs a matrix with all elements set to 'val'
-	constexpr matrix4(const scalar_type& val) noexcept :
+	constexpr explicit matrix4(const scalar_type& val) noexcept :
 	data {{
 		val, val, val, val,
 		val, val, val, val,
@@ -95,7 +95,7 @@ public:
 	constexpr matrix4(matrix4&& m4) noexcept : data(m4.data) {}
 	
 	//! conversion construction from another matrix with a different type
-	template <typename U> constexpr matrix4(const matrix4<U>& mat4) noexcept :
+	template <typename U> constexpr explicit matrix4(const matrix4<U>& mat4) noexcept :
 	data {{
 		(scalar_type)mat4.data[0], (scalar_type)mat4.data[1], (scalar_type)mat4.data[2], (scalar_type)mat4.data[3],
 		(scalar_type)mat4.data[4], (scalar_type)mat4.data[5], (scalar_type)mat4.data[6], (scalar_type)mat4.data[7],

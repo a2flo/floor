@@ -73,8 +73,8 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 
 	// go through all available devices and check if we can use them
 	devices.clear();
-	unsigned int gpu_counter = (unsigned int)compute_device::TYPE::GPU0;
-	unsigned int fastest_gpu_score = 0;
+	auto gpu_counter = (uint32_t)compute_device::TYPE::GPU0;
+	uint32_t fastest_gpu_score = 0;
 	for(int cur_device = 0; cur_device < device_count; ++cur_device) {
 		// get and create device
 		cu_device cuda_dev;
@@ -282,7 +282,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, SM %s / CUDA %s",
 				  device.units,
 				  device.clock,
-				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
+				  uint32_t(device.global_mem_size / 1024ull / 1024ull),
 				  device.vendor_name,
 				  device.name,
 				  device.version_str,

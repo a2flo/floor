@@ -94,7 +94,7 @@ void find_and_replace(string& str, const string& find, const string& repl) {
 	const size_t replace_len = repl.size();
 	if(find_len == 0) return; // replace_len might be 0 (if it's an empty string -> "")
 	
-	size_t pos, old_pos = 0;
+	size_t pos = 0, old_pos = 0;
 	while((pos = str.find(find, old_pos)) != string::npos) {
 		str.replace(pos, find_len, repl.c_str(), replace_len);
 		old_pos = pos + replace_len;
@@ -167,9 +167,9 @@ string strip_path(const string& in_path) {
 	string path = in_path;
 	size_t pos = 0, erase_pos;
 	while((pos = path.find("../", 0)) != string::npos && pos != 0) {
-		erase_pos = path.rfind("/", pos-2);
+		erase_pos = path.rfind('/', pos-2);
 #if defined(__WINDOWS__)
-		if(erase_pos == string::npos) erase_pos = path.rfind("\\", pos-2);
+		if(erase_pos == string::npos) erase_pos = path.rfind('\\', pos-2);
 #endif
 		if(erase_pos != string::npos) {
 			path.erase(erase_pos+1, pos+2-erase_pos);
@@ -179,8 +179,8 @@ string strip_path(const string& in_path) {
 #if defined(__WINDOWS__) // additional windows path handling
 	pos = 0;
 	while((pos = path.find("..\\", 0)) != string::npos && pos != 0) {
-		erase_pos = path.rfind("/", pos-2);
-		if(erase_pos == string::npos) erase_pos = path.rfind("\\", pos-2);
+		erase_pos = path.rfind('/', pos-2);
+		if(erase_pos == string::npos) erase_pos = path.rfind('\\', pos-2);
 		if(erase_pos != string::npos) {
 			path.erase(erase_pos+1, pos+2-erase_pos);
 		}
@@ -188,8 +188,8 @@ string strip_path(const string& in_path) {
 #endif
 	
 	if(path[path.length()-1] != '/' && path[path.length()-1] != '\\') {
-		pos = path.rfind("/");
-		if(pos == string::npos) pos = path.rfind("\\");
+		pos = path.rfind('/');
+		if(pos == string::npos) pos = path.rfind('\\');
 		if(pos == string::npos) {
 			path = "/"; // sth is wrong?
 		}
@@ -255,7 +255,7 @@ map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
 											  const bool always_get_folders) {
 	map<string, file_io::FILE_TYPE> file_list;
 	string dir_str = directory;
-	size_t pos;
+	size_t pos{ 0 };
 
 	// get file list (os specific)
 #if defined(__WINDOWS__)
@@ -295,8 +295,8 @@ map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
 		const string name = unicode::utf8_decomp_to_precomp(namelist[j]->d_name);
 #endif
 		const bool is_folder = (namelist[j]->d_type == 4);
-		if(file_extension != "" && (!is_folder || (is_folder && !always_get_folders))) {
-			if((pos = name.rfind(".")) != string::npos) {
+		if(!file_extension.empty() && (!is_folder || (is_folder && !always_get_folders))) {
+			if((pos = name.rfind('.')) != string::npos) {
 				if(name.substr(pos+1, name.size()-pos-1) != file_extension) continue;
 			}
 			else continue; // no extension
@@ -401,7 +401,7 @@ void system(const string& cmd, string& output) {
 	pclose(sys_pipe);
 }
 
-void set_random_seed(const unsigned int& seed) {
+void set_random_seed(const uint32_t& seed) {
 	gen.seed(seed);
 }
 
@@ -439,6 +439,7 @@ string encode_url(const string& url) {
 
 static inline char bits_to_hex(const uint8_t& bits) {
 	switch(bits) {
+		default: break;
 		case 0x0: return '0';
 		case 0x1: return '1';
 		case 0x2: return '2';
@@ -460,7 +461,7 @@ static inline char bits_to_hex(const uint8_t& bits) {
 }
 
 string str_hex_escape(const string& str) {
-	string ret = "";
+	string ret;
 	ret.reserve(str.size() * 4);
 	
 	for(const auto& ch : str) {
@@ -475,7 +476,7 @@ string str_hex_escape(const string& str) {
 }
 
 string cptr_hex_escape(const char* data, const size_t size) {
-	string ret = "";
+	string ret;
 	const uint8_t* ch_ptr = (const uint8_t*)data;
 	if(size != 0) {
 		ret.reserve(size * 4);

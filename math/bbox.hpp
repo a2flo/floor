@@ -36,7 +36,7 @@ public:
 	float3 max { -numeric_limits<float>::max() };
 	
 	constexpr bbox() noexcept = default;
-	constexpr bbox(const bbox& box) noexcept : min(box.min), max(box.max) {}
+	constexpr bbox(const bbox& box) noexcept = default;
 	constexpr bbox(const float3& bmin, const float3& bmax) noexcept : min(bmin), max(bmax) {}
 	
 	constexpr void extend(const float3& v) {
@@ -126,7 +126,7 @@ public:
 	matrix4f mview;
 	
 	constexpr extbbox() noexcept = default;
-	constexpr extbbox(const extbbox& ebox) noexcept : bbox(ebox), pos(ebox.pos), mview(ebox.mview) {}
+	constexpr extbbox(const extbbox& ebox) noexcept = default;
 	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept :
 		bbox(bmin, bmax), pos(bpos), mview(bmview) {}
 	

@@ -41,7 +41,7 @@ struct translation_unit {
 	//! ordered set of iterators to all newlines in source
 	set<source_iterator> lines;
 	
-	translation_unit(const string& file_name_) : file_name(file_name_) {}
+	explicit translation_unit(const string& file_name_) : file_name(file_name_) {}
 };
 
 #endif

@@ -36,7 +36,7 @@ class http_net : public thread_base {
 public:
 	static constexpr size_t default_timeout { 10 };
 
-	enum class HTTP_STATUS : unsigned int {
+	enum class HTTP_STATUS : uint32_t {
 		NONE = 0,
 		TIMEOUT = 1,
 		CODE_100 = 100,
@@ -129,7 +129,7 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	size_t server_name_end_pos = server.size();
 	
 	// first slash ("server" might be a complete url)
-	const size_t slash_pos = server.find("/", server_name_start_pos);
+	const size_t slash_pos = server.find('/', server_name_start_pos);
 	if(slash_pos != string::npos) {
 		server_name_end_pos = slash_pos;
 		server_url = server.substr(server_name_end_pos, server.size() - server_name_end_pos);
@@ -250,7 +250,7 @@ void http_net::run() {
 	
 	// get and process new data (first concat everything, then split after \r\n)
 	auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
-	string received_data_str = "";
+	string received_data_str;
 	for(const auto& recv_elem : received_data) {
 		received_data_str += string(recv_elem.data(), recv_elem.size());
 	}
@@ -419,7 +419,7 @@ namespace floor_http_net {
 };
 constexpr const char* http_net::status_code_to_string(const HTTP_STATUS& code) {
 	return (code >= HTTP_STATUS::CODE_100 && code <= HTTP_STATUS::CODE_599 ?
-			floor_http_net::codes[((unsigned int)code - 100u) / 100u][(unsigned int)code - 100u * ((unsigned int)code / 100u)] :
+			floor_http_net::codes[((uint32_t)code - 100u) / 100u][(uint32_t)code - 100u * ((uint32_t)code / 100u)] :
 			"invalid code");
 }
 

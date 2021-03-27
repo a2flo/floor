@@ -27,7 +27,7 @@
 ALCdevice* audio_controller::device { nullptr };
 ALCcontext* audio_controller::context { nullptr };
 recursive_mutex audio_controller::ctx_lock {};
-atomic<unsigned int> audio_controller::ctx_active_locks { 0u };
+atomic<uint32_t> audio_controller::ctx_active_locks { 0u };
 unordered_map<string, shared_ptr<audio_source>> audio_controller::sources;
 vector<ALuint> audio_controller::effect_slots;
 
@@ -133,7 +133,7 @@ void audio_controller::acquire_context() {
 
 void audio_controller::handle_acquire() {
 	// note: not a race, since there can only be one active al thread
-	const unsigned int cur_active_locks = ctx_active_locks++;
+	const auto cur_active_locks = ctx_active_locks++;
 	if(cur_active_locks == 0 && alcMakeContextCurrent(context) != 0) {
 		if(AL_IS_ERROR()) {
 			log_error("couldn't make openal context current!");
@@ -142,7 +142,7 @@ void audio_controller::handle_acquire() {
 }
 
 void audio_controller::release_context() {
-	const unsigned int cur_active_locks = --ctx_active_locks;
+	const auto cur_active_locks = --ctx_active_locks;
 	if(cur_active_locks == 0) {
 		if(AL_IS_ERROR()) {
 			log_error("couldn't release current openal context!");
@@ -195,7 +195,7 @@ weak_ptr<audio_source> audio_controller::internal_add_source(const string& store
 	}
 	
 	if(sources.count(identifier) > 0) {
-		identifier += "." + to_string(core::rand(numeric_limits<unsigned int>::max()));
+		identifier += "." + to_string(core::rand(numeric_limits<uint32_t>::max()));
 	}
 	
 	const auto iter = sources.emplace(identifier, make_shared<audio_source>(identifier, type, data_ptr));

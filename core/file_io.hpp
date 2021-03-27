@@ -121,7 +121,7 @@ public:
 			return {};
 		}
 		
-		const size_t size = (size_t)file.get_filesize();
+		const auto size = (size_t)file.get_filesize();
 		const size_t readable_count = size / sizeof(data_type); // drop last bytes if they don't fit
 		const size_t readable_size = readable_count * sizeof(data_type);
 		vector<data_type> ret(readable_count);
@@ -142,7 +142,7 @@ public:
 
 protected:
 	OPEN_TYPE open_type { OPEN_TYPE::READ_BINARY };
-	string filename { "" };
+	string filename;
 	fstream filestream;
 
 	bool check_open();

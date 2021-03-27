@@ -239,12 +239,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 		log_debug("found %u opencl device%s in context", ctx_devices.size(), (ctx_devices.size() == 1 ? "" : "s"));
 		
 		string dev_type_str;
-		unsigned int gpu_counter = (unsigned int)compute_device::TYPE::GPU0;
-		unsigned int cpu_counter = (unsigned int)compute_device::TYPE::CPU0;
-		unsigned int fastest_cpu_score = 0;
-		unsigned int fastest_gpu_score = 0;
-		unsigned int cpu_score = 0;
-		unsigned int gpu_score = 0;
+		auto gpu_counter = (uint32_t)compute_device::TYPE::GPU0;
+		auto cpu_counter = (uint32_t)compute_device::TYPE::CPU0;
+		uint32_t fastest_cpu_score = 0;
+		uint32_t fastest_gpu_score = 0;
+		uint32_t cpu_score = 0;
+		uint32_t gpu_score = 0;
 		fastest_cpu_device = nullptr;
 		fastest_gpu_device = nullptr;
 		
@@ -354,7 +354,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			device.required_size_sub_group_support = core::contains(device.extensions, "cl_intel_required_subgroup_size");
 			if(device.required_size_sub_group_support) {
 				const auto sub_group_sizes = cl_get_info<CL_DEVICE_SUB_GROUP_SIZES>(cl_dev);
-				string sub_group_sizes_str = "";
+				string sub_group_sizes_str;
 				for(const auto& sg_size : sub_group_sizes) {
 					sub_group_sizes_str += to_string(sg_size) + " ";
 				}
@@ -526,7 +526,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 					  dev_type_str,
 					  device.units,
 					  device.clock,
-					  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
+					  uint32_t(device.global_mem_size / 1024ull / 1024ull),
 					  device.vendor_name,
 					  device.name,
 					  device.version_str,
@@ -549,7 +549,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			}
 			else if(device.internal_type & CL_DEVICE_TYPE_GPU) {
 				const auto compute_gpu_score = [](const compute_device& dev) -> uint32_t {
-					unsigned int multiplier = 1;
+					uint32_t multiplier = 1;
 					switch(dev.vendor) {
 						case COMPUTE_VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024

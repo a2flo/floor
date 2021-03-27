@@ -65,7 +65,7 @@ static void sighandler(int, siginfo_t*, void*) {
 		cmd << "addr2line -Cie " << binary_name << " 0x" << hex << (size_t)stack_addr << " 2>/dev/null";
 #endif
 		
-		string output = "";
+		string output;
 		core::system(cmd.str(), output);
 		if(output.empty()) return "";
 		

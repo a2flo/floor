@@ -55,12 +55,12 @@ public:
 	void remove_event_handler(const handler& handler_);
 	void remove_event_types_from_handler(const handler& handler_, const set<EVENT_TYPE>& types);
 
-	//! gets the mouses position
+	//! returns the mouse position
 	uint2 get_mouse_pos() const;
 	
-	void set_ldouble_click_time(unsigned int dctime);
-	void set_rdouble_click_time(unsigned int dctime);
-	void set_mdouble_click_time(unsigned int dctime);
+	void set_ldouble_click_time(uint32_t dctime);
+	void set_rdouble_click_time(uint32_t dctime);
+	void set_mdouble_click_time(uint32_t dctime);
 
 protected:
 	SDL_Event event_handle;
@@ -82,14 +82,14 @@ protected:
 	unordered_map<EVENT_TYPE, shared_ptr<event_object>> prev_events;
 	
 	//! timer that decides if there is a * mouse double click
-	unsigned int lm_double_click_timer;
-	unsigned int rm_double_click_timer;
-	unsigned int mm_double_click_timer;
+	uint32_t lm_double_click_timer;
+	uint32_t rm_double_click_timer;
+	uint32_t mm_double_click_timer;
 	
 	//! config setting for * mouse double click "timeframe"
-	unsigned int ldouble_click_time = 200;
-	unsigned int rdouble_click_time = 200;
-	unsigned int mdouble_click_time = 200;
+	uint32_t ldouble_click_time = 200;
+	uint32_t rdouble_click_time = 200;
+	uint32_t mdouble_click_time = 200;
 	
 	//
 	void unwind_add_event_handler(handler& handler_, EVENT_TYPE type) {

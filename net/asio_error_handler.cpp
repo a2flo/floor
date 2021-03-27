@@ -83,7 +83,7 @@ bool asio_error_handler::is_error() {
 }
 
 string asio_error_handler::handle_all() {
-	string ret { "" };
+	string ret;
 	while(is_error()) {
 		ret += get_error().what();
 		ret += '\n';

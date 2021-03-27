@@ -35,7 +35,7 @@ namespace floor_net {
 	template <> struct protocol_details<false> {
 		tcp::socket socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
-		protocol_details<false>(asio::io_service& io_service) :
+		explicit protocol_details<false>(asio::io_service& io_service) :
 		socket(io_service), socket_layer(socket) {
 		}
 		~protocol_details<false>() {
@@ -57,7 +57,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		asio::ssl::context context;
 		asio::ssl::stream<tcp::socket> socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
-		protocol_details<true>(asio::io_service& io_service) :
+		explicit protocol_details<true>(asio::io_service& io_service) :
 		context(asio::ssl::context::tlsv12),
 		socket(io_service, context), socket_layer(socket.next_layer()) {
 			context.set_options(asio::ssl::context::no_compression |
@@ -276,7 +276,7 @@ public:
 		if(ec == asio::error::eof) {
 			valid = false;
 			closed = true;
-			return 0;
+			return false;
 		}
 		if(ec) {
 			log_error("error while sending data (sent %u): %s", data_sent, ec.message());

@@ -27,7 +27,7 @@ class floor_exception : public exception {
 protected:
 	string error_str;
 public:
-	floor_exception(const string& error_str_) : error_str(error_str_) {}
+	explicit floor_exception(const string& error_str_) : error_str(error_str_) {}
 	const char* what() const noexcept override;
 };
 #endif

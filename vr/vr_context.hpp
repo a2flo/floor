@@ -172,7 +172,7 @@ protected:
 	matrix4f hmd_mat;
 
 	// input handling
-	vr::VRActionSetHandle_t main_action_set;
+	vr::VRActionSetHandle_t main_action_set{};
 	enum class ACTION_TYPE : uint32_t {
 		//! on / off
 		DIGITAL,

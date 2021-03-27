@@ -33,7 +33,7 @@ public:
 		return clock_type::now();
 	}
 	
-	//! "stops" the timer: substracts the start time_point from the current time_point of a monotonic clock
+	//! "stops" the timer: subtracts the start time_point from the current time_point of a monotonic clock
 	//! and casts the result to a specified duration type (or milliseconds by default)
 	template <typename duration_type = chrono::milliseconds>
 	static uint64_t stop(const chrono::time_point<clock_type>& start_time) {

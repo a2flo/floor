@@ -72,11 +72,9 @@ namespace asio_error_handler {
 }
 
 //! need to implement this (+forward) when not using exceptions
-namespace asio {
-	namespace detail {
-		template <typename exception_class> void throw_exception(const exception_class& exc) {
-			asio_error_handler::handle_exception(exc);
-		}
+namespace asio::detail {
+	template <typename exception_class> void throw_exception(const exception_class& exc) {
+		asio_error_handler::handle_exception(exc);
 	}
 }
 

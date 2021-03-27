@@ -30,7 +30,7 @@ thread_base::~thread_base() {
 	finish();
 	
 	// when destructing a mutex it must not be locked!
-	for(unsigned int i = 0, unlocks = thread_lock_count; i < unlocks; i++) {
+	for(uint32_t i = 0, unlocks = thread_lock_count; i < unlocks; ++i) {
 		this->unlock();
 	}
 }

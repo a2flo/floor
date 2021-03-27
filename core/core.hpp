@@ -37,7 +37,7 @@ namespace core {
 										 const float2& t1, const float2& t2, const float2& t3);
 	
 	// random functions
-	void set_random_seed(const unsigned int& seed);
+	void set_random_seed(const uint32_t& seed);
 
 	//! for internal uses only
 	mt19937& _get_gen();

@@ -896,7 +896,7 @@ struct json_grammar {
 };
 
 document create_document(const string& filename) {
-	string json_data = "";
+	string json_data;
 	if(!file_io::file_to_string(filename, json_data)) {
 		log_error("failed to read json file \"%s\"!", filename);
 		return {};

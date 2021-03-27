@@ -811,7 +811,7 @@ void compute_image::build_mip_map_minification_program() const {
 			.silence_debug_output = true
 		};
 		
-		string base_path = "";
+		string base_path;
 		switch(ctx->get_compute_type()) {
 			case COMPUTE_TYPE::CUDA:
 				base_path = floor::get_cuda_base_path();

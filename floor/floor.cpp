@@ -86,11 +86,11 @@ recursive_mutex floor::ctx_lock;
 atomic<uint32_t> floor::ctx_active_locks { 0 };
 
 // path variables
-string floor::datapath = "";
-string floor::rel_datapath = "";
-string floor::callpath = "";
-string floor::kernelpath = "";
-string floor::abs_bin_path = "";
+string floor::datapath {};
+string floor::rel_datapath {};
+string floor::callpath {};
+string floor::kernelpath {};
+string floor::abs_bin_path  {};
 string floor::config_name = "config.json";
 
 // fps counting
@@ -218,7 +218,7 @@ bool floor::init(const init_state& state) {
 #if defined(CYGWIN)
 	callpath = "./";
 	datapath = callpath_;
-	datapath = datapath.substr(0, datapath.rfind("/") + 1) + rel_datapath;
+	datapath = datapath.substr(0, datapath.rfind('/') + 1) + rel_datapath;
 #endif
 	
 	// create

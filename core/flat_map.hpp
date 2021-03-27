@@ -76,7 +76,7 @@ public:
 	typedef typename decltype(data)::const_iterator const_iterator;
 	
 	//! default empty map constructor
-	constexpr flat_map() noexcept {}
+	constexpr flat_map() noexcept = default;
 	
 	//! move construct from another flat_map
 	flat_map(flat_map&& fmap) : data(move(fmap.data)) {}

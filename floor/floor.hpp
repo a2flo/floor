@@ -360,7 +360,7 @@ protected:
 		// audio
 		bool audio_disabled = true;
 		float music_volume = 1.0f, sound_volume = 1.0f;
-		string audio_device_name = "";
+		string audio_device_name;
 		
 		// logging
 		uint32_t verbosity = (uint32_t)logger::LOG_TYPE::UNDECORATED;
@@ -368,8 +368,8 @@ protected:
 		bool append_mode = false;
 		bool log_use_time = true;
 		bool log_use_color = true;
-		string log_filename = "";
-		string msg_filename = "";
+		string log_filename;
+		string msg_filename;
 		
 		// projection
 		float fov = 72.0f;
@@ -383,7 +383,7 @@ protected:
 		uint32_t rdouble_click_time = 200;
 		
 		// compute
-		string backend = "";
+		string backend;
 		bool gl_sharing = false;
 		bool debug = false;
 		bool profiling = false;
@@ -404,7 +404,7 @@ protected:
 		// opencl
 		bool opencl_toolchain_exists = false;
 		uint32_t opencl_toolchain_version = 0;
-		string opencl_base_path = "";
+		string opencl_base_path;
 		uint32_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
 		bool opencl_validate_spirv = false;
@@ -424,15 +424,15 @@ protected:
 		// cuda
 		bool cuda_toolchain_exists = false;
 		uint32_t cuda_toolchain_version = 0;
-		string cuda_base_path = "";
+		string cuda_base_path;
 		vector<string> cuda_whitelist;
 		string cuda_compiler = default_compiler;
 		string cuda_llc = default_llc;
 		string cuda_as = default_as;
 		string cuda_dis = default_dis;
-		string cuda_force_driver_sm = "";
-		string cuda_force_compile_sm = "";
-		string cuda_force_ptx = "";
+		string cuda_force_driver_sm;
+		string cuda_force_compile_sm;
+		string cuda_force_ptx;
 		uint32_t cuda_max_registers = 32;
 		bool cuda_jit_verbose = false;
 		uint32_t cuda_jit_opt_level = 4;
@@ -441,7 +441,7 @@ protected:
 		// metal
 		bool metal_toolchain_exists = false;
 		uint32_t metal_toolchain_version = 0;
-		string metal_base_path = "";
+		string metal_base_path;
 		vector<string> metal_whitelist;
 		string metal_compiler = default_compiler;
 		string metal_llc = default_llc;
@@ -453,7 +453,7 @@ protected:
 		// host
 		bool host_toolchain_exists = false;
 		uint32_t host_toolchain_version = 0;
-		string host_base_path = "";
+		string host_base_path;
 		string host_compiler = default_compiler;
 		string host_llc = default_llc;
 		string host_as = default_as;
@@ -463,7 +463,7 @@ protected:
 		// vulkan
 		bool vulkan_toolchain_exists = false;
 		uint32_t vulkan_toolchain_version = 0;
-		string vulkan_base_path = "";
+		string vulkan_base_path;
 		bool vulkan_validate_spirv = false;
 		vector<string> vulkan_whitelist;
 		string vulkan_compiler = default_compiler;

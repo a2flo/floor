@@ -24,7 +24,7 @@
 constexpr int event::handlers_locked;
 
 event::event() : thread_base("event") {
-	const unsigned int cur_time { SDL_GetTicks() };
+	const uint32_t cur_time { SDL_GetTicks() };
 	lm_double_click_timer = cur_time;
 	rm_double_click_timer = cur_time;
 	mm_double_click_timer = cur_time;
@@ -59,8 +59,8 @@ void event::handle_events() {
 	const int coord_scale = (floor::get_hidpi() ? int(floor::get_scale_factor()) : 1);
 	const auto coord_scalef = float(coord_scale);
 	while(SDL_PollEvent(&event_handle)) {
-		const unsigned int event_type = event_handle.type;
-		const unsigned int cur_ticks = SDL_GetTicks();
+		const auto event_type = event_handle.type;
+		const uint32_t cur_ticks = SDL_GetTicks();
 		
 		if(event_type == SDL_MOUSEBUTTONDOWN ||
 		   event_type == SDL_MOUSEBUTTONUP) {
@@ -73,6 +73,7 @@ void event::handle_events() {
 #endif
 			
 			switch(event_type) {
+				default: break;
 				case SDL_MOUSEBUTTONDOWN: {
 					switch(event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
@@ -93,6 +94,7 @@ void event::handle_events() {
 											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord, pressure));
 							}
 							break;
+						default: break;
 					}
 				}
 				break;
@@ -173,6 +175,7 @@ void event::handle_events() {
 								mm_double_click_timer = cur_ticks;
 							}
 							break;
+						default: break;
 					}
 				}
 				break;
@@ -204,7 +207,7 @@ void event::handle_events() {
 																	   event_handle.wheel.y));
 					}
 					else if(event_handle.wheel.y < 0) {
-						const unsigned int abs_wheel_move = (unsigned int)abs(event_handle.wheel.y);
+						const auto abs_wheel_move = (uint32_t)abs(event_handle.wheel.y);
 						handle_event(EVENT_TYPE::MOUSE_WHEEL_DOWN,
 									 make_shared<mouse_wheel_down_event>(cur_ticks,
 																		 mouse_coord,
@@ -212,6 +215,7 @@ void event::handle_events() {
 					}
 				}
 				break;
+				default: break;
 			}
 		}
 		else if(event_type == SDL_FINGERDOWN ||
@@ -254,12 +258,12 @@ void event::handle_events() {
 								 make_shared<key_up_event>(cur_ticks, event_handle.key.keysym.sym));
 					break;
 				case SDL_TEXTINPUT: {
-					string text = "";
+					string text;
 					for(size_t i = 0; i < SDL_TEXTINPUTEVENT_TEXT_SIZE; i++) {
 						if(event_handle.text.text[i] == 0) break;
 						text += event_handle.text.text[i];
 					}
-					const vector<unsigned int> codes(unicode::utf8_to_unicode(text));
+					const auto codes = unicode::utf8_to_unicode(text);
 					for(const auto& code : codes) {
 						handle_event(EVENT_TYPE::UNICODE_INPUT,
 									 make_shared<unicode_input_event>(cur_ticks, code));
@@ -305,15 +309,15 @@ uint2 event::get_mouse_pos() const {
 	return pos;
 }
 
-void event::set_ldouble_click_time(unsigned int dctime) {
+void event::set_ldouble_click_time(uint32_t dctime) {
 	ldouble_click_time = dctime;
 }
 
-void event::set_rdouble_click_time(unsigned int dctime) {
+void event::set_rdouble_click_time(uint32_t dctime) {
 	rdouble_click_time = dctime;
 }
 
-void event::set_mdouble_click_time(unsigned int dctime) {
+void event::set_mdouble_click_time(uint32_t dctime) {
 	mdouble_click_time = dctime;
 }
 

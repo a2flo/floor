@@ -86,7 +86,7 @@ protected:
 	
 	//
 	static recursive_mutex ctx_lock;
-	static atomic<unsigned int> ctx_active_locks;
+	static atomic<uint32_t> ctx_active_locks;
 	static void handle_acquire();
 	
 	//

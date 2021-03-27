@@ -119,7 +119,7 @@ void lexer::print_tokens(const translation_unit& tu) {
 		}
 		
 		// compute column num (distance between last newline and current token)
-		const uint32_t column_num = (uint32_t)distance(*cur_line, tok_begin);
+		const auto column_num = (uint32_t)distance(*cur_line, tok_begin);
 		
 		tmp.append(to_string(line_num));
 		tmp.append(":");
@@ -468,7 +468,7 @@ bool lexer::is_char_in_character_set(const source_iterator& iter) {
 	// -> valid characters are in the ranges [0x20, 0x7E] and [0xA0, 0xFF]
 	// -> valid control characters are everything in [0x00, 0x1F] except 0x00, 0x0A and 0x0D (terminator, newline, carriage return)
 	// NOTE: don't use characters here, since the encoding of *this file is utf-8, not iso-8859-1!
-	const uint8_t char_uint = (uint8_t)*iter;
+	const auto char_uint = (uint8_t)*iter;
 	return ((char_uint >= 0x01 && char_uint <= 0x09) ||
 			(char_uint >= 0x0B && char_uint <= 0x0C) ||
 			(char_uint >= 0x0E && char_uint <= 0x7E) ||
@@ -478,7 +478,7 @@ bool lexer::is_char_in_character_set(const source_iterator& iter) {
 bool lexer::is_printable_char(const source_iterator& iter) {
 	// -> see lexer::is_char_in_character_set
 	// this will only accept 0x09 (tab), [0x20, 0x7E] and [0xA0, 0xFF]
-	const uint8_t char_uint = (uint8_t)*iter;
+	const auto char_uint = (uint8_t)*iter;
 	return ((char_uint == 0x09) ||
 			(char_uint >= 0x20 && char_uint <= 0x7E) ||
 			(char_uint >= 0xA0 /* && <= 0xFF, always true */));
