@@ -3730,10 +3730,10 @@ index 6df2f9a379a..1ce97dac632 100644
  // ConstantPropagation - A worklist driven constant propagation pass
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 00000000000..d652655bd4b
+index 00000000000..d2ce411ffdb
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,439 @@
+@@ -0,0 +1,438 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4156,7 +4156,6 @@ index 00000000000..d652655bd4b
 +		std::shared_ptr<IRBuilder<>> builder;
 +		bool was_modified { false };
 +		bool is_fragment_shader { false };
-+		bool is_metal_2 { false };
 +		bool is_metal_2_3 { false };
 +		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
 +		
@@ -4466,10 +4465,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..743c408bb5d
+index 00000000000..68cb22c5cf0
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,695 @@
+@@ -0,0 +1,678 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4780,7 +4779,6 @@ index 00000000000..743c408bb5d
 +static const unordered_map<uint32_t,
 +                           pair<array<uint32_t, 3>, array<uint32_t, 3>>>
 +    metal_versions{
-+        {110, {{{1, 8, 0}}, {{1, 1, 0}}}}, {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
 +        {200, {{{2, 0, 0}}, {{2, 0, 0}}}}, {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
 +        {220, {{{2, 2, 0}}, {{2, 2, 0}}}}, {230, {{{2, 3, 0}}, {{2, 3, 0}}}},
 +    };
@@ -4789,15 +4787,11 @@ index 00000000000..743c408bb5d
 +void llvm::WriteMetalLibToFile(Module &M, raw_ostream &OS) {
 +  // get metal version
 +  Triple TT(M.getTargetTriple());
-+  uint32_t target_air_version = 110;
++  uint32_t target_air_version = 200;
 +  if (TT.isiOS()) {
 +    uint32_t ios_major, ios_minor, ios_micro;
 +    TT.getiOSVersion(ios_major, ios_minor, ios_micro);
-+    if (ios_major <= 9) {
-+      target_air_version = 110;
-+    } else if (ios_major == 10) {
-+      target_air_version = 120;
-+    } else if (ios_major == 11) {
++    if (ios_major <= 11) {
 +      target_air_version = 200;
 +    } else if (ios_major == 12) {
 +      target_air_version = 210;
@@ -4807,17 +4801,11 @@ index 00000000000..743c408bb5d
 +      target_air_version = 230;
 +    }
 +
-+    if (target_air_version >= 200) {
-+      M.setSDKVersion(VersionTuple{ios_major, ios_minor});
-+    }
++    M.setSDKVersion(VersionTuple{ios_major, ios_minor});
 +  } else {
 +    uint32_t osx_major, osx_minor, osx_micro;
 +    TT.getMacOSXVersion(osx_major, osx_minor, osx_micro);
-+    if (osx_major == 10 && osx_minor <= 11) {
-+      target_air_version = 110;
-+    } else if (osx_major == 10 && osx_minor == 12) {
-+      target_air_version = 120;
-+    } else if (osx_major == 10 && osx_minor == 13) {
++    if (osx_major == 10 && osx_minor <= 13) {
 +      target_air_version = 200;
 +    } else if (osx_major == 10 && osx_minor == 14) {
 +      target_air_version = 210;
@@ -4828,9 +4816,7 @@ index 00000000000..743c408bb5d
 +      target_air_version = 230;
 +    }
 +
-+    if (target_air_version >= 200) {
-+      M.setSDKVersion(VersionTuple{osx_major, osx_minor});
-+    }
++    M.setSDKVersion(VersionTuple{osx_major, osx_minor});
 +  }
 +  const auto &metal_version = *metal_versions.find(target_air_version);
 +
@@ -5049,11 +5035,7 @@ index 00000000000..743c408bb5d
 +
 +    // write module / bitcode
 +    raw_string_ostream bitcode_stream{entry.bitcode_data};
-+    if (target_air_version < 200) {
-+      WriteBitcode35ToFile(cloned_mod.get(), bitcode_stream);
-+    } else {
-+      WriteBitcode50ToFile(cloned_mod.get(), bitcode_stream);
-+    }
++    WriteBitcode50ToFile(cloned_mod.get(), bitcode_stream);
 +    bitcode_stream.flush();
 +
 +    // hash module
@@ -55920,10 +55902,10 @@ index 00000000000..e6f2f84600d
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 00000000000..36c29884246
+index 00000000000..e4285556ecc
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,532 @@
+@@ -0,0 +1,526 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -56004,17 +55986,11 @@ index 00000000000..36c29884246
 +		uint32_t major_version = 0, minor_version = 0, micro_version = 0;
 +		if (triple.getOS() == Triple::OSType::IOS) {
 +			triple.getiOSVersion(major_version, minor_version, micro_version);
-+			if (major_version >= 11) {
-+				is_metal_2 = true;
-+			}
 +			if (major_version >= 14) {
 +				is_metal_2_3 = true;
 +			}
 +		} else if (triple.getOS() == Triple::OSType::MacOSX) {
 +			if (triple.getMacOSXVersion(major_version, minor_version, micro_version)) {
-+				if (major_version > 10 || (major_version == 10 && minor_version >= 13)) {
-+					is_metal_2 = true;
-+				}
 +				if (major_version >= 11) {
 +					is_metal_2_3 = true;
 +				}
@@ -56562,10 +56538,10 @@ index b7baba6b928..d5412a0cb86 100644
      return LoopUnrollResult::Unmodified;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 00000000000..40b2edd1cda
+index 00000000000..f6e789e9e60
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,1083 @@
+@@ -0,0 +1,1058 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -57037,24 +57013,10 @@ index 00000000000..40b2edd1cda
 +			
 +			// check for sub-group support
 +			const auto triple = llvm::Triple(M->getTargetTriple());
-+			bool is_metal_2 = false;
 +			bool has_sub_group_support = false;
 +			if (triple.getArch() == Triple::ArchType::air64) {
-+				uint32_t major_version = 0, minor_version = 0, micro_version = 0;
 +				if (triple.getOS() == Triple::OSType::MacOSX) {
-+					if (triple.getMacOSXVersion(major_version, minor_version, micro_version)) {
-+						if (major_version > 10 || (major_version == 10 && minor_version >= 13)) {
-+							// Metal 2.0+ on macOS
-+							is_metal_2 = true;
-+							has_sub_group_support = true;
-+						}
-+					}
-+				} else if (triple.getOS() == Triple::OSType::IOS) {
-+					triple.getiOSVersion(major_version, minor_version, micro_version);
-+					if (major_version >= 11) {
-+						// Metal 2.0+ on iOS
-+						is_metal_2 = true;
-+					}
++					has_sub_group_support = true;
 +				}
 +			}
 +			
@@ -57137,17 +57099,6 @@ index 00000000000..40b2edd1cda
 +			if(is_kernel_func || is_vertex_func || is_fragment_func) {
 +				std::vector<Type*> param_types;
 +				for(auto& arg : F.args()) {
-+					if (!is_metal_2) {
-+						// on Metal 1.x: also kill "dereferenceable" arg attributes while we're at it
-+						// NOTE: this only needs to be done here, b/c everything else will be inlined
-+						if(F.getAttributes().hasAttribute(arg.getArgNo() + 1, Attribute::Dereferenceable)) {
-+							arg.removeAttr(Attribute::Dereferenceable);
-+						}
-+						if(F.getAttributes().hasAttribute(arg.getArgNo() + 1, Attribute::DereferenceableOrNull)) {
-+							arg.removeAttr(Attribute::DereferenceableOrNull);
-+						}
-+					}
-+					
 +					param_types.push_back(arg.getType());
 +				}
 +				auto new_func_type = FunctionType::get(F.getReturnType(), param_types, false);
@@ -57651,10 +57602,10 @@ index 00000000000..40b2edd1cda
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 00000000000..cb31b54d9ee
+index 00000000000..50daeed7f69
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,717 @@
+@@ -0,0 +1,707 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -57860,69 +57811,61 @@ index 00000000000..cb31b54d9ee
 +			bool set_sampler_attrs = false;
 +			uint32_t sampler_param_idx = 0;
 +			if(is_sample_call) {
-+				// sampler handling with Metal 2.0+ is more complex
++				// sampler handling since Metal 2.0+ is more complex
 +				// -> need to transform sampler into a global constant
 +				// -> need to add this constant to !air.sampler_states metadata
-+				if (is_metal_2) {
-+					if (dyn_sampler_arg == nullptr) {
-+						ctx->emitError(&I, "sampler arg should be dynamic");
-+						return;
-+					}
-+					
-+					auto ce_sampler = dyn_cast<ConstantExpr>(dyn_sampler_arg);
-+					if (ce_sampler == nullptr) {
-+						ctx->emitError(&I, "sampler arg must be a constant expression");
-+						return;
-+					}
-+					
-+					if (!ce_sampler->isCast() || ce_sampler->getOpcode() != llvm::Instruction::IntToPtr) {
-+						ctx->emitError(&I, "sampler arg must be a constant inttoptr expression");
-+						return;
-+					}
-+					
-+					auto sampler_constant_value = dyn_cast<ConstantInt>(ce_sampler->getOperand(0));
-+					if (sampler_constant_value == nullptr) {
-+						ctx->emitError(&I, "sampler arg must contain a constant value");
-+						return;
-+					}
-+					
-+					// create global sampler state
-+					auto sampler_state = new GlobalVariable(*M,
-+															sampler_constant_value->getType(),
-+															true,
-+															GlobalVariable::InternalLinkage,
-+															sampler_constant_value,
-+															"__air_sampler_state",
-+															nullptr,
-+															GlobalValue::NotThreadLocal,
-+															Metal_ConstantAS);
-+					sampler_state->setAlignment(8); // always 8-byte aligned
-+					
-+					// still need to bitcast to %struct._sampler_t*
-+					auto sampler_type = dyn_cast<PointerType>(dyn_sampler_arg->getType());
-+					auto cast_sampler_state = ConstantExpr::getBitCast(sampler_state, sampler_type);
-+					
-+					func_arg_types.push_back(cast_sampler_state->getType());
-+					func_args.push_back(cast_sampler_state);
-+					
-+					set_sampler_attrs = true;
-+					sampler_param_idx = func_args.size() - 1;
-+					
-+					// insert metadata
-+					auto ctx = &M->getContext();
-+					SmallVector<llvm::Metadata*, 2> sampler_md_info;
-+					sampler_md_info.push_back(llvm::MDString::get(*ctx, "air.sampler_state"));
-+					sampler_md_info.push_back(llvm::ConstantAsMetadata::get(sampler_state));
-+					
-+					auto samplers_md = M->getOrInsertNamedMetadata("air.sampler_states");
-+					samplers_md->addOperand(llvm::MDNode::get(*ctx, sampler_md_info));
++				if (dyn_sampler_arg == nullptr) {
++					ctx->emitError(&I, "sampler arg should be dynamic");
++					return;
 +				}
-+				// Metal 1.x: just add the sampler arg
-+				else {
-+					const auto sampler_arg = (const_sampler_arg == nullptr ? dyn_sampler_arg : const_sampler_arg);
-+					func_arg_types.push_back(sampler_arg->getType());
-+					func_args.push_back(sampler_arg);
++				
++				auto ce_sampler = dyn_cast<ConstantExpr>(dyn_sampler_arg);
++				if (ce_sampler == nullptr) {
++					ctx->emitError(&I, "sampler arg must be a constant expression");
++					return;
 +				}
++				
++				if (!ce_sampler->isCast() || ce_sampler->getOpcode() != llvm::Instruction::IntToPtr) {
++					ctx->emitError(&I, "sampler arg must be a constant inttoptr expression");
++					return;
++				}
++				
++				auto sampler_constant_value = dyn_cast<ConstantInt>(ce_sampler->getOperand(0));
++				if (sampler_constant_value == nullptr) {
++					ctx->emitError(&I, "sampler arg must contain a constant value");
++					return;
++				}
++				
++				// create global sampler state
++				auto sampler_state = new GlobalVariable(*M,
++														sampler_constant_value->getType(),
++														true,
++														GlobalVariable::InternalLinkage,
++														sampler_constant_value,
++														"__air_sampler_state",
++														nullptr,
++														GlobalValue::NotThreadLocal,
++														Metal_ConstantAS);
++				sampler_state->setAlignment(8); // always 8-byte aligned
++				
++				// still need to bitcast to %struct._sampler_t*
++				auto sampler_type = dyn_cast<PointerType>(dyn_sampler_arg->getType());
++				auto cast_sampler_state = ConstantExpr::getBitCast(sampler_state, sampler_type);
++				
++				func_arg_types.push_back(cast_sampler_state->getType());
++				func_args.push_back(cast_sampler_state);
++				
++				set_sampler_attrs = true;
++				sampler_param_idx = func_args.size() - 1;
++				
++				// insert metadata
++				auto ctx = &M->getContext();
++				SmallVector<llvm::Metadata*, 2> sampler_md_info;
++				sampler_md_info.push_back(llvm::MDString::get(*ctx, "air.sampler_state"));
++				sampler_md_info.push_back(llvm::ConstantAsMetadata::get(sampler_state));
++				
++				auto samplers_md = M->getOrInsertNamedMetadata("air.sampler_states");
++				samplers_md->addOperand(llvm::MDNode::get(*ctx, sampler_md_info));
 +			}
 +			
 +			if(is_depth) {
@@ -58069,17 +58012,15 @@ index 00000000000..cb31b54d9ee
 +					}
 +				}
 +				
-+				if (is_metal_2) {
-+					if (is_metal_2_3) {
-+						// Metal 2.3+ has an additional (unknown) f32 0.0 argument
-+						func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
-+						func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
-+					}
-+					
-+					// Metal 2.0+ has an additional (unknown) i32 0 argument
-+					func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
-+					func_args.push_back(builder->getInt32(0));
++				if (is_metal_2_3) {
++					// Metal 2.3+ has an additional (unknown) f32 0.0 argument
++					func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
++					func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
 +				}
++				
++				// Metal 2.0+ has an additional (unknown) i32 0 argument
++				func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++				func_args.push_back(builder->getInt32(0));
 +			}
 +			
 +			// Metal 2.3+: return type is now always { <sample/read-type>, i8 }
