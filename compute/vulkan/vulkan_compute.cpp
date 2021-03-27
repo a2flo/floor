@@ -168,6 +168,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	
 	// create a vulkan instance (context)
 	const auto min_vulkan_api_version = floor::get_vulkan_api_version();
+	if (min_vulkan_api_version.x == 1 && min_vulkan_api_version.y < 2) {
+		log_error("Vulkan version must at least be 1.2");
+		return;
+	}
 	const VkApplicationInfo app_info {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.pNext = nullptr,
@@ -697,15 +701,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// TODO: determine context/platform vulkan version
 		device.vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
-		if (device.vulkan_version == VULKAN_VERSION::VULKAN_1_0) {
-			device.spirv_version = SPIRV_VERSION::SPIRV_1_0;
-		} else if (device.vulkan_version == VULKAN_VERSION::VULKAN_1_1) {
-			// "A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V"
-			device.spirv_version = SPIRV_VERSION::SPIRV_1_3;
-		} else if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_2) {
-			// "A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V"
-			device.spirv_version = SPIRV_VERSION::SPIRV_1_5;
-		}
+		// "A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V"
+		device.spirv_version = SPIRV_VERSION::SPIRV_1_5;
 		
 		if(props.vendorID < 0x10000) {
 			switch(props.vendorID) {

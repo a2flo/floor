@@ -25,8 +25,6 @@
 //! vulkan version of the platform/driver/device
 enum class VULKAN_VERSION : uint32_t {
 	NONE,
-	VULKAN_1_0,
-	VULKAN_1_1,
 	VULKAN_1_2,
 };
 
@@ -34,8 +32,6 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 	if (major == 0 || major > 1) return VULKAN_VERSION::NONE;
 	// major == 1
 	switch (minor) {
-		case 0: return VULKAN_VERSION::VULKAN_1_0;
-		case 1: return VULKAN_VERSION::VULKAN_1_1;
 		case 2: return VULKAN_VERSION::VULKAN_1_2;
 		default: return VULKAN_VERSION::NONE;
 	}
@@ -45,14 +41,8 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 
 #include <vulkan/vulkan.h>
 
-#if VK_HEADER_VERSION < 108
-#error "Vulkan header version must at least be 108"
-#endif
-
-// workaround struct + enum rename
-#if VK_HEADER_VERSION < 115
-#define VkPhysicalDeviceShaderFloat16Int8FeaturesKHR VkPhysicalDeviceFloat16Int8FeaturesKHR
-#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR
+#if VK_HEADER_VERSION < 142
+#error "Vulkan header version must at least be 142"
 #endif
 
 // for Vulkan resource sharing on Windows

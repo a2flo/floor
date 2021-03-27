@@ -48,7 +48,7 @@ public:
 		//! based on the OS and init_state
 		OPENGL = 2,
 		
-		//! use the Vulkan 1.1+ renderer
+		//! use the Vulkan 1.2+ renderer
 		VULKAN = 3,
 		
 		//! use the Metal 1.1+ renderer

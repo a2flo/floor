@@ -414,14 +414,8 @@ program_data compile_input(const string& input,
 			output_file_type = "spvc";
 			
 			const auto& vk_device = (const vulkan_device&)device;
-			string vulkan_std = "vulkan1.0";
+			string vulkan_std = "vulkan1.2";
 			switch(vk_device.vulkan_version) {
-				case VULKAN_VERSION::VULKAN_1_0:
-					vulkan_std = "vulkan1.0";
-					break;
-				case VULKAN_VERSION::VULKAN_1_1:
-					vulkan_std = "vulkan1.1";
-					break;
 				case VULKAN_VERSION::VULKAN_1_2:
 					vulkan_std = "vulkan1.2";
 					break;
