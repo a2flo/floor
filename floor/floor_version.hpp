@@ -55,15 +55,7 @@
 
 #if defined(_MSC_VER)
 #define FLOOR_MSC_VERSION_STR FLOOR_VERSION_EVAL(_MSC_FULL_VER)
-#if defined(__clang__)
 #define FLOOR_COMPILER "Clang " __clang_version__ " / VS " FLOOR_MSC_VERSION_STR
-#else
-#define FLOOR_COMPILER "VC++ " FLOOR_MSC_VERSION_STR
-#endif
-#elif (defined(__GNUC__) && !defined(__llvm__) && !defined(__clang__))
-#define FLOOR_COMPILER "GCC " __VERSION__
-#elif (defined(__GNUC__) && defined(__llvm__) && !defined(__clang__))
-#define FLOOR_COMPILER "LLVM-GCC " __VERSION__
 #elif defined(__clang__)
 #define FLOOR_COMPILER "Clang " __clang_version__
 #else
@@ -98,14 +90,14 @@
 // msvc check
 #if defined(_MSC_VER)
 #if !defined(__clang__)
-#error "Sorry, you need clang/llvm and VS2015 to compile floor (http://llvm.org/builds/)"
+#error "Sorry, you need clang/llvm and VS2019 to compile floor (http://llvm.org/builds/)"
 #elif (_MSC_VER < 1920)
 #error "Sorry, but you need VS2019 to compile floor"
 #endif
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 6) || (__clang_major__ == 6 && __clang_minor__ < 0)
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 10) || (__clang_major__ == 10 && __clang_minor__ < 0)
 #error "Sorry, but you need Clang 6.0+ to compile floor"
 #endif
 
@@ -117,8 +109,8 @@
 // library checks:
 #include <floor/core/platform.hpp>
 
-#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 6000)
-#error "You need to install libc++ 6.0+ to compile floor"
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 10000)
+#error "You need to install libc++ 10.0+ to compile floor"
 #endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 4)

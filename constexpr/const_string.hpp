@@ -170,11 +170,11 @@ public:
 			case 3:
 				k1 ^= (uint32_t)(content.data[offset + 2] << 16u);
 			
-			floor_fallthrough;
+			[[fallthrough]];
 			case 2:
 				k1 ^= (uint32_t)(content.data[offset + 1] << 8u);
 				
-			floor_fallthrough;
+			[[fallthrough]];
 			case 1:
 				k1 ^= (uint32_t)(content.data[offset + 0]);
 				k1 *= c1;

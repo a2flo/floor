@@ -19,15 +19,6 @@
 #ifndef __FLOOR_ESSENTIALS_HPP__
 #define __FLOOR_ESSENTIALS_HPP__
 
-// for clang compat
-// will be part of a future std: http://isocpp.org/std/standing-documents/sd-6-sg10-feature-test-recommendations
-#if !defined(__has_feature)
-#define __has_feature(x) 0
-#endif
-#if !defined(__has_include)
-#define __has_include(x) 0
-#endif
-
 // if the floor_conf.hpp header exists, include it
 #if __has_include(<floor/floor/floor_conf.hpp>)
 #include <floor/floor/floor_conf.hpp>
@@ -57,13 +48,6 @@
 #define floor_packed __attribute__((packed))
 #else
 #define floor_packed
-#endif
-
-// explicit switch/case fallthrough to the next case
-#if defined(__clang__)
-#define floor_fallthrough [[clang::fallthrough]]
-#else
-#define floor_fallthrough
 #endif
 
 // makes sure a function is (almost) always inlined (GCC+clang)
