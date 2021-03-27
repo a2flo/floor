@@ -1051,7 +1051,7 @@ index 2e84f5fedf..a3c2746156 100644
 +  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
  } // end of sema component.
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
-index be4491d512..0dca90e3bf 100644
+index be4491d512..9c7d3bc204 100644
 --- a/include/clang/Basic/LangOptions.def
 +++ b/include/clang/Basic/LangOptions.def
 @@ -189,14 +189,19 @@ ENUM_LANGOPT(DefaultCallingConv, DefaultCallingConvention, 3, DCC_None, "default
@@ -1061,7 +1061,7 @@ index be4491d512..0dca90e3bf 100644
 +LANGOPT(Metal             , 1, 0, "Metal")
 +LANGOPT(MetalVersion      , 32, 200, "Metal version")
 +LANGOPT(Vulkan            , 1, 0, "Vulkan")
-+LANGOPT(VulkanVersion     , 32, 100, "Vulkan version")
++LANGOPT(VulkanVersion     , 32, 120, "Vulkan version")
  LANGOPT(OpenCL            , 1, 0, "OpenCL")
 -LANGOPT(OpenCLVersion     , 32, 0, "OpenCL C version")
 +LANGOPT(OpenCLVersion     , 32, 120, "OpenCL C version")
@@ -1612,10 +1612,10 @@ index 92191ebd12..9dcc6bc3d5 100644
      RenderScript,
      HIP,
 diff --git a/include/clang/Frontend/LangStandards.def b/include/clang/Frontend/LangStandards.def
-index 0fdd35f320..c736d40049 100644
+index 0fdd35f320..fbbe18801a 100644
 --- a/include/clang/Frontend/LangStandards.def
 +++ b/include/clang/Frontend/LangStandards.def
-@@ -144,36 +144,60 @@ LANGSTANDARD(gnucxx2a, "gnu++2a",
+@@ -144,36 +144,54 @@ LANGSTANDARD(gnucxx2a, "gnu++2a",
               CPlusPlus2a | Digraphs | HexFloat | GNUMode)
  
  // OpenCL
@@ -1672,12 +1672,6 @@ index 0fdd35f320..c736d40049 100644
 +             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
 +
 +// Vulkan C++
-+LANGSTANDARD(vulkan10, "vulkan1.0",
-+             Vulkan, "Vulkan C++ 1.0",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
-+LANGSTANDARD(vulkan11, "vulkan1.1",
-+             Vulkan, "Vulkan C++ 1.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(vulkan12, "vulkan1.2",
 +             Vulkan, "Vulkan C++ 1.2",
 +             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
@@ -11180,7 +11174,7 @@ index f666745354..cd892defac 100644
      return InputKind::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index d491f35769..defdc32d26 100644
+index d491f35769..43eca8827e 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -86,6 +86,7 @@
@@ -11288,12 +11282,12 @@ index d491f35769..defdc32d26 100644
 +      LangStd = LangStandard::lang_metal20;
 +      break;
 +    case InputKind::Vulkan:
-+      LangStd = LangStandard::lang_vulkan10;
++      LangStd = LangStandard::lang_vulkan12;
 +      break;
      case InputKind::CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -2134,9 +2177,50 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2134,9 +2177,44 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -11325,26 +11319,20 @@ index d491f35769..defdc32d26 100644
 +  }
 +
 +  // as Vulkan is largely compiled as OpenCL, also enable + init opencl
-+  if (LangStd == LangStandard::lang_vulkan10 ||
-+      LangStd == LangStandard::lang_vulkan11 ||
-+      LangStd == LangStandard::lang_vulkan12 ||
++  if (LangStd == LangStandard::lang_vulkan12 ||
 +      IK.getLanguage() == InputKind::Vulkan) {
 +    Opts.Vulkan = 1;
 +    Opts.OpenCL = 1;
 +    Opts.OpenCLVersion = 200;
 +
-+    if (LangStd == LangStandard::lang_vulkan10)
-+      Opts.VulkanVersion = 100;
-+    else if (LangStd == LangStandard::lang_vulkan11)
-+      Opts.VulkanVersion = 110;
-+    else if (LangStd == LangStandard::lang_vulkan12)
++    if (LangStd == LangStandard::lang_vulkan12)
 +      Opts.VulkanVersion = 120;
 +  }
 +
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -2145,18 +2229,29 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2145,18 +2223,29 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPC_On);
      Opts.NativeHalfType = 1;
      Opts.NativeHalfArgsAndReturns = 1;
@@ -11376,7 +11364,7 @@ index d491f35769..defdc32d26 100644
  
    Opts.RenderScript = IK.getLanguage() == InputKind::RenderScript;
    if (Opts.RenderScript) {
-@@ -2167,8 +2262,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2167,8 +2256,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    // OpenCL and C++ both have bool, true, false keywords.
    Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
  
@@ -11387,7 +11375,7 @@ index d491f35769..defdc32d26 100644
  
    // C++ has wchar_t keyword.
    Opts.WChar = Opts.CPlusPlus;
-@@ -2215,6 +2310,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -2215,6 +2304,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
    case InputKind::OpenCL:
      return S.getLanguage() == InputKind::OpenCL;
  
@@ -11400,7 +11388,7 @@ index d491f35769..defdc32d26 100644
    case InputKind::CXX:
    case InputKind::ObjCXX:
      return S.getLanguage() == InputKind::CXX;
-@@ -2251,6 +2352,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -2251,6 +2346,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case InputKind::OpenCL:
      return "OpenCL";
@@ -11411,7 +11399,7 @@ index d491f35769..defdc32d26 100644
    case InputKind::CUDA:
      return "CUDA";
    case InputKind::RenderScript:
-@@ -2338,6 +2443,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2338,6 +2437,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -11420,7 +11408,7 @@ index d491f35769..defdc32d26 100644
          .Case("c++", LangStandard::lang_openclcpp)
          .Default(LangStandard::lang_unspecified);
  
-@@ -2364,6 +2471,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2364,6 +2465,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -11457,7 +11445,7 @@ index d491f35769..defdc32d26 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2577,7 +2714,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2577,7 +2708,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -11466,7 +11454,7 @@ index d491f35769..defdc32d26 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
  
-@@ -2691,7 +2828,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2691,7 +2822,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Enable HalfArgsAndReturns if present in Args or if NativeHalfArgsAndReturns
    // is enabled.
    Opts.HalfArgsAndReturns = Args.hasArg(OPT_fallow_half_arguments_and_returns)
@@ -11476,7 +11464,7 @@ index d491f35769..defdc32d26 100644
    Opts.GNUAsm = !Args.hasArg(OPT_fno_gnu_inline_asm);
  
    // __declspec is enabled by default for the PS4 by the driver, and also
-@@ -2830,7 +2968,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2830,7 +2962,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
@@ -11485,7 +11473,7 @@ index d491f35769..defdc32d26 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -2926,6 +3064,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2926,6 +3058,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -11506,7 +11494,7 @@ index d491f35769..defdc32d26 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -3018,6 +3170,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -3018,6 +3164,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -11519,7 +11507,7 @@ index d491f35769..defdc32d26 100644
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
-@@ -3284,6 +3442,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
+@@ -3284,6 +3436,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
        Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
    }
  

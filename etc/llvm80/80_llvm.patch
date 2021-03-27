@@ -31476,10 +31476,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..b9375eb60dd
+index 00000000000..b47a21e8f23
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3899 @@
+@@ -0,0 +1,3863 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -33578,13 +33578,7 @@ index 00000000000..b9375eb60dd
 +  } else if (global_type.is_image) {
 +    storage_class = spv::StorageClassUniformConstant;
 +  } else if (global_type.is_uniform) {
-+    storage_class = spv::StorageClassUniform;
-+    // with SPIR-V 1.4+ we have to use the "storage buffer" storage class
-+    if (BM->getSPIRVVersion() >= SPIRV_1_4 &&
-+        (!global_type.is_constant ||
-+         (global_type.is_constant && !global_type.is_iub))) {
-+      storage_class = spv::StorageClassStorageBuffer;
-+    }
++    storage_class = spv::StorageClassStorageBuffer;
 +  } else {
 +    storage_class = spv::StorageClassOutput;
 +  }
@@ -33617,13 +33611,8 @@ index 00000000000..b9375eb60dd
 +        mapped_type = BM->addPointerType(storage_class, enclosing_type);
 +
 +        // add required deco
-+        if (BM->getSPIRVVersion() <= SPIRV_1_3) {
-+          enclosing_type->addDecorate(
-+              new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
-+        } else {
-+          enclosing_type->addDecorate(
-+              new SPIRVDecorate(DecorationBlock, enclosing_type));
-+        }
++        enclosing_type->addDecorate(
++            new SPIRVDecorate(DecorationBlock, enclosing_type));
 +        enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
 +        rtarr_type->addDecorate(spv::DecorationArrayStride,
 +                                M->getDataLayout().getTypeStoreSize(elem_type));
@@ -33636,22 +33625,12 @@ index 00000000000..b9375eb60dd
 +          spirv_elem_type->addDecorate(
 +              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +        } else {
-+          // with SPIR-V 1.4+ we need to use the storage buffer storage class
-+          if (BM->getSPIRVVersion() >= SPIRV_1_4) {
-+            auto ssbo_ptr_type = llvm::PointerType::get(
-+                GV.getType()->getPointerElementType(), SPIRAS_StorageBuffer);
-+            mapped_type = transType(ssbo_ptr_type);
-+          } else {
-+            mapped_type = transType(GV.getType());
-+          }
-+
-+          if (BM->getSPIRVVersion() <= SPIRV_1_3) {
-+            spirv_elem_type->addDecorate(
-+                new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
-+          } else {
-+            spirv_elem_type->addDecorate(
-+                new SPIRVDecorate(DecorationBlock, spirv_elem_type));
-+          }
++          // we need to use the storage buffer storage class
++          auto ssbo_ptr_type = llvm::PointerType::get(
++              GV.getType()->getPointerElementType(), SPIRAS_StorageBuffer);
++          mapped_type = transType(ssbo_ptr_type);
++          spirv_elem_type->addDecorate(
++              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +        }
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
@@ -33768,9 +33747,7 @@ index 00000000000..b9375eb60dd
 +    BVar->setBuiltin(builtin);
 +  }
 +
-+  if (!global_type.is_uniform || BM->getSPIRVVersion() >= SPIRV_1_4) {
-+    BM->addEntryPointIO(spirv_func->getId(), BVar);
-+  }
++  BM->addEntryPointIO(spirv_func->getId(), BVar);
 +
 +  // set non-readable/-writable deco on SSBOs
 +  if (global_type.is_uniform && !global_type.is_image) {
@@ -34240,9 +34217,7 @@ index 00000000000..b9375eb60dd
 +          if (md_prefix == "iub") {
 +            global_type.is_iub = true;
 +          } else {
-+            if (BM->getSPIRVVersion() >= SPIRV_1_4) {
-+              storage_class = SPIRAS_StorageBuffer;
-+            }
++            storage_class = SPIRAS_StorageBuffer;
 +          }
 +          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
 +                                     storage_class, global_type, md_info,
@@ -34269,10 +34244,7 @@ index 00000000000..b9375eb60dd
 +            global_type.is_write_only =
 +                (!global_type.is_read_only ? is_write_only_arg(*F, arg)
 +                                           : false);
-+            auto storage_class = SPIRAS_Uniform;
-+            if (BM->getSPIRVVersion() >= SPIRV_1_4) {
-+              storage_class = SPIRAS_StorageBuffer;
-+            }
++            const auto storage_class = SPIRAS_StorageBuffer;
 +            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
 +                                       elem_type, storage_class, global_type,
 +                                       md_info, &uniform_var);
@@ -34506,8 +34478,8 @@ index 00000000000..b9375eb60dd
 +      }
 +    }
 +
-+    // add immutable samples to the interface for SPIR-V 1.4+
-+    if (immutable_samplers && BM->getSPIRVVersion() >= SPIRV_1_4) {
++    // add immutable samples to the interface
++    if (immutable_samplers) {
 +      BM->addEntryPointIO(spirv_func->getId(), immutable_samplers);
 +    }
 +
@@ -34635,10 +34607,8 @@ index 00000000000..b9375eb60dd
 +      transValue(dup, BB);
 +    } else if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
 +                   gv_as)) == spv::StorageClassWorkgroup) {
-+      if (BM->getSPIRVVersion() >= SPIRV_1_4) {
-+        BM->addEntryPointIO(spirv_func->getId(),
-+                            (SPIRVVariable *)transValue(&GV, nullptr));
-+      }
++      BM->addEntryPointIO(spirv_func->getId(),
++                          (SPIRVVariable *)transValue(&GV, nullptr));
 +    }
 +  }
 +
@@ -34701,12 +34671,6 @@ index 00000000000..b9375eb60dd
 +  switch (version_major) {
 +  case 1:
 +    switch (version_minor) {
-+    case 0:
-+      BM->setSPIRVVersion(SPIRV_1_0);
-+      break;
-+    case 1:
-+      BM->setSPIRVVersion(SPIRV_1_3);
-+      break;
 +    case 2:
 +      BM->setSPIRVVersion(SPIRV_1_5);
 +      break;
