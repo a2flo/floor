@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_image.hpp>
 #include <floor/compute/device/host_limits.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 class host_device;
 class host_image final : public compute_image {
@@ -52,8 +53,8 @@ public:
 	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns a direct pointer to the internal host image buffer
-	uint8_t* __attribute__((aligned(128))) get_host_image_buffer_ptr() const {
-		return image;
+	auto get_host_image_buffer_ptr() const {
+		return image.get();
 	}
 	
 	//! returns the internal structure necessary to run a function/program with this image
@@ -67,10 +68,10 @@ public:
 						  const metal_queue* mtl_queue = nullptr) const override;
 	
 protected:
-	uint8_t* __attribute__((aligned(1024))) image { nullptr };
+	aligned_ptr<uint8_t> image;
 	
 	struct image_program_info {
-		uint8_t* __attribute__((aligned(128))) buffer;
+		uint8_t* __attribute__((aligned(aligned_ptr<uint8_t>::page_size))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;
 		alignas(16) struct {
 			uint4 dim;

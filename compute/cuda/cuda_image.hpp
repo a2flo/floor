@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_image.hpp>
 #include <floor/compute/device/cuda_sampler.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 class cuda_device;
 class cuda_compute;
@@ -104,6 +105,7 @@ protected:
 	array<cu_tex_only_object, cuda_sampler::max_sampler_count> textures;
 	
 	struct cuda_mapping {
+		aligned_ptr<uint8_t> ptr;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 	};
 	// stores all mapped pointers and the mapped buffer

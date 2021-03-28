@@ -732,17 +732,17 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 
 #endif
 
-uint8_t* compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
-									const COMPUTE_IMAGE_TYPE& rgba_type,
-									const uint8_t* rgb_data,
-									const bool ignore_mip_levels) {
+unique_ptr<uint8_t[]> compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+												 const COMPUTE_IMAGE_TYPE& rgba_type,
+												 const uint8_t* rgb_data,
+												 const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
 	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	
-	uint8_t* rgba_data_ptr = new uint8_t[rgba_size];
-	memset(rgba_data_ptr, 0xFF, rgba_size); // opaque
+	auto rgba_data_ptr = make_unique<uint8_t[]>(rgba_size);
+	memset(rgba_data_ptr.get(), 0xFF, rgba_size); // opaque
 	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
 		memcpy(&rgba_data_ptr[i * rgba_bytes_per_pixel],
 			   &((const uint8_t*)rgb_data)[i * rgb_bytes_per_pixel],
@@ -772,24 +772,29 @@ void compute_image::rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
 	}
 }
 
-uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
-									const COMPUTE_IMAGE_TYPE& rgb_type,
-									const uint8_t* rgba_data,
-									uint8_t* dst_rgb_data,
-									const bool ignore_mip_levels) {
+unique_ptr<uint8_t[]> compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+												 const COMPUTE_IMAGE_TYPE& rgb_type,
+												 const uint8_t* rgba_data,
+												 uint8_t* dst_rgb_data,
+												 const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
 	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	
-	uint8_t* rgb_data_ptr = (dst_rgb_data != nullptr ? dst_rgb_data : new uint8_t[rgb_size]);
+	uint8_t* rgb_data_ptr = dst_rgb_data;
+	unique_ptr<uint8_t[]> alloc_data_ptr;
+	if (dst_rgb_data == nullptr) {
+		alloc_data_ptr = make_unique<uint8_t[]>(rgb_size);
+		rgb_data_ptr = alloc_data_ptr.get();
+	}
 	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
 		memcpy(&rgb_data_ptr[i * rgb_bytes_per_pixel],
 			   &((const uint8_t*)rgba_data)[i * rgba_bytes_per_pixel],
 			   rgb_bytes_per_pixel);
 	}
-	return (dst_rgb_data != nullptr ? nullptr : rgb_data_ptr);
+	return alloc_data_ptr;
 }
 
 // something about dog food

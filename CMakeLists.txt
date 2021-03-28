@@ -298,7 +298,6 @@ add_library(${PROJECT_NAME} SHARED
 	threading/atomics.hpp
 	threading/atomic_shared_ptr.hpp
 	threading/atomic_spin_lock.hpp
-	threading/task.cpp
 	threading/task.hpp
 	threading/thread_base.cpp
 	threading/thread_base.hpp

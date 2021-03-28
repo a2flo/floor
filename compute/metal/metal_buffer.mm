@@ -65,9 +65,9 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 			// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
 			// that we'll use to copy memory to and from the private storage buffer
 			options |= MTLResourceStorageModePrivate;
-			staging_buffer = unique_ptr<metal_buffer>(new metal_buffer(true /* staging */, cqueue, size, nullptr,
-																	   COMPUTE_MEMORY_FLAG::READ_WRITE |
-																	   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0));
+			staging_buffer = make_unique<metal_buffer>(true, cqueue, size, nullptr,
+													   COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0);
 			staging_buffer->set_debug_label(debug_label + "_staging_buffer");
 		}
 		else {
@@ -423,24 +423,25 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 	const bool write_only = (!does_read && does_write);
 	const bool read_only = (does_read && !does_write);
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		aligned_ptr<uint8_t> alloc_host_buffer;
 		alignas(128) unsigned char* host_buffer = nullptr;
 		
 		// check if we need to copy the buffer from the device (in case READ was specified)
-		if(!write_only) {
+		if (!write_only) {
 			// need to sync buffer (resource) before being able to read it
 			sync_metal_resource(cqueue, buffer);
 			
 			// direct access to the metal buffer
 			host_buffer = ((uint8_t*)[buffer contents]) + offset;
-		}
-		else {
+		} else {
 			// if write-only, we don't need to actually access the buffer just yet (no need to sync),
 			// so just alloc host memory that can be accessed/used by the user
-			host_buffer = new unsigned char[map_size] alignas(128);
+			alloc_host_buffer = make_aligned_ptr<uint8_t>(map_size);
+			host_buffer = alloc_host_buffer.get();
 		}
 		
 		// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-		mappings.emplace(host_buffer, metal_mapping { map_size, offset, flags_, write_only, read_only });
+		mappings.emplace(host_buffer, metal_mapping { move(alloc_host_buffer), map_size, offset, flags_, write_only, read_only });
 		
 		return host_buffer;
 	}
@@ -454,7 +455,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 		auto mapped_ptr = staging_buffer->map(cqueue, flags_, size_, offset);
 		
 		// remember the mapping so that we can properly unmap again later
-		mappings.emplace(mapped_ptr, metal_mapping { map_size, offset, flags_, write_only, read_only });
+		mappings.emplace(mapped_ptr, metal_mapping { {}, map_size, offset, flags_, write_only, read_only });
 		
 		return mapped_ptr;
 	}
@@ -492,11 +493,8 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 				// to the actual metal buffer
 				if(iter->second.write_only) {
 					memcpy(((uint8_t*)[buffer contents]) + iter->second.offset, mapped_ptr, iter->second.size);
-					
-					// and cleanup
-					delete [] (unsigned char*)mapped_ptr;
 				}
-				// else: the user received pointer directly to the metal buffer and nothing needs to be copied
+				// else: the user received a pointer directly to the metal buffer and nothing needs to be copied
 				
 				// finally, notify the buffer that we changed its contents
 				[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];

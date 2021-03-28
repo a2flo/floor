@@ -57,7 +57,7 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 	// TODO: handle the remaining flags + host ptr
 	
 	// always allocate host memory (even with OpenGL/Metal, memory needs to be copied somewhere)
-	buffer = new uint8_t[size] alignas(1024);
+	buffer = make_aligned_ptr<uint8_t>(size);
 
 	// -> normal host buffer
 	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
@@ -66,7 +66,7 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 		if (copy_host_data &&
 			host_ptr != nullptr &&
 			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			memcpy(buffer, host_ptr, size);
+			memcpy(buffer.get(), host_ptr, size);
 		}
 	}
 #if !defined(FLOOR_NO_METAL)
@@ -103,11 +103,6 @@ host_buffer::~host_buffer() {
 		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 		delete_gl_buffer();
 	}
-	// then, also kill the host buffer
-	if(buffer != nullptr) {
-		delete [] buffer;
-		buffer = nullptr;
-	}
 }
 
 void host_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
@@ -115,13 +110,13 @@ void host_buffer::read(const compute_queue& cqueue, const size_t size_, const si
 }
 
 void host_buffer::read(const compute_queue& cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if (!buffer) return;
 
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 
 	GUARD(lock);
-	memcpy(dst, buffer + offset, read_size);
+	memcpy(dst, buffer.get() + offset, read_size);
 }
 
 void host_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
@@ -129,18 +124,18 @@ void host_buffer::write(const compute_queue& cqueue, const size_t size_, const s
 }
 
 void host_buffer::write(const compute_queue& cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if (!buffer) return;
 
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset, flags)) return;
 	
 	GUARD(lock);
-	memcpy(buffer + offset, src, write_size);
+	memcpy(buffer.get() + offset, src, write_size);
 }
 
 void host_buffer::copy(const compute_queue& cqueue floor_unused, const compute_buffer& src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
-	if(buffer == nullptr) return;
+	if (!buffer) return;
 
 	// use min(src size, dst size) as the default size if no size is specified
 	const size_t src_size = src.get_size();
@@ -150,7 +145,7 @@ void host_buffer::copy(const compute_queue& cqueue floor_unused, const compute_b
 	src._lock();
 	_lock();
 	
-	memcpy(buffer + dst_offset, ((const host_buffer*)&src)->get_host_buffer_ptr() + src_offset, copy_size);
+	memcpy(buffer.get() + dst_offset, ((const host_buffer*)&src)->get_host_buffer_ptr() + src_offset, copy_size);
 	
 	_unlock();
 	src._unlock();
@@ -159,33 +154,33 @@ void host_buffer::copy(const compute_queue& cqueue floor_unused, const compute_b
 bool host_buffer::fill(const compute_queue& cqueue floor_unused,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return false;
+	if (!buffer) return false;
 
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
 	switch(pattern_size) {
 		case 1:
-			memset(buffer + offset, *(const uint8_t*)pattern, fill_size);
+			memset(buffer.get() + offset, *(const uint8_t*)pattern, fill_size);
 			break;
 #if defined(__APPLE__) // TODO: check for availability on linux, *bsd, windows
 		// NOTE: memset_pattern* will simple truncate any overspill, so size checking is not necessary
 		// NOTE: 3rd parameter is the fill/buffer size and has nothing to do with the pattern count
 		case 4:
-			memset_pattern4(buffer + offset, (const void*)pattern, fill_size);
+			memset_pattern4(buffer.get() + offset, (const void*)pattern, fill_size);
 			break;
 		case 8:
-			memset_pattern8(buffer + offset, (const void*)pattern, fill_size);
+			memset_pattern8(buffer.get() + offset, (const void*)pattern, fill_size);
 			break;
 		case 16:
-			memset_pattern16(buffer + offset, (const void*)pattern, fill_size);
+			memset_pattern16(buffer.get() + offset, (const void*)pattern, fill_size);
 			break;
 #endif
 		default: {
 			// not a pattern size that allows a fast memset
 			// -> copy pattern manually in a loop
 			const size_t pattern_count = fill_size / pattern_size;
-			uint8_t* write_ptr = buffer + offset;
+			uint8_t* write_ptr = buffer.get() + offset;
 			for(size_t i = 0; i < pattern_count; ++i) {
 				memcpy(write_ptr, pattern, pattern_size);
 				write_ptr += pattern_size;
@@ -198,17 +193,17 @@ bool host_buffer::fill(const compute_queue& cqueue floor_unused,
 }
 
 bool host_buffer::zero(const compute_queue& cqueue floor_unused) {
-	if(buffer == nullptr) return false;
+	if (!buffer) return false;
 
 	GUARD(lock);
-	memset(buffer, 0, size);
+	memset(buffer.get(), 0, size);
 	return true;
 }
 
 bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 						 const bool copy_old_data, const bool copy_host_data,
 						 void* new_host_ptr) {
-	if(buffer == nullptr) return false;
+	if (!buffer) return false;
 	if(new_size_ == 0) {
 		log_error("can't allocate a buffer of size 0!");
 		return false;
@@ -225,11 +220,11 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	}
 	
 	// store old buffer, size and host pointer for possible restore + cleanup later on
-	const auto old_buffer = buffer;
+	auto old_buffer = move(buffer);
 	const auto old_size = size;
 	const auto old_host_ptr = host_ptr;
 	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
-		buffer = old_buffer;
+		buffer = move(old_buffer);
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};
@@ -239,7 +234,7 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	buffer = nullptr;
 	size = new_size;
 	host_ptr = new_host_ptr;
-	if(!create_internal(copy_host_data, cqueue)) {
+	if (!create_internal(copy_host_data, cqueue)) {
 		// much fail, restore old buffer
 		log_error("failed to create resized buffer");
 		
@@ -250,18 +245,12 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	}
 	
 	// copy old data if specified
-	if(copy_old_data) {
+	if (copy_old_data) {
 		// can only copy as many bytes as there are bytes
 		const size_t copy_size = std::min(size, new_size); // >= 4, established above
-		memcpy(buffer, old_buffer, copy_size);
-	}
-	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
-		memcpy(buffer, host_ptr, size);
-	}
-	
-	// kill the old buffer
-	if(old_buffer != nullptr) {
-		delete [] old_buffer;
+		memcpy(buffer.get(), old_buffer.get(), copy_size);
+	} else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
+		memcpy(buffer.get(), host_ptr, size);
 	}
 	
 	return true;
@@ -270,7 +259,7 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 void* __attribute__((aligned(128))) host_buffer::map(const compute_queue& cqueue,
 													 const COMPUTE_MEMORY_MAP_FLAG flags_,
 													 const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return nullptr;
+	if (!buffer) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
@@ -283,12 +272,12 @@ void* __attribute__((aligned(128))) host_buffer::map(const compute_queue& cqueue
 	// NOTE: this is returning a raw pointer to the internal buffer memory and specifically not creating+copying a new buffer
 	// -> the user is always responsible for proper sync when mapping a buffer multiple times and this way, it should be
 	// easier to detect any problems (race conditions, etc.)
-	return buffer + offset;
+	return buffer.get() + offset;
 }
 
 bool host_buffer::unmap(const compute_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(buffer == nullptr) return false;
-	if(mapped_ptr == nullptr) return false;
+	if (!buffer) return false;
+	if (mapped_ptr == nullptr) return false;
 
 	// nop
 	return true;
@@ -315,7 +304,7 @@ bool host_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused
 		return false;
 	}
 	
-	memcpy(buffer, gl_data, size);
+	memcpy(buffer.get(), gl_data, size);
 	
 	if(!glUnmapBuffer(opengl_type)) {
 		log_error("opengl buffer unmapping failed");
@@ -328,7 +317,7 @@ bool host_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused
 
 bool host_buffer::release_opengl_object(const compute_queue* cqueue floor_unused) {
 	if(gl_object == 0) return false;
-	if(buffer == nullptr) return false;
+	if (!buffer) return false;
 	if(gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl buffer has already been released for opengl use!");
@@ -338,7 +327,7 @@ bool host_buffer::release_opengl_object(const compute_queue* cqueue floor_unused
 	
 	// copy the host data to the gl buffer
 	glBindBuffer(opengl_type, gl_object);
-	glBufferSubData(opengl_type, 0, (GLsizeiptr)size, buffer);
+	glBufferSubData(opengl_type, 0, (GLsizeiptr)size, buffer.get());
 	glBindBuffer(opengl_type, 0);
 	
 	gl_object_state = true;
@@ -370,7 +359,7 @@ bool host_buffer::acquire_metal_buffer(const compute_queue& cqueue, const metal_
 	comp_mtl_queue.finish();
 	
 	// read/copy Metal buffer data to host memory
-	shared_buffer->read(comp_mtl_queue, buffer, size, 0);
+	shared_buffer->read(comp_mtl_queue, buffer.get(), size, 0);
 	
 	// finish read
 	comp_mtl_queue.finish();
@@ -381,7 +370,7 @@ bool host_buffer::acquire_metal_buffer(const compute_queue& cqueue, const metal_
 
 bool host_buffer::release_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) {
 	if (shared_mtl_buffer == nullptr) return false;
-	if (buffer == nullptr) return false;
+	if (!buffer) return false;
 	if (mtl_object_state) {
 #if defined(FLOOR_DEBUG)
 		log_warn("Metal buffer has already been released for Metal use!");
@@ -404,7 +393,7 @@ bool host_buffer::release_metal_buffer(const compute_queue& cqueue, const metal_
 	comp_mtl_queue.finish();
 	
 	// write/copy the host data to the Metal buffer
-	shared_buffer->write(comp_mtl_queue, buffer, size, 0);
+	shared_buffer->write(comp_mtl_queue, buffer.get(), size, 0);
 	
 	// finish write
 	comp_mtl_queue.finish();
@@ -415,7 +404,7 @@ bool host_buffer::release_metal_buffer(const compute_queue& cqueue, const metal_
 
 bool host_buffer::sync_metal_buffer(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
 	if (shared_mtl_buffer == nullptr) return false;
-	if (buffer == nullptr) return false;
+	if (!buffer) return false;
 	if (mtl_object_state) {
 		// no need, already acquired for Metal use
 		return true;
@@ -437,7 +426,7 @@ bool host_buffer::sync_metal_buffer(const compute_queue* cqueue_, const metal_qu
 	comp_mtl_queue->finish();
 	
 	// write/copy the host data to the Metal buffer
-	shared_buffer->write(*comp_mtl_queue, buffer, size, 0);
+	shared_buffer->write(*comp_mtl_queue, buffer.get(), size, 0);
 	
 	// finish write
 	comp_mtl_queue->finish();

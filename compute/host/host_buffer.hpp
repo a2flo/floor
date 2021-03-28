@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
 #include <floor/compute/compute_buffer.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 class host_device;
 class host_buffer final : public compute_buffer {
@@ -101,12 +102,12 @@ public:
 						   const metal_queue* mtl_queue = nullptr) const override;
 	
 	//! returns a direct pointer to the internal host buffer
-	uint8_t* __attribute__((aligned(128))) get_host_buffer_ptr() const {
-		return buffer;
+	auto get_host_buffer_ptr() const {
+		return buffer.get();
 	}
 
 protected:
-	uint8_t* __attribute__((aligned(1024))) buffer { nullptr };
+	aligned_ptr<uint8_t> buffer;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);

@@ -65,6 +65,25 @@ public:
 	explicit operator bool() const noexcept {
 		return (ptr != nullptr);
 	}
+	
+	bool operator==(const aligned_ptr<T>& ptr_) const {
+		return (ptr == ptr_.ptr);
+	}
+	bool operator==(const pointer ptr_) const {
+		return (ptr == ptr_);
+	}
+	bool operator!=(const aligned_ptr<T>& ptr_) const {
+		return (ptr != ptr_.ptr);
+	}
+	bool operator!=(const pointer ptr_) const {
+		return (ptr != ptr_);
+	}
+	bool operator<(const aligned_ptr<T>& ptr_) const {
+		return (ptr < ptr_.ptr);
+	}
+	bool operator<(const pointer ptr_) const {
+		return (ptr < ptr_);
+	}
 
 	std::tuple<pointer, size_t, bool> release() noexcept {
 		pointer ret = ptr;
@@ -102,7 +121,11 @@ public:
 		std::swap(pinned, rhs.pinned);
 	}
 	
-	pointer get() noexcept {
+	pointer __attribute__((aligned(page_size))) get() noexcept {
+		return ptr;
+	}
+	
+	const pointer __attribute__((aligned(page_size))) get() const noexcept {
 		return ptr;
 	}
 
@@ -110,7 +133,7 @@ public:
 		return *ptr;
 	}
 	
-	pointer operator->() const noexcept {
+	pointer __attribute__((aligned(page_size))) operator->() const noexcept {
 		return ptr;
 	}
 	

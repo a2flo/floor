@@ -25,6 +25,7 @@
 
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_buffer.hpp>
+#include <floor/core/aligned_ptr.hpp>
 #include <Metal/Metal.h>
 
 class metal_device;
@@ -114,8 +115,7 @@ public:
 	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
 	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc);
 	
-protected:
-	//! protected constructor so that we can decide whether a staging buffer is created
+	//! potential staging constructor so that we can decide whether a staging buffer is created
 	metal_buffer(const bool is_staging_buffer_,
 				 const compute_queue& cqueue,
 				 const size_t& size_,
@@ -133,6 +133,7 @@ protected:
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	
 	struct metal_mapping {
+		aligned_ptr<uint8_t> ptr;
 		const size_t size;
 		const size_t offset;
 		const COMPUTE_MEMORY_MAP_FLAG flags;

@@ -1310,9 +1310,9 @@ namespace universal_binary {
 		
 		for (const auto& func : functions) {
 			llvm_toolchain::function_info entry {
+				.name = func.name,
 				.type = func.static_function_info.type,
 				.flags = func.static_function_info.flags,
-				.name = func.name,
 			};
 			
 			uint32_t arg_idx = 0u;

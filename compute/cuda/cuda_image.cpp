@@ -846,7 +846,7 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 	}
 	
 	// alloc host memory (NOTE: not going to use pinned memory here, b/c it has restrictions)
-	alignas(128) uint8_t* host_buffer = new uint8_t[map_size] alignas(128);
+	auto host_buffer = make_aligned_ptr<uint8_t>(map_size);
 	
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
@@ -855,7 +855,7 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 			cqueue.finish();
 		}
 		
-		auto cpy_host_ptr = host_buffer;
+		auto cpy_host_ptr = host_buffer.get();
 		apply_on_levels([this, &cpy_host_ptr, &blocking_map,
 						 stream = (const_cu_stream)cqueue.get_queue_ptr()](const uint32_t& level,
 																		   const uint4& mip_image_dim,
@@ -875,9 +875,10 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 	}
 	
 	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
-	mappings.emplace(host_buffer, cuda_mapping { flags_ });
+	auto ret_ptr = host_buffer.get();
+	mappings.emplace(ret_ptr, cuda_mapping { move(host_buffer), flags_ });
 	
-	return host_buffer;
+	return ret_ptr;
 }
 
 bool cuda_image::unmap(const compute_queue& cqueue,
@@ -919,7 +920,6 @@ bool cuda_image::unmap(const compute_queue& cqueue,
 	}
 	
 	// free host memory again and remove the mapping
-	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
 	
 	return success;

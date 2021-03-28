@@ -288,10 +288,10 @@ protected:
 	size_t shim_image_data_size_mip_maps { 0 };
 	
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
-	uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
-						 const COMPUTE_IMAGE_TYPE& rgba_type,
-						 const uint8_t* rgb_data,
-						 const bool ignore_mip_levels = false);
+	unique_ptr<uint8_t[]> rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+									  const COMPUTE_IMAGE_TYPE& rgba_type,
+									  const uint8_t* rgb_data,
+									  const bool ignore_mip_levels = false);
 	
 	//! in-place converts RGB data to RGBA data
 	//! NOTE: 'rgb_to_rgba_data' must point to sufficient enough memory that can hold the RGBA data
@@ -302,11 +302,11 @@ protected:
 	
 	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
 	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
-	uint8_t* rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
-						 const COMPUTE_IMAGE_TYPE& rgb_type,
-						 const uint8_t* rgba_data,
-						 uint8_t* dst_rgb_data = nullptr,
-						 const bool ignore_mip_levels = false);
+	unique_ptr<uint8_t[]> rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+									  const COMPUTE_IMAGE_TYPE& rgb_type,
+									  const uint8_t* rgba_data,
+									  uint8_t* dst_rgb_data = nullptr,
+									  const bool ignore_mip_levels = false);
 	
 	// calls function "F" with (level, mip image dim, slice data size, mip-level size, args...) for each level of
 	// the mip-map chain or only the single level of a non-mip-mapped image.

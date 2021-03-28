@@ -25,6 +25,7 @@
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/compute_context.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 // TODO: proper error (return) value handling everywhere
 
@@ -448,13 +449,13 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
 			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
 			
-			const uint8_t* data_ptr {
-				image_type != shim_image_type ?
+			const uint8_t* data_ptr = cpy_host_ptr;
+			unique_ptr<uint8_t[]> conv_data_ptr;
+			if (image_type != shim_image_type) {
 				// need to copy/convert the RGB host data to RGBA
-				rgb_to_rgba(image_type, shim_image_type, cpy_host_ptr, true /* ignore mip levels as we do this manually */) :
-				// else: can use host ptr directly
-				cpy_host_ptr
-			};
+				conv_data_ptr = rgb_to_rgba(image_type, shim_image_type, cpy_host_ptr, true /* ignore mip levels as we do this manually */);
+				data_ptr = conv_data_ptr.get();
+			}
 			
 			const MTLRegion mipmap_region {
 				.origin = { 0, 0, 0 },
@@ -473,17 +474,8 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 					   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
 			}
 			
-			// clean up shim data
-			if(image_type != shim_image_type) {
-#if defined(__clang_analyzer__) // suppress false positives about use after free + memory leak
-				assert(!is_compressed);
-				assert(data_ptr != cpy_host_ptr);
-#endif
-				delete [] data_ptr;
-			}
-			
 			// mip-level image data provided by user, advance pointer
-			if(!generate_mip_maps) {
+			if (!generate_mip_maps) {
 				cpy_host_ptr += level_data_size;
 			}
 			
@@ -653,7 +645,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 	}
 	
 	// alloc host memory
-	alignas(128) uint8_t* host_buffer = new uint8_t[image_data_size] alignas(128);
+	auto host_buffer = make_aligned_ptr<uint8_t>(image_data_size);
 	
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
@@ -672,12 +664,12 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
 		
-		alignas(128) uint8_t* host_shim_buffer = nullptr;
+		aligned_ptr<uint8_t> host_shim_buffer;
 		if(image_type != shim_image_type) {
-			host_shim_buffer = new uint8_t[shim_image_data_size] alignas(128);
+			host_shim_buffer = make_aligned_ptr<uint8_t>(shim_image_data_size);
 		}
 		
-		uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
+		uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer.get() : host_buffer.get());
 		apply_on_levels([this, &cpy_host_ptr,
 						 &dim_count, &is_compressed](const uint32_t& level,
 													 const uint4& mip_image_dim,
@@ -710,18 +702,15 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		
 		// convert to RGB + cleanup
 		if(image_type != shim_image_type) {
-			rgba_to_rgb(shim_image_type, image_type, host_shim_buffer, host_buffer);
-			delete [] host_shim_buffer;
+			rgba_to_rgb(shim_image_type, image_type, host_shim_buffer.get(), host_buffer.get());
 		}
-#if defined(__clang_analyzer__) // suppress false positive about leaking memory
-		else { assert(host_shim_buffer == nullptr); }
-#endif
 	}
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-	mappings.emplace(host_buffer, metal_mapping { flags_, write_only });
+	auto ret_ptr = host_buffer.get();
+	mappings.emplace(ret_ptr, metal_mapping { move(host_buffer), flags_, write_only });
 	
-	return host_buffer;
+	return ret_ptr;
 }
 
 bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
@@ -747,12 +736,12 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 		
 		// again, need to convert RGB to RGBA if necessary
 		const uint8_t* host_buffer = (const uint8_t*)mapped_ptr;
-		const uint8_t* host_shim_buffer = nullptr;
-		if(image_type != shim_image_type) {
-			host_shim_buffer = rgb_to_rgba(image_type, shim_image_type, host_buffer); // allocs mem for this
+		unique_ptr<uint8_t[]> host_shim_buffer;
+		if (image_type != shim_image_type) {
+			host_shim_buffer = rgb_to_rgba(image_type, shim_image_type, host_buffer);
 		}
 		
-		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
+		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer.get() : host_buffer);
 		success = apply_on_levels([this, &cpy_host_ptr,
 						 &dim_count, &is_compressed](const uint32_t& level,
 													 const uint4& mip_image_dim,
@@ -784,9 +773,7 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 		[cmd_buffer waitUntilCompleted];
 		
 		// cleanup
-		if(image_type != shim_image_type) {
-			delete [] host_shim_buffer;
-		}
+		host_shim_buffer = nullptr;
 		
 		// update mip-map chain
 		if(generate_mip_maps) {
@@ -795,7 +782,6 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 	}
 	
 	// free host memory again and remove the mapping
-	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
 	
 	return success;

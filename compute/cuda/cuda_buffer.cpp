@@ -460,7 +460,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue
 	}
 	
 	// alloc host memory (NOTE: not going to use pinned memory here, b/c it has restrictions)
-	alignas(128) unsigned char* host_buffer = new unsigned char[map_size] alignas(128);
+	auto host_buffer = make_aligned_ptr<uint8_t>(map_size);
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
 	if(!write_only) {
@@ -468,19 +468,20 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue
 			// must finish up all current work before we can properly read from the current buffer
 			cqueue.finish();
 			
-			CU_CALL_NO_ACTION(cu_memcpy_dtoh(host_buffer, buffer + offset, map_size),
+			CU_CALL_NO_ACTION(cu_memcpy_dtoh(host_buffer.get(), buffer + offset, map_size),
 							  "failed to copy device memory to host")
 		}
 		else {
-			CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer, buffer + offset, map_size, (const_cu_stream)cqueue.get_queue_ptr()),
+			CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer.get(), buffer + offset, map_size, (const_cu_stream)cqueue.get_queue_ptr()),
 							  "failed to copy device memory to host")
 		}
 	}
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-	mappings.emplace(host_buffer, cuda_mapping { map_size, offset, flags_ });
+	auto ret_ptr = host_buffer.get();
+	mappings.emplace(ret_ptr, cuda_mapping { move(host_buffer), map_size, offset, flags_ });
 	
-	return host_buffer;
+	return ret_ptr;
 }
 
 bool cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
@@ -504,8 +505,7 @@ bool cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
 	}
 	
 	// free host memory again and remove the mapping
-	delete [] (unsigned char*)mapped_ptr;
-	mappings.erase(mapped_ptr);
+	mappings.erase(iter);
 	
 	return success;
 }

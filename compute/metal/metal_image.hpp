@@ -25,6 +25,7 @@
 
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_image.hpp>
+#include <floor/core/aligned_ptr.hpp>
 #if defined(__OBJC__)
 #include <Metal/Metal.h>
 #endif
@@ -104,6 +105,7 @@ protected:
 #endif
 	
 	struct metal_mapping {
+		aligned_ptr<uint8_t> ptr;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 		const bool write_only;
 	};

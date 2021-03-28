@@ -62,8 +62,8 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool host_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
-	image = new uint8_t[image_data_size_mip_maps + protection_size] alignas(1024);
-	program_info.buffer = image;
+	image = make_aligned_ptr<uint8_t>(image_data_size_mip_maps + protection_size);
+	program_info.buffer = image.get();
 	program_info.runtime_image_type = image_type;
 	
 	const auto dim_count = image_dim_count(image_type);
@@ -97,7 +97,7 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 	
 #if defined(FLOOR_DEBUG)
 	// set protection bytes
-	memset(image + image_data_size_mip_maps, protection_byte, protection_size);
+	memset(image.get() + image_data_size_mip_maps, protection_byte, protection_size);
 #endif
 	
 	// -> normal host image
@@ -107,7 +107,7 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
 		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			memcpy(image, host_ptr,
+			memcpy(image.get(), host_ptr,
 				   // if mip-maps have to be created on the libfloor side (i.e. not provided by the user),
 				   // only copy the data that is actually provided by the user
 				   generate_mip_maps ? image_data_size : image_data_size_mip_maps);
@@ -156,34 +156,30 @@ host_image::~host_image() {
 		delete_gl_image();
 #endif
 	}
-	// then, also kill the host image
-	if(image != nullptr) {
-		delete [] image;
-	}
 }
 
 bool host_image::zero(const compute_queue& cqueue) {
-	if(image == nullptr) return false;
+	if (!image) return false;
 	
 	cqueue.finish();
-	memset(image, 0, image_data_size_mip_maps);
+	memset(image.get(), 0, image_data_size_mip_maps);
 	return true;
 }
 
 void* __attribute__((aligned(128))) host_image::map(const compute_queue& cqueue,
 													const COMPUTE_MEMORY_MAP_FLAG flags_) {
-	if(image == nullptr) return nullptr;
+	if (!image) return nullptr;
 	
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(blocking_map) {
 		cqueue.finish();
 	}
-	return image;
+	return image.get();
 }
 
 bool host_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nullptr) return false;
-	if(mapped_ptr == nullptr) return false;
+	if (!image) return false;
+	if (mapped_ptr == nullptr) return false;
 	
 	// manually create mip-map chain
 	if(generate_mip_maps) {
@@ -215,7 +211,7 @@ bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused)
 	};
 	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
 		glBindTexture(opengl_type, gl_object);
-		const uint8_t* level_data = image;
+		const uint8_t* level_data = image.get();
 		for(size_t level = 0; level < mip_level_count; ++level, mip_image_dim >>= 1) {
 			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 			const auto level_data_size = slice_data_size * layer_count;
@@ -240,7 +236,7 @@ bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused)
 #if defined(FLOOR_DEBUG)
 		// check memory protection strip
 		for(size_t i = 0; i < protection_size; ++i) {
-			if(*(image + image_data_size_mip_maps + i) != protection_byte) {
+			if(*(image.get() + image_data_size_mip_maps + i) != protection_byte) {
 				log_error("DO PANIC: opengl wrote too many bytes: image: $X, gl object: $, @ protection byte #$, expected data size $",
 						  this, gl_object, i, image_data_size_mip_maps);
 				logger::flush();
@@ -261,7 +257,7 @@ bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused)
 bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused) {
 #if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
-	if(image == nullptr) return false;
+	if (!image) return false;
 	if(gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been released for opengl use!");
@@ -272,7 +268,7 @@ bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused)
 	// copy the host data back to the gl image (if write access is set)
 	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
 		glBindTexture(opengl_type, gl_object);
-		update_gl_image_data(image);
+		update_gl_image_data(image.get());
 		glBindTexture(opengl_type, 0);
 	}
 	
@@ -310,7 +306,7 @@ bool host_image::acquire_metal_image(const compute_queue& cqueue, const metal_qu
 	
 	// read/copy Metal image data to host memory
 	auto img_data = shared_image->map(comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
-	memcpy(image, img_data, image_data_size);
+	memcpy(image.get(), img_data, image_data_size);
 	shared_image->unmap(comp_mtl_queue, img_data);
 	
 	// finish read
@@ -322,7 +318,7 @@ bool host_image::acquire_metal_image(const compute_queue& cqueue, const metal_qu
 
 bool host_image::release_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) {
 	if (shared_mtl_image == nullptr) return false;
-	if (image == nullptr) return false;
+	if (!image) return false;
 	if (mtl_object_state) {
 #if defined(FLOOR_DEBUG)
 		log_warn("Metal image has already been released for Metal use!");
@@ -346,7 +342,7 @@ bool host_image::release_metal_image(const compute_queue& cqueue, const metal_qu
 	
 	// write/copy the host data to the Metal image
 	auto img_data = shared_image->map(comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
-	memcpy(img_data, image, image_data_size);
+	memcpy(img_data, image.get(), image_data_size);
 	shared_image->unmap(comp_mtl_queue, img_data);
 	
 	// finish write
@@ -358,7 +354,7 @@ bool host_image::release_metal_image(const compute_queue& cqueue, const metal_qu
 
 bool host_image::sync_metal_image(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
 	if (shared_mtl_image == nullptr) return false;
-	if (image == nullptr) return false;
+	if (!image) return false;
 	if (mtl_object_state) {
 		// no need, already acquired for Metal use
 		return true;
@@ -381,7 +377,7 @@ bool host_image::sync_metal_image(const compute_queue* cqueue_, const metal_queu
 	
 	// write/copy the host data to the Metal image
 	auto img_data = shared_image->map(*comp_mtl_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
-	memcpy(img_data, image, image_data_size);
+	memcpy(img_data, image.get(), image_data_size);
 	shared_image->unmap(*comp_mtl_queue, img_data);
 	
 	// finish write

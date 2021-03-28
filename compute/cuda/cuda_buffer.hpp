@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_buffer.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 class vulkan_buffer;
 class vulkan_semaphore;
@@ -110,6 +111,7 @@ protected:
 	cu_graphics_resource rsrc { nullptr };
 	
 	struct cuda_mapping {
+		aligned_ptr<uint8_t> ptr;
 		const size_t size;
 		const size_t offset;
 		const COMPUTE_MEMORY_MAP_FLAG flags;

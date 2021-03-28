@@ -359,11 +359,13 @@ void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueu
 	}
 	
 	auto ret_ptr = mapped_ptrs[0];
+	aligned_ptr<uint8_t> host_buffer;
 	if(!generate_mip_maps && is_mip_mapped) { // -> manual mip-mapping
 		// since each mip-level is mapped individually, we must create a contiguous buffer manually
 		// and copy each mip-level into it (if using read mapping, for write/write_invalidate this doesn't matter)
 		const auto total_size = accumulate(begin(level_sizes), end(level_sizes), size_t(0));
-		ret_ptr = new uint8_t[total_size] alignas(128);
+		host_buffer = make_aligned_ptr<uint8_t>(total_size);
+		ret_ptr = host_buffer.get();
 		
 		if(has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(flags_)) {
 			auto cpy_ptr = (uint8_t*)ret_ptr;
@@ -374,7 +376,7 @@ void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueu
 		}
 	}
 	
-	mappings.emplace(ret_ptr, opencl_mapping { flags_, move(mapped_ptrs), move(level_sizes) });
+	mappings.emplace(ret_ptr, opencl_mapping { move(host_buffer), flags_, move(mapped_ptrs), move(level_sizes) });
 	return ret_ptr;
 }
 
@@ -399,9 +401,6 @@ bool opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((align
 			memcpy(iter->second.mapped_ptrs[i], cpy_ptr, iter->second.level_sizes[i]);
 			cpy_ptr += iter->second.level_sizes[i];
 		}
-		
-		// this was manually allocated
-		delete [] (uint8_t*)mapped_ptr;
 	}
 	
 	for(const auto& mptr : iter->second.mapped_ptrs) {

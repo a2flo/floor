@@ -25,38 +25,73 @@
 #include <string>
 #include <functional>
 #include <floor/threading/thread_safety.hpp>
+#include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 using namespace std;
 
-class task {
-public:
-	//! task constructor, don't use this directly (use task::spawn instead)
-	task(std::function<void()> op, const string task_name);
-	
-	//! creates ("spawns") a new task that asynchronously executes the supplied function in a separate thread
-	//! NOTE: memory management of the task object is not necessary as it will automatically self-destruct
-	//! after completing the task op or after encountering an unhandled exception.
-	//! NOTE: example usage: task::spawn([]() { cout << "do something in here" << endl; });
-	static void spawn(std::function<void()> op, const string task_name = "task") {
-#if !defined(__clang_analyzer__) // kill off memory leak warnings, it's supposed to work like this
-		new task(op, task_name);
-#endif
-	}
-	
-protected:
-	const std::function<void()> op;
-	const string task_name;
-	atomic<bool> initialized { false };
-	thread thread_obj;
-	
-	//! the tasks threads run method (only used internally)
-	static void run(task* this_task, std::function<void()> task_op);
-	
-	//! destruction from the outside is not allowed, since the task will automatically self-destruct
-	~task() = default;
-	// prohibit copying
-	task(const task& tsk) = delete;
-	task& operator=(const task& tsk) = delete;
-	
-};
+namespace task {
+
+//! creates ("spawns") a new task that asynchronously executes the supplied function in a separate thread
+//! NOTE: memory management of the task object is not necessary as it will automatically self-destruct
+//! after completing the task op or after encountering an unhandled exception.
+//! NOTE: example usage: task::spawn([]() { cout << "do something in here" << endl; });
+static inline void spawn(std::function<void()> op, const string task_name = "task") {
+	struct task {
+		task(std::function<void()> op_, const string task_name_) :
+		op(op_), task_name(task_name_),
+		thread_obj(&task::run, this, [this]() {
+			// the task thread is not allowed to run until the task thread object has been detached from the callers thread
+			while(!initialized) { this_thread::yield(); }
+			// finally: call the users task op
+			op();
+		}) {
+			thread_obj.detach();
+		}
+		~task() = default;
+		
+		const std::function<void()> op;
+		const string task_name;
+		atomic<bool> initialized { false };
+		thread thread_obj;
+		
+		unique_ptr<task> task_alloc;
+		
+		//! moves the outside task allocation to the interior and starts the task execution
+		void set_alloc_and_start(unique_ptr<task>&& alloc) {
+			task_alloc = move(alloc);
+			task_alloc->initialized = true;
+		}
+		
+		//! the tasks threads run method (only used internally)
+		static void run(task* this_task, std::function<void()> task_op) {
+			// the task thread is not allowed to run until the task thread object has been detached from the callers thread
+			while(!this_task->initialized) { this_thread::yield(); }
+			
+			core::set_current_thread_name(this_task->task_name);
+			
+			try {
+				// NOTE: this is the function object created above (not the users task op!)
+				task_op();
+			} catch (exception& exc) {
+				log_error("encountered an unhandled exception while running task \"$\": $",
+						  core::get_current_thread_name(), exc.what());
+			} catch (...) {
+				log_error("encountered an unhandled exception while running task \"$\"",
+						  core::get_current_thread_name());
+			}
+			this_task->task_alloc = nullptr;
+		}
+		
+		// prohibit copying
+		task(const task& tsk) = delete;
+		task& operator=(const task& tsk) = delete;
+		
+	};
+	auto task_obj = make_unique<task>(op, task_name);
+	auto task_ptr = task_obj.get();
+	task_ptr->set_alloc_and_start(move(task_obj));
+}
+
+} // namespace task
 
 #endif

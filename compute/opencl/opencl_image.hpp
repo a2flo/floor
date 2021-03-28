@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_image.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 class opencl_device;
 class opencl_image final : public compute_image {
@@ -68,6 +69,7 @@ protected:
 	cl_command_queue queue_or_default_queue(const compute_queue* cqueue) const;
 	
 	struct opencl_mapping {
+		aligned_ptr<uint8_t> ptr;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 		vector<void*> mapped_ptrs;
 		vector<size_t> level_sizes;
