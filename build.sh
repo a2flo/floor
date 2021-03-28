@@ -810,6 +810,7 @@ WARNINGS="${WARNINGS} -Wno-nullability-extension"
 # don't be too pedantic
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast"
 WARNINGS="${WARNINGS} -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-date-time"
+WARNINGS="${WARNINGS} -Wno-poison-system-directories"
 # suppress warnings in system headers
 WARNINGS="${WARNINGS} -Wno-system-headers"
 # these two are only useful in certain situations, but are quite noisy

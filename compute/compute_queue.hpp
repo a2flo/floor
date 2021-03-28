@@ -36,7 +36,9 @@ public:
 	//! argument type validity specializations, with pretty error messages
 	template <typename T> struct is_valid_arg { static constexpr bool valid() { return true; } };
 #if !defined(_MSC_VER) // size_t == uint32_t with msvc (which is obviously allowed), TODO: check if this is the same with x64
-	template <typename T> requires is_same_v<T, size_t> struct is_valid_arg<T> {
+	template <typename T>
+	requires is_same_v<T, size_t>
+	struct is_valid_arg<T> {
 		static constexpr bool valid()
 		__attribute__((unavailable("size_t is not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
@@ -109,20 +111,6 @@ public:
 		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, { args... });
 	}
 	
-	//! enqueues (and executes) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	[[deprecated("use the 'const compute_kernel&' variant instead")]]
-	void execute(shared_ptr<compute_kernel> kernel,
-				 work_size_type_global&& global_work_size,
-				 work_size_type_local&& local_work_size,
-				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(*kernel, false, global_work_size, local_work_size, { args... });
-	}
-	
 	template <typename... Args, class work_size_type_global, class work_size_type_local>
 	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
 			   is_same_v<decay_t<work_size_type_global>, uint2> ||
@@ -151,20 +139,6 @@ public:
 							 work_size_type_local&& local_work_size,
 							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, { args... });
-	}
-	
-	//! enqueues (and executes cooperatively) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	[[deprecated("use the 'const compute_kernel&' variant instead")]]
-	void execute_cooperative(shared_ptr<compute_kernel> kernel,
-							 work_size_type_global&& global_work_size,
-							 work_size_type_local&& local_work_size,
-							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(*kernel, true, global_work_size, local_work_size, { args... });
 	}
 	
 	template <typename... Args, class work_size_type_global, class work_size_type_local>
