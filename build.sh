@@ -64,9 +64,9 @@ if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor|clang_patchlevel" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 10.0.0 is required (ships with Xcode 8.3)
-		if [ $CLANG_MAJOR -lt 12 ] || [ $CLANG_MAJOR -eq 12 -a $CLANG_MINOR -lt 0 ]; then
-			error "at least Xcode 12.0 / Apple clang/LLVM 12.0.0 is required to compile this project!"
+		# apple xcode/llvm/clang versioning scheme -> at least 11.0 is required (ships with Xcode 12.5)
+		if [ $CLANG_MAJOR -lt 12 ] || [ $CLANG_MAJOR -eq 12 -a $CLANG_MINOR -eq 0 -a $CLANG_PATCHLEVEL -lt 5 ]; then
+			error "at least Xcode 12.0 / Apple clang/LLVM 12.0.5 is required to compile this project!"
 		fi
 	else
 		# standard clang versioning scheme -> at least 10.0 is required

@@ -88,13 +88,11 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #if !defined(__apple_build_version__)
 #define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #else // map apple version scheme ... (*sigh*)
-#if (__clang_major__ < 12) // Xcode 12.0 with clang 10.0 is the min req.
+#if (__clang_major__ == 12 && __clang_minor__ == 0 && __clang_patchlevel__ < 5) // Xcode 12.5 with clang 11.0 is the min req.
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ == 12 && __clang_minor__ == 0 && __clang_patchlevel__ < 5) // Xcode 12.0 - 12.4
-#define FLOOR_TOOLCHAIN_VERSION 100000u
-#elif (__clang_major__ == 12 && (__clang_minor__ > 0 || (__clang_minor__ == 0 && __clang_patchlevel__ >= 5))) // Xcode 12.5+
+#if (__clang_major__ == 12 && (__clang_minor__ > 0 || (__clang_minor__ == 0 && __clang_patchlevel__ >= 5))) // Xcode 12.5+
 #define FLOOR_TOOLCHAIN_VERSION 110000u
 #else // newer/unreleased Xcode, default to 11.0 for now
 #define FLOOR_TOOLCHAIN_VERSION 110000u
