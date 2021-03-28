@@ -585,7 +585,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program_internal(cons
 				"failed to make cuda context current", {})
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
-		const CU_JIT_OPTION jit_options[] {
+		static constexpr const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
 			CU_JIT_OPTION::GENERATE_DEBUG_INFO,

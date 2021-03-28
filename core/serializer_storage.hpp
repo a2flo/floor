@@ -60,8 +60,7 @@ struct serializer_storage_wrapper {
 	const uint8_t* end() { return end_ptr; }
 	const uint8_t* end() const { return end_ptr; }
 	
-	template <bool can_read_ = can_read, enable_if_t<can_read_>* = nullptr>
-	const uint8_t* erase(const uint8_t* begin, const uint8_t* end) {
+	const uint8_t* erase(const uint8_t* begin, const uint8_t* end) requires can_read {
 		if(begin == end) return nullptr;
 		
 		if(begin_ptr == end_ptr) {
@@ -89,16 +88,15 @@ struct serializer_storage_wrapper {
 		return begin_ptr;
 	}
 	
-	template <typename iterator_type, bool can_write_ = can_write,
-			  enable_if_t<can_write_ && !is_same<iterator_type, const uint8_t*>::value>* = nullptr>
+	template <typename iterator_type>
+	requires (can_write && !is_same_v<iterator_type, const uint8_t*>)
 	const uint8_t* insert(const uint8_t* insert_point,
 						  iterator_type begin,
 						  iterator_type end) {
 		return insert(insert_point, (const uint8_t*)&*begin, (const uint8_t*)&*end);
 	}
 	
-	template <bool can_write_ = can_write, enable_if_t<can_write_>* = nullptr>
-	const uint8_t* insert(const uint8_t* insert_point, const uint8_t* begin, const uint8_t* end) {
+	const uint8_t* insert(const uint8_t* insert_point, const uint8_t* begin, const uint8_t* end) requires can_write {
 		if(begin == end) return end_ptr;
 		
 		if(insert_point != end_ptr) {

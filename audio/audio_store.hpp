@@ -38,11 +38,11 @@ public:
 	static void init();
 	static void destroy();
 	
-	static constexpr float default_volume { 1.0f };
-	static constexpr float3 default_velocity { 0.0f };
-	static constexpr float default_reference_distance { 5.0f };
-	static constexpr float default_rolloff_factor { 3.5f };
-	static constexpr float default_max_distance { 1000.0f };
+	static constexpr const float default_volume { 1.0f };
+	static constexpr const float3 default_velocity { 0.0f };
+	static constexpr const float default_reference_distance { 5.0f };
+	static constexpr const float default_rolloff_factor { 3.5f };
+	static constexpr const float default_max_distance { 1000.0f };
 	
 	struct audio_data {
 		const string filename;

@@ -733,10 +733,8 @@ namespace universal_binary {
 					finfo.args.emplace_back(function_info_dynamic_v2::arg_info {
 						.argument_size = arg.size,
 						.address_space = arg.address_space,
-						._unused_0 = 0,
 						.image_type = arg.image_type,
 						.image_access = arg.image_access,
-						._unused_1 = 0,
 						.special_type = arg.special_type,
 					});
 					if (arg.special_type == llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
@@ -1311,10 +1309,11 @@ namespace universal_binary {
 		vector<llvm_toolchain::function_info> ret;
 		
 		for (const auto& func : functions) {
-			llvm_toolchain::function_info entry;
-			entry.type = func.static_function_info.type;
-			entry.flags = func.static_function_info.flags;
-			entry.name = func.name;
+			llvm_toolchain::function_info entry {
+				.type = func.static_function_info.type,
+				.flags = func.static_function_info.flags,
+				.name = func.name,
+			};
 			
 			uint32_t arg_idx = 0u;
 			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
@@ -1324,13 +1323,13 @@ namespace universal_binary {
 			}
 			
 			for (const auto& arg : func.args) {
-				llvm_toolchain::arg_info arg_entry;
-				arg_entry.size = arg.argument_size;
-				arg_entry.address_space = arg.address_space;
-				arg_entry.image_type = arg.image_type;
-				arg_entry.image_access = arg.image_access;
-				arg_entry.special_type = arg.special_type;
-				entry.args.emplace_back(arg_entry);
+				entry.args.emplace_back(llvm_toolchain::arg_info {
+					.size = arg.argument_size,
+					.address_space = arg.address_space,
+					.image_type = arg.image_type,
+					.image_access = arg.image_access,
+					.special_type = arg.special_type,
+				});
 			}
 			
 			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {

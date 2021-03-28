@@ -227,7 +227,7 @@ namespace universal_binary {
 		} vulkan;
 
 		//! packed value
-		uint64_t value;
+		uint64_t value { 0u };
 		
 #undef FLOOR_FUBAR_VERSION_AND_TYPE // cleanup
 	};
@@ -291,17 +291,14 @@ namespace universal_binary {
 		string name;
 		//! per-argument specific information
 		//! -> FLOOR_METADATA
-		union arg_info {
-			struct {
-				uint32_t argument_size;
-				llvm_toolchain::ARG_ADDRESS_SPACE address_space : 3;
-				uint32_t _unused_0 : 5;
-				llvm_toolchain::ARG_IMAGE_TYPE image_type : 8;
-				llvm_toolchain::ARG_IMAGE_ACCESS image_access : 2;
-				uint32_t _unused_1 : 6;
-				llvm_toolchain::SPECIAL_TYPE special_type : 8;
-			};
-			uint64_t value;
+		struct arg_info {
+			uint32_t argument_size { 0u };
+			llvm_toolchain::ARG_ADDRESS_SPACE address_space : 3 { llvm_toolchain::ARG_ADDRESS_SPACE::UNKNOWN };
+			uint32_t _unused_0 : 5 { 0u };
+			llvm_toolchain::ARG_IMAGE_TYPE image_type : 8 { llvm_toolchain::ARG_IMAGE_TYPE::NONE };
+			llvm_toolchain::ARG_IMAGE_ACCESS image_access : 2 { llvm_toolchain::ARG_IMAGE_ACCESS::NONE };
+			uint32_t _unused_1 : 6 { 0u };
+			llvm_toolchain::SPECIAL_TYPE special_type : 8 { llvm_toolchain::SPECIAL_TYPE::NONE };
 		};
 		static_assert(sizeof(arg_info) == sizeof(uint64_t));
 		vector<arg_info> args;

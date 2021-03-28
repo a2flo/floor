@@ -21,8 +21,6 @@
 #include <floor/core/unicode.hpp>
 #include <floor/vr/vr_context.hpp>
 
-constexpr int event::handlers_locked;
-
 event::event() : thread_base("event") {
 	const uint32_t cur_time { SDL_GetTicks() };
 	lm_double_click_timer = cur_time;

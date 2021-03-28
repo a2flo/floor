@@ -34,29 +34,36 @@ class compute_kernel;
 class compute_queue {
 public:
 	//! argument type validity specializations, with pretty error messages
-	template <typename T, typename = void> struct is_valid_arg { static constexpr bool valid() { return true; } };
+	template <typename T> struct is_valid_arg { static constexpr bool valid() { return true; } };
 #if !defined(_MSC_VER) // size_t == uint32_t with msvc (which is obviously allowed), TODO: check if this is the same with x64
-	template <typename T> struct is_valid_arg<T, enable_if_t<is_same_v<T, size_t>>> {
+	template <typename T> requires is_same_v<T, size_t> struct is_valid_arg<T> {
 		static constexpr bool valid()
 		__attribute__((unavailable("size_t is not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
-	template <typename T> struct is_valid_arg<T, enable_if_t<(is_floor_vector<T>::value &&
-															  is_same_v<typename T::decayed_scalar_type, size_t>)>> {
+	template <typename T>
+	requires (is_floor_vector<T>::value &&
+			  is_same_v<typename T::decayed_scalar_type, size_t>)
+	struct is_valid_arg<T> {
 		static constexpr bool valid()
 		__attribute__((unavailable("size_t vector types are not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
 #endif
 	
-	template <typename T, typename = void> struct is_compute_memory_pointer : public false_type {};
+	template <typename T> struct is_compute_memory_pointer : public false_type {};
 	template <typename T>
-	struct is_compute_memory_pointer<T, enable_if_t<(is_pointer_v<T> &&
-													 is_base_of_v<compute_memory, remove_pointer_t<T>>)>> : public true_type {};
+	requires (is_pointer_v<T> &&
+			  is_base_of_v<compute_memory, remove_pointer_t<T>>)
+	struct is_compute_memory_pointer<T> : public true_type {};
 	
-	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer_v<T> && !is_compute_memory_pointer<T>::value>> {
+	template <typename T>
+	requires (is_pointer_v<T> && !is_compute_memory_pointer<T>::value)
+	struct is_valid_arg<T> {
 		static constexpr bool valid()
 		__attribute__((unavailable("raw pointers are not allowed"))) { return false; }
 	};
-	template <typename T> struct is_valid_arg<T, enable_if_t<is_null_pointer_v<T>>> {
+	template <typename T>
+	requires is_null_pointer_v<T>
+	struct is_valid_arg<T> {
 		static constexpr bool valid()
 		__attribute__((unavailable("nullptr is not allowed"))) { return false; }
 	};
@@ -70,7 +77,7 @@ public:
 	}
 	
 	//! checks if all argument types are valid
-	template <typename T, typename... Args, enable_if_t<sizeof...(Args) != 0>* = nullptr>
+	template <typename T, typename... Args> requires (sizeof...(Args) != 0)
 	static constexpr bool check_arg_types() {
 		return (check_arg_types<T>() && check_arg_types<Args...>());
 	}
@@ -90,11 +97,11 @@ public:
 	virtual void* get_queue_ptr() = 0;
 	
 	//! enqueues (and executes) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-	enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-				  is_same_v<decay_t<work_size_type_global>, uint2> ||
-				  is_same_v<decay_t<work_size_type_global>, uint3>) &&
-				 is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute(const compute_kernel& kernel,
 				 work_size_type_global&& global_work_size,
 				 work_size_type_local&& local_work_size,
@@ -103,11 +110,11 @@ public:
 	}
 	
 	//! enqueues (and executes) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	[[deprecated("use the 'const compute_kernel&' variant instead")]]
 	void execute(shared_ptr<compute_kernel> kernel,
 				 work_size_type_global&& global_work_size,
@@ -116,29 +123,29 @@ public:
 		kernel_execute_forwarder(*kernel, false, global_work_size, local_work_size, { args... });
 	}
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute(const compute_kernel&, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute_cooperative(const compute_kernel& kernel,
 							 work_size_type_global&& global_work_size,
 							 work_size_type_local&& local_work_size,
@@ -147,11 +154,11 @@ public:
 	}
 	
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	[[deprecated("use the 'const compute_kernel&' variant instead")]]
 	void execute_cooperative(shared_ptr<compute_kernel> kernel,
 							 work_size_type_global&& global_work_size,
@@ -160,19 +167,19 @@ public:
 		kernel_execute_forwarder(*kernel, true, global_work_size, local_work_size, { args... });
 	}
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute_cooperative(const compute_kernel&, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
-	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same_v<decay_t<work_size_type_global>, uint1> ||
-							is_same_v<decay_t<work_size_type_global>, uint2> ||
-							is_same_v<decay_t<work_size_type_global>, uint3>) &&
-						   is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)>* = nullptr>
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
+			   is_same_v<decay_t<work_size_type_global>, uint2> ||
+			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
+			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
 	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif

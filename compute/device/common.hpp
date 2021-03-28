@@ -328,7 +328,7 @@ class compute_local_buffer {
 protected:
 	static constexpr uint32_t dim() { return (count_2 == 0 ? 1 : (count_3 == 0 ? 2 : 3)); }
 	static constexpr size_t data_size() {
-		constexpr auto type_size = sizeof(T);
+		constexpr const auto type_size = sizeof(T);
 		switch(dim()) {
 			case 1: return count_1 * type_size;
 			case 2: return count_1 * count_2 * type_size;

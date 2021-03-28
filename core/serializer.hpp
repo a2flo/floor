@@ -173,7 +173,7 @@ public:
 	
 protected:
 	//! type-specific serialization implementation
-	template <typename type, typename = void>
+	template <typename type>
 	struct serialization {
 		static void serialize(serializer&, storage_type&, const type&) {
 			serialization_not_implemented_for_this_type<type>();
@@ -206,8 +206,8 @@ protected:
 	};
 	
 	// handle erroneous cases
-	template <typename type>
-	struct serialization<type, enable_if_t<is_pointer<type>::value>> {
+	template <typename type> requires is_pointer_v<type>
+	struct serialization<type> {
 		static void serialize(serializer&, storage_type&, const type&)
 		__attribute__((unavailable("serialization of pointers is not possible")));
 		static type deserialize(serializer&, storage_type&)
@@ -217,8 +217,8 @@ protected:
 	};
 	
 	// integral and floating point types (+compiler extension int/fp types)
-	template <typename arith_type>
-	struct serialization<arith_type, enable_if_t<ext::is_arithmetic_v<arith_type>>> {
+	template <typename arith_type> requires ext::is_arithmetic_v<arith_type>
+	struct serialization<arith_type> {
 		static void serialize(serializer&, storage_type& storage, const arith_type& value) {
 			uint8_t bytes[sizeof(arith_type)];
 			memcpy(bytes, &value, sizeof(arith_type));
@@ -240,8 +240,8 @@ protected:
 	};
 	
 	// enums
-	template <typename enum_type>
-	struct serialization<enum_type, enable_if_t<is_enum<enum_type>::value>> {
+	template <typename enum_type> requires is_enum_v<enum_type>
+	struct serialization<enum_type> {
 		static void serialize(serializer&, storage_type& storage, const enum_type& value) {
 			uint8_t bytes[sizeof(enum_type)];
 			memcpy(bytes, &value, sizeof(enum_type));
@@ -263,8 +263,8 @@ protected:
 	};
 	
 	// floor vector types
-	template <typename vec_type>
-	struct serialization<vec_type, enable_if_t<is_floor_vector<vec_type>::value>> {
+	template <typename vec_type> requires is_floor_vector<vec_type>::value
+	struct serialization<vec_type> {
 		typedef typename vec_type::this_scalar_type scalar_type;
 		static_assert(!is_reference<scalar_type>::value, "can't serialize references");
 		static_assert(!is_pointer<scalar_type>::value, "can't serialize pointers");
@@ -422,8 +422,8 @@ protected:
 	};
 	
 	// serializable class
-	template <typename ser_class_type>
-	struct serialization<ser_class_type, enable_if_t<ser_class_type::is_serializable()>> {
+	template <typename ser_class_type> requires (ser_class_type::is_serializable())
+	struct serialization<ser_class_type> {
 		static void serialize(serializer& ser, storage_type&, const ser_class_type& obj) {
 			obj.serialize(ser);
 		}

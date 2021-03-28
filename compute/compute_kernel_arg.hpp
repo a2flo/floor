@@ -59,19 +59,19 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const unique_ptr<argument_buffer>& arg_buf) noexcept : var(arg_buf.get()) {}
 	
 	// adapters for derived compute_buffer/compute_image/argument_buffer
-	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
+	template <typename derived_buffer_t> requires is_convertible_v<derived_buffer_t*, compute_buffer*>
 	constexpr compute_kernel_arg(const derived_buffer_t* buf) noexcept : var((const compute_buffer*)buf) {}
-	template <typename derived_buffer_t, enable_if_t<is_convertible_v<derived_buffer_t*, compute_buffer*>>* = nullptr>
+	template <typename derived_buffer_t> requires is_convertible_v<derived_buffer_t*, compute_buffer*>
 	constexpr compute_kernel_arg(const derived_buffer_t& buf) noexcept : var((const compute_buffer*)&buf) {}
 	
-	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
+	template <typename derived_image_t> requires is_convertible_v<derived_image_t*, compute_image*>
 	constexpr compute_kernel_arg(const derived_image_t* img) noexcept : var((const compute_image*)img) {}
-	template <typename derived_image_t, enable_if_t<is_convertible_v<derived_image_t*, compute_image*>>* = nullptr>
+	template <typename derived_image_t> requires is_convertible_v<derived_image_t*, compute_image*>
 	constexpr compute_kernel_arg(const derived_image_t& img) noexcept : var((const compute_image*)&img) {}
 	
-	template <typename derived_arg_buffer_t, enable_if_t<is_convertible_v<derived_arg_buffer_t*, argument_buffer*>>* = nullptr>
+	template <typename derived_arg_buffer_t> requires is_convertible_v<derived_arg_buffer_t*, argument_buffer*>
 	constexpr compute_kernel_arg(const argument_buffer* arg_buf) noexcept : var((const argument_buffer*)arg_buf) {}
-	template <typename derived_arg_buffer_t, enable_if_t<is_convertible_v<derived_arg_buffer_t*, argument_buffer*>>* = nullptr>
+	template <typename derived_arg_buffer_t> requires is_convertible_v<derived_arg_buffer_t*, argument_buffer*>
 	constexpr compute_kernel_arg(const argument_buffer& arg_buf) noexcept : var((const argument_buffer*)&arg_buf) {}
 
 	// span arg with CPU storage
@@ -79,9 +79,9 @@ struct compute_kernel_arg {
 	constexpr compute_kernel_arg(const span<data_type>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
 	
 	// generic arg with CPU storage
-	template <typename T, enable_if_t<(!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&
-									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*> &&
-									   !is_convertible_v<decay_t<remove_pointer_t<T>>*, argument_buffer*>)>* = nullptr>
+	template <typename T> requires (!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&
+									!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*> &&
+									!is_convertible_v<decay_t<remove_pointer_t<T>>*, argument_buffer*>)
 	constexpr compute_kernel_arg(const T& generic_arg) noexcept : var((const void*)&generic_arg), size(sizeof(T)) {}
 	
 	// forward generic shader_ptrs to one of the constructors above

@@ -61,14 +61,14 @@ namespace json {
 		
 		//! returns the value of this value if its type matches the specified type T,
 		//! returning it as <true, value>, or returning <false, 0> if the type doesn't match
-		template <typename T, enable_if_t<is_same<T, nullptr_t>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, nullptr_t>
 		pair<bool, nullptr_t> get() const {
 			if(type != VALUE_TYPE::NULL_VALUE) {
 				return { false, nullptr };
 			}
 			return { true, nullptr };
 		}
-		template <typename T, enable_if_t<is_same<T, bool>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, bool>
 		pair<bool, bool> get() const {
 			if(type != VALUE_TYPE::TRUE_VALUE &&
 			   type != VALUE_TYPE::FALSE_VALUE) {
@@ -76,21 +76,21 @@ namespace json {
 			}
 			return { true, (type == VALUE_TYPE::TRUE_VALUE) };
 		}
-		template <typename T, enable_if_t<is_same<T, int64_t>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, int64_t>
 		pair<bool, int64_t> get() const {
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
 			}
 			return { true, int_number };
 		}
-		template <typename T, enable_if_t<is_same<T, uint64_t>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, uint64_t>
 		pair<bool, uint64_t> get() const {
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
 			}
 			return { true, *(const uint64_t*)&int_number };
 		}
-		template <typename T, enable_if_t<is_same<T, int32_t>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, int32_t>
 		pair<bool, int32_t> get() const {
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
@@ -99,42 +99,42 @@ namespace json {
 								   std::max(int_number, int64_t(INT32_MIN)) :
 								   std::min(int_number, int64_t(INT32_MAX))) };
 		}
-		template <typename T, enable_if_t<is_same<T, uint32_t>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, uint32_t>
 		pair<bool, uint32_t> get() const {
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
 			}
 			return { true, uint32_t(std::min(*(const uint64_t*)&int_number, uint64_t(UINT32_MAX))) };
 		}
-		template <typename T, enable_if_t<is_same<T, float>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, float>
 		pair<bool, float> get() const {
 			if(type != VALUE_TYPE::FP_NUMBER) {
 				return { false, 0.0f };
 			}
 			return { true, (float)fp_number };
 		}
-		template <typename T, enable_if_t<is_same<T, double>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, double>
 		pair<bool, double> get() const {
 			if(type != VALUE_TYPE::FP_NUMBER) {
 				return { false, 0.0 };
 			}
 			return { true, fp_number };
 		}
-		template <typename T, enable_if_t<is_same<T, string>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, string>
 		pair<bool, string> get() const {
 			if(type != VALUE_TYPE::STRING) {
 				return { false, "" };
 			}
 			return { true, str };
 		}
-		template <typename T, enable_if_t<is_same<T, json_object>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, json_object>
 		pair<bool, json_object> get() const {
 			if(type != VALUE_TYPE::OBJECT) {
 				return { false, {} };
 			}
 			return { true, object.members };
 		}
-		template <typename T, enable_if_t<is_same<T, json_array>::value>* = nullptr>
+		template <typename T> requires is_same_v<T, json_array>
 		pair<bool, json_array> get() const {
 			if(type != VALUE_TYPE::ARRAY) {
 				return { false, {} };

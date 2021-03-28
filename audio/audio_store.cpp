@@ -25,7 +25,6 @@
 #include <floor/threading/task.hpp>
 #include <floor/floor/floor.hpp>
 
-constexpr float3 audio_store::default_velocity;
 unordered_map<string, shared_ptr<audio_store::audio_data>> audio_store::store;
 
 void audio_store::init() {
