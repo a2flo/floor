@@ -66,7 +66,7 @@ if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
 		# apple xcode/llvm/clang versioning scheme -> at least 11.0 is required (ships with Xcode 12.5)
 		if [ $CLANG_MAJOR -lt 12 ] || [ $CLANG_MAJOR -eq 12 -a $CLANG_MINOR -eq 0 -a $CLANG_PATCHLEVEL -lt 5 ]; then
-			error "at least Xcode 12.0 / Apple clang/LLVM 12.0.5 is required to compile this project!"
+			error "at least Xcode 12.5 / Apple clang/LLVM 12.0.5 is required to compile this project!"
 		fi
 	else
 		# standard clang versioning scheme -> at least 10.0 is required
