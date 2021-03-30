@@ -122,17 +122,23 @@ protected:
 	template <typename U> struct enum_helper_type<true, U> {
 		typedef underlying_type_t<U> type;
 	};
+	
+	//! returns true if the specified character is a supported $ format character
+	static constexpr bool is_format_char(const char& ch) {
+		return (ch == 'x' || ch == 'X' || ch == 'Y' || ch == '\'');
+	}
+	
 	//! handles the log format
 	//! only $x, $X and $Y are supported at the moment, in all other cases the standard ostream operator<< is used!
 	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
 		using decayed_type = decay_t<T>;
-		using print_type = conditional_t<is_enum<decayed_type>::value,
+		using print_type = conditional_t<is_enum_v<decayed_type>,
 										 typename enum_helper_type<is_enum_v<decayed_type>, decayed_type>::type,
-										 conditional_t<(is_pointer<decayed_type>::value &&
-														!is_same<decayed_type, char*>::value &&
-														!is_same<decayed_type, const char*>::value &&
-														!is_same<decayed_type, unsigned char*>::value &&
-														!is_same<decayed_type, const unsigned char*>::value),
+										 conditional_t<(is_pointer_v<decayed_type> &&
+														!is_same_v<decayed_type, char*> &&
+														!is_same_v<decayed_type, const char*> &&
+														!is_same_v<decayed_type, unsigned char*> &&
+														!is_same_v<decayed_type, const unsigned char*>),
 														size_t,
 														decayed_type>>;
 		
@@ -205,8 +211,9 @@ protected:
 					return;
 				} else if (i + 1 < len && str[i + 1] != '$') {
 					handle_format(buffer, str[i + 1], value);
-					if (i + 2 < len) {
-						log_internal(buffer, type, &str[i + 2], std::forward<Args>(args)...);
+					const auto next_char_offset = size_t(is_format_char(str[i + 1]) ? 2 : 1);
+					if (i + next_char_offset < len) {
+						log_internal(buffer, type, &str[i + next_char_offset], std::forward<Args>(args)...);
 					} else {
 						log_internal(buffer, type, nullptr);
 					}

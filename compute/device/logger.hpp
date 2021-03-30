@@ -234,10 +234,12 @@ public:
 									  uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT))) {
 						case ARG_TYPE::INT32:
 						case ARG_TYPE::UINT32:
-						case ARG_TYPE::FLOAT:
-						case ARG_TYPE::DOUBLE:
 						case ARG_TYPE::STRING:
 							type_size = 2; // %*
+							break;
+						case ARG_TYPE::FLOAT:
+						case ARG_TYPE::DOUBLE:
+							type_size = 4; // %.6f
 							break;
 						case ARG_TYPE::INT64:
 						case ARG_TYPE::UINT64:
@@ -376,6 +378,8 @@ public:
 											break;
 										case ARG_TYPE::FLOAT:
 										case ARG_TYPE::DOUBLE:
+											pstr[out_idx++] = '.';
+											pstr[out_idx++] = '6';
 											pstr[out_idx++] = 'f';
 											break;
 										case ARG_TYPE::STRING:

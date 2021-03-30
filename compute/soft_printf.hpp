@@ -59,9 +59,8 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 		// get format string
 		string format_str;
 		const char* format_ptr = (const char*)(buf_ptr + 1);
-		while (*format_ptr != '\0' && entry_bytes_parsed < entry_size) {
+		while (entry_bytes_parsed++ < entry_size && *format_ptr != '\0') {
 			format_str += *format_ptr++;
-			++entry_bytes_parsed;
 		}
 		// round to next multiple of 4
 		switch (entry_bytes_parsed % 4u) {
@@ -140,6 +139,40 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 					case 'f': // float
 						sstr << cur_arg->f32;
 						break;
+					case '.': {
+						// NOTE: we'll only handle decimal precision here
+						if (++ch == format_str.cend()) {
+							log_error("premature end of format string after '$'", cur_ch);
+							is_invalid = true;
+							break;
+						}
+						if (!(*ch >= '0' && *ch <= '9')) {
+							log_error("invalid precision '$'", *ch);
+							is_invalid = true;
+							break;
+						}
+						const auto prec = uint32_t(*ch - '0');
+						
+						if (++ch == format_str.cend()) {
+							log_error("premature end of format string after precision spec");
+							is_invalid = true;
+							break;
+						}
+						if (*ch != 'f' && *ch != 'F') {
+							log_error("expected 'f' after precision spec");
+							is_invalid = true;
+							break;
+						}
+						
+						const auto prev_prec = sstr.precision(prec);
+						const auto prev_width = sstr.width(prec + 3);
+						sstr << fixed;
+						sstr << cur_arg->f32;
+						sstr << defaultfloat;
+						sstr.width(prev_width);
+						sstr.precision(prev_prec);
+						break;
+					}
 					case 'j': // *intmax
 					case 'z': // size_t
 					case 't': // ptrdiff
