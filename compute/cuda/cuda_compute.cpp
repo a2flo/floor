@@ -242,8 +242,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			device.ptx = { 7, 0 };
 		} else if (driver_version < 11020) {
 			device.ptx = { 7, 1 };
-		} else {
+		} else if (driver_version < 11030) {
 			device.ptx = { 7, 2 };
+		} else {
+			device.ptx = { 7, 3 };
 		}
 		
 		device.min_req_ptx = { 6, 0 };
@@ -256,7 +258,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 				device.min_req_ptx = { 7, 1 };
 			}
 		} else {
-			device.min_req_ptx = { 7, 2 };
+			device.min_req_ptx = { 7, 3 };
 		}
 		
 		// additional info

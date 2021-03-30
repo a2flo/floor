@@ -365,6 +365,7 @@ program_data compile_input(const string& input,
 			// * 6.3 for sm_75+
 			// * 7.0 for sm_80/sm_82
 			// * 7.1 for sm_86+
+			// * 7.3 for anything else
 			switch(cuda_dev.sm.x) {
 				case 3:
 				case 5:
@@ -378,7 +379,7 @@ program_data compile_input(const string& input,
 					ptx_version = max(cuda_dev.sm.y < 6 ? 70u : 71u, ptx_version);
 					break;
 				default:
-					ptx_version = max(71u, ptx_version);
+					ptx_version = max(73u, ptx_version);
 					break;
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
@@ -397,7 +398,7 @@ program_data compile_input(const string& input,
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
-			if (toolchain_version >= 80000 && options.cuda.short_ptr) {
+			if (options.cuda.short_ptr) {
 				clang_cmd += " -fcuda-short-ptr -mllvm --nvptx-short-ptr";
 			}
 			libcxx_path += floor::get_cuda_base_path() + "libcxx";
@@ -977,7 +978,7 @@ program_data compile_input(const string& input,
 			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
 			" -mcpu=sm_" + sm_version + " -mattr=ptx" + to_string(ptx_version) +
-			(toolchain_version >= 80000 && options.cuda.short_ptr ? " -nvptx-short-ptr" : "") +
+			(options.cuda.short_ptr ? " -nvptx-short-ptr" : "") +
 			" -o - " + compiled_file_or_code
 #if !defined(_MSC_VER)
 			+ " 2>&1"
