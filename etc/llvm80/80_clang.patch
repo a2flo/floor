@@ -1535,7 +1535,7 @@ index acf82c5ab2..66f4a80068 100644
  def e : JoinedOrSeparate<["-"], "e">, Group<Link_Group>;
  def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 diff --git a/include/clang/Driver/Types.def b/include/clang/Driver/Types.def
-index c25bc4b080..f56a2d0c9d 100644
+index c25bc4b080..46079677ea 100644
 --- a/include/clang/Driver/Types.def
 +++ b/include/clang/Driver/Types.def
 @@ -43,6 +43,8 @@
@@ -1547,16 +1547,25 @@ index c25bc4b080..f56a2d0c9d 100644
  TYPE("cuda-cpp-output",          PP_CUDA,      INVALID,         "cui",   "u")
  TYPE("cuda",                     CUDA,         PP_CUDA,         "cu",    "u")
  TYPE("cuda",                     CUDA_DEVICE,  PP_CUDA,         "cu",    "")
-@@ -63,6 +65,8 @@ TYPE("renderscript",             RenderScript, PP_C,            "rs",    "u")
+@@ -62,11 +64,15 @@ TYPE("renderscript",             RenderScript, PP_C,            "rs",    "u")
+ // C family input files to precompile.
  TYPE("c-header-cpp-output",      PP_CHeader,   INVALID,         "i",     "p")
  TYPE("c-header",                 CHeader,      PP_CHeader,      "h",     "pu")
- TYPE("cl-header",                CLHeader,     PP_CHeader,      "h",     "pu")
-+TYPE("metal-header",             MetalHeader,  PP_CXXHeader,    "h",     "pu")
-+TYPE("vulkan-header",            VulkanHeader, PP_CXXHeader,    "h",     "pu")
+-TYPE("cl-header",                CLHeader,     PP_CHeader,      "h",     "pu")
++TYPE("cl-header",                CLHeader,     PP_CXXHeader,    "hpp",   "pu")
++TYPE("cuda-header",              CUDAHeader,   PP_CUDAHeader,   "hpp",   "pu")
++TYPE("metal-header",             MetalHeader,  PP_CXXHeader,    "hpp",   "pu")
++TYPE("vulkan-header",            VulkanHeader, PP_CXXHeader,    "hpp",   "pu")
  TYPE("objective-c-header-cpp-output", PP_ObjCHeader, INVALID,   "mi",    "p")
  TYPE("objective-c-header",       ObjCHeader,   PP_ObjCHeader,   "h",     "pu")
  TYPE("c++-header-cpp-output",    PP_CXXHeader, INVALID,         "ii",    "p")
-@@ -84,6 +88,9 @@ TYPE("java",                     Java,         INVALID,         nullptr, "u")
+-TYPE("c++-header",               CXXHeader,    PP_CXXHeader,    "hh",    "pu")
++TYPE("cuda-header-cpp-output",   PP_CUDAHeader, PP_CXXHeader,   "ii",    "p")
++TYPE("c++-header",               CXXHeader,    PP_CXXHeader,    "hpp",   "pu")
+ TYPE("objective-c++-header-cpp-output", PP_ObjCXXHeader, INVALID, "mii", "p")
+ TYPE("objective-c++-header",     ObjCXXHeader, PP_ObjCXXHeader, "h",     "pu")
+ TYPE("c++-module",               CXXModule,    PP_CXXModule,    "cppm",  "mu")
+@@ -84,6 +90,9 @@ TYPE("java",                     Java,         INVALID,         nullptr, "u")
  // outputs should use the standard suffixes.
  TYPE("ir",                       LLVM_IR,      INVALID,         "ll",    "u")
  TYPE("ir",                       LLVM_BC,      INVALID,         "bc",    "u")
@@ -1566,7 +1575,7 @@ index c25bc4b080..f56a2d0c9d 100644
  TYPE("lto-ir",                   LTO_IR,       INVALID,         "s",     "")
  TYPE("lto-bc",                   LTO_BC,       INVALID,         "o",     "")
  
-@@ -102,4 +109,7 @@ TYPE("dSYM",                     dSYM,         INVALID,         "dSYM",  "A")
+@@ -102,4 +111,7 @@ TYPE("dSYM",                     dSYM,         INVALID,         "dSYM",  "A")
  TYPE("dependencies",             Dependencies, INVALID,         "d",     "")
  TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","A")
  TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb", "A")
@@ -1613,7 +1622,7 @@ index 92191ebd12..9dcc6bc3d5 100644
      RenderScript,
      HIP,
 diff --git a/include/clang/Frontend/LangStandards.def b/include/clang/Frontend/LangStandards.def
-index 0fdd35f320..fbbe18801a 100644
+index 0fdd35f320..df8709acfb 100644
 --- a/include/clang/Frontend/LangStandards.def
 +++ b/include/clang/Frontend/LangStandards.def
 @@ -144,36 +144,54 @@ LANGSTANDARD(gnucxx2a, "gnu++2a",
@@ -1627,29 +1636,29 @@ index 0fdd35f320..fbbe18801a 100644
 -LANGSTANDARD_ALIAS_DEPR(opencl10, "cl")
 -
 -LANGSTANDARD(opencl11, "cl1.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(opencl11, "CL1.1",
               OpenCL, "OpenCL 1.1",
 -             LineComment | C99 | Digraphs | HexFloat | OpenCL)
 -LANGSTANDARD(opencl12, "cl1.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(opencl12, "CL1.2",
               OpenCL, "OpenCL 1.2",
 -             LineComment | C99 | Digraphs | HexFloat | OpenCL)
 -LANGSTANDARD(opencl20, "cl2.0",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(opencl20, "CL2.0",
               OpenCL, "OpenCL 2.0",
 -             LineComment | C99 | Digraphs | HexFloat | OpenCL)
 -LANGSTANDARD(openclcpp, "c++",
 -             OpenCL, "OpenCL C++ 1.0",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(opencl21, "CL2.1",
 +             OpenCL, "OpenCL 2.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(opencl22, "CL2.2",
 +             OpenCL, "OpenCL 2.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(openclcpp, "clc++",
 +             OpenCL, "OpenCL C++ 1.0 (unsupported)",
               LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | OpenCL)
@@ -1661,26 +1670,26 @@ index 0fdd35f320..fbbe18801a 100644
 +// Metal
 +LANGSTANDARD(metal20, "metal2.0",
 +             Metal, "Metal 2.0",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(metal21, "metal2.1",
 +             Metal, "Metal 2.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(metal22, "metal2.2",
 +             Metal, "Metal 2.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +LANGSTANDARD(metal23, "metal2.3",
 +             Metal, "Metal 2.3",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
 +
 +// Vulkan C++
 +LANGSTANDARD(vulkan12, "vulkan1.2",
 +             Vulkan, "Vulkan C++ 1.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode | OpenCL)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode | OpenCL)
  
  // CUDA
  LANGSTANDARD(cuda, "cuda", CUDA, "NVIDIA CUDA(tm)",
 -             LineComment | CPlusPlus | Digraphs)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus17 | CPlusPlus2a | Digraphs | HexFloat | GNUMode)
  
  // HIP
  LANGSTANDARD(hip, "hip", HIP, "HIP",
@@ -10860,10 +10869,32 @@ index b530260ea4..4dbc0a129a 100644
  
  } // namespace CodeGen
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index 413956eb18..450af379d1 100644
+index 413956eb18..bb19aa534a 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
-@@ -3408,6 +3408,18 @@ Action *Driver::ConstructPhaseAction(
+@@ -2292,6 +2292,7 @@ class OffloadingActionBuilder final {
+         // If the host input is not CUDA or HIP, we don't need to bother about
+         // this input.
+         if (IA->getType() != types::TY_CUDA &&
++            IA->getType() != types::TY_CUDAHeader &&
+             IA->getType() != types::TY_HIP) {
+           // The builder will ignore this input.
+           IsActive = false;
+@@ -2305,8 +2306,11 @@ class OffloadingActionBuilder final {
+           return ABRT_Success;
+ 
+         // Replicate inputs for each GPU architecture.
+-        auto Ty = IA->getType() == types::TY_HIP ? types::TY_HIP_DEVICE
+-                                                 : types::TY_CUDA_DEVICE;
++        auto Ty = types::TY_CUDA_DEVICE;
++        if (IA->getType() == types::TY_HIP)
++          Ty = types::TY_HIP_DEVICE;
++        else if (IA->getType() == types::TY_CUDAHeader)
++          Ty = types::TY_CUDAHeader;
+         for (unsigned I = 0, E = GpuArchList.size(); I != E; ++I) {
+           CudaDeviceActions.push_back(
+               C.MakeAction<InputAction>(IA->getInputArg(), Ty));
+@@ -3408,6 +3412,18 @@ Action *Driver::ConstructPhaseAction(
        return C.MakeAction<CompileJobAction>(Input, types::TY_ModuleFile);
      if (Args.hasArg(options::OPT_verify_pch))
        return C.MakeAction<VerifyPCHJobAction>(Input, types::TY_Nothing);
@@ -10882,7 +10913,7 @@ index 413956eb18..450af379d1 100644
      return C.MakeAction<CompileJobAction>(Input, types::TY_LLVM_BC);
    }
    case phases::Backend: {
-@@ -3417,8 +3429,18 @@ Action *Driver::ConstructPhaseAction(
+@@ -3417,8 +3433,18 @@ Action *Driver::ConstructPhaseAction(
        return C.MakeAction<BackendJobAction>(Input, Output);
      }
      if (Args.hasArg(options::OPT_emit_llvm)) {
@@ -10903,7 +10934,7 @@ index 413956eb18..450af379d1 100644
        return C.MakeAction<BackendJobAction>(Input, Output);
      }
      return C.MakeAction<BackendJobAction>(Input, types::TY_PP_Asm);
-@@ -4304,8 +4326,15 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
+@@ -4304,8 +4330,15 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
      // the unoptimized bitcode so that it does not get overwritten by the ".bc"
      // optimized bitcode output.
      if (!AtTopLevel && C.getArgs().hasArg(options::OPT_emit_llvm) &&
@@ -11107,10 +11138,18 @@ index 3850e1c02e..0d151f1fc9 100644
      break;
    // We assume we've got an "integrated" assembler in that gcc will produce an
 diff --git a/lib/Driver/Types.cpp b/lib/Driver/Types.cpp
-index 9d2737bbc7..c2d88456ff 100644
+index 9d2737bbc7..5b2cdf4b79 100644
 --- a/lib/Driver/Types.cpp
 +++ b/lib/Driver/Types.cpp
-@@ -116,6 +116,9 @@ bool types::isAcceptedByClang(ID Id) {
+@@ -110,12 +110,17 @@ bool types::isAcceptedByClang(ID Id) {
+   case TY_ObjCXX: case TY_PP_ObjCXX: case TY_PP_ObjCXX_Alias:
+   case TY_CHeader: case TY_PP_CHeader:
+   case TY_CLHeader:
++  case TY_CUDAHeader: case TY_PP_CUDAHeader:
++  case TY_MetalHeader: case TY_VulkanHeader:
+   case TY_ObjCHeader: case TY_PP_ObjCHeader:
+   case TY_CXXHeader: case TY_PP_CXXHeader:
+   case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
    case TY_CXXModule: case TY_PP_CXXModule:
    case TY_AST: case TY_ModuleFile:
    case TY_LLVM_IR: case TY_LLVM_BC:
@@ -11120,7 +11159,15 @@ index 9d2737bbc7..c2d88456ff 100644
      return true;
    }
  }
-@@ -158,6 +161,9 @@ bool types::isLLVMIR(ID Id) {
+@@ -144,6 +149,7 @@ bool types::isCXX(ID Id) {
+   case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
+   case TY_CXXModule: case TY_PP_CXXModule:
+   case TY_CUDA: case TY_PP_CUDA: case TY_CUDA_DEVICE:
++  case TY_CUDAHeader: case TY_PP_CUDAHeader:
+   case TY_HIP:
+   case TY_PP_HIP:
+   case TY_HIP_DEVICE:
+@@ -158,6 +164,9 @@ bool types::isLLVMIR(ID Id) {
  
    case TY_LLVM_IR:
    case TY_LLVM_BC:
@@ -11130,7 +11177,16 @@ index 9d2737bbc7..c2d88456ff 100644
    case TY_LTO_IR:
    case TY_LTO_BC:
      return true;
-@@ -207,6 +213,12 @@ types::ID types::lookupTypeForExtension(llvm::StringRef Ext) {
+@@ -172,6 +181,8 @@ bool types::isCuda(ID Id) {
+   case TY_CUDA:
+   case TY_PP_CUDA:
+   case TY_CUDA_DEVICE:
++  case TY_CUDAHeader:
++  case TY_PP_CUDAHeader:
+     return true;
+   }
+ }
+@@ -207,6 +218,12 @@ types::ID types::lookupTypeForExtension(llvm::StringRef Ext) {
             .Case("S", TY_Asm)
             .Case("s", TY_PP_Asm)
             .Case("bc", TY_LLVM_BC)
@@ -11180,7 +11236,7 @@ index f666745354..cd892defac 100644
      return InputKind::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index d491f35769..43eca8827e 100644
+index d491f35769..d0bd6b3156 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -86,6 +86,7 @@
@@ -11271,16 +11327,21 @@ index d491f35769..43eca8827e 100644
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1821,6 +1856,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1821,7 +1856,13 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(XValue)
                  .Case("c", InputKind::C)
                  .Case("cl", InputKind::OpenCL)
++                .Case("cl-header", InputKind::OpenCL)
 +                .Case("metal", InputKind::Metal)
++                .Case("metal-header", InputKind::Metal)
 +                .Case("vulkan", InputKind::Vulkan)
++                .Case("vulkan-header", InputKind::Vulkan)
                  .Case("cuda", InputKind::CUDA)
++                .Case("cuda-header", InputKind::CUDA)
                  .Case("hip", InputKind::HIP)
                  .Case("c++", InputKind::CXX)
-@@ -2069,6 +2106,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+                 .Case("objective-c", InputKind::ObjC)
+@@ -2069,6 +2110,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case InputKind::OpenCL:
        LangStd = LangStandard::lang_opencl10;
        break;
@@ -11293,7 +11354,7 @@ index d491f35769..43eca8827e 100644
      case InputKind::CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -2134,9 +2177,44 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2134,9 +2181,44 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -11338,7 +11399,7 @@ index d491f35769..43eca8827e 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -2145,18 +2223,29 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2145,18 +2227,29 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPC_On);
      Opts.NativeHalfType = 1;
      Opts.NativeHalfArgsAndReturns = 1;
@@ -11370,7 +11431,7 @@ index d491f35769..43eca8827e 100644
  
    Opts.RenderScript = IK.getLanguage() == InputKind::RenderScript;
    if (Opts.RenderScript) {
-@@ -2167,8 +2256,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -2167,8 +2260,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    // OpenCL and C++ both have bool, true, false keywords.
    Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
  
@@ -11381,7 +11442,7 @@ index d491f35769..43eca8827e 100644
  
    // C++ has wchar_t keyword.
    Opts.WChar = Opts.CPlusPlus;
-@@ -2215,6 +2304,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -2215,6 +2308,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
    case InputKind::OpenCL:
      return S.getLanguage() == InputKind::OpenCL;
  
@@ -11394,7 +11455,7 @@ index d491f35769..43eca8827e 100644
    case InputKind::CXX:
    case InputKind::ObjCXX:
      return S.getLanguage() == InputKind::CXX;
-@@ -2251,6 +2346,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -2251,6 +2350,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case InputKind::OpenCL:
      return "OpenCL";
@@ -11405,7 +11466,7 @@ index d491f35769..43eca8827e 100644
    case InputKind::CUDA:
      return "CUDA";
    case InputKind::RenderScript:
-@@ -2338,6 +2437,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2338,6 +2441,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -11414,7 +11475,7 @@ index d491f35769..43eca8827e 100644
          .Case("c++", LangStandard::lang_openclcpp)
          .Default(LangStandard::lang_unspecified);
  
-@@ -2364,6 +2465,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2364,6 +2469,36 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
          << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -11451,7 +11512,7 @@ index d491f35769..43eca8827e 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2577,7 +2708,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2577,7 +2712,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = Opts.CPlusPlus && !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -11460,7 +11521,7 @@ index d491f35769..43eca8827e 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.CoroutinesTS = Args.hasArg(OPT_fcoroutines_ts);
  
-@@ -2691,7 +2822,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2691,7 +2826,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Enable HalfArgsAndReturns if present in Args or if NativeHalfArgsAndReturns
    // is enabled.
    Opts.HalfArgsAndReturns = Args.hasArg(OPT_fallow_half_arguments_and_returns)
@@ -11470,7 +11531,7 @@ index d491f35769..43eca8827e 100644
    Opts.GNUAsm = !Args.hasArg(OPT_fno_gnu_inline_asm);
  
    // __declspec is enabled by default for the PS4 by the driver, and also
-@@ -2830,7 +2962,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2830,7 +2966,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    Opts.OpenMPHostCXXExceptions = Opts.Exceptions && Opts.CXXExceptions;
@@ -11479,7 +11540,7 @@ index d491f35769..43eca8827e 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -2926,6 +3058,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2926,6 +3062,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -11500,7 +11561,7 @@ index d491f35769..43eca8827e 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -3018,6 +3164,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -3018,6 +3168,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -11513,7 +11574,7 @@ index d491f35769..43eca8827e 100644
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
-@@ -3284,6 +3436,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
+@@ -3284,6 +3440,11 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
        Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
    }
  
