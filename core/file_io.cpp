@@ -587,7 +587,7 @@ bool file_io::create_directory(const string& dirname) {
 	}
 #else
 	error_code ec;
-	if (!create_directories(dirname, ec)) {
+	if (!std::filesystem::create_directories(dirname, ec)) {
 		log_error("failed to create directory \"$\": $", dirname, ec.message());
 		return false;
 	}
