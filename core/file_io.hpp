@@ -113,6 +113,8 @@ public:
 	bool bad() const;
 	bool is_open() const;
 	
+	static bool create_directory(const string& dirname);
+	
 	//! reads all data as binary from "filename" and returns it as a vector of the specified "data_type"
 	template <typename data_type>
 	static optional<vector<data_type>> file_to_vector(const string& filename) {

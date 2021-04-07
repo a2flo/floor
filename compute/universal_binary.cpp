@@ -29,6 +29,14 @@
 #include <floor/threading/task.hpp>
 #include <floor/floor/floor.hpp>
 
+namespace std {
+	template <> struct std::hash<universal_binary::target_v2> : public std::hash<uint64_t> {
+		size_t operator()(universal_binary::target_v2 target) const noexcept {
+			return std::hash<uint64_t>::operator()(target.value);
+		}
+	};
+}
+
 namespace universal_binary {
 	static constexpr const uint32_t min_required_toolchain_version_v2 { 80000u };
 	
@@ -250,7 +258,8 @@ namespace universal_binary {
 	static compile_return_t compile_target(const string& src_input,
 										   const bool is_file_input,
 										   const llvm_toolchain::compile_options& user_options,
-										   const target& build_target) {
+										   const target& build_target,
+										   const bool use_precompiled_header) {
 		auto options = user_options;
 		// always ignore run-time info, we want a reproducible and specific build
 		options.ignore_runtime_info = true;
@@ -523,6 +532,54 @@ namespace universal_binary {
 				return {};
 		}
 		
+		// build the pre-compiled header
+		if (use_precompiled_header) {
+			stringstream pch_path_sstr;
+			switch (build_target.common.type) {
+				case COMPUTE_TYPE::OPENCL:
+					pch_path_sstr << floor::get_opencl_base_path();
+					break;
+				case COMPUTE_TYPE::CUDA:
+					pch_path_sstr << floor::get_cuda_base_path();
+					break;
+				case COMPUTE_TYPE::HOST:
+					pch_path_sstr << floor::get_host_base_path();
+					break;
+				case COMPUTE_TYPE::METAL:
+					pch_path_sstr << floor::get_metal_base_path();
+					break;
+				case COMPUTE_TYPE::VULKAN:
+					pch_path_sstr << floor::get_vulkan_base_path();
+					break;
+				case COMPUTE_TYPE::NONE:
+					floor_unreachable(); // already exited above
+			}
+			
+			pch_path_sstr << "/pch/";
+			if (!file_io::is_directory(pch_path_sstr.str())) {
+				file_io::create_directory(pch_path_sstr.str());
+			}
+			
+			pch_path_sstr << hex << uppercase << setw(8u) << setfill('0');
+			pch_path_sstr << build_target.value;
+			pch_path_sstr << setfill(' ') << setw(0) << nouppercase << dec;
+			pch_path_sstr << ".pch";
+			const auto pch_path = pch_path_sstr.str();
+			bool has_pch = file_io::is_file(pch_path);
+			if (!has_pch) {
+				// pch doesn't exist yet, build it
+				auto pch = llvm_toolchain::compile_precompiled_header(pch_path, *dev, options);
+				if (pch.valid) {
+					has_pch = true;
+				}
+			}
+			if (has_pch) {
+				// pch exists, set it
+				options.pch = pch_path;
+			}
+		}
+		
+		// build the program
 		llvm_toolchain::program_data program;
 		if (is_file_input) {
 			program = llvm_toolchain::compile_program_file(*dev, src_input, options);
@@ -540,7 +597,8 @@ namespace universal_binary {
 							  const bool is_file_input,
 							  const string& dst_archive_file_name,
 							  const llvm_toolchain::compile_options& options,
-							  const vector<target>& targets_in) {
+							  const vector<target>& targets_in,
+							  const bool use_precompiled_header) {
 		// make sure we can open the output file before we start doing anything else
 		file_io archive(dst_archive_file_name, file_io::OPEN_TYPE::WRITE_BINARY);
 		if (!archive.is_open()) {
@@ -548,16 +606,24 @@ namespace universal_binary {
 			return false;
 		}
 		
+		// ensure targets are unique
+		unordered_set<target> unique_targets_in;
+		unique_targets_in.reserve(targets_in.size());
+		for (const auto& target : targets_in) {
+			unique_targets_in.emplace(target);
+		}
+		
 		// create a thread pool of #logical-cpus threads that build all targets
-		const auto target_count = targets_in.size();
+		const auto target_count = unique_targets_in.size();
 		const auto compile_job_count = uint32_t(min(size_t(core::get_hw_thread_count()), target_count));
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;
 		vector<target_v2> targets;
 		deque<pair<size_t, target>> remaining_targets;
-		for (size_t i = 0; i < target_count; ++i) {
-			auto target = targets_in[i];
+		auto unique_target_iter = unique_targets_in.begin();
+		for (size_t i = 0; i < target_count; ++i, ++unique_target_iter) {
+			auto target = *unique_target_iter;
 			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE:
 					log_error("invalid target type");
@@ -591,7 +657,7 @@ namespace universal_binary {
 		atomic<uint32_t> remaining_compile_jobs { compile_job_count };
 		atomic<bool> compilation_successful { true };
 		for (uint32_t i = 0; i < compile_job_count; ++i) {
-			task::spawn([&src_input, &is_file_input, &options,
+			task::spawn([&src_input, &is_file_input, &options, &use_precompiled_header,
 						 &targets_lock, &remaining_targets,
 						 &prog_data_lock, &targets_prog_data, &targets_toolchain_version, &targets_hashes,
 						 &remaining_compile_jobs,
@@ -609,7 +675,7 @@ namespace universal_binary {
 					}
 					
 					// compile the target
-					auto compile_ret = compile_target(src_input, is_file_input, options, build_target.second);
+					auto compile_ret = compile_target(src_input, is_file_input, options, build_target.second, use_precompiled_header);
 					if (!compile_ret.success || !compile_ret.prog_data.valid) {
 						compilation_successful = false;
 						break;
@@ -785,15 +851,17 @@ namespace universal_binary {
 	bool build_archive_from_file(const string& src_file_name,
 								 const string& dst_archive_file_name,
 								 const llvm_toolchain::compile_options& options,
-								 const vector<target>& targets) {
-		return build_archive(src_file_name, true, dst_archive_file_name, options, targets);
+								 const vector<target>& targets,
+								 const bool use_precompiled_header) {
+		return build_archive(src_file_name, true, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
 	bool build_archive_from_memory(const string& src_code,
 								   const string& dst_archive_file_name,
 								   const llvm_toolchain::compile_options& options,
-								   const vector<target>& targets) {
-		return build_archive(src_code, false, dst_archive_file_name, options, targets);
+								   const vector<target>& targets,
+								   const bool use_precompiled_header) {
+		return build_archive(src_code, false, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
 	pair<const binary_dynamic_v2*, const target_v2>

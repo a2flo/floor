@@ -184,26 +184,42 @@ bool create_floor_function_info(const string& ffi_file_name,
 	return true;
 }
 
+//! compiles a program from the specified input file/handle and prefixes the compiler call with "cmd_prefix"
+static program_data compile_input(const string& input,
+								  const string& cmd_prefix,
+								  const compute_device& device,
+								  const compile_options options,
+								  const bool build_pch);
+
 program_data compile_program(const compute_device& device,
 							 const string& code,
 							 const compile_options options) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
-	return compile_input("-", printable_code, device, options);
+	return compile_input("-", printable_code, device, options, false);
 }
 
 program_data compile_program_file(const compute_device& device,
 								  const string& filename,
 								  const compile_options options) {
-	return compile_input("\"" + filename + "\"", "", device, options);
+	return compile_input("\"" + filename + "\"", "", device, options, false);
+}
+
+program_data compile_precompiled_header(const string& pch_output_file_name,
+										const compute_device& device,
+										const compile_options options_) {
+	auto options = options_;
+	options.pch = pch_output_file_name;
+	return compile_input("", "", device, options, true);
 }
 
 program_data compile_input(const string& input,
 						   const string& cmd_prefix,
 						   const compute_device& device,
-						   const compile_options options) {
+						   const compile_options options,
+						   const bool build_pch) {
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
-	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
+	string libcxx_path, clang_path, floor_path;
 	string sm_version = "30"; // handle cuda sm version (default to Kepler/sm_30)
 	uint32_t ptx_version = max(60u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 6.0)
 	string output_file_type = "bc"; // can be overwritten by target
@@ -214,9 +230,9 @@ program_data compile_input(const string& input,
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL1.2" \
+				" -x " + (!build_pch ? "cl -llvm-bc-32" : "cl-header") +
+				" -Xclang -cl-std=CL1.2" \
 				" -target spir64-unknown-unknown" \
-				" -llvm-bc-32" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -330,7 +346,8 @@ program_data compile_input(const string& input,
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
-				" -x metal -std=" + metal_std + " -target air64-apple-" + os_target +
+				" -x " + (!build_pch ? "metal -llvm-metallib" : "metal-header") +
+				" -std=" + metal_std + " -target air64-apple-" + os_target +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
@@ -344,8 +361,7 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -mllvm -slp-max-vec-dim=4" /* vector dims > 4 are unsupported */ \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
-				" -DFLOOR_COMPUTE_METAL" \
-				" -llvm-metallib" +
+				" -DFLOOR_COMPUTE_METAL" +
 				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
 				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(metal_version)
 			};
@@ -392,7 +408,8 @@ program_data compile_input(const string& input,
 			toolchain_version = floor::get_cuda_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_cuda_compiler() + "\"" +
-				" -x cuda -std=cuda" \
+				" -x " + (!build_pch ? "cuda" : "cuda-header") +
+				" -std=cuda" \
 				" -target x86_64--" +
 				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
@@ -428,8 +445,8 @@ program_data compile_input(const string& input,
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
-				" -x vulkan -std=" + vulkan_std +
-				" -llvm-spirv-container" \
+				" -x " + (!build_pch ? "vulkan -llvm-spirv-container" : "vulkan-header") +
+				" -std=" + vulkan_std +
 				" -target spir64-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -462,9 +479,9 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
-				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
+				" -x " + (!build_pch ? "cl -llvm-spirv" : "clcxx-header") +
+				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
 				" -target spir64-unknown-unknown" \
-				" -llvm-spirv" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -517,7 +534,8 @@ program_data compile_input(const string& input,
 			
 			clang_cmd += {
 				"\"" + floor::get_host_compiler() + "\"" +
-				" -x c++ -std=gnu++2a" +
+				" -x " + (!build_pch ? "c++" : "c++-header") +
+				" -std=gnu++2a" +
 				" -target x86_64-pc-none-floor_host_compute" \
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
@@ -534,9 +552,15 @@ program_data compile_input(const string& input,
 			floor_path += floor::get_host_base_path() + "floor";
 		} break;
 	}
-	libcxx_path += "\"";
-	clang_path += "\"";
-	floor_path += "\"";
+	
+	// handle pch
+	if (build_pch) {
+		output_file_type = "pch";
+	} else {
+		if (options.pch) {
+			clang_cmd += " -include-pch " + *options.pch;
+		}
+	}
 	
 	// set toolchain version define
 	clang_cmd += " -DFLOOR_TOOLCHAIN_VERSION=" + to_string(toolchain_version) + "u";
@@ -836,8 +860,11 @@ program_data compile_input(const string& input,
 	}
 	
 	// floor function info
-	const auto function_info_file_name = core::create_tmp_file_name("ffi", ".txt");
-	clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;
+	string function_info_file_name;
+	if (!build_pch) {
+		function_info_file_name = core::create_tmp_file_name("ffi", ".txt");
+		clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;
+	}
 	
 	// target specific compute info
 	switch(options.target) {
@@ -894,15 +921,17 @@ program_data compile_input(const string& input,
 	};
 	
 	// add generic flags/options that are always used
-	auto compiled_file_or_code = core::create_tmp_file_name("", '.' + output_file_type);
+	string compiled_file_or_code;
 	clang_cmd += {
 #if defined(FLOOR_DEBUG)
 		" -DFLOOR_DEBUG"
 #endif
 		" -DFLOOR_COMPUTE"
-		" -DFLOOR_NO_MATH_STR" +
-		libcxx_path + clang_path + floor_path +
-		" -include floor/compute/device/common.hpp" +
+		" -DFLOOR_NO_MATH_STR"s +
+		" -isystem \"" + libcxx_path + "\"" +
+		" -isystem \"" + clang_path + "\"" +
+		" -isystem \"" + floor_path + "\"" +
+		(!build_pch ? " -include floor/compute/device/common.hpp" : "") +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
 		" -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-addrsig"
 		" -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
@@ -912,10 +941,19 @@ program_data compile_input(const string& input,
 		(options.enable_warnings ? " -Weverything" : " ") +
 		disabled_warning_flags +
 		options.cli +
-		" -m64" +
-		(options.target != TARGET::HOST_COMPUTE_CPU ? " -emit-llvm" : "") +
-		" -c -o " + compiled_file_or_code + " " + input
+		" -m64"
 	};
+	if (!build_pch) {
+		compiled_file_or_code = core::create_tmp_file_name("", '.' + output_file_type);
+		clang_cmd += {
+			(options.target != TARGET::HOST_COMPUTE_CPU ? " -emit-llvm"s : ""s) +
+			" -c -o " + compiled_file_or_code + " " + input
+		};
+	} else {
+		compiled_file_or_code = *options.pch;
+		clang_cmd += " \"" + floor_path + "/floor/compute/device/common.hpp\"";
+		clang_cmd += " -o " + compiled_file_or_code;
+	}
 	
 	// on sane systems, redirect errors to stdout so that we can grab them
 #if !defined(_MSC_VER)
@@ -945,109 +983,108 @@ program_data compile_input(const string& input,
 	
 	// grab floor function info and create the internal per-function info
 	vector<function_info> functions;
-	if(!create_floor_function_info(function_info_file_name, functions, toolchain_version)) {
-		log_error("failed to create internal floor function info");
-		return {};
-	}
-	if(!floor::get_toolchain_keep_temp()) {
-		core::system("rm " + function_info_file_name);
+	if (!build_pch) {
+		if (!create_floor_function_info(function_info_file_name, functions, toolchain_version)) {
+			log_error("failed to create internal floor function info");
+			return {};
+		}
+		if (!floor::get_toolchain_keep_temp()) {
+			core::system("rm " + function_info_file_name);
+		}
 	}
 	
 	// final target specific processing/compilation
-	if(options.target == TARGET::SPIR) {
-		string spir_bc_data;
-		if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
-			log_error("failed to read SPIR 1.2 .bc file");
-			return {};
-		}
-		
-		// cleanup
-		if(!floor::get_toolchain_keep_temp()) {
-			core::system("rm " + compiled_file_or_code);
-		}
-		
-		// move spir data
-		compiled_file_or_code.swap(spir_bc_data);
-	}
-	else if(options.target == TARGET::AIR) {
-		// nop, final processing will be done in metal_compute
-	}
-	else if(options.target == TARGET::PTX) {
-		// compile llvm ir to ptx
-		const string llc_cmd {
-			"\"" + floor::get_cuda_llc() + "\"" +
-			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
-			" -mcpu=sm_" + sm_version + " -mattr=ptx" + to_string(ptx_version) +
-			(options.cuda.short_ptr ? " -nvptx-short-ptr" : "") +
-			" -o - " + compiled_file_or_code
-#if !defined(_MSC_VER)
-			+ " 2>&1"
-#endif
-		};
-		if(floor::get_toolchain_log_commands() &&
-		   !options.silence_debug_output) {
-			log_debug("llc cmd: $", llc_cmd);
-		}
-		string ptx_code;
-		core::system(llc_cmd, ptx_code);
-		ptx_code += '\0'; // make sure there is a \0 terminator
-		
-		// only output the compiled ptx code if this was specified in the config
-		// NOTE: explicitly create this in the working directory (not in tmp)
-		if(floor::get_toolchain_keep_temp()) {
-			file_io::string_to_file("cuda.ptx", ptx_code);
-		}
-		
-		// check if we have sane output
-		if(ptx_code == "" || ptx_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
-			log_error("llc/ptx compilation failed ($)!\n$", llc_cmd, ptx_code);
-			return {};
-		}
-		
-		// cleanup
-		if(!floor::get_toolchain_keep_temp()) {
-			core::system("rm " + compiled_file_or_code);
-		}
-		
-		// move ptx code
-		compiled_file_or_code.swap(ptx_code);
-	}
-	else if(options.target == TARGET::SPIRV_VULKAN ||
-			options.target == TARGET::SPIRV_OPENCL) {
-		const auto validate = (options.target == TARGET::SPIRV_VULKAN ?
-							   floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
-		const auto validator = (options.target == TARGET::SPIRV_VULKAN ?
-								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
-		
-		// run spirv-val if specified
-		if(validate) {
-			const string spirv_validator_cmd {
-				"\"" + validator + "\" " +
-				(options.target == TARGET::SPIRV_VULKAN ? "--uniform-buffer-standard-layout --scalar-block-layout " : "") +
-				compiled_file_or_code
+	if (!build_pch) {
+		if (options.target == TARGET::SPIR) {
+			string spir_bc_data;
+			if (!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
+				log_error("failed to read SPIR 1.2 .bc file");
+				return {};
+			}
+			
+			// cleanup
+			if (!floor::get_toolchain_keep_temp()) {
+				core::system("rm " + compiled_file_or_code);
+			}
+			
+			// move spir data
+			compiled_file_or_code.swap(spir_bc_data);
+		} else if (options.target == TARGET::AIR) {
+			// nop, final processing will be done in metal_compute
+		} else if (options.target == TARGET::PTX) {
+			// compile llvm ir to ptx
+			const string llc_cmd {
+				"\"" + floor::get_cuda_llc() + "\"" +
+				" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
+				" -mcpu=sm_" + sm_version + " -mattr=ptx" + to_string(ptx_version) +
+				(options.cuda.short_ptr ? " -nvptx-short-ptr" : "") +
+				" -o - " + compiled_file_or_code
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif
 			};
-			string spirv_validator_output;
-			core::system(spirv_validator_cmd, spirv_validator_output);
-			if(!spirv_validator_output.empty() && spirv_validator_output[spirv_validator_output.size() - 1] == '\n') {
-				spirv_validator_output.pop_back(); // trim last newline
+			if (floor::get_toolchain_log_commands() &&
+			   !options.silence_debug_output) {
+				log_debug("llc cmd: $", llc_cmd);
 			}
-			if(!options.silence_debug_output) {
-				if(spirv_validator_output == "") {
-					log_msg("spir-v validator: valid");
+			string ptx_code;
+			core::system(llc_cmd, ptx_code);
+			ptx_code += '\0'; // make sure there is a \0 terminator
+			
+			// only output the compiled ptx code if this was specified in the config
+			// NOTE: explicitly create this in the working directory (not in tmp)
+			if (floor::get_toolchain_keep_temp()) {
+				file_io::string_to_file("cuda.ptx", ptx_code);
+			}
+			
+			// check if we have sane output
+			if (ptx_code == "" || ptx_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
+				log_error("llc/ptx compilation failed ($)!\n$", llc_cmd, ptx_code);
+				return {};
+			}
+			
+			// cleanup
+			if (!floor::get_toolchain_keep_temp()) {
+				core::system("rm " + compiled_file_or_code);
+			}
+			
+			// move ptx code
+			compiled_file_or_code.swap(ptx_code);
+		} else if (options.target == TARGET::SPIRV_VULKAN ||
+				   options.target == TARGET::SPIRV_OPENCL) {
+			const auto validate = (options.target == TARGET::SPIRV_VULKAN ?
+								   floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
+			const auto validator = (options.target == TARGET::SPIRV_VULKAN ?
+									floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
+			
+			// run spirv-val if specified
+			if (validate) {
+				const string spirv_validator_cmd {
+					"\"" + validator + "\" " +
+					(options.target == TARGET::SPIRV_VULKAN ? "--uniform-buffer-standard-layout --scalar-block-layout " : "") +
+					compiled_file_or_code
+#if !defined(_MSC_VER)
+					+ " 2>&1"
+#endif
+				};
+				string spirv_validator_output;
+				core::system(spirv_validator_cmd, spirv_validator_output);
+				if (!spirv_validator_output.empty() && spirv_validator_output[spirv_validator_output.size() - 1] == '\n') {
+					spirv_validator_output.pop_back(); // trim last newline
 				}
-				else {
-					log_error("spir-v validator: $", spirv_validator_output);
+				if (!options.silence_debug_output) {
+					if (spirv_validator_output == "") {
+						log_msg("spir-v validator: valid");
+					} else {
+						log_error("spir-v validator: $", spirv_validator_output);
+					}
 				}
 			}
+			
+			// NOTE: will cleanup the binary in opencl_compute/vulkan_compute
+		} else if (options.target == TARGET::HOST_COMPUTE_CPU) {
+			// nop, already a binary
 		}
-		
-		// NOTE: will cleanup the binary in opencl_compute/vulkan_compute
-	}
-	else if(options.target == TARGET::HOST_COMPUTE_CPU) {
-		// nop, already a binary
 	}
 	
 	return { true, compiled_file_or_code, functions, options };

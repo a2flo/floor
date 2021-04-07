@@ -229,6 +229,10 @@ namespace universal_binary {
 		//! packed value
 		uint64_t value { 0u };
 		
+		bool operator==(const target_v2& cmp) const {
+			return (value == cmp.value);
+		}
+		
 #undef FLOOR_FUBAR_VERSION_AND_TYPE // cleanup
 	};
 	static_assert(sizeof(target_v2) == sizeof(uint64_t));
@@ -356,16 +360,19 @@ namespace universal_binary {
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const compute_context& ctx);
 	
 	//! builds an archive from the given source file/code, with the specified options, for the specified targets,
-	//! writing the binary output to the specified destination if successful (returns false if not)
+	//! writing the binary output to the specified destination if successful (returns false if not),
+	//! if "use_precompiled_header" is set, a pre-compiled header will be generated and used for each target
 	//! NOTE: compile_options::target is ignored for this
 	bool build_archive_from_file(const string& src_file_name,
 								 const string& dst_archive_file_name,
 								 const llvm_toolchain::compile_options& options,
-								 const vector<target>& targets);
+								 const vector<target>& targets,
+								 const bool use_precompiled_header = false);
 	bool build_archive_from_memory(const string& src_code,
 								   const string& dst_archive_file_name,
 								   const llvm_toolchain::compile_options& options,
-								   const vector<target>& targets);
+								   const vector<target>& targets,
+								   const bool use_precompiled_header = false);
 	
 	//! finds the best matching binary for the specified device inside the specified archive,
 	//! returns nullptr if no compatible binary has been found at all

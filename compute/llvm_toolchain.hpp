@@ -249,6 +249,10 @@ namespace llvm_toolchain {
 			//! if unset, use the global floor option
 			optional<bool> soft_printf;
 		} vulkan;
+		
+		//! optional pre-compiled header that should be used for compilation
+		//! NOTE: the caller *must* ensure that the pch is compatible to the current compile options and the target device
+		optional<string> pch;
 	};
 	
 	//! contains all information about a compiled compute/graphics program
@@ -276,11 +280,11 @@ namespace llvm_toolchain {
 									  const string& filename,
 									  const compile_options options);
 	
-	//! compiles a program from the specified input file/handle and prefixes the compiler call with "cmd_prefix"
-	program_data compile_input(const string& input,
-							   const string& cmd_prefix,
-							   const compute_device& device,
-							   const compile_options options);
+	//! compiles a pre-compiled header for the specified "device" using the specified "options",
+	//! the output pch will be written to "pch_output_file_name"
+	program_data compile_precompiled_header(const string& pch_output_file_name,
+											const compute_device& device,
+											const compile_options options);
 	
 	//! creates the internal floor function info representation from the specified floor function info,
 	//! returns true on success

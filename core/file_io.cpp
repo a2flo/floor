@@ -39,6 +39,12 @@
 #include <dirent.h>
 #endif
 
+#if !defined(__APPLE__) // can't use <filesystem> when targeting 10.13 (need at least 10.15)
+#include <filesystem>
+#else
+#include <sys/stat.h>
+#endif
+
 file_io::file_io(const string& filename_, const OPEN_TYPE open_type_) {
 	open(filename_, open_type_);
 }
@@ -569,5 +575,22 @@ bool file_io::buffer_to_file(const string& filename, const char* buffer, const s
 	}
 	file.write_block(buffer, size);
 	file.close();
+	return true;
+}
+
+bool file_io::create_directory(const string& dirname) {
+#if defined(__APPLE__)
+	const auto success = mkdir(dirname.c_str(), 0777);
+	if (success != 0) {
+		log_error("failed to create directory \"$\": $", dirname, errno);
+		return false;
+	}
+#else
+	error_code ec;
+	if (!create_directories(dirname, ec)) {
+		log_error("failed to create directory \"$\": $", dirname, ec.message());
+		return false;
+	}
+#endif
 	return true;
 }
