@@ -931,7 +931,7 @@ program_data compile_input(const string& input,
 		" -isystem \"" + libcxx_path + "\"" +
 		" -isystem \"" + clang_path + "\"" +
 		" -isystem \"" + floor_path + "\"" +
-		(!build_pch ? " -include floor/compute/device/common.hpp" : "") +
+		" -include floor/compute/device/common.hpp" +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
 		" -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-addrsig"
 		" -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
