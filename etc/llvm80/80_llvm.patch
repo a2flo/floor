@@ -31476,10 +31476,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..b47a21e8f23
+index 00000000000..42f052642c9
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3863 @@
+@@ -0,0 +1,3867 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -33578,7 +33578,11 @@ index 00000000000..b47a21e8f23
 +  } else if (global_type.is_image) {
 +    storage_class = spv::StorageClassUniformConstant;
 +  } else if (global_type.is_uniform) {
-+    storage_class = spv::StorageClassStorageBuffer;
++    storage_class = spv::StorageClassUniform;
++    if ((!global_type.is_constant ||
++         (global_type.is_constant && !global_type.is_iub))) {
++      storage_class = spv::StorageClassStorageBuffer;
++    }
 +  } else {
 +    storage_class = spv::StorageClassOutput;
 +  }
