@@ -113,7 +113,7 @@ namespace floor_image {
 	struct default_sampler {
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
-			return (!sample_repeat ? opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE : opencl_image::sampler::ADDRESS_MODE::REPEAT,
+			return ((!sample_repeat ? opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE : opencl_image::sampler::ADDRESS_MODE::REPEAT) |
 					(is_int_coord<coord_type>() ? opencl_image::sampler::COORD_MODE::PIXEL : opencl_image::sampler::COORD_MODE::NORMALIZED) |
 					(!sample_linear ? opencl_image::sampler::FILTER_MODE::NEAREST : opencl_image::sampler::FILTER_MODE::LINEAR));
 #elif defined(FLOOR_COMPUTE_VULKAN)
