@@ -566,20 +566,20 @@ floor_inline_always static int32_t simd_shuffle_down(const int32_t lane_var, con
 
 floor_inline_always static float simd_shuffle_up(const float lane_var, const uint16_t delta) {
 	float ret;
-	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
+				 : "=f"(ret) : "f"(lane_var), "r"(delta));
 	return ret;
 }
 floor_inline_always static uint32_t simd_shuffle_up(const uint32_t lane_var, const uint16_t delta) {
 	uint32_t ret;
-	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
+				 : "=f"(ret) : "f"(lane_var), "r"(delta));
 	return ret;
 }
 floor_inline_always static int32_t simd_shuffle_up(const int32_t lane_var, const uint16_t delta) {
 	int32_t ret;
-	asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
+	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
+				 : "=f"(ret) : "f"(lane_var), "r"(delta));
 	return ret;
 }
 
