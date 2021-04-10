@@ -384,7 +384,6 @@ bool floor::init(const init_state& state) {
 		};
 		
 		config.default_compiler = config_doc.get<string>("toolchain.generic.compiler", "clang");
-		config.default_llc = config_doc.get<string>("toolchain.generic.llc", "llc");
 		config.default_as = config_doc.get<string>("toolchain.generic.as", "llvm-as");
 		config.default_dis = config_doc.get<string>("toolchain.generic.dis", "llvm-dis");
 		
@@ -400,7 +399,6 @@ bool floor::init(const init_state& state) {
 		config.opencl_spirv_param_workaround = config_doc.get<bool>("toolchain.opencl.spirv_param_workaround", false);
 		extract_whitelist(config.opencl_whitelist, "toolchain.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("toolchain.opencl.compiler", config.default_compiler);
-		config.opencl_llc = config_doc.get<string>("toolchain.opencl.llc", config.default_llc);
 		config.opencl_as = config_doc.get<string>("toolchain.opencl.as", config.default_as);
 		config.opencl_dis = config_doc.get<string>("toolchain.opencl.dis", config.default_dis);
 		config.opencl_spirv_encoder = config_doc.get<string>("toolchain.opencl.spirv-encoder", config.opencl_spirv_encoder);
@@ -418,14 +416,12 @@ bool floor::init(const init_state& state) {
 		config.cuda_use_internal_api = config_doc.get<bool>("toolchain.cuda.use_internal_api", true);
 		extract_whitelist(config.cuda_whitelist, "toolchain.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("toolchain.cuda.compiler", config.default_compiler);
-		config.cuda_llc = config_doc.get<string>("toolchain.cuda.llc", config.default_llc);
 		config.cuda_as = config_doc.get<string>("toolchain.cuda.as", config.default_as);
 		config.cuda_dis = config_doc.get<string>("toolchain.cuda.dis", config.default_dis);
 		
 		metal_toolchain_paths = config_doc.get<json::json_array>("toolchain.metal.paths", default_toolchain_paths);
 		extract_whitelist(config.metal_whitelist, "toolchain.metal.whitelist");
 		config.metal_compiler = config_doc.get<string>("toolchain.metal.compiler", config.default_compiler);
-		config.metal_llc = config_doc.get<string>("toolchain.metal.llc", config.default_llc);
 		config.metal_as = config_doc.get<string>("toolchain.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
 		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
@@ -435,7 +431,6 @@ bool floor::init(const init_state& state) {
 		config.vulkan_validate_spirv = config_doc.get<bool>("toolchain.vulkan.validate_spirv", false);
 		extract_whitelist(config.vulkan_whitelist, "toolchain.vulkan.whitelist");
 		config.vulkan_compiler = config_doc.get<string>("toolchain.vulkan.compiler", config.default_compiler);
-		config.vulkan_llc = config_doc.get<string>("toolchain.vulkan.llc", config.default_llc);
 		config.vulkan_as = config_doc.get<string>("toolchain.vulkan.as", config.default_as);
 		config.vulkan_dis = config_doc.get<string>("toolchain.vulkan.dis", config.default_dis);
 		config.vulkan_spirv_encoder = config_doc.get<string>("toolchain.vulkan.spirv-encoder", config.vulkan_spirv_encoder);
@@ -446,7 +441,6 @@ bool floor::init(const init_state& state) {
 		
 		host_toolchain_paths = config_doc.get<json::json_array>("toolchain.host.paths", default_toolchain_paths);
 		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
-		config.host_llc = config_doc.get<string>("toolchain.host.llc", config.default_llc);
 		config.host_as = config_doc.get<string>("toolchain.host.as", config.default_as);
 		config.host_dis = config_doc.get<string>("toolchain.host.dis", config.default_dis);
 		config.execution_model = config_doc.get<string>("toolchain.host.exec_model", "mt-group");
@@ -462,7 +456,6 @@ bool floor::init(const init_state& state) {
 	const auto get_viable_toolchain_path = [](const json::json_array& paths,
 											  uint32_t& toolchain_version,
 											  string& compiler,
-											  string& llc,
 											  string& as,
 											  string& dis,
 											  // <min/max required toolchain version, bin name>
@@ -470,7 +463,6 @@ bool floor::init(const init_state& state) {
 #if defined(__WINDOWS__)
 		// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
 		compiler = core::expand_path_with_env(compiler + ".exe");
-		llc = core::expand_path_with_env(llc + ".exe");
 		as = core::expand_path_with_env(as + ".exe");
 		dis = core::expand_path_with_env(dis + ".exe");
 		for(auto& bin : additional_bins) {
@@ -487,7 +479,6 @@ bool floor::init(const init_state& state) {
 			const auto path_str = core::expand_path_with_env(path.str);
 			
 			if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
-			if(!file_io::is_file(path_str + "/bin/" + llc)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + as)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + dis)) continue;
 			if(!file_io::is_directory(path_str + "/clang")) continue;
@@ -546,7 +537,7 @@ bool floor::init(const init_state& state) {
 		// -> opencl toolchain
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
 															config.opencl_toolchain_version,
-															config.opencl_compiler, config.opencl_llc,
+															config.opencl_compiler,
 															config.opencl_as, config.opencl_dis,
 															vector<pair<uint2, string*>> {
 																{ { 80000u, ~0u }, &config.opencl_spirv_encoder },
@@ -562,7 +553,6 @@ bool floor::init(const init_state& state) {
 		else {
 			config.opencl_toolchain_exists = true;
 			config.opencl_compiler.insert(0, config.opencl_base_path + "bin/");
-			config.opencl_llc.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_dis.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_spirv_encoder.insert(0, config.opencl_base_path + "bin/");
@@ -574,7 +564,7 @@ bool floor::init(const init_state& state) {
 		// -> cuda toolchain
 		config.cuda_base_path = get_viable_toolchain_path(cuda_toolchain_paths,
 														  config.cuda_toolchain_version,
-														  config.cuda_compiler, config.cuda_llc,
+														  config.cuda_compiler,
 														  config.cuda_as, config.cuda_dis);
 		if(config.cuda_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
@@ -584,7 +574,6 @@ bool floor::init(const init_state& state) {
 		else {
 			config.cuda_toolchain_exists = true;
 			config.cuda_compiler.insert(0, config.cuda_base_path + "bin/");
-			config.cuda_llc.insert(0, config.cuda_base_path + "bin/");
 			config.cuda_as.insert(0, config.cuda_base_path + "bin/");
 			config.cuda_dis.insert(0, config.cuda_base_path + "bin/");
 		}
@@ -592,7 +581,7 @@ bool floor::init(const init_state& state) {
 		// -> metal toolchain
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
 														   config.metal_toolchain_version,
-														   config.metal_compiler, config.metal_llc,
+														   config.metal_compiler,
 														   config.metal_as, config.metal_dis);
 #if defined(FLOOR_IOS)
 		// toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
@@ -608,7 +597,6 @@ bool floor::init(const init_state& state) {
 		{
 			config.metal_toolchain_exists = true;
 			config.metal_compiler.insert(0, config.metal_base_path + "bin/");
-			config.metal_llc.insert(0, config.metal_base_path + "bin/");
 			config.metal_as.insert(0, config.metal_base_path + "bin/");
 			config.metal_dis.insert(0, config.metal_base_path + "bin/");
 		}
@@ -616,7 +604,7 @@ bool floor::init(const init_state& state) {
 		// -> vulkan toolchain
 		config.vulkan_base_path = get_viable_toolchain_path(vulkan_toolchain_paths,
 															config.vulkan_toolchain_version,
-															config.vulkan_compiler, config.vulkan_llc,
+															config.vulkan_compiler,
 															config.vulkan_as, config.vulkan_dis,
 															vector<pair<uint2, string*>> {
 																{ { 80000u, ~0u }, &config.vulkan_spirv_encoder },
@@ -632,7 +620,6 @@ bool floor::init(const init_state& state) {
 		else {
 			config.vulkan_toolchain_exists = true;
 			config.vulkan_compiler.insert(0, config.vulkan_base_path + "bin/");
-			config.vulkan_llc.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_as.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_dis.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_spirv_encoder.insert(0, config.vulkan_base_path + "bin/");
@@ -644,7 +631,7 @@ bool floor::init(const init_state& state) {
 		// -> host toolchain
 		config.host_base_path = get_viable_toolchain_path(host_toolchain_paths,
 														  config.host_toolchain_version,
-														  config.host_compiler, config.host_llc,
+														  config.host_compiler,
 														  config.host_as, config.host_dis);
 		if(config.host_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
@@ -653,7 +640,6 @@ bool floor::init(const init_state& state) {
 		} else {
 			config.host_toolchain_exists = true;
 			config.host_compiler.insert(0, config.host_base_path + "bin/");
-			config.host_llc.insert(0, config.host_base_path + "bin/");
 			config.host_as.insert(0, config.host_base_path + "bin/");
 			config.host_dis.insert(0, config.host_base_path + "bin/");
 		}
@@ -1864,9 +1850,6 @@ bool floor::get_toolchain_log_commands() {
 const string& floor::get_toolchain_default_compiler() {
 	return config.default_compiler;
 }
-const string& floor::get_toolchain_default_llc() {
-	return config.default_llc;
-}
 const string& floor::get_toolchain_default_as() {
 	return config.default_as;
 }
@@ -1904,9 +1887,6 @@ bool floor::get_opencl_spirv_param_workaround() {
 const string& floor::get_opencl_compiler() {
 	return config.opencl_compiler;
 }
-const string& floor::get_opencl_llc() {
-	return config.opencl_llc;
-}
 const string& floor::get_opencl_as() {
 	return config.opencl_as;
 }
@@ -1937,9 +1917,6 @@ const vector<string>& floor::get_cuda_whitelist() {
 }
 const string& floor::get_cuda_compiler() {
 	return config.cuda_compiler;
-}
-const string& floor::get_cuda_llc() {
-	return config.cuda_llc;
 }
 const string& floor::get_cuda_as() {
 	return config.cuda_as;
@@ -1981,9 +1958,6 @@ const vector<string>& floor::get_metal_whitelist() {
 const string& floor::get_metal_compiler() {
 	return config.metal_compiler;
 }
-const string& floor::get_metal_llc() {
-	return config.metal_llc;
-}
 const string& floor::get_metal_as() {
 	return config.metal_as;
 }
@@ -2011,9 +1985,6 @@ bool floor::get_vulkan_validate_spirv() {
 }
 const string& floor::get_vulkan_compiler() {
 	return config.vulkan_compiler;
-}
-const string& floor::get_vulkan_llc() {
-	return config.vulkan_llc;
 }
 const string& floor::get_vulkan_as() {
 	return config.vulkan_as;
@@ -2046,9 +2017,6 @@ const uint32_t& floor::get_host_toolchain_version() {
 }
 const string& floor::get_host_compiler() {
 	return config.host_compiler;
-}
-const string& floor::get_host_llc() {
-	return config.host_llc;
 }
 const string& floor::get_host_as() {
 	return config.host_as;

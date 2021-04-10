@@ -248,7 +248,6 @@ public:
 	
 	// generic toolchain
 	static const string& get_toolchain_default_compiler();
-	static const string& get_toolchain_default_llc();
 	static const string& get_toolchain_default_as();
 	static const string& get_toolchain_default_dis();
 	
@@ -263,7 +262,6 @@ public:
 	static bool get_opencl_disable_spirv();
 	static bool get_opencl_spirv_param_workaround();
 	static const string& get_opencl_compiler();
-	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
 	static const string& get_opencl_dis();
 	static const string& get_opencl_spirv_encoder();
@@ -276,7 +274,6 @@ public:
 	static const uint32_t& get_cuda_toolchain_version();
 	static const vector<string>& get_cuda_whitelist();
 	static const string& get_cuda_compiler();
-	static const string& get_cuda_llc();
 	static const string& get_cuda_as();
 	static const string& get_cuda_dis();
 	static const string& get_cuda_force_driver_sm();
@@ -292,7 +289,6 @@ public:
 	static const uint32_t& get_metal_toolchain_version();
 	static const vector<string>& get_metal_whitelist();
 	static const string& get_metal_compiler();
-	static const string& get_metal_llc();
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
 	static const uint32_t& get_metal_force_version();
@@ -304,7 +300,6 @@ public:
 	static const vector<string>& get_vulkan_whitelist();
 	static bool get_vulkan_validate_spirv();
 	static const string& get_vulkan_compiler();
-	static const string& get_vulkan_llc();
 	static const string& get_vulkan_as();
 	static const string& get_vulkan_dis();
 	static const string& get_vulkan_spirv_encoder();
@@ -317,7 +312,6 @@ public:
 	static const string& get_host_base_path();
 	static const uint32_t& get_host_toolchain_version();
 	static const string& get_host_compiler();
-	static const string& get_host_llc();
 	static const string& get_host_as();
 	static const string& get_host_dis();
 	static const string& get_execution_model();
@@ -397,7 +391,6 @@ protected:
 		
 		// compute toolchain
 		string default_compiler = "clang";
-		string default_llc = "llc";
 		string default_as = "llvm-as";
 		string default_dis = "llvm-dis";
 		
@@ -413,7 +406,6 @@ protected:
 		bool opencl_spirv_param_workaround = true;
 		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
-		string opencl_llc = default_llc;
 		string opencl_as = default_as;
 		string opencl_dis = default_dis;
 		string opencl_spirv_encoder = "llvm-spirv";
@@ -427,7 +419,6 @@ protected:
 		string cuda_base_path;
 		vector<string> cuda_whitelist;
 		string cuda_compiler = default_compiler;
-		string cuda_llc = default_llc;
 		string cuda_as = default_as;
 		string cuda_dis = default_dis;
 		string cuda_force_driver_sm;
@@ -444,7 +435,6 @@ protected:
 		string metal_base_path;
 		vector<string> metal_whitelist;
 		string metal_compiler = default_compiler;
-		string metal_llc = default_llc;
 		string metal_as = default_as;
 		string metal_dis = default_dis;
 		uint32_t metal_force_version = 0;
@@ -455,7 +445,6 @@ protected:
 		uint32_t host_toolchain_version = 0;
 		string host_base_path;
 		string host_compiler = default_compiler;
-		string host_llc = default_llc;
 		string host_as = default_as;
 		string host_dis = default_dis;
 		string execution_model = "mt-group";
@@ -467,7 +456,6 @@ protected:
 		bool vulkan_validate_spirv = false;
 		vector<string> vulkan_whitelist;
 		string vulkan_compiler = default_compiler;
-		string vulkan_llc = default_llc;
 		string vulkan_as = default_as;
 		string vulkan_dis = default_dis;
 		string vulkan_spirv_encoder = "llvm-spirv";
