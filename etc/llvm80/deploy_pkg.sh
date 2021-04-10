@@ -165,7 +165,6 @@ deploy_folder() {
 }
 
 deploy_file "clang" "bin" "bin"
-deploy_file "llc" "bin" "bin"
 deploy_file "llvm-as" "bin" "bin"
 deploy_file "llvm-dis" "bin" "bin"
 deploy_file "llvm-spirv" "bin" "bin"

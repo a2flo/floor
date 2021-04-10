@@ -264,7 +264,6 @@ deploy_folder() {
 }
 
 deploy_file "clang" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
-deploy_file "llc" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-as" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-spirv" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}

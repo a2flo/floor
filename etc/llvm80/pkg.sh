@@ -13,7 +13,6 @@ chmod +x deploy_pkg.sh
 
 mkdir bin
 cp ../build/bin/clang bin/
-cp ../build/bin/llc bin/
 cp ../build/bin/llvm-dis bin/
 cp ../build/bin/llvm-as bin/
 cp ../build/bin/llvm-spirv bin/

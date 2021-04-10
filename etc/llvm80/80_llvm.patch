@@ -52386,6 +52386,19 @@ index 44a09f5fe51..3ab14d503af 100644
    void EmitInstruction(const MachineInstr *) override;
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
+diff --git a/lib/Target/NVPTX/NVPTXISelLowering.cpp b/lib/Target/NVPTX/NVPTXISelLowering.cpp
+index 5c16c34e21d..7d67ccb4f41 100644
+--- a/lib/Target/NVPTX/NVPTXISelLowering.cpp
++++ b/lib/Target/NVPTX/NVPTXISelLowering.cpp
+@@ -69,7 +69,7 @@ static unsigned int uniqueCallSite = 0;
+ 
+ static cl::opt<bool> sched4reg(
+     "nvptx-sched4reg",
+-    cl::desc("NVPTX Specific: schedule for register pressue"), cl::init(false));
++    cl::desc("NVPTX Specific: schedule for register pressue"), cl::init(true));
+ 
+ static cl::opt<unsigned>
+ FMAContractLevelOpt("nvptx-fma-level", cl::ZeroOrMore, cl::Hidden,
 diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
 index acbee86ae38..1b8f4718c17 100644
 --- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
