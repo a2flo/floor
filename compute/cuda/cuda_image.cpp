@@ -615,10 +615,12 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			cu_texture_descriptor tex_desc;
 			memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
 			
-			// address mode is fixed for now
-			tex_desc.address_mode[0] = CU_ADDRESS_MODE::CLAMP;
-			if(dim_count >= 2) tex_desc.address_mode[1] = CU_ADDRESS_MODE::CLAMP;
-			if(dim_count >= 3) tex_desc.address_mode[2] = CU_ADDRESS_MODE::CLAMP;
+			// address mode (either clamp-to-edge or repeat/wrap)
+			const auto address_mode = (cuda_sampler::get_address_mode(i) == cuda_sampler::REPEAT ?
+									   CU_ADDRESS_MODE::WRAP : CU_ADDRESS_MODE::CLAMP);
+			tex_desc.address_mode[0] = address_mode;
+			if(dim_count >= 2) tex_desc.address_mode[1] = address_mode;
+			if(dim_count >= 3) tex_desc.address_mode[2] = address_mode;
 			
 			// filter mode
 			const auto filter_mode = (cuda_sampler::get_filter_mode(i) == cuda_sampler::NEAREST ?

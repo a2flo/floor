@@ -35,13 +35,13 @@ namespace metal_image {
 			CLAMP_TO_EDGE		= 1,
 			REPEAT				= 2,
 			MIRRORED_REPEAT		= 3,
-			// Metal 1.2+ (macOS)
+			// macOS or Metal 2.3+ (iOS)
 			CLAMP_TO_BORDER		= 4
 		};
 		enum FILTER_MODE {
 			NEAREST				= 0,
 			LINEAR				= 1,
-			// Metal 1.2+ (iOS)
+			// Apple GPUs only
 			BICUBIC				= 2,
 		};
 		enum MIP_FILTER_MODE {
@@ -88,14 +88,14 @@ namespace metal_image {
 				// compare function
 				uint64_t compare_function : 4;
 				
-				// Metal 1.2+ (iOS), 2.0+ (macOS): anisotropic filtering (N - 1)
+				// anisotropic filtering (N - 1)
 				uint64_t anisotropy : 4;
 				
-				// Metal 1.2+ (iOS), 2.0+ (macOS): lod min/max clamping (half floats)
+				// LOD min/max clamping (half floats)
 				uint64_t lod_clamp_min : 16;
 				uint64_t lod_clamp_max : 16;
 				
-				// Metal 1.2+ (macOS): border color
+				// macOS or Metal 2.3+ (iOS): border color
 				uint64_t border_color : 2;
 				
 				// currently unused/reserved
@@ -118,7 +118,7 @@ namespace metal_image {
 		mag_filter(filter_mode), min_filter(filter_mode),
 		mip_filter(mip_filter_mode),
 		compare_function(compare_function_),
-		anisotropy(0),
+		anisotropy(filter_mode == NEAREST ? 0u : 15u),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
 		_unused(0u), is_constant(1u) {}
@@ -128,13 +128,15 @@ namespace metal_image {
 		mag_filter(s.mag_filter), min_filter(s.min_filter), mip_filter(s.mip_filter),
 		coord_mode(s.coord_mode),
 		compare_function(s.compare_function),
-		anisotropy(0),
+		anisotropy(s.anisotropy),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
 		_unused(0u), is_constant(1u) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
-		constexpr operator metal_sampler_t() const { return (metal_sampler_t)value; }
+		operator metal_sampler_t() const {
+			return (metal_sampler_t)value;
+		}
 		
 		// unavailable
 		void operator=(const sampler&) = delete;
