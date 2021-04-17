@@ -180,7 +180,11 @@ namespace universal_binary {
 			//! if 0, no width is assumed
 			uint64_t simd_width : 8;
 			
-			uint64_t _unused : 33;
+			//! if set, enables soft-printf support
+			//! NOTE: if set, this overrides any global option; if not set, it can be overriden by the global option
+			uint64_t soft_printf : 1;
+			
+			uint64_t _unused : 32;
 		} metal;
 		
 		struct __attribute__((packed)) {
@@ -223,7 +227,11 @@ namespace universal_binary {
 			uint64_t basic_64_bit_atomics_support : 1;
 			uint64_t extended_64_bit_atomics_support : 1;
 			
-			uint64_t _unused : 29;
+			//! if set, enables soft-printf support
+			//! NOTE: if set, this overrides any global option; if not set, it can be overriden by the global option
+			uint64_t soft_printf : 1;
+			
+			uint64_t _unused : 28;
 		} vulkan;
 
 		//! packed value
