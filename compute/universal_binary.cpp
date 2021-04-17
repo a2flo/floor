@@ -398,7 +398,9 @@ namespace universal_binary {
 				
 				toolchain_version = floor::get_metal_toolchain_version();
 				options.target = llvm_toolchain::TARGET::AIR;
-				options.metal.soft_printf = mtl_target.soft_printf;
+				if (mtl_target.soft_printf) {
+					options.metal.soft_printf = true;
+				}
 				mtl_dev.metal_language_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
 				mtl_dev.family_type = (mtl_target.is_ios ? metal_device::FAMILY_TYPE::APPLE : metal_device::FAMILY_TYPE::MAC);
 				mtl_dev.family_tier = 1; // can't be overwritten right now
@@ -501,7 +503,9 @@ namespace universal_binary {
 				
 				toolchain_version = floor::get_vulkan_toolchain_version();
 				options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
-				options.vulkan.soft_printf = vlk_target.soft_printf;
+				if (vlk_target.soft_printf) {
+					options.vulkan.soft_printf = true;
+				}
 				vlk_dev.vulkan_version = vulkan_version_from_uint(vlk_target.vulkan_major, vlk_target.vulkan_minor);
 				vlk_dev.spirv_version = spirv_version_from_uint(vlk_target.spirv_major, vlk_target.spirv_minor);
 				vlk_dev.platform_vendor = COMPUTE_VENDOR::KHRONOS;
