@@ -406,7 +406,12 @@ namespace compute_algorithm {
 		if constexpr (has_sub_group_scan()) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= device_info::local_id_range_max(),
 						  "unexpected SIMD-width / max work-group size");
-			return device_info::simd_width();
+#if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
+			// workaround an AMD Metal issue where we seem to have a weird alignment/allocation issue, where 64 is not enough (even if we align it to 16)
+			return device_info::simd_width() * 2u;
+#else
+			return max(device_info::simd_width(), work_group_size / device_info::simd_width());
+#endif
 		}
 #endif
 		return work_group_size * 2u - 1u;
