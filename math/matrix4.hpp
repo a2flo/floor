@@ -525,6 +525,7 @@ public:
 	
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: this function will be selected if the fov parameter is constant (this is beneficial, because tan(x) calls are costly)
+	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
 	template <bool is_right_handed = true, bool is_only_positive_z = true>
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far)
@@ -534,25 +535,27 @@ public:
 			(fp_type)1 / const_math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};
 		
-		fp_type f_in_y {};
+		fp_type f_in_y {}, persp_nf_1 {}, persp_nf_2 {};
 		if constexpr (is_right_handed) {
 			f_in_y = -f;
+			persp_nf_1 = -z_far / (z_far - z_near);
+			persp_nf_2 = (-z_far * z_near) / (z_far - z_near);
 		} else {
 			f_in_y = f;
+			persp_nf_1 = (z_far + z_near) / (z_near - z_far);
+			persp_nf_2 = (scalar_type(2) * z_far * z_near) / (z_near - z_far);
 		}
-		
-		constexpr const fp_type nf_factor_1 = (is_only_positive_z ? scalar_type(0.5) : scalar_type(1));
-		constexpr const fp_type nf_factor_2 = (is_only_positive_z ? scalar_type(1) : scalar_type(2));
 		
 		return {
 			scalar_type(f) / scalar_type(aspect), scalar_type(0), scalar_type(0), scalar_type(0),
 			scalar_type(0), scalar_type(f_in_y), scalar_type(0), scalar_type(0),
-			scalar_type(0), scalar_type(0), (nf_factor_1 * (z_far + z_near)) / (z_near - z_far), scalar_type(-1),
-			scalar_type(0), scalar_type(0), (nf_factor_2 * z_far * z_near) / (z_near - z_far), scalar_type(0)
+			scalar_type(0), scalar_type(0), persp_nf_1, scalar_type(-1),
+			scalar_type(0), scalar_type(0), persp_nf_2, scalar_type(0)
 		};
 	}
 	
 	//! returns a perspective projection matrix according to the specified parameters
+	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
 	template <bool is_right_handed = true, bool is_only_positive_z = true>
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far) {
@@ -561,35 +564,34 @@ public:
 			(fp_type)1 / math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};
 		
-		fp_type f_in_y {};
+		fp_type f_in_y {}, persp_nf_1 {}, persp_nf_2 {};
 		if constexpr (is_right_handed) {
 			f_in_y = -f;
+			persp_nf_1 = -z_far / (z_far - z_near);
+			persp_nf_2 = (-z_far * z_near) / (z_far - z_near);
 		} else {
 			f_in_y = f;
+			persp_nf_1 = (z_far + z_near) / (z_near - z_far);
+			persp_nf_2 = (scalar_type(2) * z_far * z_near) / (z_near - z_far);
 		}
-		
-		constexpr const fp_type nf_factor_1 = (is_only_positive_z ? scalar_type(0.5) : scalar_type(1));
-		constexpr const fp_type nf_factor_2 = (is_only_positive_z ? scalar_type(1) : scalar_type(2));
 		
 		return {
 			scalar_type(f) / scalar_type(aspect), scalar_type(0), scalar_type(0), scalar_type(0),
 			scalar_type(0), scalar_type(f_in_y), scalar_type(0), scalar_type(0),
-			scalar_type(0), scalar_type(0), (nf_factor_1 * (z_far + z_near)) / (z_near - z_far), scalar_type(-1),
-			scalar_type(0), scalar_type(0), (nf_factor_2 * z_far * z_near) / (z_near - z_far), scalar_type(0)
+			scalar_type(0), scalar_type(0), persp_nf_1, scalar_type(-1),
+			scalar_type(0), scalar_type(0), persp_nf_2, scalar_type(0)
 		};
 	}
 
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: if "pre_adjusted_fov" is true, assumes all FOV values are already tangents of the half-angles (in radian),
 	//! they have already been adjusted for z_near, and they are already suited for a right-handed matrix
+	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
 	template <bool pre_adjusted_fov = false, bool is_right_handed = true, bool is_only_positive_z = true>
 	static constexpr matrix4 perspective(const scalar_type fov_left_, const scalar_type fov_right_,
 										 const scalar_type fov_top_, const scalar_type fov_bottom_,
 										 const scalar_type z_near, const scalar_type z_far) {
 		typedef conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float> fp_type;
-
-		constexpr const fp_type nf_factor_1 = (is_only_positive_z ? scalar_type(0.5) : scalar_type(1));
-		constexpr const fp_type nf_factor_2 = (is_only_positive_z ? scalar_type(1) : scalar_type(2));
 
 		fp_type z_near_numerator {};
 		fp_type fov_left {}, fov_right {}, fov_top {}, fov_bottom {};
@@ -616,12 +618,21 @@ public:
 				fov_bottom = -fov_bottom;
 			}
 		}
+		
+		fp_type persp_nf_1 {}, persp_nf_2 {};
+		if constexpr (is_right_handed) {
+			persp_nf_1 = -z_far / (z_far - z_near);
+			persp_nf_2 = (-z_far * z_near) / (z_far - z_near);
+		} else {
+			persp_nf_1 = (z_far + z_near) / (z_near - z_far);
+			persp_nf_2 = (scalar_type(2) * z_far * z_near) / (z_near - z_far);
+		}
 
 		return {
 			z_near_numerator / (fov_right - fov_left), scalar_type(0), scalar_type(0), scalar_type(0),
 			scalar_type(0), z_near_numerator / (fov_top - fov_bottom), scalar_type(0), scalar_type(0),
-			(fov_right + fov_left) / (fov_right - fov_left), (fov_top + fov_bottom) / (fov_top - fov_bottom), (nf_factor_1 * (z_far + z_near)) / (z_near - z_far), scalar_type(-1),
-			scalar_type(0), scalar_type(0), (nf_factor_2 * z_far * z_near) / (z_near - z_far), scalar_type(0)
+			(fov_right + fov_left) / (fov_right - fov_left), (fov_top + fov_bottom) / (fov_top - fov_bottom), persp_nf_1, scalar_type(-1),
+			scalar_type(0), scalar_type(0), persp_nf_2, scalar_type(0)
 		};
 	}
 	
