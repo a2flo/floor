@@ -47,18 +47,13 @@ void host_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args)
 		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(void*);
 			for (const auto& entry : **vec_buf_ptrs) {
-				if (entry == nullptr) {
-					log_error("can not set a nullptr buffer in an argument buffer");
-					return;
-				}
-				
 				copy_size += arg_size;
 				if (copy_size > buffer_size) {
 					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
 					return;
 				}
 				
-				const auto ptr = ((const host_buffer*)entry)->get_host_buffer_ptr();
+				const auto ptr = (entry ? ((const host_buffer*)entry)->get_host_buffer_ptr() : nullptr);
 				memcpy(copy_buffer_ptr, &ptr, arg_size);
 				copy_buffer_ptr += arg_size;
 			}

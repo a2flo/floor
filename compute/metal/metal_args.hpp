@@ -123,7 +123,7 @@ namespace metal_args {
 		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_buf_array[i] = ((metal_buffer*)arg[i].get())->get_metal_buffer();
+			mtl_buf_array[i] = (arg[i] ? ((metal_buffer*)arg[i].get())->get_metal_buffer() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
@@ -147,7 +147,7 @@ namespace metal_args {
 		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_buf_array[i] = ((metal_buffer*)arg[i])->get_metal_buffer();
+			mtl_buf_array[i] = (arg[i] ? ((metal_buffer*)arg[i])->get_metal_buffer() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
@@ -269,7 +269,7 @@ namespace metal_args {
 		
 		vector<id <MTLTexture>> mtl_img_array(count, nil);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = ((metal_image*)arg[i].get())->get_metal_image();
+			mtl_img_array[i] = (arg[i] ? ((metal_image*)arg[i].get())->get_metal_image() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
@@ -296,7 +296,7 @@ namespace metal_args {
 		
 		vector<id <MTLTexture>> mtl_img_array(count, nil);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = ((metal_image*)arg[i])->get_metal_image();
+			mtl_img_array[i] = (arg[i] ? ((metal_image*)arg[i])->get_metal_image() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
