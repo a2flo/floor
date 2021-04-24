@@ -452,7 +452,7 @@ index 217fbd763f..3ea117d5b6 100644
    cuda_device,
    cuda_constant,
 diff --git a/include/clang/Basic/Attr.td b/include/clang/Basic/Attr.td
-index 04125e67b2..858f4c3129 100644
+index 04125e67b2..21736c3052 100644
 --- a/include/clang/Basic/Attr.td
 +++ b/include/clang/Basic/Attr.td
 @@ -137,7 +137,7 @@ def FunctionLike : SubsetSubject<DeclBase,
@@ -602,7 +602,7 @@ index 04125e67b2..858f4c3129 100644
    let Documentation = [OpenCLAddressSpaceGenericDocs];
  }
  
-@@ -1073,6 +1067,79 @@ def RenderScriptKernel : Attr {
+@@ -1073,6 +1067,84 @@ def RenderScriptKernel : Attr {
    let LangOpts = [RenderScript];
  }
  
@@ -611,6 +611,11 @@ index 04125e67b2..858f4c3129 100644
 +  let Spellings = [GNU<"local_cuda">, CXX11<"","local_cuda", 200809>];
 +  let Subjects = SubjectList<[Var]>;
 +  let LangOpts = [CUDA];
++  let Documentation = [Undocumented];
++}
++
++def FloorArgBuffer : DeclOrTypeAttr {
++  let Spellings = [GNU<"floor_arg_buffer">, CXX11<"","floor_arg_buffer", 200809>];
 +  let Documentation = [Undocumented];
 +}
 +
@@ -6589,7 +6594,7 @@ index fd4506f2d1..c5bb140355 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..6c54fe5ed3 100644
+index f012384f3d..e6bbe5950e 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -6602,7 +6607,7 @@ index f012384f3d..6c54fe5ed3 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,2136 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,2144 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -7468,7 +7473,8 @@ index f012384f3d..6c54fe5ed3 100644
 +	vk_stage_io->addOperand(stage_infos_node);
 +}
 +
-+static bool is_indirect_buffer(const clang::QualType& type, CodeGenModule &CGM) {
++static bool is_indirect_buffer(const clang::QualType& type, CodeGenModule &CGM,
++							   const bool has_arg_buffer_attr) {
 +	if (type.isNull()) {
 +		return false;
 +	}
@@ -7477,7 +7483,13 @@ index f012384f3d..6c54fe5ed3 100644
 +	const auto llvm_type = CGM.getTypes().ConvertTypeForMem(type);
 +	const auto llvm_pointee_type = llvm_type->getPointerElementType();
 +	
-+	if (type->isReferenceType() && llvm_pointee_type->isStructTy() && clang_pointee_type.getAddressSpace() == LangAS::opencl_constant) {
++	// CUDA/Host-Compute: must have had floor arg buffer attribute on the original decl
++	// otherwise: check if in constant address space
++	const auto is_arg_buffer = (!CGM.getLangOpts().CUDA && !CGM.getLangOpts().FloorHostCompute ?
++								(clang_pointee_type.getAddressSpace() == LangAS::opencl_constant) :
++								has_arg_buffer_attr);
++	
++	if (type->isReferenceType() && llvm_pointee_type->isStructTy() && is_arg_buffer) {
 +		// initial requirements are fulfilled
 +		// -> need to recursively check for any pointers/buffers/images now (if none are found, this is a normal struct/param)
 +		const std::function<bool(const clang::QualType&)> indirect_checker = [&indirect_checker](const clang::QualType& type) {
@@ -7712,7 +7724,7 @@ index f012384f3d..6c54fe5ed3 100644
 +			const auto llvm_pointee_type = llvm_type->getPointerElementType();
 +			
 +			// check if this is an indirect buffer
-+			const auto indirect_buffer = is_indirect_buffer(type, CGM);
++			const auto indirect_buffer = is_indirect_buffer(type, CGM, false);
 +			
 +			SmallVector<llvm::Metadata*, 16> arg_info;
 +			
@@ -8479,18 +8491,19 @@ index f012384f3d..6c54fe5ed3 100644
 +			return arg_info;
 +		};
 +		//
-+		const std::function<uint64_t(const clang::QualType&, const NamedDecl&, const bool, const bool, const uint32_t)>
++		const std::function<uint64_t(const clang::QualType&, const NamedDecl&, const bool, const bool, const bool, const uint32_t)>
 +		add_buffer_arg = [&CGM, &vulkan_iub_count, &compute_type_size, &arg_buf_info,
 +						  &Fn, &add_buffer_arg, &add_normal_arg](const clang::QualType& type,
 +																 const NamedDecl& decl,
 +																 const bool is_top_level,
 +																 const bool is_indirect, // specifies if we're within an indirect buffer
++																 const bool has_arg_buffer_attr,
 +																 const uint32_t arg_idx) -> uint64_t /* arg info */ {
 +			const auto clang_pointee_type = type->getPointeeType();
 +			const auto llvm_type = CGM.getTypes().ConvertTypeForMem(type);
 +			const auto llvm_pointee_type = llvm_type->getPointerElementType();
 +			
-+			const auto indirect_buffer = is_indirect_buffer(type, CGM);
++			const auto indirect_buffer = is_indirect_buffer(type, CGM, has_arg_buffer_attr);
 +			
 +			const uint64_t arg_size = compute_type_size(llvm_pointee_type);
 +			uint64_t arg_info = arg_size;
@@ -8568,7 +8581,7 @@ index f012384f3d..6c54fe5ed3 100644
 +								if (field_type->isPointerType() || field_type->isReferenceType()) {
 +									// buffer field
 +									// TODO: handle recursive arg buffers
-+									const auto field_arg_info = add_buffer_arg(field_type, **field, false, true, field_arg_idx);
++									const auto field_arg_info = add_buffer_arg(field_type, **field, false, true, false, field_arg_idx);
 +									this_arg_buf_info << field_arg_info << ",";
 +								} else if (field_type->isImageType()) {
 +									// TODO: support this
@@ -8604,7 +8617,7 @@ index f012384f3d..6c54fe5ed3 100644
 +		
 +		// #2+: argument sizes + types
 +		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
-+			const auto arg_info = add_buffer_arg(clang_type, *parm, true, false, arg_idx);
++			const auto arg_info = add_buffer_arg(clang_type, *parm, true, false, (parm->getAttr<FloorArgBufferAttr>() != nullptr), arg_idx);
 +			info << arg_info << ",";
 +		}
 +		// handle image types
@@ -8867,7 +8880,7 @@ index f012384f3d..6c54fe5ed3 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2717,128 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2725,128 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -8996,7 +9009,7 @@ index f012384f3d..6c54fe5ed3 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2904,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2912,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -9009,7 +9022,7 @@ index f012384f3d..6c54fe5ed3 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +3016,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +3024,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -9039,7 +9052,7 @@ index f012384f3d..6c54fe5ed3 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +3069,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +3077,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -9055,7 +9068,7 @@ index f012384f3d..6c54fe5ed3 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +3169,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +3177,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -9073,7 +9086,7 @@ index f012384f3d..6c54fe5ed3 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +3225,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +3233,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -9089,7 +9102,7 @@ index f012384f3d..6c54fe5ed3 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3376,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3384,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -9099,7 +9112,7 @@ index f012384f3d..6c54fe5ed3 100644
    return ResTy;
  }
  
-@@ -1356,7 +3447,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3455,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -13318,7 +13331,7 @@ index 6dab332f4f..d699404b60 100644
        InvalidDecl = true;
      }
 diff --git a/lib/Sema/SemaDeclAttr.cpp b/lib/Sema/SemaDeclAttr.cpp
-index 78374b8089..21414215f4 100644
+index 78374b8089..5eebfb082b 100644
 --- a/lib/Sema/SemaDeclAttr.cpp
 +++ b/lib/Sema/SemaDeclAttr.cpp
 @@ -86,8 +86,11 @@ static bool hasFunctionProto(const Decl *D) {
@@ -13621,7 +13634,7 @@ index 78374b8089..21414215f4 100644
      break;
    case ParsedAttr::AT_VecReturn:
      handleVecReturnAttr(S, D, AL);
-@@ -6539,6 +6550,42 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -6539,6 +6550,45 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case ParsedAttr::AT_Pure:
      handleSimpleAttribute<PureAttr>(S, D, AL);
      break;
@@ -13639,6 +13652,9 @@ index 78374b8089..21414215f4 100644
 +    break;
 +  case ParsedAttr::AT_ImageAccess:
 +    handleSimpleAttribute<ImageAccessAttr>(S, D, AL);
++    break;
++  case ParsedAttr::AT_FloorArgBuffer:
++    handleSimpleAttribute<FloorArgBufferAttr>(S, D, AL);
 +    break;
 +  case ParsedAttr::AT_FloorImageDataType:
 +    handleFloorImageDataTypeAttr(S, D, AL);
@@ -13664,7 +13680,7 @@ index 78374b8089..21414215f4 100644
    case ParsedAttr::AT_Cleanup:
      handleCleanupAttr(S, D, AL);
      break;
-@@ -6581,12 +6628,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -6581,12 +6631,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case ParsedAttr::AT_Suppress:
      handleSuppressAttr(S, D, AL);
      break;
@@ -13677,7 +13693,7 @@ index 78374b8089..21414215f4 100644
    case ParsedAttr::AT_OpenCLNoSVM:
      handleOpenCLNoSVMAttr(S, D, AL);
      break;
-@@ -6799,7 +6840,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -6799,7 +6843,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
    // good to have a way to specify "these attributes must appear as a group",
    // for these. Additionally, it would be good to have a way to specify "these
    // attribute must never appear as a group" for attributes like cold and hot.
@@ -13686,7 +13702,7 @@ index 78374b8089..21414215f4 100644
      // These attributes cannot be applied to a non-kernel function.
      if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
        // FIXME: This emits a different error message than
-@@ -6815,7 +6856,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -6815,7 +6859,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      } else if (const auto *A = D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
        D->setInvalidDecl();
@@ -14640,7 +14656,7 @@ index 3338cec5eb..7dda77fa6b 100644
      break;
    }
 diff --git a/lib/Sema/SemaType.cpp b/lib/Sema/SemaType.cpp
-index bd4a0e1407..65d85ad70d 100644
+index bd4a0e1407..b6b9be4c38 100644
 --- a/lib/Sema/SemaType.cpp
 +++ b/lib/Sema/SemaType.cpp
 @@ -20,6 +20,7 @@
@@ -15094,13 +15110,16 @@ index bd4a0e1407..65d85ad70d 100644
      case ParsedAttr::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state);
        attr.setUsedAsTypeAttr();
-@@ -7408,8 +7422,28 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -7408,8 +7422,31 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
 -    case ParsedAttr::AT_OpenCLAccess:
 -      HandleOpenCLAccessAttr(type, attr, state.getSema());
 +    case ParsedAttr::AT_ImageAccess:
++      attr.setUsedAsTypeAttr();
++      break;
++    case ParsedAttr::AT_FloorArgBuffer:
 +      attr.setUsedAsTypeAttr();
 +      break;
 +    case ParsedAttr::AT_FloorImageDataType:
