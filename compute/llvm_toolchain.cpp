@@ -1027,6 +1027,8 @@ program_data compile_input(const string& input,
 				log_error("PTX compilation failed!");
 				return {};
 			}
+			// add an explicit zero terminator so that we can later on use this when loading the module (where we can't specify a size)
+			ptx_code += '\0';
 			
 			// cleanup
 			if (!floor::get_toolchain_keep_temp()) {

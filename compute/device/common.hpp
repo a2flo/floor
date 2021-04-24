@@ -404,11 +404,11 @@ template <typename T> using compute_constant_buffer = const T* const;
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
 //! argument buffer
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
+#if defined(FLOOR_COMPUTE_OPENCL) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 template <typename T> using arg_buffer = const T;
-#elif defined(FLOOR_COMPUTE_HOST_DEVICE)
-// NOTE: "constant_as" attribute has no physical effect on the reference, but we need/use it to distinguish it from normal pointers/refs
-template <typename T> using arg_buffer = const __attribute__((constant_as)) T& __restrict;
+#elif defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_HOST_DEVICE)
+template <typename T> using compute_arg_buffer = const T&;
+#define arg_buffer __attribute__((floor_arg_buffer)) __restrict compute_arg_buffer
 #elif defined(FLOOR_COMPUTE_METAL)
 template <typename T> using arg_buffer = const constant T& __restrict;
 #elif defined(FLOOR_COMPUTE_VULKAN) // TODO: check if this actually works

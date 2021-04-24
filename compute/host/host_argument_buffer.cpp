@@ -58,8 +58,18 @@ void host_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args)
 				copy_buffer_ptr += arg_size;
 			}
 		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for Host-Compute");
-			return;
+			static constexpr const size_t arg_size = sizeof(void*);
+			for (const auto& entry : **vec_buf_sptrs) {
+				copy_size += arg_size;
+				if (copy_size > buffer_size) {
+					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
+					return;
+				}
+				
+				const auto ptr = (entry ? ((const host_buffer*)entry.get())->get_host_buffer_ptr() : nullptr);
+				memcpy(copy_buffer_ptr, &ptr, arg_size);
+				copy_buffer_ptr += arg_size;
+			}
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(void*);
 			copy_size += arg_size;

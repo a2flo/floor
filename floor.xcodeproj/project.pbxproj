@@ -173,6 +173,9 @@
 		5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AA1AB6D69700BC7012 /* common.hpp */; };
 		5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AC1AB6D6D200BC7012 /* cuda.hpp */; };
 		5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AD1AB6D6D200BC7012 /* metal.hpp */; };
+		5C678CF3262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */; };
+		5C678CF4262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */; };
+		5C678CF5262FA8D8001A1C1F /* cuda_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */; };
 		5C6B6D8E1EC7381C00342E50 /* serializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6B6D8C1EC7381C00342E50 /* serializer.cpp */; };
 		5C6B6D8F1EC7381C00342E50 /* serializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6B6D8C1EC7381C00342E50 /* serializer.cpp */; };
 		5C6B6D901EC7381C00342E50 /* serializer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6B6D8D1EC7381C00342E50 /* serializer.hpp */; };
@@ -508,6 +511,8 @@
 		5C6008AA1AB6D69700BC7012 /* common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = common.hpp; path = device/common.hpp; sourceTree = "<group>"; };
 		5C6008AC1AB6D6D200BC7012 /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda.hpp; path = device/cuda.hpp; sourceTree = "<group>"; };
 		5C6008AD1AB6D6D200BC7012 /* metal.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal.hpp; path = device/metal.hpp; sourceTree = "<group>"; };
+		5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_argument_buffer.cpp; sourceTree = "<group>"; };
+		5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_argument_buffer.hpp; sourceTree = "<group>"; };
 		5C6B6D8C1EC7381C00342E50 /* serializer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = serializer.cpp; sourceTree = "<group>"; };
 		5C6B6D8D1EC7381C00342E50 /* serializer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = serializer.hpp; sourceTree = "<group>"; };
 		5C6C6B1A22D0D89E00AEE5F3 /* vulkan_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vulkan_shader.cpp; sourceTree = "<group>"; };
@@ -1182,6 +1187,8 @@
 		5CD2175219E985D80049D6AE /* cuda */ = {
 			isa = PBXGroup;
 			children = (
+				5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */,
+				5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */,
 				5CC063B91B85A06600F5979A /* cuda_api.cpp */,
 				5C02C85F1B82962C00569270 /* cuda_api.hpp */,
 				5CBF88C71CDF570800C04AB0 /* cuda_internal_api.hpp */,
@@ -1257,6 +1264,7 @@
 				5C6B6D901EC7381C00342E50 /* serializer.hpp in Headers */,
 				5C8A035122E3BDB8009F6589 /* host_id.hpp in Headers */,
 				5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */,
+				5C678CF5262FA8D8001A1C1F /* cuda_argument_buffer.hpp in Headers */,
 				5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */,
 				5C8FD0CF1AD38FAA00215230 /* cuda_image.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
@@ -1610,6 +1618,7 @@
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
+				5C678CF3262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
 				5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
@@ -1712,6 +1721,7 @@
 				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C1E6FBC25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */,
+				5C678CF4262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */,
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
 				5C8461481A914759004D4745 /* metal_queue.mm in Sources */,

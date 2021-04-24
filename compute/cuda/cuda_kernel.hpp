@@ -71,6 +71,11 @@ protected:
 									  const uint3& block_dim,
 									  void** kernel_params) const;
 	
+	unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
+																const kernel_entry& entry,
+																const llvm_toolchain::arg_info& arg,
+																const uint32_t& arg_index) const override;
+	
 };
 
 #endif

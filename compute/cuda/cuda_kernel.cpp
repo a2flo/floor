@@ -20,8 +20,10 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
+#include <floor/compute/cuda/cuda_argument_buffer.hpp>
 
 cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
@@ -169,8 +171,10 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 				log_error("array of images is not supported for CUDA");
 				return;
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-				log_error("argument buffer handling is not implemented yet for CUDA");
-				return;
+				const auto cuda_storage_buffer = ((const cuda_buffer*)(*arg_buf_ptr)->get_storage_buffer())->get_cuda_buffer();
+				param = data;
+				memcpy(data, &cuda_storage_buffer, sizeof(cu_device_ptr));
+				data += sizeof(cu_device_ptr);
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 				param = data;
 				memcpy(data, *generic_arg_ptr, arg.size);
@@ -209,6 +213,41 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 const compute_kernel::kernel_entry* cuda_kernel::get_kernel_entry(const compute_device& dev) const {
 	const auto ret = kernels.get((const cuda_device&)dev);
 	return !ret.first ? nullptr : &ret.second->second;
+}
+
+unique_ptr<argument_buffer> cuda_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
+																		 const kernel_entry& kern_entry,
+																		 const llvm_toolchain::arg_info& arg floor_unused,
+																		 const uint32_t& arg_index) const {
+	const auto& dev = cqueue.get_device();
+	const auto& cuda_entry = (const cuda_kernel_entry&)kern_entry;
+	
+	// check if info exists
+	const auto& arg_info = cuda_entry.info->args[arg_index].argument_buffer_info;
+	if (!arg_info) {
+		log_error("no argument buffer info for arg at index #$", arg_index);
+		return {};
+	}
+	
+	// find the buffer index
+	uint32_t buffer_idx = 0;
+	for (uint32_t i = 0, count = uint32_t(cuda_entry.info->args.size()); i < min(arg_index, count); ++i) {
+		if (cuda_entry.info->args[i].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
+			// all args except for images are buffers
+			++buffer_idx;
+		}
+	}
+	
+	const auto arg_buffer_size = cuda_entry.info->args[arg_index].size;
+	if (arg_buffer_size == 0) {
+		log_error("computed argument buffer size is 0");
+		return {};
+	}
+	
+	// create the argument buffer
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
+	return make_unique<cuda_argument_buffer>(*this, buf, *arg_info);
 }
 
 #endif

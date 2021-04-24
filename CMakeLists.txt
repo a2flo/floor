@@ -63,6 +63,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/universal_binary.hpp
 	compute/cuda/cuda_api.cpp
 	compute/cuda/cuda_api.hpp
+	compute/cuda/cuda_argument_buffer.cpp
+	compute/cuda/cuda_argument_buffer.hpp
 	compute/cuda/cuda_buffer.cpp
 	compute/cuda/cuda_buffer.hpp
 	compute/cuda/cuda_common.hpp
