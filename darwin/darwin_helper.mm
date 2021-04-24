@@ -261,7 +261,9 @@ FLOOR_POP_WARNINGS()
 #endif
 		self.metal_layer = (CAMetalLayer*)self.layer;
 		self.metal_layer.device = device;
+#if !defined(FLOOR_IOS)
 		self.metal_layer.displaySyncEnabled = self.is_vsync;
+#endif
 		if (!self.is_wide_gamut) {
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 		} else {

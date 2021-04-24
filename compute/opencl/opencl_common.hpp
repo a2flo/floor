@@ -180,6 +180,17 @@ extern cl_int floor_opencl_get_kernel_sub_group_info(cl_kernel kernel,
 #define CL_KERNEL_COMPILE_SUB_GROUP_SIZE 0x410A
 #endif
 
+// cl_amd_device_attribute_query
+#if !defined(CL_DEVICE_SIMD_WIDTH_AMD)
+#define CL_DEVICE_SIMD_WIDTH_AMD 0x4041
+#endif
+#if !defined(CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD)
+#define CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD 0x4042
+#endif
+#if !defined(CL_DEVICE_WAVEFRONT_WIDTH_AMD)
+#define CL_DEVICE_WAVEFRONT_WIDTH_AMD 0x4043
+#endif
+
 #include <cstdint>
 #include <iterator>
 
@@ -415,6 +426,9 @@ F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, cl_uint)
 F(cl_device_id, cl_device_info, CL_DEVICE_SPIR_VERSIONS, string) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IL_VERSION, string) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SUB_GROUP_SIZES, vector<size_t>) \
+F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_WIDTH_AMD, cl_uint) \
+F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD, cl_uint) \
+F(cl_device_id, cl_device_info, CL_DEVICE_WAVEFRONT_WIDTH_AMD, cl_uint) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \

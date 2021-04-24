@@ -226,6 +226,9 @@
 		5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8642CD1F411254009D132C /* cuda_coop.hpp */; };
 		5C8A035122E3BDB8009F6589 /* host_id.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8A035022E3BDB7009F6589 /* host_id.hpp */; };
 		5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8B4A6A1BE603C000987CAD /* flat_map.hpp */; };
+		5C8F323526347403008144CF /* metal_device_query.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8F323326347402008144CF /* metal_device_query.hpp */; };
+		5C8F323626347403008144CF /* metal_device_query.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F323426347403008144CF /* metal_device_query.mm */; };
+		5C8F323726347403008144CF /* metal_device_query.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F323426347403008144CF /* metal_device_query.mm */; };
 		5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
 		5C8FD0C31AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
 		5C8FD0C41AD38F8B00215230 /* compute_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FD0C11AD38F8B00215230 /* compute_image.hpp */; };
@@ -561,6 +564,8 @@
 		5C8642CD1F411254009D132C /* cuda_coop.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda_coop.hpp; path = device/cuda_coop.hpp; sourceTree = "<group>"; };
 		5C8A035022E3BDB7009F6589 /* host_id.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_id.hpp; path = device/host_id.hpp; sourceTree = "<group>"; };
 		5C8B4A6A1BE603C000987CAD /* flat_map.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = flat_map.hpp; sourceTree = "<group>"; };
+		5C8F323326347402008144CF /* metal_device_query.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_device_query.hpp; path = metal/metal_device_query.hpp; sourceTree = "<group>"; };
+		5C8F323426347403008144CF /* metal_device_query.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_device_query.mm; path = metal/metal_device_query.mm; sourceTree = "<group>"; };
 		5C8FD0C01AD38F8B00215230 /* compute_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_image.cpp; sourceTree = "<group>"; };
 		5C8FD0C11AD38F8B00215230 /* compute_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_image.hpp; sourceTree = "<group>"; };
 		5C8FD0C51AD38F9700215230 /* opencl_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_image.cpp; sourceTree = "<group>"; };
@@ -1146,6 +1151,8 @@
 				5C8461401A914758004D4745 /* metal_compute.hpp */,
 				5C8461441A914758004D4745 /* metal_buffer.mm */,
 				5C8461421A914758004D4745 /* metal_buffer.hpp */,
+				5C8F323426347403008144CF /* metal_device_query.mm */,
+				5C8F323326347402008144CF /* metal_device_query.hpp */,
 				5C34F17D1C29BB9300C8F645 /* metal_device.cpp */,
 				5C84613F1A914758004D4745 /* metal_device.hpp */,
 				5C8FD0D01AD3944F00215230 /* metal_image.mm */,
@@ -1342,6 +1349,7 @@
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
 				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
+				5C8F323526347403008144CF /* metal_device_query.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
 				5C2B87DA1C73893E00F11EA5 /* vulkan_program.hpp in Headers */,
 				5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */,
@@ -1609,6 +1617,7 @@
 				5C1E6FBB25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
+				5C8F323626347403008144CF /* metal_device_query.mm in Sources */,
 				5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */,
 				5CAD573624D70EAC0022D36D /* argument_buffer.cpp in Sources */,
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
@@ -1642,6 +1651,7 @@
 				5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */,
 				5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */,
 				5C4331CE214DAA0F004F0CD0 /* vulkan_device.cpp in Sources */,
+				5C8F323726347403008144CF /* metal_device_query.mm in Sources */,
 				5C4331CF214DAA0F004F0CD0 /* vulkan_image.cpp in Sources */,
 				5C84531722B1A6D80014AECF /* vulkan_pipeline.cpp in Sources */,
 				5C4331D0214DAA0F004F0CD0 /* vulkan_kernel.cpp in Sources */,

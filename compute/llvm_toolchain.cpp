@@ -700,9 +700,9 @@ program_data compile_input(const string& input,
 		if(device.is_gpu()) {
 			switch(device.vendor) {
 				case COMPUTE_VENDOR::NVIDIA: simd_width = 32; simd_range = { simd_width, simd_width }; break;
-				case COMPUTE_VENDOR::AMD: simd_width = 64; simd_range = { simd_width, simd_width }; break;
 				case COMPUTE_VENDOR::INTEL: simd_width = 16; simd_range = { 8, 32 }; break;
 				case COMPUTE_VENDOR::APPLE: simd_width = 32; simd_range = { simd_width, simd_width }; break;
+				// NOTE: can't handle AMD any more, since we got have either fixed SIMD32 or SIMD64
 				// else: unknown gpu
 				default: break;
 			}

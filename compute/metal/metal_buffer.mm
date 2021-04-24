@@ -473,10 +473,10 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 	if(buffer == nil) return false;
 	if(mapped_ptr == nullptr) return false;
 	
+	bool success = true;
 #if !defined(FLOOR_IOS)
 	const bool is_managed = ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
 	const bool has_staging_buffer = (staging_buffer != nullptr);
-	bool success = true;
 	if(is_managed || has_staging_buffer) {
 		// check if this is actually a mapped pointer (+get the mapped size)
 		const auto iter = mappings.find(mapped_ptr);

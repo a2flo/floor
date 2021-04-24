@@ -348,8 +348,7 @@ namespace universal_binary {
 							cl_dev.simd_range = { cl_dev.simd_width, cl_dev.simd_width };
 							break;
 						case decltype(cl_target.device_target)::AMD_GPU:
-							cl_dev.simd_width = 64;
-							cl_dev.simd_range = { cl_dev.simd_width, cl_dev.simd_width };
+							// NOTE: can't be assumed any more, can be 32 or 64 -> must be set explictly
 							break;
 					}
 				}
@@ -438,7 +437,11 @@ namespace universal_binary {
 						case decltype(mtl_target.device_target)::AMD:
 							// no AMD workarounds yet
 							mtl_dev.vendor = COMPUTE_VENDOR::AMD;
-							mtl_dev.simd_width = 64;
+							if (mtl_target.simd_width != 32 && mtl_target.simd_width != 64) {
+								log_error("SIMD width must be 32 or 64 when targeting AMD");
+								return {};
+							}
+							mtl_dev.simd_width = mtl_target.simd_width;
 							break;
 					}
 					// sub-group/shuffle support if SIMD width is known as well

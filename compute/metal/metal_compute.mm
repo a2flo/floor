@@ -35,6 +35,7 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/compute/metal/metal_device_query.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
@@ -146,6 +147,13 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		++device_num;
 		
 		// TODO: eval MTLGPUFamily and MTLSoftwareVersion with macOS 10.15 and iOS 13.0
+		
+		// query device info that is a bit more complicated to get (not via direct device query)
+		const auto device_info = metal_device_query::query(dev);
+		if (device_info) {
+			device.simd_width = device_info->simd_width;
+			device.simd_range = { device.simd_width, device.simd_width };
+		}
 		
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
@@ -280,16 +288,27 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
 				break;
+				
+			// A14 / M1
+			case 7:
+				device.units = 8;
+				device.mem_clock = 1600; // TODO: ram clock
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_total_local_size = 1024;
+				break;
 		}
 		device.local_mem_size = 16384; // fallback
-		device.local_mem_size = [dev maxThreadgroupMemoryLength]; // iOS 11.0+
+		device.local_mem_size = [dev maxThreadgroupMemoryLength];
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_3d_dim = { 2048, 2048, 2048 };
-		device.simd_width = 32; // always 32 for powervr 6/7 series and apple A* series
-		device.simd_range = { device.simd_width, device.simd_width };
+		if (device.simd_width == 0) {
+			device.simd_width = 32; // always 32 for powervr 6/7 series and apple A* series
+			device.simd_range = { device.simd_width, device.simd_width };
+		}
 		device.image_cube_write_support = false;
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
@@ -299,18 +318,20 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::NVIDIA;
-			device.simd_width = 32;
-			device.simd_range = { device.simd_width, device.simd_width };
+			if (device.simd_width == 0) {
+				device.simd_width = 32;
+				device.simd_range = { device.simd_width, device.simd_width };
+			}
 		}
 		else if(lc_vendor_name.find("intel") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::INTEL;
-			device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
-			device.simd_range = { 8, 32 };
+			if (device.simd_width == 0) {
+				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
+				device.simd_range = { 8, 32 };
+			}
 		}
 		else if(lc_vendor_name.find("amd") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::AMD;
-			device.simd_width = 64;
-			device.simd_range = { device.simd_width, device.simd_width };
 		}
 		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
 		device.global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now
@@ -397,6 +418,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("max total local size: $'", device.max_total_local_size);
 		log_msg("max local size: $'", device.max_local_size);
 		log_msg("max global size: $'", device.max_global_size);
+		log_msg("SIMD width: $", device.simd_width);
 		
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					 device.max_image_3d_dim.max_element()),

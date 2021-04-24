@@ -407,8 +407,9 @@ namespace compute_algorithm {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= device_info::local_id_range_max(),
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
-			// workaround an AMD Metal issue where we seem to have a weird alignment/allocation issue, where 64 is not enough (even if we align it to 16)
-			return device_info::simd_width() * 2u;
+			// workaround an AMD Metal issue where we seem to have a weird alignment/allocation issue, where 32/64 is not enough (even if we align it to 16)
+			// NOTE: this is the case for both SIMD32 and SIMD64
+			return 128u;
 #else
 			return max(device_info::simd_width(), work_group_size / device_info::simd_width());
 #endif

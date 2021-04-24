@@ -403,7 +403,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::AMD;
-				device.simd_width = 64;
+				device.simd_width = cl_get_info<CL_DEVICE_WAVEFRONT_WIDTH_AMD>(cl_dev);
 				device.simd_range = { device.simd_width, device.simd_width };
 				// -> cpu simd width later
 			}

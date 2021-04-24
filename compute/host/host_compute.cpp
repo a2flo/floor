@@ -90,7 +90,7 @@ host_compute::host_compute() : compute_context() {
 	cpu_name = "Apple ARMv8";
 	const auto nx_info = NXGetLocalArchInfo();
 	if (nx_info) {
-		cpu_name += "(" + nx_info->name + ", " + nx_info->description + ")";
+		cpu_name += "("s + nx_info->name + ", " + nx_info->description + ")";
 	}
 #endif
 	
