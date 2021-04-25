@@ -372,7 +372,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 
 		device.local_mem_size = [dev_spi maxComputeThreadgroupMemory];
 		device.max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
-		device.units = 0; // sadly unknown and impossible to query
+		// we sadly can't query the amount of compute units directly
+		// -> we can figure out the amount for AMD GPUs via ioreg (-> metal_device_query)
+		device.units = (device_info ? device_info->units : 0u);
 		device.clock = 0;
 		device.mem_clock = 0;
 		device.max_global_size = { 0xFFFFFFFFu };

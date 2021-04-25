@@ -32,6 +32,8 @@ namespace metal_device_query {
 struct device_info_t {
 	//! SIMD width of the device
 	uint32_t simd_width { 0u };
+	//! number of compute units of the device (or 0 if unknown)
+	uint32_t units { 0u };
 };
 
 //! tries to query device info for the specified device

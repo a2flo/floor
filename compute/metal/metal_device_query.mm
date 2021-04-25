@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 
 namespace metal_device_query {
 
@@ -29,6 +30,7 @@ static NSString* dummy_kernel_source {
 };
 
 std::optional<device_info_t> query(id <MTLDevice> device) {
+	// figure out the SIMD width by compiling a dummy kernel and querying the "threadExecutionWidth"
 	NSError* err { nil };
 	id <MTLLibrary> query_lib = [device newLibraryWithSource:dummy_kernel_source
 													 options:nil
@@ -54,6 +56,40 @@ std::optional<device_info_t> query(id <MTLDevice> device) {
 	}
 	
 	info.simd_width = (uint32_t)[kernel_state threadExecutionWidth];
+	
+#if !defined(FLOOR_IOS)
+	// we can figure out the compute unit count for AMD devices on macOS
+	const string dev_name = [[device name] UTF8String];
+	if (dev_name.find("AMD") != string::npos) {
+		string ioreg_query;
+		core::system("ioreg -r -k \"GPUConfigurationVariable\" | grep \"GPUConfigurationVariable\"", ioreg_query);
+		if (!ioreg_query.empty() && ioreg_query.find("GPUConfigurationVariable") != string::npos) {
+			auto props_start = ioreg_query.find("= {");
+			auto props_end = ioreg_query.rfind('}');
+			if (props_start != string::npos && props_end != string::npos && props_start + 3 < props_end) {
+				auto props_tokens = core::tokenize(ioreg_query.substr(props_start + 3, (props_end - props_start) - 3), ',');
+				uint32_t NumCUPerSH = 1, NumSH = 1, NumSE = 1;
+				const auto parse_prop_value = [](const string& prop) -> uint32_t {
+					const auto eq_pos = prop.find('=');
+					if (eq_pos == string::npos) {
+						return 0u;
+					}
+					return (uint32_t)strtoull(prop.c_str() + eq_pos + 1, nullptr, 10);
+				};
+				for (const auto& prop_token : props_tokens) {
+					if (prop_token.find("\"NumCUPerSH\"") == 0) {
+						NumCUPerSH = parse_prop_value(prop_token);
+					} else if (prop_token.find("\"NumSH\"") == 0) {
+						NumSH = parse_prop_value(prop_token);
+					} else if (prop_token.find("\"NumSE\"") == 0) {
+						NumSE = parse_prop_value(prop_token);
+					}
+				}
+				info.units = NumCUPerSH * NumSH * NumSE;
+			}
+		}
+	}
+#endif
 	
 	return info;
 }
