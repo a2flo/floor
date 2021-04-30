@@ -29,14 +29,14 @@
 #include <floor/compute/metal/metal_argument_buffer.hpp>
 #include <floor/compute/soft_printf.hpp>
 
-struct metal_kernel::metal_encoder {
+struct metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer { nil };
 	id <MTLComputeCommandEncoder> encoder { nil };
 };
 
-static unique_ptr<metal_kernel::metal_encoder> create_encoder(const compute_queue& cqueue, const metal_kernel::metal_kernel_entry& entry) {
+static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue, const metal_kernel::metal_kernel_entry& entry) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	auto ret = make_unique<metal_kernel::metal_encoder>(metal_kernel::metal_encoder { cmd_buffer, [cmd_buffer computeCommandEncoder] });
+	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, [cmd_buffer computeCommandEncoder] });
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
 	return ret;
 }
@@ -83,7 +83,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 
 	// set and handle kernel arguments
 	const kernel_entry& entry = kernel_iter->second;
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(encoder->encoder, { entry.info }, args, implicit_args);
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(cqueue.get_device(), encoder->encoder, { entry.info }, args, implicit_args);
 	
 	// run
 	const uint3 grid_dim_overflow {
@@ -119,6 +119,172 @@ const compute_kernel::kernel_entry* metal_kernel::get_kernel_entry(const compute
 	return !ret.first ? nullptr : &ret.second->second;
 }
 
+static const char* metal_data_type_to_string(const MTLDataType& data_type) {
+	switch (data_type) {
+		case MTLDataTypeNone: return "None";
+		case MTLDataTypeStruct: return "Struct";
+		case MTLDataTypeArray: return "Array";
+		case MTLDataTypeFloat: return "Float";
+		case MTLDataTypeFloat2: return "Float2";
+		case MTLDataTypeFloat3: return "Float3";
+		case MTLDataTypeFloat4: return "Float4";
+		case MTLDataTypeFloat2x2: return "Float2x2";
+		case MTLDataTypeFloat2x3: return "Float2x3";
+		case MTLDataTypeFloat2x4: return "Float2x4";
+		case MTLDataTypeFloat3x2: return "Float3x2";
+		case MTLDataTypeFloat3x3: return "Float3x3";
+		case MTLDataTypeFloat3x4: return "Float3x4";
+		case MTLDataTypeFloat4x2: return "Float4x2";
+		case MTLDataTypeFloat4x3: return "Float4x3";
+		case MTLDataTypeFloat4x4: return "Float4x4";
+		case MTLDataTypeHalf: return "Half";
+		case MTLDataTypeHalf2: return "Half2";
+		case MTLDataTypeHalf3: return "Half3";
+		case MTLDataTypeHalf4: return "Half4";
+		case MTLDataTypeHalf2x2: return "Half2x2";
+		case MTLDataTypeHalf2x3: return "Half2x3";
+		case MTLDataTypeHalf2x4: return "Half2x4";
+		case MTLDataTypeHalf3x2: return "Half3x2";
+		case MTLDataTypeHalf3x3: return "Half3x3";
+		case MTLDataTypeHalf3x4: return "Half3x4";
+		case MTLDataTypeHalf4x2: return "Half4x2";
+		case MTLDataTypeHalf4x3: return "Half4x3";
+		case MTLDataTypeHalf4x4: return "Half4x4";
+		case MTLDataTypeInt: return "Int";
+		case MTLDataTypeInt2: return "Int2";
+		case MTLDataTypeInt3: return "Int3";
+		case MTLDataTypeInt4: return "Int4";
+		case MTLDataTypeUInt: return "UInt";
+		case MTLDataTypeUInt2: return "UInt2";
+		case MTLDataTypeUInt3: return "UInt3";
+		case MTLDataTypeUInt4: return "UInt4";
+		case MTLDataTypeShort: return "Short";
+		case MTLDataTypeShort2: return "Short2";
+		case MTLDataTypeShort3: return "Short3";
+		case MTLDataTypeShort4: return "Short4";
+		case MTLDataTypeUShort: return "UShort";
+		case MTLDataTypeUShort2: return "UShort2";
+		case MTLDataTypeUShort3: return "UShort3";
+		case MTLDataTypeUShort4: return "UShort4";
+		case MTLDataTypeChar: return "Char";
+		case MTLDataTypeChar2: return "Char2";
+		case MTLDataTypeChar3: return "Char3";
+		case MTLDataTypeChar4: return "Char4";
+		case MTLDataTypeUChar: return "UChar";
+		case MTLDataTypeUChar2: return "UChar2";
+		case MTLDataTypeUChar3: return "UChar3";
+		case MTLDataTypeUChar4: return "UChar4";
+		case MTLDataTypeBool: return "Bool";
+		case MTLDataTypeBool2: return "Bool2";
+		case MTLDataTypeBool3: return "Bool3";
+		case MTLDataTypeBool4: return "Bool4";
+		case MTLDataTypeTexture: return "Texture";
+		case MTLDataTypeSampler: return "Sampler";
+		case MTLDataTypePointer: return "Pointer";
+		case MTLDataTypeR8Unorm: return "R8Unorm";
+		case MTLDataTypeR8Snorm: return "R8Snorm";
+		case MTLDataTypeR16Unorm: return "R16Unorm";
+		case MTLDataTypeR16Snorm: return "R16Snorm";
+		case MTLDataTypeRG8Unorm: return "RG8Unorm";
+		case MTLDataTypeRG8Snorm: return "RG8Snorm";
+		case MTLDataTypeRG16Unorm: return "RG16Unorm";
+		case MTLDataTypeRG16Snorm: return "RG16Snorm";
+		case MTLDataTypeRGBA8Unorm: return "RGBA8Unorm";
+		case MTLDataTypeRGBA8Unorm_sRGB: return "RGBA8Unorm_sRGB";
+		case MTLDataTypeRGBA8Snorm: return "RGBA8Snorm";
+		case MTLDataTypeRGBA16Unorm: return "RGBA16Unorm";
+		case MTLDataTypeRGBA16Snorm: return "RGBA16Snorm";
+		case MTLDataTypeRGB10A2Unorm: return "RGB10A2Unorm";
+		case MTLDataTypeRG11B10Float: return "RG11B10Float";
+		case MTLDataTypeRGB9E5Float: return "RGB9E5Float";
+		case MTLDataTypeRenderPipeline: return "RenderPipeline";
+		case MTLDataTypeComputePipeline: return "ComputePipeline";
+		case MTLDataTypeIndirectCommandBuffer: return "IndirectCommandBuffer";
+		case MTLDataTypeVisibleFunctionTable: return "VisibleFunctionTable";
+		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
+		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";
+		case MTLDataTypeInstanceAccelerationStructure: return "InstanceAccelerationStructure";
+	}
+	return "<unknown>";
+}
+
+static void dump_refl_array(MTLArrayType* arr_type, stringstream& sstr, const uint32_t level);
+static void dump_refl_struct(MTLStructType* struct_type, stringstream& sstr, const uint32_t level);
+static void dump_refl_struct_member(MTLStructMember* member_type, stringstream& sstr, const uint32_t level);
+static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const uint32_t level);
+
+[[maybe_unused]] void dump_refl_array(MTLArrayType* arr_type, stringstream& sstr, const uint32_t level) {
+	const string indent(level * 2, ' ');
+	sstr << indent << "<array>" << endl;
+	sstr << indent << "element type: " << metal_data_type_to_string([arr_type elementType]) << endl;
+	sstr << indent << "length: " << [arr_type arrayLength] << endl;
+	sstr << indent << "stride: " << [arr_type stride] << endl;
+	sstr << indent << "argumentIndexStride: " << [arr_type argumentIndexStride] << endl;
+	if ([arr_type elementStructType]) {
+		dump_refl_struct([arr_type elementStructType], sstr, level + 1);
+	}
+	if ([arr_type elementArrayType]) {
+		dump_refl_array([arr_type elementArrayType], sstr, level + 1);
+	}
+	if ([arr_type elementPointerType]) {
+		dump_refl_ptr([arr_type elementPointerType], sstr, level + 1);
+	}
+}
+
+[[maybe_unused]] void dump_refl_struct(MTLStructType* struct_type, stringstream& sstr, const uint32_t level) {
+	const string indent(level * 2, ' ');
+	sstr << indent << "<struct>" << endl;
+	sstr << indent << "#members: " << [struct_type members].count << endl;
+	for (MTLStructMember* member in [struct_type members]) {
+		dump_refl_struct_member(member, sstr, level + 1);
+	}
+}
+
+[[maybe_unused]] void dump_refl_struct_member(MTLStructMember* member_type, stringstream& sstr, const uint32_t level) {
+	const string indent(level * 2, ' ');
+	sstr << indent << "<member> " << endl;
+	sstr << indent << "name: " << [[member_type name] UTF8String] << endl;
+	sstr << indent << "type: " << metal_data_type_to_string([member_type dataType]) << endl;
+	sstr << indent << "offset: " << ([member_type offset] != ~0ull ? to_string([member_type offset]) : "none") << endl;
+	sstr << indent << "arg index: " << [member_type argumentIndex] << endl;
+	if ([member_type structType]) {
+		dump_refl_struct([member_type structType], sstr, level + 1);
+	}
+	if ([member_type arrayType]) {
+		dump_refl_array([member_type arrayType], sstr, level + 1);
+	}
+	if ([member_type pointerType]) {
+		dump_refl_ptr([member_type pointerType], sstr, level + 1);
+	}
+}
+
+[[maybe_unused]] void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const uint32_t level) {
+	const string indent(level * 2, ' ');
+	sstr << indent << "<pointer>" << endl;
+	sstr << indent << "element type: " << metal_data_type_to_string([ptr_type elementType]) << endl;
+	sstr << indent << "size: " << [ptr_type dataSize] << endl;
+	sstr << indent << "alignment: " << [ptr_type alignment] << endl;
+	sstr << indent << "is arg buffer?: " << ([ptr_type elementIsArgumentBuffer] ? "yes" : "no") << endl;
+	if ([ptr_type elementStructType]) {
+		dump_refl_struct([ptr_type elementStructType], sstr, level + 1);
+	}
+	if ([ptr_type elementArrayType]) {
+		dump_refl_array([ptr_type elementArrayType], sstr, level + 1);
+	}
+}
+
+[[maybe_unused]] static void dump_refl_arg(const MTLAutoreleasedArgument& arg, stringstream& sstr) {
+	sstr << "<argument>" << endl;
+	sstr << "name: " << [[arg name] UTF8String] << endl;
+	sstr << "index: " << [arg index] << endl;
+	sstr << "buffer: size: " << [arg bufferDataSize] << ", alignment: " << [arg bufferAlignment] << ", " << metal_data_type_to_string([arg bufferDataType]) << endl;
+	if ([arg bufferStructType]) {
+		dump_refl_struct([arg bufferStructType], sstr, 1);
+	} else if ([arg bufferPointerType]) {
+		dump_refl_ptr([arg bufferPointerType], sstr, 1);
+	}
+}
+
 unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
 																		  const kernel_entry& entry,
 																		  const llvm_toolchain::arg_info& arg floor_unused,
@@ -144,7 +310,9 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	}
 	
 	// create a dummy encoder so that we can retrieve the necessary buffer length (and do some validity checking)
-	id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx];
+	MTLAutoreleasedArgument reflection_data { nil };
+	id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx
+																		   reflection:&reflection_data];
 	if (!arg_encoder) {
 		log_error("failed to create argument encoder");
 		return {};
@@ -158,6 +326,29 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	// round up to next multiple of 4096
 	const auto arg_buffer_size_4k = arg_buffer_size + (arg_buffer_size % 4096u != 0u ? (4096u - (arg_buffer_size % 4096u)) : 0u);
 	
+	// debug dump of the arg buffer layout
+#if 0
+	if (reflection_data) {
+		stringstream sstr;
+		dump_refl_arg(reflection_data, sstr);
+		log_undecorated("reflection data:\n$", sstr.str());
+	}
+#endif
+	
+	// figure out the top level arg indices (we don't need to go deeper, since non-constant/buffer vars in nested structs are not supported right now)
+	vector<uint32_t> arg_indices;
+	if (reflection_data && [reflection_data bufferStructType]) {
+		MTLStructType* top_level_struct = [reflection_data bufferStructType];
+		for (MTLStructMember* member in [top_level_struct members]) {
+			arg_indices.emplace_back([member argumentIndex]);
+		}
+		if (arg_indices.empty()) {
+			log_warn("no members in struct of arg buffer - falling back to simple indices (this might not work)");
+		}
+	} else {
+		log_warn("invalid arg buffer reflection data - falling back to simple indices (this might not work)");
+	}
+	
 	// create the argument buffer
 	// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
 	auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_4k);
@@ -167,7 +358,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 										  COMPUTE_MEMORY_FLAG::HOST_WRITE |
 										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY);
 	buf->set_debug_label(entry.info->name + "_arg_buffer");
-	return make_unique<metal_argument_buffer>(*this, buf, move(storage_buffer_backing), arg_encoder, *arg_info);
+	return make_unique<metal_argument_buffer>(*this, buf, move(storage_buffer_backing), arg_encoder, *arg_info, move(arg_indices));
 }
 
 #endif

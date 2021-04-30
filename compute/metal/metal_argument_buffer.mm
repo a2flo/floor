@@ -24,15 +24,18 @@
 
 metal_argument_buffer::metal_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer_,
 											 aligned_ptr<uint8_t>&& storage_buffer_backing_,
-											 id <MTLArgumentEncoder> encoder_, const llvm_toolchain::function_info& arg_info_) :
-argument_buffer(func_, storage_buffer_), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_), arg_info(arg_info_) {}
+											 id <MTLArgumentEncoder> encoder_, const llvm_toolchain::function_info& arg_info_,
+											 vector<uint32_t>&& arg_indices_) :
+argument_buffer(func_, storage_buffer_), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_), arg_info(arg_info_),
+arg_indices(move(arg_indices_)) {}
 
 void metal_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args) {
 	auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();
 	auto mtl_buffer = mtl_storage_buffer->get_metal_buffer();
 	
 	[encoder setArgumentBuffer:mtl_buffer offset:0];
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(encoder, { &arg_info }, args, {});
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
+																			 (!arg_indices.empty() ? &arg_indices : nullptr));
 	
 #if !defined(FLOOR_IOS)
 	// signal buffer update if this is a managed buffer

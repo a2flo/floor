@@ -469,11 +469,17 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 	log_debug("fastest GPU device: $", fastest_gpu_device->name);
 	
-	// create an internal queue for each device
+	// create an internal queue and null buffer for each device
 	for(auto& dev : devices) {
+		// queue
 		auto dev_queue = create_queue(*dev);
 		internal_queues.insert_or_assign(*dev, dev_queue);
 		((metal_device&)*dev).internal_queue = dev_queue.get();
+		
+		// null buffer
+		auto null_buffer = create_buffer(*dev_queue, 4096u, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+		null_buffer->zero(*dev_queue);
+		internal_null_buffers.insert_or_assign(*dev, null_buffer);
 	}
 	
 	// init renderer
@@ -514,6 +520,14 @@ const compute_queue* metal_compute::get_device_default_queue(const compute_devic
 		return iter->second.get();
 	}
 	log_error("no default queue exists for this device: $!", dev.name);
+	return nullptr;
+}
+
+const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) const {
+	if (const auto iter = internal_null_buffers.find(dev); iter != internal_null_buffers.end()) {
+		return (const metal_buffer*)iter->second.get();
+	}
+	log_error("no null-buffer exists for this device: $!", dev.name);
 	return nullptr;
 }
 

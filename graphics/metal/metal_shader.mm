@@ -64,7 +64,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 	}
 
 	// set and handle kernel arguments
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(encoder, {
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(cqueue.get_device(), encoder, {
 		(vertex_shader ? vertex_shader->info : nullptr),
 		(fragment_shader ? fragment_shader->info : nullptr),
 	}, args, implicit_args);

@@ -52,12 +52,26 @@ namespace metal_args {
 		//! current kernel/shader entry
 		uint32_t entry { 0 };
 	};
+
+	//! return the argument buffer index for the specified buffer index
+	static inline uint32_t arg_buffer_index(const idx_handler& idx, const vector<uint32_t>* arg_buffer_indices) {
+		if (arg_buffer_indices) {
+			if (idx.arg < arg_buffer_indices->size()) {
+				return (*arg_buffer_indices)[idx.arg];
+			}
+#if defined(FLOOR_DEBUG)
+			log_error("arg index $ > size of arg buffer indices $", idx.arg, arg_buffer_indices->size());
+#endif
+		}
+		return idx.buffer_idx;
+	}
 	
 	//! actual kernel argument setters
 	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder, const function_info& entry,
-							 const void* ptr, const size_t& size) {
+							 const void* ptr, const size_t& size,
+							 const vector<uint32_t>* arg_buffer_indices) {
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBytes:ptr length:size atIndex:idx.buffer_idx];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
@@ -67,14 +81,15 @@ namespace metal_args {
 				[encoder setFragmentBytes:ptr length:size atIndex:idx.buffer_idx];
 			}
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-			memcpy([encoder constantDataAtIndex:idx.buffer_idx], ptr, size);
+			memcpy([encoder constantDataAtIndex:arg_buffer_index(idx, arg_buffer_indices)], ptr, size);
 		}
 	}
 	
 	template <ENCODER_TYPE enc_type>
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder, const function_info& entry,
-							 const compute_buffer* arg) {
+							 const compute_buffer* arg,
+							 const vector<uint32_t>* arg_buffer_indices) {
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_buffer = arg->get_shared_metal_buffer();
@@ -95,10 +110,14 @@ namespace metal_args {
 			mtl_buffer = (const metal_buffer*)arg;
 		}
 		
-		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBuffer:mtl_buffer->get_metal_buffer()
 						offset:0
 					   atIndex:idx.buffer_idx];
+		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+						offset:0
+					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
@@ -116,20 +135,28 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry floor_unused,
-							 const vector<shared_ptr<compute_buffer>>& arg) {
+							 const vector<shared_ptr<compute_buffer>>& arg,
+							 const compute_device& dev,
+							 const vector<uint32_t>* arg_buffer_indices) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
 		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_buf_array[i] = (arg[i] ? ((metal_buffer*)arg[i].get())->get_metal_buffer() : nil);
+			if (arg[i]) {
+				mtl_buf_array[i] = ((metal_buffer*)arg[i].get())->get_metal_buffer();
+			} else {
+				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
+				assert(null_buffer);
+				mtl_buf_array[i] = null_buffer->get_metal_buffer();
+			}
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setBuffers:mtl_buf_array.data()
 						offsets:offsets.data()
-					  withRange:NSRange { idx.buffer_idx, count }];
+					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
 		} else {
 			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
 			log_error("buffer arrays are only supported for argument buffers");
@@ -140,20 +167,28 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry floor_unused,
-							 const vector<compute_buffer*>& arg) {
+							 const vector<compute_buffer*>& arg,
+							 const compute_device& dev,
+							 const vector<uint32_t>* arg_buffer_indices) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
 		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_buf_array[i] = (arg[i] ? ((metal_buffer*)arg[i])->get_metal_buffer() : nil);
+			if (arg[i]) {
+				mtl_buf_array[i] = ((metal_buffer*)arg[i])->get_metal_buffer();
+			} else {
+				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
+				assert(null_buffer);
+				mtl_buf_array[i] = null_buffer->get_metal_buffer();
+			}
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setBuffers:mtl_buf_array.data()
 						offsets:offsets.data()
-					  withRange:NSRange { idx.buffer_idx, count }];
+					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
 		} else {
 			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
 			log_error("buffer arrays are only supported for argument buffers");
@@ -164,7 +199,8 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
-							 const argument_buffer* arg_buf) {
+							 const argument_buffer* arg_buf,
+							 const vector<uint32_t>* arg_buffer_indices) {
 		const auto buf = arg_buf->get_storage_buffer();
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(buf->get_flags())) {
@@ -186,10 +222,14 @@ namespace metal_args {
 			mtl_buffer = (const metal_buffer*)buf;
 		}
 		
-		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
+		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBuffer:mtl_buffer->get_metal_buffer()
 						offset:0
 					   atIndex:idx.buffer_idx];
+		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+						offset:0
+					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
@@ -207,7 +247,8 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
-							 const compute_image* arg) {
+							 const compute_image* arg,
+							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
 		const metal_image* mtl_image = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_image = arg->get_shared_metal_image();
@@ -263,7 +304,8 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
-							 const vector<shared_ptr<compute_image>>& arg) {
+							 const vector<shared_ptr<compute_image>>& arg,
+							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -290,7 +332,8 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
-							 const vector<compute_image*>& arg) {
+							 const vector<compute_image*>& arg,
+							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -400,10 +443,12 @@ namespace metal_args {
 	
 	//! sets and handles all arguments in the compute/vertex/fragment function
 	template <ENCODER_TYPE enc_type>
-	bool set_and_handle_arguments(encoder_selector_t<enc_type> encoder,
+	bool set_and_handle_arguments(const compute_device& dev,
+								  encoder_selector_t<enc_type> encoder,
 								  const vector<const function_info*>& entries,
 								  const vector<compute_kernel_arg>& args,
-								  const vector<compute_kernel_arg>& implicit_args) {
+								  const vector<compute_kernel_arg>& implicit_args,
+								  const vector<uint32_t>* arg_buffer_indices = nullptr) {
 		const size_t arg_count = args.size() + implicit_args.size();
 		idx_handler idx;
 		size_t explicit_idx = 0, implicit_idx = 0;
@@ -415,21 +460,21 @@ namespace metal_args {
 			const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
 			
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr);
+				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices);
 			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices);
 			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices);
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *img_ptr);
+				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices);
 			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs, arg_buffer_indices);
 			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs, arg_buffer_indices);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr);
+				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr, arg_buffer_indices);
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *generic_arg_ptr, arg.size);
+				set_argument<enc_type>(idx, encoder, *entry, *generic_arg_ptr, arg.size, arg_buffer_indices);
 			} else {
 				log_error("encountered invalid arg");
 				return false;

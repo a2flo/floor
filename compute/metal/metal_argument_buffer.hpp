@@ -29,7 +29,7 @@
 class metal_argument_buffer : public argument_buffer {
 public:
 	metal_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer, aligned_ptr<uint8_t>&& storage_buffer_backing,
-						  id <MTLArgumentEncoder> encoder, const llvm_toolchain::function_info& arg_info);
+						  id <MTLArgumentEncoder> encoder, const llvm_toolchain::function_info& arg_info, vector<uint32_t>&& arg_indices);
 	
 	void set_arguments(const vector<compute_kernel_arg>& args) override;
 	
@@ -37,6 +37,7 @@ protected:
 	aligned_ptr<uint8_t> storage_buffer_backing;
 	id <MTLArgumentEncoder> encoder;
 	const llvm_toolchain::function_info& arg_info;
+	const vector<uint32_t> arg_indices;
 	
 };
 

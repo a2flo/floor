@@ -550,4 +550,8 @@ void metal_buffer::set_debug_label(const string& label) {
 	}
 }
 
+const compute_buffer* metal_buffer::get_null_buffer(const compute_device& dev_) {
+	return ((const metal_compute*)dev_.context)->get_null_buffer(dev_);
+}
+
 #endif

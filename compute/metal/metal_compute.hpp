@@ -197,6 +197,10 @@ public:
 	//! stops the capturing again
 	bool stop_metal_capture() const;
 	
+	//! returns the null-buffer for the specified device
+	//! NOTE: the null buffer is 4KiB in size
+	const metal_buffer* get_null_buffer(const compute_device& dev) const;
+	
 protected:
 	void* ctx { nullptr };
 	vr_context* vr_ctx { nullptr };
@@ -210,6 +214,7 @@ protected:
 	const metal_device* render_device { nullptr };
 	
 	flat_map<const compute_device&, shared_ptr<compute_queue>> internal_queues;
+	flat_map<const compute_device&, shared_ptr<compute_buffer>> internal_null_buffers;
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);

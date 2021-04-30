@@ -34,9 +34,6 @@ class metal_device;
 
 class metal_kernel : public compute_kernel {
 public:
-	// encapsulates MTLComputeCommandEncoder and MTLCommandBuffer, so we don't need obj-c++ here
-	struct metal_encoder;
-	
 	struct metal_kernel_entry : kernel_entry {
 		const void* kernel { nullptr };
 		const void* kernel_state { nullptr };
