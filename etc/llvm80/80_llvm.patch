@@ -31476,10 +31476,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..42f052642c9
+index 00000000000..019f5be6197
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3867 @@
+@@ -0,0 +1,3863 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -33593,49 +33593,46 @@ index 00000000000..42f052642c9
 +    assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
 +    auto elem_type = GV.getType()->getPointerElementType();
 +
-+    // -> uniform blocks, SSBOs or IUBs
++    // -> SSBOs or IUBs
 +    if (!global_type.is_image) {
 +      auto spirv_elem_type = transType(elem_type);
-+      if (!global_type.is_constant) {
-+        // this is a SSBO with an unknown size, switch out the top pointer
-+        // type with a runtime array type
-+        auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
-+        std::string enclosing_type_name = "enclose.";
-+        if (elem_type->isStructTy()) {
-+          enclosing_type_name += elem_type->getStructName().str();
-+        } else {
-+          std::string type_str = "";
-+          llvm::raw_string_ostream type_stream(type_str);
-+          elem_type->print(type_stream, false, true);
-+          enclosing_type_name += type_stream.str();
-+        }
-+        auto enclosing_type = BM->openStructType(1, enclosing_type_name);
-+        enclosing_type->setMemberType(0, rtarr_type);
-+        BM->closeStructType(enclosing_type, false);
-+        mapped_type = BM->addPointerType(storage_class, enclosing_type);
-+
-+        // add required deco
-+        enclosing_type->addDecorate(
-+            new SPIRVDecorate(DecorationBlock, enclosing_type));
-+        enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
-+        rtarr_type->addDecorate(spv::DecorationArrayStride,
-+                                M->getDataLayout().getTypeStoreSize(elem_type));
-+      } else {
-+        assert(elem_type->isStructTy() && "uniform type must be a struct");
-+
-+        // deco
-+        if (global_type.is_iub) {
-+          mapped_type = transType(GV.getType());
-+          spirv_elem_type->addDecorate(
-+              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++      if (!global_type.is_iub) {
++        if (!global_type.is_constant) {
++          // this is a SSBO with an unknown size, switch out the top pointer
++          // type with a runtime array type
++          auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
++          std::string enclosing_type_name = "enclose.";
++          if (elem_type->isStructTy()) {
++            enclosing_type_name += elem_type->getStructName().str();
++          } else {
++            std::string type_str = "";
++            llvm::raw_string_ostream type_stream(type_str);
++            elem_type->print(type_stream, false, true);
++            enclosing_type_name += type_stream.str();
++          }
++          auto enclosing_type = BM->openStructType(1, enclosing_type_name);
++          enclosing_type->setMemberType(0, rtarr_type);
++          BM->closeStructType(enclosing_type, false);
++          mapped_type = BM->addPointerType(storage_class, enclosing_type);
++        
++          // add required deco
++          enclosing_type->addDecorate(new SPIRVDecorate(DecorationBlock, enclosing_type));
++          enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
++          rtarr_type->addDecorate(spv::DecorationArrayStride,
++                    M->getDataLayout().getTypeStoreSize(elem_type));
 +        } else {
 +          // we need to use the storage buffer storage class
-+          auto ssbo_ptr_type = llvm::PointerType::get(
-+              GV.getType()->getPointerElementType(), SPIRAS_StorageBuffer);
++          assert(elem_type->isStructTy() && "SSBO must be a struct");
++          auto ssbo_ptr_type = llvm::PointerType::get(GV.getType()->getPointerElementType(), SPIRAS_StorageBuffer);
 +          mapped_type = transType(ssbo_ptr_type);
-+          spirv_elem_type->addDecorate(
-+              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++          spirv_elem_type->addDecorate(new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +        }
++      } else {
++        assert(elem_type->isStructTy() && "uniform type must be a struct");
++        // we need to use the uniform buffer storage class
++        auto uniform_ptr_type = llvm::PointerType::get(GV.getType()->getPointerElementType(), SPIRAS_Uniform);
++        mapped_type = transType(uniform_ptr_type);
++        spirv_elem_type->addDecorate(new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
 +    }
@@ -34217,11 +34214,10 @@ index 00000000000..42f052642c9
 +          global_type.is_constant = true;
 +          global_type.is_uniform = true;
 +          global_type.is_read_only = true;
-+          auto storage_class = SPIRAS_Uniform;
++          auto storage_class = SPIRAS_StorageBuffer;
 +          if (md_prefix == "iub") {
 +            global_type.is_iub = true;
-+          } else {
-+            storage_class = SPIRAS_StorageBuffer;
++            storage_class = SPIRAS_Uniform;
 +          }
 +          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
 +                                     storage_class, global_type, md_info,
@@ -62836,10 +62832,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..3f696383544
+index 00000000000..fca24b643bf
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1623 @@
+@@ -0,0 +1,1634 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -62917,6 +62913,7 @@ index 00000000000..3f696383544
 +
 +namespace {
 +	// -> SPIRVInternal.h (can't include, b/c it's not in a proper path)
++	static const uint32_t SPIRAS_Constant = 2;
 +	static const uint32_t SPIRAS_Uniform = 5;
 +	//static const uint32_t SPIRAS_Input = 6;
 +	static const uint32_t SPIRAS_Output = 7;
@@ -63333,7 +63330,7 @@ index 00000000000..3f696383544
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
 +			
-+			const auto vulkan_version = get_vulkan_version(*M);
++			//const auto vulkan_version = get_vulkan_version(*M);
 +			
 +			// handle return value / output
 +			DBG(errs() << "> handling return values ...\n";)
@@ -63380,77 +63377,82 @@ index 00000000000..3f696383544
 +			
 +			DBG(errs() << "> updating function signature / parameters ...\n";)
 +			{
-+				// update function signature / param list
-+				// NOTE: this always changes the return type to void (vs/fs returns have already been modified)
++				// update function signature / parameters:
++				//  * change the return type to void (vs/fs returns have already been modified)
++				//  * transform constant AS pointers to either Uniform or StorageBuffer AS
++				//  * transform StorageBuffer AS image pointers to Uniform AS
++				//  * enclose non-struct Uniform parameters in a struct (note that enclosing SSBOs happens later)
 +				// NOTE: must be called after visiting rets and other ret type/val users
 +				std::vector<Type*> param_types;
-+				for(auto& arg : F.args()) {
++				DBG(errs() << "func: " << F.getName().str() << "\n";)
++				for (auto& arg : F.args()) {
 +					auto arg_type = arg.getType();
++					DBG(errs() << "\targ: " << arg.getName().str() << ": " << *arg_type;)
 +					
-+					// fix non-struct uniforms by enclosing them in a struct
-+					// NOTE: only fix direct args here (uniforms, not SSBOs, those will be fixed later)
-+					if(arg.onlyReadsMemory() &&
-+					   (arg.hasAttribute(Attribute::Dereferenceable) ||
-+						arg.hasAttribute(Attribute::DereferenceableOrNull))) {
-+					   if(auto ptr_type = dyn_cast<llvm::PointerType>(arg_type)) {
-+						   auto elem_type = ptr_type->getElementType();
-+						   if(ptr_type->getAddressSpace() == SPIRAS_Uniform &&
-+							  !elem_type->isStructTy()) {
-+							   llvm::Type* st_elems[] { elem_type };
-+							   auto enclosing_type = llvm::StructType::create(*ctx, st_elems, "enclose." + arg.getName().str());
-+							   auto new_arg_type = enclosing_type->getPointerTo(SPIRAS_Uniform);
-+							   arg_type = new_arg_type;
-+							   arg.mutateType(new_arg_type);
-+							   
-+							   // replace, should usually only have one load
-+							   llvm::Value* idx_list[] {
-+								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
-+								   llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
-+							   };
-+							   
-+							   std::vector<User*> users;
-+							   for(auto* user : arg.users()) {
-+								   users.emplace_back(user);
-+							   }
-+							   for(auto& user : users) {
-+								   if(auto instr = dyn_cast<Instruction>(user)) {
-+									   if(isa<LoadInst>(instr)) {
-+										   auto elem_gep = llvm::GetElementPtrInst::CreateInBounds(&arg, idx_list, "", instr);
-+										   auto repl_instr = new LoadInst(elem_gep, instr->getName(), false, instr);
-+										   repl_instr->setDebugLoc(instr->getDebugLoc());
-+										   instr->replaceAllUsesWith(repl_instr);
-+										   instr->eraseFromParent();
-+									   }
-+									   // TODO: ?
-+									   else errs() << "unhandled arg user: " << *instr << "\n";
-+								   }
-+								   else errs() << "arg user is not an instruction\n";
-+							   }
-+						   }
-+					   }
-+					}
-+					
-+					param_types.push_back(arg_type);
-+				}
-+
-+				// NOTE: for Vulkan 1.2 / SPIR-V 1.4+, change the AS of all SSBO pointers to StorageBuffer/12
-+				if (vulkan_version.first > 1 || (vulkan_version.first == 1 && vulkan_version.second >= 2)) {
-+					for (size_t arg_idx = 0, arg_count = param_types.size(); arg_idx < arg_count; ++arg_idx) {
-+						auto &arg = *std::next(F.arg_begin(), arg_idx);
-+						auto &arg_type = param_types[arg_idx];
-+						if (auto ptr_type = dyn_cast<llvm::PointerType>(arg_type);
-+								ptr_type &&
-+								ptr_type->getAddressSpace() == SPIRAS_Uniform &&
-+								ptr_type->getElementType()->isSized()) {
-+							// skip IUBs
-+							if (auto iub_attr = F.getAttribute(llvm::AttributeList::FirstArgIndex + arg_idx, "vulkan_iub"); iub_attr.getRawPointer() != nullptr) {
-+								continue;
++					// arg type must be a pointer
++					if (const auto ptr_type = dyn_cast<llvm::PointerType>(arg_type);
++						ptr_type && (ptr_type->getAddressSpace() == SPIRAS_Constant || ptr_type->getAddressSpace() == SPIRAS_StorageBuffer)) {
++						const auto ptr_as = ptr_type->getAddressSpace();
++						auto elem_type = ptr_type->getElementType();
++						const auto arg_idx = param_types.size();
++						
++						// IUB -> Uniform
++						const auto iub_attr = F.getAttribute(llvm::AttributeList::FirstArgIndex + arg_idx, "vulkan_iub");
++						const auto is_iub = (iub_attr.getRawPointer() != nullptr);
++						if (is_iub) {
++							DBG(errs() << " (IUB)";)
++						}
++						
++						// since there is a limit on how many IUBs we can have and how large they can be, some arguments might fall back to using SSBOs
++						const auto is_ssbo_uniform = (!is_iub && arg.onlyReadsMemory() && (arg.hasAttribute(Attribute::Dereferenceable) || arg.hasAttribute(Attribute::DereferenceableOrNull)));
++						
++						// any image/opaque type is unsized
++						const auto is_sized = elem_type->isSized();
++						
++						// decide storage class
++						const auto storage_class = (is_iub || !is_sized ? SPIRAS_Uniform : SPIRAS_StorageBuffer);
++						
++						// transform storage class if necessary +
++						// for IUBs/SSBO-Uniform: enclose in struct if the element type is not a struct
++						if ((is_iub || is_ssbo_uniform) && !elem_type->isStructTy()) {
++							llvm::Type* st_elems[] { elem_type };
++							elem_type = llvm::StructType::create(*ctx, st_elems, "enclose." + arg.getName().str());
++							arg_type = elem_type->getPointerTo(storage_class);
++							arg.mutateType(arg_type);
++							
++							// replace users, should usually only have one load
++							llvm::Value* idx_list[] {
++								llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
++								llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 0),
++							};
++							std::vector<User*> users;
++							for(auto* user : arg.users()) {
++								users.emplace_back(user);
 +							}
-+
-+							auto ssbo_ptr_type = PointerType::get(ptr_type->getElementType(), SPIRAS_StorageBuffer);
-+							arg.mutateType(ssbo_ptr_type);
-+							param_types[arg_idx] = ssbo_ptr_type;
-+
++							for (auto& user : users) {
++								if (auto instr = dyn_cast<Instruction>(user)) {
++									if (isa<LoadInst>(instr)) {
++										auto elem_gep = llvm::GetElementPtrInst::CreateInBounds(&arg, idx_list, "", instr);
++										auto repl_instr = new LoadInst(elem_gep, instr->getName(), false, instr);
++										repl_instr->setDebugLoc(instr->getDebugLoc());
++										instr->replaceAllUsesWith(repl_instr);
++										instr->eraseFromParent();
++									} else {
++										DBG(errs() << "\nunhandled arg user: " << *instr << "\n";)
++										DBG(errs().flush();)
++										assert(false && "unhandled arg user\n");
++									}
++								} else {
++									DBG(errs() << "\narg user is not an instruction\n";)
++									DBG(errs().flush();)
++									assert(false && "arg user is not an instruction\n");
++								}
++							}
++						} else if (storage_class != ptr_as) {
++							arg_type = elem_type->getPointerTo(storage_class);
++							arg.mutateType(arg_type);
++							
++							// update users
 +							std::vector<User*> users;
 +							for (auto* user : arg.users()) {
 +								users.emplace_back(user);
@@ -63458,12 +63460,17 @@ index 00000000000..3f696383544
 +							std::vector<ReturnInst*> returns; // returns to fix -> there shouldn't be any here
 +							for (auto& user : users) {
 +								if (auto instr = dyn_cast<Instruction>(user)) {
-+									fix_instruction_users(*ctx, *instr, arg, SPIRAS_StorageBuffer, returns);
++									fix_instruction_users(*ctx, *instr, arg, storage_class, returns);
 +								}
 +							}
 +							assert(returns.empty() && "unexpected return type change");
 +						}
++						
++						DBG(errs() << " -> " << *arg_type;)
 +					}
++					DBG(errs() << "\n";)
++					
++					param_types.push_back(arg_type);
 +				}
 +
 +				auto new_func_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), param_types, false);

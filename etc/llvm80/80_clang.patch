@@ -3643,7 +3643,7 @@ index 304d904368..bf023c405d 100644
 +  DefineStd(Builder, "AIR64", Opts);
 +}
 diff --git a/lib/Basic/Targets/SPIR.h b/lib/Basic/Targets/SPIR.h
-index 9815292fc2..ce0f560bb4 100644
+index 9815292fc2..6bef7e8631 100644
 --- a/lib/Basic/Targets/SPIR.h
 +++ b/lib/Basic/Targets/SPIR.h
 @@ -29,23 +29,39 @@ static const unsigned SPIRAddrSpaceMap[] = {
@@ -3656,10 +3656,10 @@ index 9815292fc2..ce0f560bb4 100644
 +    0  // cuda_shared
 +};
 +
-+// Vulkan/SPIR-V can't use global/CrossWorkgroup, but uses Uniform instead
++// Vulkan/SPIR-V uses its own storage classes
 +static const unsigned VulkanAddrSpaceMap[] = {
 +    0, // Default
-+    5, // opencl_global == SPIRAS_Uniform
++    12, // opencl_global == SPIRAS_StorageBuffer
 +    3, // opencl_local
 +    2, // opencl_constant
 +    0, // opencl_private
@@ -6594,7 +6594,7 @@ index fd4506f2d1..c5bb140355 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index f012384f3d..253a69e7ba 100644
+index f012384f3d..29598ed13d 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -38,6 +38,9 @@
@@ -6607,7 +6607,7 @@ index f012384f3d..253a69e7ba 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -559,191 +562,2221 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -559,191 +562,2223 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    }
  }
  
@@ -7420,7 +7420,8 @@ index f012384f3d..253a69e7ba 100644
 +		}
 +		// make parameters a IUB if their size is <= the size limit and we are still below the IUB count limit
 +		else if(clang_type->isReferenceType() &&
-+				clang_type->getPointeeType().getAddressSpace() == LangAS::opencl_global &&
++				clang_type->getPointeeType().getAddressSpace() == LangAS::opencl_constant &&
++				parm->getAttr<FloorArgBufferAttr>() == nullptr /* must not be an argument buffer */ &&
 +				compute_type_size(llvm_type->getPointerElementType()) <= CGM.getCodeGenOpts().VulkanIUBSize &&
 +				iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
 +			stage_infos.push_back(llvm::MDString::get(Context, prefix_iub + std::to_string(iub_count)));
@@ -8604,7 +8605,8 @@ index f012384f3d..253a69e7ba 100644
 +				// make parameters a IUB if their size is <= the size limit and we are still below the IUB count limit
 +				if (is_top_level) {
 +					if (type->isReferenceType() &&
-+						clang_pointee_type.getAddressSpace() == LangAS::opencl_global &&
++						clang_pointee_type.getAddressSpace() == LangAS::opencl_constant &&
++						decl.getAttr<FloorArgBufferAttr>() == nullptr /* must not be an argument buffer */ &&
 +						arg_size <= CGM.getCodeGenOpts().VulkanIUBSize &&
 +						vulkan_iub_count < CGM.getCodeGenOpts().VulkanIUBCount) {
 +						arg_info |= (uint64_t)FLOOR_ARG_INFO::IUB;
@@ -8957,7 +8959,7 @@ index f012384f3d..253a69e7ba 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -769,6 +2802,128 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -769,6 +2804,128 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -9086,7 +9088,7 @@ index f012384f3d..253a69e7ba 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -834,10 +2989,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -834,10 +2991,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -9099,7 +9101,7 @@ index f012384f3d..253a69e7ba 100644
      if (FD->usesSEHTry())
        CurSEHParent = FD;
    CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
-@@ -945,16 +3101,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -945,16 +3103,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    if (CGM.getCodeGenOpts().ProfileSampleAccurate)
      Fn->addFnAttr("profile-sample-accurate");
  
@@ -9129,7 +9131,7 @@ index f012384f3d..253a69e7ba 100644
        if (llvm::Constant *PrologueSig = getPrologueSignature(CGM, FD)) {
          // Remove any (C++17) exception specifications, to allow calling e.g. a
          // noexcept function through a non-noexcept pointer.
-@@ -990,13 +3154,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -990,13 +3156,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -9145,7 +9147,7 @@ index f012384f3d..253a69e7ba 100644
      if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
          CGM.getCodeGenOpts().StackAlignment)
        Fn->addFnAttr("stackrealign");
-@@ -1090,7 +3254,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1090,7 +3256,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -9163,7 +9165,7 @@ index f012384f3d..253a69e7ba 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1137,11 +3310,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -1137,11 +3312,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -9179,7 +9181,7 @@ index f012384f3d..253a69e7ba 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1288,6 +3461,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1288,6 +3463,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -9189,7 +9191,7 @@ index f012384f3d..253a69e7ba 100644
    return ResTy;
  }
  
-@@ -1356,7 +3532,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1356,7 +3534,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
