@@ -411,20 +411,18 @@ template <typename T> using compute_arg_buffer = const T&;
 #define arg_buffer __attribute__((floor_arg_buffer)) __restrict compute_arg_buffer
 #elif defined(FLOOR_COMPUTE_METAL)
 template <typename T> using arg_buffer = const constant T& __restrict;
-#elif defined(FLOOR_COMPUTE_VULKAN) // TODO: check if this actually works
-template <typename T> using arg_buffer = const global T&;
+#elif defined(FLOOR_COMPUTE_VULKAN)
+template <typename T> using compute_arg_buffer = const constant T&;
+#define arg_buffer __attribute__((floor_arg_buffer)) __restrict compute_arg_buffer
 #endif
 
 //! generic parameter object/buffer
 #if (defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)) && !defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
 template <typename T> using param = const T;
-#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
 // the __restrict prevents the parameter unnecessarily being loaded multiple times
 #define param __restrict compute_param
 template <typename T> using compute_param = const constant T&;
-#elif defined(FLOOR_COMPUTE_VULKAN)
-#define param __restrict compute_param
-template <typename T> using compute_param = const global T&;
 #elif defined(FLOOR_COMPUTE_HOST)
 template <typename T> using param = const T&;
 #endif
