@@ -25,6 +25,7 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/compute/vulkan/vulkan_encoder.hpp>
+#include <floor/compute/vulkan/vulkan_argument_buffer.hpp>
 #include <floor/compute/soft_printf.hpp>
 
 using namespace llvm_toolchain;
@@ -304,8 +305,8 @@ bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, **vec_img_sptrs);
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-			log_error("argument buffer handling is not implemented yet for Vulkan");
-			return false;
+			const auto arg_storage_buf = (*arg_buf_ptr)->get_storage_buffer();
+			set_argument(encoder, *entry, idx, arg_storage_buf);
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, *generic_arg_ptr, arg.size);
 		} else {
@@ -677,6 +678,41 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 const compute_kernel::kernel_entry* vulkan_kernel::get_kernel_entry(const compute_device& dev) const {
 	const auto ret = kernels.get((const vulkan_device&)dev);
 	return !ret.first ? nullptr : &ret.second->second;
+}
+
+unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
+																		   const kernel_entry& kern_entry,
+																		   const llvm_toolchain::arg_info& arg floor_unused,
+																		   const uint32_t& arg_index) const {
+	const auto& dev = cqueue.get_device();
+	const auto& vulkan_entry = (const vulkan_kernel_entry&)kern_entry;
+	
+	// check if info exists
+	const auto& arg_info = vulkan_entry.info->args[arg_index].argument_buffer_info;
+	if (!arg_info) {
+		log_error("no argument buffer info for arg at index #$", arg_index);
+		return {};
+	}
+	
+	// find the buffer index
+	uint32_t buffer_idx = 0;
+	for (uint32_t i = 0, count = uint32_t(vulkan_entry.info->args.size()); i < min(arg_index, count); ++i) {
+		if (vulkan_entry.info->args[i].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
+			// all args except for images are buffers
+			++buffer_idx;
+		}
+	}
+	
+	const auto arg_buffer_size = vulkan_entry.info->args[arg_index].size;
+	if (arg_buffer_size == 0) {
+		log_error("computed argument buffer size is 0");
+		return {};
+	}
+	
+	// create the argument buffer
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
+	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
+	return make_unique<vulkan_argument_buffer>(*this, buf, *arg_info);
 }
 
 #endif

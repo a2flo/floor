@@ -107,6 +107,7 @@ FLOOR_POP_WARNINGS()
 	//! returns the vulkan specific buffer object/pointer
 	const VkBuffer& get_vulkan_buffer() const { return buffer; }
 	const VkDescriptorBufferInfo* get_vulkan_buffer_info() const { return &buffer_info; }
+	const VkDeviceAddress& get_vulkan_buffer_device_address() const { return buffer_device_address; }
 	
 	//! returns the Vulkan shared memory handle (nullptr/0 if !shared)
 	const auto& get_vulkan_shared_handle() const {
@@ -125,6 +126,7 @@ protected:
 	VkBuffer buffer { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
 	VkDeviceSize allocation_size { 0 };
+	VkDeviceAddress buffer_device_address { 0 };
 	
 	// shared memory handle when the buffer has been created with VULKAN_SHARING
 #if defined(__WINDOWS__)

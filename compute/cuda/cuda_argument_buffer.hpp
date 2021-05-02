@@ -29,7 +29,7 @@ class cuda_argument_buffer : public argument_buffer {
 public:
 	cuda_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer, const llvm_toolchain::function_info& arg_info);
 	
-	void set_arguments(const vector<compute_kernel_arg>& args) override;
+	void set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
 	
 protected:
 	const llvm_toolchain::function_info& arg_info;

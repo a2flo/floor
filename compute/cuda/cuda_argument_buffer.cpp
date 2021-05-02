@@ -26,24 +26,23 @@ cuda_argument_buffer::cuda_argument_buffer(const compute_kernel& func_, shared_p
 										   const llvm_toolchain::function_info& arg_info_) :
 argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
 
-void cuda_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args) {
+void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) {
 	auto cuda_storage_buffer = (cuda_buffer*)storage_buffer.get();
 	
-	const auto& dev = storage_buffer->get_device();
-	auto dev_queue = dev.context->get_device_default_queue(dev);
+	const auto& dev = dev_queue.get_device();
 	
 	// map the memory of the argument buffer so that we can fill it on the CPU side + set up auto unmap
-	auto mapped_arg_buffer = cuda_storage_buffer->map(*dev_queue);
+	auto mapped_arg_buffer = cuda_storage_buffer->map(dev_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
 	struct unmap_on_exit_t {
-		const compute_queue* dev_queue { nullptr };
+		const compute_queue& dev_queue;
 		cuda_buffer* buffer { nullptr };
 		void* mapped_ptr { nullptr };
-		unmap_on_exit_t(const compute_queue* dev_queue_, cuda_buffer* buffer_, void* mapped_ptr_) :
+		unmap_on_exit_t(const compute_queue& dev_queue_, cuda_buffer* buffer_, void* mapped_ptr_) :
 		dev_queue(dev_queue_), buffer(buffer_), mapped_ptr(mapped_ptr_) {
-			assert(dev_queue != nullptr && buffer != nullptr && mapped_ptr != nullptr);
+			assert(buffer != nullptr && mapped_ptr != nullptr);
 		}
 		~unmap_on_exit_t() {
-			buffer->unmap(*dev_queue, mapped_ptr);
+			buffer->unmap(dev_queue, mapped_ptr);
 		}
 	} unmap_on_exit { dev_queue, cuda_storage_buffer, mapped_arg_buffer };
 	
@@ -84,8 +83,18 @@ void cuda_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args)
 				copy_buffer_ptr += arg_size;
 			}
 		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for CUDA");
-			return;
+			static constexpr const size_t arg_size = sizeof(cu_device_ptr);
+			for (const auto& buf_entry : **vec_buf_sptrs) {
+				copy_size += arg_size;
+				if (copy_size > buffer_size) {
+					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
+					return;
+				}
+				
+				const auto ptr = (buf_entry ? ((const cuda_buffer*)buf_entry.get())->get_cuda_buffer() : cu_device_ptr(0u));
+				memcpy(copy_buffer_ptr, &ptr, arg_size);
+				copy_buffer_ptr += arg_size;
+			}
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			auto cu_img = (const cuda_image*)*img_ptr;
 			
@@ -155,7 +164,7 @@ void cuda_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args)
 				log_error("out-of-bounds write for generic argument in argument buffer");
 				return;
 			}
-			memcpy(copy_buffer_ptr, &generic_arg_ptr, arg.size);
+			memcpy(copy_buffer_ptr, *generic_arg_ptr, arg.size);
 			copy_buffer_ptr += arg.size;
 		} else {
 			log_error("encountered invalid arg");

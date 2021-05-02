@@ -144,6 +144,11 @@ protected:
 					  const idx_handler& idx,
 					  const vector<compute_image*>& arg) const;
 	
+	unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
+																const kernel_entry& entry,
+																const llvm_toolchain::arg_info& arg,
+																const uint32_t& arg_index) const override;
+	
 };
 
 #endif

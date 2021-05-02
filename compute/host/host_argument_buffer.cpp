@@ -27,7 +27,7 @@ host_argument_buffer::host_argument_buffer(const compute_kernel& func_, shared_p
 										   const llvm_toolchain::function_info& arg_info_) :
 argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
 
-void host_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args) {
+void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_unused, const vector<compute_kernel_arg>& args) {
 	auto host_storage_buffer = (host_buffer*)storage_buffer.get();
 	
 	auto copy_buffer_ptr = host_storage_buffer->get_host_buffer_ptr();
@@ -100,7 +100,7 @@ void host_argument_buffer::set_arguments(const vector<compute_kernel_arg>& args)
 				log_error("out-of-bounds write for generic argument in argument buffer");
 				return;
 			}
-			memcpy(copy_buffer_ptr, &generic_arg_ptr, arg.size);
+			memcpy(copy_buffer_ptr, *generic_arg_ptr, arg.size);
 			copy_buffer_ptr += arg.size;
 		} else {
 			log_error("encountered invalid arg");

@@ -58,11 +58,6 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer) {
 bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	const auto& vulkan_dev = ((const vulkan_device&)cqueue.get_device()).device;
 
-	VkImageCreateFlags vk_create_flags = 0;
-	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_ALIASING>(flags)) {
-		vk_create_flags |= VK_IMAGE_CREATE_ALIAS_BIT;
-	}
-
 	// create the buffer
 	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
 	VkExternalMemoryBufferCreateInfo ext_create_info;
@@ -82,7 +77,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
-		.flags = vk_create_flags,
+		.flags = 0,
 		.size = size,
 		// set all the bits here, might need some better restrictions later on
 		// NOTE: not setting vertex bit here, b/c we're always using SSBOs
@@ -90,7 +85,8 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 				  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 				  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 				  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
+				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+				  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT),
 		// NOTE: for performance reasons, we always want exclusive sharing
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 0,
@@ -139,9 +135,15 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
 	allocation_size = mem_req.size;
 	
+	const VkMemoryAllocateFlagsInfo alloc_flags_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+		.deviceMask = 0,
+	};
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.pNext = &alloc_flags_info,
 		.allocationSize = allocation_size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
 												  has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) /* sharing requires device memory */),
@@ -153,6 +155,19 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	buffer_info.buffer = buffer;
 	buffer_info.offset = 0;
 	buffer_info.range = size;
+	
+	// query device address
+	const VkBufferDeviceAddressInfo dev_addr_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.pNext = nullptr,
+		.buffer = buffer,
+	};
+	buffer_device_address = vkGetBufferDeviceAddress(vulkan_dev, &dev_addr_info);
+	if (buffer_device_address == 0) {
+		log_error("failed to query buffer device address");
+		return false;
+	}
+	//log_debug("dev addr: $X", buffer_device_address);
 	
 	// buffer init from host data pointer
 	if(copy_host_data &&

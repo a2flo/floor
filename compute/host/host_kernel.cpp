@@ -1321,7 +1321,7 @@ unique_ptr<argument_buffer> host_kernel::create_argument_buffer_internal(const c
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
 	return make_unique<host_argument_buffer>(*this, buf, *arg_info);
 }

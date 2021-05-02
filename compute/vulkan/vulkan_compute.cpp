@@ -387,25 +387,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
-		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalar_block_layout_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
-			.pNext = nullptr,
-			.scalarBlockLayout = false,
-		};
-		VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR uniform_buffer_standard_layout_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR,
-			.pNext = &scalar_block_layout_features,
-			.uniformBufferStandardLayout = false,
-		};
-		VkPhysicalDeviceShaderFloat16Int8FeaturesKHR shader_float16_int8_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR,
-			.pNext = &uniform_buffer_standard_layout_features,
-			.shaderFloat16 = false,
-			.shaderInt8 = false,
-		};
 		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
-			.pNext = &shader_float16_int8_features,
+			.pNext = nullptr,
 			.inlineUniformBlock = false,
 			.descriptorBindingInlineUniformBlockUpdateAfterBind = false
 		};
@@ -425,9 +409,60 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.samplerYcbcrConversion = false,
 			.shaderDrawParameters = false,
 		};
+		VkPhysicalDeviceVulkan12Features vulkan12_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+			.pNext = &vulkan11_features,
+			.samplerMirrorClampToEdge = false,
+			.drawIndirectCount = false,
+			.storageBuffer8BitAccess = false,
+			.uniformAndStorageBuffer8BitAccess = false,
+			.storagePushConstant8 = false,
+			.shaderBufferInt64Atomics = false,
+			.shaderSharedInt64Atomics = false,
+			.shaderFloat16 = false,
+			.shaderInt8 = false,
+			.descriptorIndexing = false,
+			.shaderInputAttachmentArrayDynamicIndexing = false,
+			.shaderUniformTexelBufferArrayDynamicIndexing = false,
+			.shaderStorageTexelBufferArrayDynamicIndexing = false,
+			.shaderUniformBufferArrayNonUniformIndexing = false,
+			.shaderSampledImageArrayNonUniformIndexing = false,
+			.shaderStorageBufferArrayNonUniformIndexing = false,
+			.shaderStorageImageArrayNonUniformIndexing = false,
+			.shaderInputAttachmentArrayNonUniformIndexing = false,
+			.shaderUniformTexelBufferArrayNonUniformIndexing = false,
+			.shaderStorageTexelBufferArrayNonUniformIndexing = false,
+			.descriptorBindingUniformBufferUpdateAfterBind = false,
+			.descriptorBindingSampledImageUpdateAfterBind = false,
+			.descriptorBindingStorageImageUpdateAfterBind = false,
+			.descriptorBindingStorageBufferUpdateAfterBind = false,
+			.descriptorBindingUniformTexelBufferUpdateAfterBind = false,
+			.descriptorBindingStorageTexelBufferUpdateAfterBind = false,
+			.descriptorBindingUpdateUnusedWhilePending = false,
+			.descriptorBindingPartiallyBound = false,
+			.descriptorBindingVariableDescriptorCount = false,
+			.runtimeDescriptorArray = false,
+			.samplerFilterMinmax = false,
+			.scalarBlockLayout = false,
+			.imagelessFramebuffer = false,
+			.uniformBufferStandardLayout = false,
+			.shaderSubgroupExtendedTypes = false,
+			.separateDepthStencilLayouts = false,
+			.hostQueryReset = false,
+			.timelineSemaphore = false,
+			.bufferDeviceAddress = false,
+			.bufferDeviceAddressCaptureReplay = false,
+			.bufferDeviceAddressMultiDevice = false,
+			.vulkanMemoryModel = false,
+			.vulkanMemoryModelDeviceScope = false,
+			.vulkanMemoryModelAvailabilityVisibilityChains = false,
+			.shaderOutputViewportIndex = false,
+			.shaderOutputLayer = false,
+			.subgroupBroadcastDynamicId = false,
+		};
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = &vulkan11_features,
+			.pNext = &vulkan12_features,
 			.features = {
 				.shaderInt64 = true,
 			},
@@ -479,9 +514,20 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 #endif
 		
-		// devices must support int64
+		// check required features
+		if (!vulkan12_features.vulkanMemoryModel ||
+			!vulkan12_features.vulkanMemoryModelDeviceScope) {
+			log_error("Vulkan memory model is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		if (!vulkan12_features.bufferDeviceAddress) {
+			log_error("buffer device addresses are not supported by $", props.deviceName);
+			continue;
+		}
+		
 		if (!features_2.features.shaderInt64) {
-			log_error("device $ does not support shaderInt64", props.deviceName);
+			log_error("Int64 is not suppported by $", props.deviceName);
 			continue;
 		}
 		
@@ -497,17 +543,17 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
-		if (scalar_block_layout_features.scalarBlockLayout == 0) {
+		if (!vulkan12_features.scalarBlockLayout) {
 			log_error("scalar block layout is not supported by $", props.deviceName);
 			continue;
 		}
 		
-		if (uniform_buffer_standard_layout_features.uniformBufferStandardLayout == 0) {
+		if (!vulkan12_features.uniformBufferStandardLayout) {
 			log_error("uniform buffer standard layout is not supported by $", props.deviceName);
 			continue;
 		}
 		
-		if (inline_uniform_block_features.inlineUniformBlock == 0) {
+		if (!inline_uniform_block_features.inlineUniformBlock) {
 			log_error("inline uniform blocks are not supported by $", props.deviceName);
 			continue;
 		}
@@ -658,8 +704,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// ext feature enablement
-		scalar_block_layout_features.scalarBlockLayout = true;
-		uniform_buffer_standard_layout_features.uniformBufferStandardLayout = true;
 		inline_uniform_block_features.inlineUniformBlock = true;
 		// NOTE: shaderFloat16 and shaderInt8 are optional
 		
@@ -798,7 +842,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_anisotropy = (device.anisotropic_support ? uint32_t(limits.maxSamplerAnisotropy) : 1u);
 		
 		device.int16_support = features_2.features.shaderInt16;
-		device.float16_support = shader_float16_int8_features.shaderFloat16;
+		device.float16_support = vulkan12_features.shaderFloat16;
 		device.double_support = features_2.features.shaderFloat64;
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;

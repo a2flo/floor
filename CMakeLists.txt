@@ -173,6 +173,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/opencl/opencl_program.hpp
 	compute/opencl/opencl_queue.cpp
 	compute/opencl/opencl_queue.hpp
+	compute/vulkan/vulkan_argument_buffer.cpp
+	compute/vulkan/vulkan_argument_buffer.hpp
 	compute/vulkan/vulkan_buffer.cpp
 	compute/vulkan/vulkan_buffer.hpp
 	compute/vulkan/vulkan_common.hpp

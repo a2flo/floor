@@ -42,17 +42,18 @@ public:
 	
 	//! sets/encodes the specified arguments in this buffer
 	template <typename... Args>
-	void set_arguments(const Args&... args) __attribute__((enable_if(compute_queue::check_arg_types<Args...>(), "valid args"))) {
-		set_arguments({ args... });
+	void set_arguments(const compute_queue& dev_queue, const Args&... args)
+	__attribute__((enable_if(compute_queue::check_arg_types<Args...>(), "valid args"))) {
+		set_arguments(dev_queue, { args... });
 	}
 	
 	//! sets/encodes the specified arguments in this buffer
 	template <typename... Args>
-	void set_arguments(const Args&...)
+	void set_arguments(const compute_queue& dev_queue, const Args&...)
 	__attribute__((enable_if(!compute_queue::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
 	
 	//! sets/encodes the specified arguments in this buffer
-	virtual void set_arguments(const vector<compute_kernel_arg>& args) = 0;
+	virtual void set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) = 0;
 	
 protected:
 	const compute_kernel& func;

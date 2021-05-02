@@ -16,18 +16,18 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_HOST_ARGUMENT_BUFFER_HPP__
-#define __FLOOR_HOST_ARGUMENT_BUFFER_HPP__
+#ifndef __FLOOR_VULKAN_ARGUMENT_BUFFER_HPP__
+#define __FLOOR_VULKAN_ARGUMENT_BUFFER_HPP__
 
 #include <floor/compute/argument_buffer.hpp>
 
-#if !defined(FLOOR_NO_HOST_COMPUTE)
+#if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/aligned_ptr.hpp>
-#include <floor/compute/host/host_kernel.hpp>
+#include <floor/compute/vulkan/vulkan_kernel.hpp>
 
-class host_argument_buffer : public argument_buffer {
+class vulkan_argument_buffer : public argument_buffer {
 public:
-	host_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer, const llvm_toolchain::function_info& arg_info);
+	vulkan_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer, const llvm_toolchain::function_info& arg_info);
 	
 	void set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
 	
