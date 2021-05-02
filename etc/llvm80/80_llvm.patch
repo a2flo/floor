@@ -20631,10 +20631,10 @@ index 00000000000..4185c820c0a
 +ModulePass *llvm::createOCL20To12() { return new OCL20To12(); }
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 00000000000..5888760e7f6
+index 00000000000..de13700d2ce
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
-@@ -0,0 +1,1533 @@
+@@ -0,0 +1,1537 @@
 +//===- OCL20ToSPIRV.cpp - Transform OCL20/GLSL to SPIR-V builtins - C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -21480,6 +21480,10 @@ index 00000000000..5888760e7f6
 +                    break;
 +                  default:
 +                    break;
++                  }
++                  // SequentiallyConsistent memory order is not supported -> use AcquireRelease
++                  if (Ord == OCLMO_seq_cst) {
++                    Ord = OCLMO_acq_rel;
 +                  }
 +                }
 +                return mapOCLMemSemanticToSPIRV(
@@ -24335,10 +24339,10 @@ index 00000000000..619d0fcf29a
 +}
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 00000000000..5986eb96b64
+index 00000000000..5d76633f55c
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,937 @@
+@@ -0,0 +1,939 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -24541,7 +24545,7 @@ index 00000000000..5986eb96b64
 +  // CrossWorkgroup == SPIRAS_Global
 +  // Function = SPIRAS_Private
 +  // UniformConstant = SPIRAS_Constant
-+  SPIRAS_Count,
++  SPIRAS_PhysicalStorageBuffer = 5349,
 +};
 +
 +template <> inline void SPIRVMap<SPIRAddressSpace, std::string>::init() {
@@ -24558,6 +24562,7 @@ index 00000000000..5986eb96b64
 +  add(SPIRAS_AtomicCounter, "AtomicCounter");
 +  add(SPIRAS_Image, "Image");
 +  add(SPIRAS_StorageBuffer, "StorageBuffer");
++  add(SPIRAS_PhysicalStorageBuffer, "PhysicalStorageBuffer");
 +}
 +typedef SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind>
 +    SPIRAddrSpaceCapitalizedNameMap;
@@ -24577,6 +24582,7 @@ index 00000000000..5986eb96b64
 +  add(SPIRAS_AtomicCounter, StorageClassAtomicCounter);
 +  add(SPIRAS_Image, StorageClassImage);
 +  add(SPIRAS_StorageBuffer, StorageClassStorageBuffer);
++  add(SPIRAS_PhysicalStorageBuffer, StorageClassPhysicalStorageBuffer);
 +}
 +typedef SPIRVMap<SPIRAddressSpace, SPIRVStorageClassKind> SPIRSPIRVAddrSpaceMap;
 +
@@ -26503,10 +26509,10 @@ index 00000000000..6ca20f39a5c
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 00000000000..db3d185d13b
+index 00000000000..e637a46f92e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
-@@ -0,0 +1,2734 @@
+@@ -0,0 +1,2735 @@
 +//===- SPIRVReader.cpp - Converts SPIR-V to LLVM ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -28639,6 +28645,7 @@ index 00000000000..db3d185d13b
 +    M->setDataLayout(SPIR_DATALAYOUT32);
 +    return true;
 +  case AddressingModelLogical:
++  case AddressingModelPhysicalStorageBuffer64:
 +    // Do not set target triple and data layout
 +    return true;
 +  }
@@ -31476,10 +31483,10 @@ index 00000000000..2346db740e1
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..019f5be6197
+index 00000000000..0c405e3d88d
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3863 @@
+@@ -0,0 +1,3866 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -33343,11 +33350,14 @@ index 00000000000..019f5be6197
 +    // OpenCL memory model requires Kernel capability
 +    BM->setMemoryModel(MemoryModelOpenCL);
 +  } else {
-+    BM->setAddressingModel(AddressingModelLogical);
-+    BM->setMemoryModel(MemoryModelGLSL450);
-+    BM->addCapability(CapabilityShader);
++    BM->setAddressingModel(AddressingModelPhysicalStorageBuffer64);
++    BM->setMemoryModel(MemoryModelVulkan);
 +
-+    // always add these for now
++    // always add these
++    BM->addCapability(CapabilityShader);
++    BM->addCapability(CapabilityVulkanMemoryModel);
++    BM->addCapability(CapabilityVulkanMemoryModelDeviceScope);
++    BM->addCapability(CapabilityPhysicalStorageBufferAddresses);
 +    BM->addCapability(CapabilityVariablePointersStorageBuffer);
 +    BM->addCapability(CapabilityVariablePointers);
 +    BM->addCapability(CapabilityUniformBufferArrayDynamicIndexing);
@@ -41829,10 +41839,10 @@ index 00000000000..f3a8e735d94
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 00000000000..b780da6e66a
+index 00000000000..c631246a286
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
-@@ -0,0 +1,970 @@
+@@ -0,0 +1,973 @@
 +//===- SPIRVIsValidEnum.h - SPIR-V isValid enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -41926,6 +41936,7 @@ index 00000000000..b780da6e66a
 +  case AddressingModelLogical:
 +  case AddressingModelPhysical32:
 +  case AddressingModelPhysical64:
++  case AddressingModelPhysicalStorageBuffer64:
 +    return true;
 +  default:
 +    return false;
@@ -41937,6 +41948,7 @@ index 00000000000..b780da6e66a
 +  case MemoryModelSimple:
 +  case MemoryModelGLSL450:
 +  case MemoryModelOpenCL:
++  case MemoryModelVulkan:
 +    return true;
 +  default:
 +    return false;
@@ -42001,6 +42013,7 @@ index 00000000000..b780da6e66a
 +  case StorageClassAtomicCounter:
 +  case StorageClassImage:
 +  case StorageClassStorageBuffer:
++  case StorageClassPhysicalStorageBuffer:
 +    return true;
 +  default:
 +    return false;
@@ -48582,10 +48595,10 @@ index 00000000000..a51d8432bac
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 00000000000..0814cc6ca15
+index 00000000000..423ce3402c0
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
-@@ -0,0 +1,1069 @@
+@@ -0,0 +1,1071 @@
 +// Copyright (c) 2014-2016 The Khronos Group Inc.
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48666,12 +48679,14 @@ index 00000000000..0814cc6ca15
 +    AddressingModelLogical = 0,
 +    AddressingModelPhysical32 = 1,
 +    AddressingModelPhysical64 = 2,
++	AddressingModelPhysicalStorageBuffer64 = 5348,
 +};
 +
 +enum MemoryModel {
 +    MemoryModelSimple = 0,
 +    MemoryModelGLSL450 = 1,
 +    MemoryModelOpenCL = 2,
++    MemoryModelVulkan = 3,
 +};
 +
 +enum ExecutionMode {
@@ -53041,10 +53056,10 @@ index 7c9dbcb66cc..184065ade31 100644
  void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 00000000000..1da0a3dda09
+index 00000000000..5290a0c4d74
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,569 @@
+@@ -0,0 +1,591 @@
 +//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53217,6 +53232,26 @@ index 00000000000..1da0a3dda09
 +					returns.push_back(cast<ReturnInst>(instr));
 +					return;
 +				}
++				case Instruction::Load: {
++					auto LD = cast<LoadInst>(instr);
++					if(LD->getType()->isPointerTy()) {
++						auto new_ptr_type = PointerType::get(LD->getType()->getPointerElementType(), address_space);
++						DBG(errs() << ">> LD: " << *LD->getType() << " -> ";)
++						LD->mutateType(new_ptr_type);
++						DBG(errs() << " -> " << *LD->getType() << "\n";)
++					}
++					break;
++				}
++				case Instruction::Store: {
++					auto ST = cast<StoreInst>(instr);
++					if(ST->getType()->isPointerTy()) {
++						auto new_ptr_type = PointerType::get(ST->getType()->getPointerElementType(), address_space);
++						DBG(errs() << ">> ST: " << *ST->getType() << " -> ";)
++						ST->mutateType(new_ptr_type);
++						DBG(errs() << " -> " << *ST->getType() << "\n";)
++					}
++					break;
++				}
 +
 +				case Instruction::AddrSpaceCast:
 +				case Instruction::Invoke:
@@ -53239,6 +53274,8 @@ index 00000000000..1da0a3dda09
 +						case Instruction::BitCast:
 +						case Instruction::Call:
 +						case Instruction::Ret:
++						case Instruction::Load:
++						case Instruction::Store:
 +							fix_users<fix_call_instrs>(asfix_pass, ctx, user_instr, instr, address_space, returns);
 +							break;
 +						case Instruction::AddrSpaceCast:
@@ -62832,10 +62869,10 @@ index 00000000000..a03d6572044
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 00000000000..fca24b643bf
+index 00000000000..339e07b2db7
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,1634 @@
+@@ -0,0 +1,1734 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -62918,6 +62955,7 @@ index 00000000000..fca24b643bf
 +	//static const uint32_t SPIRAS_Input = 6;
 +	static const uint32_t SPIRAS_Output = 7;
 +	static const uint32_t SPIRAS_StorageBuffer = 12;
++	static const uint32_t SPIRAS_PhysicalStorageBuffer = 5349;
 +
 +	// VulkanBuiltinParamHandling
 +	struct VulkanBuiltinParamHandling : public FunctionPass, InstVisitor<VulkanBuiltinParamHandling> {
@@ -63382,6 +63420,7 @@ index 00000000000..fca24b643bf
 +				//  * transform constant AS pointers to either Uniform or StorageBuffer AS
 +				//  * transform StorageBuffer AS image pointers to Uniform AS
 +				//  * enclose non-struct Uniform parameters in a struct (note that enclosing SSBOs happens later)
++				//  * transform pointers inside argument buffers to PhysicalStorageBuffer AS
 +				// NOTE: must be called after visiting rets and other ret type/val users
 +				std::vector<Type*> param_types;
 +				DBG(errs() << "func: " << F.getName().str() << "\n";)
@@ -63396,15 +63435,30 @@ index 00000000000..fca24b643bf
 +						auto elem_type = ptr_type->getElementType();
 +						const auto arg_idx = param_types.size();
 +						
-+						// IUB -> Uniform
++						// handle IUBs
 +						const auto iub_attr = F.getAttribute(llvm::AttributeList::FirstArgIndex + arg_idx, "vulkan_iub");
 +						const auto is_iub = (iub_attr.getRawPointer() != nullptr);
-+						if (is_iub) {
-+							DBG(errs() << " (IUB)";)
-+						}
++						DBG(
++							if (is_iub) {
++								errs() << " (IUB)";
++							}
++						)
++						
++						// handle arg buffers
++						const auto ab_attr = F.getAttribute(llvm::AttributeList::FirstArgIndex + arg_idx, "vulkan_arg_buffer");
++						const auto is_arg_buffer = (ab_attr.getRawPointer() != nullptr);
++						DBG(
++							if (is_arg_buffer) {
++								errs() << " (arg-buffer)";
++							}
++						)
++						assert(!(is_arg_buffer && is_iub) && "IUB and AB are mutually exclusive");
++						assert(!is_arg_buffer || (is_arg_buffer && elem_type->isStructTy()) && "AB element type must be a struct");
 +						
 +						// since there is a limit on how many IUBs we can have and how large they can be, some arguments might fall back to using SSBOs
-+						const auto is_ssbo_uniform = (!is_iub && arg.onlyReadsMemory() && (arg.hasAttribute(Attribute::Dereferenceable) || arg.hasAttribute(Attribute::DereferenceableOrNull)));
++						const auto is_ssbo_uniform = (!is_iub && !is_arg_buffer && arg.onlyReadsMemory() &&
++													  (arg.hasAttribute(Attribute::Dereferenceable) ||
++													   arg.hasAttribute(Attribute::DereferenceableOrNull)));
 +						
 +						// any image/opaque type is unsized
 +						const auto is_sized = elem_type->isSized();
@@ -63440,12 +63494,12 @@ index 00000000000..fca24b643bf
 +									} else {
 +										DBG(errs() << "\nunhandled arg user: " << *instr << "\n";)
 +										DBG(errs().flush();)
-+										assert(false && "unhandled arg user\n");
++										assert(false && "unhandled arg user");
 +									}
 +								} else {
 +									DBG(errs() << "\narg user is not an instruction\n";)
 +									DBG(errs().flush();)
-+									assert(false && "arg user is not an instruction\n");
++									assert(false && "arg user is not an instruction");
 +								}
 +							}
 +						} else if (storage_class != ptr_as) {
@@ -63465,7 +63519,90 @@ index 00000000000..fca24b643bf
 +							}
 +							assert(returns.empty() && "unexpected return type change");
 +						}
-+						
++
++						// transform argument buffer struct and uses
++						if (is_arg_buffer) {
++							// note that we only need to cover the pointers at the top-level of the struct (i.e. either direct pointers or array of pointers)
++							auto elem_struct_type = dyn_cast<llvm::StructType>(elem_type);
++							std::vector<Type*> adj_struct_member_types;
++							bool struct_needs_adjustment = false;
++							for (auto& member_type : elem_struct_type->elements()) {
++								if (member_type->isPointerTy()) {
++									auto member_ptr_type = dyn_cast<llvm::PointerType>(member_type);
++									if (member_ptr_type->getAddressSpace() != SPIRAS_StorageBuffer) {
++										ctx->emitError("unsupported pointer address space in argument buffer of function " + func->getName().str());
++										return false;
++									}
++									
++									member_ptr_type = member_ptr_type->getElementType()->getPointerTo(SPIRAS_PhysicalStorageBuffer);
++									adj_struct_member_types.emplace_back(member_ptr_type);
++									struct_needs_adjustment = true;
++								} else if (member_type->isArrayTy()) {
++									auto arr_elem_type = member_type->getArrayElementType();
++									if (!arr_elem_type->isPointerTy()) {
++										adj_struct_member_types.emplace_back(member_type);
++										continue;
++									}
++									
++									auto arr_elem_ptr_type = dyn_cast<llvm::PointerType>(arr_elem_type);
++									if (arr_elem_ptr_type->getAddressSpace() != SPIRAS_StorageBuffer) {
++										ctx->emitError("unsupported pointer address space in buffer array in argument buffer of function " + func->getName().str());
++										return false;
++									}
++									
++									arr_elem_ptr_type = arr_elem_ptr_type->getElementType()->getPointerTo(SPIRAS_PhysicalStorageBuffer);
++									arr_elem_type = llvm::ArrayType::get(arr_elem_ptr_type, member_type->getArrayNumElements());
++									adj_struct_member_types.emplace_back(arr_elem_type);
++									struct_needs_adjustment = true;
++								} else {
++									adj_struct_member_types.emplace_back(member_type);
++								}
++							}
++							if (struct_needs_adjustment) {
++								auto adj_struct_type = llvm::StructType::create(*ctx, adj_struct_member_types, elem_struct_type->getName().str() + ".adj");
++								arg_type = adj_struct_type->getPointerTo(storage_class);
++								arg.mutateType(arg_type);
++								
++								// update users
++								std::vector<User*> users;
++								for (auto* user : arg.users()) {
++									users.emplace_back(user);
++								}
++								for (auto& user : users) {
++									// all users should just be GEPs
++									if (auto GEP = dyn_cast<GetElementPtrInst>(user)) {
++										const auto result_type = GEP->getResultElementType();
++										if (!result_type->isPointerTy() || result_type->getPointerAddressSpace() != SPIRAS_StorageBuffer) {
++											continue;
++										}
++										
++										// modify GEP types to use the correct address spaces
++										auto new_result_type = result_type->getPointerElementType()->getPointerTo(SPIRAS_PhysicalStorageBuffer);
++										auto new_gep_type = PointerType::get(new_result_type, SPIRAS_StorageBuffer);
++										GEP->mutateType(new_gep_type);
++										GEP->setResultElementType(new_result_type);
++										
++										// fix GEP users
++										std::vector<User*> gep_users;
++										for (auto* gep_user : GEP->users()) {
++											gep_users.emplace_back(gep_user);
++										}
++										for (auto& gep_user : gep_users) {
++											if (auto gep_user_instr = dyn_cast<Instruction>(gep_user)) {
++												std::vector<ReturnInst*> returns; // returns to fix -> there shouldn't be any here
++												fix_instruction_users(*ctx, *gep_user_instr, *GEP, SPIRAS_PhysicalStorageBuffer, returns);
++												assert(returns.empty() && "unexpected return type change");
++											}
++										}
++									} else {
++										DBG(errs() << "\nunhandled AB user: " << *user << "\n";)
++										DBG(errs().flush();)
++										assert(false && "unhandled AB user");
++									}
++								}
++							}
++						}
++
 +						DBG(errs() << " -> " << *arg_type;)
 +					}
 +					DBG(errs() << "\n";)
