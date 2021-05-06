@@ -94,18 +94,31 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		}
 	}
 	
-	// acquire shader descriptor sets, or set dummy one if shader stage doesn't exist
+	// acquire shader descriptor sets and constant buffers, or set dummy ones if shader stage doesn't exist
 	if (vertex_shader->desc_set_container) {
 		encoder->acquired_descriptor_sets.emplace_back(vertex_shader->desc_set_container->acquire_descriptor_set());
 	} else {
-		// add dummy
-		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {});
+		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
 	}
+	if (vertex_shader->desc_set_container && vertex_shader->constant_buffers) {
+		encoder->acquired_constant_buffers.emplace_back(vertex_shader->constant_buffers->acquire());
+		encoder->constant_buffer_mappings.emplace_back(vertex_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+	} else {
+		encoder->acquired_constant_buffers.emplace_back(pair<compute_buffer*, uint32_t> { nullptr, ~0u }); // add dummy
+		encoder->constant_buffer_mappings.emplace_back(nullptr);
+	}
+	
 	if (fragment_shader != nullptr && fragment_shader->desc_set_container) {
 		encoder->acquired_descriptor_sets.emplace_back(fragment_shader->desc_set_container->acquire_descriptor_set());
 	} else {
-		// add dummy
-		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {});
+		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
+	}
+	if (fragment_shader != nullptr && fragment_shader->desc_set_container && fragment_shader->constant_buffers) {
+		encoder->acquired_constant_buffers.emplace_back(fragment_shader->constant_buffers->acquire());
+		encoder->constant_buffer_mappings.emplace_back(fragment_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+	} else {
+		encoder->acquired_constant_buffers.emplace_back(pair<compute_buffer*, uint32_t> { nullptr, ~0u }); // add dummy
+		encoder->constant_buffer_mappings.emplace_back(nullptr);
 	}
 	
 	// set and handle arguments
@@ -194,8 +207,17 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	// release acquired descriptor sets again after completion
 	if (has_vs_desc || has_fs_desc) {
 		auto acq_desc_sets_local = make_shared<decltype(encoder->acquired_descriptor_sets)>(move(encoder->acquired_descriptor_sets));
-		vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local)]() {
+		auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
+		vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local),
+													 acq_const_buffers = move(acq_const_buffers_local),
+													 kernel_entries = encoder->entries]() {
 			acq_desc_sets->clear();
+			for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {
+				auto& acq_const_buffer = (*acq_const_buffers)[entry_idx];
+				if (acq_const_buffer.first != nullptr) {
+					kernel_entries[entry_idx]->constant_buffers->release(acq_const_buffer);
+				}
+			}
 		});
 	}
 	

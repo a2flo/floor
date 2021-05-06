@@ -76,6 +76,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					vector<VkDescriptorType> descriptor_types(total_arg_count);
 					uint32_t ssbo_desc = 0, iub_desc = 0, read_image_desc = 0, write_image_desc = 0;
 					uint32_t max_iub_size = 0;
+					decltype(vulkan_kernel::vulkan_kernel_entry::constant_buffer_info) constant_buffer_info;
+					uint32_t constant_arg_count = 0, constant_buffer_size = 0;
 					bool valid_desc = true;
 					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)total_arg_count; ++i) {
 						bindings[binding_idx].binding = binding_idx;
@@ -144,7 +146,6 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								case ARG_ADDRESS_SPACE::CONSTANT:
 									// NOTE: buffers are always SSBOs
 									// NOTE: uniforms/param can either be SSBOs or IUBs, dpending on their size and device support
-									// TODO: support push constants as well (size is at least 128 bytes)
 									if (info.args[i].special_type == SPECIAL_TYPE::IUB) {
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
 										// descriptor count == size, which must be a multiple of 4
@@ -155,6 +156,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									} else {
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 										++ssbo_desc;
+										
+										// put all non-IUB constant args into a single constant buffer that is allocated only once
+										if (info.args[i].address_space == ARG_ADDRESS_SPACE::CONSTANT) {
+											assert(info.args[i].size > 0);
+											// offsets in SSBOs must be aligned to minStorageBufferOffsetAlignment
+											const auto ssbo_alignment = prog.first.get().min_storage_buffer_offset_alignment;
+											constant_buffer_size = ((constant_buffer_size + ssbo_alignment - 1u) / ssbo_alignment) * ssbo_alignment;
+											constant_buffer_info.emplace(uint32_t(i), vulkan_kernel::vulkan_kernel_entry::constant_buffer_info_t {
+												.offset = constant_buffer_size,
+												.size = info.args[i].size,
+											});
+											constant_buffer_size += info.args[i].size;
+											++constant_arg_count;
+										}
 									}
 									break;
 								case ARG_ADDRESS_SPACE::LOCAL:
@@ -291,6 +306,43 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						}
 #endif
 						entry.desc_set_container = make_unique<vulkan_descriptor_set_container>(move(desc_sets));
+						
+						// allocate constant buffers
+						if (constant_buffer_size > 0) {
+							entry.constant_buffer_info = move(constant_buffer_info);
+							
+							// align size to 16 bytes
+							const uint32_t alignment_pot = 4u, alignment = 1u << alignment_pot;
+							constant_buffer_size = ((constant_buffer_size + alignment - 1u) / alignment) * alignment;
+							const auto& ctx = *(const vulkan_compute*)prog.first.get().context;
+							const vulkan_device& dev = prog.first.get();
+							const auto dev_queue = ctx.get_device_default_queue(dev);
+							assert(dev_queue != nullptr);
+							
+							// we need to allocate as many buffers as we have descriptor sets
+							array<compute_buffer*, vulkan_descriptor_set_container::descriptor_count> constant_buffers;
+#if defined(FLOOR_DEBUG)
+							string const_buffer_label_stem = "const_buf:" + func_name + "#";
+#endif
+							for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_set_container::descriptor_count; ++buf_idx) {
+								// allocate in device-local/host-coherent memory
+								entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
+																							COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE |
+																							COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT);
+#if defined(FLOOR_DEBUG)
+								entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + to_string(buf_idx));
+#endif
+								entry.constant_buffer_mappings[buf_idx] = entry.constant_buffers_storage[buf_idx]->map(*dev_queue,
+																													   COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE |
+																													   COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+								if (entry.constant_buffer_mappings[buf_idx] == nullptr) {
+									log_error("failed to memory map constant buffer #$ for function $", buf_idx, func_name);
+									continue;
+								}
+								constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
+							}
+							entry.constant_buffers = make_unique<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>>(move(constant_buffers));
+						}
 					}
 					// else: no descriptors entry.desc_* already nullptr
 					

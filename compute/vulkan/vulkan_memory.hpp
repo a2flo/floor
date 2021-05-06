@@ -35,15 +35,18 @@ public:
 	vulkan_memory(const vulkan_device& device,
 				  const uint64_t* object,
 				  // if false: is buffer
-				  const bool is_image) noexcept;
+				  const bool is_image,
+				  const COMPUTE_MEMORY_FLAG memory_flags) noexcept;
 
 	vulkan_memory(const vulkan_device& device_,
-				  const VkBuffer* buffer) noexcept :
-	vulkan_memory(device_, (const uint64_t*)buffer, false) {}
+				  const VkBuffer* buffer,
+				  const COMPUTE_MEMORY_FLAG memory_flags_) noexcept :
+	vulkan_memory(device_, (const uint64_t*)buffer, false, memory_flags_) {}
 
 	vulkan_memory(const vulkan_device& device_,
-				  const VkImage* image) noexcept :
-	vulkan_memory(device_, (const uint64_t*)image, true) {}
+				  const VkImage* image,
+				  const COMPUTE_MEMORY_FLAG memory_flags_) noexcept :
+	vulkan_memory(device_, (const uint64_t*)image, true, memory_flags_) {}
 
 	virtual ~vulkan_memory() noexcept;
 	
@@ -52,6 +55,7 @@ protected:
 	const uint64_t* object { nullptr };
 	VkDeviceMemory mem { nullptr };
 	const bool is_image { false };
+	const COMPUTE_MEMORY_FLAG memory_flags { COMPUTE_MEMORY_FLAG::NONE };
 	
 	struct vulkan_mapping {
 		VkBuffer buffer;
@@ -87,7 +91,8 @@ protected:
 	//! this tries to find the best matching memory type index (heap / location)
 	uint32_t find_memory_type_index(const uint32_t memory_type_bits,
 									const bool want_device_memory,
-									const bool requires_device_memory = false) const;
+									const bool requires_device_memory = false,
+									const bool requires_host_coherent = false) const;
 	
 };
 

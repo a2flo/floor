@@ -104,6 +104,9 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! NOTE: for array images, this will automatically create aliased single-plane images of the whole image array
 	VULKAN_ALIASING				= (1u << 14u),
 	
+	//! Vulkan-only: allocate memory in device-local / host-coherent memory
+	VULKAN_HOST_COHERENT		= (1u << 15u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

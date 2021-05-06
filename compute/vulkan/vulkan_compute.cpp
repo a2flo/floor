@@ -153,6 +153,114 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 }
 #endif
 
+struct device_mem_info_t {
+	bool valid { false };
+	
+	// -> vulkan_device.hpp for info
+	shared_ptr<VkPhysicalDeviceMemoryProperties> mem_props;
+	uint32_t device_mem_index { ~0u };
+	uint32_t host_mem_cached_index { ~0u };
+	uint32_t device_mem_host_coherent_index { ~0u };
+	unordered_set<uint32_t> device_mem_indices;
+	unordered_set<uint32_t> host_mem_cached_indices;
+	unordered_set<uint32_t> device_mem_host_coherent_indices;
+	bool prefer_host_coherent_mem { false };
+};
+static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice& dev, const decltype(VkPhysicalDeviceProperties::deviceName)& dev_name) {
+	device_mem_info_t ret {};
+	
+	// retrieve memory info
+	ret.mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
+	vkGetPhysicalDeviceMemoryProperties(dev, ret.mem_props.get());
+	const auto& props = *ret.mem_props;
+	
+	// find largest memory of a specific type
+	struct largest_heap_type_t {
+		uint64_t size { 0u };
+		uint32_t heap_idx { ~0u };
+		uint32_t type_idx { ~0u };
+	};
+	const auto find_largest_memory = [&props](const VkMemoryHeapFlagBits& heap_flags,
+											  const VkMemoryPropertyFlagBits& prop_flags) -> largest_heap_type_t {
+		largest_heap_type_t largest_mem;
+		for (uint32_t heap_idx = 0; heap_idx < props.memoryHeapCount; ++heap_idx) {
+			if ((props.memoryHeaps[heap_idx].flags & heap_flags) == heap_flags) {
+				for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
+					if (props.memoryTypes[type_idx].heapIndex == heap_idx &&
+						(props.memoryTypes[type_idx].propertyFlags & prop_flags) == prop_flags) {
+						if (largest_mem.heap_idx == ~0u || props.memoryHeaps[heap_idx].size > largest_mem.size) {
+							largest_mem = {
+								.size = props.memoryHeaps[heap_idx].size,
+								.heap_idx = heap_idx,
+								.type_idx = type_idx,
+							};
+						}
+						break;
+					}
+				}
+			}
+		}
+		return largest_mem;
+	};
+	
+	// find largest device-local memory
+	const auto largest_device_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (largest_device_mem.heap_idx == ~0u) {
+		log_error("no valid device-local memory found for device $", dev_name);
+		return { .valid = false };
+	}
+	ret.device_mem_index = largest_device_mem.type_idx;
+	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
+		if (props.memoryTypes[type_idx].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+			ret.device_mem_indices.emplace(type_idx);
+		}
+	}
+	
+	// find largest host-cached memory
+	const auto largest_host_cached_mem = find_largest_memory(VkMemoryHeapFlagBits(0u),
+															 VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+																					  VK_MEMORY_PROPERTY_HOST_CACHED_BIT));
+	if (largest_host_cached_mem.heap_idx == ~0u) {
+		log_error("no valid host-cached memory found for device $", dev_name);
+		return { .valid = false };
+	}
+	ret.host_mem_cached_index = largest_host_cached_mem.type_idx;
+	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
+		if (props.memoryTypes[type_idx].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT)) {
+			ret.host_mem_cached_indices.emplace(type_idx);
+		}
+	}
+	
+	// find largest device-local / host-coherent memory
+	const auto largest_device_host_coherent_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
+																	  VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+																							   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+																							   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+	if (largest_device_host_coherent_mem.heap_idx == ~0u) {
+		log_error("no valid device-local / host-coherent memory found for device $", dev_name);
+		return { .valid = false };
+	}
+	ret.device_mem_host_coherent_index = largest_device_host_coherent_mem.type_idx;
+	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
+		if (props.memoryTypes[type_idx].propertyFlags & (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+														 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+														 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+			ret.device_mem_host_coherent_indices.emplace(type_idx);
+		}
+	}
+	
+	// prefer device-local/host-coherent if it is the same size as the device-local memory or it's larger than host-cached memory
+	if (props.memoryHeaps[props.memoryTypes[ret.device_mem_host_coherent_index].heapIndex].size ==
+		props.memoryHeaps[props.memoryTypes[ret.device_mem_index].heapIndex].size ||
+		props.memoryHeaps[props.memoryTypes[ret.device_mem_host_coherent_index].heapIndex].size >=
+		props.memoryHeaps[props.memoryTypes[ret.host_mem_cached_index].heapIndex].size) {
+		ret.prefer_host_coherent_mem = true;
+	}
+	
+	ret.valid = true;
+	return ret;
+}
+
 vulkan_compute::vulkan_compute(const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
 compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(enable_renderer) {
@@ -572,6 +680,13 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		// handle/retrieve/check device memory properties / heaps / types and select appropriate ones
+		auto dev_mem_info = handle_and_select_device_memory(phys_dev, props.deviceName);
+		if (!dev_mem_info.valid) {
+			log_error("memory requirements not met by device $", props.deviceName);
+			continue;
+		}
+		
 		// create device
 		const vector<const char*> device_layers {
 #if defined(FLOOR_DEBUG)
@@ -850,75 +965,29 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("inline uniform block: max size $, max IUBs $",
 				device.max_inline_uniform_block_size,
 				device.max_inline_uniform_block_count);
-
-		// retrieve memory info
-		device.mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
-		vkGetPhysicalDeviceMemoryProperties(phys_dev, device.mem_props.get());
 		
-		// global memory (heap with local bit)
-		// for now, just assume the correct data is stored in the heap flags
-		auto& mem_props = *device.mem_props.get();
-		for(uint32_t i = 0; i < mem_props.memoryHeapCount; ++i) {
-			if(mem_props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device.global_mem_size = mem_props.memoryHeaps[i].size;
-				device.max_mem_alloc = mem_props.memoryHeaps[i].size; // TODO: min(gpu heap, host heap)?
-				break;
-			}
-		}
-		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
-			// preferred index handling
-			if(device.device_mem_index == ~0u &&
-			   mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device.device_mem_index = i;
-				log_msg("using memory type #$ for device allocations", device.device_mem_index);
-			}
-			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-				// we preferably want to allocate both cached and uncached host visible memory,
-				// but if this isn't possible, just stick with the one that works at all
-				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-					device.host_mem_cached_index = i;
-				}
-				else {
-					device.host_mem_uncached_index = i;
-				}
-			}
-			
-			// handling of all available indices
-			// NOTE: some drivers contain multiple entries of the same type and do actually require specific ones from that set
-			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				device.device_mem_indices.emplace(i);
-			}
-			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-					device.host_mem_cached_indices.emplace(i);
-				}
-				else {
-					device.host_mem_uncached_indices.emplace(i);
-				}
-			}
-		}
-		if(device.device_mem_index == ~0u) {
-			log_error("no device memory found");
-		}
-		if(device.host_mem_cached_index == ~0u &&
-		   device.host_mem_uncached_index == ~0u) {
-			log_error("no host-visible memory found");
-		}
-		else {
-			// fallback if either isn't available (see above)
-			if(device.host_mem_cached_index == ~0u) {
-				device.host_mem_cached_index = device.host_mem_uncached_index;
-			}
-			else if(device.host_mem_uncached_index == ~0u) {
-				device.host_mem_uncached_index = device.host_mem_cached_index;
-			}
-			log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
-			log_msg("using memory type #$ for uncached host-visible allocations", device.host_mem_uncached_index);
-		}
-		if(device.device_mem_index == device.host_mem_cached_index ||
-		   device.device_mem_index == device.host_mem_uncached_index) {
-			//device.unified_memory = true; // TODO: -> vulkan_memory.cpp
-		}
+		device.min_storage_buffer_offset_alignment = (uint32_t)limits.minStorageBufferOffsetAlignment;
+		
+		// set memory info
+		device.mem_props = dev_mem_info.mem_props;
+		device.device_mem_index = dev_mem_info.device_mem_index;
+		device.host_mem_cached_index = dev_mem_info.host_mem_cached_index;
+		device.device_mem_host_coherent_index = dev_mem_info.device_mem_host_coherent_index;
+		device.device_mem_indices = move(dev_mem_info.device_mem_indices);
+		device.host_mem_cached_indices = move(dev_mem_info.host_mem_cached_indices);
+		device.device_mem_host_coherent_indices = move(dev_mem_info.device_mem_host_coherent_indices);
+		device.prefer_host_coherent_mem = dev_mem_info.prefer_host_coherent_mem;
+		
+		device.global_mem_size = device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.device_mem_index].heapIndex].size;
+		device.max_mem_alloc = min(device.global_mem_size,
+								   (device.prefer_host_coherent_mem ?
+									device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.device_mem_host_coherent_index].heapIndex].size :
+									device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.host_mem_cached_index].heapIndex].size));
+		
+		log_msg("using memory type #$ for device allocations", device.device_mem_index);
+		log_msg("using memory type #$ for device host-coherent/host-visible allocations", device.device_mem_host_coherent_index);
+		log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
+		log_msg("prefer device-local/host-coherent over host-cached: $", device.prefer_host_coherent_mem);
 		
 		log_msg("max mem alloc: $ bytes / $ MB",
 				device.max_mem_alloc,

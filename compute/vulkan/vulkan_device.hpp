@@ -70,20 +70,24 @@ public:
 	//! preferred memory type index for device memory allocation
 	uint32_t device_mem_index { ~0u };
 	
-	//! preferred memory type index for (potentially cached) host + device-visible memory allocation
+	//! preferred memory type index for cached host + device-visible memory allocation
 	uint32_t host_mem_cached_index { ~0u };
 	
-	//! preferred memory type index for (potentially uncached) host + device-visible memory allocation
-	uint32_t host_mem_uncached_index { ~0u };
+	//! preferred memory type index for coherent host + device-local memory allocation
+	uint32_t device_mem_host_coherent_index { ~0u };
 	
 	//! all available memory type indices for device memory allocation
 	unordered_set<uint32_t> device_mem_indices;
 	
-	//! all available memory type indices for (potentially cached) host + device-visible memory allocation
+	//! all available memory type indices for cached host + device-visible memory allocation
 	unordered_set<uint32_t> host_mem_cached_indices;
 	
-	//! all available memory type indices for (potentially uncached) host + device-visible memory allocation
-	unordered_set<uint32_t> host_mem_uncached_indices;
+	//! all available memory type indices for coherent host + device-local memory allocation
+	unordered_set<uint32_t> device_mem_host_coherent_indices;
+	
+	//! if set, prefer host coherent memory over host cached memory,
+	//! i.e. this is the case on systems all device memory is host coherent ("Resizable BAR"/"SAM")
+	bool prefer_host_coherent_mem { false };
 	
 	//! feature support: can use 16-bit int types in SPIR-V
 	bool int16_support { false };
@@ -92,10 +96,13 @@ public:
 	bool float16_support { false };
 	
 	//! max per-IUB size in bytes
-	uint32_t max_inline_uniform_block_size { 0 };
+	uint32_t max_inline_uniform_block_size { 0u };
 	
 	//! max number of IUBs that can be used per function
-	uint32_t max_inline_uniform_block_count { 0 };
+	uint32_t max_inline_uniform_block_count { 0u };
+	
+	//! min offset alignment in SSBOs
+	uint32_t min_storage_buffer_offset_alignment { 0u };
 	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)

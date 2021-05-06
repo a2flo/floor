@@ -154,6 +154,7 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 		.device = vk_dev,
 		.pipeline = pipeline,
 		.pipeline_layout = pipeline_layout,
+		.entries = entries,
 	});
 	
 	// allocate #args write descriptor sets + allocate #IUBs additional IUB write descriptor sets
@@ -376,10 +377,14 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		implicit_args.emplace_back(printf_buffer);
 	}
 	
-	// acquire kernel descriptor sets
+	// acquire kernel descriptor sets and constant buffer
 	const auto& entry = kernel_iter->second;
 	if (entry.desc_set_container) {
 		encoder->acquired_descriptor_sets.emplace_back(entry.desc_set_container->acquire_descriptor_set());
+		if (entry.constant_buffers) {
+			encoder->acquired_constant_buffers.emplace_back(entry.constant_buffers->acquire());
+			encoder->constant_buffer_mappings.emplace_back(entry.constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+		}
 	}
 	
 	// set and handle arguments
@@ -432,11 +437,14 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 															encoder->constant_buffers.clear();
 														}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
 	
-	// release all acquired descriptor sets again
+	// release all acquired descriptor sets and constant buffers again
 	for (auto& desc_set_instance : encoder->acquired_descriptor_sets) {
 		entry.desc_set_container->release_descriptor_set(desc_set_instance);
 	}
 	encoder->acquired_descriptor_sets.clear();
+	for (auto& acq_constant_buffer : encoder->acquired_constant_buffers) {
+		entry.constant_buffers->release(acq_constant_buffer);
+	}
 	
 	// if soft-printf is being used, read-back results
 	if (is_soft_printf) {
@@ -473,20 +481,29 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	}
 	// -> plain old SSBO
 	else {
-		// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
-		// TODO: current limitation of this is that size must be a multiple of 4
-		shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder.cqueue, size, ptr,
-																				COMPUTE_MEMORY_FLAG::READ |
-																				COMPUTE_MEMORY_FLAG::HOST_WRITE);
-		encoder.constant_buffers.emplace_back(constant_buffer);
-		set_argument(encoder, entry, idx, constant_buffer.get());
+		auto& const_buffer = encoder.acquired_constant_buffers[idx.entry].first;
+		void* const_buffer_mapping = encoder.constant_buffer_mappings[idx.entry];
+		assert(const_buffer_mapping != nullptr);
+		const auto& const_buffer_info = encoder.entries[idx.entry]->constant_buffer_info.at(idx.arg);
+		assert(const_buffer_info.size == size);
+		memcpy((uint8_t*)const_buffer_mapping + const_buffer_info.offset, ptr, const_buffer_info.size);
+		
+		auto buffer_info = make_unique<VkDescriptorBufferInfo>(VkDescriptorBufferInfo {
+			.buffer = ((vulkan_buffer*)const_buffer)->get_vulkan_buffer(),
+			.offset = const_buffer_info.offset,
+			.range = const_buffer_info.size,
+		});
+		auto buffer_info_override = buffer_info.get();
+		encoder.constant_buffer_desc_info.emplace_back(move(buffer_info));
+		set_argument(encoder, entry, idx, const_buffer, buffer_info_override);
 	}
 }
 
 void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
 								 const idx_handler& idx,
-								 const compute_buffer* arg) const {
+								 const compute_buffer* arg,
+								 const VkDescriptorBufferInfo* buffer_info_override) const {
 	const vulkan_buffer* vk_buffer = nullptr;
 	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(arg->get_flags())) {
 		vk_buffer = arg->get_shared_vulkan_buffer();
@@ -512,7 +529,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	write_desc.descriptorCount = 1;
 	write_desc.descriptorType = entry.desc_types[idx.binding];
 	write_desc.pImageInfo = nullptr;
-	write_desc.pBufferInfo = vk_buffer->get_vulkan_buffer_info();
+	write_desc.pBufferInfo = (buffer_info_override == nullptr ? vk_buffer->get_vulkan_buffer_info() : buffer_info_override);
 	write_desc.pTexelBufferView = nullptr;
 	
 	// TODO/NOTE: use dynamic offset if we ever need it

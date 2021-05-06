@@ -44,7 +44,7 @@ vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const opengl_image_info* gl_image_info) :
 compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
-vulkan_memory((const vulkan_device&)cqueue.get_device(), &image) {
+vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	
@@ -258,7 +258,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.pNext = (is_sharing ? &export_alloc_info : nullptr),
 		.allocationSize = allocation_size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
-												  is_sharing /* sharing requires device memory */),
+												  is_sharing /* sharing requires device memory */,
+												  false /* host-coherent is not required */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
@@ -502,7 +503,7 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 
 vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, void* host_ptr_, const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_ptr_, flags_, 0, 0, nullptr),
-vulkan_memory((const vulkan_device&)cqueue.get_device(), &image), is_external(true) {
+vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
 	image_view = external_image.image_view;
 	image_info.sampler = nullptr;

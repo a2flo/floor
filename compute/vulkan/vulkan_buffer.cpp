@@ -41,7 +41,7 @@ vulkan_buffer::vulkan_buffer(const compute_queue& cqueue,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
 compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
-vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer) {
+vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	if(size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
@@ -60,6 +60,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 
 	// create the buffer
 	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
+	const auto is_host_coherent = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags);
 	VkExternalMemoryBufferCreateInfo ext_create_info;
 	if (is_sharing) {
 		ext_create_info = {
@@ -137,7 +138,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	
 	const VkMemoryAllocateFlagsInfo alloc_flags_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-		.pNext = (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ? &export_alloc_info : nullptr),
+		.pNext = (is_sharing ? &export_alloc_info : nullptr),
 		.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
 		.deviceMask = 0,
 	};
@@ -146,7 +147,8 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 		.pNext = &alloc_flags_info,
 		.allocationSize = allocation_size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
-												  has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) /* sharing requires device memory */),
+												  is_sharing || is_host_coherent /* sharing or host-coherent requires device memory */,
+												  is_host_coherent /* require host-coherent if set */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
 	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false)
@@ -180,7 +182,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	}
 	
 	// get shared memory handle (if sharing is enabled)
-	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (is_sharing) {
 		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
 #if defined(__WINDOWS__)
 		VkMemoryGetWin32HandleInfoKHR get_win32_handle {

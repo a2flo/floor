@@ -25,8 +25,8 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 
-vulkan_memory::vulkan_memory(const vulkan_device& device_, const uint64_t* object_, const bool is_image_) noexcept :
-device(device_), object(object_), is_image(is_image_) {
+vulkan_memory::vulkan_memory(const vulkan_device& device_, const uint64_t* object_, const bool is_image_, const COMPUTE_MEMORY_FLAG memory_flags_) noexcept :
+device(device_), object(object_), is_image(is_image_), memory_flags(memory_flags_) {
 }
 
 vulkan_memory::~vulkan_memory() noexcept {
@@ -110,7 +110,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 	//  * if the device local memory is not host-visible, we need to allocate an appropriately sized
 	//    host-visible buffer, then: a) for read: create a device -> host memory copy (in here)
 	//                               b) for write: create a host buffer -> device memory copy (in unmap)
-	//  * if the device local memory is host-visible, we can just call vulkan map/unmap functions
+	//  * if the device local memory is host-visible/host-coherent, we can just call vulkan map/unmap functions
+	const auto is_host_coherent = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(memory_flags);
 	
 	// create the host-visible buffer if necessary
 	vulkan_mapping mapping {
@@ -123,7 +124,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 	size_t host_buffer_offset = offset;
 	auto vulkan_dev = device.device;
 	// TODO: make sure this is cleaned up properly on failure
-	if(!device.unified_memory || is_image) { // TODO: or already created host-visible (-> create_internal)
+	if (!is_host_coherent || is_image) { // TODO: or already created host-visible (-> create_internal)
 		// we're only creating a buffer that is large enough + start from the offset
 		host_buffer_offset = 0;
 		
@@ -153,22 +154,21 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
 		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr)
-	}
-	else {
+	} else {
 		mapping.buffer = (VkBuffer)*object;
 		mapping.mem = mem;
 	}
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	if(!write_only) {
-		if(blocking_map) {
+	if (!write_only) {
+		if (blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
 			cqueue.finish();
 		}
 		
 		// device -> host buffer copy
-		if (!device.unified_memory || is_image) {
+		if (!is_host_coherent || is_image) {
 			VK_CMD_BLOCK(vk_queue, "dev -> host memory copy", ({
 				if (!is_image) {
 					const VkBufferCopy region {
@@ -227,10 +227,12 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 		return false;
 	}
 	
+	const auto is_host_coherent = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(memory_flags);
+	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		if(!device.unified_memory || is_image) {
+		if (!is_host_coherent || is_image) {
 			do {
 				// host -> device copy
 				// TODO: sync ...
@@ -251,21 +253,23 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	}
 	
 	// unmap
-	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ... -> can only unmap if this is the last mapping (if unified_memory, if the buffer was just created/allocated for this, then it doesn't matter)
+	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ...
+	// -> can only unmap if this is the last mapping (if is_host_coherent, if the buffer was just created/allocated for this, then it doesn't matter)
 	// also: TODO: SYNC!
 	vkUnmapMemory(vulkan_dev, iter->second.mem);
 	
 	// barrier after unmap when using unified memory
 	// TODO: make this actually work
-	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		if(device.unified_memory && !is_image) {
+	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		if (is_host_coherent && !is_image) {
 			VK_CMD_BLOCK(vk_queue, "host -> dev memory barrier", ({
 				const VkBufferMemoryBarrier buffer_barrier {
 					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 					.pNext = nullptr,
 					.srcAccessMask = VkAccessFlags(VK_ACCESS_HOST_WRITE_BIT |
-												   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
+												   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ?
+													VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
 					.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
 									  VK_ACCESS_MEMORY_WRITE_BIT |
 									  VK_ACCESS_SHADER_READ_BIT |
@@ -284,7 +288,7 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	}
 	
 	// delete host buffer
-	if(!device.unified_memory || is_image) {
+	if (!is_host_coherent || is_image) {
 		if(iter->second.buffer != nullptr) {
 			vkDestroyBuffer(vulkan_dev, iter->second.buffer, nullptr);
 		}
@@ -301,7 +305,8 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 
 uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 											   const bool want_device_memory,
-											   const bool requires_device_memory) const {
+											   const bool requires_device_memory,
+											   const bool requires_host_coherent) const {
 	const auto find_index = [](const unordered_set<uint32_t>& indices,
 							   const uint32_t& preferred_index,
 							   const uint32_t& type_bits) -> pair<bool, uint32_t> {
@@ -323,9 +328,14 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 		return { false, 0 };
 	};
 	
+	pair<bool, uint32_t> ret { false, 0 };
+	
 	// if device memory is wanted or required, try this first
 	if(want_device_memory || requires_device_memory) {
-		const auto ret = find_index(device.device_mem_indices, device.device_mem_index, memory_type_bits);
+		// select between device-only and device+host-coherent memory
+		ret = (!requires_host_coherent ?
+			   find_index(device.device_mem_indices, device.device_mem_index, memory_type_bits) :
+			   find_index(device.device_mem_host_coherent_indices, device.device_mem_host_coherent_index, memory_type_bits));
 		if(ret.first) {
 			return ret.second;
 		}
@@ -335,13 +345,16 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 		}
 	}
 	
-	// check cached first, then uncached
-	auto ret = find_index(device.host_mem_cached_indices, device.host_mem_cached_index, memory_type_bits);
-	if(ret.first) return ret.second;
-	
-	// check cached first, then uncached
-	ret = find_index(device.host_mem_uncached_indices, device.host_mem_uncached_index, memory_type_bits);
-	if(ret.first) return ret.second;
+	if (requires_host_coherent) {
+		ret = find_index(device.device_mem_host_coherent_indices, device.device_mem_host_coherent_index, memory_type_bits);
+		if(ret.first) return ret.second;
+	} else {
+		// check cached first, then coherent
+		ret = find_index(device.host_mem_cached_indices, device.host_mem_cached_index, memory_type_bits);
+		if(ret.first) return ret.second;
+		ret = find_index(device.device_mem_host_coherent_indices, device.device_mem_host_coherent_index, memory_type_bits);
+		if(ret.first) return ret.second;
+	}
 	
 	// no memory found for this
 	log_error("could not find a memory type index for the request memory type bits $X (device memory wanted: $)",

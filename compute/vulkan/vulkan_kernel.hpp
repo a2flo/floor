@@ -46,6 +46,18 @@ public:
 		unique_ptr<vulkan_descriptor_set_container> desc_set_container;
 		vector<VkDescriptorType> desc_types;
 		
+		//! buffers/storage for constant data
+		//! NOTE: must be the same amount as the number of descriptors in "desc_set_container"
+		array<shared_ptr<compute_buffer>, vulkan_descriptor_set_container::descriptor_count> constant_buffers_storage;
+		array<void*, vulkan_descriptor_set_container::descriptor_count> constant_buffer_mappings;
+		unique_ptr<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>> constant_buffers;
+		//! argument index -> constant buffer info
+		struct constant_buffer_info_t {
+			uint32_t offset;
+			uint32_t size;
+		};
+		flat_map<uint32_t, constant_buffer_info_t> constant_buffer_info;
+		
 		struct spec_entry {
 			VkPipeline pipeline { nullptr };
 			VkSpecializationInfo info;
@@ -128,7 +140,8 @@ protected:
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
-					  const compute_buffer* arg) const;
+					  const compute_buffer* arg,
+					  const VkDescriptorBufferInfo* buffer_info_override = nullptr) const;
 	
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
