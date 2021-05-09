@@ -98,7 +98,7 @@
 // clang check
 #elif defined(__clang__)
 #if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 10) || (__clang_major__ == 10 && __clang_minor__ < 0)
-#error "Sorry, but you need Clang 6.0+ to compile floor"
+#error "Sorry, but you need Clang 10.0+ to compile floor"
 #endif
 
 // gcc check

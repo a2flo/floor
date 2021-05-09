@@ -95,9 +95,9 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	encoder = [cmd_buffer renderCommandEncoderWithDescriptor:mtl_pass_desc];
 	encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer encoder" :
 					 [NSString stringWithUTF8String:(pipeline_desc.debug_label + " encoder").c_str()]);
-	 if (!pipeline_desc.debug_label.empty()) {
-		 [encoder pushDebugGroup:(encoder.label ? encoder.label : @"metal_renderer")];
-	 }
+	if (!pipeline_desc.debug_label.empty()) {
+		[encoder pushDebugGroup:(encoder.label ? encoder.label : @"metal_renderer")];
+	}
 	
 	[encoder setCullMode:metal_pipeline::metal_cull_mode_from_cull_mode(pipeline_desc.cull_mode)];
 	[encoder setFrontFacingWinding:metal_pipeline::metal_winding_from_front_face(pipeline_desc.front_face)];
@@ -136,8 +136,8 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		scissor_rect = {
 			.x = pipeline_desc.scissor.offset.x,
 			.y = pipeline_desc.scissor.offset.y,
-			.width = pipeline_desc.scissor.extent.x,
-			.height = pipeline_desc.scissor.extent.y
+			.width = min(pipeline_desc.scissor.extent.x, uint32_t(viewport.width)),
+			.height = min(pipeline_desc.scissor.extent.y, uint32_t(-viewport.height))
 		};
 	} else {
 		scissor_rect = {
@@ -148,10 +148,10 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		};
 	}
 	if (scissor_rect.x + scissor_rect.width > (uint32_t)viewport.width ||
-		scissor_rect.y + scissor_rect.height > (uint32_t)viewport.height) {
+		scissor_rect.y + scissor_rect.height > (uint32_t)-viewport.height) {
 		log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
 				  ulong2 { scissor_rect.x, scissor_rect.y }, ulong2 { scissor_rect.width, scissor_rect.height },
-				  double2 { viewport.width, viewport.height });
+				  double2 { viewport.width, -viewport.height });
 		return false;
 	}
 	[encoder setScissorRect:scissor_rect];
