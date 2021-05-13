@@ -1328,30 +1328,30 @@ namespace math {
 	
 #define FLOOR_CONST_SELECT(ARG_EXPANDER, ENABLE_IF_EXPANDER, func_name, ce_func, rt_func, type, overload_suffix) \
 	/* direct call - run-time */ \
-	static __attribute__((always_inline, flatten)) auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) inline auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* direct call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) inline constexpr auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ENABLE_IF_EXPANDER(), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	\
 	/* forwarded call prototype - run-time */ \
-	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) inline auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	/* forwarded call prototype - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) inline constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT FLOOR_AMP, FLOOR_PAREN_RIGHT &&)), ""))) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	\
 	/* forwarded call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) inline constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT FLOOR_AMP, FLOOR_PAREN_RIGHT &&)), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* forwarded call - run-time */ \
-	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) inline auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	}
 	
