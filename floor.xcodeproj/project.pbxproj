@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -1488,7 +1488,7 @@
 				};
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
-			compatibilityVersion = "Xcode 3.2";
+			compatibilityVersion = "Xcode 12.0";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1840,7 +1840,14 @@
 				INSTALL_PATH = "@rpath";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Resources",
+					"@loader_path/../Frameworks",
+					/Library/Frameworks,
+					/usr/local/lib,
+					/usr/lib,
+					/opt/floor/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fparse-all-comments";
@@ -1989,7 +1996,14 @@
 				INSTALL_PATH = "@rpath";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Resources",
+					"@loader_path/../Frameworks",
+					/Library/Frameworks,
+					/usr/local/lib,
+					/usr/lib,
+					/opt/floor/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
@@ -2217,7 +2231,14 @@
 				INSTALL_PATH = "@rpath";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Resources",
+					"@loader_path/../Frameworks",
+					/Library/Frameworks,
+					/usr/local/lib,
+					/usr/lib,
+					/opt/floor/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fparse-all-comments";
@@ -2470,7 +2491,14 @@
 				INSTALL_PATH = "@rpath";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Resources",
+					"@loader_path/../Frameworks",
+					/Library/Frameworks,
+					/usr/local/lib,
+					/usr/lib,
+					/opt/floor/lib,
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
