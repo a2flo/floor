@@ -26,6 +26,19 @@
 //////////////////////////////////////////
 // general
 
+// provide copysign implementation (not available in SPIR-V/GLSL)
+const_func float copysign(float x, float y) {
+	return fabs(x) * (y >= 0.0f ? 1.0f : -1.0f);
+}
+const_func half copysign(half x, half y) {
+	return fabs(x) * (y >= 0.0h ? 1.0h : -1.0h);
+}
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+const_func double copysign(double x, double y) {
+	return fabs(x) * (y >= 0.0 ? 1.0 : -1.0);
+}
+#endif
+
 // NOTE: could use c++ mangling here, but we need to make sure types are correctly handled
 const_func uint32_t pack_snorm_4x8_clang(clang_float4) asm("floor.pack_snorm_4x8");
 const_func uint32_t pack_unorm_4x8_clang(clang_float4) asm("floor.pack_unorm_4x8");

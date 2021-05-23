@@ -29,6 +29,11 @@
 #include <emmintrin.h>
 #endif
 #endif
+
+#if !defined(FLOOR_NO_MATH_STR)
+#include <string>
+#endif
+
 using namespace std;
 
 // TODO: detect arm targets on non-apple platforms
@@ -449,6 +454,21 @@ struct soft_f16 {
 	constexpr bool isfinite() const {
 		return ((value & EXPONENT_MASK) != EXPONENT_MASK);
 	}
+	
+#if !defined(FLOOR_NO_MATH_STR)
+	
+	//! returns a string representation of this half value
+	operator string() const {
+		return std::to_string(to_float());
+	}
+	
+	//! ostream output of this half value
+	friend ostream& operator<<(ostream& output, const soft_f16& val) {
+		output << std::to_string(val.to_float());
+		return output;
+	}
+	
+#endif
 	
 };
 

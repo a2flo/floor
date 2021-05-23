@@ -63,9 +63,7 @@ namespace std {
 	
 	const_func floor_inline_always metal_func float copysign(float a, float b) {
 		// metal/air doesn't have a builtin function/intrinsic for this and does bit ops instead -> do the same
-		uint32_t ret = (*(uint32_t*)&a) & 0x7FFFFFFFu;
-		ret |= (*(uint32_t*)&b) & 0x80000000u;
-		return *(float*)&ret;
+		return bit_cast<float>((bit_cast<uint32_t>(a) & 0x7FFF'FFFFu) | (bit_cast<uint32_t>(b) & 0x8000'0000u));
 	}
 	
 	const_func metal_func half abs(half) asm("air.fabs.f16");

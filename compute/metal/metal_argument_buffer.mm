@@ -41,7 +41,8 @@ void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe
 #if !defined(FLOOR_IOS)
 	// signal buffer update if this is a managed buffer
 	if ((mtl_storage_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[mtl_buffer didModifyRange:NSRange { 0, storage_buffer->get_size() }];
+		const auto update_range = (uint64_t)[encoder encodedLength];
+		[mtl_buffer didModifyRange:NSRange { 0, update_range }];
 	}
 #endif
 }

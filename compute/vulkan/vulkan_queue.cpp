@@ -149,6 +149,11 @@ struct vulkan_command_pool_t {
 			if (wait_ret != VK_SUCCESS) {
 				if (wait_ret == VK_TIMEOUT) {
 					log_error("waiting for fence timed out");
+				} else if (wait_ret == VK_ERROR_DEVICE_LOST) {
+					log_error("device lost during command buffer execution/wait (probably program error)$!",
+							  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
+					logger::flush();
+					throw runtime_error("Vulkan device lost");
 				} else {
 					log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
 				}
