@@ -209,6 +209,20 @@ public:
 		uint32_t first_instance { 0u };
 	};
 	
+	//! emit a simple draw call with the draw-call information stored in "draw_entry"
+	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
+	template <typename... Args> void draw(const multi_draw_entry& draw_entry, const Args&... args) const {
+		const vector<multi_draw_entry> draw_entries { draw_entry };
+		draw_internal(&draw_entries, nullptr, { args... });
+	}
+	
+	//! emit an indexed draw call with the draw-call information stored in "draw_entry"
+	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
+	template <typename... Args> void draw_indexed(const multi_draw_indexed_entry& draw_entry, const Args&... args) const {
+		const vector<multi_draw_indexed_entry> draw_entries { draw_entry };
+		draw_internal(nullptr, &draw_entries, { args... });
+	}
+	
 	//! emit simple draw calls with the per-draw-call information stored in "draw_entries"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	template <typename... Args> void multi_draw(const vector<multi_draw_entry>& draw_entries, const Args&... args) const {
