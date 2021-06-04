@@ -664,6 +664,30 @@ public:
 		};
 	}
 	
+	//! explicitly casts this matrix (its elements) to "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto cast() const {
+		return matrix4<dst_scalar_type> {
+			dst_scalar_type(data[0]), dst_scalar_type(data[1]), dst_scalar_type(data[2]), dst_scalar_type(data[3]),
+			dst_scalar_type(data[4]), dst_scalar_type(data[5]), dst_scalar_type(data[6]), dst_scalar_type(data[7]),
+			dst_scalar_type(data[8]), dst_scalar_type(data[9]), dst_scalar_type(data[10]), dst_scalar_type(data[11]),
+			dst_scalar_type(data[12]), dst_scalar_type(data[13]), dst_scalar_type(data[14]), dst_scalar_type(data[15])
+		};
+	}
+	
+	//! explicitly reinterprets this matrix (its elements) as "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto reinterpret() const {
+		static_assert(sizeof(dst_scalar_type) <= sizeof(scalar_type),
+					  "reinterpret type size must <= the current type size");
+		return FLOOR_VECNAME<dst_scalar_type> {
+			*(const dst_scalar_type*)(&data[0]), *(const dst_scalar_type*)(&data[1]), *(const dst_scalar_type*)(&data[2]), *(const dst_scalar_type*)(&data[3]),
+			*(const dst_scalar_type*)(&data[4]), *(const dst_scalar_type*)(&data[5]), *(const dst_scalar_type*)(&data[6]), *(const dst_scalar_type*)(&data[7]),
+			*(const dst_scalar_type*)(&data[8]), *(const dst_scalar_type*)(&data[9]), *(const dst_scalar_type*)(&data[10]), *(const dst_scalar_type*)(&data[11]),
+			*(const dst_scalar_type*)(&data[12]), *(const dst_scalar_type*)(&data[13]), *(const dst_scalar_type*)(&data[14]), *(const dst_scalar_type*)(&data[15])
+		};
+	}
+	
 };
 
 typedef matrix4<float> matrix4f;
