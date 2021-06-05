@@ -319,6 +319,8 @@ namespace compute_algorithm {
 				shfled_var = simd_shuffle_up(scan_value, 1u);
 				scan_value = (lane == 0u ? zero_val : shfled_var);
 			}
+			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
+			local_barrier();
 			return op(group_offset, scan_value);
 #endif
 		} else {

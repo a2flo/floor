@@ -680,7 +680,7 @@ public:
 	constexpr auto reinterpret() const {
 		static_assert(sizeof(dst_scalar_type) <= sizeof(scalar_type),
 					  "reinterpret type size must <= the current type size");
-		return FLOOR_VECNAME<dst_scalar_type> {
+		return matrix4<dst_scalar_type> {
 			*(const dst_scalar_type*)(&data[0]), *(const dst_scalar_type*)(&data[1]), *(const dst_scalar_type*)(&data[2]), *(const dst_scalar_type*)(&data[3]),
 			*(const dst_scalar_type*)(&data[4]), *(const dst_scalar_type*)(&data[5]), *(const dst_scalar_type*)(&data[6]), *(const dst_scalar_type*)(&data[7]),
 			*(const dst_scalar_type*)(&data[8]), *(const dst_scalar_type*)(&data[9]), *(const dst_scalar_type*)(&data[10]), *(const dst_scalar_type*)(&data[11]),

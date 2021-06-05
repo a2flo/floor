@@ -282,6 +282,13 @@ namespace const_math {
 	constexpr fp_type rint(const fp_type val) {
 		return const_math::floor(val);
 	}
+
+	//! rounds "val" to the next inclusive multiple of "multiple",
+	//! e.g. round_next_multiple(9, 32) == 32, round_next_multiple(32, 32) == 32, round_next_multiple(33) == 64
+	template <typename uint_type, enable_if_t<ext::is_integral_v<uint_type> && !ext::is_signed_v<uint_type>>* = nullptr>
+	constexpr uint_type round_next_multiple(const uint_type& val, const uint_type& multiple) {
+		return max(((val + (multiple - 1u)) / multiple) * multiple, multiple);
+	}
 	
 	//! computes x % y, the remainder of the division x / y (aka modulo)
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!

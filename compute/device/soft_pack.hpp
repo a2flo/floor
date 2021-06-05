@@ -77,7 +77,7 @@ floor_inline_always __attribute__((const)) float4 unpack_snorm_4x8(const uint32_
 	return uchar4(val & 0xFFu,
 				  (val >> 8u) & 0xFFu,
 				  (val >> 16u) & 0xFFu,
-				  (val >> 24u) & 0xFFu).reinterpret<int8_t>().cast<float>();
+				  (val >> 24u) & 0xFFu).reinterpret<int8_t>().cast<float>() * (1.0f / 127.0f);
 }
 
 //! unpacks the input 32-bit unsigned integer into 4 8-bit unsigned integers, then converts these [0, 255]-ranged integers
@@ -86,19 +86,19 @@ floor_inline_always __attribute__((const)) float4 unpack_unorm_4x8(const uint32_
 	return uchar4(val & 0xFFu,
 				  (val >> 8u) & 0xFFu,
 				  (val >> 16u) & 0xFFu,
-				  (val >> 24u) & 0xFFu).cast<float>();
+				  (val >> 24u) & 0xFFu).cast<float>() * (1.0f / 255.0f);
 }
 
 //! unpacks the input 32-bit unsigned integer into 2 16-bit signed integers, then converts these [-32767, 32767]-ranged integers
 //! to normalized 32-bit single-precision float values in [-1, 1], returning them in a 2 component vector
 floor_inline_always __attribute__((const)) float2 unpack_snorm_2x16(const uint32_t& val) {
-	return ushort2(val & 0xFFFFu, (val >> 16u) & 0xFFFFu).reinterpret<int16_t>().cast<float>();
+	return ushort2(val & 0xFFFFu, (val >> 16u) & 0xFFFFu).reinterpret<int16_t>().cast<float>() * (1.0f / 32767.0f);
 }
 
 //! unpacks the input 32-bit unsigned integer into 2 16-bit unsigned integers, then converts these [0, 65535]-ranged integers
 //! to normalized 32-bit single-precision float values in [0, 1], returning them in a 2 component vector
 floor_inline_always __attribute__((const)) float2 unpack_unorm_2x16(const uint32_t& val) {
-	return ushort2(val & 0xFFFFu, (val >> 16u) & 0xFFFFu).cast<float>();
+	return ushort2(val & 0xFFFFu, (val >> 16u) & 0xFFFFu).cast<float>() * (1.0f / 65535.0f);
 }
 
 //! unpacks the input 32-bit unsigned integer into 2 16-bit half-precision float values, then converts these values

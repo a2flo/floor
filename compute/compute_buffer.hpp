@@ -202,6 +202,31 @@ public:
 		return false;
 	}
 	
+	//! for debugging purposes: dumps the content of this buffer into a file using the specified "value_type" operator<<
+	//! NOTE: each value will printed in one line (terminated by \n)
+	template <typename value_type>
+	bool dump_to_file(const compute_queue& cqueue, const string& file_name) {
+		ofstream dump_file(file_name, ios::out);
+		if (!dump_file.is_open()) {
+			return false;
+		}
+		
+		auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (mapped_ptr == nullptr) {
+			return false;
+		}
+		
+		auto typed_ptr = (const value_type*)mapped_ptr;
+		const auto value_count = size / sizeof(value_type);
+		for (size_t value_idx = 0; value_idx < value_count; ++value_idx) {
+			dump_file << *typed_ptr++ << '\n';
+		}
+		
+		unmap(cqueue, mapped_ptr);
+		
+		return true;
+	}
+	
 protected:
 	size_t size { 0u };
 	
