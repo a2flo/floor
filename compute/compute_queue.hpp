@@ -35,21 +35,6 @@ class compute_queue {
 public:
 	//! argument type validity specializations, with pretty error messages
 	template <typename T> struct is_valid_arg { static constexpr bool valid() { return true; } };
-#if !defined(_MSC_VER) // size_t == uint32_t with msvc (which is obviously allowed), TODO: check if this is the same with x64
-	template <typename T>
-	requires is_same_v<T, size_t>
-	struct is_valid_arg<T> {
-		static constexpr bool valid()
-		__attribute__((unavailable("size_t is not allowed due to a possible host/device size mismatch"))) { return false; }
-	};
-	template <typename T>
-	requires (is_floor_vector<T>::value &&
-			  is_same_v<typename T::decayed_scalar_type, size_t>)
-	struct is_valid_arg<T> {
-		static constexpr bool valid()
-		__attribute__((unavailable("size_t vector types are not allowed due to a possible host/device size mismatch"))) { return false; }
-	};
-#endif
 	
 	template <typename T> struct is_compute_memory_pointer : public false_type {};
 	template <typename T>
