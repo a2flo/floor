@@ -66,7 +66,7 @@ public:
 		}
 	}
 	
-	void run() override;
+	void run() override REQUIRES(!log_store_lock);
 };
 static unique_ptr<logger_thread> log_thread;
 
@@ -324,7 +324,7 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 	return true;
 }
 
-void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str) {
+void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str) REQUIRES(!log_store_lock) {
 	// this is the final log function
 	if (str != nullptr) {
 		while (*str) {

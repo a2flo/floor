@@ -220,7 +220,7 @@ is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SH
 	}
 }
 
-bool cuda_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+bool cuda_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) REQUIRES(!device_sampler_mtx) {
 	// image handling in cuda/ptx is somewhat complicated:
 	// when using a texture object, you can only read from it, but with sampler support,
 	// when using a surface object, you can read _and_ write from/to it, but without sampler support.

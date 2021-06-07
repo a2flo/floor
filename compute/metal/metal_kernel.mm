@@ -200,6 +200,17 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeRenderPipeline: return "RenderPipeline";
 		case MTLDataTypeComputePipeline: return "ComputePipeline";
 		case MTLDataTypeIndirectCommandBuffer: return "IndirectCommandBuffer";
+#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 120000) || \
+	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000)
+		case MTLDataTypeLong: return "Long";
+		case MTLDataTypeLong2: return "Long2";
+		case MTLDataTypeLong3: return "Long3";
+		case MTLDataTypeLong4: return "Long4";
+		case MTLDataTypeULong: return "ULong";
+		case MTLDataTypeULong2: return "ULong2";
+		case MTLDataTypeULong3: return "ULong3";
+		case MTLDataTypeULong4: return "ULong4";
+#endif
 		case MTLDataTypeVisibleFunctionTable: return "VisibleFunctionTable";
 		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
 		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";

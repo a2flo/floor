@@ -175,16 +175,19 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// figure out which metal version we can use
-		if(darwin_helper::get_system_version() >= 140000) {
+		if (darwin_helper::get_system_version() >= 150000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_4;
+			device.metal_language_version = METAL_VERSION::METAL_2_4;
+		} else if (darwin_helper::get_system_version() >= 140000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_3;
 			device.metal_language_version = METAL_VERSION::METAL_2_3;
-		} else if(darwin_helper::get_system_version() >= 130000) {
+		} else if (darwin_helper::get_system_version() >= 130000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_2;
 			device.metal_language_version = METAL_VERSION::METAL_2_2;
-		} else if(darwin_helper::get_system_version() >= 120000) {
+		} else if (darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_1;
 			device.metal_language_version = METAL_VERSION::METAL_2_1;
-		} else if(darwin_helper::get_system_version() >= 110000) {
+		} else if (darwin_helper::get_system_version() >= 110000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_0;
 			device.metal_language_version = METAL_VERSION::METAL_2_0;
 		}
@@ -389,7 +392,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 110000) {
+		if (darwin_helper::get_system_version() >= 120000) {
+			device.metal_software_version = METAL_VERSION::METAL_2_4;
+			device.metal_language_version = METAL_VERSION::METAL_2_4;
+		} else if (darwin_helper::get_system_version() >= 110000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_3;
 			device.metal_language_version = METAL_VERSION::METAL_2_3;
 		} else if (darwin_helper::get_system_version() >= 101500) {
