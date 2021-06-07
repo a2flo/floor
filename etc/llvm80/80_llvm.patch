@@ -4465,10 +4465,10 @@ index 00000000000..53d7ad306d5
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 00000000000..68cb22c5cf0
+index 00000000000..b9c356a700e
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,678 @@
+@@ -0,0 +1,687 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4781,6 +4781,7 @@ index 00000000000..68cb22c5cf0
 +    metal_versions{
 +        {200, {{{2, 0, 0}}, {{2, 0, 0}}}}, {210, {{{2, 1, 0}}, {{2, 1, 0}}}},
 +        {220, {{{2, 2, 0}}, {{2, 2, 0}}}}, {230, {{{2, 3, 0}}, {{2, 3, 0}}}},
++        {240, {{{2, 4, 0}}, {{2, 4, 0}}}},
 +    };
 +
 +//
@@ -4799,6 +4800,8 @@ index 00000000000..68cb22c5cf0
 +      target_air_version = 220;
 +    } else if (ios_major >= 14) {
 +      target_air_version = 230;
++    } else if (ios_major >= 15) {
++      target_air_version = 240;
 +    }
 +
 +    M.setSDKVersion(VersionTuple{ios_major, ios_minor});
@@ -4812,8 +4815,10 @@ index 00000000000..68cb22c5cf0
 +    } else if (osx_major == 10 && osx_minor == 15) {
 +      target_air_version = 220;
 +    } else if ((osx_major == 11 && osx_minor >= 0) ||
-+               (osx_major == 10 && osx_minor >= 16) || osx_major > 11) {
++               (osx_major == 10 && osx_minor >= 16)) {
 +      target_air_version = 230;
++    } else if ((osx_major == 12 && osx_minor >= 0) || osx_major > 12) {
++      target_air_version = 240;
 +    }
 +
 +    M.setSDKVersion(VersionTuple{osx_major, osx_minor});
@@ -5005,10 +5010,14 @@ index 00000000000..68cb22c5cf0
 +    if (target_air_version >= 230) {
 +      if (auto llvm_ident = cloned_mod->getNamedMetadata("llvm.ident")) {
 +        if (MDNode *ident_op = llvm_ident->getOperand(0)) {
++          static const std::unordered_map<uint32_t, std::string> ident_versions {
++            { 230, "Apple LLVM version 31001.143 (metalfe-31001.143)" },
++            { 240, "Apple metal version 31001.322 (metalfe-31001.322.1)" },
++          };
 +          ident_op->replaceOperandWith(
 +              0, llvm::MDString::get(
 +                     cloned_mod->getContext(),
-+                     "Apple LLVM version 31001.143 (metalfe-31001.143)"));
++                     ident_versions.at(target_air_version)));
 +        }
 +      }
 +    }
