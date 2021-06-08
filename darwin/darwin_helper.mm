@@ -610,8 +610,8 @@ size_t darwin_helper::get_system_version() {
 #if !defined(FLOOR_IOS)
 		// osrelease = kernel version
 		// * <= 10.15: not os x version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
-		// * >= 11.0: 100 + x
-		const size_t os_major_version = (major_version >= 20 ? 100 + (major_version - 20) : major_version - 4);
+		// * >= 11.0: 110000 + x * 10000
+		const size_t os_major_version = (major_version >= 20 ? 110000 + 10000 * (major_version - 20) : major_version - 4);
 #else
 		// osrelease = kernel version, not ios version -> substract 7 (NOTE: this won't run on anything < iOS 7.0,
 		// so any differentiation below doesn't matter (5.0: darwin 11, 6.0: darwin 13, 7.0: darwin 14)
@@ -630,7 +630,6 @@ size_t darwin_helper::get_system_version() {
 			++os_major_version;
 		}
 #endif
-		const string os_major_version_str = to_string(os_major_version);
 		
 		// mimic the compiled version string:
 		// OS X >= 10.10 and <= 10.15:  10xxyy, x = major, y = minor
@@ -638,13 +637,12 @@ size_t darwin_helper::get_system_version() {
 		// iOS                       :  xxyy00, x = major, y = minor
 		size_t condensed_version;
 #if !defined(FLOOR_IOS)
-		if (major_version < 20) { // 101000+
+		if (major_version < 110000) { // 101000+
 			condensed_version = 100000;
 			condensed_version += os_major_version * 100;
 			condensed_version += os_minor_version;
 		} else {
-			condensed_version = 100000;
-			condensed_version += os_major_version * 100;
+			condensed_version = os_major_version;
 			condensed_version += os_minor_version * 100;
 		}
 #else
