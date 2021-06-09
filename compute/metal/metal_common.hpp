@@ -64,7 +64,7 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 	}
 }
 constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint32_t minor) {
-	if (major < 2 || major > 3) return METAL_VERSION::NONE;
+	if (major < 2 || major >= 3) return METAL_VERSION::NONE;
 	// major == 2
 	switch (minor) {
 		case 0: return METAL_VERSION::METAL_2_0;

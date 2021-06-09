@@ -637,7 +637,7 @@ size_t darwin_helper::get_system_version() {
 		// iOS                       :  xxyy00, x = major, y = minor
 		size_t condensed_version;
 #if !defined(FLOOR_IOS)
-		if (major_version < 110000) { // 101000+
+		if (major_version < 20) { // 101000+
 			condensed_version = 100000;
 			condensed_version += os_major_version * 100;
 			condensed_version += os_minor_version;
