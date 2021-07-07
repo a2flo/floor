@@ -55,6 +55,10 @@ typedef unsigned long int ulong;
 typedef unsigned long int size_t;
 typedef long int ssize_t;
 
+typedef __SIZE_TYPE__ uintptr_t;
+typedef __PTRDIFF_TYPE__ intptr_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)
 // -> need to add simple macro aliases here

@@ -54,13 +54,13 @@ constexpr bool floor_atomic_is_lock_free(const size_t& size) {
 }
 
 #if !defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
-#define FLOOR_ATOMIC_LONG_LOCK_FREE false
-#define FLOOR_ATOMIC_LLONG_LOCK_FREE false
-#define FLOOR_ATOMIC_POINTER_LOCK_FREE false
+#define FLOOR_ATOMIC_LONG_LOCK_FREE 0
+#define FLOOR_ATOMIC_LLONG_LOCK_FREE 0
+#define FLOOR_ATOMIC_POINTER_LOCK_FREE 0
 #else
-#define FLOOR_ATOMIC_LONG_LOCK_FREE true
-#define FLOOR_ATOMIC_LLONG_LOCK_FREE true
-#define FLOOR_ATOMIC_POINTER_LOCK_FREE true
+#define FLOOR_ATOMIC_LONG_LOCK_FREE 2
+#define FLOOR_ATOMIC_LLONG_LOCK_FREE 2
+#define FLOOR_ATOMIC_POINTER_LOCK_FREE 2
 #endif
 
 template <typename T> T floor_atomic_fetch_add(global T* addr, const T& val, memory_order) { return atomic_add(addr, val); }

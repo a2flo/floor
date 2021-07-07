@@ -41,6 +41,10 @@ typedef unsigned long long int uint64_t;
 typedef __SIZE_TYPE__ size_t;
 typedef int64_t ssize_t;
 
+typedef __SIZE_TYPE__ uintptr_t;
+typedef __PTRDIFF_TYPE__ intptr_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+
 #endif
 
 #endif

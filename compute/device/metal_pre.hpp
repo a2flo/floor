@@ -46,8 +46,10 @@ typedef unsigned long int uint64_t;
 
 typedef __SIZE_TYPE__ size_t;
 typedef __PTRDIFF_TYPE__ ssize_t;
+
 typedef __SIZE_TYPE__ uintptr_t;
 typedef __PTRDIFF_TYPE__ intptr_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
 
 // memory and synchronization scopes
 // note that the inconsistencies are intentional, apparently apple isn't sure about this either,

@@ -358,8 +358,9 @@ program_data compile_input(const string& input,
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
-				" -x " + (!build_pch ? "metal -llvm-metallib" : "metal-header") +
+				" -x " + (!build_pch ? "metal" : "metal-header") +
 				" -std=" + metal_std + " -target air64-apple-" + os_target +
+				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-metallib" : " -llvm-metallib") : "") +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
@@ -953,6 +954,12 @@ program_data compile_input(const string& input,
 		" -Xclang -menable-unsafe-fp-math"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +
+		// use integrated cc1 on latest toolchain
+		(toolchain_version >= 130000 ? " -fintegrated-cc1" : "") +
+		// use legacy pass manager on latest toolchain for now (TODO: use new pass manager!)
+		(toolchain_version >= 130000 ? " -flegacy-pass-manager" : "") +
+		// disable argument round-trip on latest toolchain
+		(toolchain_version >= 130000 ? " -Xclang -no-round-trip-args" : "") +
 		// note that enabling warnings costs a significant amount of compilation time
 		(options.enable_warnings ? " -Weverything" : " ") +
 		disabled_warning_flags +
