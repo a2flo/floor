@@ -519,7 +519,7 @@ program_data compile_input(const string& input,
 			output_file_type = "bin";
 			const auto& cpu_device = (const host_device&)device;
 			
-			string arch;
+			string arch, prefer_vec_width;
 			switch (cpu_device.cpu_tier) {
 #if !defined(FLOOR_IOS)
 				default:
@@ -535,6 +535,8 @@ program_data compile_input(const string& input,
 					break;
 				case HOST_CPU_TIER::X86_TIER_4:
 					arch = "skylake-avx512";
+					// override default behavior of preferring 256-bit
+					prefer_vec_width = (toolchain_version >= 130000 ? " -mprefer-vector-width=512" : "");
 					break;
 					
 #if defined(FLOOR_IOS)
@@ -556,6 +558,7 @@ program_data compile_input(const string& input,
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
 				" -march=" + arch +
+				prefer_vec_width +
 				" -mcmodel=large" +
 				" -DFLOOR_COMPUTE_HOST_DEVICE -DFLOOR_COMPUTE_HOST" +
 				// TODO/NOTE: for now, doubles are not supported
@@ -960,6 +963,8 @@ program_data compile_input(const string& input,
 		(toolchain_version >= 130000 ? " -flegacy-pass-manager" : "") +
 		// disable argument round-trip on latest toolchain
 		(toolchain_version >= 130000 ? " -Xclang -no-round-trip-args" : "") +
+		// force enable half/fp16 support on all targets
+		(toolchain_version >= 130000 ? " -Xclang -fnative-half-type -Xclang -fnative-half-arguments-and-returns -Xclang -fallow-half-arguments-and-returns" : "") +
 		// note that enabling warnings costs a significant amount of compilation time
 		(options.enable_warnings ? " -Weverything" : " ") +
 		disabled_warning_flags +

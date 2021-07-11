@@ -33,6 +33,8 @@
 #endif
 
 // sized integer types
+#include <stdint.h>
+#include <stddef.h>
 #include <cstdint>
 #if defined(FLOOR_COMPUTE_HOST_DEVICE)
 typedef __SIZE_TYPE__ size_t;

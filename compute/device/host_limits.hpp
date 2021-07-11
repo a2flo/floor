@@ -47,6 +47,7 @@
 #define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX 65u
 #endif
 
+//! various host limits that are known at compile-time
 namespace host_limits {
 	//! max amout of local memory that can be allocated per work-group
 	static constexpr const size_t local_memory_size { 128ull * 1024ull };

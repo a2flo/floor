@@ -49,18 +49,8 @@
 #include <floor/compute/device/host_pre.hpp>
 #endif
 
-// sets a required local size/dim
-#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE))
-#define kernel_local_size(x, y, z) __attribute__((reqd_work_group_size(x, y, z)))
-#else // can't set this on the host
-#define kernel_local_size(x, y, z)
-#endif
-
-// misc device information
-#include <floor/compute/device/device_info.hpp>
-
-#if !defined(FLOOR_COMPUTE_HOST)
 // more integer types
+#if !defined(FLOOR_COMPUTE_HOST)
 typedef int8_t int_least8_t;
 typedef int16_t int_least16_t;
 typedef int32_t int_least32_t;
@@ -84,6 +74,16 @@ typedef __UINTPTR_TYPE__ uintptr_t;
 typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 #endif
+
+// sets a required local size/dim
+#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE))
+#define kernel_local_size(x, y, z) __attribute__((reqd_work_group_size(x, y, z)))
+#else // can't set this on the host
+#define kernel_local_size(x, y, z)
+#endif
+
+// misc device information
+#include <floor/compute/device/device_info.hpp>
 
 // clang vector types that are needed in some places (image functions)
 typedef int8_t clang_char1 __attribute__((ext_vector_type(1)));
