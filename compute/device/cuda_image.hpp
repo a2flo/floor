@@ -101,6 +101,7 @@ namespace cuda_image {
 										   clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false,
 										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.cuda.read_image.uint.f3");
 	
+#if FLOOR_TOOLCHAIN_VERSION < 130000u
 	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.cuda.write_image.float.i1");
 	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.cuda.write_image.float.i2");
 	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.cuda.write_image.float.i3");
@@ -112,12 +113,36 @@ namespace cuda_image {
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i1");
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i2");
 	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_uint4 data) asm("floor.cuda.write_image.uint.i3");
+#else // >= 130000
+	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						   clang_float4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.float.i1");
+	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						   clang_float4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.float.i2");
+	void write_image_float(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						   clang_float4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.float.i3");
+	
+	void write_image_int(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						 clang_int4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.int.i1");
+	void write_image_int(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						 clang_int4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.int.i2");
+	void write_image_int(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						 clang_int4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.int.i3");
+	
+	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						  clang_uint4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.uint.i1");
+	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						  clang_uint4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.uint.i2");
+	void write_image_uint(uint64_t surf, COMPUTE_IMAGE_TYPE fixed_type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod,
+						  clang_uint4 data, COMPUTE_IMAGE_TYPE rt_type) asm("floor.cuda.write_image.uint.i3");
+#endif
 
 	const_func clang_uint4 get_image_dim(uint64_t tex_or_surf, COMPUTE_IMAGE_TYPE type, uint32_t lod) asm("floor.cuda.get_image_dim");
 	
 	//////////////////////////////////////////
 	// cuda image write functions with run-time selection
-	
+
+#if FLOOR_TOOLCHAIN_VERSION < 130000u
+
 #define FLOOR_RT_WRITE_IMAGE_CASE(write_func, rt_base_type) case rt_base_type: { \
 	constexpr const COMPUTE_IMAGE_TYPE type { rt_base_type | fixed_type }; \
 	write_func(surf, type, coord, layer, lod, is_lod, data); \
@@ -289,6 +314,31 @@ namespace cuda_image {
 			default: floor_unreachable();
 		}
 	}
+
+#else // FLOOR_TOOLCHAIN_VERSION >= 130000
+
+	// float write with fixed channel count or run-time variable channel count
+	template <COMPUTE_IMAGE_TYPE image_type, typename clang_coord_type>
+	floor_inline_always static void write_float(const uint64_t surf, const COMPUTE_IMAGE_TYPE runtime_image_type, const clang_coord_type coord,
+												const uint32_t layer, const uint32_t lod, const bool is_lod, const clang_float4 data) {
+		write_image_float(surf, image_type, coord, layer, lod, is_lod, data, runtime_image_type);
+	}
+
+	// int write with fixed channel count or run-time variable channel count
+	template <COMPUTE_IMAGE_TYPE image_type, typename clang_coord_type>
+	floor_inline_always static void write_int(const uint64_t surf, const COMPUTE_IMAGE_TYPE runtime_image_type, const clang_coord_type coord,
+											  const uint32_t layer, const uint32_t lod, const bool is_lod, const clang_int4 data) {
+		write_image_int(surf, image_type, coord, layer, lod, is_lod, data, runtime_image_type);
+	}
+
+	// uint write with fixed channel count or run-time variable channel count
+	template <COMPUTE_IMAGE_TYPE image_type, typename clang_coord_type>
+	floor_inline_always static void write_uint(const uint64_t surf, const COMPUTE_IMAGE_TYPE runtime_image_type, const clang_coord_type coord,
+											   const uint32_t layer, const uint32_t lod, const bool is_lod, const clang_uint4 data) {
+		write_image_uint(surf, image_type, coord, layer, lod, is_lod, data, runtime_image_type);
+	}
+
+#endif
 	
 }
 

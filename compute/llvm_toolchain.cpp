@@ -371,8 +371,8 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
-				" -Xclang -cl-finite-math-only" \
-				" -mllvm -slp-max-vec-dim=4" /* vector dims > 4 are unsupported */ \
+				" -Xclang -cl-finite-math-only" +
+				(toolchain_version < 130000 ? " -mllvm -slp-max-vec-dim=4" /* vector dims > 4 are unsupported */ : "" /* no longer needed */) +
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" +
 				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
