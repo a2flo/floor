@@ -691,6 +691,7 @@
 		5CF974C524E87F6600014CDC /* elf_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = elf_binary.hpp; path = host/elf_binary.hpp; sourceTree = "<group>"; };
 		5CFB8CC822906D6200BF387F /* platform_windows.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = platform_windows.hpp; sourceTree = "<group>"; };
 		5CFC65A22471C32D005E3128 /* compute_memory_flags.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_memory_flags.hpp; sourceTree = "<group>"; };
+		5CFC8A8F26B74F24009028A5 /* atomic_compat_post.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = atomic_compat_post.hpp; path = device/atomic_compat_post.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -984,6 +985,7 @@
 				5CE843B01B28CE1E00D8B961 /* device_info.hpp */,
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */,
+				5CFC8A8F26B74F24009028A5 /* atomic_compat_post.hpp */,
 				5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */,
 				5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */,
 				5CBBFF571BC2B786001813E0 /* image.hpp */,

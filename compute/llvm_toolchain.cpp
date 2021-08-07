@@ -932,7 +932,7 @@ program_data compile_input(const string& input,
 		// usually conflicting with the other switch/case warning, so disable it
 		" -Wno-switch-enum"
 		// don't warn when using macros prefixed with "__" or "_"
-		" -Wno-reserved-id-macro"
+		" -Wno-reserved-id-macro -Wno-reserved-identifier"
 		// ignore "explicit move to avoid copying on older compilers" warning
 		" -Wno-return-std-move-in-c++11"
 		// end

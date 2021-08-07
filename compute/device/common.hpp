@@ -161,6 +161,7 @@ using namespace std;
 #elif defined(FLOOR_COMPUTE_HOST)
 #include <floor/compute/device/host_atomic.hpp>
 #endif
+#include <floor/compute/device/atomic_compat_post.hpp>
 // undef above min/max, we want the std::min/max
 #undef min
 #undef max
