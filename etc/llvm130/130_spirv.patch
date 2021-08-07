@@ -1,0 +1,450 @@
+diff --git a/include/LLVMSPIRVLib.h b/include/LLVMSPIRVLib.h
+index a88d0f0..478ba55 100644
+--- a/include/LLVMSPIRVLib.h
++++ b/include/LLVMSPIRVLib.h
+@@ -42,6 +42,7 @@
+ #define SPIRV_H
+ 
+ #include "LLVMSPIRVOpts.h"
++#include "llvm/../../projects/spirv/lib/SPIRV/libSPIRV/SPIRVUtil.h"
+ 
+ #include <iostream>
+ #include <string>
+@@ -81,7 +82,7 @@ bool isSpirvBinary(const std::string &Img);
+ /// This function is not thread safe and should not be used in multi-thread
+ /// applications unless guarded by a critical section.
+ /// \returns true if succeeds.
+-bool convertSpirv(std::istream &IS, std::ostream &OS, std::string &ErrMsg,
++bool convertSpirv(std::istream &IS, spv_ostream &OS, std::string &ErrMsg,
+                   bool FromText, bool ToText);
+ 
+ /// \brief Convert SPIR-V between binary and internal text formats.
+@@ -111,7 +112,7 @@ namespace llvm {
+ 
+ /// \brief Translate LLVM module to SPIR-V and write to ostream.
+ /// \returns true if succeeds.
+-bool writeSpirv(Module *M, std::ostream &OS, std::string &ErrMsg);
++bool writeSpirv(Module *M, spv_ostream &OS, std::string &ErrMsg);
+ 
+ /// \brief Load SPIR-V from istream and translate to LLVM module.
+ /// \returns true if succeeds.
+@@ -120,7 +121,7 @@ bool readSpirv(LLVMContext &C, std::istream &IS, Module *&M,
+ 
+ /// \brief Translate LLVM module to SPIR-V and write to ostream.
+ /// \returns true if succeeds.
+-bool writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts, std::ostream &OS,
++bool writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts, spv_ostream &OS,
+                 std::string &ErrMsg);
+ 
+ /// \brief Load SPIR-V from istream and translate to LLVM module.
+diff --git a/lib/SPIRV/OCLToSPIRV.cpp b/lib/SPIRV/OCLToSPIRV.cpp
+index 3e7f149..af2fe66 100644
+--- a/lib/SPIRV/OCLToSPIRV.cpp
++++ b/lib/SPIRV/OCLToSPIRV.cpp
+@@ -1616,7 +1616,7 @@ void OCLToSPIRVBase::visitCallEnqueueKernel(CallInst *CI,
+       FunctionType::get(CI->getType(), getTypes(Args), false /*isVarArg*/);
+   Function *NewF =
+       Function::Create(FT, GlobalValue::ExternalLinkage, NewName, M);
+-  NewF->setCallingConv(CallingConv::SPIR_FUNC);
++  NewF->setCallingConv(CallingConv::FLOOR_FUNC);
+   CallInst *NewCall = CallInst::Create(NewF, Args, "", CI);
+   NewCall->setCallingConv(NewF->getCallingConv());
+   CI->replaceAllUsesWith(NewCall);
+diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
+index f420240..8d762bd 100644
+--- a/lib/SPIRV/OCLUtil.h
++++ b/lib/SPIRV/OCLUtil.h
+@@ -94,11 +94,11 @@ enum OCLScopeKind {
+ // To avoid any inconsistence here, constants are explicitly initialized with
+ // the corresponding constants from 'std::memory_order' enum.
+ enum OCLMemOrderKind {
+-  OCLMO_relaxed = std::memory_order::memory_order_relaxed,
+-  OCLMO_acquire = std::memory_order::memory_order_acquire,
+-  OCLMO_release = std::memory_order::memory_order_release,
+-  OCLMO_acq_rel = std::memory_order::memory_order_acq_rel,
+-  OCLMO_seq_cst = std::memory_order::memory_order_seq_cst
++  OCLMO_relaxed = (uint32_t)std::memory_order_relaxed,
++  OCLMO_acquire = (uint32_t)std::memory_order_acquire,
++  OCLMO_release = (uint32_t)std::memory_order_release,
++  OCLMO_acq_rel = (uint32_t)std::memory_order_acq_rel,
++  OCLMO_seq_cst = (uint32_t)std::memory_order_seq_cst
+ };
+ 
+ ///////////////////////////////////////////////////////////////////////////////
+diff --git a/lib/SPIRV/PreprocessMetadata.cpp b/lib/SPIRV/PreprocessMetadata.cpp
+index d28fd10..a64825b 100644
+--- a/lib/SPIRV/PreprocessMetadata.cpp
++++ b/lib/SPIRV/PreprocessMetadata.cpp
+@@ -158,7 +158,7 @@ void PreprocessMetadataBase::visit(Module *M) {
+   // Add execution modes for kernels. We take it from metadata attached to
+   // the kernel functions.
+   for (Function &Kernel : *M) {
+-    if (Kernel.getCallingConv() != CallingConv::SPIR_KERNEL)
++    if (Kernel.getCallingConv() != CallingConv::FLOOR_KERNEL)
+       continue;
+ 
+     // Specifing execution modes for the Kernel and adding it to the list
+@@ -312,7 +312,7 @@ void PreprocessMetadataBase::preprocessVectorComputeMetadata(Module *M,
+   auto EM = B->addNamedMD(kSPIRVMD::ExecutionMode);
+ 
+   for (auto &F : *M) {
+-    if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
++    if (F.getCallingConv() != CallingConv::FLOOR_KERNEL)
+       continue;
+ 
+     // Add VC float control execution modes
+diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
+index de789a1..fa1d59d 100644
+--- a/lib/SPIRV/SPIRVReader.cpp
++++ b/lib/SPIRV/SPIRVReader.cpp
+@@ -317,7 +317,7 @@ bool SPIRVToLLVM::transOCLBuiltinFromVariable(GlobalVariable *GV,
+   if (!Func) {
+     FunctionType *FT = FunctionType::get(ReturnTy, ArgTy, false);
+     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
+-    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
+     Func->addFnAttr(Attribute::NoUnwind);
+     Func->addFnAttr(Attribute::ReadNone);
+     Func->addFnAttr(Attribute::WillReturn);
+@@ -2424,7 +2424,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
+         cast<FunctionType>(V->getType()->getPointerElementType()), V,
+         transValue(BC->getArgumentValues(), F, BB), BC->getName(), BB);
+     // Assuming we are calling a regular device function
+-    Call->setCallingConv(CallingConv::SPIR_FUNC);
++    Call->setCallingConv(CallingConv::FLOOR_FUNC);
+     // Don't set attributes, because at translation time we don't know which
+     // function exactly we are calling.
+     return mapValue(BV, Call);
+@@ -2736,7 +2736,7 @@ CallInst *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI,
+   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
+ 
+   auto *Fn = cast<Function>(FCallee.getCallee());
+-  Fn->setCallingConv(CallingConv::SPIR_FUNC);
++  Fn->setCallingConv(CallingConv::FLOOR_FUNC);
+   if (isFuncNoUnwind())
+     Fn->addFnAttr(Attribute::NoUnwind);
+ 
+@@ -2863,7 +2863,7 @@ CallInst *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
+   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
+ 
+   auto *Func = cast<Function>(FCallee.getCallee());
+-  Func->setCallingConv(CallingConv::SPIR_FUNC);
++  Func->setCallingConv(CallingConv::FLOOR_FUNC);
+   if (isFuncNoUnwind())
+     Func->addFnAttr(Attribute::NoUnwind);
+ 
+@@ -2909,8 +2909,8 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF) {
+   if (F->isIntrinsic())
+     return F;
+ 
+-  F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL
+-                             : CallingConv::SPIR_FUNC);
++  F->setCallingConv(IsKernel ? CallingConv::FLOOR_KERNEL
++                             : CallingConv::FLOOR_FUNC);
+   if (BF->hasDecorate(DecorationReferencedIndirectlyINTEL))
+     F->addFnAttr("referenced-indirectly");
+   if (isFuncNoUnwind())
+@@ -3298,7 +3298,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
+   if (!Func || Func->getFunctionType() != FT) {
+     LLVM_DEBUG(for (auto &I : ArgTys) { dbgs() << *I << '\n'; });
+     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
+-    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
+     if (isFuncNoUnwind())
+       Func->addFnAttr(Attribute::NoUnwind);
+     auto OC = BI->getOpCode();
+@@ -4004,7 +4004,7 @@ bool SPIRVToLLVM::transMetadata() {
+         BF->getExecutionMode(internal::ExecutionModeFastCompositeKernelINTEL))
+       F->addFnAttr(kVCMetadata::VCFCEntry);
+ 
+-    if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
++    if (F->getCallingConv() != CallingConv::FLOOR_KERNEL)
+       continue;
+ 
+     // Generate metadata for reqd_work_group_size
+@@ -4074,7 +4074,7 @@ bool SPIRVToLLVM::transMetadata() {
+ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
+   Function *F = static_cast<Function *>(getTranslatedValue(BF));
+   assert(F && "Invalid translated function");
+-  if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
++  if (F->getCallingConv() != CallingConv::FLOOR_KERNEL)
+     return true;
+ 
+   if (BF->hasDecorate(DecorationVectorComputeFunctionINTEL))
+@@ -4397,7 +4397,7 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
+   Function *F = M->getFunction(MangledName);
+   if (!F) {
+     F = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
+-    F->setCallingConv(CallingConv::SPIR_FUNC);
++    F->setCallingConv(CallingConv::FLOOR_FUNC);
+     if (isFuncNoUnwind())
+       F->addFnAttr(Attribute::NoUnwind);
+     if (isFuncReadNone(UnmangledName))
+diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
+index 7864216..5135109 100644
+--- a/lib/SPIRV/SPIRVUtil.cpp
++++ b/lib/SPIRV/SPIRVUtil.cpp
+@@ -318,7 +318,7 @@ Function *getOrCreateFunction(Module *M, Type *RetTy, ArrayRef<Type *> ArgTypes,
+     LLVM_DEBUG(dbgs() << "[getOrCreateFunction] ";
+                if (F) dbgs() << *F << " => "; dbgs() << *NewF << '\n';);
+     F = NewF;
+-    F->setCallingConv(CallingConv::SPIR_FUNC);
++    F->setCallingConv(CallingConv::FLOOR_FUNC);
+     if (Attrs)
+       F->setAttributes(*Attrs);
+   }
+diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
+index 2c3bc15..3e85208 100644
+--- a/lib/SPIRV/SPIRVWriter.cpp
++++ b/lib/SPIRV/SPIRVWriter.cpp
+@@ -148,7 +148,7 @@ SPIRVValue *LLVMToSPIRVBase::getTranslatedValue(const Value *V) const {
+ }
+ 
+ bool LLVMToSPIRVBase::isKernel(Function *F) {
+-  if (F->getCallingConv() == CallingConv::SPIR_KERNEL)
++  if (F->getCallingConv() == CallingConv::FLOOR_KERNEL)
+     return true;
+   return false;
+ }
+@@ -3669,7 +3669,7 @@ bool LLVMToSPIRVBase::transMetadata() {
+ 
+ bool LLVMToSPIRVBase::transOCLMetadata() {
+   for (auto &F : *M) {
+-    if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
++    if (F.getCallingConv() != CallingConv::FLOOR_KERNEL)
+       continue;
+ 
+     SPIRVFunction *BF = static_cast<SPIRVFunction *>(getTranslatedValue(&F));
+@@ -4122,7 +4122,7 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
+   return true;
+ }
+ 
+-bool llvm::writeSpirv(Module *M, std::ostream &OS, std::string &ErrMsg) {
++bool llvm::writeSpirv(Module *M, spv_ostream &OS, std::string &ErrMsg) {
+   SPIRV::TranslatorOpts DefaultOpts;
+   // To preserve old behavior of the translator, let's enable all extensions
+   // by default in this API
+@@ -4131,7 +4131,7 @@ bool llvm::writeSpirv(Module *M, std::ostream &OS, std::string &ErrMsg) {
+ }
+ 
+ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
+-                      std::ostream &OS, std::string &ErrMsg) {
++					  spv_ostream &OS, std::string &ErrMsg) {
+   std::unique_ptr<SPIRVModule> BM(SPIRVModule::createSPIRVModule(Opts));
+   if (!isValidLLVMModule(M, BM->getErrorLog()))
+     return false;
+diff --git a/lib/SPIRV/SPIRVWriterPass.cpp b/lib/SPIRV/SPIRVWriterPass.cpp
+index 4e211d0..50208e4 100644
+--- a/lib/SPIRV/SPIRVWriterPass.cpp
++++ b/lib/SPIRV/SPIRVWriterPass.cpp
+@@ -18,7 +18,7 @@
+ #include "llvm/Pass.h"
+ using namespace llvm;
+ 
+-PreservedAnalyses SPIRVWriterPass::run(Module &M) {
++PreservedAnalyses SPIRVWriterPass::run(Module &M, ModuleAnalysisManager&) {
+   // FIXME: at the moment LLVM/SPIR-V translation errors are ignored.
+   std::string Err;
+   writeSpirv(&M, Opts, OS, Err);
+@@ -27,12 +27,12 @@ PreservedAnalyses SPIRVWriterPass::run(Module &M) {
+ 
+ namespace {
+ class WriteSPIRVPass : public ModulePass {
+-  std::ostream &OS; // std::ostream to print on
++  raw_ostream& OS; // std::ostream to print on
+   SPIRV::TranslatorOpts Opts;
+ 
+ public:
+   static char ID; // Pass identification, replacement for typeid
+-  WriteSPIRVPass(std::ostream &OS, const SPIRV::TranslatorOpts &Opts)
++  WriteSPIRVPass(raw_ostream &OS, const SPIRV::TranslatorOpts &Opts)
+       : ModulePass(ID), OS(OS), Opts(Opts) {}
+ 
+   StringRef getPassName() const override { return "SPIRV Writer"; }
+@@ -48,7 +48,7 @@ public:
+ 
+ char WriteSPIRVPass::ID = 0;
+ 
+-ModulePass *llvm::createSPIRVWriterPass(std::ostream &Str) {
++ModulePass *llvm::createSPIRVWriterPass(raw_ostream &Str) {
+   SPIRV::TranslatorOpts DefaultOpts;
+   // To preserve old behavior of the translator, let's enable all extensions
+   // by default in this API
+@@ -56,7 +56,7 @@ ModulePass *llvm::createSPIRVWriterPass(std::ostream &Str) {
+   return createSPIRVWriterPass(Str, DefaultOpts);
+ }
+ 
+-ModulePass *llvm::createSPIRVWriterPass(std::ostream &Str,
++ModulePass *llvm::createSPIRVWriterPass(raw_ostream &Str,
+                                         const SPIRV::TranslatorOpts &Opts) {
+   return new WriteSPIRVPass(Str, Opts);
+ }
+diff --git a/lib/SPIRV/SPIRVWriterPass.h b/lib/SPIRV/SPIRVWriterPass.h
+index fe80217..74c12b9 100644
+--- a/lib/SPIRV/SPIRVWriterPass.h
++++ b/lib/SPIRV/SPIRVWriterPass.h
+@@ -15,8 +15,9 @@
+ #ifndef SPIRV_SPIRVWRITERPASS_H
+ #define SPIRV_SPIRVWRITERPASS_H
+ 
+-#include "LLVMSPIRVOpts.h"
++#include "llvm/../../projects/spirv/include/LLVMSPIRVOpts.h"
+ #include "llvm/ADT/StringRef.h"
++#include "llvm/IR/PassManager.h"
+ 
+ namespace llvm {
+ class Module;
+@@ -26,33 +27,33 @@ class PreservedAnalyses;
+ /// \brief Create and return a pass that writes the module to the specified
+ /// ostream. Note that this pass is designed for use with the legacy pass
+ /// manager.
+-ModulePass *createSPIRVWriterPass(std::ostream &Str);
++ModulePass *createSPIRVWriterPass(raw_ostream &Str);
+ 
+ /// \brief Create and return a pass that writes the module to the specified
+ /// ostream. Note that this pass is designed for use with the legacy pass
+ /// manager.
+-ModulePass *createSPIRVWriterPass(std::ostream &Str,
++ModulePass *createSPIRVWriterPass(raw_ostream &Str,
+                                   const SPIRV::TranslatorOpts &Opts);
+ 
+ /// \brief Pass for writing a module of IR out to a SPIRV file.
+ ///
+ /// Note that this is intended for use with the new pass manager. To construct
+ /// a pass for the legacy pass manager, use the function above.
+-class SPIRVWriterPass {
+-  std::ostream &OS;
++class SPIRVWriterPass : public PassInfoMixin<SPIRVWriterPass> {
++  raw_ostream& OS;
+   SPIRV::TranslatorOpts Opts;
+ 
+ public:
+   /// \brief Construct a SPIRV writer pass around a particular output stream.
+-  explicit SPIRVWriterPass(std::ostream &OS) : OS(OS) {
++  explicit SPIRVWriterPass(raw_ostream &OS) : OS(OS) {
+     Opts.enableAllExtensions();
+   }
+-  SPIRVWriterPass(std::ostream &OS, const SPIRV::TranslatorOpts &Opts)
++  SPIRVWriterPass(raw_ostream &OS, const SPIRV::TranslatorOpts &Opts)
+       : OS(OS), Opts(Opts) {}
+ 
+   /// \brief Run the SPIRV writer pass, and output the module to the selected
+   /// output stream.
+-  PreservedAnalyses run(Module &M);
++  PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
+ 
+   static StringRef name() { return "SPIRVWriterPass"; }
+ };
+diff --git a/lib/SPIRV/libSPIRV/SPIRVDebug.h b/lib/SPIRV/libSPIRV/SPIRVDebug.h
+index 4337c75..ba5dba9 100644
+--- a/lib/SPIRV/libSPIRV/SPIRVDebug.h
++++ b/lib/SPIRV/libSPIRV/SPIRVDebug.h
+@@ -79,9 +79,15 @@ void verifyRegularizationPass(llvm::Module &, const std::string &);
+   }
+ 
+ // Output stream for SPIRV debug information.
++#if 1
++inline spv_ostream &spvdbgs() {
++  return llvm::errs();
++}
++#else
+ inline spv_ostream &spvdbgs() {
+   return std::cerr;
+ }
++#endif
+ 
+ #else
+ 
+diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
+index 5b46a3a..13a24e8 100644
+--- a/lib/SPIRV/libSPIRV/SPIRVModule.cpp
++++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
+@@ -2092,7 +2092,7 @@ bool isSpirvBinary(const std::string &Img) {
+ 
+ #ifdef _SPIRV_SUPPORT_TEXT_FMT
+ 
+-bool convertSpirv(std::istream &IS, std::ostream &OS, std::string &ErrMsg,
++bool convertSpirv(std::istream &IS, spv_ostream &OS, std::string &ErrMsg,
+                   bool FromText, bool ToText) {
+   auto SaveOpt = SPIRVUseTextFormat;
+   SPIRVUseTextFormat = FromText;
+@@ -2136,10 +2136,10 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
+     return true;
+   }
+   std::istringstream IS(Input);
+-  std::ostringstream OS;
++  raw_string_ostream OS(Out);
+   if (!convertSpirv(IS, OS, ErrMsg, FromText, ToText))
+     return false;
+-  Out = OS.str();
++  OS.flush();
+   return true;
+ }
+ 
+diff --git a/lib/SPIRV/libSPIRV/SPIRVUtil.h b/lib/SPIRV/libSPIRV/SPIRVUtil.h
+index 0020249..fa3df2e 100644
+--- a/lib/SPIRV/libSPIRV/SPIRVUtil.h
++++ b/lib/SPIRV/libSPIRV/SPIRVUtil.h
+@@ -40,8 +40,13 @@
+ #ifndef SPIRV_LIBSPIRV_SPIRVUTIL_H
+ #define SPIRV_LIBSPIRV_SPIRVUTIL_H
+ 
++#if 1
++#include "llvm/Support/raw_ostream.h"
++#define spv_ostream llvm::raw_ostream
++#else
+ #include <ostream>
+ #define spv_ostream std::ostream
++#endif
+ 
+ #include <algorithm>
+ #include <cassert>
+diff --git a/tools/llvm-spirv/llvm-spirv.cpp b/tools/llvm-spirv/llvm-spirv.cpp
+index 4529b36..1d453a3 100644
+--- a/tools/llvm-spirv/llvm-spirv.cpp
++++ b/tools/llvm-spirv/llvm-spirv.cpp
+@@ -242,10 +242,11 @@ static int convertLLVMToSPIRV(const SPIRV::TranslatorOpts &Opts) {
+   std::string Err;
+   bool Success = false;
+   if (OutputFile != "-") {
+-    std::ofstream OutFile(OutputFile, std::ios::binary);
++    std::error_code EC {};
++    raw_fd_ostream OutFile(OutputFile, EC);
+     Success = writeSpirv(M.get(), Opts, OutFile, Err);
+   } else {
+-    Success = writeSpirv(M.get(), Opts, std::cout, Err);
++    Success = writeSpirv(M.get(), Opts, llvm::outs(), Err);
+   }
+ 
+   if (!Success) {
+@@ -316,7 +317,7 @@ static int convertSPIRV() {
+     }
+   }
+ 
+-  auto Action = [&](std::ostream &OFS) {
++  auto Action = [&](llvm::raw_ostream &OFS) {
+     std::string Err;
+     if (!SPIRV::convertSpirv(IFS, OFS, Err, ToBinary, ToText)) {
+       errs() << "Fails to convert SPIR-V : " << Err << '\n';
+@@ -326,16 +327,18 @@ static int convertSPIRV() {
+   };
+ 
+   if (OutputFile == "-")
+-    return Action(std::cout);
++    return Action(llvm::outs());
+ 
+   // Open the output file in binary mode in case we convert text to SPIRV binary
+   if (ToBinary) {
+-    std::ofstream OFS(OutputFile, std::ios::binary);
++    std::error_code EC;
++    llvm::raw_fd_ostream OFS(OutputFile, EC);
+     return Action(OFS);
+   }
+ 
+   // Convert SPIRV binary to text
+-  std::ofstream OFS(OutputFile);
++  std::error_code EC;
++  llvm::raw_fd_ostream OFS(OutputFile, EC);
+   return Action(OFS);
+ }
+ #endif
