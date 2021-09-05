@@ -1673,13 +1673,17 @@ index 842eec099540..a3aefd6d1939 100644
  }
  
 diff --git a/clang/lib/AST/ASTContext.cpp b/clang/lib/AST/ASTContext.cpp
-index a1f3baf99704..dabef83aa47e 100644
+index a1f3baf99704..dbf2424f3bf5 100644
 --- a/clang/lib/AST/ASTContext.cpp
 +++ b/clang/lib/AST/ASTContext.cpp
-@@ -933,6 +933,7 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
+@@ -931,8 +931,9 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
+         2,  // opencl_constant
+         0,  // opencl_private
          4,  // opencl_generic
-         5,  // opencl_global_device
-         6,  // opencl_global_host
+-        5,  // opencl_global_device
+-        6,  // opencl_global_host
++        100,  // opencl_global_device
++        101,  // opencl_global_host
 +        0,  // vulkan_input
          7,  // cuda_device
          8,  // cuda_constant
@@ -2707,13 +2711,17 @@ index 9b7aab85314a..00fce09f3d81 100644
 +  DefineStd(Builder, "AIR64", Opts);
 +}
 diff --git a/clang/lib/Basic/Targets/SPIR.h b/clang/lib/Basic/Targets/SPIR.h
-index c429b27709ec..b90670ed2a3c 100644
+index c429b27709ec..c9f1b92186bd 100644
 --- a/clang/lib/Basic/Targets/SPIR.h
 +++ b/clang/lib/Basic/Targets/SPIR.h
-@@ -30,6 +30,7 @@ static const unsigned SPIRDefIsPrivMap[] = {
+@@ -28,8 +28,9 @@ static const unsigned SPIRDefIsPrivMap[] = {
+     2, // opencl_constant
+     0, // opencl_private
      4, // opencl_generic
-     5, // opencl_global_device
-     6, // opencl_global_host
+-    5, // opencl_global_device
+-    6, // opencl_global_host
++    100, // opencl_global_device
++    101, // opencl_global_host
 +    0, // vulkan_input
      0, // cuda_device
      0, // cuda_constant
@@ -2837,11 +2845,13 @@ index c429b27709ec..b90670ed2a3c 100644
    }
  
    void getTargetDefines(const LangOptions &Opts,
-@@ -181,12 +223,47 @@ public:
+@@ -180,13 +222,47 @@ public:
+     PointerWidth = PointerAlign = 64;
      SizeType = TargetInfo::UnsignedLong;
      PtrDiffType = IntPtrType = TargetInfo::SignedLong;
-     resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-"
+-    resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-"
 -                    "v96:128-v192:256-v256:256-v512:512-v1024:1024");
++    resetDataLayout("e-p:64:64-i64:64-v16:16-v24:32-v32:32-v48:64-"
 +                    "v96:128-v192:256-v256:256-v512:512-v1024:1024"
 +                    "-n8:16:32:64");
    }
@@ -2858,8 +2868,7 @@ index c429b27709ec..b90670ed2a3c 100644
 +    SizeType     = TargetInfo::UnsignedLong;
 +    PtrDiffType = IntPtrType = TargetInfo::SignedLong;
 +    if(Triple.getOS() == llvm::Triple::IOS) {
-+      resetDataLayout("e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-"
-+                      "v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32");
++      resetDataLayout("e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32");
 +    } else { // macOS, or default
 +      resetDataLayout("e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32");
 +    }
@@ -2962,7 +2971,7 @@ index 7639ea835ebc..1b461b436c87 100644
      default:
        return CCCR_Warning;
 diff --git a/clang/lib/CodeGen/BackendUtil.cpp b/clang/lib/CodeGen/BackendUtil.cpp
-index bafcf7cb8a8f..bab9b2e97871 100644
+index bafcf7cb8a8f..cc04e7edb08b 100644
 --- a/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/clang/lib/CodeGen/BackendUtil.cpp
 @@ -45,11 +45,14 @@
@@ -2976,7 +2985,7 @@ index bafcf7cb8a8f..bab9b2e97871 100644
  #include "llvm/Support/ToolOutputFile.h"
  #include "llvm/Support/raw_ostream.h"
 +#include "llvm/../../projects/spirv/lib/SPIRV/SPIRVWriterPass.h"
-+//#include "llvm/../../projects/spirv/lib/SPIRV/SPIRVContainerWriterPass.h" // TODO: Vulkan backend integration
++#include "llvm/../../projects/spirv/lib/SPIRV/SPIRVContainerWriterPass.h"
  #include "llvm/Target/TargetMachine.h"
  #include "llvm/Target/TargetOptions.h"
  #include "llvm/Transforms/Coroutines.h"
@@ -3123,7 +3132,7 @@ index bafcf7cb8a8f..bab9b2e97871 100644
                        Action != Backend_EmitLL);
    CreateTargetMachine(UsesCodeGen);
  
-@@ -1013,6 +1079,27 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -1013,6 +1079,26 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
      }
      break;
  
@@ -3140,8 +3149,7 @@ index bafcf7cb8a8f..bab9b2e97871 100644
 +    break;
 +
 +  case Backend_EmitSPIRVContainer:
-+    // TODO: implement this
-+    //PerModulePasses.add(createSPIRVContainerWriterPass(*OS));
++    PerModulePasses.add(createSPIRVContainerWriterPass(*OS));
 +    break;
 +
 +  case Backend_EmitMetalLib:
@@ -3151,7 +3159,7 @@ index bafcf7cb8a8f..bab9b2e97871 100644
    case Backend_EmitLL:
      PerModulePasses.add(
          createPrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
-@@ -1457,6 +1544,34 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
+@@ -1457,6 +1543,33 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
      }
      break;
  
@@ -3175,8 +3183,7 @@ index bafcf7cb8a8f..bab9b2e97871 100644
 +    break;
 +
 +  case Backend_EmitSPIRVContainer:
-+    // TODO: implement this
-+    //MPM.addPass(SPIRVContainerWriterPass(*OS));
++    MPM.addPass(SPIRVContainerWriterPass(*OS));
 +    break;
 +
 +  case Backend_EmitMetalLib:
@@ -5753,7 +5760,7 @@ index 56120c478589..d5394a05c9dc 100644
    llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
                              const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 369c4b6ccef9..e034f9255378 100644
+index 369c4b6ccef9..d36ce6f71237 100644
 --- a/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -18,6 +18,7 @@
@@ -5909,7 +5916,16 @@ index 369c4b6ccef9..e034f9255378 100644
  static unsigned ArgInfoAddressSpace(LangAS AS) {
    switch (AS) {
    case LangAS::opencl_global:
-@@ -1541,145 +1586,2099 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -1534,152 +1579,2106 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+   case LangAS::opencl_generic:
+     return 4; // Not in SPIR 2.0 specs.
+   case LangAS::opencl_global_device:
+-    return 5;
++    return 100;
+   case LangAS::opencl_global_host:
+-    return 6;
++    return 101;
+   default:
      return 0; // Assume private.
    }
  }
@@ -9797,7 +9813,7 @@ index 063384130f73..d559361c50ab 100644
      return Language::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/clang/lib/Frontend/CompilerInvocation.cpp b/clang/lib/Frontend/CompilerInvocation.cpp
-index 54904443958a..063be684618b 100644
+index 54904443958a..280bfd580489 100644
 --- a/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -95,6 +95,7 @@
@@ -10074,16 +10090,34 @@ index 54904443958a..063be684618b 100644
    // These need to be parsed now. They are used to set OpenCL defaults.
    Opts.IncludeDefaultHeader = Args.hasArg(OPT_finclude_default_header);
    Opts.DeclareOpenCLBuiltins = Args.hasArg(OPT_fdeclare_opencl_builtins);
-@@ -3779,7 +3906,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3779,11 +3906,15 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        Args.hasFlag(OPT_ftrigraphs, OPT_fno_trigraphs, Opts.Trigraphs);
  
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
 -    && Opts.OpenCLVersion == 200);
 +    && Opts.OpenCLVersion >= 200);
  
++#if 0 // we don't want this
    Opts.ConvergentFunctions = Opts.OpenCL || (Opts.CUDA && Opts.CUDAIsDevice) ||
                               Opts.SYCLIsDevice ||
-@@ -3850,7 +3977,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+                              Args.hasArg(OPT_fconvergent_functions);
++#else
++  Opts.ConvergentFunctions = false;
++#endif
+ 
+   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
+   if (!Opts.NoBuiltin)
+@@ -3825,7 +3956,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+   bool IsTargetSpecified =
+       Opts.OpenMPIsDevice || Args.hasArg(options::OPT_fopenmp_targets_EQ);
+ 
++#if 0 // we don't want this
+   Opts.ConvergentFunctions = Opts.ConvergentFunctions || Opts.OpenMPIsDevice;
++#endif
+ 
+   if (Opts.OpenMP || Opts.OpenMPSimd) {
+     if (int Version = getLastArgIntValue(
+@@ -3850,7 +3983,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    if ((Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN())) ||
@@ -10092,7 +10126,7 @@ index 54904443958a..063be684618b 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -3951,6 +4078,19 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3951,6 +4084,19 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
    }
  
@@ -10112,7 +10146,7 @@ index 54904443958a..063be684618b 100644
    // Parse -fsanitize= arguments.
    parseSanitizerKinds("-fsanitize=", Args.getAllArgValues(OPT_fsanitize_EQ),
                        Diags, Opts.Sanitize);
-@@ -4060,6 +4200,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -4060,6 +4206,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -10124,7 +10158,7 @@ index 54904443958a..063be684618b 100644
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
-@@ -4410,6 +4555,11 @@ bool CompilerInvocation::CreateFromArgsImpl(
+@@ -4410,6 +4561,11 @@ bool CompilerInvocation::CreateFromArgsImpl(
        Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
    }
  
@@ -13837,6 +13871,28 @@ index abeb9a7f39ff..da5e9e148692 100644
  #  define _LIBCPP_HAS_BLOCKS_RUNTIME
  #endif
  
+diff --git a/libcxx/include/__config_site b/libcxx/include/__config_site
+new file mode 100644
+index 000000000000..424e8077a63c
+--- /dev/null
++++ b/libcxx/include/__config_site
+@@ -0,0 +1,16 @@
++//===----------------------------------------------------------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef _LIBCPP_CONFIG_SITE
++#define _LIBCPP_CONFIG_SITE
++
++#define _LIBCPP_HAS_NO_STDIN
++#define _LIBCPP_HAS_NO_STDOUT
++#define _LIBCPP_HIDE_FROM_ABI_PER_TU_BY_DEFAULT
++
++#endif // _LIBCPP_CONFIG_SITE
 diff --git a/libcxx/include/__debug b/libcxx/include/__debug
 index 771e4316320b..9026b062c905 100644
 --- a/libcxx/include/__debug
@@ -41302,7 +41358,7 @@ index 000000000000..a8bd4b111962
 +
 diff --git a/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp b/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp
 new file mode 100644
-index 000000000000..d1103d6ba7f5
+index 000000000000..63d185f1c551
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp
 @@ -0,0 +1,347 @@
@@ -41421,7 +41477,7 @@ index 000000000000..d1103d6ba7f5
 +					   arg.getType()->getPointerElementType()->isAggregateType() &&
 +					   arg.getType()->getPointerAddressSpace() == 0 &&
 +					   !F.getAttributes().hasAttribute(arg.getArgNo() + 1, Attribute::ByVal)) {
-+						arg.addAttr(Attribute::ByVal);
++						arg.addAttr(Attribute::getWithByValType(*ctx, arg.getType()->getPointerElementType()));
 +						was_modified = true;
 +					}
 +					
@@ -41598,7 +41654,7 @@ index 000000000000..d1103d6ba7f5
 +			if(!SI.getType()->isIntegerTy()) return;
 +			
 +			const auto bit_width = SI.getType()->getIntegerBitWidth();
-+			if(M->getDataLayout().isLegalInteger(bit_width)) {
++			if(M->getDataLayout().isLegalInteger(bit_width) || bit_width == 1 /* always allow bool */) {
 +				return;
 +			}
 +			
@@ -45056,10 +45112,10 @@ index 000000000000..ee4af6a5c663
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp b/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp
 new file mode 100644
-index 000000000000..66b8aaa3134e
+index 000000000000..5b29cf1312a2
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp
-@@ -0,0 +1,1746 @@
+@@ -0,0 +1,1731 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -45900,21 +45956,6 @@ index 000000000000..66b8aaa3134e
 +			// clear return
 +			ReturnInst::Create(*ctx, RI.getParent());
 +			RI.eraseFromParent();
-+		}
-+		
-+		void visitSelectInst(SelectInst& SI) {
-+			// if the result/object type is a vector, the condition must be a vector as well
-+			const auto cond_type = SI.getCondition()->getType();
-+			if (SI.getTrueValue()->getType()->isVectorTy() && !cond_type->isVectorTy()) {
-+				// -> make condition a vector by duplicating the scalar condition value
-+				// NOTE: this will be cleaned up / optimized again later on (doesn't matter if we do this multiple times for the same condition)
-+				const auto vector_dim = dyn_cast<FixedVectorType>(SI.getTrueValue()->getType())->getNumElements();
-+				Value* cond_vector = ConstantDataVector::getSplat(vector_dim, Constant::getNullValue(cond_type));
-+				for (uint32_t i = 0; i < vector_dim; ++i) {
-+					cond_vector = InsertElementInst::Create(cond_vector, SI.getCondition(), builder->getInt32(i), "cond_extend", &SI);
-+				}
-+				SI.setCondition(cond_vector);
-+			}
 +		}
 +	};
 +	
@@ -46808,10 +46849,10 @@ index 000000000000..66b8aaa3134e
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/VulkanImage.cpp b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
 new file mode 100644
-index 000000000000..859fbf0fb114
+index 000000000000..4c3258f0d347
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
-@@ -0,0 +1,817 @@
+@@ -0,0 +1,832 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +////
 +//  Flo's Open libRary (floor)
@@ -47474,15 +47515,30 @@ index 000000000000..859fbf0fb114
 +		}
 +		
 +		// in cases where the image handle is acquired through image arrays,
-+		// replace any bitcast-gep-load or gep-load chains with a floor.image_array_load call
++		// replace any (bitcast-)gep-(bitcast-)load(-inttoptr) chains with a floor.image_array_load call
 +		// this is necessary, because we need to handle these specially on the SPIR-V side
-+		void simplify_image_handle(llvm::Value* img_handle) {
++		void simplify_image_handle(llvm::Value* handle) {
++			llvm::Value* img_handle = handle;
++			
++			// loaded handle might be "int-to-ptr" casted
++			IntToPtrInst* ITPtrI = dyn_cast_or_null<IntToPtrInst>(handle);
++			if (ITPtrI) {
++				img_handle = ITPtrI->getOperand(0);
++			}
++			
 +			// directly abort if not a load (array element is always loaded)
 +			LoadInst* LI = dyn_cast<LoadInst>(img_handle);
 +			if(!LI) return;
 +			
++			// load operand might be bitcasted
++			auto load_ptr_op = LI->getPointerOperand();
++			BitCastInst* load_ptr_op_bc = dyn_cast_or_null<BitCastInst>(load_ptr_op);
++			if (load_ptr_op_bc) {
++				load_ptr_op = load_ptr_op_bc->getOperand(0);
++			}
++			
 +			// array element ptr must have come from a GEP
-+			GetElementPtrInst* array_elem_gep = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
++			GetElementPtrInst* array_elem_gep = dyn_cast<GetElementPtrInst>(load_ptr_op);
 +			if(!array_elem_gep) return;
 +			
 +			// GEP src pointer
@@ -47509,8 +47565,7 @@ index 000000000000..859fbf0fb114
 +				if(array_type->getArrayElementType()->isPointerTy()) {
 +					return;
 +				}
-+			}
-+			else {
++			} else {
 +				// else: constant indexing (just a gep + load)
 +				img_array = src_ptr;
 +				src_array_type = array_type;
@@ -47535,17 +47590,18 @@ index 000000000000..859fbf0fb114
 +			};
 +			const auto func_type = llvm::FunctionType::get(img_type, param_types, false);
 +			
++			auto handle_instr = cast<Instruction>(handle);
 +			auto CI = CallInst::Create(M->getOrInsertFunction("floor.image_array_load." +
 +															  img_type->getPointerElementType()->getStructName().str() +
 +															  "." + std::to_string(src_array_type->getNumElements()),
 +															  func_type),
-+									   params, "imgarrld" , LI);
++									   params, "imgarrld", handle_instr);
 +			
 +			// if dynamic access (bitcast), then bitcast has the debug location, use gep location otherwise
 +			CI->setDebugLoc(BC ? BC->getDebugLoc() : array_elem_gep->getDebugLoc());
 +			
-+			LI->replaceAllUsesWith(CI);
-+			LI->eraseFromParent();
++			handle_instr->replaceAllUsesWith(CI);
++			handle_instr->eraseFromParent();
 +		}
 +		
 +		void handle_get_image_dim(Instruction& I,
@@ -47630,10 +47686,45 @@ index 000000000000..859fbf0fb114
 +	return new VulkanImage(image_capabilities);
 +}
 diff --git a/llvm/lib/Transforms/Scalar/LoopUnrollPass.cpp b/llvm/lib/Transforms/Scalar/LoopUnrollPass.cpp
-index 543c26917038..68674138e8da 100644
+index 543c26917038..a283bcf298d5 100644
 --- a/llvm/lib/Transforms/Scalar/LoopUnrollPass.cpp
 +++ b/llvm/lib/Transforms/Scalar/LoopUnrollPass.cpp
-@@ -659,7 +659,7 @@ unsigned llvm::ApproximateLoopSize(
+@@ -73,6 +73,11 @@ using namespace llvm;
+ 
+ #define DEBUG_TYPE "loop-unroll"
+ 
++/// A magic value for use with the Threshold parameter to indicate
++/// that the loop unroll should be performed regardless of how much
++/// code expansion would result.
++static const unsigned NoThreshold = std::numeric_limits<unsigned>::max();
++
+ cl::opt<bool> llvm::ForgetSCEVInLoopUnroll(
+     "forget-scev-loop-unroll", cl::init(false), cl::Hidden,
+     cl::desc("Forget everything in SCEV when doing LoopUnroll, instead of just"
+@@ -141,8 +146,9 @@ static cl::opt<unsigned> UnrollMaxUpperBound(
+     cl::desc(
+         "The max of trip count upper bound that is considered in unrolling"));
+ 
++// NOTE: explicit requests for unrolls should *always* be considered
+ static cl::opt<unsigned> PragmaUnrollThreshold(
+-    "pragma-unroll-threshold", cl::init(16 * 1024), cl::Hidden,
++    "pragma-unroll-threshold", cl::init(NoThreshold), cl::Hidden,
+     cl::desc("Unrolled size limit for loops with an unroll(full) or "
+              "unroll_count pragma."));
+ 
+@@ -175,11 +181,6 @@ static cl::opt<unsigned>
+                            cl::desc("Default threshold (max size of unrolled "
+                                     "loop), used in all but O3 optimizations"));
+ 
+-/// A magic value for use with the Threshold parameter to indicate
+-/// that the loop unroll should be performed regardless of how much
+-/// code expansion would result.
+-static const unsigned NoThreshold = std::numeric_limits<unsigned>::max();
+-
+ /// Gather the various unrolling parameters based on the defaults, compiler
+ /// flags, TTI overrides and user specified parameters.
+ TargetTransformInfo::UnrollingPreferences llvm::gatherUnrollingPreferences(
+@@ -659,7 +660,7 @@ unsigned llvm::ApproximateLoopSize(
      const SmallPtrSetImpl<const Value *> &EphValues, unsigned BEInsns) {
    CodeMetrics Metrics;
    for (BasicBlock *BB : L->blocks())
