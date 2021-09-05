@@ -450,6 +450,12 @@
 		5C20C8C01B4139260005F5EA /* host_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_program.hpp; path = host/host_program.hpp; sourceTree = "<group>"; };
 		5C20C8C11B4139260005F5EA /* host_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_queue.cpp; path = host/host_queue.cpp; sourceTree = "<group>"; };
 		5C20C8C21B4139260005F5EA /* host_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_queue.hpp; path = host/host_queue.hpp; sourceTree = "<group>"; };
+		5C287BB326BF0DD8004FA0F5 /* 130_spirv.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 130_spirv.patch; path = etc/llvm130/130_spirv.patch; sourceTree = "<group>"; };
+		5C287BB426BF0DD8004FA0F5 /* 130_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 130_llvm.patch; path = etc/llvm130/130_llvm.patch; sourceTree = "<group>"; };
+		5C287BB526BF0DD8004FA0F5 /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm130/deploy_dev.sh; sourceTree = "<group>"; };
+		5C287BB626BF0DD8004FA0F5 /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm130/pkg.sh; sourceTree = "<group>"; };
+		5C287BB726BF0DD9004FA0F5 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm130/build.sh; sourceTree = "<group>"; };
+		5C287BB826BF0DD9004FA0F5 /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm130/deploy_pkg.sh; sourceTree = "<group>"; };
 		5C2A907D243B7CDE00C82150 /* hdr_metadata.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = hdr_metadata.hpp; sourceTree = "<group>"; };
 		5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_compute.cpp; path = vulkan/vulkan_compute.cpp; sourceTree = "<group>"; };
 		5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_device.cpp; path = vulkan/vulkan_device.cpp; sourceTree = "<group>"; };
@@ -911,6 +917,19 @@
 			name = host;
 			sourceTree = "<group>";
 		};
+		5C287BB226BF0DC5004FA0F5 /* llvm130 */ = {
+			isa = PBXGroup;
+			children = (
+				5C287BB426BF0DD8004FA0F5 /* 130_llvm.patch */,
+				5C287BB326BF0DD8004FA0F5 /* 130_spirv.patch */,
+				5C287BB726BF0DD9004FA0F5 /* build.sh */,
+				5C287BB526BF0DD8004FA0F5 /* deploy_dev.sh */,
+				5C287BB826BF0DD9004FA0F5 /* deploy_pkg.sh */,
+				5C287BB626BF0DD8004FA0F5 /* pkg.sh */,
+			);
+			name = llvm130;
+			sourceTree = "<group>";
+		};
 		5C2B87C21C73893300F11EA5 /* vulkan */ = {
 			isa = PBXGroup;
 			children = (
@@ -1089,6 +1108,7 @@
 			children = (
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
 				5CC1DB2221D6E3B500EB2E52 /* llvm80 */,
+				5C287BB226BF0DC5004FA0F5 /* llvm130 */,
 			);
 			name = etc;
 			sourceTree = "<group>";

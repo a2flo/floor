@@ -461,7 +461,8 @@ program_data compile_input(const string& input,
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
-				" -x " + (!build_pch ? "vulkan -llvm-spirv-container" : "vulkan-header") +
+				" -x " + (!build_pch ? "vulkan" : "vulkan-header") +
+				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-spirv-container" : " -llvm-spirv-container") : "") +
 				" -std=" + vulkan_std +
 				" -target spir64-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
@@ -495,7 +496,8 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
-				" -x " + (!build_pch ? "cl -llvm-spirv" : "clcxx-header") +
+				" -x " + (!build_pch ? "cl" : "clcxx-header") +
+				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-spirv" : " -llvm-spirv") : "") +
 				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \

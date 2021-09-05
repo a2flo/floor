@@ -720,6 +720,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_workgroup_memory_explicit_layout",
 			"VK_KHR_zero_initialize_workgroup_memory",
 			"VK_KHR_copy_commands2",
+			"VK_KHR_video_queue",
+			"VK_KHR_video_decode_queue",
+			"VK_KHR_video_encode_queue"
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
