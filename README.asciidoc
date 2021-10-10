@@ -1529,7 +1529,7 @@ function void simplified_nbody ( %void() ) {
    define `FLOOR_NO_OPENAL` or `./build.sh no-openal`
 ** to disable VR:
    define `FLOOR_NO_VR` or `./build.sh no-vr`
-** to build with libstdc++ (gcc 10.0+) instead of libc++:
+** to build with pass:[libstdc++] (GCC 10.0+) instead of pass:[libc++]:
    `./build.sh libstdc++`
 
 === Build Instructions (Xcode / macOS / iOS) ===

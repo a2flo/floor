@@ -634,6 +634,14 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!vulkan12_features.shaderInt8) {
+			log_error("Int8 is not suppported by $", props.deviceName);
+			continue;
+		}
+		if (!features_2.features.shaderInt16) {
+			log_error("Int16 is not suppported by $", props.deviceName);
+			continue;
+		}
 		if (!features_2.features.shaderInt64) {
 			log_error("Int64 is not suppported by $", props.deviceName);
 			continue;
@@ -645,6 +653,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!vulkan12_features.storageBuffer8BitAccess ||
+			!vulkan12_features.uniformAndStorageBuffer8BitAccess) {
+			log_error("8-bit storage not supported by $", props.deviceName);
+			continue;
+		}
 		if (!vulkan11_features.storageBuffer16BitAccess ||
 			!vulkan11_features.uniformAndStorageBuffer16BitAccess) {
 			log_error("16-bit storage not supported by $", props.deviceName);
@@ -722,7 +735,12 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_copy_commands2",
 			"VK_KHR_video_queue",
 			"VK_KHR_video_decode_queue",
-			"VK_KHR_video_encode_queue"
+			"VK_KHR_video_encode_queue",
+			"VK_KHR_present_id",
+			"VK_KHR_present_wait",
+			"VK_KHR_shader_integer_dot_product",
+			"VK_KHR_maintenance4",
+			"VK_KHR_format_feature_flags2",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
