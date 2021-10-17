@@ -246,12 +246,23 @@ void vulkan_buffer::write(const compute_queue& cqueue, const void* src,
 	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");
 }
 
-void vulkan_buffer::copy(const compute_queue& cqueue floor_unused, const compute_buffer& src floor_unused,
-						 const size_t size_ floor_unused, const size_t src_offset floor_unused, const size_t dst_offset floor_unused) {
+void vulkan_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
+						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 	
-	// TODO: implement this
-	log_error("vulkan_buffer::copy not implemented yet");
+	const size_t src_size = src.get_size();
+	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
+	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
+	
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	VK_CMD_BLOCK_RET(vk_queue, "buffer zero", ({
+		const VkBufferCopy region {
+			.srcOffset = src_offset,
+			.dstOffset = dst_offset,
+			.size = copy_size,
+		};
+		vkCmdCopyBuffer(cmd_buffer.cmd_buffer, ((const vulkan_buffer&)src).buffer, buffer, 1, &region);
+	}), , true /* always blocking */);
 }
 
 bool vulkan_buffer::fill(const compute_queue& cqueue floor_unused,

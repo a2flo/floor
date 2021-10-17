@@ -495,11 +495,27 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
+			.pNext = nullptr,
+			.shaderBufferFloat32Atomics = false,
+			.shaderBufferFloat32AtomicAdd = false,
+			.shaderBufferFloat64Atomics = false,
+			.shaderBufferFloat64AtomicAdd = false,
+			.shaderSharedFloat32Atomics = false,
+			.shaderSharedFloat32AtomicAdd = false,
+			.shaderSharedFloat64Atomics = false,
+			.shaderSharedFloat64AtomicAdd = false,
+			.shaderImageFloat32Atomics = false,
+			.shaderImageFloat32AtomicAdd = false,
+			.sparseImageFloat32Atomics = false,
+			.sparseImageFloat32AtomicAdd = false,
+		};
 		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
-			.pNext = nullptr,
+			.pNext = &shader_atomic_float_features,
 			.inlineUniformBlock = false,
-			.descriptorBindingInlineUniformBlockUpdateAfterBind = false
+			.descriptorBindingInlineUniformBlockUpdateAfterBind = false,
 		};
 		VkPhysicalDeviceVulkan11Features vulkan11_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
@@ -679,6 +695,13 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		// NOTE: only require "load, store and exchange atomic operations" support on SSBOs and local memory
+		if (!shader_atomic_float_features.shaderBufferFloat32Atomics ||
+			!shader_atomic_float_features.shaderSharedFloat32Atomics) {
+			log_error("basic float32 atomics are not supported by $", props.deviceName);
+			continue;
+		}
+		
 		// check IUB limits
 		if (inline_uniform_block_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
 			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",
@@ -786,6 +809,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -980,6 +1004,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.int16_support = features_2.features.shaderInt16;
 		device.float16_support = vulkan12_features.shaderFloat16;
 		device.double_support = features_2.features.shaderFloat64;
+		
+		device.basic_32_bit_float_atomics_support = (shader_atomic_float_features.shaderBufferFloat32Atomics &&
+													 shader_atomic_float_features.shaderBufferFloat32AtomicAdd &&
+													 shader_atomic_float_features.shaderSharedFloat32Atomics &&
+													 shader_atomic_float_features.shaderSharedFloat32AtomicAdd);
 		
 		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
 		device.max_inline_uniform_block_count = inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks;

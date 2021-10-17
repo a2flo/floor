@@ -107,6 +107,13 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS != 0);
 	}
 	
+	//! returns true if the device has native 32-bit float atomics support
+	//! NOTE: for CUDA this is true for all devices
+	//! NOTE: for Vulkan this is true if VK_EXT_shader_atomic_float with global/local float32 add/ld/st/xchg is supported
+	constexpr bool has_32_bit_float_atomics() {
+		return (FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS != 0);
+	}
+	
 	//! returns true if the device supports atomic operations on pointer types
 	constexpr bool has_pointer_atomics() {
 		return has_64_bit_atomics(); // must support 64-bit atomics

@@ -49,6 +49,10 @@ int32_t atom_add(global int32_t* p, int32_t val);
 uint32_t atom_add(global uint32_t* p, uint32_t val);
 int32_t atom_add(local int32_t* p, int32_t val);
 uint32_t atom_add(local uint32_t* p, uint32_t val);
+#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
+float atom_add(global float* p, float val);
+float atom_add(local float* p, float val);
+#endif
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 uint64_t atom_add(global uint64_t* p, uint64_t val);
 int64_t atom_add(global int64_t* p, int64_t val);
@@ -61,6 +65,10 @@ int32_t atom_sub(global int32_t* p, int32_t val);
 uint32_t atom_sub(global uint32_t* p, uint32_t val);
 int32_t atom_sub(local int32_t* p, int32_t val);
 uint32_t atom_sub(local uint32_t* p, uint32_t val);
+#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
+float atom_sub(global float* p, float val) { return atom_add(p, -val); }
+float atom_sub(local float* p, float val) { return atom_add(p, -val); }
+#endif
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 uint64_t atom_sub(global uint64_t* p, uint64_t val);
 int64_t atom_sub(global int64_t* p, int64_t val);
@@ -73,6 +81,10 @@ int32_t atom_inc(global int32_t* p);
 uint32_t atom_inc(global uint32_t* p);
 int32_t atom_inc(local int32_t* p);
 uint32_t atom_inc(local uint32_t* p);
+#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
+float atom_inc(global float* p, float val) { return atom_add(p, 1.0f); }
+float atom_inc(local float* p, float val) { return atom_add(p, 1.0f); }
+#endif
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 uint64_t atom_inc(global uint64_t* p);
 int64_t atom_inc(global int64_t* p);
@@ -85,6 +97,10 @@ int32_t atom_dec(global int32_t* p);
 uint32_t atom_dec(global uint32_t* p);
 int32_t atom_dec(local int32_t* p);
 uint32_t atom_dec(local uint32_t* p);
+#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
+float atom_dec(global float* p, float val) { return atom_add(p, -1.0f); }
+float atom_dec(local float* p, float val) { return atom_add(p, -1.0f); }
+#endif
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 uint64_t atom_dec(global uint64_t* p);
 int64_t atom_dec(global int64_t* p);
@@ -243,6 +259,8 @@ floor_inline_always int64_t atom_xor(local int64_t* p, int64_t val) {
 }
 #endif
 
+// TODO: use actual load/store instructions for Vulkan and more modern OpenCL
+
 // store (simple alias of xchg)
 floor_inline_always void atom_store(global int32_t* addr, const int32_t& val) {
 	atom_xchg(addr, val);
@@ -314,7 +332,7 @@ floor_inline_always int64_t atom_load(const local int64_t* addr) {
 #endif
 
 // fallback for non-natively supported float atomics
-// TODO: can't use any of this, since pointer bitcasts aren't allowed in Vulkan/SPIR-V -> need to introduce an atomic_float type that is actually an uint32_t/int32_t?
+#if !defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atom_add(global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }
 floor_inline_always float atom_add(local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, local, p, val) }
 floor_inline_always float atom_sub(global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, global, p, val) }
@@ -323,6 +341,7 @@ floor_inline_always float atom_inc(global float* p) { return atom_add(p, 1.0f); 
 floor_inline_always float atom_inc(local float* p) { return atom_add(p, 1.0f); }
 floor_inline_always float atom_dec(global float* p) { return atom_sub(p, 1.0f); }
 floor_inline_always float atom_dec(local float* p) { return atom_sub(p, 1.0f); }
+#endif
 floor_inline_always float atom_cmpxchg(global float* p, float cmp, float val) {
 	const auto ret = atom_cmpxchg((global uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
 	return *(float*)ret;

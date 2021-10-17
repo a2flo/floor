@@ -183,6 +183,9 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS 1
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1
+// not natively supported or exposed right now
+#define FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS 0
+#define FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_0
 
 // local memory is emulated through global ("normal") memory, although almost certainly cached
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY 0

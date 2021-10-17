@@ -231,7 +231,9 @@ namespace universal_binary {
 			//! NOTE: if set, this overrides any global option; if not set, it can be overriden by the global option
 			uint64_t soft_printf : 1;
 			
-			uint64_t _unused : 28;
+			uint64_t basic_32_bit_float_atomics_support : 1;
+			
+			uint64_t _unused : 27;
 		} vulkan;
 
 		//! packed value

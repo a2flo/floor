@@ -517,6 +517,7 @@ namespace universal_binary {
 				vlk_dev.double_support = vlk_target.double_support;
 				vlk_dev.basic_64_bit_atomics_support = vlk_target.basic_64_bit_atomics_support;
 				vlk_dev.extended_64_bit_atomics_support = vlk_target.extended_64_bit_atomics_support;
+				vlk_dev.basic_32_bit_float_atomics_support = vlk_target.basic_32_bit_float_atomics_support;
 				
 				// assume minimum required support for now
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
@@ -1326,6 +1327,9 @@ namespace universal_binary {
 					if (vlk_target.extended_64_bit_atomics_support && !dev.extended_64_bit_atomics_support) {
 						continue;
 					}
+					if (vlk_target.basic_32_bit_float_atomics_support && !dev.basic_32_bit_float_atomics_support) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1363,10 +1367,12 @@ namespace universal_binary {
 						// more used/supported caps beats lower
 						const auto cap_sum = (vlk_target.double_support +
 											  vlk_target.basic_64_bit_atomics_support +
-											  vlk_target.extended_64_bit_atomics_support);
+											  vlk_target.extended_64_bit_atomics_support +
+											  vlk_target.basic_32_bit_float_atomics_support);
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
-												   best_vlk.extended_64_bit_atomics_support);
+												   best_vlk.extended_64_bit_atomics_support +
+												   best_vlk.basic_32_bit_float_atomics_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;

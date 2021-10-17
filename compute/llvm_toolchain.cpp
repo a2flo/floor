@@ -659,10 +659,13 @@ program_data compile_input(const string& input,
 	// base and extended 64-bit atomics support
 	const auto has_base_64_bit_atomics_str = to_string(device.basic_64_bit_atomics_support);
 	const auto has_extended_64_bit_atomics_str = to_string(device.extended_64_bit_atomics_support);
+	const auto has_base_32_bit_float_atomics_str = to_string(device.basic_32_bit_float_atomics_support);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS="s + has_base_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_"s + has_base_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS="s + has_extended_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_"s + has_extended_64_bit_atomics_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS="s + has_base_32_bit_float_atomics_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_"s + has_base_32_bit_float_atomics_str;
 	
 	// has device actual dedicated local memory
 	const auto has_dedicated_local_memory_str = to_string(device.local_mem_dedicated);

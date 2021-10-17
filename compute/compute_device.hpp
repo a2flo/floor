@@ -141,6 +141,8 @@ public:
 	bool basic_64_bit_atomics_support { false };
 	//! true if the device has support for extended 64-bit atomic operations (min/max/and/or/xor)
 	bool extended_64_bit_atomics_support { false };
+	//! true if the device has native support for base 32-bit float operations (add/ld/st/xchg)
+	bool basic_32_bit_float_atomics_support { false };
 	//! true if the device supports sub-groups (opencl with extension; aka warp in cuda)
 	bool sub_group_support { false };
 	//! true if the device supports sub-group shuffle/swizzle
