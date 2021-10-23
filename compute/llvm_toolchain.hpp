@@ -248,6 +248,11 @@ namespace llvm_toolchain {
 			//! if true, enable soft-printf support
 			//! if unset, use the global floor option
 			optional<bool> soft_printf;
+			
+			//! performs an LLVM CFG structurization pass prior to the actual structurization
+			//! NOTE: use this with caution, i.e. only try to use this if the default structurization failed,
+			//!       since this pass may itself transform the CFG into an unstructured CFG that can not be recovered
+			bool pre_structurization_pass { false };
 		} vulkan;
 		
 		//! optional pre-compiled header that should be used for compilation

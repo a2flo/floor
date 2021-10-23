@@ -474,6 +474,7 @@ program_data compile_input(const string& input,
 				" -Xclang -vulkan-iub-size=" + to_string(vk_device.max_inline_uniform_block_size) +
 				" -Xclang -vulkan-iub-count=" + to_string(vk_device.max_inline_uniform_block_count) +
 				(soft_printf ? " -Xclang -vulkan-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
+				(toolchain_version >= 130000 && options.vulkan.pre_structurization_pass ? " -Xclang -vulkan-llvm-pre-structurization-pass" : "") +
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
