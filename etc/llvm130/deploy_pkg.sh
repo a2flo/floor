@@ -171,6 +171,7 @@ deploy_file "llvm-spirv" "bin" "bin"
 deploy_file "metallib-dis" "bin" "bin"
 deploy_file "spirv-as" "bin" "bin"
 deploy_file "spirv-dis" "bin" "bin"
+deploy_file "spirv-opt" "bin" "bin"
 deploy_file "spirv-val" "bin" "bin"
 
 deploy_folder "clang" "${DEPLOY_TARGET}/clang" 0

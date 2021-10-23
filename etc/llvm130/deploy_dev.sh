@@ -270,6 +270,7 @@ deploy_file "llvm-spirv" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLIN
 deploy_file "metallib-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "spirv-as" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
 deploy_file "spirv-dis" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
+deploy_file "spirv-opt" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
 deploy_file "spirv-val" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
 
 deploy_folder "${DEPLOY_LLVM_BUILD_FOLDER}/lib/clang/${RELEASE}/include" "${DEPLOY_TARGET}/clang" ${DEPLOY_SYMLINK}

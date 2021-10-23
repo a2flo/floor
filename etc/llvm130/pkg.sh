@@ -19,6 +19,7 @@ cp ../build/bin/llvm-spirv bin/
 cp ../build/bin/metallib-dis bin/
 cp ../SPIRV-Tools/build/tools/spirv-as bin/
 cp ../SPIRV-Tools/build/tools/spirv-dis bin/
+cp ../SPIRV-Tools/build/tools/spirv-opt bin/
 cp ../SPIRV-Tools/build/tools/spirv-val bin/
 
 cp -R ../build/lib/clang/${RELEASE}/include clang

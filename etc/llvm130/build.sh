@@ -60,7 +60,7 @@ if [ ! -d llvm ]; then
 	cd llvm
 	git init -b main
 	git remote add origin https://github.com/llvm/llvm-project.git
-	git fetch --depth=5000 origin main
+	git fetch --depth=25000 origin main
 	git reset --hard ${LLVM_COMMIT}
 	
 	cd llvm/projects
@@ -77,7 +77,7 @@ else
 	CURRENT_LLVM_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_LLVM_COMMIT} != ${LLVM_COMMIT} ]; then
 		git reset --hard ${CURRENT_LLVM_COMMIT}
-		git fetch --depth=5000 origin main
+		git fetch --depth=25000 origin main
 	fi
 	git reset --hard ${LLVM_COMMIT}
 	
@@ -207,9 +207,11 @@ if [ $BUILD_OS == "linux" ]; then
 	CONFIG_OPTIONS="${CONFIG_OPTIONS} --prefix=/usr --sysconfdir=/etc --with-binutils-include=/usr/include --with-python=/usr/bin/python"
 fi
 
-# TODO: polly?
+# only build what we need
+toolchain_binaries=(clang llvm-as llvm-dis llvm-spirv metallib-dis)
+
 CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" ../llvm/llvm
-make -j ${BUILD_JOB_COUNT}
+make -j ${BUILD_JOB_COUNT} ${toolchain_binaries[@]}
 make_ret_code=$?
 
 # get out of the "build" folder
