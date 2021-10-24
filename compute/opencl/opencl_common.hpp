@@ -32,6 +32,7 @@ enum class OPENCL_VERSION : uint32_t {
 	OPENCL_2_0,
 	OPENCL_2_1,
 	OPENCL_2_2,
+	OPENCL_3_0,
 };
 
 constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
@@ -43,6 +44,7 @@ constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
 		case OPENCL_VERSION::OPENCL_2_0: return "2.0";
 		case OPENCL_VERSION::OPENCL_2_1: return "2.1";
 		case OPENCL_VERSION::OPENCL_2_2: return "2.2";
+		case OPENCL_VERSION::OPENCL_3_0: return "3.0";
 	}
 }
 constexpr const char* cl_major_version_to_string(const OPENCL_VERSION& version) {
@@ -54,6 +56,7 @@ constexpr const char* cl_major_version_to_string(const OPENCL_VERSION& version) 
 		case OPENCL_VERSION::OPENCL_2_0:
 		case OPENCL_VERSION::OPENCL_2_1:
 		case OPENCL_VERSION::OPENCL_2_2: return "2";
+		case OPENCL_VERSION::OPENCL_3_0: return "3";
 	}
 }
 constexpr const char* cl_minor_version_to_string(const OPENCL_VERSION& version) {
@@ -65,10 +68,11 @@ constexpr const char* cl_minor_version_to_string(const OPENCL_VERSION& version) 
 		case OPENCL_VERSION::OPENCL_2_0: return "0";
 		case OPENCL_VERSION::OPENCL_2_1: return "1";
 		case OPENCL_VERSION::OPENCL_2_2: return "2";
+		case OPENCL_VERSION::OPENCL_3_0: return "0";
 	}
 }
 constexpr OPENCL_VERSION cl_version_from_uint(const uint32_t major, const uint32_t minor) {
-	if (major == 0 || major > 2) return OPENCL_VERSION::NONE;
+	if (major == 0 || major > 3) return OPENCL_VERSION::NONE;
 	if (major == 1) {
 		switch (minor) {
 			case 0: return OPENCL_VERSION::OPENCL_1_0;
@@ -76,12 +80,17 @@ constexpr OPENCL_VERSION cl_version_from_uint(const uint32_t major, const uint32
 			case 2: return OPENCL_VERSION::OPENCL_1_2;
 			default: return OPENCL_VERSION::NONE;
 		}
+	} else if (major == 2) {
+		switch (minor) {
+			case 0: return OPENCL_VERSION::OPENCL_2_0;
+			case 1: return OPENCL_VERSION::OPENCL_2_1;
+			case 2: return OPENCL_VERSION::OPENCL_2_2;
+			default: return OPENCL_VERSION::NONE;
+		}
 	}
-	// major == 2
+	// major == 3
 	switch (minor) {
-		case 0: return OPENCL_VERSION::OPENCL_2_0;
-		case 1: return OPENCL_VERSION::OPENCL_2_1;
-		case 2: return OPENCL_VERSION::OPENCL_2_2;
+		case 0: return OPENCL_VERSION::OPENCL_3_0;
 		default: return OPENCL_VERSION::NONE;
 	}
 }
@@ -137,6 +146,16 @@ constexpr SPIRV_VERSION spirv_version_from_uint(const uint32_t major, const uint
 // opencl 2.1+ or cl_khr_il_program
 #if !defined(CL_DEVICE_IL_VERSION)
 #define CL_DEVICE_IL_VERSION 0x105B
+#endif
+// opencl 3.0+
+#if !defined(CL_DEVICE_ILS_WITH_VERSION)
+#define CL_DEVICE_ILS_WITH_VERSION 0x1061
+#endif
+#if !defined(CL_NAME_VERSION_MAX_NAME_SIZE) // assume cl_name_version is not defined
+struct cl_name_version {
+	uint32_t version;
+	char name[64];
+};
 #endif
 
 // opencl 2.0+
@@ -429,6 +448,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_SUB_GROUP_SIZES, vector<size_t>) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_WIDTH_AMD, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_WAVEFRONT_WIDTH_AMD, cl_uint) \
+F(cl_device_id, cl_device_info, CL_DEVICE_ILS_WITH_VERSION, vector<cl_name_version_khr>) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \

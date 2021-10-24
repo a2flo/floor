@@ -406,7 +406,7 @@ namespace compute_algorithm {
 	static constexpr uint32_t scan_local_memory_elements() {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		if constexpr (has_sub_group_scan()) {
-			static_assert(device_info::simd_width() * device_info::simd_width() >= device_info::local_id_range_max(),
+			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
 			// workaround an AMD Metal issue where we seem to have a weird alignment/allocation issue, where 32/64 is not enough (even if we align it to 16)

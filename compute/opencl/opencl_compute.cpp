@@ -183,11 +183,16 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				const size_t dot_pos = version_str.find(".");
 				const auto major_version = stosize(version_str.substr(0, dot_pos));
 				const auto minor_version = stosize(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1));
-				if(major_version > 2) {
-					// major version is higher than 2 -> pretend we're running on CL 2.2
-					return { true, OPENCL_VERSION::OPENCL_2_2 };
-				}
-				else if(major_version == 2) {
+				if(major_version > 3) {
+					// major version is higher than 3 -> pretend we're running on CL 3.0
+					return { true, OPENCL_VERSION::OPENCL_3_0 };
+				} else if(major_version == 3) {
+					switch(minor_version) {
+						case 0: return { true, OPENCL_VERSION::OPENCL_3_0 };
+						default: // default to CL 3.0
+							return { true, OPENCL_VERSION::OPENCL_3_0 };
+					}
+				} else if(major_version == 2) {
 					switch(minor_version) {
 						case 0: return { true, OPENCL_VERSION::OPENCL_2_0 };
 						case 1: return { true, OPENCL_VERSION::OPENCL_2_1 };
@@ -195,8 +200,7 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 						default: // default to CL 2.2
 							return { true, OPENCL_VERSION::OPENCL_2_2 };
 					}
-				}
-				else {
+				} else {
 					switch(minor_version) {
 						case 0: return { true, OPENCL_VERSION::OPENCL_1_0 };
 						case 1: return { true, OPENCL_VERSION::OPENCL_1_1 };
@@ -226,7 +230,8 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
 					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" :
 					 (platform_cl_version == OPENCL_VERSION::OPENCL_2_0 ? "2.0" :
-					  (platform_cl_version == OPENCL_VERSION::OPENCL_2_1 ? "2.1" : "2.2"))))));
+					  (platform_cl_version == OPENCL_VERSION::OPENCL_2_1 ? "2.1" :
+					   (platform_cl_version == OPENCL_VERSION::OPENCL_2_2 ? "2.2" : "3.0")))))));
 		
 		// handle device init
 		ctx_devices.clear();
@@ -440,56 +445,99 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			log_msg("spir versions: $", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 			
 			// check spir-v support (core, extension, or forced for testing purposes)
-			if((platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
-				core::contains(device.extensions, "cl_khr_il_program") ||
-				floor::get_opencl_force_spirv_check()) &&
-			   // disable takes prio over force-check
-			   !floor::get_opencl_disable_spirv()) {
-				check_spirv_support = true;
-				
-				const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
-				log_msg("IL versions: $", il_versions);
-				
-				// find the max supported spir-v opencl version
-				const auto il_version_tokens = core::tokenize(core::trim(il_versions), ' ');
-				for(const auto& il_token : il_version_tokens) {
-					static constexpr const char spirv_id[] { "SPIR-V_" };
-					if(il_token.find(spirv_id) == 0) {
-						const auto dot_pos = il_token.rfind('.');
-						if(dot_pos == string::npos) continue;
-						const auto spirv_major = stou(il_token.substr(size(spirv_id) - 1,
-																	  dot_pos - size(spirv_id) - 1));
-						const auto spirv_minor = stou(il_token.substr(dot_pos + 1,
-																	  il_token.size() - dot_pos - 1));
-						auto spirv_version = SPIRV_VERSION::NONE;
-						switch(spirv_major) {
-							default:
-							case 1:
-								switch(spirv_minor) {
-									case 0:
-										spirv_version = SPIRV_VERSION::SPIRV_1_0;
-										break;
-									case 1:
-										spirv_version = SPIRV_VERSION::SPIRV_1_1;
-										break;
-									case 2:
-										spirv_version = SPIRV_VERSION::SPIRV_1_2;
-										break;
-									case 3:
-										spirv_version = SPIRV_VERSION::SPIRV_1_3;
-										break;
-									case 4:
-										spirv_version = SPIRV_VERSION::SPIRV_1_4;
-										break;
-									default:
-									case 5:
-										spirv_version = SPIRV_VERSION::SPIRV_1_5;
-										break;
-								}
-								break;
+			if (!floor::get_opencl_disable_spirv() /* disable takes prio over force-check */ &&
+				core::contains(device.extensions, "cl_khr_il_program")) {
+				if (platform_cl_version >= OPENCL_VERSION::OPENCL_3_0) {
+					const auto il_versions = cl_get_info<CL_DEVICE_ILS_WITH_VERSION>(cl_dev);
+					if (il_versions.empty()) {
+						log_error("device \"$\" does not support any IL version", device.name);
+						devices.pop_back();
+						continue;
+					}
+					for (const auto& il_version : il_versions) {
+						static const auto get_spirv_version = [](const uint32_t& version) -> pair<uint32_t, uint32_t> {
+							return { (version & 0xFFC0'0000u) >> 22u, (version & 0x003F'F000u) >> 12u };
+						};
+						static constexpr const auto make_spirv_version = [](const uint32_t major, const uint32_t minor) constexpr {
+							return (major << 22u) | (minor << 12);
+						};
+						const auto version = get_spirv_version(il_version.version);
+						log_msg("supported IL: $: $.$", il_version.name, version.first, version.second);
+						if (string(il_version.name) == "SPIR-V") {
+							auto spirv_version = SPIRV_VERSION::NONE;
+							switch (il_version.version) {
+								case make_spirv_version(1, 0):
+									spirv_version = SPIRV_VERSION::SPIRV_1_0;
+									break;
+								case make_spirv_version(1, 1):
+									spirv_version = SPIRV_VERSION::SPIRV_1_1;
+									break;
+								case make_spirv_version(1, 2):
+									spirv_version = SPIRV_VERSION::SPIRV_1_2;
+									break;
+								case make_spirv_version(1, 3):
+									spirv_version = SPIRV_VERSION::SPIRV_1_3;
+									break;
+								case make_spirv_version(1, 4):
+									spirv_version = SPIRV_VERSION::SPIRV_1_4;
+									break;
+								case make_spirv_version(1, 5):
+									spirv_version = SPIRV_VERSION::SPIRV_1_5;
+									break;
+							}
+							if (spirv_version > device.spirv_version) {
+								device.spirv_version = spirv_version;
+							}
 						}
-						if(spirv_version > device.spirv_version) {
-							device.spirv_version = spirv_version;
+					}
+				} else if (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
+						   floor::get_opencl_force_spirv_check()) {
+					check_spirv_support = true;
+					
+					const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
+					log_msg("IL versions: $", il_versions);
+					
+					// find the max supported spir-v opencl version
+					const auto il_version_tokens = core::tokenize(core::trim(il_versions), ' ');
+					for(const auto& il_token : il_version_tokens) {
+						static constexpr const char spirv_id[] { "SPIR-V_" };
+						if(il_token.find(spirv_id) == 0) {
+							const auto dot_pos = il_token.rfind('.');
+							if(dot_pos == string::npos) continue;
+							const auto spirv_major = stou(il_token.substr(size(spirv_id) - 1,
+																		  dot_pos - size(spirv_id) - 1));
+							const auto spirv_minor = stou(il_token.substr(dot_pos + 1,
+																		  il_token.size() - dot_pos - 1));
+							auto spirv_version = SPIRV_VERSION::NONE;
+							switch(spirv_major) {
+								default:
+								case 1:
+									switch(spirv_minor) {
+										case 0:
+											spirv_version = SPIRV_VERSION::SPIRV_1_0;
+											break;
+										case 1:
+											spirv_version = SPIRV_VERSION::SPIRV_1_1;
+											break;
+										case 2:
+											spirv_version = SPIRV_VERSION::SPIRV_1_2;
+											break;
+										case 3:
+											spirv_version = SPIRV_VERSION::SPIRV_1_3;
+											break;
+										case 4:
+											spirv_version = SPIRV_VERSION::SPIRV_1_4;
+											break;
+										default:
+										case 5:
+											spirv_version = SPIRV_VERSION::SPIRV_1_5;
+											break;
+									}
+									break;
+							}
+							if(spirv_version > device.spirv_version) {
+								device.spirv_version = spirv_version;
+							}
 						}
 					}
 				}

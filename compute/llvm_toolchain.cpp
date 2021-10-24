@@ -230,8 +230,10 @@ program_data compile_input(const string& input,
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x " + (!build_pch ? "cl -llvm-bc-32" : "cl-header") +
-				" -Xclang -cl-std=CL1.2" \
+				" -x " + (!build_pch ? "cl" : "clcxx-header") +
+				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -llvm-bc-32" : " -llvm-bc-32") : "") +
+				" -Xclang -cl-std=CL1.2" +
+				(toolchain_version >= 130000 ? " -cl-no-stdinc" : "") +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -500,6 +502,7 @@ program_data compile_input(const string& input,
 				" -x " + (!build_pch ? "cl" : "clcxx-header") +
 				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-spirv" : " -llvm-spirv") : "") +
 				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
+				(toolchain_version >= 130000 ? " -cl-no-stdinc" : "") +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
