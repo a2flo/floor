@@ -113,6 +113,7 @@ BUILD_OS="unknown"
 BUILD_CPU_COUNT=1
 BUILD_CXX=
 BUILD_CC=
+PLATFORM_OPTIONS=
 case ${BUILD_PLATFORM} in
 	"darwin")
 		if expr `uname -p` : "arm.*" >/dev/null; then
@@ -146,8 +147,9 @@ case ${BUILD_PLATFORM} in
 	"mingw"*)
 		BUILD_OS="mingw"
 		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([[:digit:]]*)/\1/g')
-		BUILD_CXX=g++
-		BUILD_CC=gcc
+		BUILD_CXX=clang++
+		BUILD_CC=clang
+		PLATFORM_OPTIONS="-mcmodel=medium"
 		;;
 	*)
 		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
@@ -192,25 +194,19 @@ elif [ $BUILD_OS == "ios" ]; then
 	EXTRA_OPTIONS="-miphoneos-version-min=11.0"
 fi
 
-CONFIG_OPTIONS=
 CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
 	info "using clang"
-	CONFIG_OPTIONS="--enable-libcpp"
 	CLANG_OPTIONS="-fvectorize"
 	if [ $ENABLE_LTO -gt 0 ]; then
 		CLANG_OPTIONS="${CLANG_OPTIONS} -flto"
 	fi
 fi
-if [ $BUILD_OS == "linux" ]; then
-	# TODO: add to cmake if necessary?
-	CONFIG_OPTIONS="${CONFIG_OPTIONS} --prefix=/usr --sysconfdir=/etc --with-binutils-include=/usr/include --with-python=/usr/bin/python"
-fi
 
 # only build what we need
 toolchain_binaries=(clang llvm-as llvm-dis llvm-spirv metallib-dis)
 
-CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" ../llvm/llvm
+CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" ../llvm/llvm
 make -j ${BUILD_JOB_COUNT} ${toolchain_binaries[@]}
 make_ret_code=$?
 
