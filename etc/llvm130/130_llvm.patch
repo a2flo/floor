@@ -1158,6 +1158,34 @@ index ada5892c06b3..43eb2e59c4bc 100644
  
  #undef IMAGE_TYPE
  #undef GENERIC_IMAGE_TYPE
+diff --git a/clang/include/clang/Basic/OpenCLOptions.h b/clang/include/clang/Basic/OpenCLOptions.h
+index 44fda029411f..e4aaf0fd2113 100644
+--- a/clang/include/clang/Basic/OpenCLOptions.h
++++ b/clang/include/clang/Basic/OpenCLOptions.h
+@@ -28,8 +28,10 @@ enum OpenCLVersionID : unsigned int {
+   OCL_C_11 = 0x2,
+   OCL_C_12 = 0x4,
+   OCL_C_20 = 0x8,
+-  OCL_C_30 = 0x10,
+-  OCL_C_ALL = 0x1f,
++  OCL_C_21 = 0x10,
++  OCL_C_22 = 0x20,
++  OCL_C_30 = 0x40,
++  OCL_C_ALL = OCL_C_10 | OCL_C_11 | OCL_C_12 | OCL_C_20 | OCL_C_21 | OCL_C_22 | OCL_C_30,
+   OCL_C_11P = OCL_C_ALL ^ OCL_C_10,              // OpenCL C 1.1+
+   OCL_C_12P = OCL_C_ALL ^ (OCL_C_10 | OCL_C_11), // OpenCL C 1.2+
+ };
+@@ -46,6 +48,10 @@ static inline OpenCLVersionID encodeOpenCLVersion(unsigned OpenCLVersion) {
+     return OCL_C_12;
+   case 200:
+     return OCL_C_20;
++  case 210:
++    return OCL_C_21;
++  case 220:
++    return OCL_C_22;
+   case 300:
+     return OCL_C_30;
+   }
 diff --git a/clang/include/clang/Basic/Specifiers.h b/clang/include/clang/Basic/Specifiers.h
 index bd5a4d6fb8d9..20dd17f713b2 100644
 --- a/clang/include/clang/Basic/Specifiers.h
@@ -23901,10 +23929,10 @@ index 000000000000..3873c0b2d169
 +}
 diff --git a/llvm/lib/Bitcode/Writer32/BitcodeWriter32.cpp b/llvm/lib/Bitcode/Writer32/BitcodeWriter32.cpp
 new file mode 100644
-index 000000000000..9d38a4d0c4bc
+index 000000000000..690d604c475d
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer32/BitcodeWriter32.cpp
-@@ -0,0 +1,2506 @@
+@@ -0,0 +1,2539 @@
 +//===--- Bitcode/Writer32/BitcodeWriter32.cpp - Bitcode 3.2 Writer --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -24089,7 +24117,8 @@ index 000000000000..9d38a4d0c4bc
 +  Stream.EmitRecord(Code, Vals, AbbrevToUse);
 +}
 +
-+static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
++uint64_t getAttrKindEncodingBC32(Attribute::AttrKind Kind); // for use in ValueEnumerator32 as well
++uint64_t getAttrKindEncodingBC32(Attribute::AttrKind Kind) {
 +  // NOTE: these are the only parameter attributes supported by SPIR 1.2 (see "3.9 Parameter Attributes")
 +  // NOTE: nocapture is technically supported as well, but leads to problems on certain implementations
 +  switch (Kind) {
@@ -24125,7 +24154,7 @@ index 000000000000..9d38a4d0c4bc
 +        if (Kind == Attribute::Alignment) { /* drop it */ }
 +        else if (Kind == Attribute::StackAlignment) { /* drop it */ }
 +        else if (Kind == Attribute::Dereferenceable) { /* drop it */ }
-+        else raw_attrs |= getAttrKindEncoding(Kind);
++        else raw_attrs |= getAttrKindEncodingBC32(Kind);
 +      }
 +
 +      // Taken from LLVM 3.2 Attributes::encodeLLVMAttributesForBitcode
@@ -24308,13 +24337,13 @@ index 000000000000..9d38a4d0c4bc
 +      break;
 +    }
 +    case Type::ScalableVectorTyID:
-+      report_fatal_error("scalar vector types are not supported with LLVM 5.0");
++      report_fatal_error("scalar vector types are not supported with LLVM 3.2");
 +      break;
 +    case Type::BFloatTyID:
-+      report_fatal_error("bfloat16 type is not supported with LLVM 5.0");
++      report_fatal_error("bfloat16 type is not supported with LLVM 3.2");
 +      break;
 +    case Type::X86_AMXTyID:
-+      report_fatal_error("AMX types are not supported with LLVM 5.0");
++      report_fatal_error("AMX types are not supported with LLVM 3.2");
 +      break;
 +    }
 +
@@ -25596,6 +25625,21 @@ index 000000000000..9d38a4d0c4bc
 +    }
 +    break;
 +
++  case Instruction::FNeg: {
++	// emit as "fsub -0, value"
++	Code = bitc::FUNC_CODE_INST_BINOP;
++    pushValue(ConstantFP::get(I.getOperand(0)->getType(), -0.0), InstID, Vals, VE);
++	if (!PushValueAndType(I.getOperand(0), InstID, Vals, VE))
++	  AbbrevToUse = FUNCTION_INST_BINOP_ABBREV;
++	Vals.push_back(GetEncodedBinaryOpcode(Instruction::FSub));
++	uint64_t Flags = GetOptimizationFlags(&I);
++	if (Flags != 0) {
++	  if (AbbrevToUse == FUNCTION_INST_BINOP_ABBREV)
++		AbbrevToUse = FUNCTION_INST_BINOP_FLAGS_ABBREV;
++	  Vals.push_back(Flags);
++	}
++	break;
++  }
 +  case Instruction::GetElementPtr: {
 +    Code = bitc::FUNC_CODE_INST_GEP_OLD;
 +    //AbbrevToUse = FUNCTION_INST_GEP_ABBREV;
@@ -25642,7 +25686,9 @@ index 000000000000..9d38a4d0c4bc
 +    Code = bitc::FUNC_CODE_INST_SHUFFLEVEC;
 +    PushValueAndType(I.getOperand(0), InstID, Vals, VE);
 +    pushValue(I.getOperand(1), InstID, Vals, VE);
-+    pushValue(I.getOperand(2), InstID, Vals, VE);
++    //pushValue(I.getOperand(2), InstID, Vals, VE);
++    pushValue(cast<ShuffleVectorInst>(I).getShuffleMaskForBitcode(), InstID,
++              Vals, VE);
 +    break;
 +  case Instruction::ICmp:
 +  case Instruction::FCmp: {
@@ -25911,6 +25957,21 @@ index 000000000000..9d38a4d0c4bc
 +    Vals.push_back(VE.getTypeID(I.getOperand(0)->getType()));   // valistty
 +    pushValue(I.getOperand(0), InstID, Vals, VE); // valist.
 +    Vals.push_back(VE.getTypeID(I.getType())); // restype.
++    break;
++  case Instruction::Freeze: {
++    // freeze instruction is not supported by LLVM 3.2,
++    // but we can more or less emulate it as an identity function
++    // -> encode as a bitcast to the same type
++	auto Operand = I.getOperand(0);
++    Code = bitc::FUNC_CODE_INST_CAST;
++    if (!PushValueAndType(Operand, InstID, Vals, VE))
++      AbbrevToUse = FUNCTION_INST_CAST_ABBREV;
++    Vals.push_back(VE.getTypeID(Operand->getType()));
++    Vals.push_back(GetEncodedCastOpcode(Instruction::BitCast));
++    break;
++  }
++  case Instruction::CallBr:
++    report_fatal_error("can not encode CallBr instruction for LLVM 3.2");
 +    break;
 +  }
 +
@@ -26490,10 +26551,10 @@ index 000000000000..0f2efb65b695
 +  )
 diff --git a/llvm/lib/Bitcode/Writer32/ValueEnumerator32.cpp b/llvm/lib/Bitcode/Writer32/ValueEnumerator32.cpp
 new file mode 100644
-index 000000000000..cdd4ffdc8fc0
+index 000000000000..6818570b033c
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer32/ValueEnumerator32.cpp
-@@ -0,0 +1,649 @@
+@@ -0,0 +1,684 @@
 +//===- ValueEnumerator32.cpp - Number values and types for bitcode writer -===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -26535,7 +26596,7 @@ index 000000000000..cdd4ffdc8fc0
 +  // Enumerate the functions.
 +  for (const Function & F : M) {
 +    EnumerateValue(&F);
-+    EnumerateAttributes(F.getAttributes());
++    EnumerateAttributes(F.getAttributes(), F.getContext());
 +  }
 +
 +  // Enumerate the aliases.
@@ -26594,9 +26655,15 @@ index 000000000000..cdd4ffdc8fc0
 +        }
 +        EnumerateType(I.getType());
 +        if (const CallInst *CI = dyn_cast<CallInst>(&I))
-+          EnumerateAttributes(CI->getAttributes());
++          EnumerateAttributes(CI->getAttributes(), M.getContext());
 +        else if (const InvokeInst *II = dyn_cast<InvokeInst>(&I))
-+          EnumerateAttributes(II->getAttributes());
++          EnumerateAttributes(II->getAttributes(), M.getContext());
++        else if (const UnaryOperator *UnOp = dyn_cast<UnaryOperator>(&I);
++                 UnOp && UnOp->getOpcode() == Instruction::FNeg) {
++          // add -0.0 value that we'll use later
++          EnumerateValue(ConstantFP::get(UnOp->getOperand(0)->getType(), -0.0));
++        } else if (auto *SVI = dyn_cast<ShuffleVectorInst>(&I))
++          EnumerateType(SVI->getShuffleMaskForBitcode()->getType());
 +
 +        // Enumerate metadata attached with this instruction.
 +        MDs.clear();
@@ -26944,6 +27011,9 @@ index 000000000000..cdd4ffdc8fc0
 +           I != E; ++I)
 +        if (!isa<BasicBlock>(*I)) // Don't enumerate BB operand to BlockAddress.
 +          EnumerateValue(*I);
++      if (auto *CE = dyn_cast<ConstantExpr>(C))
++        if (CE->getOpcode() == Instruction::ShuffleVector)
++          EnumerateValue(CE->getShuffleMaskForBitcode());
 +
 +      // Finally, add the value.  Doing this could make the ValueID reference be
 +      // dangling, don't reuse it.
@@ -27027,9 +27097,13 @@ index 000000000000..cdd4ffdc8fc0
 +
 +    EnumerateOperandType(Op);
 +  }
++  if (auto *CE = dyn_cast<ConstantExpr>(C))
++    if (CE->getOpcode() == Instruction::ShuffleVector)
++      EnumerateOperandType(CE->getShuffleMaskForBitcode());
 +}
 +
-+void ValueEnumerator32::EnumerateAttributes(AttributeList PAL) {
++extern uint64_t getAttrKindEncodingBC32(Attribute::AttrKind Kind);
++void ValueEnumerator32::EnumerateAttributes(AttributeList PAL, LLVMContext& Context) {
 +  if (PAL.isEmpty()) return;  // null is always 0.
 +
 +  // Do a lookup.
@@ -27045,7 +27119,26 @@ index 000000000000..cdd4ffdc8fc0
 +    AttributeSet AS = PAL.getAttributes(i);
 +    if (!AS.hasAttributes())
 +      continue;
-+    IndexAndAttrSet Pair = {i, AS};
++    // we need to skip attribute sets that don't have any valid LLVM BC 3.2 attribute
++    bool has_any_valid_attr = false;
++    for (Attribute Attr : AS) {
++      if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
++        if (getAttrKindEncodingBC32(Attr.getKindAsEnum()) > 0) {
++          has_any_valid_attr = true;
++          break;
++        }
++      } else if (Attr.isStringAttribute()) {
++        has_any_valid_attr = true;
++        break;
++      }
++      // else: ignore type attributes
++    }
++    auto AS_index = i;
++    if (!has_any_valid_attr) {
++      AS_index = ~0u;
++    }
++
++    IndexAndAttrSet Pair = {AS_index, AS};
 +    unsigned &Entry = AttributeGroupMap[Pair];
 +    if (Entry == 0) {
 +      AttributeGroups.push_back(Pair);
@@ -27067,11 +27160,14 @@ index 000000000000..cdd4ffdc8fc0
 +
 +  // Add all function-level constants to the value table.
 +  for (const BasicBlock &BB : F) {
-+    for (const Instruction &I : BB)
++    for (const Instruction &I : BB) {
 +      for (const Use &OI : I.operands()) {
 +        if ((isa<Constant>(OI) && !isa<GlobalValue>(OI)) || isa<InlineAsm>(OI))
 +          EnumerateValue(OI);
 +      }
++      if (auto *SVI = dyn_cast<ShuffleVectorInst>(&I))
++        EnumerateValue(SVI->getShuffleMaskForBitcode());
++    }
 +    BasicBlocks.push_back(&BB);
 +    ValueMap[&BB] = BasicBlocks.size();
 +  }
@@ -27081,7 +27177,7 @@ index 000000000000..cdd4ffdc8fc0
 +
 +  // Add the function's parameter attributes so they are available for use in
 +  // the function's instruction.
-+  EnumerateAttributes(F.getAttributes());
++  EnumerateAttributes(F.getAttributes(), F.getContext());
 +
 +  FirstInstID = Values.size();
 +
@@ -27145,10 +27241,10 @@ index 000000000000..cdd4ffdc8fc0
 +}
 diff --git a/llvm/lib/Bitcode/Writer32/ValueEnumerator32.h b/llvm/lib/Bitcode/Writer32/ValueEnumerator32.h
 new file mode 100644
-index 000000000000..e6f5534add82
+index 000000000000..e3671bb60a0a
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer32/ValueEnumerator32.h
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,210 @@
 +//===-- Bitcode/Writer32/ValueEnumerator32.h - Number values ----*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -27296,6 +27392,9 @@ index 000000000000..e6f5534add82
 +      return 0; // Null maps to zero.
 +    AttributeGroupMapType::const_iterator I = AttributeGroupMap.find(Group);
 +    assert(I != AttributeGroupMap.end() && "Attribute not in ValueEnumerator!");
++    if (I == AttributeGroupMap.end()) {
++      return ~0u;
++    }
 +    return I->second;
 +  }
 +
@@ -27347,7 +27446,7 @@ index 000000000000..e6f5534add82
 +  void EnumerateValue(const Value *V);
 +  void EnumerateType(Type *T);
 +  void EnumerateOperandType(const Value *V);
-+  void EnumerateAttributes(AttributeList PAL);
++  void EnumerateAttributes(AttributeList PAL, LLVMContext& Context);
 +
 +  void EnumerateValueSymbolTable(const ValueSymbolTable &ST);
 +  void EnumerateNamedMetadata(const Module &M);
@@ -27414,7 +27513,7 @@ index 000000000000..baf76070e164
 +}
 diff --git a/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp b/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp
 new file mode 100644
-index 000000000000..68cb96716c4f
+index 000000000000..8bb74cfc2ced
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp
 @@ -0,0 +1,4070 @@
@@ -29903,7 +30002,7 @@ index 000000000000..68cb96716c4f
 +        AbbrevToUse = FUNCTION_INST_BINOP_FLAGS_ABBREV;
 +      Vals.push_back(Flags);
 +    }
-+    break; // TODO: add to 3.2 writer (+value enumerator changes)
++    break;
 +  }
 +  case Instruction::GetElementPtr: {
 +    Code = bitc::FUNC_CODE_INST_GEP;
@@ -31601,7 +31700,7 @@ index 000000000000..d5de180f3cce
 +  )
 diff --git a/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp
 new file mode 100644
-index 000000000000..9bd219a33764
+index 000000000000..5a4e141660bb
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp
 @@ -0,0 +1,1049 @@
@@ -32544,7 +32643,7 @@ index 000000000000..9bd219a33764
 +    if (!has_any_valid_attr) {
 +      AS_index = ~0u;
 +    }
-+	  
++
 +    IndexAndAttrSet Pair = {AS_index, AS};
 +    unsigned &Entry = AttributeGroupMap[Pair];
 +    if (Entry == 0) {
@@ -32656,7 +32755,7 @@ index 000000000000..9bd219a33764
 +}
 diff --git a/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h
 new file mode 100644
-index 000000000000..f9b4c553e150
+index 000000000000..2a9d3b39f0be
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h
 @@ -0,0 +1,300 @@
@@ -32844,7 +32943,7 @@ index 000000000000..f9b4c553e150
 +      return 0; // Null maps to zero.
 +    AttributeGroupMapType::const_iterator I = AttributeGroupMap.find(Group);
 +    //assert(I != AttributeGroupMap.end() && "Attribute not in ValueEnumerator50!");
-+    if (I ==  AttributeGroupMap.end()) {
++    if (I == AttributeGroupMap.end()) {
 +      return ~0u;
 +    }
 +    return I->second;

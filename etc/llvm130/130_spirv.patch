@@ -2276,7 +2276,7 @@ index 7864216..f72cefc 100644
                                             spv::Op OC,
                                             ArrayRef<Type *> ArgTys) {
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
-index 2c3bc15..d2159c8 100644
+index 2c3bc15..a38fb2d 100644
 --- a/lib/SPIRV/SPIRVWriter.cpp
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -6,6 +6,7 @@
@@ -5595,16 +5595,19 @@ index 2c3bc15..d2159c8 100644
    PassMgr.add(createSPIRVRegularizeLLVMLegacy());
    PassMgr.add(createSPIRVLowerConstExprLegacy());
    PassMgr.add(createSPIRVLowerBoolLegacy());
-@@ -4122,7 +6351,7 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
+@@ -4122,26 +6351,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
    return true;
  }
  
 -bool llvm::writeSpirv(Module *M, std::ostream &OS, std::string &ErrMsg) {
 +bool llvm::writeSpirv(Module *M, spv_ostream &OS, std::string &ErrMsg) {
    SPIRV::TranslatorOpts DefaultOpts;
++#if 0 // NOPE
    // To preserve old behavior of the translator, let's enable all extensions
    // by default in this API
-@@ -4131,17 +6360,19 @@ bool llvm::writeSpirv(Module *M, std::ostream &OS, std::string &ErrMsg) {
+   DefaultOpts.enableAllExtensions();
++#endif
+   return llvm::writeSpirv(M, DefaultOpts, OS, ErrMsg);
  }
  
  bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
@@ -5624,6 +5627,18 @@ index 2c3bc15..d2159c8 100644
 +#endif
    PassMgr.add(createLLVMToSPIRVLegacy(BM.get()));
    PassMgr.run(*M);
+ 
+@@ -4153,9 +6386,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
+ 
+ bool llvm::regularizeLlvmForSpirv(Module *M, std::string &ErrMsg) {
+   SPIRV::TranslatorOpts DefaultOpts;
++#if 0 // NOPE
+   // To preserve old behavior of the translator, let's enable all extensions
+   // by default in this API
+   DefaultOpts.enableAllExtensions();
++#endif
+   return llvm::regularizeLlvmForSpirv(M, ErrMsg, DefaultOpts);
+ }
  
 diff --git a/lib/SPIRV/SPIRVWriter.h b/lib/SPIRV/SPIRVWriter.h
 index 9b21121..46243d8 100644
@@ -5723,7 +5738,7 @@ index 9b21121..46243d8 100644
  
  class LLVMToSPIRVPass : public PassInfoMixin<LLVMToSPIRVPass>,
 diff --git a/lib/SPIRV/SPIRVWriterPass.cpp b/lib/SPIRV/SPIRVWriterPass.cpp
-index 4e211d0..50208e4 100644
+index 4e211d0..139d147 100644
 --- a/lib/SPIRV/SPIRVWriterPass.cpp
 +++ b/lib/SPIRV/SPIRVWriterPass.cpp
 @@ -18,7 +18,7 @@
@@ -5750,16 +5765,18 @@ index 4e211d0..50208e4 100644
        : ModulePass(ID), OS(OS), Opts(Opts) {}
  
    StringRef getPassName() const override { return "SPIRV Writer"; }
-@@ -48,7 +48,7 @@ public:
+@@ -48,15 +48,17 @@ public:
  
  char WriteSPIRVPass::ID = 0;
  
 -ModulePass *llvm::createSPIRVWriterPass(std::ostream &Str) {
 +ModulePass *llvm::createSPIRVWriterPass(raw_ostream &Str) {
    SPIRV::TranslatorOpts DefaultOpts;
++#if 0 // NOPE
    // To preserve old behavior of the translator, let's enable all extensions
    // by default in this API
-@@ -56,7 +56,7 @@ ModulePass *llvm::createSPIRVWriterPass(std::ostream &Str) {
+   DefaultOpts.enableAllExtensions();
++#endif
    return createSPIRVWriterPass(Str, DefaultOpts);
  }
  
@@ -5769,7 +5786,7 @@ index 4e211d0..50208e4 100644
    return new WriteSPIRVPass(Str, Opts);
  }
 diff --git a/lib/SPIRV/SPIRVWriterPass.h b/lib/SPIRV/SPIRVWriterPass.h
-index fe80217..74c12b9 100644
+index fe80217..bc5a719 100644
 --- a/lib/SPIRV/SPIRVWriterPass.h
 +++ b/lib/SPIRV/SPIRVWriterPass.h
 @@ -15,8 +15,9 @@
@@ -5783,7 +5800,7 @@ index fe80217..74c12b9 100644
  
  namespace llvm {
  class Module;
-@@ -26,33 +27,33 @@ class PreservedAnalyses;
+@@ -26,33 +27,35 @@ class PreservedAnalyses;
  /// \brief Create and return a pass that writes the module to the specified
  /// ostream. Note that this pass is designed for use with the legacy pass
  /// manager.
@@ -5811,7 +5828,9 @@ index fe80217..74c12b9 100644
    /// \brief Construct a SPIRV writer pass around a particular output stream.
 -  explicit SPIRVWriterPass(std::ostream &OS) : OS(OS) {
 +  explicit SPIRVWriterPass(raw_ostream &OS) : OS(OS) {
++#if 0 // NOPE
      Opts.enableAllExtensions();
++#endif
    }
 -  SPIRVWriterPass(std::ostream &OS, const SPIRV::TranslatorOpts &Opts)
 +  SPIRVWriterPass(raw_ostream &OS, const SPIRV::TranslatorOpts &Opts)
@@ -6575,7 +6594,7 @@ index 74d469f..5f08944 100644
  _SPIRV_OP(ImageQueryOrder, true, 4)
  _SPIRV_OP(ImageQuerySizeLod, true, 5)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-index 5b46a3a..699197c 100644
+index 5b46a3a..d8ce75b 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 @@ -51,11 +51,22 @@
@@ -7305,7 +7324,17 @@ index 5b46a3a..699197c 100644
                    bool FromText, bool ToText) {
    auto SaveOpt = SPIRVUseTextFormat;
    SPIRVUseTextFormat = FromText;
-@@ -2136,10 +2499,10 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
+@@ -2102,7 +2465,9 @@ bool convertSpirv(std::istream &IS, std::ostream &OS, std::string &ErrMsg,
+   // particular SPIR-V versions: all known SPIR-V versions are allowed, all
+   // known SPIR-V extensions are enabled during this conversion
+   SPIRV::TranslatorOpts DefaultOpts;
++#if 0 // NOPE
+   DefaultOpts.enableAllExtensions();
++#endif
+   SPIRVModuleImpl M(DefaultOpts);
+   IS >> M;
+   if (M.getError(ErrMsg) != SPIRVEC_Success) {
+@@ -2136,10 +2501,10 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
      return true;
    }
    std::istringstream IS(Input);
