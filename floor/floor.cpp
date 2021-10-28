@@ -2086,7 +2086,7 @@ bool enable_windows_hidpi() {
 
 	// get SetProcessDpiAwareness function pointer
 	using set_process_dpi_awareness_fptr = long (*)(int /* process_dpi_awareness */);
-	auto set_process_dpi_awareness = (set_process_dpi_awareness_fptr)GetProcAddress(shcore_handle, "SetProcessDpiAwareness");
+	auto set_process_dpi_awareness = (set_process_dpi_awareness_fptr)(void*)GetProcAddress(shcore_handle, "SetProcessDpiAwareness");
 	if (set_process_dpi_awareness == nullptr) {
 		return fail();
 	}

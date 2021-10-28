@@ -118,7 +118,7 @@ FLOOR_POP_WARNINGS()
 		return {};
 	}
 
-	auto func_ptr = GetProcAddress(exe_module, func_name.c_str());
+	auto func_ptr = (void*)GetProcAddress(exe_module, func_name.c_str());
 #endif
 	if(func_ptr == nullptr) {
 #if !defined(__WINDOWS__)

@@ -448,7 +448,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_SUB_GROUP_SIZES, vector<size_t>) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_WIDTH_AMD, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_WAVEFRONT_WIDTH_AMD, cl_uint) \
-F(cl_device_id, cl_device_info, CL_DEVICE_ILS_WITH_VERSION, vector<cl_name_version_khr>) \
+F(cl_device_id, cl_device_info, CL_DEVICE_ILS_WITH_VERSION, vector<cl_name_version>) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \

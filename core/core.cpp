@@ -25,10 +25,6 @@
 #include <sys/sysctl.h>
 #endif
 
-#if !defined(FLOOR_IOS)
-#include <cpuid.h>
-#endif
-
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp> // cleanup
@@ -41,6 +37,13 @@
 
 #if !defined(__WINDOWS__)
 #include <dirent.h>
+#endif
+
+#if !defined(FLOOR_IOS)
+#if defined(__cpuid)
+#error "__cpuid should not yet be defined at this point!"
+#endif
+#include <cpuid.h>
 #endif
 
 namespace core {
@@ -587,9 +590,9 @@ uint4 get_windows_version() {
 		using get_file_version_info_fptr = int /* bool */ (*)(const char* /* filename */, const uint32_t /* handle */, const uint32_t /* len */, void* /* data */);
 		using get_file_version_info_size_fptr = uint32_t /* size */ (*)(const char* /* filename */, uint32_t* /* handle */);
 		using ver_query_value_fptr = int /* bool */ (*)(const void* /* block */, const char* /* sub_block */, void* /* ret_buffer */, uint32_t* /* ret_len */);
-		auto get_file_version_info = (get_file_version_info_fptr)GetProcAddress(version_handle, "GetFileVersionInfoA");
-		auto get_file_version_info_size = (get_file_version_info_size_fptr)GetProcAddress(version_handle, "GetFileVersionInfoSizeA");
-		auto ver_query_value = (ver_query_value_fptr)GetProcAddress(version_handle, "VerQueryValueA");
+		auto get_file_version_info = (get_file_version_info_fptr)(void*)GetProcAddress(version_handle, "GetFileVersionInfoA");
+		auto get_file_version_info_size = (get_file_version_info_size_fptr)(void*)GetProcAddress(version_handle, "GetFileVersionInfoSizeA");
+		auto ver_query_value = (ver_query_value_fptr)(void*)GetProcAddress(version_handle, "VerQueryValueA");
 		if (get_file_version_info == nullptr || get_file_version_info_size == nullptr || ver_query_value == nullptr) {
 			return win_ver_fail();
 		}

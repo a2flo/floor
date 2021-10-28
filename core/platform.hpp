@@ -75,11 +75,12 @@
 
 #endif // Windows
 
+// fix SDL/MinGW pollution
+#define SDL_cpuinfo_h_
 
 // general includes
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
-#include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
 #if !defined(__WINDOWS__)
 #include <sys/types.h>
