@@ -20634,10 +20634,10 @@ index 000000000000..8772de8f8c85
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImage.h b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
 new file mode 100644
-index 000000000000..7d62c44a161f
+index 000000000000..7cc1673e77d5
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
-@@ -0,0 +1,451 @@
+@@ -0,0 +1,452 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
@@ -21074,6 +21074,7 @@ index 000000000000..7d62c44a161f
 +		bool was_modified { false };
 +		bool is_fragment_shader { false };
 +		bool is_metal_2_3 { false };
++		bool is_metal_2_4 { false };
 +		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
 +		
 +		llvm::AttributeList nounwind_readnone_attr;
@@ -40011,10 +40012,10 @@ index 000000000000..2d36efa5f553
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/FloorImage.cpp b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
 new file mode 100644
-index 000000000000..c909d34e2b44
+index 000000000000..7de4d2c3a2ee
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
-@@ -0,0 +1,579 @@
+@@ -0,0 +1,585 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -40108,10 +40109,16 @@ index 000000000000..c909d34e2b44
 +			if (major_version >= 14) {
 +				is_metal_2_3 = true;
 +			}
++			if (major_version >= 15) {
++				is_metal_2_4 = true;
++			}
 +		} else if (triple.getOS() == Triple::OSType::MacOSX) {
 +			if (triple.getMacOSXVersion(major_version, minor_version, micro_version)) {
 +				if (major_version >= 11) {
 +					is_metal_2_3 = true;
++				}
++				if (major_version >= 12) {
++					is_metal_2_4 = true;
 +				}
 +			}
 +		}
@@ -42020,10 +42027,10 @@ index 000000000000..310e5f6c9cea
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/MetalImage.cpp b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 new file mode 100644
-index 000000000000..06de0c54d17e
+index 000000000000..493016630cc8
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
-@@ -0,0 +1,721 @@
+@@ -0,0 +1,730 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -42412,6 +42419,12 @@ index 000000000000..06de0c54d17e
 +					func_args.push_back(dpdx_arg);
 +					func_arg_types.push_back(dpdy_arg->getType());
 +					func_args.push_back(dpdy_arg);
++					
++					if (is_metal_2_4) {
++						// Metal 2.4 has an additional "min LOD clamp" f32 argument -> set to 0.0 for now
++						func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
++						func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
++					}
 +				}
 +				
 +				// -> offset
@@ -42443,9 +42456,12 @@ index 000000000000..06de0c54d17e
 +				}
 +				
 +				if (is_metal_2_3) {
-+					// Metal 2.3+ has an additional (unknown) f32 0.0 argument
-+					func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
-+					func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
++					// Metal 2.3 has an additional (unknown) f32 0.0 argument
++					// NOTE: do not emit this for Metal 2.4+ when a gradient is used
++					if (!is_metal_2_4 || (is_metal_2_4 && !is_gradient)) {
++						func_arg_types.push_back(llvm::Type::getFloatTy(*ctx));
++						func_args.push_back(ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f));
++					}
 +				}
 +				
 +				// Metal 2.0+ has an additional (unknown) i32 0 argument
