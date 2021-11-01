@@ -57,7 +57,7 @@ index 261b5d4..d122900 100644
  /// functions.
  ModulePass *createOCLToSPIRVLegacy();
 diff --git a/include/LLVMSPIRVOpts.h b/include/LLVMSPIRVOpts.h
-index 8c73b64..254fca5 100644
+index 8c73b64..ddea616 100644
 --- a/include/LLVMSPIRVOpts.h
 +++ b/include/LLVMSPIRVOpts.h
 @@ -62,10 +62,10 @@ enum class VersionNumber : uint32_t {
@@ -73,6 +73,15 @@ index 8c73b64..254fca5 100644
  };
  
  enum class ExtensionID : uint32_t {
+@@ -183,7 +183,7 @@ public:
+ 
+ private:
+   // Common translation options
+-  VersionNumber MaxVersion = VersionNumber::MaximumVersion;
++  VersionNumber MaxVersion = VersionNumber::SPIRV_1_0;
+   ExtensionsStatusMap ExtStatusMap;
+   // SPIRVMemToReg option affects LLVM IR regularization phase
+   bool SPIRVMemToReg = false;
 diff --git a/include/spirv/unified1/spirv.hpp b/include/spirv/unified1/spirv.hpp
 new file mode 100644
 index 0000000..83356b6
