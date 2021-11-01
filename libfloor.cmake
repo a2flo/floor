@@ -58,7 +58,8 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-gnu -Wno-gcc-compat)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
 # don't be too pedantic
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command
-	-Wno-old-style-cast -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-date-time)
+	-Wno-old-style-cast -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro
+	-Wno-reserved-identifier -Wno-date-time)
 # suppress warnings in system headers
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-system-headers)
 # these two are only useful in certain situations, but are quite noisy

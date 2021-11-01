@@ -231,9 +231,8 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x " + (!build_pch ? "cl" : "clcxx-header") +
-				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -llvm-bc-32" : " -llvm-bc-32") : "") +
-				" -Xclang -cl-std=CL1.2" +
-				(toolchain_version >= 130000 ? " -cl-no-stdinc" : "") +
+				(!build_pch ? " -Xclang -llvm-bc-32" : "") +
+				" -Xclang -cl-std=CL1.2 -cl-no-stdinc" +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -362,7 +361,7 @@ program_data compile_input(const string& input,
 				"\"" + floor::get_metal_compiler() + "\"" +
 				" -x " + (!build_pch ? "metal" : "metal-header") +
 				" -std=" + metal_std + " -target air64-apple-" + os_target +
-				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-metallib" : " -llvm-metallib") : "") +
+				(!build_pch ? " -Xclang -emit-metallib" : "") +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
@@ -374,7 +373,6 @@ program_data compile_input(const string& input,
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" +
-				(toolchain_version < 130000 ? " -mllvm -slp-max-vec-dim=4" /* vector dims > 4 are unsupported */ : "" /* no longer needed */) +
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" +
 				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
@@ -398,7 +396,7 @@ program_data compile_input(const string& input,
 			// * 6.3 for sm_75+
 			// * 7.0 for sm_80/sm_82
 			// * 7.1 for sm_86+
-			// * 7.3 for anything else
+			// * 7.5 for anything else
 			switch(cuda_dev.sm.x) {
 				case 3:
 				case 5:
@@ -409,10 +407,10 @@ program_data compile_input(const string& input,
 					ptx_version = max(cuda_dev.sm.y < 5 ? 60u : 63u, ptx_version);
 					break;
 				case 8:
-					ptx_version = max(cuda_dev.sm.y < 6 ? 70u : 71u, ptx_version);
+					ptx_version = max(cuda_dev.sm.y < 6 ? 70u : (cuda_dev.sm.y < 7 ? 71u : 75u), ptx_version);
 					break;
 				default:
-					ptx_version = max(73u, ptx_version);
+					ptx_version = max(75u, ptx_version);
 					break;
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
@@ -464,7 +462,7 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x " + (!build_pch ? "vulkan" : "vulkan-header") +
-				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-spirv-container" : " -llvm-spirv-container") : "") +
+				(!build_pch ? " -Xclang -emit-spirv-container" : "") +
 				" -std=" + vulkan_std +
 				" -target spir64-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
@@ -476,7 +474,7 @@ program_data compile_input(const string& input,
 				" -Xclang -vulkan-iub-size=" + to_string(vk_device.max_inline_uniform_block_size) +
 				" -Xclang -vulkan-iub-count=" + to_string(vk_device.max_inline_uniform_block_count) +
 				(soft_printf ? " -Xclang -vulkan-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
-				(toolchain_version >= 130000 && options.vulkan.pre_structurization_pass ? " -Xclang -vulkan-llvm-pre-structurization-pass" : "") +
+				(options.vulkan.pre_structurization_pass ? " -Xclang -vulkan-llvm-pre-structurization-pass" : "") +
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
@@ -500,9 +498,9 @@ program_data compile_input(const string& input,
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
 				" -x " + (!build_pch ? "cl" : "clcxx-header") +
-				(!build_pch ? (toolchain_version >= 130000 ? " -Xclang -emit-spirv" : " -llvm-spirv") : "") +
+				(!build_pch ? " -Xclang -emit-spirv" : "") +
 				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
-				(toolchain_version >= 130000 ? " -cl-no-stdinc" : "") +
+				" -cl-no-stdinc" \
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -542,7 +540,7 @@ program_data compile_input(const string& input,
 				case HOST_CPU_TIER::X86_TIER_4:
 					arch = "skylake-avx512";
 					// override default behavior of preferring 256-bit
-					prefer_vec_width = (toolchain_version >= 130000 ? " -mprefer-vector-width=512" : "");
+					prefer_vec_width = " -mprefer-vector-width=512";
 					break;
 					
 #if defined(FLOOR_IOS)
@@ -967,13 +965,13 @@ program_data compile_input(const string& input,
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64" +
 		// use integrated cc1 on latest toolchain
-		(toolchain_version >= 130000 ? " -fintegrated-cc1" : "") +
+		" -fintegrated-cc1" +
 		// use legacy pass manager on latest toolchain for now (TODO: use new pass manager!)
-		(toolchain_version >= 130000 ? " -flegacy-pass-manager" : "") +
+		" -flegacy-pass-manager" +
 		// disable argument round-trip on latest toolchain
-		(toolchain_version >= 130000 ? " -Xclang -no-round-trip-args" : "") +
+		" -Xclang -no-round-trip-args" +
 		// force enable half/fp16 support on all targets
-		(toolchain_version >= 130000 ? " -Xclang -fnative-half-type -Xclang -fnative-half-arguments-and-returns -Xclang -fallow-half-arguments-and-returns" : "") +
+		" -Xclang -fnative-half-type -Xclang -fnative-half-arguments-and-returns -Xclang -fallow-half-arguments-and-returns" +
 		// note that enabling warnings costs a significant amount of compilation time
 		(options.enable_warnings ? " -Weverything" : " ") +
 		disabled_warning_flags +

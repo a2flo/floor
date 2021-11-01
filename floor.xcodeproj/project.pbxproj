@@ -450,12 +450,6 @@
 		5C20C8C01B4139260005F5EA /* host_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_program.hpp; path = host/host_program.hpp; sourceTree = "<group>"; };
 		5C20C8C11B4139260005F5EA /* host_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_queue.cpp; path = host/host_queue.cpp; sourceTree = "<group>"; };
 		5C20C8C21B4139260005F5EA /* host_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_queue.hpp; path = host/host_queue.hpp; sourceTree = "<group>"; };
-		5C287BB326BF0DD8004FA0F5 /* 130_spirv.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 130_spirv.patch; path = etc/llvm130/130_spirv.patch; sourceTree = "<group>"; };
-		5C287BB426BF0DD8004FA0F5 /* 130_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 130_llvm.patch; path = etc/llvm130/130_llvm.patch; sourceTree = "<group>"; };
-		5C287BB526BF0DD8004FA0F5 /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm130/deploy_dev.sh; sourceTree = "<group>"; };
-		5C287BB626BF0DD8004FA0F5 /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm130/pkg.sh; sourceTree = "<group>"; };
-		5C287BB726BF0DD9004FA0F5 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm130/build.sh; sourceTree = "<group>"; };
-		5C287BB826BF0DD9004FA0F5 /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm130/deploy_pkg.sh; sourceTree = "<group>"; };
 		5C2A907D243B7CDE00C82150 /* hdr_metadata.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = hdr_metadata.hpp; sourceTree = "<group>"; };
 		5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_compute.cpp; path = vulkan/vulkan_compute.cpp; sourceTree = "<group>"; };
 		5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_device.cpp; path = vulkan/vulkan_device.cpp; sourceTree = "<group>"; };
@@ -626,11 +620,6 @@
 		5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_buffer.cpp; sourceTree = "<group>"; };
 		5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_buffer.hpp; sourceTree = "<group>"; };
 		5CC063B91B85A06600F5979A /* cuda_api.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_api.cpp; sourceTree = "<group>"; };
-		5CC1DB2321D6E3DB00EB2E52 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm80/build.sh; sourceTree = "<group>"; };
-		5CC1DB2421D6E3DC00EB2E52 /* 80_clang.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 80_clang.patch; path = etc/llvm80/80_clang.patch; sourceTree = "<group>"; };
-		5CC1DB2521D6E3DC00EB2E52 /* 80_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 80_libcxx.patch; path = etc/llvm80/80_libcxx.patch; sourceTree = "<group>"; };
-		5CC1DB2621D6E3DD00EB2E52 /* 80_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 80_llvm.patch; path = etc/llvm80/80_llvm.patch; sourceTree = "<group>"; };
-		5CC1DB2721D6E3DD00EB2E52 /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm80/pkg.sh; sourceTree = "<group>"; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
@@ -643,8 +632,6 @@
 		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
-		5CD1A37B21DE15DD002D5CB1 /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm80/deploy_dev.sh; sourceTree = "<group>"; };
-		5CD1A37C21DE165A002D5CB1 /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm80/deploy_pkg.sh; sourceTree = "<group>"; };
 		5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vector_lib_checks.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
 		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
@@ -923,19 +910,6 @@
 			name = host;
 			sourceTree = "<group>";
 		};
-		5C287BB226BF0DC5004FA0F5 /* llvm130 */ = {
-			isa = PBXGroup;
-			children = (
-				5C287BB426BF0DD8004FA0F5 /* 130_llvm.patch */,
-				5C287BB326BF0DD8004FA0F5 /* 130_spirv.patch */,
-				5C287BB726BF0DD9004FA0F5 /* build.sh */,
-				5C287BB526BF0DD8004FA0F5 /* deploy_dev.sh */,
-				5C287BB826BF0DD9004FA0F5 /* deploy_pkg.sh */,
-				5C287BB626BF0DD8004FA0F5 /* pkg.sh */,
-			);
-			name = llvm130;
-			sourceTree = "<group>";
-		};
 		5C2B87C21C73893300F11EA5 /* vulkan */ = {
 			isa = PBXGroup;
 			children = (
@@ -1126,8 +1100,6 @@
 			isa = PBXGroup;
 			children = (
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
-				5CC1DB2221D6E3B500EB2E52 /* llvm80 */,
-				5C287BB226BF0DC5004FA0F5 /* llvm130 */,
 				5C3B3771272F51F000FD708D /* llvm140 */,
 			);
 			name = etc;
@@ -1224,20 +1196,6 @@
 				5CBE41D81B31B48600AE0E5F /* darwin_helper.hpp */,
 			);
 			name = darwin;
-			sourceTree = "<group>";
-		};
-		5CC1DB2221D6E3B500EB2E52 /* llvm80 */ = {
-			isa = PBXGroup;
-			children = (
-				5CC1DB2421D6E3DC00EB2E52 /* 80_clang.patch */,
-				5CC1DB2521D6E3DC00EB2E52 /* 80_libcxx.patch */,
-				5CC1DB2621D6E3DD00EB2E52 /* 80_llvm.patch */,
-				5CC1DB2321D6E3DB00EB2E52 /* build.sh */,
-				5CD1A37B21DE15DD002D5CB1 /* deploy_dev.sh */,
-				5CD1A37C21DE165A002D5CB1 /* deploy_pkg.sh */,
-				5CC1DB2721D6E3DD00EB2E52 /* pkg.sh */,
-			);
-			name = llvm80;
 			sourceTree = "<group>";
 		};
 		5CD2175219E985D80049D6AE /* cuda */ = {

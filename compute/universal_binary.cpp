@@ -38,7 +38,7 @@ namespace std {
 }
 
 namespace universal_binary {
-	static constexpr const uint32_t min_required_toolchain_version_v2 { 80000u };
+	static constexpr const uint32_t min_required_toolchain_version_v2 { 140000u };
 	
 	unique_ptr<archive> load_archive(const string& file_name) {
 		string data;

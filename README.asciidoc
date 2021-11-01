@@ -10,7 +10,7 @@ This project provides a unified compute & graphics host API, as well as a unifie
 The unified host API is implemented at link:https://github.com/a2flo/floor/tree/master/compute[compute] and link:https://github.com/a2flo/floor/tree/master/graphics[graphics].
 All backends (CUDA/Host/Metal/OpenCL/Vulkan) currently provide compute support, while graphics support is limited to Metal and Vulkan.
 
-To provide a unified device language, a clang/LLVM/libc++ 8.0 toolchain has been link:https://github.com/a2flo/floor/tree/master/etc/llvm80[modified].
+To provide a unified device language, a clang/LLVM/libc++ 14.0 toolchain has been link:https://github.com/a2flo/floor/tree/master/etc/llvm140[modified].
 
 Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/math[math] and link:https://github.com/a2flo/floor/tree/master/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/compute/device[device].
 
@@ -1583,13 +1583,13 @@ function void simplified_nbody ( %void() ) {
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
 * compile the toolchain:
-** `cd floor/etc/llvm80/ && ./build.sh`
+** `cd floor/etc/llvm140/ && ./build.sh`
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): `./pkg.sh`
 * install the toolchain:
 ** Unix:
 *** automatic:
-**** development: run `./deploy_dev.sh` from the floor/etc/llvm80/ folder (this will create symlinks to everything in floor and floor/etc/llvm80)
-**** release: run `./deploy_pkg.sh` from inside the toolchain package folder (floor/etc/llvm80/toolchain_80000_*; this will copy everything)
+**** development: run `./deploy_dev.sh` from the floor/etc/llvm140/ folder (this will create symlinks to everything in floor and floor/etc/llvm140)
+**** release: run `./deploy_pkg.sh` from inside the toolchain package folder (floor/etc/llvm140/toolchain_140000_*; this will copy everything)
 *** manual:
 **** copy the toolchain folder as `toolchain` to `/opt/floor/` (should then be `/opt/floor/toolchain/{bin,clang,libcxx}`)
 **** inside `/opt/floor/toolchain`, add a symlink to the `floor` include folder: `sudo ln -sf ../include floor`
