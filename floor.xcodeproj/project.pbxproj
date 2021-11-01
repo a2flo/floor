@@ -482,6 +482,12 @@
 		5C38EC1122A2D00B001E7086 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
 		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
+		5C3B3772272F520600FD708D /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm140/deploy_dev.sh; sourceTree = "<group>"; };
+		5C3B3773272F520600FD708D /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm140/build.sh; sourceTree = "<group>"; };
+		5C3B3774272F520600FD708D /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm140/deploy_pkg.sh; sourceTree = "<group>"; };
+		5C3B3775272F520600FD708D /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm140/pkg.sh; sourceTree = "<group>"; };
+		5C3B3776272F534300FD708D /* 140_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 140_llvm.patch; path = etc/llvm140/140_llvm.patch; sourceTree = "<group>"; };
+		5C3B3777272F534300FD708D /* 140_spirv.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 140_spirv.patch; path = etc/llvm140/140_spirv.patch; sourceTree = "<group>"; };
 		5C3B61D91C60FD4400358DAB /* opaque_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opaque_image.hpp; path = device/opaque_image.hpp; sourceTree = "<group>"; };
 		5C3B61DB1C61647600358DAB /* sampler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = sampler.hpp; path = device/sampler.hpp; sourceTree = "<group>"; };
 		5C3D13B023B67784000BB608 /* vr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vr_context.hpp; path = vr/vr_context.hpp; sourceTree = "<group>"; };
@@ -975,6 +981,19 @@
 			path = constexpr;
 			sourceTree = "<group>";
 		};
+		5C3B3771272F51F000FD708D /* llvm140 */ = {
+			isa = PBXGroup;
+			children = (
+				5C3B3776272F534300FD708D /* 140_llvm.patch */,
+				5C3B3777272F534300FD708D /* 140_spirv.patch */,
+				5C3B3773272F520600FD708D /* build.sh */,
+				5C3B3772272F520600FD708D /* deploy_dev.sh */,
+				5C3B3774272F520600FD708D /* deploy_pkg.sh */,
+				5C3B3775272F520600FD708D /* pkg.sh */,
+			);
+			name = llvm140;
+			sourceTree = "<group>";
+		};
 		5C3D13B523B6778E000BB608 /* vr */ = {
 			isa = PBXGroup;
 			children = (
@@ -1109,6 +1128,7 @@
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
 				5CC1DB2221D6E3B500EB2E52 /* llvm80 */,
 				5C287BB226BF0DC5004FA0F5 /* llvm130 */,
+				5C3B3771272F51F000FD708D /* llvm140 */,
 			);
 			name = etc;
 			sourceTree = "<group>";
