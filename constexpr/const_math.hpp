@@ -37,7 +37,7 @@
 #include <floor/math/constants.hpp>
 using namespace std;
 
-#include <floor/core/cpp_ext.hpp>
+#include <floor/core/cpp_bitcast.hpp>
 
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons

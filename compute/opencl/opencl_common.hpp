@@ -537,7 +537,7 @@ F(cl_event, cl_event_info, clGetEventInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLO
 F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD)
 
 #define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func, additional_args, additional_arg_names, additional_input_args, additional_input_arg_names) \
-template <cl_uint info_type, \
+template <cl_uint info_type> \
 requires(cl_is_valid_info_type<obj_type, info_type>::value && \
 		 !is_same_v<typename cl_info_type<info_type>::type, string> && \
 		 !ext::is_vector<typename cl_info_type<info_type>::type>::value && \

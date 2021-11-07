@@ -493,6 +493,8 @@
 		5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_toolchain.hpp; sourceTree = "<group>"; };
 		5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = spirv_handler.cpp; sourceTree = "<group>"; };
 		5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = spirv_handler.hpp; sourceTree = "<group>"; };
+		5C43F88D2738414F0031510E /* cpp_bitcast.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_bitcast.hpp; sourceTree = "<group>"; };
+		5C43F88E273842480031510E /* cpp_consteval.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_consteval.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A718F953590039BFD4 /* lang_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = lang_context.hpp; sourceTree = "<group>"; };
@@ -771,6 +773,8 @@
 				5CAD574024D764BF0022D36D /* aligned_ptr.hpp */,
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
+				5C43F88D2738414F0031510E /* cpp_bitcast.hpp */,
+				5C43F88E273842480031510E /* cpp_consteval.hpp */,
 				5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */,
 				5C10916F17D1153E007F536E /* cpp_headers.hpp */,
 				5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */,

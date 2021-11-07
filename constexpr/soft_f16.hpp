@@ -26,7 +26,7 @@
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <cstdint>
 #if defined(__F16C__)
-#include <emmintrin.h>
+#include <immintrin.h>
 #endif
 #endif
 
@@ -36,6 +36,9 @@
 
 using namespace std;
 
+#include <floor/core/cpp_bitcast.hpp>
+#include <floor/core/cpp_consteval.hpp>
+
 // TODO: detect arm targets on non-apple platforms
 #if defined(__APPLE__) // prefer __fp16 over f16c support
 #define FLOOR_HAS_NATIVE_FP16 1
@@ -43,12 +46,6 @@ using namespace std;
 #define FLOOR_HAS_NATIVE_FP16 2
 #else
 #define FLOOR_HAS_NATIVE_FP16 0
-#endif
-
-#if FLOOR_HAS_NATIVE_FP16 == 1
-#define FLOOR_FP16_CONSTEXPR constexpr
-#else
-#define FLOOR_FP16_CONSTEXPR
 #endif
 
 //! storage-only 16-bit half-precision floating point type
@@ -92,12 +89,12 @@ struct soft_f16 {
 	}
 	
 	//! construction from an integral value
-	template <typename int_type> requires(is_integral_v<int_type>)
+	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
 	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 0, "constant zero special case"))) : value(0) {}
-	template <typename int_type> requires(is_integral_v<int_type>)
+	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
 	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 1, "constant one special case"))) : value(0x3C00u) {}
-	template <typename int_type> requires(is_integral_v<int_type>)
-	soft_f16(const int_type& val) noexcept : value(from_float((float)val)) {}
+	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	constexpr soft_f16(int_type val) noexcept : value(from_float((float)val)) {}
 	//! assignment from an integral value
 	template <typename int_type> requires(is_integral_v<int_type>)
 	soft_f16& operator=(const int_type& val) noexcept {
@@ -291,27 +288,24 @@ struct soft_f16 {
 		const uint32_t mantissa = (mantissa_index >= 1024u ?
 								   0x38000000u + ((mantissa_index - 1024u) << 13u) :
 								   htof_mantissa_table[mantissa_index]);
-		const union {
-			float f32_value;
-			uint32_t u32_value;
-		} ri { .u32_value = mantissa + htof_exponent_table[shift_value] };
-		return ri.f32_value;
+		return bit_cast<float>(mantissa + htof_exponent_table[shift_value]);
 	}
 	
 	//! static function to convert a single precision float value to a half precision (stored as uint16_t)
 	static inline uint16_t float_to_half(const float& val) {
-		const union {
-			float f32_value;
-			uint32_t u32_value;
-		} ri { .f32_value = val };
-		return (ftoh_base_table[(ri.u32_value >> 23) & 0x1FF] +
-				uint16_t((ri.u32_value & 0x007FFFFF) >> ftoh_shift_table[(ri.u32_value >> 23) & 0x1FF]));
+		const auto u32_value = bit_cast<uint32_t>(val);
+		return (ftoh_base_table[(u32_value >> 23) & 0x1FF] +
+				uint16_t((u32_value & 0x007FFFFF) >> ftoh_shift_table[(u32_value >> 23) & 0x1FF]));
 	}
 	
 	//! conversion to/from other types
-	FLOOR_FP16_CONSTEXPR float to_float() const {
+	constexpr float to_float() const {
 #if FLOOR_HAS_NATIVE_FP16 == 2
-		return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
+		if_consteval {
+			return half_to_float(value);
+		} else {
+			return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
+		}
 #elif FLOOR_HAS_NATIVE_FP16 == 1
 		return (float)value_fp16;
 #else
@@ -320,9 +314,13 @@ struct soft_f16 {
 	}
 	
 #if FLOOR_HAS_NATIVE_FP16 != 1 // NOTE: not needed when __fp16 is supported directly + we can't return __fp16
-	static uint16_t from_float(const float& val) {
+	static constexpr uint16_t from_float(const float& val) {
 #if FLOOR_HAS_NATIVE_FP16 == 2
-		return (uint16_t)_mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(val), 0));
+		if_consteval {
+			return float_to_half(val);
+		} else {
+			return (uint16_t)_mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(val), 0));
+		}
 #else
 		return float_to_half(val);
 #endif
@@ -330,28 +328,28 @@ struct soft_f16 {
 #endif
 	
 	//! explicitly converts to float
-	explicit FLOOR_FP16_CONSTEXPR operator float() const {
+	explicit constexpr operator float() const {
 		return to_float();
 	}
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	//! explicitly converts to double
-	explicit FLOOR_FP16_CONSTEXPR operator double() const {
+	explicit constexpr operator double() const {
 		return (double)to_float();
 	}
 #endif
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! explicitly converts to long double
-	explicit FLOOR_FP16_CONSTEXPR operator long double() const {
+	explicit constexpr operator long double() const {
 		return (long double)to_float();
 	}
 #endif
 	
 	//! explicitly converts to int32_t
-	explicit FLOOR_FP16_CONSTEXPR operator int32_t() const {
+	explicit constexpr operator int32_t() const {
 		return (int32_t)to_float();
 	}
 	//! explicitly converts to int64_t
-	explicit FLOOR_FP16_CONSTEXPR operator int64_t() const {
+	explicit constexpr operator int64_t() const {
 		return (int64_t)to_float();
 	}
 	
@@ -359,10 +357,10 @@ struct soft_f16 {
 	// TODO: implement this!
 #if FLOOR_HAS_NATIVE_FP16 != 1
 #define FLOOR_F16_OP(op) \
-	soft_f16 operator op (const soft_f16& val) const noexcept { \
+	constexpr soft_f16 operator op (const soft_f16& val) const noexcept { \
 		return value op val.value; \
 	} \
-	soft_f16& operator op##= (const soft_f16& val) noexcept { \
+	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
 		value = value op val.value; \
 		return *this; \
 	}
