@@ -20634,10 +20634,10 @@ index 000000000000..8772de8f8c85
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImage.h b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
 new file mode 100644
-index 000000000000..7cc1673e77d5
+index 000000000000..7e012868852c
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,453 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
@@ -21073,6 +21073,7 @@ index 000000000000..7cc1673e77d5
 +		std::shared_ptr<IRBuilder<>> builder;
 +		bool was_modified { false };
 +		bool is_fragment_shader { false };
++		bool is_metal { false };
 +		bool is_metal_2_3 { false };
 +		bool is_metal_2_4 { false };
 +		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
@@ -40012,10 +40013,10 @@ index 000000000000..2d36efa5f553
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/FloorImage.cpp b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
 new file mode 100644
-index 000000000000..7de4d2c3a2ee
+index 000000000000..c714a3c244c9
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
-@@ -0,0 +1,585 @@
+@@ -0,0 +1,595 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -40103,6 +40104,7 @@ index 000000000000..7de4d2c3a2ee
 +	// check triple
 +	const auto triple = llvm::Triple(M->getTargetTriple());
 +	if (triple.getArch() == Triple::ArchType::air64) {
++		is_metal = true;
 +		uint32_t major_version = 0, minor_version = 0, micro_version = 0;
 +		if (triple.getOS() == Triple::OSType::IOS) {
 +			triple.getiOSVersion(major_version, minor_version, micro_version);
@@ -40275,6 +40277,7 @@ index 000000000000..7de4d2c3a2ee
 +	const COMPUTE_IMAGE_TYPE format_type = full_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
 +	const COMPUTE_IMAGE_TYPE image_data_type = full_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK;
 +	const bool is_normalized = has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(full_image_type);
++	const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(full_image_type);
 +	
 +	// -> coord
 +	const auto coord_arg = CB.getOperand(2 + args_offset);
@@ -40460,15 +40463,23 @@ index 000000000000..7de4d2c3a2ee
 +	else {
 +		// -> data
 +		const auto data_arg = CB.getOperand(6 + args_offset);
-+		const auto data_vec_type = dyn_cast<FixedVectorType>(data_arg->getType());
-+		if(!data_vec_type || data_vec_type->getNumElements() != 4) {
-+			ctx->emitError(&CB, "invalid image data type (must be 4-component vector)");
-+			return;
-+		}
-+		if(!data_vec_type->getElementType()->isFloatTy() &&
-+		   !data_vec_type->getElementType()->isIntegerTy()) {
-+			ctx->emitError(&CB, "invalid image data type (must be a float or integer vector)");
-+			return;
++		if (!is_depth || !is_metal) {
++			const auto data_vec_type = dyn_cast<FixedVectorType>(data_arg->getType());
++			if(!data_vec_type || data_vec_type->getNumElements() != 4) {
++				ctx->emitError(&CB, "invalid image data type (must be 4-component vector)");
++				return;
++			}
++			if(!data_vec_type->getElementType()->isFloatTy() &&
++			   !data_vec_type->getElementType()->isIntegerTy()) {
++				ctx->emitError(&CB, "invalid image data type (must be a float or integer vector)");
++				return;
++			}
++		} else {
++			const auto data_type = data_arg->getType();
++			if (!data_type->isFloatTy()) {
++				ctx->emitError(&CB, "invalid image data type (must be a single float when writing depth)");
++				return;
++			}
 +		}
 +		
 +		// only writes with integer coordinates are allowed
@@ -42027,7 +42038,7 @@ index 000000000000..310e5f6c9cea
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/MetalImage.cpp b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 new file mode 100644
-index 000000000000..493016630cc8
+index 000000000000..c7e35e8a2144
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 @@ -0,0 +1,730 @@
@@ -42556,22 +42567,19 @@ index 000000000000..493016630cc8
 +			}
 +			
 +			std::string dtype;
-+			if(func_name.endswith(".float")) {
++			if (func_name.endswith(".float.depth")) {
++				dtype = "f32";
++			} else if (func_name.endswith(".float")) {
 +				dtype = "v4f32";
-+			}
-+			else if(func_name.endswith(".int")) {
++			} else if (func_name.endswith(".int")) {
 +				dtype = "s.v4i32";
-+			}
-+			else if(func_name.endswith(".uint")) {
++			} else if (func_name.endswith(".uint")) {
 +				dtype = "u.v4i32";
-+			}
-+			else if(func_name.endswith(".half")) {
++			} else if (func_name.endswith(".half")) {
 +				dtype = "v4f16";
-+			}
-+			else if(func_name.endswith(".short")) {
++			} else if (func_name.endswith(".short")) {
 +				dtype = "s.v4i16";
-+			}
-+			else if(func_name.endswith(".ushort")) {
++			} else if (func_name.endswith(".ushort")) {
 +				dtype = "u.v4i16";
 +			}
 +			// unknown -> ignore
@@ -42590,13 +42598,11 @@ index 000000000000..493016630cc8
 +			std::string geom = geom_cstr;
 +			const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 +			const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
++			const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 +			
 +			// filter types that are not allowed, b/c they can't be directly written to
 +			switch (image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
@@ -42604,6 +42610,11 @@ index 000000000000..493016630cc8
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
 +					ctx->emitError(&I, "invalid image type - type is not writable");
 +					return;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++					// TODO/NOTE: not officially exposed by Metal headers, but exists in metalfe -> figure out what the min version is
++					break;
 +				default:
 +					break;
 +			}
@@ -42643,7 +42654,7 @@ index 000000000000..493016630cc8
 +				func_args.push_back(layer_arg);
 +			}
 +			
-+			// -> data (also a 4-component vector)
++			// -> data (a 4-component vector or a single float if depth)
 +			func_arg_types.push_back(data_arg->getType());
 +			func_args.push_back(data_arg);
 +			
@@ -42656,9 +42667,9 @@ index 000000000000..493016630cc8
 +			}
 +			
 +			if (is_metal_2_3) {
-+				// Metal 2.3+ has an additional rounding mode argument (always set to 0 for now)
++				// Metal 2.3+ has an additional rounding mode argument (always set to 0 for now, or 2 if depth)
 +				func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
-+				func_args.push_back(builder->getInt32(0));
++				func_args.push_back(builder->getInt32(!is_depth ? 0 : 2));
 +			}
 +			
 +			// -> build write func name
