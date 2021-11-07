@@ -36,20 +36,23 @@ struct unavailable_opencl_image_type;
 struct unavailable_metal_image_type;
 #endif
 
-template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct opaque_image_type {};
+template <COMPUTE_IMAGE_TYPE image_type> struct opaque_image_type {};
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D)
+struct opaque_image_type<image_type> {
 	typedef image1d_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY)
+struct opaque_image_type<image_type> {
 	typedef image1d_array_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER)
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_METAL)
 	typedef image1d_buffer_t type;
 #else
@@ -58,22 +61,26 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D)
+struct opaque_image_type<image_type> {
 	typedef image2d_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY)
+struct opaque_image_type<image_type> {
 	typedef image2d_array_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA)
+struct opaque_image_type<image_type> {
 	typedef image2d_msaa_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY)
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_t type;
 #else
@@ -88,22 +95,26 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 
 // NOTE: also applies to combined stencil format
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 	typedef image2d_depth_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 	typedef image2d_array_depth_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 	typedef image2d_msaa_depth_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_depth_t type;
 #else
@@ -117,12 +128,14 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_3D>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_3D)
+struct opaque_image_type<image_type> {
 	typedef image3d_t type;
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE)
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_t type;
 #else
@@ -131,7 +144,8 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY)
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_array_t type;
 #else
@@ -140,7 +154,8 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_depth_t type;
 #else
@@ -149,7 +164,8 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
-struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
+struct opaque_image_type<image_type> {
 #if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_array_depth_t type;
 #else

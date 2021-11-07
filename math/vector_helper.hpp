@@ -29,28 +29,28 @@ using namespace std;
 
 // nan and inf aren't constexpr yet in msvc's stl
 #if defined(_MSC_VER)
-template <typename T, typename = void> struct nan_helper {
+template <typename T> struct nan_helper {
 	static constexpr const T scalar_nan { (T)0 };
 };
-template <typename T> struct nan_helper<T, enable_if_t<is_same<T, float>::value>> {
+template <typename T> requires(is_same_v<T, float>) struct nan_helper<T> {
 	static constexpr const T scalar_nan { __builtin_nanf("") };
 };
-template <typename T> struct nan_helper<T, enable_if_t<is_same<T, double>::value>> {
+template <typename T> requires(is_same_v<T, double>) struct nan_helper<T> {
 	static constexpr const T scalar_nan { __builtin_nan("") };
 };
-template <typename T> struct nan_helper<T, enable_if_t<is_same<T, long double>::value>> {
+template <typename T> requires(is_same_v<T, long double>) struct nan_helper<T> {
 	static constexpr const T scalar_nan { __builtin_nanl("") };
 };
-template <typename T, typename = void> struct inf_helper {
+template <typename T> struct inf_helper {
 	static constexpr const T scalar_inf { (T)0 };
 };
-template <typename T> struct inf_helper<T, enable_if_t<is_same<T, float>::value>> {
+template <typename T> requires(is_same_v<T, float>) struct inf_helper<T> {
 	static constexpr const T scalar_inf { __builtin_huge_valf() };
 };
-template <typename T> struct inf_helper<T, enable_if_t<is_same<T, double>::value>> {
+template <typename T> requires(is_same_v<T, double>) struct inf_helper<T> {
 	static constexpr const T scalar_inf { __builtin_huge_val() };
 };
-template <typename T> struct inf_helper<T, enable_if_t<is_same<T, long double>::value>> {
+template <typename T> requires(is_same_v<T, long double>) struct inf_helper<T> {
 	static constexpr const T scalar_inf { __builtin_huge_vall() };
 };
 #else

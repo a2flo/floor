@@ -113,6 +113,7 @@ namespace opaque_image {
 	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.opaque.write_image." #image_type ".float.i1"); \
 	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.opaque.write_image." #image_type ".float.i2"); \
 	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.opaque.write_image." #image_type ".float.i3"); \
+	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, float data) asm("floor.opaque.write_image." #image_type ".float.depth.i2"); \
 	\
 	void write_image_int(image_type img, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_int4 data) asm("floor.opaque.write_image." #image_type ".int.i1"); \
 	void write_image_int(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_int4 data) asm("floor.opaque.write_image." #image_type ".int.i2"); \

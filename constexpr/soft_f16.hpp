@@ -82,24 +82,24 @@ struct soft_f16 {
 	}
 	
 	//! construction from a floating point value
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type> requires(is_floating_point_v<fp_type>)
 	constexpr soft_f16(const fp_type& val) noexcept : value(from_float((float)val)) {}
 	//! assignment from a floating point value
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type> requires(is_floating_point_v<fp_type>)
 	constexpr soft_f16& operator=(const fp_type& val) noexcept {
 		value = from_float((float)val);
 		return *this;
 	}
 	
 	//! construction from an integral value
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 0, "constant zero special case"))) : value(0) {}
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	constexpr explicit soft_f16(int_type val) noexcept __attribute__((enable_if(val == 1, "constant one special case"))) : value(0x3C00u) {}
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	soft_f16(const int_type& val) noexcept : value(from_float((float)val)) {}
 	//! assignment from an integral value
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	soft_f16& operator=(const int_type& val) noexcept {
 		value = from_float((float)val);
 		return *this;
@@ -119,20 +119,20 @@ struct soft_f16 {
 	}
 	
 	//! construction from a floating point value
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type> requires(is_floating_point_v<fp_type>)
 	constexpr soft_f16(const fp_type& val) noexcept : value_fp16((__fp16)val) {}
 	//! assignment from a floating point value
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type> requires(is_floating_point_v<fp_type>)
 	constexpr soft_f16& operator=(const fp_type& val) noexcept {
 		value_fp16 = (__fp16)val;
 		return *this;
 	}
 	
 	//! construction from an integral value
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	constexpr soft_f16(const int_type& val) noexcept : value_fp16((__fp16)((float)val)) {}
 	//! assignment from an integral value
-	template <typename int_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type> requires(is_integral_v<int_type>)
 	constexpr soft_f16& operator=(const int_type& val) noexcept {
 		value_fp16 = (__fp16)((float)val);
 		return *this;

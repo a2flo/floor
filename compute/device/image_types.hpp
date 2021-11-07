@@ -688,37 +688,38 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 }
 
 //! image data size -> data type mapping
-template <COMPUTE_IMAGE_TYPE image_type, size_t size, typename = void> struct image_sized_data_type {};
+//! NOTE: if size is 0, this will default to a 32-bit type
+template <COMPUTE_IMAGE_TYPE image_type, size_t size> struct image_sized_data_type {};
 template <COMPUTE_IMAGE_TYPE image_type, size_t size>
-struct image_sized_data_type<image_type, size,
-							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-										  size > 0u && size <= 64u)>> {
-	typedef conditional_t<(size > 0u && size <= 8u), uint8_t, conditional_t<
+requires((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT && size <= 64u)
+struct image_sized_data_type<image_type, size> {
+	typedef conditional_t<(size == 0u), uint32_t, conditional_t<
+						  (size > 0u && size <= 8u), uint8_t, conditional_t<
 						  (size > 8u && size <= 16u), uint16_t, conditional_t<
 						  (size > 16u && size <= 32u), uint32_t, conditional_t<
-						  (size > 32u && size <= 64u), uint64_t, void>>>> type;
+						  (size > 32u && size <= 64u), uint64_t, void>>>>> type;
 };
 template <COMPUTE_IMAGE_TYPE image_type, size_t size>
-struct image_sized_data_type<image_type, size,
-							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
-										  size > 0u && size <= 64u)>> {
-	typedef conditional_t<(size > 0u && size <= 8u), int8_t, conditional_t<
+requires((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT && size <= 64u)
+struct image_sized_data_type<image_type, size> {
+	typedef conditional_t<(size == 0u), int32_t, conditional_t<
+						  (size > 0u && size <= 8u), int8_t, conditional_t<
 						  (size > 8u && size <= 16u), int16_t, conditional_t<
 						  (size > 16u && size <= 32u), int32_t, conditional_t<
-						  (size > 32u && size <= 64u), int64_t, void>>>> type;
+						  (size > 32u && size <= 64u), int64_t, void>>>>> type;
 };
 template <COMPUTE_IMAGE_TYPE image_type, size_t size>
-struct image_sized_data_type<image_type, size,
-							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
-										  size > 0u && size <= 64u)>> {
-	typedef conditional_t<(size > 0u && size <= 16u), float /* no half type, load/stores via float */, conditional_t<
+requires((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT && size <= 64u)
+struct image_sized_data_type<image_type, size> {
+	typedef conditional_t<(size == 0u), float, conditional_t<
+						  (size > 0u && size <= 16u), float /* no half type, load/stores via float */, conditional_t<
 						  (size > 16u && size <= 32u), float, conditional_t<
-						  (size > 32u && size <= 64u), double, void>>> type;
+						  (size > 32u && size <= 64u), double, void>>>> type;
 };
 
 //! data type of a single image channel (always 32-bit), used for image reads and writes
-template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) != COMPUTE_IMAGE_TYPE::NONE>* = nullptr>
+template <COMPUTE_IMAGE_TYPE image_type>
+requires((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) != COMPUTE_IMAGE_TYPE::NONE)
 struct image_tex_channel_data_type {
 	typedef typename image_sized_data_type<image_type, 32u>::type type;
 };
@@ -730,24 +731,28 @@ struct image_texel_data_type {
 };
 
 //! fits a 4-component vector to the corresponding image data vector type, or passthrough for scalar values
-template <COMPUTE_IMAGE_TYPE image_type, typename data_type, typename = void> struct image_vec_ret_type {};
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type> struct image_vec_ret_type {};
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
-struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 1>> {
+requires(image_channel_count(image_type) == 1)
+struct image_vec_ret_type<image_type, data_type> {
 	//! scalar passthrough
 	static constexpr floor_inline_always data_type fit(const data_type& color) { return color; }
 	//! 4-component -> scalar
 	static constexpr floor_inline_always data_type fit(const vector_n<data_type, 4>& color) { return color.x; }
 };
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
-struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 2>> {
+requires(image_channel_count(image_type) == 2)
+struct image_vec_ret_type<image_type, data_type> {
 	static constexpr floor_inline_always vector_n<data_type, 2> fit(const vector_n<data_type, 4>& color) { return color.xy; }
 };
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
-struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 3>> {
+requires(image_channel_count(image_type) == 3)
+struct image_vec_ret_type<image_type, data_type> {
 	static constexpr floor_inline_always vector_n<data_type, 3> fit(const vector_n<data_type, 4>& color) { return color.xyz; }
 };
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
-struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 4>> {
+requires(image_channel_count(image_type) == 4)
+struct image_vec_ret_type<image_type, data_type> {
 	static constexpr floor_inline_always vector_n<data_type, 4> fit(const vector_n<data_type, 4>& color) { return color; }
 };
 

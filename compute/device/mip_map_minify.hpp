@@ -70,12 +70,12 @@ floor_inline_always static constexpr COMPUTE_IMAGE_TYPE minify_image_base_type(C
 // only enable the following code on devices or when FLOOR_COMPUTE_HOST_MINIFY is explicitly defined (-> host_image)
 #if (defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)) || defined(FLOOR_COMPUTE_HOST_MINIFY)
 
-template <bool is_array, typename image_type, typename coord_type, typename int_coord_type, enable_if_t<!is_array>* = nullptr>
+template <bool is_array, typename image_type, typename coord_type, typename int_coord_type> requires(!is_array)
 floor_inline_always void image_mip_level_read_write(image_type& img, const uint32_t level, const uint32_t,
 													const coord_type& coord, const int_coord_type& int_coord) {
 	img.write_lod(int_coord, level, img.read_lod_linear(coord, level - 1u));
 }
-template <bool is_array, typename image_type, typename coord_type, typename int_coord_type, enable_if_t<is_array>* = nullptr>
+template <bool is_array, typename image_type, typename coord_type, typename int_coord_type> requires(is_array)
 floor_inline_always void image_mip_level_read_write(image_type& img, const uint32_t level, const uint32_t layer,
 													const coord_type& coord, const int_coord_type& int_coord) {
 	img.write_lod(int_coord, layer, level, img.read_lod_linear(coord, layer, level - 1u));
@@ -104,7 +104,7 @@ floor_inline_always void image_mip_map_minify(image<image_type> img,
 
 #define FLOOR_MINIFY_KERNEL(image_type, sample_type) \
 kernel void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (image<(COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type | \
-																			   ((COMPUTE_IMAGE_TYPE::image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) == COMPUTE_IMAGE_TYPE::NONE ? \
+																			   (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(COMPUTE_IMAGE_TYPE::image_type) ? \
 																				COMPUTE_IMAGE_TYPE::CHANNELS_4 : COMPUTE_IMAGE_TYPE::NONE))> img, \
 																		param<uint3> level_size, \
 																		param<float3> inv_prev_level_size, \
@@ -112,7 +112,7 @@ kernel void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (image<(C
 																		param<uint32_t> layer) { \
 	image_mip_map_minify<(COMPUTE_IMAGE_TYPE::image_type | \
 						  COMPUTE_IMAGE_TYPE::sample_type | \
-						  ((COMPUTE_IMAGE_TYPE::image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) == COMPUTE_IMAGE_TYPE::NONE ? \
+						  (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(COMPUTE_IMAGE_TYPE::image_type) ? \
 						   COMPUTE_IMAGE_TYPE::CHANNELS_4 : COMPUTE_IMAGE_TYPE::NONE))>(img, level_size, inv_prev_level_size, level, layer); \
 }
 

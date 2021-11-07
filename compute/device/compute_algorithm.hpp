@@ -28,7 +28,7 @@ namespace compute_algorithm {
 	
 #if defined(FLOOR_COMPUTE_CUDA)
 	//! performs a butterfly reduction inside the sub-group using the specific operation/function
-	template <typename T, typename F, enable_if_t<sizeof(T) == 4>* = nullptr>
+	template <typename T, typename F> requires (sizeof(T) == 4)
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		T shfled_var;
 #pragma unroll
@@ -45,7 +45,7 @@ namespace compute_algorithm {
 		}
 		return lane_var;
 	}
-	template <typename T, typename F, enable_if_t<sizeof(T) == 8>* = nullptr>
+	template <typename T, typename F> requires(sizeof(T) == 8)
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		T shfled_var;
 #pragma unroll
@@ -98,7 +98,7 @@ namespace compute_algorithm {
 #elif defined(FLOOR_COMPUTE_METAL)
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 	//! performs a butterfly reduction inside the sub-group using the specific operation/function
-	template <typename T, typename F, enable_if_t<is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>>* = nullptr>
+	template <typename T, typename F> requires(is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
 	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
 		// on Metal we only have a fixed+known SIMD-width at compile-time when we're specifically compiling for a device
 		if constexpr (device_info::has_fixed_known_simd_width()) {

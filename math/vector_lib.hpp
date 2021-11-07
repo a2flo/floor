@@ -160,11 +160,12 @@ FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_EXTERN_TMPL, 4)
 #endif
 
 // type trait function to determine if a type is a floor vector*
-template <typename any_type, typename = void> struct is_floor_vector : public false_type {};
+template <typename any_type> struct is_floor_vector : public false_type {};
 template <typename vec_type>
-struct is_floor_vector<vec_type, enable_if_t<(decay_t<vec_type>::dim() >= 1 &&
-											  decay_t<vec_type>::dim() <= 4 &&
-											  is_same<decay_t<vec_type>, typename decay_t<vec_type>::vector_type>::value)>> : public true_type {};
+requires(decay_t<vec_type>::dim() >= 1 &&
+		 decay_t<vec_type>::dim() <= 4 &&
+		 is_same_v<decay_t<vec_type>, typename decay_t<vec_type>::vector_type>)
+struct is_floor_vector<vec_type> : public true_type {};
 
 // reenable warnings
 FLOOR_POP_WARNINGS()

@@ -348,30 +348,24 @@ protected:
 	typedef T type_3d[count_2][count_3];
 	
 public:
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 1>* = nullptr>
-	T& operator[](const size_t& index) {
+	T& operator[](const size_t& index) requires(dim() == 1) {
 		return ((type_1d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 1>* = nullptr>
-	const T& operator[](const size_t& index) const {
+	const T& operator[](const size_t& index) const requires(dim() == 1) {
 		return ((const type_1d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
 	
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 2>* = nullptr>
-	T (&operator[](const size_t& index)) [count_2] {
+	T (&operator[](const size_t& index)) [count_2] requires(dim() == 2) {
 		return ((type_2d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 2>* = nullptr>
-	const T (&operator[](const size_t& index) const) [count_2] {
+	const T (&operator[](const size_t& index) const) [count_2] requires(dim() == 2) {
 		return ((const type_2d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
 	
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 3>* = nullptr>
-	T (&operator[](const size_t& index)) [count_2][count_3] {
+	T (&operator[](const size_t& index)) [count_2][count_3] requires(dim() == 3) {
 		return ((type_3d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
-	template <size_t dim_access = dim(), enable_if_t<dim_access == 3>* = nullptr>
-	const T (&operator[](const size_t& index) const) [count_2][count_3] {
+	const T (&operator[](const size_t& index) const) [count_2][count_3] requires(dim() == 3) {
 		return ((const type_3d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
 	

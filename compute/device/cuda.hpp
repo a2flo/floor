@@ -300,7 +300,7 @@ namespace std {
 		return ret;
 	}
 	
-	template <uint32_t width, typename any_type, typename = enable_if_t<sizeof(any_type) == 4>>
+	template <uint32_t width, typename any_type> requires(sizeof(any_type) == 4)
 	volatile floor_inline_always any_type sub_group_shuffle_index(const any_type lane_var, const uint32_t src_lane_idx) {
 		constexpr const auto mask = ((device_info::simd_width() - width) << 8u) | 0x1Fu;
 		any_type ret;
@@ -316,7 +316,7 @@ namespace std {
 	}
 	
 	// asin/acos/atan s/w computation
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type asin(fp_type a) {
 		// nvidia hardware does not provide hardware instruction to compute asin/acos/atan,
 		// so that these must be computed in software.
@@ -356,13 +356,13 @@ namespace std {
 						a);
 	}
 	
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type acos(fp_type a) { return const_math::PI_DIV_2<fp_type> - asin(a); }
 	
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type atan(fp_type a) { return asin(a * rsqrt(a * a + fp_type(1.0))); }
 	
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type atan2(fp_type y, fp_type x) {
 		if(x > fp_type(0.0)) {
 			return atan(y / x);
@@ -377,31 +377,31 @@ namespace std {
 		}
 	}
 	
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type sinh(fp_type a) {
 		const auto exp_a = exp(a);
 		return fp_type(0.5) * (exp_a - fp_type(1.0) / exp_a); // TODO: check if approx rcp is good enough
 	}
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type cosh(fp_type a) {
 		const auto exp_a = exp(a);
 		return fp_type(0.5) * (exp_a + fp_type(1.0) / exp_a);
 	}
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type tanh(fp_type a) {
 		const auto exp_pos = exp(a);
 		const auto exp_neg = fp_type(1.0) / exp_pos;
 		return (exp_pos - exp_neg) / (exp_pos + exp_neg);
 	}
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type asinh(fp_type a) {
 		return log(a + sqrt(fma(a, a, fp_type(1.0))));
 	}
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type acosh(fp_type a) {
 		return log(a + sqrt(fma(a, a, fp_type(-1.0))));
 	}
-	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type atanh(fp_type a) {
 		return fp_type(0.5) * log((fp_type(1.0) + a) / (fp_type(1.0) - a));
 	}

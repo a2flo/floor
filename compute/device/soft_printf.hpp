@@ -24,16 +24,16 @@
 namespace soft_printf {
 
 // floating point types are always cast to double
-template <typename T, enable_if_t<ext::is_floating_point_v<decay_as_t<T>>>* = nullptr>
+template <typename T> requires(ext::is_floating_point_v<decay_as_t<T>>)
 constexpr size_t printf_arg_size() { return 8; }
 // integral types < 4 bytes are always cast to a 4 byte integral type
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4)
 constexpr size_t printf_arg_size() { return 4; }
 // remaining 8 byte integral types
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8)
 constexpr size_t printf_arg_size() { return 8; }
 // pointers are always 8 bytes (64-bit support only), this includes any kind of char* or char[]
-template <typename T, enable_if_t<is_pointer<decay_as_t<T>>::value>* = nullptr>
+template <typename T> requires(is_pointer_v<decay_as_t<T>>)
 constexpr size_t printf_arg_size() { return 8; }
 
 // computes the total size of a printf argument pack (sum of sizeof of each type) + necessary alignment bytes/sizes
@@ -60,28 +60,28 @@ template <typename... Args> floor_inline_always constexpr static void printf_arg
 #if defined(FLOOR_COMPUTE_CUDA)
 namespace no_as {
 // casts and copies the printf argument to the correct "va_list"/buffer position + handles necessary alignment
-template <typename T, enable_if_t<ext::is_floating_point_v<decay_as_t<T>>>* = nullptr>
+template <typename T> requires(ext::is_floating_point_v<decay_as_t<T>>)
 floor_inline_always static int printf_arg_copy(const T& arg, uint8_t** args_buf) {
 	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
 	*(double*)*args_buf = (double)arg;
 	*args_buf += 8;
 	return 0;
 }
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4)
 floor_inline_always static int printf_arg_copy(const T& arg, uint8_t** args_buf) {
 	typedef conditional_t<ext::is_signed_v<decay_as_t<T>>, int32_t, uint32_t> int_storage_type;
 	*(int_storage_type*)*args_buf = (int_storage_type)arg;
 	*args_buf += 4;
 	return 0;
 }
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8)
 floor_inline_always static int printf_arg_copy(const T& arg, uint8_t** args_buf) {
 	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
 	*(decay_as_t<T>*)*args_buf = arg;
 	*args_buf += 8;
 	return 0;
 }
-template <typename T, enable_if_t<is_pointer<T>::value>* = nullptr>
+template <typename T> requires(is_pointer_v<T>)
 floor_inline_always static int printf_arg_copy(const T& arg, uint8_t** args_buf) {
 	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
 	*(decay_as_t<T>*)*args_buf = arg;
@@ -110,7 +110,7 @@ template <typename T> floor_inline_always static int printf_handle_arg(const T& 
 namespace as {
 
 // casts and copies the printf argument to the correct "va_list"/buffer position + handles necessary alignment
-template <typename T, enable_if_t<ext::is_floating_point_v<decay_as_t<T>>>* = nullptr>
+template <typename T> requires(ext::is_floating_point_v<decay_as_t<T>>)
 floor_inline_always static void printf_arg_copy(global uint32_t*& dst, const T& arg) {
 	// NOTE: cast any floating point types to 32-bit float
 #if defined(FLOOR_COMPUTE_VULKAN)
@@ -121,20 +121,20 @@ floor_inline_always static void printf_arg_copy(global uint32_t*& dst, const T& 
 #endif
 	++dst;
 }
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) <= 4)
 floor_inline_always static void printf_arg_copy(global uint32_t*& dst, const T& arg) {
 	typedef conditional_t<ext::is_signed_v<decay_as_t<T>>, int32_t, uint32_t> int_storage_type;
 	*(global int_storage_type*)dst = (int_storage_type)arg;
 	++dst;
 }
-template <typename T, enable_if_t<ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8>* = nullptr>
+template <typename T> requires(ext::is_integral_v<decay_as_t<T>> && sizeof(decay_as_t<T>) == 8)
 floor_inline_always static void printf_arg_copy(global uint32_t*& dst, const T& arg) {
 	// NOTE: 64-bit integer types aren't supporte right now -> cast down to 32-bit
 	typedef conditional_t<ext::is_signed_v<decay_as_t<T>>, int32_t, uint32_t> int_storage_type;
 	*(global int_storage_type*)dst = (int_storage_type)arg;
 	++dst;
 }
-template <typename T, enable_if_t<is_pointer<T>::value>* = nullptr>
+template <typename T> requires(is_pointer_v<T>)
 floor_inline_always static void printf_arg_copy(global uint32_t*& dst, const T& arg)
 __attribute__((unavailable("pointer arguments in printf are currently not supported")));
 // TODO: support string printing

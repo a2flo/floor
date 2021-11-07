@@ -47,20 +47,20 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return std::min(a, b);
 #else
-		if constexpr(is_same<rt_type, int8_t>() ||
-					 is_same<rt_type, int16_t>() ||
-					 is_same<rt_type, int32_t>() ||
-					 is_same<rt_type, int64_t>() ||
-					 is_same<rt_type, uint8_t>() ||
-					 is_same<rt_type, uint16_t>() ||
-					 is_same<rt_type, uint32_t>() ||
-					 is_same<rt_type, uint64_t>() ||
-					 is_same<rt_type, float>()
+		if constexpr(is_same_v<rt_type, int8_t> ||
+					 is_same_v<rt_type, int16_t> ||
+					 is_same_v<rt_type, int32_t> ||
+					 is_same_v<rt_type, int64_t> ||
+					 is_same_v<rt_type, uint8_t> ||
+					 is_same_v<rt_type, uint16_t> ||
+					 is_same_v<rt_type, uint32_t> ||
+					 is_same_v<rt_type, uint64_t> ||
+					 is_same_v<rt_type, float>
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-					 || is_same<rt_type, double>()
+					 || is_same_v<rt_type, double>
 #endif
 #if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
-					 || is_same<rt_type, half>()
+					 || is_same_v<rt_type, half>
 #endif
 					 ) {
 			return floor_rt_min(a, b);
@@ -77,20 +77,20 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return std::max(a, b);
 #else
-		if constexpr(is_same<rt_type, int8_t>() ||
-					 is_same<rt_type, int16_t>() ||
-					 is_same<rt_type, int32_t>() ||
-					 is_same<rt_type, int64_t>() ||
-					 is_same<rt_type, uint8_t>() ||
-					 is_same<rt_type, uint16_t>() ||
-					 is_same<rt_type, uint32_t>() ||
-					 is_same<rt_type, uint64_t>() ||
-					 is_same<rt_type, float>()
+		if constexpr(is_same_v<rt_type, int8_t> ||
+					 is_same_v<rt_type, int16_t> ||
+					 is_same_v<rt_type, int32_t> ||
+					 is_same_v<rt_type, int64_t> ||
+					 is_same_v<rt_type, uint8_t> ||
+					 is_same_v<rt_type, uint16_t> ||
+					 is_same_v<rt_type, uint32_t> ||
+					 is_same_v<rt_type, uint64_t> ||
+					 is_same_v<rt_type, float>
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-					 || is_same<rt_type, double>()
+					 || is_same_v<rt_type, double>
 #endif
 #if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
-					 || is_same<rt_type, half>()
+					 || is_same_v<rt_type, half>
 #endif
 					 ) {
 			return floor_rt_max(a, b);
@@ -102,7 +102,7 @@ namespace rt_math {
 	}
 	
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
+	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
 	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
 															   const arithmetic_type& min_,
 															   const arithmetic_type& max_) {
@@ -110,22 +110,23 @@ namespace rt_math {
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
+	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
 	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
 															   const arithmetic_type& max_) {
 		return min(max(val, (arithmetic_type)0), max_);
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ? (max - fmod(abs(val), max)) : fmod(val, max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<(ext::is_integral_v<int_type> &&
-											  ext::is_signed_v<int_type> &&
-											  !is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type>
+	requires(ext::is_integral_v<int_type> &&
+			 ext::is_signed_v<int_type> &&
+			 !is_same_v<int_type, __int128_t>)
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
 		typedef conditional_t<sizeof(int_type) < 4, int32_t, int_type> cast_int_type;
@@ -136,27 +137,26 @@ namespace rt_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<(is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type> requires(is_same_v<int_type, __int128_t>)
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 		// no std::abs or __builtin_abs for __int128_t
 		return (val < (int_type)0 ? (max - ((val < (int_type)0 ? -val : val) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, enable_if_t<(ext::is_integral_v<uint_type> &&
-											   ext::is_unsigned_v<uint_type>)>* = nullptr>
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
 	
 	//! returns the fractional part of val
-	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type fractional(const fp_type& val) {
 		return (val - trunc(val));
 	}
 	
 	//! count leading zeros
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint16_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_clzs(val);
@@ -164,7 +164,7 @@ namespace rt_math {
 		return floor_rt_clz(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint32_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_clz(val);
@@ -172,7 +172,7 @@ namespace rt_math {
 		return floor_rt_clz(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint64_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_clzll(val);
@@ -180,31 +180,29 @@ namespace rt_math {
 		return floor_rt_clz(val);
 #endif
 	}
-	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, bool>)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		return val ? 0 : 1;
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		const uint16_t widened_val = *(const uint8_t*)&val;
 		return rt_math::clz(widened_val) - 8 /* upper 8 bits */;
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		return rt_math::clz(*(const uint16_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		return rt_math::clz(*(const uint32_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		return rt_math::clz(*(const uint64_t*)&val);
 	}
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
-											  is_same<any_type, __int128_t>() ||
-											  sizeof(any_type) == 16)>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, __uint128_t> || is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t clz(const any_type& val) {
 		union {
 			__uint128_t ui128;
@@ -219,7 +217,7 @@ namespace rt_math {
 #endif
 	
 	//! count trailing zeros
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint16_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_ctzs(val);
@@ -227,7 +225,7 @@ namespace rt_math {
 		return floor_rt_ctz(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint32_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_ctz(val);
@@ -235,7 +233,7 @@ namespace rt_math {
 		return floor_rt_ctz(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint64_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_ctzll(val);
@@ -243,31 +241,29 @@ namespace rt_math {
 		return floor_rt_ctz(val);
 #endif
 	}
-	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, bool>)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		return val ? 0 : 1;
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		const uint16_t widened_val = 0xFFu | *(const uint8_t*)&val;
 		return rt_math::ctz(widened_val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		return rt_math::ctz(*(const uint16_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		return rt_math::ctz(*(const uint32_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		return rt_math::ctz(*(const uint64_t*)&val);
 	}
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
-											  is_same<any_type, __int128_t>() ||
-											  sizeof(any_type) == 16)>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, __uint128_t> || is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t ctz(const any_type& val) {
 		union {
 			__uint128_t ui128;
@@ -282,7 +278,7 @@ namespace rt_math {
 #endif
 	
 	//! count 1-bits
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint16_t>)
 	static floor_inline_always int32_t popcount(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_popcount((uint32_t)val);
@@ -290,7 +286,7 @@ namespace rt_math {
 		return floor_rt_popcount(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint32_t>)
 	static floor_inline_always int32_t popcount(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_popcount(val);
@@ -298,7 +294,7 @@ namespace rt_math {
 		return floor_rt_popcount(val);
 #endif
 	}
-	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	template <typename uint_type> requires(is_same_v<uint_type, uint64_t>)
 	static floor_inline_always int32_t popcount(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_popcountll(val);
@@ -306,31 +302,29 @@ namespace rt_math {
 		return floor_rt_popcount(val);
 #endif
 	}
-	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, bool>)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		return val ? 1 : 0;
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		const uint16_t widened_val = *(const uint8_t*)&val;
 		return rt_math::popcount(widened_val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		return rt_math::popcount(*(const uint16_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		return rt_math::popcount(*(const uint32_t*)&val);
 	}
-	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	template <typename any_type> requires(!is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		return rt_math::popcount(*(const uint64_t*)&val);
 	}
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
-											  is_same<any_type, __int128_t>() ||
-											  sizeof(any_type) == 16)>* = nullptr>
+	template <typename any_type> requires(is_same_v<any_type, __uint128_t> || is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t popcount(const any_type& val) {
 		union {
 			__uint128_t ui128;
@@ -486,7 +480,7 @@ namespace rt_math {
 	}
 	
 	//! reverses the bits of the specified 32-bit or 64-bit input value
-	template <typename any_type, enable_if_t<sizeof(any_type) == 4 || sizeof(any_type) == 8>* = nullptr>
+	template <typename any_type> requires(sizeof(any_type) == 4 || sizeof(any_type) == 8)
 	static floor_inline_always any_type reverse_bits(const any_type& value) {
 		if constexpr(sizeof(any_type) == 4) {
 #if defined(FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32) && FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32 == 1

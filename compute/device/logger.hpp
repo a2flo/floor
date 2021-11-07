@@ -92,35 +92,45 @@ public:
 	}
 	
 	// type -> ARG_TYPE
-	template <typename T, typename = void> struct handle_arg_type {
+	template <typename T> struct handle_arg_type {
 		// will error on unhandled types later on
 		static constexpr ARG_TYPE type() { return ARG_TYPE::INVALID; }
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<(ext::is_integral_v<T> &&
-																 ext::is_signed_v<T> &&
-																 !is_pointer<T>::value)>> {
+	template <typename T>
+	requires(ext::is_integral_v<T> &&
+			 ext::is_signed_v<T> &&
+			 !is_pointer<T>::value)
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() {
 			return (sizeof(T) <= 4 ? ARG_TYPE::INT32 : ARG_TYPE::INT64);
 		}
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<(ext::is_integral_v<T> &&
-																 !ext::is_signed_v<T> &&
-																 !is_pointer<T>::value)>> {
+	template <typename T>
+	requires(ext::is_integral_v<T> &&
+			 !ext::is_signed_v<T> &&
+			 !is_pointer<T>::value)
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() {
 			return (sizeof(T) <= 4 ? ARG_TYPE::UINT32 : ARG_TYPE::UINT64);
 		}
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<ext::is_floating_point_v<T>>> {
+	template <typename T>
+	requires(ext::is_floating_point_v<T>)
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() { return (sizeof(T) <= 4 ? ARG_TYPE::FLOAT : ARG_TYPE::DOUBLE); }
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<(is_pointer<T>::value &&
-																 (is_same<T, char*>::value ||
-																  is_same<T, constant char*>::value ||
-																  is_same<T, const char*>::value ||
-																  is_same<T, const constant char*>::value))>> {
+	template <typename T>
+	requires(is_pointer<T>::value &&
+			 (is_same_v<T, char*> ||
+			  is_same_v<T, constant char*> ||
+			  is_same_v<T, const char*> ||
+			  is_same_v<T, const constant char*>))
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() { return ARG_TYPE::STRING; }
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<is_floor_vector<T>::value>> {
+	template <typename T>
+	requires(is_floor_vector<T>::value)
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() {
 			ARG_TYPE ret = ARG_TYPE::VEC;
 			switch(T::dim()) {
@@ -136,7 +146,9 @@ public:
 			return ret;
 		}
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<is_floor_matrix<T>::value>> {
+	template <typename T>
+	requires(is_floor_matrix<T>::value)
+	struct handle_arg_type<T> {
 		static constexpr ARG_TYPE type() {
 			ARG_TYPE ret = ARG_TYPE::MAT4;
 			const auto scalar_arg_type = handle_arg_type<typename T::decayed_scalar_type>::type();
@@ -422,17 +434,15 @@ public:
 		return make_const_string(pstr);
 	}
 	
-	template <typename T, enable_if_t<!is_floor_vector<T>::value && !is_floor_matrix<T>::value, int> = 0>
+	template <typename T>
 	static constexpr auto tupled_arg(T&& arg) {
-		return tuple<T>(arg);
-	}
-	template <typename T, enable_if_t<is_floor_vector<T>::value, int> = 0>
-	static constexpr auto tupled_arg(T&& vec) {
-		return vec.as_tuple_ref();
-	}
-	template <typename T, enable_if_t<is_floor_matrix<T>::value, int> = 0>
-	static constexpr auto tupled_arg(T&& mat) {
-		return mat.as_tuple_ref();
+		if constexpr (is_floor_vector<T>::value) {
+			return arg.as_tuple_ref();
+		} else if constexpr (is_floor_matrix<T>::value) {
+			return arg.as_tuple_ref();
+		} else {
+			return tuple<T>(arg);
+		}
 	}
 	
 	// final call: forward to printf

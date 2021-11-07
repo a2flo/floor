@@ -701,9 +701,10 @@ typedef matrix4<int32_t> matrix4i;
 typedef matrix4<uint32_t> matrix4ui;
 
 //! type trait function to determine if a type is a floor matrix4*
-template <typename any_type, typename = void> struct is_floor_matrix : public false_type {};
+template <typename any_type> struct is_floor_matrix : public false_type {};
 template <typename mat_type>
-struct is_floor_matrix<mat_type, enable_if_t<is_same<decay_t<mat_type>, typename decay_t<mat_type>::matrix_type>::value>> : public true_type {};
+requires(is_same_v<decay_t<mat_type>, typename decay_t<mat_type>::matrix_type>)
+struct is_floor_matrix<mat_type> : public true_type {};
 
 #if defined(FLOOR_EXPORT)
 // only instantiate this in the matrix4.cpp

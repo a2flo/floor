@@ -35,32 +35,32 @@ using namespace std;
 namespace ext {
 	//! is_floating_point with half, float, double and long double support
 	template <typename T> struct is_floating_point :
-	public conditional_t<(is_same<remove_cv_t<T>, float>::value ||
-						  is_same<remove_cv_t<T>, double>::value ||
-						  is_same<remove_cv_t<T>, long double>::value ||
-						  is_same<remove_cv_t<T>, half>::value), true_type, false_type> {};
+	public conditional_t<(is_same_v<remove_cv_t<T>, float> ||
+						  is_same_v<remove_cv_t<T>, double> ||
+						  is_same_v<remove_cv_t<T>, long double> ||
+						  is_same_v<remove_cv_t<T>, half>), true_type, false_type> {};
 	
 	template <typename T> constexpr bool is_floating_point_v = ext::is_floating_point<T>::value;
 	
 	//! is_integral with std types and 128-bit int/uint
 	template <typename T> struct is_integral :
 	public conditional_t<(std::is_integral<T>::value ||
-						  is_same<remove_cv_t<T>, __int128_t>::value ||
-						  is_same<remove_cv_t<T>, __uint128_t>::value), true_type, false_type> {};
+						  is_same_v<remove_cv_t<T>, __int128_t> ||
+						  is_same_v<remove_cv_t<T>, __uint128_t>), true_type, false_type> {};
 	
 	template <typename T> constexpr bool is_integral_v = ext::is_integral<T>::value;
 	
 	//! is_signed with std types and 128-bit int
 	template <typename T> struct is_signed :
 	public conditional_t<(std::is_signed<T>::value ||
-						  is_same<remove_cv_t<T>, __int128_t>::value), true_type, false_type> {};
+						  is_same_v<remove_cv_t<T>, __int128_t>), true_type, false_type> {};
 	
 	template <typename T> constexpr bool is_signed_v = ext::is_signed<T>::value;
 	
 	//! is_unsigned with std types and 128-bit uint
 	template <typename T> struct is_unsigned :
 	public conditional_t<(std::is_unsigned<T>::value ||
-						  is_same<remove_cv_t<T>, __uint128_t>::value), true_type, false_type> {};
+						  is_same_v<remove_cv_t<T>, __uint128_t>), true_type, false_type> {};
 	
 	template <typename T> constexpr bool is_unsigned_v = ext::is_unsigned<T>::value;
 	
@@ -94,63 +94,66 @@ namespace ext {
 #endif
 	
 	//! the equivalent/corresponding unsigned integer type to sizeof(T)
-	template <typename T, typename = void> struct sized_unsigned_int_eqv;
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 1>> {
+	template <typename T> struct sized_unsigned_int_eqv;
+	template <typename T> requires(sizeof(T) == 1) struct sized_unsigned_int_eqv<T> {
 		typedef uint8_t type;
 	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 2>> {
+	template <typename T> requires(sizeof(T) == 2) struct sized_unsigned_int_eqv<T> {
 		typedef uint16_t type;
 	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 4>> {
+	template <typename T> requires(sizeof(T) == 4) struct sized_unsigned_int_eqv<T> {
 		typedef uint32_t type;
 	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 8>> {
+	template <typename T> requires(sizeof(T) == 8) struct sized_unsigned_int_eqv<T> {
 		typedef uint64_t type;
 	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<(sizeof(T) > 8)>> {
+	template <typename T> requires(sizeof(T) > 8) struct sized_unsigned_int_eqv<T> {
 		typedef __uint128_t type;
 	};
 	
 	template <typename T> using sized_unsigned_int_eqv_t = typename sized_unsigned_int_eqv<T>::type;
 	
 	//! the signed equivalent to T
-	template <typename T, typename = void> struct signed_eqv;
+	template <typename T> struct signed_eqv;
 	template <> struct signed_eqv<bool> {
 		typedef bool type;
 	};
 	template <typename fp_type>
-	struct signed_eqv<fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>> {
+	requires(ext::is_floating_point_v<fp_type>)
+	struct signed_eqv<fp_type> {
 		typedef fp_type type;
 	};
 	template <typename int_type>
-	struct signed_eqv<int_type, enable_if_t<(ext::is_integral_v<int_type> &&
-											 ext::is_signed_v<int_type>)>> {
+	requires(ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	struct signed_eqv<int_type> {
 		typedef int_type type;
 	};
 	template <typename uint_type>
-	struct signed_eqv<uint_type, enable_if_t<(ext::is_integral_v<uint_type> &&
-											  ext::is_unsigned_v<uint_type> &&
-											  !is_same<uint_type, __uint128_t>())>> {
+	requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type> && !is_same_v<uint_type, __uint128_t>)
+	struct signed_eqv<uint_type> {
 		typedef std::make_signed_t<uint_type> type;
 	};
 	template <typename uint_type>
-	struct signed_eqv<uint_type, enable_if_t<is_same<uint_type, __uint128_t>::value>> {
+	requires(is_same_v<uint_type, __uint128_t>)
+	struct signed_eqv<uint_type> {
 		typedef __int128_t type;
 	};
 	
 	template <typename T> using signed_eqv_t = typename signed_eqv<T>::type;
 	
 	//! the integral equivalent to T
-	template <typename T, typename = void> struct integral_eqv;
+	template <typename T> struct integral_eqv;
 	template <> struct integral_eqv<bool> {
 		typedef bool type;
 	};
 	template <typename fp_type>
-	struct integral_eqv<fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>> {
+	requires(ext::is_floating_point_v<fp_type>)
+	struct integral_eqv<fp_type> {
 		typedef ext::sized_unsigned_int_eqv_t<fp_type> type;
 	};
 	template <typename int_type>
-	struct integral_eqv<int_type, enable_if_t<ext::is_integral_v<int_type>>> {
+	requires(ext::is_integral_v<int_type>)
+	struct integral_eqv<int_type> {
 		typedef int_type type;
 	};
 	

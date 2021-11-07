@@ -48,28 +48,28 @@ namespace host_image_impl {
 	template <COMPUTE_IMAGE_TYPE fixed_image_type, bool is_lod, bool is_lod_float, bool is_bias>
 	struct fixed_image {
 		// returns the image_dim vector corresponding to the coord dimensionality
-		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 1>* = nullptr>
+		template <size_t dim, typename clamp_dim_type> requires(dim == 1)
 		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
 			return clamp_dim.x;
 		}
-		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 2>* = nullptr>
+		template <size_t dim, typename clamp_dim_type> requires(dim == 2)
 		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
 			return clamp_dim.xy;
 		}
-		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 3>* = nullptr>
+		template <size_t dim, typename clamp_dim_type> requires(dim == 3)
 		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
 			return clamp_dim.xyz;
 		}
-		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 4>* = nullptr>
+		template <size_t dim, typename clamp_dim_type> requires(dim == 4)
 		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
 			return clamp_dim;
 		}
 		
 		// clamps input coordinates to image_dim (image_clamp_dim/image_float_clamp_dim) and converts them to uint vectors
 		//! int/uint coordinates, non cube map
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
+		template <typename coord_type>
+		requires(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type))
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
@@ -80,9 +80,9 @@ namespace host_image_impl {
 		}
 		
 		//! int/uint coordinates, cube map
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
+		template <typename coord_type>
+		requires(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type))
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const int2 offset = {}) {
@@ -93,9 +93,9 @@ namespace host_image_impl {
 		}
 		
 		//! float coordinates, non cube map
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
+		template <typename coord_type>
+		requires(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type))
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
@@ -111,9 +111,9 @@ namespace host_image_impl {
 		}
 		
 		//! float coordinates, cube map
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
+		template <typename coord_type>
+		requires(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type))
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const int2 offset = {}) {
@@ -169,16 +169,16 @@ namespace host_image_impl {
 		}
 		
 		//! 3D
-		template <COMPUTE_IMAGE_TYPE type = fixed_image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord) {
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord)
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type)) {
 			return level_info.offset + size_t(level_info.dim.x * level_info.dim.y * coord.z +
 											  level_info.dim.x * coord.y +
-											  coord.x) * image_bytes_per_pixel(type);
+											  coord.x) * image_bytes_per_pixel(fixed_image_type);
 		}
 		
 		//! cube, depth cube
-		template <COMPUTE_IMAGE_TYPE type = fixed_image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord) {
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord)
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(fixed_image_type)) {
 			return coord_to_offset(level_info, coord.xy, coord.z);
 		}
 		
@@ -197,9 +197,24 @@ namespace host_image_impl {
 			}};
 		}
 		
+		//! the underlying format of this image type
+		static constexpr const auto image_format = (fixed_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+		//! the underyling data type of this image type
+		static constexpr const auto data_type = (fixed_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
+		//! bytes-per-pixel required for this image type
+		static constexpr const auto bpp = image_bytes_per_pixel(fixed_image_type);
+		//! bit-per-channel for all channels (0 if channel doesn't exist)
+		static constexpr const auto bpc = compute_image_bpc();
+		//! max bit-per-channel of all channels
+		static constexpr const auto max_bpc = max(max(bpc[0], bpc[1]), max(bpc[2], bpc[3]));
+		//! type we need to store each channel (max size is used)
+		using channel_type = typename image_sized_data_type<fixed_image_type, max_bpc>::type;
+		//! corresponding unsigned format to "channel_type"
+		using uchannel_type = typename image_sized_data_type<COMPUTE_IMAGE_TYPE::UINT, max_bpc>::type;
+		//! number of channels for this image type
+		static constexpr const uint32_t channel_count = image_channel_count(fixed_image_type);
+		
 		static constexpr void normalized_format_validity_check() {
-			constexpr const auto image_format = (fixed_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			
 			// validity checking: depth reading is handled elsewhere
 			static_assert(image_format != COMPUTE_IMAGE_TYPE::FORMAT_24 &&
 						  image_format != COMPUTE_IMAGE_TYPE::FORMAT_24_8 &&
@@ -215,11 +230,9 @@ namespace host_image_impl {
 		}
 		
 		static constexpr void depth_format_validity_check() {
-			constexpr const auto data_type = (fixed_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			static_assert(data_type == COMPUTE_IMAGE_TYPE::FLOAT ||
 						  data_type == COMPUTE_IMAGE_TYPE::UINT, "invalid depth data type!");
 			
-			constexpr const auto image_format = (fixed_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(fixed_image_type);
 			static_assert((!has_stencil &&
 						   ((image_format == COMPUTE_IMAGE_TYPE::FORMAT_16 && data_type == COMPUTE_IMAGE_TYPE::UINT) ||
@@ -230,27 +243,15 @@ namespace host_image_impl {
 							(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32_8 && data_type == COMPUTE_IMAGE_TYPE::FLOAT))),
 						  "invalid depth format!");
 			
-			constexpr const auto channel_count = image_channel_count(fixed_image_type);
 			static_assert((!has_stencil && channel_count == 1) ||
 						  (has_stencil && channel_count == 2), "invalid channel count for depth format!");
 		}
 
-		template <size_t N, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) != COMPUTE_IMAGE_TYPE::FLOAT>* = nullptr>
+		template <size_t N> requires(data_type != COMPUTE_IMAGE_TYPE::FLOAT)
 		floor_inline_always static auto extract_channels(const uint8_t (&raw_data)[N]) {
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			normalized_format_validity_check();
 			
-			// get bits of each channel (0 if channel doesn't exist)
-			constexpr const auto bpc = compute_image_bpc();
-			constexpr const auto max_bpc = max(max(bpc[0], bpc[1]), max(bpc[2], bpc[3]));
-			// figure out which type we need to store each channel (max size is used)
-			typedef typename image_sized_data_type<type, max_bpc>::type channel_type;
-			// and the appropriate unsigned format
-			typedef typename image_sized_data_type<COMPUTE_IMAGE_TYPE::UINT, max_bpc>::type uchannel_type;
-			
 			// and now for bit voodoo:
-			constexpr const uint32_t channel_count = image_channel_count(type);
 			array<channel_type, channel_count> ret;
 			switch(image_format) {
 				// uniform formats
@@ -279,7 +280,7 @@ namespace host_image_impl {
 			}
 			
 			// need to fix up the sign bit for non-8/16/32/64-bit signed formats
-			if constexpr((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT) {
+			if constexpr(data_type == COMPUTE_IMAGE_TYPE::INT) {
 				constexpr const const_array<uchannel_type, 4> high_bits {{
 					uchannel_type(1) << (max(bpc[0], uint64_t(1)) - 1u),
 					uchannel_type(1) << (max(bpc[1], uint64_t(1)) - 1u),
@@ -297,31 +298,20 @@ namespace host_image_impl {
 			
 			return ret;
 		}
-		template <size_t N, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT>* = nullptr>
+		template <size_t N> requires(data_type == COMPUTE_IMAGE_TYPE::FLOAT)
 		floor_inline_always static auto extract_channels(const uint8_t (&raw_data)[N] floor_unused) {
 			// this is a dummy function and never called, but necessary for compilation
-			return vector_n<uint8_t, image_channel_count(type)> {};
+			return vector_n<uint8_t, channel_count> {};
 		}
 
 
-		template <COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) != COMPUTE_IMAGE_TYPE::FLOAT>* = nullptr>
-		floor_inline_always static auto insert_channels(const float4& color) {
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-			constexpr const uint32_t channel_count = image_channel_count(type);
+		floor_inline_always static auto insert_channels(const float4& color)
+		requires(data_type != COMPUTE_IMAGE_TYPE::FLOAT) {
 			normalized_format_validity_check();
 			
-			// figure out how much data (raw data) must be returned/created
-			constexpr const auto bpp = image_bytes_per_pixel(type);
 			array<uint8_t, bpp> raw_data;
 			
 			// scale fp vals to the expected int/uint size
-			constexpr const auto bpc = compute_image_bpc();
-			constexpr const auto max_bpc = max(max(bpc[0], bpc[1]), max(bpc[2], bpc[3]));
-			typedef typename image_sized_data_type<type, max_bpc>::type channel_type;
-			typedef typename image_sized_data_type<COMPUTE_IMAGE_TYPE::UINT, max_bpc>::type uchannel_type;
 			typedef conditional_t<max_bpc <= 8u, float, conditional_t<max_bpc <= 16u, double, long double>> fp_scale_type;
 			vector_n<channel_type, channel_count> scaled_color;
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
@@ -345,8 +335,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[0] |= (scaled_color[i] & 0b11u) << (6u - 2u * i);
 						}
-					}
-					else {
+					} else {
 						// since the sign bit isn't the msb, it must be handled manually
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[0] |= ((scaled_color[i] & 0b1u) | (scaled_color[i] < 0 ? 0b10u : 0u)) << (6u - 2u * i);
@@ -359,8 +348,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[i / 2u] |= (scaled_color[i] & 0b1111u) << (i % 2u == 0 ? 4u : 0u);
 						}
-					}
-					else {
+					} else {
 						// since the sign bit isn't the msb, it must be handled manually
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[i / 2u] |= ((scaled_color[i] & 0b111u) | (scaled_color[i] < 0 ? 0b1000u : 0u)) << (i % 2u == 0 ? 4u : 0u);
@@ -383,30 +371,29 @@ FLOOR_POP_WARNINGS()
 			
 			return raw_data;
 		}
-		template <COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT>* = nullptr>
-		floor_inline_always static auto insert_channels(const float4&) {
+		floor_inline_always static auto insert_channels(const float4&)
+		requires(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 			// this is a dummy function and never called, but necessary for compilation
-			return vector_n<uint8_t, image_channel_count(type)> {};
+			return vector_n<uint8_t, image_channel_count(fixed_image_type)> {};
 		}
 		
 		// determines which lod/bias value to use and clamps it to [0, max #mip-levels - 1]
-		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<is_lod_ || is_bias_>* = nullptr>
+		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias> requires(is_lod_ || is_bias_)
 		floor_inline_always static constexpr uint32_t select_lod(const int32_t lod_i, const float lod_or_bias_f) {
 			return ::min(host_limits::max_mip_levels - 1u, (is_lod_float || is_bias ?
 															uint32_t(::max(0.0f, std::round(lod_or_bias_f))) :
 															uint32_t(::max(0, lod_i))));
 		}
 		// clamps lod to [0, max #mip-levels - 1]
-		template <bool is_lod_ = is_lod, enable_if_t<is_lod_>* = nullptr>
+		template <bool is_lod_ = is_lod> requires(is_lod_)
 		floor_inline_always static constexpr uint32_t select_lod(const uint32_t lod) {
 			return ::min(host_limits::max_mip_levels - 1u, lod);
 		}
 		// no lod/bias -> always return 0
-		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<!is_lod_ && !is_bias_>* = nullptr>
+		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias> requires(!is_lod_ && !is_bias_)
 		floor_inline_always static constexpr uint32_t select_lod(const int32_t, const float) { return 0; }
 		// no lod/bias -> always return 0
-		template <bool is_lod_ = is_lod, enable_if_t<!is_lod_>* = nullptr>
+		template <bool is_lod_ = is_lod> requires(!is_lod_)
 		floor_inline_always static constexpr uint32_t select_lod(const uint32_t) { return 0; }
 
 
@@ -414,19 +401,18 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
 
 		// image read functions
-		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
-								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type, typename offset_type>
+		requires((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) ||
+				  data_type == COMPUTE_IMAGE_TYPE::FLOAT) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
 			// read/copy raw data
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const size_t bpp = image_bytes_per_pixel(type);
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
@@ -435,18 +421,14 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
 			// extract channel bits/bytes
-			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			constexpr const auto channel_count = image_channel_count(type);
-			vector4<conditional_t<(image_bits_of_channel(type, 0) <= 32 ||
+			vector4<conditional_t<(image_bits_of_channel(fixed_image_type, 0) <= 32 ||
 								   data_type != COMPUTE_IMAGE_TYPE::FLOAT), float, double>> ret;
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ||
 				   			 image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// for 32-bit/64-bit float formats, just pass-through raw data
 					ret = *(const decltype(ret)*)raw_data;
-				}
-				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
+				} else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
@@ -456,15 +438,14 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 						ret[i] = (float)*(const __fp16*)(raw_data + i * 2);
 #endif
 					}
+				} else {
+					floor_unreachable();
 				}
-				else floor_unreachable();
-			}
-			else {
+			} else {
 				// extract all channels from the raw data
 				const auto channels = extract_channels(raw_data);
 				
 				// normalize + convert to float
-				constexpr const auto bpc = compute_image_bpc();
 				constexpr const const_array<float, 4> unsigned_factors {{
 					// normalized = channel / (2^bpc_i - 1)
 					float(1.0 / max(1.0, double(const_math::bit_mask(max(uint64_t(1), bpc[0]))))),
@@ -485,8 +466,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						ret[i] = float(channels[i]) * unsigned_factors[i];
 					}
-				}
-				else if constexpr(data_type == COMPUTE_IMAGE_TYPE::INT) {
+				} else if constexpr(data_type == COMPUTE_IMAGE_TYPE::INT) {
 					// normalized integer formats, normalized to [-1, 1]
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
@@ -499,18 +479,16 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 
 FLOOR_POP_WARNINGS()
 
-		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
-		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type, typename offset_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
+			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(fixed_image_type);
 			
 			// validate all the things
 			depth_format_validity_check();
@@ -529,8 +507,7 @@ FLOOR_POP_WARNINGS()
 				if constexpr(has_stencil) {
 					__builtin_memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + sizeof(float)], sizeof(uint8_t));
 				}
-			}
-			else { // UINT
+			} else { // UINT
 				constexpr const size_t depth_bytes = (image_format == COMPUTE_IMAGE_TYPE::FORMAT_16 ? 2 :
 													  image_format == COMPUTE_IMAGE_TYPE::FORMAT_24 ? 3 :
 													  image_format == COMPUTE_IMAGE_TYPE::FORMAT_24_8 ? 3 :
@@ -572,20 +549,18 @@ FLOOR_POP_WARNINGS()
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
 
-		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
-								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type, typename offset_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) &&
+				 (data_type == COMPUTE_IMAGE_TYPE::INT || data_type == COMPUTE_IMAGE_TYPE::UINT) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
 			// read/copy raw data
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const size_t bpp = image_bytes_per_pixel(type);
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
@@ -594,39 +569,34 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
 			// for compatibility with opencl/cuda, always return 32-bit values for anything <= 32-bit (and 64-bit values for > 32-bit)
-			constexpr const bool is_signed_format = ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
-			typedef conditional_t<image_bits_of_channel(type, 0) <= 32,
+			constexpr const bool is_signed_format = (data_type == COMPUTE_IMAGE_TYPE::INT);
+			typedef conditional_t<image_bits_of_channel(fixed_image_type, 0) <= 32,
 								  conditional_t<is_signed_format, int32_t, uint32_t>,
 								  conditional_t<is_signed_format, int64_t, uint64_t>> ret_type;
-			constexpr const auto channel_count = image_channel_count(type);
 			const vector_n<ret_type, channel_count> ret_widened =
-				*(const vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count>*)raw_data;
+				*(const vector_n<typename image_sized_data_type<fixed_image_type, image_bits_of_channel(fixed_image_type, 0)>::type, channel_count>*)raw_data;
 			return vector4<ret_type> { ret_widened };
 		}
 
 FLOOR_POP_WARNINGS()
 
 		// image write functions
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
-								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type>
+		requires((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) ||
+				  data_type == COMPUTE_IMAGE_TYPE::FLOAT) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
 						  const float4& color) {
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
 			const auto lod = select_lod(lod_input);
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
 			
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
-				constexpr const auto channel_count = image_channel_count(type);
-				
 				// for 32-bit/64-bit float formats, just pass-through
 				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32) {
 					__builtin_memcpy(&img->data[offset], &color, sizeof(float) * channel_count);
@@ -651,10 +621,10 @@ FLOOR_POP_WARNINGS()
 						half_vals[i] = (fp16_type)color[i];
 					}
 					__builtin_memcpy(&img->data[offset], half_vals, sizeof(fp16_type) * channel_count);
+				} else {
+					floor_unreachable();
 				}
-				else floor_unreachable();
-			}
-			else {
+			} else {
 				// for integer formats, need to rescale to storage integer format and convert
 				const auto converted_color = insert_channels(color);
 				
@@ -664,21 +634,17 @@ FLOOR_POP_WARNINGS()
 		}
 
 
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  /* float depth value, or float depth + uint8_t stencil */
-				  typename color_type = conditional_t<image_channel_count(type) == 1, float, pair<float, uint8_t>>,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
-		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
-						  const color_type& color) {
+						  const float& depth) {
 			depth_format_validity_check();
 			
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
+			//constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(fixed_image_type);
 			
 			// depth value input is always a float -> convert it to the correct output format
 			const auto lod = select_lod(lod_input);
@@ -687,12 +653,13 @@ FLOOR_POP_WARNINGS()
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
-				__builtin_memcpy(&img->data[offset], &color, sizeof(float));
+				__builtin_memcpy(&img->data[offset], &depth, sizeof(float));
+#if 0 // TODO: proper stencil write support
 				if constexpr(has_stencil) {
-					__builtin_memcpy(&img->data[offset + sizeof(float)], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					__builtin_memcpy(&img->data[offset + sizeof(float)], &stencil, sizeof(uint8_t));
 				}
-			}
-			else { // UINT
+#endif
+			} else { // UINT
 				// need to create a normalized uint
 				constexpr const size_t depth_bytes = (image_format == COMPUTE_IMAGE_TYPE::FORMAT_16 ? 2 :
 													  image_format == COMPUTE_IMAGE_TYPE::FORMAT_24 ? 3 :
@@ -704,7 +671,7 @@ FLOOR_POP_WARNINGS()
 														depth_bytes == 3 ? 0xFFFFFFu : 0xFFFFFFFFu);
 				// always use long double for better precision
 				constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
-				auto depth_val = uint32_t(scale_factor * ((long double)*(const float*)&color));
+				auto depth_val = uint32_t(scale_factor * ((long double)*(const float*)&depth));
 				if constexpr(depth_bytes != 4) {
 					// clamp non-32-bit values to their correct range
 					depth_val = const_math::clamp(depth_val, 0u, clamp_value);
@@ -729,32 +696,32 @@ FLOOR_POP_WARNINGS()
 						floor_unreachable();
 				}
 				
+#if 0 // TODO: proper stencil write support
 				// finally, copy stencil
 				if constexpr(has_stencil) {
-					__builtin_memcpy(&img->data[offset + depth_bytes], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					__builtin_memcpy(&img->data[offset + depth_bytes], &stencil, sizeof(uint8_t));
 				}
+#endif
 			}
 		}
 
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  typename scalar_type = conditional_t<image_bits_of_channel(type, 0) <= 32,
-													   conditional_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int32_t, uint32_t>,
-													   conditional_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int64_t, uint64_t>>,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
-								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
-		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
+		template <typename coord_type,
+				  typename scalar_type = conditional_t<image_bits_of_channel(fixed_image_type, 0) <= 32,
+													   conditional_t<data_type == COMPUTE_IMAGE_TYPE::INT, int32_t, uint32_t>,
+													   conditional_t<data_type == COMPUTE_IMAGE_TYPE::INT, int64_t, uint64_t>>>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type) &&
+				 (data_type == COMPUTE_IMAGE_TYPE::INT || data_type == COMPUTE_IMAGE_TYPE::UINT))
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
 						  const vector4<scalar_type>& color) {
 			// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
-			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
-			constexpr const auto channel_count = image_channel_count(type);
-			typedef typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type storage_scalar_type;
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(fixed_image_type);
+			typedef typename image_sized_data_type<fixed_image_type, image_bits_of_channel(fixed_image_type, 0)>::type storage_scalar_type;
 			typedef vector_n<storage_scalar_type, channel_count> storage_type;
-			static_assert(sizeof(storage_type) == image_bytes_per_pixel(type), "invalid storage type size!");
+			static_assert(sizeof(storage_type) == image_bytes_per_pixel(fixed_image_type), "invalid storage type size!");
 			// cast down to storage scalar type, then trim the vector to the image channel count
 			const storage_type raw_data = color.template cast<storage_scalar_type>().template trim<channel_count>();
 			const auto lod = select_lod(lod_input);
@@ -768,19 +735,19 @@ FLOOR_POP_WARNINGS()
 
 template <COMPUTE_IMAGE_TYPE sample_image_type, bool is_lod = false, bool is_lod_float = false, bool is_bias = false>
 struct host_device_image {
-	typedef conditional_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(sample_image_type) &&
-						   !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(sample_image_type)), const uint8_t, uint8_t> storage_type;
-	typedef host_device_image<sample_image_type, is_lod, is_lod_float, is_bias> host_device_image_type;
+	using storage_type = conditional_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(sample_image_type) &&
+										!has_flag<COMPUTE_IMAGE_TYPE::WRITE>(sample_image_type)), const uint8_t, uint8_t>;
+	using host_device_image_type = host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>;
+	
+	static constexpr const COMPUTE_IMAGE_TYPE fixed_data_type = (sample_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 	
 	storage_type* data;
 	const COMPUTE_IMAGE_TYPE runtime_image_type;
 	alignas(16) const host_image_impl::image_level_info level_info[host_limits::max_mip_levels];
 	
 	// image read with linear interpolation (1D images)
-	template <typename coord_type, typename offset_type,
-			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(image_dim_count(type) == 1 &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type, typename... Args>
+	requires(image_dim_count(sample_image_type) == 1 && is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto read_linear(const host_device_image_type* img,
 							const coord_type& coord,
 							const offset_type& coord_offset,
@@ -792,7 +759,7 @@ struct host_device_image {
 		// * normalize coord to [0, 1]
 		// * scale it to [0, image dim]
 		// * get fractional [0, 1) in this texel
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
 		// texel A is always the outside pixel, texel B is always the active one
 		const color_type colors[2] {
@@ -806,10 +773,8 @@ struct host_device_image {
 	}
 	
 	// image read with bilinear interpolation (2D images)
-	template <typename coord_type, typename offset_type,
-			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(image_dim_count(type) == 2 &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type, typename... Args>
+	requires(image_dim_count(sample_image_type) == 2 && is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto read_linear(const host_device_image_type* img,
 							const coord_type& coord,
 							const offset_type& coord_offset,
@@ -818,7 +783,7 @@ struct host_device_image {
 							const float lod_or_bias_f) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
 		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
 		color_type colors[4] {
@@ -836,10 +801,8 @@ struct host_device_image {
 	}
 	
 	// image read with trilinear interpolation (3D images)
-	template <typename coord_type, typename offset_type,
-			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(image_dim_count(type) == 3 &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type, typename... Args>
+	requires(image_dim_count(sample_image_type) == 3 && is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto read_linear(const host_device_image_type* img,
 							const coord_type& coord,
 							const offset_type& coord_offset,
@@ -848,7 +811,7 @@ struct host_device_image {
 							const float lod_or_bias_f) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
 		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
 		color_type colors[8] {
@@ -873,9 +836,8 @@ struct host_device_image {
 	}
 	
 	// image read with *linear interpolation, but integer coordinates -> just forward to nearest/point read
-	template <typename coord_type, typename offset_type,
-			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<is_same<typename coord_type::decayed_scalar_type, int>::value>* = nullptr>
+	template <typename coord_type, typename offset_type, typename... Args>
+	requires(is_same_v<typename coord_type::decayed_scalar_type, int>)
 	static auto read_linear(const host_device_image_type* img,
 							const coord_type& coord,
 							const offset_type& coord_offset,
@@ -916,8 +878,8 @@ FLOOR_IGNORE_WARNING(float-equal)
 FLOOR_POP_WARNINGS()
 	
 	// depth compare read (sample image, compare sampled depth with compare value according to compare function)
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	template <typename coord_type, typename offset_type>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type))
 	static auto compare(const host_device_image_type* img,
 						const coord_type& coord,
 						const offset_type& coord_offset,
@@ -930,10 +892,10 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(image_dim_count(type) == 1 &&
-						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type>
+	requires(image_dim_count(sample_image_type) == 1 &&
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto compare_linear(const host_device_image_type* img,
 							   const coord_type& coord,
 							   const offset_type& coord_offset,
@@ -944,7 +906,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
 		const color_type depth_values[2] {
 			read(img, coord, coord_offset + int1 { frac_coord < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
@@ -958,10 +920,10 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// depth compare read with linear interpolation of the results / 2D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(image_dim_count(type) == 2 &&
-						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type>
+	requires(image_dim_count(sample_image_type) == 2 &&
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto compare_linear(const host_device_image_type* img,
 							   const coord_type& coord,
 							   const offset_type& coord_offset,
@@ -972,7 +934,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
 		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
 		const color_type depth_values[4] {
@@ -996,10 +958,10 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// depth compare read with linear interpolation of the results / 3D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(image_dim_count(type) == 3 &&
-						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type>
+	requires(image_dim_count(sample_image_type) == 3 &&
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 is_same_v<typename coord_type::decayed_scalar_type, float>)
 	static auto compare_linear(const host_device_image_type* img,
 							   const coord_type& coord,
 							   const offset_type& coord_offset,
@@ -1010,7 +972,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
 		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
 		const color_type depth_values[8] {
@@ -1045,9 +1007,9 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// technically invalid to call this with integer coordinates, but still forward this to the nearest sampling function
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   is_same<typename coord_type::decayed_scalar_type, int>::value)>* = nullptr>
+	template <typename coord_type, typename offset_type>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 is_same_v<typename coord_type::decayed_scalar_type, int>)
 	static auto compare_linear(const host_device_image_type* img,
 							   const coord_type& coord,
 							   const offset_type& coord_offset,
@@ -1060,49 +1022,47 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// depth compare is not supported for non-depth images
-	template <typename... Args, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	template <typename... Args> requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type))
 	static auto compare(Args&&...) {
 		return 0.0f;
 	}
-	template <typename... Args, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	template <typename... Args> requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type))
 	static auto compare_linear(Args&&...) {
 		return 0.0f;
 	}
 	
 	// statically/compile-time known base type that won't change at run-time
-	floor_inline_always static constexpr COMPUTE_IMAGE_TYPE fixed_base_type() {
+	static constexpr const COMPUTE_IMAGE_TYPE fixed_base_type {
 		// variable at run-time: channel count, format, data type, normalized flag
-		return sample_image_type & (COMPUTE_IMAGE_TYPE::__DIM_MASK |
-									COMPUTE_IMAGE_TYPE::__ACCESS_MASK |
-									COMPUTE_IMAGE_TYPE::FLAG_ARRAY |
-									COMPUTE_IMAGE_TYPE::FLAG_BUFFER |
-									COMPUTE_IMAGE_TYPE::FLAG_CUBE |
-									COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-									COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
-									COMPUTE_IMAGE_TYPE::FLAG_GATHER |
-									COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED);
-	}
+		sample_image_type & (COMPUTE_IMAGE_TYPE::__DIM_MASK |
+							 COMPUTE_IMAGE_TYPE::__ACCESS_MASK |
+							 COMPUTE_IMAGE_TYPE::FLAG_ARRAY |
+							 COMPUTE_IMAGE_TYPE::FLAG_BUFFER |
+							 COMPUTE_IMAGE_TYPE::FLAG_CUBE |
+							 COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+							 COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
+							 COMPUTE_IMAGE_TYPE::FLAG_GATHER |
+							 COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED)
+	};
 	
 #define FLOOR_RT_READ_IMAGE_CASE(rt_base_type) case (rt_base_type): \
-return host_image_impl::fixed_image<(rt_base_type | fixed_base_type()), is_lod, is_lod_float, is_bias>::read( \
-(const host_device_image<(rt_base_type | fixed_base_type()), is_lod, is_lod_float, is_bias>*)img, std::forward<Args>(args)...);
+return host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias>::read( \
+(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias>*)img, std::forward<Args>(args)...);
 
 #define FLOOR_RT_WRITE_IMAGE_CASE(rt_base_type) case (rt_base_type): \
-host_image_impl::fixed_image<(rt_base_type | fixed_base_type()), is_lod, is_lod_float, is_bias>::write( \
-(const host_device_image<(rt_base_type | fixed_base_type()), is_lod, is_lod_float, is_bias>*)img, std::forward<Args>(args)...); return;
+host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias>::write( \
+(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias>*)img, std::forward<Args>(args)...); return;
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPUTE_IMAGE_TYPE'" warnings, this is expected
 	
 	// normalized or float data (not double)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(// float or normalized int/uint
-						   (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
-							(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-						   // !depth
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	template <typename... Args>
+	requires(// float or normalized int/uint
+			 (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(sample_image_type) ||
+			  (sample_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
+			 // !depth
+			 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type))
 	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1187,9 +1147,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// depth float
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
+	template <typename... Args>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(sample_image_type))
 	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1206,9 +1166,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// depth+stencil float+uint8_t
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
+	template <typename... Args>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(sample_image_type))
 	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1223,11 +1183,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// non-normalized int/uint data (<= 32-bit)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
+	template <typename... Args>
+	requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(sample_image_type) &&
+			 (fixed_data_type == COMPUTE_IMAGE_TYPE::INT || fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))
 	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1263,12 +1221,12 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// normalized or float data (not double)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(// float or normalized int/uint
-						   (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
-							(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-						   // !depth
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	template <typename... Args>
+	requires(// float or normalized int/uint
+			 (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(sample_image_type) ||
+			  (sample_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
+			 // !depth
+			 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type))
 	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1353,9 +1311,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// depth float
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
+	template <typename... Args>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(sample_image_type))
 	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1372,9 +1330,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// depth+stencil float+uint8_t
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
-						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
+	template <typename... Args>
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(sample_image_type) &&
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(sample_image_type))
 	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1389,11 +1347,9 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	}
 	
 	// non-normalized int/uint data (<= 32-bit)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
+	template <typename... Args>
+	requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(sample_image_type) &&
+			 (fixed_data_type == COMPUTE_IMAGE_TYPE::INT || fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))
 	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |

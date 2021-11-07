@@ -105,8 +105,8 @@ public:
 	template <typename obj_type, typename tupled_arg_types, size_t... indices>
 	obj_type deserialize(index_sequence<indices...>) {
 		typedef decltype(constructible_helper<obj_type>::template constructor_type<tuple_element_t<indices, tupled_arg_types>...>()) constructor_type;
-		constexpr const auto is_direct = is_same<constructor_type, typename constructible_helper<obj_type>::direct_constructor>();
-		constexpr const auto is_empty_base = is_same<constructor_type, typename constructible_helper<obj_type>::empty_base_constructor>();
+		constexpr const auto is_direct = is_same_v<constructor_type, typename constructible_helper<obj_type>::direct_constructor>;
+		constexpr const auto is_empty_base = is_same_v<constructor_type, typename constructible_helper<obj_type>::empty_base_constructor>;
 		static_assert(is_direct || is_empty_base,
 					  "obj_type must be directly constructible or directly constructible with an empty base");
 		

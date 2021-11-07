@@ -54,39 +54,43 @@ namespace floor_image {
 	}
 	
 	//! get the gradient vector type (dPdx and dPdy) of an image type (sanely default to float2 as this is the case for most formats)
-	template <COMPUTE_IMAGE_TYPE image_type, typename = void>
+	template <COMPUTE_IMAGE_TYPE image_type>
 	struct gradient_vec_type_for_image_type {
 		typedef float2 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct gradient_vec_type_for_image_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
-																	 image_dim_count(image_type) == 3)>> {
+	requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
+			 image_dim_count(image_type) == 3)
+	struct gradient_vec_type_for_image_type<image_type> {
 		typedef float3 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct gradient_vec_type_for_image_type<image_type, enable_if_t<image_dim_count(image_type) == 1>> {
+	requires(image_dim_count(image_type) == 1)
+	struct gradient_vec_type_for_image_type<image_type> {
 		typedef float1 type;
 	};
 	
 	//! get the offset vector type of an image type (sanely default to int2 as this is the case for most formats)
-	template <COMPUTE_IMAGE_TYPE image_type, typename = void>
+	template <COMPUTE_IMAGE_TYPE image_type>
 	struct offset_vec_type_for_image_type {
 		typedef int2 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct offset_vec_type_for_image_type<image_type, enable_if_t<(image_dim_count(image_type) == 3
+	requires(image_dim_count(image_type) == 3
 #if !defined(FLOOR_COMPUTE_HOST)
-																   // this is a total hack, but cube map offsets aren't supported with
-																   // cuda/metal/opencl and I don't want to add image functions/handling
-																   // for something that isn't going to be used anyways
-																   // -> use int3 offset instead of the actual int2 offset (b/c symmetry)
-																   || has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)
+			 // this is a total hack, but cube map offsets aren't supported with
+			 // cuda/metal/opencl and I don't want to add image functions/handling
+			 // for something that isn't going to be used anyways
+			 // -> use int3 offset instead of the actual int2 offset (b/c symmetry)
+			 || has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)
 #endif
-																   )>> {
+			)
+	struct offset_vec_type_for_image_type<image_type> {
 		typedef int3 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct offset_vec_type_for_image_type<image_type, enable_if_t<image_dim_count(image_type) == 1>> {
+	requires(image_dim_count(image_type) == 1)
+	struct offset_vec_type_for_image_type<image_type> {
 		typedef int1 type;
 	};
 	
@@ -149,36 +153,36 @@ namespace floor_image {
 #endif
 	
 	//! COMPUTE_IMAGE_TYPE -> sample type
-	template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct to_sample_type {};
-	template <COMPUTE_IMAGE_TYPE image_type> struct to_sample_type<image_type, enable_if_t<is_sample_float(image_type)>> {
+	template <COMPUTE_IMAGE_TYPE image_type> struct to_sample_type {};
+	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_float(image_type)) struct to_sample_type<image_type> {
 		typedef float type;
 	};
-	template <COMPUTE_IMAGE_TYPE image_type> struct to_sample_type<image_type, enable_if_t<is_sample_int(image_type)>> {
+	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_int(image_type)) struct to_sample_type<image_type> {
 		typedef int32_t type;
 	};
-	template <COMPUTE_IMAGE_TYPE image_type> struct to_sample_type<image_type, enable_if_t<is_sample_uint(image_type)>> {
+	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_uint(image_type)) struct to_sample_type<image_type> {
 		typedef uint32_t type;
 	};
 	//! (vector) sample type -> COMPUTE_IMAGE_TYPE
 	//! NOTE: scalar sample types will always return the 4-channel variant,
 	//!       vector sample types will return the corresponding channel variant
-	template <typename sample_type, typename = void> struct from_sample_type {};
-	template <typename sample_type> struct from_sample_type<sample_type, enable_if_t<is_same<float, sample_type>::value>> {
+	template <typename sample_type> struct from_sample_type {};
+	template <typename sample_type> requires(is_same_v<float, sample_type>) struct from_sample_type<sample_type> {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
 			return COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
 		}
 	};
-	template <typename sample_type> struct from_sample_type<sample_type, enable_if_t<is_same<int32_t, sample_type>::value>> {
+	template <typename sample_type> requires(is_same_v<int32_t, sample_type>) struct from_sample_type<sample_type> {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
 			return COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
 		}
 	};
-	template <typename sample_type> struct from_sample_type<sample_type, enable_if_t<is_same<uint32_t, sample_type>::value>> {
+	template <typename sample_type> requires(is_same_v<uint32_t, sample_type>) struct from_sample_type<sample_type> {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
 			return COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
 		}
 	};
-	template <typename sample_type> struct from_sample_type<sample_type, enable_if_t<is_floor_vector<sample_type>::value>> {
+	template <typename sample_type> requires(is_floor_vector<sample_type>::value) struct from_sample_type<sample_type> {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
 			// get scalar type, clear out channel count, OR with actual channel count, set FIXED_CHANNELS flag
 			return ((from_sample_type<typename sample_type::this_scalar_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
@@ -188,11 +192,12 @@ namespace floor_image {
 	};
 	
 	//! implementation specific image storage: read-only, write-only and read-write
-	template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct image_storage {};
+	template <COMPUTE_IMAGE_TYPE image_type> struct image_storage {};
 	//! read-only
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_storage<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-												  !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
+	requires(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+			 !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
+	struct image_storage<image_type> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
@@ -211,8 +216,9 @@ namespace floor_image {
 	};
 	//! write-only
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_storage<image_type, enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
+	requires(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+			 has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
+	struct image_storage<image_type> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
@@ -236,8 +242,9 @@ namespace floor_image {
 	};
 	//! read-write
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_storage<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
+	requires(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+			 has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
+	struct image_storage<image_type> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
@@ -281,7 +288,7 @@ namespace floor_image {
 		floor_inline_always static constexpr uint32_t channel_count() { return image_channel_count(image_type); }
 		
 		using typename image_storage_type::sample_type;
-		typedef conditional_t<channel_count() == 1, sample_type, vector_n<sample_type, channel_count()>> vector_sample_type;
+		using vector_sample_type = conditional_t<channel_count() == 1, sample_type, vector_n<sample_type, channel_count()>>;
 		
 		static constexpr bool is_readable() { return has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type); }
 		static constexpr bool is_writable() { return has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type); }
@@ -301,7 +308,8 @@ namespace floor_image {
 		}
 		
 		//! convert any fundamental (single value) coordinate type to int or float
-		template <typename coord_type, enable_if_t<ext::is_fundamental_v<coord_type>>>
+		template <typename coord_type>
+		requires(ext::is_fundamental_v<coord_type>)
 		static auto convert_coord(const coord_type& coord) {
 			return conditional_t<ext::is_integral_v<coord_type>, int, float> { coord };
 		}
@@ -319,18 +327,20 @@ namespace floor_image {
 #endif
 		
 		//! converts any fundamental (single value) type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
-		template <typename expected_scalar_type, typename data_type, enable_if_t<ext::is_fundamental_v<data_type>>* = nullptr>
+		template <typename expected_scalar_type, typename data_type>
+		requires(ext::is_fundamental_v<data_type>)
 		static auto convert_data(const data_type& data) {
 			using scalar_type = data_type;
-			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+			static_assert(is_same_v<scalar_type, expected_scalar_type>, "invalid data type");
 			return vector_n<scalar_type, 4> { data, (scalar_type)0, (scalar_type)0, (scalar_type)0 };
 		}
 		
 		//! converts any vector* type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
-		template <typename expected_scalar_type, typename data_type, enable_if_t<!ext::is_fundamental_v<data_type>>* = nullptr>
+		template <typename expected_scalar_type, typename data_type>
+		requires(!ext::is_fundamental_v<data_type>)
 		static auto convert_data(const data_type& data) {
 			using scalar_type = typename data_type::decayed_scalar_type;
-			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+			static_assert(is_same_v<scalar_type, expected_scalar_type>, "invalid data type");
 			return vector_n<scalar_type, 4> { data };
 		}
 		
@@ -364,7 +374,7 @@ namespace floor_image {
 	template <COMPUTE_IMAGE_TYPE image_type>
 	class const_image : public image_base<image_type> {
 	public:
-		typedef image_base<image_type> image_base_type;
+		using image_base_type = image_base<image_type>;
 		using typename image_base_type::image_storage_type;
 		using typename image_base_type::sample_type;
 		using image_base_type::convert_coord;
@@ -373,14 +383,16 @@ namespace floor_image {
 		using image_storage_type::r_img_obj;
 #endif
 		
+		using offset_vec_type = typename offset_vec_type_for_image_type<image_type>::type;
+		using gradient_vec_type = typename gradient_vec_type_for_image_type<image_type>::type;
+		
 	public:
 		//! internal read function, handling all kinds of reads
 		//! NOTE: while this is an internal function, it might be useful for anyone insane enough to use it directly on the outside
 		//!       -> this is a public function and not protected
 		template <bool sample_linear, bool sample_repeat = false, bool is_lod = false, bool is_gradient = false,
 				  bool is_compare = false, COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER,
-				  typename coord_type, typename offset_vec_type, typename lod_type = int32_t,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type>::type>
+				  typename coord_type, typename lod_type = int32_t>
 		floor_inline_always auto read_internal(const coord_type& coord,
 											   const uint32_t layer,
 #if defined(FLOOR_COMPUTE_HOST) // NOTE: MSAA/sample is not supported on host-compute
@@ -408,10 +420,10 @@ namespace floor_image {
 			
 			// lod type must be 32-bit float, int or uint (uint will be casted to int)
 			typedef decay_t<lod_type> decayed_lod_type;
-			constexpr const bool is_lod_float = is_same<decayed_lod_type, float>();
-			static_assert(is_same<decayed_lod_type, int32_t>() ||
-						  is_same<decayed_lod_type, uint32_t>() ||
-						  is_same<decayed_lod_type, float>(), "lod type must be float, int32_t or uint32_t");
+			constexpr const bool is_lod_float = is_same_v<decayed_lod_type, float>;
+			static_assert(is_same_v<decayed_lod_type, int32_t> ||
+						  is_same_v<decayed_lod_type, uint32_t> ||
+						  is_same_v<decayed_lod_type, float>, "lod type must be float, int32_t or uint32_t");
 			
 			// explicit lod or gradient read is not possible with msaa images
 			static_assert((!is_lod && !is_gradient) ||
@@ -433,8 +445,9 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
 				if constexpr(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 					return output_type::fit(vector_n<sample_type, 4>::from_clang_vector(color));
+				} else {
+					return output_type::fit(color.x);
 				}
-				else return output_type::fit(color.x);
 #else
 				return output_type::fit(color);
 #endif
@@ -449,14 +462,12 @@ namespace floor_image {
 																 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 																 gradient.first, gradient.second, is_gradient,
 																 compare_function, compare_value, is_compare));
-			}
-			else if constexpr(is_int) {
+			} else if constexpr(is_int) {
 				return fit_output(opaque_image::read_image_int(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
 															   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 															   gradient.first, gradient.second, is_gradient,
 															   compare_function, compare_value, is_compare));
-			}
-			else {
+			} else {
 				return fit_output(opaque_image::read_image_uint(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
 																(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 																gradient.first, gradient.second, is_gradient,
@@ -475,14 +486,12 @@ namespace floor_image {
 															   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 															   gradient.first, gradient.second, is_gradient,
 															   compare_function, compare_value, is_compare));
-			}
-			else if constexpr(is_int) {
+			} else if constexpr(is_int) {
 				return fit_output(cuda_image::read_image_int(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 															 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 															 gradient.first, gradient.second, is_gradient,
 															 compare_function, compare_value, is_compare));
-			}
-			else {
+			} else {
 				return fit_output(cuda_image::read_image_uint(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 															  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 															  gradient.first, gradient.second, is_gradient,
@@ -495,23 +504,20 @@ namespace floor_image {
 																										 converted_coord, offset, layer,
 																										 (!is_lod_float ? int32_t(lod) : 0),
 																										 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
-				}
-				else {
+				} else {
 					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
 																												converted_coord, offset, layer,
 																												(!is_lod_float ? int32_t(lod) : 0),
 																												(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 				}
-			}
-			else {
+			} else {
 				if constexpr(!sample_linear) {
 					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
 																											converted_coord, offset, layer,
 																											(!is_lod_float ? int32_t(lod) : 0),
 																											(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
 																											compare_function, compare_value));
-				}
-				else {
+				} else {
 					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
 																														 converted_coord, offset, layer,
 																														 (!is_lod_float ? int32_t(lod) : 0),
@@ -523,227 +529,201 @@ namespace floor_image {
 		}
 		
 		//! image read with nearest/point sampling and clamp-to-edge address mode (non-array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false>(coord, 0, 0, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and clamp-to-edge address mode (array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false>(coord, layer, 0, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and clamp-to-edge address mode (non-array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false>(coord, 0, sample, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and clamp-to-edge address mode (array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false>(coord, layer, sample, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and repeat address mode (non-array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_repeat(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, true>(coord, 0, 0, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and repeat address mode (array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_repeat(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, true>(coord, layer, 0, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and repeat address mode (non-array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_repeat(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, true>(coord, 0, sample, offset, bias);
 		}
 		
 		//! image read with nearest/point sampling and repeat address mode (array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_repeat(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, true>(coord, layer, sample, offset, bias);
 		}
 		
 		//! image read with linear sampling and clamp-to-edge address mode (non-array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true>(coord, 0, 0, offset, bias);
 		}
 		
 		//! image read with linear sampling and clamp-to-edge address mode (array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true>(coord, layer, 0, offset, bias);
 		}
 		
 		//! image read with linear sampling and clamp-to-edge address mode (non-array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true>(coord, 0, sample, offset, bias);
 		}
 		
 		//! image read with linear sampling and clamp-to-edge address mode (array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true>(coord, layer, sample, offset, bias);
 		}
 		
 		//! image read with linear sampling and repeat address mode (non-array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear_repeat(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, true>(coord, 0, 0, offset, bias);
 		}
 		
 		//! image read with linear sampling and repeat address mode (array, non-msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear_repeat(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, true>(coord, layer, 0, offset, bias);
 		}
 		
 		//! image read with linear sampling and repeat address mode (non-array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear_repeat(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, true>(coord, 0, sample, offset, bias);
 		}
 		
 		//! image read with linear sampling and repeat address mode (array, msaa)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_linear_repeat(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, true>(coord, layer, sample, offset, bias);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and clamp-to-edge address mode (non-array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and clamp-to-edge address mode (array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and repeat address mode (non-array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_repeat(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, true, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and repeat address mode (array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_repeat(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and clamp-to-edge address mode (non-array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and clamp-to-edge address mode (array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and repeat address mode (non-array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear_repeat(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, true, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and repeat address mode (array)
-		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear_repeat(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and clamp-to-edge address mode (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient(const coord_type& coord,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
 						   const offset_vec_type offset = {}) const {
@@ -751,11 +731,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and clamp-to-edge address mode (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient(const coord_type& coord, const uint32_t layer,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
 						   const offset_vec_type offset = {}) const {
@@ -763,11 +741,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat address mode (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_repeat(const coord_type& coord,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
@@ -775,11 +751,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat address mode (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_repeat(const coord_type& coord, const uint32_t layer,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
@@ -787,11 +761,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and clamp-to-edge address mode (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_linear(const coord_type& coord,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
@@ -799,11 +771,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and clamp-to-edge address mode (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_linear(const coord_type& coord, const uint32_t layer,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
@@ -811,11 +781,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat address mode (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_linear_repeat(const coord_type& coord,
 										 const pair<gradient_vec_type, gradient_vec_type> gradient,
 										 const offset_vec_type offset = {}) const {
@@ -823,11 +791,9 @@ namespace floor_image {
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat address mode (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_gradient_linear_repeat(const coord_type& coord, const uint32_t layer,
 										 const pair<gradient_vec_type, gradient_vec_type> gradient,
 										 const offset_vec_type offset = {}) const {
@@ -843,74 +809,64 @@ namespace floor_image {
 		// * opencl/spir: doesn't have support for this, compare will be performed in s/w
 		
 		//! image depth compare read with nearest/point sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare(const coord_type& coord, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with nearest/point sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare(const coord_type& coord, const uint32_t layer, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<false, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with linear sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_linear(const coord_type& coord, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with linear sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_linear(const coord_type& coord, const uint32_t layer, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
 			return read_internal<true, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with nearest/point sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod(const coord_type& coord, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with nearest/point sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod(const coord_type& coord, const uint32_t layer, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with linear sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod_linear(const coord_type& coord, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with linear sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod_linear(const coord_type& coord, const uint32_t layer, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_gradient(const coord_type& coord, const float& compare_value,
 							  const pair<gradient_vec_type, gradient_vec_type> gradient,
 							  const offset_vec_type offset = {}) const {
@@ -918,10 +874,8 @@ namespace floor_image {
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_gradient(const coord_type& coord, const uint32_t layer, const float& compare_value,
 							  const pair<gradient_vec_type, gradient_vec_type> gradient,
 							  const offset_vec_type offset = {}) const {
@@ -929,10 +883,8 @@ namespace floor_image {
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (non-array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_gradient_linear(const coord_type& coord, const float& compare_value,
 									 const pair<gradient_vec_type, gradient_vec_type> gradient,
 									 const offset_vec_type offset = {}) const {
@@ -940,10 +892,8 @@ namespace floor_image {
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (array)
-		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
-				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <COMPARE_FUNCTION compare_function, typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_gradient_linear(const coord_type& coord, const uint32_t layer, const float& compare_value,
 									 const pair<gradient_vec_type, gradient_vec_type> gradient,
 									 const offset_vec_type offset = {}) const {
@@ -983,17 +933,34 @@ namespace floor_image {
 			// sample type must be 32-bit float, int or uint
 			constexpr const bool is_float = is_sample_float(image_type);
 			constexpr const bool is_int = is_sample_int(image_type);
+			constexpr const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
 			static_assert(is_float || is_int || is_sample_uint(image_type), "invalid sample type");
+			static_assert(!is_depth || (is_depth && is_float && is_same_v<vector_sample_type, float>), "depth value must always be a float");
 			
 			// backend specific coordinate conversion (should always be int here)
 			const auto converted_coord = convert_coord(coord);
 			
-			// convert input data (vector) to a vector4
+			// convert input data (vector) to a vector4 (if color or depth on resp. backends) or float (if depth on resp. backends)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST)
+			const auto converted_data = [&data]() {
+				if constexpr (!is_depth) {
+					return image_base_type::template convert_data<sample_type>(data);
+				} else {
+					return data;
+				}
+			}();
+#else
 			const auto converted_data = image_base_type::template convert_data<sample_type>(data);
+#endif
 			
 			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL)
 			if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+#elif defined(FLOOR_COMPUTE_METAL)
+			if constexpr (is_depth) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, converted_data);
+			else if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
 			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
 #elif defined(FLOOR_COMPUTE_VULKAN)
@@ -1001,8 +968,7 @@ namespace floor_image {
 				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (float4)converted_data);
 				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (int4)converted_data);
 				else opaque_image::write_image_uint((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (uint4)converted_data);
-			}
-			else {
+			} else {
 				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
 				else opaque_image::write_image_uint((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
@@ -1012,8 +978,7 @@ namespace floor_image {
 				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (float4)converted_data);
 				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (int4)converted_data);
 				else cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (uint4)converted_data);
-			}
-			else {
+			} else {
 				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
 				else cuda_image::write_uint<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
@@ -1024,8 +989,8 @@ namespace floor_image {
 		}
 		
 		//! image write (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		floor_inline_always auto write(const coord_type& coord,
 									   const vector_sample_type& data) {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
@@ -1033,8 +998,8 @@ namespace floor_image {
 		}
 		
 		//! image write (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		floor_inline_always auto write(const coord_type& coord,
 									   const uint32_t layer,
 									   const vector_sample_type& data) {
@@ -1043,8 +1008,8 @@ namespace floor_image {
 		}
 		
 		//! image write at the specified lod level (non-array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		floor_inline_always auto write_lod(const coord_type& coord,
 										   const uint32_t lod,
 										   const vector_sample_type& data) {
@@ -1053,8 +1018,8 @@ namespace floor_image {
 		}
 		
 		//! image write at the specified lod level (array)
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		floor_inline_always auto write_lod(const coord_type& coord,
 										   const uint32_t layer,
 										   const uint32_t lod,

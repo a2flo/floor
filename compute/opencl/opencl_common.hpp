@@ -538,21 +538,21 @@ F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_C
 
 #define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func, additional_args, additional_arg_names, additional_input_args, additional_input_arg_names) \
 template <cl_uint info_type, \
-		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
-					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
-					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
+requires(cl_is_valid_info_type<obj_type, info_type>::value && \
+		 !is_same_v<typename cl_info_type<info_type>::type, string> && \
+		 !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
+		 make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash) \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	ret_type ret {}; \
 	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , sizeof(ret_type), &ret, nullptr); \
 	return ret; \
 } \
-template <cl_uint info_type, \
-		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
-					   is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
-					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
+template <cl_uint info_type> \
+requires(cl_is_valid_info_type<obj_type, info_type>::value && \
+		 is_same_v<typename cl_info_type<info_type>::type, string> && \
+		 !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
+		 make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash) \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	size_t buf_size = 0; \
 	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , 0, nullptr, &buf_size); \
@@ -560,11 +560,11 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additiona
 	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , buf_size, info.data(), nullptr); \
 	return (buf_size > 0 ? string(info.data(), buf_size - 1 /* trim \0 */) : ""); \
 } \
-template <cl_uint info_type, \
-		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
-					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   ext::is_vector<typename cl_info_type<info_type>::type>::value && \
-					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
+template <cl_uint info_type> \
+requires(cl_is_valid_info_type<obj_type, info_type>::value && \
+		 !is_same_v<typename cl_info_type<info_type>::type, string> && \
+		 ext::is_vector<typename cl_info_type<info_type>::type>::value && \
+		 make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash) \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	typedef typename ret_type::value_type value_type; \
@@ -578,7 +578,7 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additiona
 FLOOR_CL_INFO_TYPES(FLOOR_CL_INFO_FUNC)
 
 // CL_PROGRAM_BINARIES is rather complicated/different than the other clGet*Info calls, need to add special handling
-template <cl_uint info_type, enable_if_t<info_type == CL_PROGRAM_BINARIES, int> = 0>
+template <cl_uint info_type> requires(info_type == CL_PROGRAM_BINARIES)
 vector<string> cl_get_info(const cl_program& program) {
 	// NOTE: can't rely on how many sizes CL_PROGRAM_BINARY_SIZES returns
 	// -> have to query CL_PROGRAM_BINARIES first, to get the actual amount of expected binaries (even if these don't exist)
