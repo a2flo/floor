@@ -50,10 +50,12 @@ public:
 			if (trial < 16) {
 				// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
 				// Malte recommendation: to improve latency, only try this 16 times ...
-#if !defined(FLOOR_IOS)
-				asm volatile("pause" : : : "memory"); // x86
+#if defined(__x86_64__)
+				asm volatile("pause" : : : "memory");
+#elif defined(__aarch64__)
+				asm volatile("yield" : : : "memory");
 #else
-				asm volatile("yield" : : : "memory"); // ARM
+#error "unknown arch"
 #endif
 			} else {
 				// ... and after the 16th attempt: actually yield the thread (then start again)

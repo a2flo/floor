@@ -154,17 +154,21 @@ bool floor::init(const init_state& state) {
 #endif
 	
 #if defined(_SC_PAGESIZE)
-	if (uint64_t(sysconf(_SC_PAGESIZE)) != aligned_ptr<int>::page_size) {
-		log_error("page size is not 4KiB");
-		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
-		return false;
+	{
+		const auto page_size = uint64_t(sysconf(_SC_PAGESIZE));
+		if (page_size != aligned_ptr<int>::page_size) {
+			log_error("unexpected page size: $' (expected $')", page_size, aligned_ptr<int>::page_size);
+			floor_init_status = FLOOR_INIT_STATUS::FAILURE;
+			return false;
+		}
 	}
 #elif defined(__WINDOWS__)
 	{
 		SYSTEM_INFO info;
 		GetNativeSystemInfo(&info);
-		if (uint64_t(info.dwPageSize) != aligned_ptr<int>::page_size) {
-			log_error("page size is not 4KiB");
+		const auto page_size = uint64_t(info.dwPageSize);
+		if (page_size != aligned_ptr<int>::page_size) {
+			log_error("unexpected page size: $' (expected $')", page_size, aligned_ptr<int>::page_size);
 			floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 			return false;
 		}

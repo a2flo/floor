@@ -1482,7 +1482,7 @@
 		5C10915617D114BC007F536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1010;
+				LastUpgradeCheck = 1320;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1493,11 +1493,11 @@
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
 			compatibilityVersion = "Xcode 12.0";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = 5C10915517D114BC007F536E;
 			productRefGroup = 5C10915F17D114BC007F536E /* Products */;
@@ -1761,6 +1761,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -1922,6 +1923,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -2076,9 +2078,8 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -2092,13 +2093,23 @@
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
+					/opt/homebrew/lib,
+					"/opt/homebrew/opt/openssl@1.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
 					/usr/local/opt/openssl/include,
+					"-isystem",
+					/opt/homebrew/include,
+					"-isystem",
+					"/opt/homebrew/opt/openssl@1.1/include",
+					"-isystem",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2106,17 +2117,17 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-w",
 				);
-				VALID_ARCHS = x86_64;
+				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Debug;
 		};
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -2129,13 +2140,23 @@
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
+					/opt/homebrew/lib,
+					"/opt/homebrew/opt/openssl@1.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
 					/usr/local/opt/openssl/include,
+					"-isystem",
+					/opt/homebrew/include,
+					"-isystem",
+					"/opt/homebrew/opt/openssl@1.1/include",
+					"-isystem",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2144,7 +2165,7 @@
 					"$(inherited)",
 					"-lopenal",
 				);
-				VALID_ARCHS = x86_64;
+				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Release;
 		};
@@ -2152,6 +2173,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -2314,9 +2336,8 @@
 		5C9D44BA226A7CD200D8E3E3 /* Debug_vulkan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -2330,13 +2351,23 @@
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
+					/opt/homebrew/lib,
+					"/opt/homebrew/opt/openssl@1.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
 					/usr/local/opt/openssl/include,
+					"-isystem",
+					/opt/homebrew/include,
+					"-isystem",
+					"/opt/homebrew/opt/openssl@1.1/include",
+					"-isystem",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2344,8 +2375,9 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lopenal",
+					"-w",
 				);
-				VALID_ARCHS = x86_64;
+				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Debug_vulkan;
 		};
@@ -2417,6 +2449,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
@@ -2573,9 +2606,8 @@
 		5C9D44BE226A7CDE00D8E3E3 /* Release_vulkan */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -2588,13 +2620,23 @@
 					/usr/local/opt/openssl/lib,
 					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
+					/opt/homebrew/lib,
+					"/opt/homebrew/opt/openssl@1.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
 					/usr/local/opt/openssl/include,
+					"-isystem",
+					/opt/homebrew/include,
+					"-isystem",
+					"/opt/homebrew/opt/openssl@1.1/include",
+					"-isystem",
+					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2603,7 +2645,7 @@
 					"$(inherited)",
 					"-lopenal",
 				);
-				VALID_ARCHS = x86_64;
+				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Release_vulkan;
 		};

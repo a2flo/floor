@@ -70,7 +70,7 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 extern "C" void run_host_device_group_item(const uint32_t local_linear_idx);
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
-#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if defined(__x86_64__) && !defined(__WINDOWS__)
 #if defined(__AVX512F__) && defined(__AVX512DQ__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
@@ -217,9 +217,9 @@ extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
 struct alignas(128) fiber_context {
 	typedef void (*init_func_type)(const uint32_t);
 
-#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if defined(__x86_64__) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
-	static constexpr const size_t min_stack_size { 8192 };
+	static constexpr const size_t min_stack_size { std::max(size_t(8192u), size_t(aligned_ptr<int>::page_size)) };
 	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
 
 	// callee-saved registers
@@ -322,7 +322,7 @@ FLOOR_POP_WARNINGS()
 //#elif defined(FLOOR_IOS)
 	// TODO: aarch64/armv8 implementation
 #elif defined(__WINDOWS__)
-	static constexpr const size_t min_stack_size { 4096 };
+	static constexpr const size_t min_stack_size { aligned_ptr<int>::page_size };
 
 	// the windows fiber context
 	void* ctx { nullptr };
@@ -467,7 +467,7 @@ FLOOR_POP_WARNINGS()
 	uint32_t init_arg { 0 };
 	
 };
-#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if defined(__x86_64__) && !defined(__WINDOWS__)
 // make sure member variables are at the right offsets when using the sysv abi fiber approach
 static_assert(offsetof(fiber_context, init_func) == 0x50);
 static_assert(offsetof(fiber_context, exit_ctx) == 0x58);

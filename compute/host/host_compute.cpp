@@ -40,10 +40,12 @@
 #include <sys/sysctl.h>
 #endif
 
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 #include <cpuid.h>
-#else
+#elif defined(__APPLE__) && defined(__aarch64__)
 #include <mach-o/arch.h>
+#else
+#error "unhandled arch"
 #endif
 
 #if defined(__WINDOWS__)
@@ -68,7 +70,7 @@ host_compute::host_compute() : compute_context() {
 	uint64_t cpu_clock = 0;
 	
 	// we can get the actual cpu name quite easily on x86 through cpuid instructions
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	// cpuid magic
 	uint32_t eax, ebx, ecx, edx;
 	__cpuid(0x80000000u, eax, ebx, ecx, edx);
@@ -88,13 +90,15 @@ host_compute::host_compute() : compute_context() {
 		}
 		cpu_name = core::trim(cpuid_name);
 	}
-#else // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
+#elif defined(__APPLE__) && defined(__aarch64__) // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
 	// -> hardcode the name for now
 	cpu_name = "Apple ARMv8";
 	const auto nx_info = NXGetLocalArchInfo();
 	if (nx_info) {
 		cpu_name += "("s + nx_info->name + ", " + nx_info->description + ")";
 	}
+#else
+#error "unhandled arch"
 #endif
 	
 	// now onto getting the cpu clock speed:

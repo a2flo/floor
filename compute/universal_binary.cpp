@@ -443,6 +443,10 @@ namespace universal_binary {
 							}
 							mtl_dev.simd_width = mtl_target.simd_width;
 							break;
+						case decltype(mtl_target.device_target)::APPLE:
+							mtl_dev.vendor = COMPUTE_VENDOR::APPLE;
+							mtl_dev.simd_width = 32;
+							break;
 					}
 					// sub-group/shuffle support if SIMD width is known as well
 					if (mtl_dev.simd_width > 0) {
@@ -1186,6 +1190,11 @@ namespace universal_binary {
 							break;
 						case decltype(mtl_target.device_target)::INTEL:
 							if (mtl_dev.vendor != COMPUTE_VENDOR::INTEL) {
+								continue;
+							}
+							break;
+						case decltype(mtl_target.device_target)::APPLE:
+							if (mtl_dev.vendor != COMPUTE_VENDOR::APPLE) {
 								continue;
 							}
 							break;

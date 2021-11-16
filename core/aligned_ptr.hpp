@@ -32,7 +32,7 @@
 #include <sys/mman.h>
 #endif
 
-//! unique_ptr-like smart pointer with allocations being aligned to 4096 bytes (== page size),
+//! unique_ptr-like smart pointer with allocations being aligned to 4096 bytes (x86-64) or 16384 (aarch64) (== page size),
 //! with the additional ability to page-lock/pin the memory and set page protection
 template <typename T>
 class aligned_ptr {
@@ -40,9 +40,17 @@ public:
 	using pointer = T*;
 	using element_type = T;
 	
-	//! the assumed page size is 4KiB
+	//! the assumed page size is 4KiB (x86-64) or 16KiB (aarch64)
 	//! NOTE: if this is not the case, floor init will already fail
-	static constexpr const uint64_t page_size { 4096u };
+	static constexpr const uint64_t page_size {
+#if defined(__x86_64__)
+		4096u
+#elif defined(__aarch64__)
+		16384u
+#else
+#error "unhandled arch"
+#endif
+	};
 	
 	constexpr aligned_ptr() noexcept = default;
 	explicit aligned_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}

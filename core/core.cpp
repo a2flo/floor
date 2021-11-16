@@ -39,11 +39,15 @@
 #include <dirent.h>
 #endif
 
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 #if defined(__cpuid)
 #error "__cpuid should not yet be defined at this point!"
 #endif
 #include <cpuid.h>
+#elif defined(__APPLE__) && defined(__aarch64__)
+#include <mach-o/arch.h>
+#else
+#error "unhandled arch"
 #endif
 
 namespace core {
@@ -653,7 +657,7 @@ bool is_windows_8_or_higher() {
 #endif
 
 bool cpu_has_fma() {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
 	return (ecx & bit_FMA) > 0;
@@ -663,7 +667,7 @@ bool cpu_has_fma() {
 }
 
 bool cpu_has_avx() {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
 	return (ecx & bit_AVX) > 0;
@@ -673,7 +677,7 @@ bool cpu_has_avx() {
 }
 
 bool cpu_has_avx2() {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
 	if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 1) {
 		return (ebx & 0x00000020) > 0;
@@ -683,7 +687,7 @@ bool cpu_has_avx2() {
 }
 
 bool cpu_has_avx512() {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
 	if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 1) {
 		return (ebx & 0x00010000) > 0;

@@ -334,8 +334,9 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 		log_error("computed argument buffer size is 0");
 		return {};
 	}
-	// round up to next multiple of 4096
-	const auto arg_buffer_size_4k = arg_buffer_size + (arg_buffer_size % 4096u != 0u ? (4096u - (arg_buffer_size % 4096u)) : 0u);
+	// round up to next multiple of page size
+	const auto arg_buffer_size_page = arg_buffer_size + (arg_buffer_size % aligned_ptr<int>::page_size != 0u ?
+														 (aligned_ptr<int>::page_size - (arg_buffer_size % aligned_ptr<int>::page_size)) : 0u);
 	
 	// debug dump of the arg buffer layout
 #if 0
@@ -362,9 +363,9 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	
 	// create the argument buffer
 	// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
-	auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_4k);
-	memset(storage_buffer_backing.get(), 0, arg_buffer_size_4k);
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size_4k, storage_buffer_backing.get(),
+	auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
+	memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size_page, storage_buffer_backing.get(),
 										  COMPUTE_MEMORY_FLAG::READ |
 										  COMPUTE_MEMORY_FLAG::HOST_WRITE |
 										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY);

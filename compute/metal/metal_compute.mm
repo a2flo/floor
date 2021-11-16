@@ -319,24 +319,25 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// on os x, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev_spi vendorName] UTF8String];
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
-		if(lc_vendor_name.find("nvidia") != string::npos) {
+		if (lc_vendor_name.find("nvidia") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::NVIDIA;
 			if (device.simd_width == 0) {
 				device.simd_width = 32;
 				device.simd_range = { device.simd_width, device.simd_width };
 			}
-		}
-		else if(lc_vendor_name.find("intel") != string::npos) {
+		} else if (lc_vendor_name.find("intel") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::INTEL;
 			if (device.simd_width == 0) {
 				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
 				device.simd_range = { 8, 32 };
 			}
-		}
-		else if(lc_vendor_name.find("amd") != string::npos) {
+		} else if (lc_vendor_name.find("amd") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::AMD;
+		} else if (lc_vendor_name.find("apple") != string::npos) {
+			device.vendor = COMPUTE_VENDOR::APPLE;
+		} else {
+			device.vendor = COMPUTE_VENDOR::UNKNOWN;
 		}
-		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
 		device.global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now
 		if ([dev_spi respondsToSelector:@selector(dedicatedMemorySize)]) {
 			device.global_mem_size = [dev_spi dedicatedMemorySize];
@@ -417,6 +418,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
 			device.max_mem_alloc = [dev maxBufferLength]; // iOS 12.0+ / macOS 10.14+
 		}
+		// adjust global memory size (might have been invalid)
+		device.global_mem_size = max(device.global_mem_size, device.max_mem_alloc);
 		device.max_group_size = { 0xFFFFFFFFu };
 		device.max_local_size = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
@@ -483,7 +486,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 		
 		// null buffer
-		auto null_buffer = create_buffer(*dev_queue, 4096u, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
 		null_buffer->zero(*dev_queue);
 		internal_null_buffers.insert_or_assign(*dev, null_buffer);
 	}

@@ -173,6 +173,8 @@ namespace universal_binary {
 				AMD			= 2u,
 				//! target Intel GPUs
 				INTEL		= 3u,
+				//! target Apple GPUs
+				APPLE		= 4u,
 			};
 			DEVICE_TARGET device_target : 4u;
 			

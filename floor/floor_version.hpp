@@ -73,10 +73,12 @@
 #define FLOOR_LIBCXX ""
 #endif
 
-#if !defined(FLOOR_IOS)
-#define FLOOR_PLATFORM (sizeof(void*) == 8 ? "x64" : "unknown")
-#else
+#if defined(__x86_64__)
+#define FLOOR_PLATFORM (sizeof(void*) == 8 ? "x86-64" : "unknown")
+#elif defined(__aarch64__)
 #define FLOOR_PLATFORM (sizeof(void*) == 8 ? "ARM64" : "unknown")
+#else
+#error "unhandled arch"
 #endif
 
 #define FLOOR_VERSION_STRING (string("floor ")+FLOOR_PLATFORM+FLOOR_DEBUG_STR \
