@@ -116,10 +116,10 @@ BUILD_CC=
 PLATFORM_OPTIONS=
 case ${BUILD_PLATFORM} in
 	"darwin")
-		if expr `uname -p` : "arm.*" >/dev/null; then
-			BUILD_OS="ios"
+		if expr `sw_vers -productName` : "macOS" >/dev/null; then
+			BUILD_OS="macos"
 		else
-			BUILD_OS="osx"
+			BUILD_OS="ios"
 		fi
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
 		BUILD_CXX=clang++
@@ -156,6 +156,19 @@ case ${BUILD_PLATFORM} in
 		;;
 esac
 
+CPU_OPTIONS="-msse4.1 -mtune=native"
+APPLE_DEPLOYMENT_TARGET=
+APPLE_ARCHS=
+if [ $BUILD_OS == "macos" ]; then
+	APPLE_DEPLOYMENT_TARGET="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.13"
+	APPLE_ARCHS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
+	CPU_OPTIONS=""
+elif [ $BUILD_OS == "ios" ]; then
+	APPLE_DEPLOYMENT_TARGET="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_SYSTEM_NAME=iOS"
+	APPLE_ARCHS="-DCMAKE_OSX_ARCHITECTURES=arm64"
+	CPU_OPTIONS=""
+fi
+
 # if no CXX is set, use a platform specific default (determined above)
 if [ -z "${CXX}" ]; then
 	export CXX=${BUILD_CXX}
@@ -172,7 +185,7 @@ info "using ${BUILD_JOB_COUNT} build jobs"
 cd SPIRV-Tools
 mkdir build
 cd build
-cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF -DSPIRV_SKIP_TESTS=ON ../
+cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF -DSPIRV_SKIP_TESTS=ON ${APPLE_DEPLOYMENT_TARGET} ${APPLE_ARCHS} ../
 make -j ${BUILD_JOB_COUNT}
 make_ret_code=$?
 
@@ -186,14 +199,6 @@ cd ../../
 mkdir build
 cd build
 
-# TODO: cmake!
-EXTRA_OPTIONS=""
-if [ $BUILD_OS == "osx" ]; then
-	EXTRA_OPTIONS="-mmacosx-version-min=10.13"
-elif [ $BUILD_OS == "ios" ]; then
-	EXTRA_OPTIONS="-miphoneos-version-min=11.0"
-fi
-
 CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
 	info "using clang"
@@ -206,7 +211,7 @@ fi
 # only build what we need
 toolchain_binaries=(clang llvm-as llvm-dis llvm-spirv metallib-dis)
 
-CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -msse4.1 -mtune=native -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR="include" ../llvm/llvm
+CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE="-Ofast -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion ${CPU_OPTIONS} ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion ${CPU_OPTIONS} ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR="include" ${APPLE_DEPLOYMENT_TARGET} ${APPLE_ARCHS} ../llvm/llvm
 make -j ${BUILD_JOB_COUNT} ${toolchain_binaries[@]}
 make_ret_code=$?
 
