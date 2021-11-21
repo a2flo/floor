@@ -36010,6 +36010,21 @@ index df43ec15eb58..d0bd9930e280 100644
    case Triple::tcele:
    case Triple::thumb:
    case Triple::ve:
+diff --git a/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp b/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
+index c3624058b42c..1f8f315aeff0 100644
+--- a/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
++++ b/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
+@@ -5194,6 +5194,10 @@ CCAssignFn *AArch64TargetLowering::CCAssignFnForCall(CallingConv::ID CC,
+   case CallingConv::Swift:
+   case CallingConv::SwiftTail:
+   case CallingConv::Tail:
++  case CallingConv::FLOOR_FUNC:
++  case CallingConv::FLOOR_KERNEL:
++  case CallingConv::FLOOR_VERTEX:
++  case CallingConv::FLOOR_FRAGMENT:
+     if (Subtarget->isTargetWindows() && IsVarArg)
+       return CC_AArch64_Win64_VarArg;
+     if (!Subtarget->isTargetDarwin())
 diff --git a/llvm/lib/Target/AMDGPU/CMakeLists.txt b/llvm/lib/Target/AMDGPU/CMakeLists.txt
 index 6dd10affdfc9..2e10d19481ab 100644
 --- a/llvm/lib/Target/AMDGPU/CMakeLists.txt
