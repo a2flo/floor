@@ -43,12 +43,16 @@ enum class HOST_CPU_TIER : uint64_t {
 	//! ARM-based CPUs
 	__ARM_OFFSET = 1000u,
 	__ARM_RANGE = 1999u,
-	//! base ARM64 / ARMv8
-	//! NOTE: targets Apple A7 and higher (arm64 arch)
+	//! base ARMv8.0 (e.g. Cortex-A53, Cortex-A72, Apple A7 - A9)
 	ARM_TIER_1 = (__ARM_OFFSET + 1u),
-	//! ARMv8.3
-	//! NOTE: targets Apple A12 and higher (arm64e arch)
+	//! ARMv8.1 + FP16 (e.g. Apple A10)
 	ARM_TIER_2 = (__ARM_OFFSET + 2u),
+	//! ARMv8.2 + FP16 (e.g. Cortex-A75, Apple A11, Carmel)
+	ARM_TIER_3 = (__ARM_OFFSET + 3u),
+	//! ARMv8.3 + FP16 (e.g. Apple A12)
+	ARM_TIER_4 = (__ARM_OFFSET + 4u),
+	//! ARMv8.4 + FP16 (e.g. Apple A13 - A15, Apple M1)
+	ARM_TIER_5 = (__ARM_OFFSET + 5u),
 };
 
 constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
@@ -59,6 +63,9 @@ constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
 		case HOST_CPU_TIER::X86_TIER_4: return "x86 Tier 4";
 		case HOST_CPU_TIER::ARM_TIER_1: return "ARM Tier 1";
 		case HOST_CPU_TIER::ARM_TIER_2: return "ARM Tier 2";
+		case HOST_CPU_TIER::ARM_TIER_3: return "ARM Tier 3";
+		case HOST_CPU_TIER::ARM_TIER_4: return "ARM Tier 4";
+		case HOST_CPU_TIER::ARM_TIER_5: return "ARM Tier 5";
 		default: return "";
 	}
 }

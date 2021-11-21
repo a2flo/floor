@@ -42,10 +42,6 @@
 
 #if defined(__x86_64__)
 #include <cpuid.h>
-#elif defined(__APPLE__) && defined(__aarch64__)
-#include <mach-o/arch.h>
-#else
-#error "unhandled arch"
 #endif
 
 #if defined(__WINDOWS__)
@@ -90,12 +86,15 @@ host_compute::host_compute() : compute_context() {
 		}
 		cpu_name = core::trim(cpuid_name);
 	}
-#elif defined(__APPLE__) && defined(__aarch64__) // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
-	// -> hardcode the name for now
+#elif defined(__APPLE__) && defined(__aarch64__)
 	cpu_name = "Apple ARMv8";
-	const auto nx_info = NXGetLocalArchInfo();
-	if (nx_info) {
-		cpu_name += "("s + nx_info->name + ", " + nx_info->description + ")";
+	
+	// if brand_string contains a proper non-generic name, use that as the CPU name
+	string cpu_brand(64, 0);
+	size_t cpu_brand_size = cpu_brand.size() - 1;
+	sysctlbyname("machdep.cpu.brand_string", &cpu_brand[0], &cpu_brand_size, nullptr, 0);
+	if (cpu_brand != "Apple processor") {
+		cpu_name = cpu_brand;
 	}
 #else
 #error "unhandled arch"
@@ -191,7 +190,7 @@ host_compute::host_compute() : compute_context() {
 	device.max_image_1d_buffer_dim = { (size_t)std::min(device.max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	
 	// figure out CPU tier
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 	if (core::cpu_has_avx512()) {
 		device.cpu_tier = HOST_CPU_TIER::X86_TIER_4;
 	} else if (core::cpu_has_avx2() && core::cpu_has_fma()) {
@@ -201,12 +200,44 @@ host_compute::host_compute() : compute_context() {
 	} else {
 		device.cpu_tier = HOST_CPU_TIER::X86_TIER_1;
 	}
-#else
-	if (nx_info && nx_info->cpusubtype >= CPU_SUBTYPE_ARM64E) {
-		device.cpu_tier = HOST_CPU_TIER::ARM_TIER_2;
-	} else {
-		device.cpu_tier = HOST_CPU_TIER::ARM_TIER_1;
+#elif defined(__aarch64__)
+#if defined(__APPLE__)
+	// figure out the actual ARM core/ISA
+	uint32_t cpufamily = 0;
+	size_t cpufamily_size = sizeof(cpufamily);
+	sysctlbyname("hw.cpufamily", &cpufamily, &cpufamily_size, nullptr, 0);
+	switch (cpufamily) {
+		default:
+			// default to highest tier for all unknown (newer) cores
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
+			break;
+		case 0x37a09642 /* Cyclone A7 */:
+		case 0x2c91a47e /* Typhoon A8 */:
+		case 0x92fb37c8 /* Twister A9 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_1;
+			break;
+		case 0x67ceee93 /* Hurricane/Zephyr A10 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_2;
+			break;
+		case 0xe81e7ef6 /* Monsoon/Mistral A11 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_3;
+			break;
+		case 0x07d34b9f /* Vortex/Tempest A12 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_4;
+			break;
+		case 0x462504d2 /* Lightning/Thunder A13 */:
+		case 0x1b588bb3 /* Firestorm/Icestorm A14 & M1 */:
+		case 0xda33d83d /* Blizzard/Avalanche A15 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
+			break;
 	}
+	
+#else
+	// TODO: handle this on non-Apple platforms
+	device.cpu_tier = HOST_CPU_TIER::ARM_TIER_1;
+#endif
+#else
+#error "unhandled arch"
 #endif
 	
 	//

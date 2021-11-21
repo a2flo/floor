@@ -525,7 +525,7 @@ program_data compile_input(const string& input,
 			
 			string arch, prefer_vec_width;
 			switch (cpu_device.cpu_tier) {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 				default:
 #endif
 				case HOST_CPU_TIER::X86_TIER_1:
@@ -543,22 +543,41 @@ program_data compile_input(const string& input,
 					prefer_vec_width = " -mprefer-vector-width=512";
 					break;
 					
-#if defined(FLOOR_IOS)
+#if defined(__aarch64__)
 				default:
 #endif
 				case HOST_CPU_TIER::ARM_TIER_1:
-					arch = "arm64";
+					arch = "armv8-a";
 					break;
 				case HOST_CPU_TIER::ARM_TIER_2:
-					arch = "arm64e";
+					arch = "armv8.1-a+fp16";
 					break;
+				case HOST_CPU_TIER::ARM_TIER_3:
+					arch = "armv8.2-a+fp16";
+					break;
+				case HOST_CPU_TIER::ARM_TIER_4:
+					arch = "armv8.3-a+fp16";
+					break;
+				case HOST_CPU_TIER::ARM_TIER_5:
+					arch = "armv8.4-a+fp16";
+					break;
+			}
+			
+			string target;
+			if (cpu_device.cpu_tier >= HOST_CPU_TIER::__X86_OFFSET && cpu_device.cpu_tier <= HOST_CPU_TIER::__X86_RANGE) {
+				target = "x86_64";
+			} else if (cpu_device.cpu_tier >= HOST_CPU_TIER::__ARM_OFFSET && cpu_device.cpu_tier <= HOST_CPU_TIER::__ARM_RANGE) {
+				target = "aarch64";
+			} else {
+				log_error("unhandled CPU tier/arch");
+				return {};
 			}
 			
 			clang_cmd += {
 				"\"" + floor::get_host_compiler() + "\"" +
 				" -x " + (!build_pch ? "c++" : "c++-header") +
 				" -std=gnu++2a" +
-				" -target x86_64-pc-none-floor_host_compute" \
+				" -target " + target + "-pc-none-floor_host_compute" \
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
 				" -march=" + arch +

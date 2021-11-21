@@ -490,6 +490,9 @@ namespace universal_binary {
 						break;
 					case HOST_CPU_TIER::ARM_TIER_1:
 					case HOST_CPU_TIER::ARM_TIER_2:
+					case HOST_CPU_TIER::ARM_TIER_3:
+					case HOST_CPU_TIER::ARM_TIER_4:
+					case HOST_CPU_TIER::ARM_TIER_5:
 						host_dev.simd_width = 4u; // NEON
 						break;
 					default:
