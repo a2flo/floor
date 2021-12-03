@@ -36011,7 +36011,7 @@ index df43ec15eb58..d0bd9930e280 100644
    case Triple::thumb:
    case Triple::ve:
 diff --git a/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp b/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
-index c3624058b42c..1f8f315aeff0 100644
+index c3624058b42c..be018bc7eb32 100644
 --- a/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
 +++ b/llvm/lib/Target/AArch64/AArch64ISelLowering.cpp
 @@ -5194,6 +5194,10 @@ CCAssignFn *AArch64TargetLowering::CCAssignFnForCall(CallingConv::ID CC,
@@ -36025,6 +36025,57 @@ index c3624058b42c..1f8f315aeff0 100644
      if (Subtarget->isTargetWindows() && IsVarArg)
        return CC_AArch64_Win64_VarArg;
      if (!Subtarget->isTargetDarwin())
+@@ -6306,7 +6310,7 @@ AArch64TargetLowering::LowerCall(CallLoweringInfo &CLI,
+     }
+   } else if (auto *S = dyn_cast<ExternalSymbolSDNode>(Callee)) {
+     if (getTargetMachine().getCodeModel() == CodeModel::Large &&
+-        Subtarget->isTargetMachO()) {
++        (Subtarget->isTargetMachO() || Subtarget->isTargetHostCompute())) {
+       const char *Sym = S->getSymbol();
+       Callee = DAG.getTargetExternalSymbol(Sym, PtrVT, AArch64II::MO_GOT);
+       Callee = DAG.getNode(AArch64ISD::LOADgot, DL, PtrVT, Callee);
+diff --git a/llvm/lib/Target/AArch64/AArch64Subtarget.cpp b/llvm/lib/Target/AArch64/AArch64Subtarget.cpp
+index 3072b5a41219..3e5e68ab29ab 100644
+--- a/llvm/lib/Target/AArch64/AArch64Subtarget.cpp
++++ b/llvm/lib/Target/AArch64/AArch64Subtarget.cpp
+@@ -272,9 +272,10 @@ const RegisterBankInfo *AArch64Subtarget::getRegBankInfo() const {
+ unsigned
+ AArch64Subtarget::ClassifyGlobalReference(const GlobalValue *GV,
+                                           const TargetMachine &TM) const {
+-  // MachO large model always goes via a GOT, simply to get a single 8-byte
++  // MachO/Host-Compute large model always goes via a GOT, simply to get a single 8-byte
+   // absolute relocation on all global addresses.
+-  if (TM.getCodeModel() == CodeModel::Large && isTargetMachO())
++  if (TM.getCodeModel() == CodeModel::Large &&
++      (isTargetMachO() || isTargetHostCompute()))
+     return AArch64II::MO_GOT;
+ 
+   if (!TM.shouldAssumeDSOLocal(*GV->getParent(), GV)) {
+@@ -304,9 +305,10 @@ AArch64Subtarget::ClassifyGlobalReference(const GlobalValue *GV,
+ 
+ unsigned AArch64Subtarget::classifyGlobalFunctionReference(
+     const GlobalValue *GV, const TargetMachine &TM) const {
+-  // MachO large model always goes via a GOT, because we don't have the
++  // MachO/Host-Compute large model always goes via a GOT, because we don't have the
+   // relocations available to do anything else..
+-  if (TM.getCodeModel() == CodeModel::Large && isTargetMachO() &&
++  if (TM.getCodeModel() == CodeModel::Large &&
++      (isTargetMachO() || isTargetHostCompute()) &&
+       !GV->hasInternalLinkage())
+     return AArch64II::MO_GOT;
+ 
+diff --git a/llvm/lib/Target/AArch64/AArch64Subtarget.h b/llvm/lib/Target/AArch64/AArch64Subtarget.h
+index a34e14896192..98ee57a3e05d 100644
+--- a/llvm/lib/Target/AArch64/AArch64Subtarget.h
++++ b/llvm/lib/Target/AArch64/AArch64Subtarget.h
+@@ -525,6 +525,7 @@ public:
+   bool isTargetWindows() const { return TargetTriple.isOSWindows(); }
+   bool isTargetAndroid() const { return TargetTriple.isAndroid(); }
+   bool isTargetFuchsia() const { return TargetTriple.isOSFuchsia(); }
++  bool isTargetHostCompute() const { return TargetTriple.getEnvironment() == Triple::FloorHostCompute; }
+ 
+   bool isTargetCOFF() const { return TargetTriple.isOSBinFormatCOFF(); }
+   bool isTargetELF() const { return TargetTriple.isOSBinFormatELF(); }
 diff --git a/llvm/lib/Target/AMDGPU/CMakeLists.txt b/llvm/lib/Target/AMDGPU/CMakeLists.txt
 index 6dd10affdfc9..2e10d19481ab 100644
 --- a/llvm/lib/Target/AMDGPU/CMakeLists.txt
