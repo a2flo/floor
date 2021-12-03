@@ -221,7 +221,7 @@ LBB0_3:                                 //   in Loop: Header=BB0_1 Depth=1
 </details>
 
 <details>
-  <summary>Host-Compute (CPU)</summary>
+  <summary>Host-Compute (x86 CPU)</summary>
   Note that the compiler would usually directly output a <a href="https://github.com/a2flo/floor/blob/master/etc/example/nbody.bin">.bin file</a> (ELF format). The output below comes from disassembling it with <code>objdump -d</code>.
   Also note that this has been compiled for the <a href="https://github.com/a2flo/floor/blob/master/compute/host/host_common.hpp#L41"><code>x86-4</code> target</a> (AVX-512).
   
@@ -582,6 +582,186 @@ Disassembly of section .text:
  6ad:	41 5f                	pop    %r15
  6af:	5d                   	pop    %rbp
  6b0:	c3                   	ret
+----
+++++
+</code></pre>
+</details>
+
+<details>
+  <summary>Host-Compute (ARM CPU)</summary>
+  Note that the compiler would usually directly output a <a href="https://github.com/a2flo/floor/blob/master/etc/example/nbody_aarch64.bin">.bin file</a> (ELF format). The output below comes from disassembling it with <code>objdump -d</code>.
+  Also note that this has been compiled for the <a href="https://github.com/a2flo/floor/blob/master/compute/host/host_common.hpp#L55"><code>arm-5</code> target</a> (ARMv8.4-A + FP16, e.g. Apple M1/A14).
+
+++++
+[source,Assembly]
+----
+nbody_aarch64.bin:	file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000000000 <simplified_nbody>:
+       0: ff c3 04 d1  	sub	sp, sp, #304
+       4: 08 00 00 90  	adrp	x8, 0x0 <simplified_nbody+0x4>
+       8: ed 33 0a 6d  	stp	d13, d12, [sp, #160]
+       c: eb 2b 0b 6d  	stp	d11, d10, [sp, #176]
+      10: e9 23 0c 6d  	stp	d9, d8, [sp, #192]
+      14: fd 7b 0d a9  	stp	x29, x30, [sp, #208]
+      18: fd 43 03 91  	add	x29, sp, #208
+      1c: fc 6f 0e a9  	stp	x28, x27, [sp, #224]
+      20: fa 67 0f a9  	stp	x26, x25, [sp, #240]
+      24: f8 5f 10 a9  	stp	x24, x23, [sp, #256]
+      28: f6 57 11 a9  	stp	x22, x21, [sp, #272]
+      2c: f4 4f 12 a9  	stp	x20, x19, [sp, #288]
+      30: 08 01 40 f9  	ldr	x8, [x8]
+      34: 17 01 40 b9  	ldr	w23, [x8]
+      38: 88 01 80 52  	mov	w8, #12
+      3c: f6 0a 08 9b  	madd	x22, x23, x8, x2
+      40: 08 00 00 90  	adrp	x8, 0x0 <simplified_nbody+0x40>
+      44: f8 03 16 aa  	mov	x24, x22
+      48: 08 01 40 f9  	ldr	x8, [x8]
+      4c: c8 02 40 fd  	ldr	d8, [x22]
+      50: 09 8f 40 bc  	ldr	s9, [x24, #8]!
+      54: 19 01 40 b9  	ldr	w25, [x8]
+      58: 79 0d 00 34  	cbz	w25, 0x204 <simplified_nbody+0x204>
+      5c: 03 e4 00 2f  	movi	d3, #0000000000000000
+      60: 08 10 17 8b  	add	x8, x0, x23, lsl #4
+      64: 1c 00 00 90  	adrp	x28, 0x0 <simplified_nbody+0x64>
+      68: e3 07 00 a9  	stp	x3, x1, [sp]
+      6c: 13 00 00 90  	adrp	x19, 0x0 <simplified_nbody+0x6c>
+      70: 14 00 00 90  	adrp	x20, 0x0 <simplified_nbody+0x70>
+      74: f5 03 00 aa  	mov	x21, x0
+      78: fa 03 1f 2a  	mov	w26, wzr
+      7c: 9c 03 40 f9  	ldr	x28, [x28]
+      80: a3 03 9a 3c  	stur	q3, [x29, #-96]
+      84: 00 05 40 2d  	ldp	s0, s1, [x8]
+      88: 02 09 40 bd  	ldr	s2, [x8, #8]
+      8c: e8 e2 96 52  	mov	w8, #46871
+      90: 03 f6 03 4f  	fmov	v3.4s, #1.00000000
+      94: 28 1a a7 72  	movk	w8, #14545, lsl #16
+      98: fb 03 1f 2a  	mov	w27, wzr
+      9c: e3 17 80 3d  	str	q3, [sp, #80]
+      a0: 03 04 04 4e  	dup	v3.4s, v0.s[0]
+      a4: 00 0d 04 4e  	dup	v0.4s, w8
+      a8: 73 02 40 f9  	ldr	x19, [x19]
+      ac: e0 8f 01 ad  	stp	q0, q3, [sp, #48]
+      b0: 00 e4 00 2f  	movi	d0, #0000000000000000
+      b4: 23 04 04 4e  	dup	v3.4s, v1.s[0]
+      b8: e0 1b 80 3d  	str	q0, [sp, #96]
+      bc: 00 e4 00 2f  	movi	d0, #0000000000000000
+      c0: a0 03 9b 3c  	stur	q0, [x29, #-80]
+      c4: 40 04 04 4e  	dup	v0.4s, v2.s[0]
+      c8: 94 02 40 f9  	ldr	x20, [x20]
+      cc: e0 8f 00 ad  	stp	q0, q3, [sp, #16]
+      d0: 88 03 40 b9  	ldr	w8, [x28]
+      d4: 09 21 1b 0b  	add	w9, w8, w27, lsl #8
+      d8: a0 5a e9 3c  	ldr	q0, [x21, w9, uxtw #4]
+      dc: 60 7a a8 3c  	str	q0, [x19, x8, lsl #4]
+      e0: 80 02 3f d6  	blr	x20
+      e4: 00 e4 00 6f  	movi	v0.2d, #0000000000000000
+      e8: a4 03 da 3c  	ldur	q4, [x29, #-96]
+      ec: 02 e4 00 6f  	movi	v2.2d, #0000000000000000
+      f0: e8 03 1f aa  	mov	x8, xzr
+      f4: 03 e4 00 6f  	movi	v3.2d, #0000000000000000
+      f8: eb ab 41 ad  	ldp	q11, q10, [sp, #48]
+      fc: 80 04 04 6e  	mov	v0.s[0], v4.s[0]
+     100: 01 e4 00 6f  	movi	v1.2d, #0000000000000000
+     104: 05 e4 00 6f  	movi	v5.2d, #0000000000000000
+     108: ff 93 42 ad  	ldp	q31, q4, [sp, #80]
+     10c: 82 04 04 6e  	mov	v2.s[0], v4.s[0]
+     110: a4 03 db 3c  	ldur	q4, [x29, #-80]
+     114: ed b3 40 ad  	ldp	q13, q12, [sp, #16]
+     118: 83 04 04 6e  	mov	v3.s[0], v4.s[0]
+     11c: 04 e4 00 6f  	movi	v4.2d, #0000000000000000
+     120: 69 02 08 8b  	add	x9, x19, x8
+     124: 08 01 02 91  	add	x8, x8, #128
+     128: 67 1d ab 4e  	mov	v7.16b, v11.16b
+     12c: 1f 05 40 f1  	cmp	x8, #1, lsl #12
+     130: 7b 1d ab 4e  	mov	v27.16b, v11.16b
+     134: 30 09 df 4c  	ld4	{ v16.4s, v17.4s, v18.4s, v19.4s }, [x9], #64
+     138: 06 d6 aa 4e  	fsub	v6.4s, v16.4s, v10.4s
+     13c: 38 d6 ac 4e  	fsub	v24.4s, v17.4s, v12.4s
+     140: 59 d6 ad 4e  	fsub	v25.4s, v18.4s, v13.4s
+     144: c7 cc 26 4e  	fmla	v7.4s, v6.4s, v6.4s
+     148: 07 cf 38 4e  	fmla	v7.4s, v24.4s, v24.4s
+     14c: 34 09 40 4c  	ld4	{ v20.4s, v21.4s, v22.4s, v23.4s }, [x9]
+     150: 27 cf 39 4e  	fmla	v7.4s, v25.4s, v25.4s
+     154: e7 f8 a1 6e  	fsqrt	v7.4s, v7.4s
+     158: 9a d6 aa 4e  	fsub	v26.4s, v20.4s, v10.4s
+     15c: bc d6 ac 4e  	fsub	v28.4s, v21.4s, v12.4s
+     160: dd d6 ad 4e  	fsub	v29.4s, v22.4s, v13.4s
+     164: 5b cf 3a 4e  	fmla	v27.4s, v26.4s, v26.4s
+     168: e7 ff 27 6e  	fdiv	v7.4s, v31.4s, v7.4s
+     16c: 9b cf 3c 4e  	fmla	v27.4s, v28.4s, v28.4s
+     170: bb cf 3d 4e  	fmla	v27.4s, v29.4s, v29.4s
+     174: 7b fb a1 6e  	fsqrt	v27.4s, v27.4s
+     178: fe dc 27 6e  	fmul	v30.4s, v7.4s, v7.4s
+     17c: 67 de 27 6e  	fmul	v7.4s, v19.4s, v7.4s
+     180: c7 df 27 6e  	fmul	v7.4s, v30.4s, v7.4s
+     184: fb ff 3b 6e  	fdiv	v27.4s, v31.4s, v27.4s
+     188: e3 cc 26 4e  	fmla	v3.4s, v7.4s, v6.4s
+     18c: e2 cc 38 4e  	fmla	v2.4s, v7.4s, v24.4s
+     190: e0 cc 39 4e  	fmla	v0.4s, v7.4s, v25.4s
+     194: 70 df 3b 6e  	fmul	v16.4s, v27.4s, v27.4s
+     198: f1 de 3b 6e  	fmul	v17.4s, v23.4s, v27.4s
+     19c: 10 de 31 6e  	fmul	v16.4s, v16.4s, v17.4s
+     1a0: 05 ce 3a 4e  	fmla	v5.4s, v16.4s, v26.4s
+     1a4: 04 ce 3c 4e  	fmla	v4.4s, v16.4s, v28.4s
+     1a8: 01 ce 3d 4e  	fmla	v1.4s, v16.4s, v29.4s
+     1ac: a1 fb ff 54  	b.ne	0x120 <simplified_nbody+0x120>
+     1b0: a3 d4 23 4e  	fadd	v3.4s, v5.4s, v3.4s
+     1b4: 20 d4 20 4e  	fadd	v0.4s, v1.4s, v0.4s
+     1b8: 82 d4 22 4e  	fadd	v2.4s, v4.4s, v2.4s
+     1bc: 61 d4 20 6e  	faddp	v1.4s, v3.4s, v0.4s
+     1c0: 42 d4 20 6e  	faddp	v2.4s, v2.4s, v0.4s
+     1c4: 00 d4 20 6e  	faddp	v0.4s, v0.4s, v0.4s
+     1c8: 21 d8 30 7e  	faddp	s1, v1.2s
+     1cc: 00 d8 30 7e  	faddp	s0, v0.2s
+     1d0: a0 07 3d ad  	stp	q0, q1, [x29, #-96]
+     1d4: 41 d8 30 7e  	faddp	s1, v2.2s
+     1d8: e1 1b 80 3d  	str	q1, [sp, #96]
+     1dc: 80 02 3f d6  	blr	x20
+     1e0: 5a 03 04 11  	add	w26, w26, #256
+     1e4: 7b 07 00 11  	add	w27, w27, #1
+     1e8: 5f 03 19 6b  	cmp	w26, w25
+     1ec: 23 f7 ff 54  	b.lo	0xd0 <simplified_nbody+0xd0>
+     1f0: a2 07 7d ad  	ldp	q2, q1, [x29, #-96]
+     1f4: e0 1b c0 3d  	ldr	q0, [sp, #96]
+     1f8: e3 07 40 a9  	ldp	x3, x1, [sp]
+     1fc: 01 04 0c 6e  	mov	v1.s[1], v0.s[0]
+     200: 03 00 00 14  	b	0x20c <simplified_nbody+0x20c>
+     204: 01 e4 00 2f  	movi	d1, #0000000000000000
+     208: 02 e4 00 2f  	movi	d2, #0000000000000000
+     20c: e8 ce 97 52  	mov	w8, #48759
+     210: 60 00 40 bd  	ldr	s0, [x3]
+     214: e8 ef a7 72  	movk	w8, #16255, lsl #16
+     218: 29 10 17 8b  	add	x9, x1, x23, lsl #4
+     21c: f4 4f 52 a9  	ldp	x20, x19, [sp, #288]
+     220: 28 10 80 0f  	fmla	v8.2s, v1.2s, v0.s[0]
+     224: 02 24 02 1f  	fmadd	s2, s0, s2, s9
+     228: 01 0d 04 0e  	dup	v1.2s, w8
+     22c: 03 01 27 1e  	fmov	s3, w8
+     230: 24 01 40 fd  	ldr	d4, [x9]
+     234: fa 67 4f a9  	ldp	x26, x25, [sp, #240]
+     238: 42 08 23 1e  	fmul	s2, s2, s3
+     23c: 01 dd 21 2e  	fmul	v1.2s, v8.2s, v1.2s
+     240: 23 09 40 bd  	ldr	s3, [x9, #8]
+     244: fc 6f 4e a9  	ldp	x28, x27, [sp, #224]
+     248: 02 03 00 bd  	str	s2, [x24]
+     24c: 24 10 80 0f  	fmla	v4.2s, v1.2s, v0.s[0]
+     250: 40 0c 00 1f  	fmadd	s0, s2, s0, s3
+     254: c1 02 00 fd  	str	d1, [x22]
+     258: f6 57 51 a9  	ldp	x22, x21, [sp, #272]
+     25c: f8 5f 50 a9  	ldp	x24, x23, [sp, #256]
+     260: 24 01 00 fd  	str	d4, [x9]
+     264: fd 7b 4d a9  	ldp	x29, x30, [sp, #208]
+     268: 20 09 00 bd  	str	s0, [x9, #8]
+     26c: e9 23 4c 6d  	ldp	d9, d8, [sp, #192]
+     270: eb 2b 4b 6d  	ldp	d11, d10, [sp, #176]
+     274: ed 33 4a 6d  	ldp	d13, d12, [sp, #160]
+     278: ff c3 04 91  	add	sp, sp, #304
+     27c: c0 03 5f d6  	ret
+
 ----
 ++++
 </code></pre>
