@@ -65,6 +65,15 @@ typedef __SIZE_TYPE__ size_t;
 #define fragment FLOOR_ENTRY_POINT_SPEC
 #endif
 
+// define calling convention
+#if defined(__x86_64__)
+#define FLOOR_COMPUTE_HOST_CALLING_CONV sysv_abi
+#elif defined(__aarch64__)
+#define FLOOR_COMPUTE_HOST_CALLING_CONV pcs("aapcs")
+#else
+#error "unhandled arch"
+#endif
+
 // workaround use of "global" in locale header by including it before killing global
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <locale>

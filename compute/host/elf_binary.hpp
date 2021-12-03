@@ -27,6 +27,8 @@
 #include <floor/core/flat_map.hpp>
 
 struct section_t;
+struct relocation_t;
+struct symbol_t;
 
 class elf_binary {
 public:
@@ -91,7 +93,7 @@ protected:
 		//! public/external execution instance info
 		instance_t external_instance;
 		//! global offset table
-		vector<uint64_t> GOT { 0ull };
+		aligned_ptr<uint64_t> GOT;
 		//! number of entries in the global offset table
 		uint64_t GOT_entry_count { 1ull };
 		//! current global offset table index
@@ -123,6 +125,21 @@ protected:
 	
 	//! instantiates the specified instance, returns true on success
 	bool instantiate(const uint32_t instance_idx);
+	
+	//! perform relocations in exec memory and optionally rodata memory
+	bool perform_relocations(internal_instance_t& instance,
+							 instance_t& ext_instance,
+							 const vector<relocation_t>& relocations,
+							 aligned_ptr<uint8_t>& memory);
+	
+	//! tries to resolve the symbol specified by "sym", in the specified "instance" + "ext_instance"
+	const void* resolve_symbol(internal_instance_t& instance, instance_t& ext_instance, const symbol_t& sym);
+	
+	//! tries to resolve the section specified by "sym", in the specified "instance"
+	const void* resolve_section(internal_instance_t& instance, const symbol_t& sym);
+	
+	//! tries to resolve the symbol in the specified "relocation", in the specified "instance" + "ext_instance"
+	const void* resolve(internal_instance_t& instance, instance_t& ext_instance, const relocation_t& relocation);
 	
 };
 

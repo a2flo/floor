@@ -145,6 +145,14 @@ public:
 		return ptr;
 	}
 	
+	const element_type& operator[](const size_t& index) const {
+		return ptr[index];
+	}
+	
+	element_type& operator[](const size_t& index) {
+		return ptr[index];
+	}
+	
 	//! returns the size of this allocation
 	size_t allocation_size() const noexcept {
 		return size;

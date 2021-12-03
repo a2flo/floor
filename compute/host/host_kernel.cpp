@@ -97,22 +97,22 @@ asm("floor_get_context_sysv_x86_64:"
 asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
 	"vmovdqu64 (%rdi), %zmm0;"
-	"vextracti64x2 $0, %zmm0, %xmm1;"
-	"vextracti64x2 $1, %zmm0, %xmm2;"
-	"vextracti64x2 $2, %zmm0, %xmm3;"
 	"vextracti64x2 $3, %zmm0, %xmm4;"
+	"vextracti64x2 $2, %zmm0, %xmm3;"
+	"vextracti64x2 $1, %zmm0, %xmm2;"
+	"vextracti64x2 $0, %zmm0, %xmm1;"
 	
-	"vmovq %xmm1, %rbp;"
-	"vpextrq $1, %xmm1, %rbx;"
-	
-	"vmovq %xmm2, %r12;"
-	"vpextrq $1, %xmm2, %r13;"
+	"vmovq %xmm4, %rsp;"
+	"vpextrq $1, %xmm4, %rcx;" // rip
 	
 	"vmovq %xmm3, %r14;"
 	"vpextrq $1, %xmm3, %r15;"
 	
-	"vmovq %xmm4, %rsp;"
-	"vpextrq $1, %xmm4, %rcx;" // rip
+	"vmovq %xmm2, %r12;"
+	"vpextrq $1, %xmm2, %r13;"
+	
+	"vmovq %xmm1, %rbp;"
+	"vpextrq $1, %xmm1, %rbx;"
 	
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
@@ -143,21 +143,21 @@ asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
 	"prefetchnta (%rdi);"
 	
-	"vmovdqa (%rdi), %xmm0;"
-	"vmovq %xmm0, %rbp;"
-	"vpextrq $1, %xmm0, %rbx;"
-	
-	"vmovdqa 0x10(%rdi), %xmm1;"
-	"vmovq %xmm1, %r12;"
-	"vpextrq $1, %xmm1, %r13;"
+	"vmovdqa 0x30(%rdi), %xmm3;"
+	"vmovq %xmm3, %rsp;"
+	"vpextrq $1, %xmm3, %rcx;" // rip
 	
 	"vmovdqa 0x20(%rdi), %xmm2;"
 	"vmovq %xmm2, %r14;"
 	"vpextrq $1, %xmm2, %r15;"
 	
-	"vmovdqa 0x30(%rdi), %xmm3;"
-	"vmovq %xmm3, %rsp;"
-	"vpextrq $1, %xmm3, %rcx;" // rip
+	"vmovdqa 0x10(%rdi), %xmm1;"
+	"vmovq %xmm1, %r12;"
+	"vpextrq $1, %xmm1, %r13;"
+	
+	"vmovdqa (%rdi), %xmm0;"
+	"vmovq %xmm0, %rbp;"
+	"vpextrq $1, %xmm0, %rbx;"
 	
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
@@ -178,14 +178,14 @@ asm("floor_get_context_sysv_x86_64:"
 	"retq;");
 asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
-	"movq 0x0(%rdi), %rbp;"
-	"movq 0x8(%rdi), %rbx;"
-	"movq 0x10(%rdi), %r12;"
-	"movq 0x18(%rdi), %r13;"
-	"movq 0x20(%rdi), %r14;"
-	"movq 0x28(%rdi), %r15;"
-	"movq 0x30(%rdi), %rsp;"
 	"movq 0x38(%rdi), %rcx;"
+	"movq 0x30(%rdi), %rsp;"
+	"movq 0x28(%rdi), %r15;"
+	"movq 0x20(%rdi), %r14;"
+	"movq 0x18(%rdi), %r13;"
+	"movq 0x10(%rdi), %r12;"
+	"movq 0x8(%rdi), %rbx;"
+	"movq 0x0(%rdi), %rbp;"
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
 #endif
@@ -196,7 +196,7 @@ asm(".extern exit;"
 	// fiber_context->init_func
 	"movq 0x50(%rax), %rcx;"
 	// fiber_context->init_arg
-	"movq 0x68(%rax), %rdi;"
+	"movl 0x68(%rax), %edi;"
 	// call init_func(init_arg)
 	"callq *%rcx;"
 	// context is done, -> exit to set exit context, or exit(0)
@@ -212,35 +212,124 @@ asm(".extern exit;"
 extern "C" void floor_get_context(void* ctx) asm("floor_get_context_sysv_x86_64");
 extern "C" void floor_set_context(void* ctx) asm("floor_set_context_sysv_x86_64");
 extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
+
+#elif defined(__aarch64__)
+asm("floor_get_context_aarch64:"
+	// store all registers in fiber_context*
+	"stp x19, x20, [x0]\n"
+	"stp x21, x22, [x0, #16]\n"
+	"stp x23, x24, [x0, #32]\n"
+	"stp x25, x26, [x0, #48]\n"
+	"stp x27, x28, [x0, #64]\n"
+	"str x29, [x0, #80]\n" // fp
+	"stp d8, d9, [x0, #88]\n"
+	"stp d10, d11, [x0, #104]\n"
+	"stp d12, d13, [x0, #120]\n"
+	"stp d14, d15, [x0, #136]\n"
+	"mov x9, sp\n" // must move sp to usable register first
+	"stp x9, x30, [x0, #152]\n" // sp and lr -> ip (assume this was called with "bl")
+	"ret;\n");
+asm("floor_set_context_aarch64:"
+	// restore all registers from fiber_context*
+	"ldp x9, x30, [x0, #152]\n" // sp
+	"ldp d14, d15, [x0, #136]\n"
+	"ldp d12, d13, [x0, #120]\n"
+	"ldp d10, d11, [x0, #104]\n"
+	"ldp d8, d9, [x0, #88]\n"
+	"ldp x28, x29, [x0, #72]\n" // fp
+	"ldp x26, x27, [x0, #56]\n"
+	"ldp x24, x25, [x0, #40]\n"
+	"ldp x22, x23, [x0, #24]\n"
+	"ldp x20, x21, [x0, #8]\n"
+	"ldr x19, [x0]\n"
+	"mov sp, x9\n"
+	// and jump to ip
+	"br x30;\n");
+asm("floor_enter_context_aarch64:"
+	// retrieve fiber_context*
+	"ldr x9, [sp, #8]\n"
+	// fiber_context->init_func
+	"ldr x10, [x9, #184]\n"
+	// fiber_context->init_arg
+	"ldr w0, [x9, #208]\n"
+	// call init_func(init_arg)
+	"blr x10\n"
+	// context is done, -> exit to set exit context, or exit(0)
+	// retrieve fiber_context* again
+	"ldr x9, [sp, #8]\n"
+	// exit fiber_context*
+	"ldr x0, [x9, #192]\n"
+	// TODO: cmp 0, -> exit(0)
+	// set_context(exit_context)
+	"bl floor_set_context_aarch64\n"
+	// it's a trap!
+	"udf #0;\n");
+extern "C" void floor_get_context(void* ctx) asm("floor_get_context_aarch64");
+extern "C" void floor_set_context(void* ctx) asm("floor_set_context_aarch64");
+extern "C" void floor_enter_context() asm("floor_enter_context_aarch64");
+
 #endif
 
-struct alignas(128) fiber_context {
+static constexpr const size_t fiber_context_alignment {
+#if defined(__x86_64__)
+	128u
+#elif defined(__aarch64__)
+	256u
+#else
+#error "unhandled arch"
+#endif
+};
+
+struct alignas(fiber_context_alignment) fiber_context {
 	typedef void (*init_func_type)(const uint32_t);
 
-#if defined(__x86_64__) && !defined(__WINDOWS__)
-	// sysv x86-64 abi compliant implementation
+#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(__WINDOWS__)
+	// SysV x86-64 ABI / ARM AArch64 AAPCS64 compliant implementation
 	static constexpr const size_t min_stack_size { std::max(size_t(8192u), size_t(aligned_ptr<int>::page_size)) };
 	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
 
 	// callee-saved registers
+#if defined(__x86_64__)
 	uint64_t rbp { 0 };
 	uint64_t rbx { 0 };
 	uint64_t r12 { 0 };
 	uint64_t r13 { 0 };
 	uint64_t r14 { 0 };
 	uint64_t r15 { 0 };
+#elif defined(__aarch64__)
+	uint64_t r19 { 0 };
+	uint64_t r20 { 0 };
+	uint64_t r21 { 0 };
+	uint64_t r22 { 0 };
+	uint64_t r23 { 0 };
+	uint64_t r24 { 0 };
+	uint64_t r25 { 0 };
+	uint64_t r26 { 0 };
+	uint64_t r27 { 0 };
+	uint64_t r28 { 0 };
+	uint64_t fp { 0 }; // aka r29
+	// lower 64-bit of SIMD registers
+	uint64_t d8 { 0 };
+	uint64_t d9 { 0 };
+	uint64_t d10 { 0 };
+	uint64_t d11 { 0 };
+	uint64_t d12 { 0 };
+	uint64_t d13 { 0 };
+	uint64_t d14 { 0 };
+	uint64_t d15 { 0 };
+#endif
 	// stack pointer
-	uint64_t rsp { 0 };
+	uint64_t sp { 0 };
 	// return address / instruction pointer
-	uint64_t rip { 0 };
+	uint64_t ip { 0 };
 
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
 			  fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 		
-		if(size_t(this) % 128u != 0u) {
-			log_error("fiber_context must be 128-byte aligned!"); logger::flush();
+		if(size_t(this) % fiber_context_alignment != 0u) {
+			log_error("fiber_context must be $-byte aligned!", fiber_context_alignment); logger::flush();
 			return;
 		}
 
@@ -266,21 +355,44 @@ struct alignas(128) fiber_context {
 	}
 
 	void reset() noexcept {
-		// reset registers, set rip to enter_context and reset rsp
+		// reset registers, set ip to enter_context and reset sp
 #if defined(FLOOR_DEBUG) // this isn't actually necessary
+#if defined(__x86_64__)
 		rbp = 0;
 		rbx = 0;
 		r12 = 0;
 		r13 = 0;
 		r14 = 0;
 		r15 = 0;
+#elif defined(__aarch64__)
+		r19 = 0;
+		r20 = 0;
+		r21 = 0;
+		r22 = 0;
+		r23 = 0;
+		r24 = 0;
+		r25 = 0;
+		r26 = 0;
+		r27 = 0;
+		r28 = 0;
+		fp = 0;
+		d8 = 0;
+		d9 = 0;
+		d10 = 0;
+		d11 = 0;
+		d12 = 0;
+		d13 = 0;
+		d14 = 0;
+		d15 = 0;
 #endif
+#endif
+		
 		// we've pushed two 64-bit values here + needs to be 16-byte aligned
-		rsp = ((size_t)stack_ptr) + stack_size - 16u;
-		rip = (uint64_t)floor_enter_context;
-		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
+		sp = ((size_t)stack_ptr) + stack_size - 16u;
+		ip = (uint64_t)floor_enter_context;
+		*(uint64_t*)(sp + 8u) = (uint64_t)this;
 #if defined(FLOOR_DEBUG)
-		*(uint64_t*)(rsp) = 0x0123456789ABCDEFull;
+		*(uint64_t*)(sp) = 0x0123456789ABCDEFull;
 #endif
 	}
 
@@ -319,8 +431,6 @@ FLOOR_POP_WARNINGS()
 		}
 	}
 
-//#elif defined(FLOOR_IOS)
-	// TODO: aarch64/armv8 implementation
 #elif defined(__WINDOWS__)
 	static constexpr const size_t min_stack_size { aligned_ptr<int>::page_size };
 
@@ -467,12 +577,19 @@ FLOOR_POP_WARNINGS()
 	uint32_t init_arg { 0 };
 	
 };
-#if defined(__x86_64__) && !defined(__WINDOWS__)
+static_assert(sizeof(fiber_context) <= fiber_context_alignment, "fiber_context alignment is not large enough");
+
 // make sure member variables are at the right offsets when using the sysv abi fiber approach
+#if defined(__x86_64__) && !defined(__WINDOWS__)
 static_assert(offsetof(fiber_context, init_func) == 0x50);
 static_assert(offsetof(fiber_context, exit_ctx) == 0x58);
 static_assert(offsetof(fiber_context, main_ctx) == 0x60);
 static_assert(offsetof(fiber_context, init_arg) == 0x68);
+#elif defined(__aarch64__) && !defined(__WINDOWS__)
+static_assert(offsetof(fiber_context, init_func) == 184);
+static_assert(offsetof(fiber_context, exit_ctx) == 192);
+static_assert(offsetof(fiber_context, main_ctx) == 200);
+static_assert(offsetof(fiber_context, init_arg) == 208);
 #endif
 
 // thread affinity handling
@@ -589,10 +706,13 @@ typename host_kernel::kernel_map_type::const_iterator host_kernel::get_kernel(co
 	return kernels.find((const host_device&)cqueue.get_device());
 }
 
+// needed to cast variadic kernel function type to a function type with the correct amount of parameters
+template <typename... Args> using kernel_func_type_t = void (*)(Args...);
+
 static function<void()> make_callable_kernel_function(const host_kernel::kernel_func_type kernel_ptr, const vector<const void*>& vptr_args) {
 	function<void()> kernel_func;
 	switch (vptr_args.size()) {
-		case 0: kernel_func = [kernel_ptr]() { (*kernel_ptr)(); }; break;
+		case 0: kernel_func = [kernel_ptr]() { (*(kernel_func_type_t<>)kernel_ptr)(); }; break;
 
 #define EXPAND_1(var, offset) var[0 + offset]
 #define EXPAND_2(var, offset) var[0 + offset], var[1 + offset]
@@ -602,42 +722,50 @@ static function<void()> make_callable_kernel_function(const host_kernel::kernel_
 #define EXPAND_6(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset]
 #define EXPAND_7(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset]
 #define EXPAND_8(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset], var[7 + offset]
+#define EXPAND_PTR_1() const void*
+#define EXPAND_PTR_2() const void*, EXPAND_PTR_1()
+#define EXPAND_PTR_3() const void*, EXPAND_PTR_2()
+#define EXPAND_PTR_4() const void*, EXPAND_PTR_3()
+#define EXPAND_PTR_5() const void*, EXPAND_PTR_4()
+#define EXPAND_PTR_6() const void*, EXPAND_PTR_5()
+#define EXPAND_PTR_7() const void*, EXPAND_PTR_6()
+#define EXPAND_PTR_8() const void*, EXPAND_PTR_7()
 		
-		case 1: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_1(vptr_args, 0)); }; break;
-		case 2: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_2(vptr_args, 0)); }; break;
-		case 3: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_3(vptr_args, 0)); }; break;
-		case 4: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_4(vptr_args, 0)); }; break;
-		case 5: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_5(vptr_args, 0)); }; break;
-		case 6: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_6(vptr_args, 0)); }; break;
-		case 7: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_7(vptr_args, 0)); }; break;
-		case 8: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0)); }; break;
+		case 1: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_1()>)kernel_ptr)(EXPAND_1(vptr_args, 0)); }; break;
+		case 2: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_2()>)kernel_ptr)(EXPAND_2(vptr_args, 0)); }; break;
+		case 3: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_3()>)kernel_ptr)(EXPAND_3(vptr_args, 0)); }; break;
+		case 4: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_4()>)kernel_ptr)(EXPAND_4(vptr_args, 0)); }; break;
+		case 5: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_5()>)kernel_ptr)(EXPAND_5(vptr_args, 0)); }; break;
+		case 6: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_6()>)kernel_ptr)(EXPAND_6(vptr_args, 0)); }; break;
+		case 7: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_7()>)kernel_ptr)(EXPAND_7(vptr_args, 0)); }; break;
+		case 8: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0)); }; break;
 		
-		case 9: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
-		case 10: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
-		case 11: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
-		case 12: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
-		case 13: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
-		case 14: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
-		case 15: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
-		case 16: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
+		case 9: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
+		case 10: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
+		case 11: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
+		case 12: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
+		case 13: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
+		case 14: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
+		case 15: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
+		case 16: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
 		
-		case 17: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
-		case 18: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
-		case 19: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
-		case 20: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
-		case 21: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
-		case 22: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
-		case 23: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
-		case 24: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
+		case 17: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
+		case 18: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
+		case 19: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
+		case 20: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
+		case 21: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
+		case 22: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
+		case 23: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
+		case 24: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
 		
-		case 25: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
-		case 26: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
-		case 27: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
-		case 28: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
-		case 29: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
-		case 30: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
-		case 31: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
-		case 32: kernel_func = [kernel_ptr, &vptr_args]() { (*kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
+		case 25: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
+		case 26: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
+		case 27: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
+		case 28: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
+		case 29: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
+		case 30: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
+		case 31: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
+		case 32: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
 		
 #undef EXPAND_1
 #undef EXPAND_2
@@ -647,6 +775,14 @@ static function<void()> make_callable_kernel_function(const host_kernel::kernel_
 #undef EXPAND_6
 #undef EXPAND_7
 #undef EXPAND_8
+#undef EXPAND_PTR_1
+#undef EXPAND_PTR_2
+#undef EXPAND_PTR_3
+#undef EXPAND_PTR_4
+#undef EXPAND_PTR_5
+#undef EXPAND_PTR_6
+#undef EXPAND_PTR_7
+#undef EXPAND_PTR_8
 		
 		default:
 			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");

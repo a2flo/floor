@@ -58,9 +58,8 @@ std::optional<device_info_t> query(id <MTLDevice> device) {
 	info.simd_width = (uint32_t)[kernel_state threadExecutionWidth];
 	
 #if !defined(FLOOR_IOS)
-	// we can figure out the compute unit count for AMD devices on macOS
-	const string dev_name = [[device name] UTF8String];
-	if (dev_name.find("AMD") != string::npos) {
+	// we can figure out the compute unit count for AMD and Apple devices on macOS
+	const auto query_and_parse_gpu_config = [](unordered_map<string, function<void(uint32_t)>>&& property_cbs) {
 		string ioreg_query;
 		core::system("ioreg -r -k \"GPUConfigurationVariable\" | grep \"GPUConfigurationVariable\"", ioreg_query);
 		if (!ioreg_query.empty() && ioreg_query.find("GPUConfigurationVariable") != string::npos) {
@@ -68,26 +67,42 @@ std::optional<device_info_t> query(id <MTLDevice> device) {
 			auto props_end = ioreg_query.rfind('}');
 			if (props_start != string::npos && props_end != string::npos && props_start + 3 < props_end) {
 				auto props_tokens = core::tokenize(ioreg_query.substr(props_start + 3, (props_end - props_start) - 3), ',');
-				uint32_t NumCUPerSH = 1, NumSH = 1, NumSE = 1;
-				const auto parse_prop_value = [](const string& prop) -> uint32_t {
+				const auto parse_prop_key_value = [](const string& prop) -> pair<string, uint32_t> {
+					const auto quote_pos_front = prop.find('"');
+					const auto quote_pos_back = prop.find('"', quote_pos_front + 1);
 					const auto eq_pos = prop.find('=');
-					if (eq_pos == string::npos) {
-						return 0u;
+					if (quote_pos_front == string::npos || quote_pos_back == string::npos || eq_pos == string::npos) {
+						return { "", 0u };
 					}
-					return (uint32_t)strtoull(prop.c_str() + eq_pos + 1, nullptr, 10);
+					const auto value = (uint32_t)strtoull(prop.c_str() + eq_pos + 1, nullptr, 10);
+					const auto key = prop.substr(quote_pos_front + 1, quote_pos_back - quote_pos_front - 1);
+					return { key, value };
 				};
 				for (const auto& prop_token : props_tokens) {
-					if (prop_token.find("\"NumCUPerSH\"") == 0) {
-						NumCUPerSH = parse_prop_value(prop_token);
-					} else if (prop_token.find("\"NumSH\"") == 0) {
-						NumSH = parse_prop_value(prop_token);
-					} else if (prop_token.find("\"NumSE\"") == 0) {
-						NumSE = parse_prop_value(prop_token);
+					auto [key, value] = parse_prop_key_value(prop_token);
+					const auto cb_iter = property_cbs.find(key);
+					if (cb_iter != property_cbs.end()) {
+						cb_iter->second(value);
 					}
 				}
-				info.units = NumCUPerSH * NumSH * NumSE;
 			}
 		}
+	};
+	const string dev_name = [[device name] UTF8String];
+	if (dev_name.find("AMD") != string::npos) {
+		uint32_t NumCUPerSH = 1, NumSH = 1, NumSE = 1;
+		query_and_parse_gpu_config({
+			{ "NumCUPerSH", [&NumCUPerSH](uint32_t value) { NumCUPerSH = value; } },
+			{ "NumSH", [&NumSH](uint32_t value) { NumSH = value; } },
+			{ "NumSE", [&NumSE](uint32_t value) { NumSE = value; } },
+		});
+		info.units = NumCUPerSH * NumSH * NumSE;
+	} else if (dev_name.find("Apple") != string::npos) {
+		uint32_t num_cores = 1;
+		query_and_parse_gpu_config({
+			{ "num_cores", [&num_cores](uint32_t value) { num_cores = value; } },
+		});
+		info.units = num_cores;
 	}
 #endif
 	

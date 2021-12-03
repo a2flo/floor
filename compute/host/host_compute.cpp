@@ -506,7 +506,7 @@ shared_ptr<compute_program::program_entry> host_compute::create_program_entry(co
 }
 
 bool host_compute::has_host_device_support() const {
-#if defined(__WINDOWS__) || defined(FLOOR_IOS)
+#if defined(__WINDOWS__)
 	return false;
 #else
 	return true;

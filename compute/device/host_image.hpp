@@ -312,7 +312,11 @@ namespace host_image_impl {
 			array<uint8_t, bpp> raw_data;
 			
 			// scale fp vals to the expected int/uint size
-			typedef conditional_t<max_bpc <= 8u, float, conditional_t<max_bpc <= 16u, double, long double>> fp_scale_type;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+			using fp_scale_type = conditional_t<max_bpc <= 8u, float, conditional_t<max_bpc <= 16u, double, long double>>;
+#else
+			using fp_scale_type = float;
+#endif
 			vector_n<channel_type, channel_count> scaled_color;
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 			for(uint32_t i = 0; i < channel_count; ++i) {
@@ -370,11 +374,6 @@ FLOOR_POP_WARNINGS()
 			}
 			
 			return raw_data;
-		}
-		floor_inline_always static auto insert_channels(const float4&)
-		requires(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
-			// this is a dummy function and never called, but necessary for compilation
-			return vector_n<uint8_t, image_channel_count(fixed_image_type)> {};
 		}
 		
 		// determines which lod/bias value to use and clamps it to [0, max #mip-levels - 1]
@@ -536,7 +535,12 @@ FLOOR_POP_WARNINGS()
 						floor_unreachable();
 				}
 				// normalize and convert to float
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 				*(float*)&ret = float(double(depth_val) * norm_factor);
+#else
+				static constexpr const float norm_factorf = float(norm_factor);
+				*(float*)&ret = float(depth_val) * norm_factorf;
+#endif
 				
 				// finally, copy stencil
 				if constexpr(has_stencil) {
@@ -671,7 +675,12 @@ FLOOR_POP_WARNINGS()
 														depth_bytes == 3 ? 0xFFFFFFu : 0xFFFFFFFFu);
 				// always use long double for better precision
 				constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 				auto depth_val = uint32_t(scale_factor * ((long double)*(const float*)&depth));
+#else
+				constexpr const float scale_factorf = float(scale_factor);
+				auto depth_val = uint32_t(scale_factorf * depth);
+#endif
 				if constexpr(depth_bytes != 4) {
 					// clamp non-32-bit values to their correct range
 					depth_val = const_math::clamp(depth_val, 0u, clamp_value);

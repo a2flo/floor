@@ -76,7 +76,7 @@ FLOOR_DLL_API inline auto& floor_group_idx_get() {
 #else
 
 // for host-compute device execution, each execution thread has its own memory space (initializes the binary + memory separately),
-// which allows use to avoid TLS (-> faster, better code gen) and simply put all IDs/size symbols in per-execution thread memory
+// which allows us to avoid TLS (-> faster, better code gen) and simply put all IDs/size symbols in per-execution thread memory
 extern uint3 floor_global_idx;
 extern uint3 floor_global_work_size;
 extern uint3 floor_local_idx;

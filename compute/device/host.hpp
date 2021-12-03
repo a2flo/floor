@@ -236,41 +236,38 @@ void image_mem_fence();
 void image_read_mem_fence();
 void image_write_mem_fence();
 #else
-// host-compute device handling is slightly different
-extern "C" void global_barrier() __attribute__((noduplicate, sysv_abi));
-floor_inline_always void global_mem_fence() {
-	global_barrier();
-}
-floor_inline_always void global_read_mem_fence() {
-	global_barrier();
-}
-floor_inline_always void global_write_mem_fence() {
-	global_barrier();
+
+extern "C" {
+// host-compute device handling is slightly different:
+// since all barriers are identical in function, forward everything to a single barrier function
+void host_compute_device_barrier() __attribute__((noduplicate, FLOOR_COMPUTE_HOST_CALLING_CONV));
+
+#pragma clang attribute push (__attribute__((noduplicate)), apply_to=function)
+#pragma clang attribute push (__attribute__((internal_linkage)), apply_to=function)
+#pragma clang attribute push (__attribute__((weakref("host_compute_device_barrier"))), apply_to=function)
+
+void global_barrier();
+void global_mem_fence();
+void global_read_mem_fence();
+void global_write_mem_fence();
+
+void local_barrier();
+void local_mem_fence();
+void local_read_mem_fence();
+void local_write_mem_fence();
+
+void barrier();
+
+void image_barrier();
+void image_mem_fence();
+void image_read_mem_fence();
+void image_write_mem_fence();
+
+#pragma clang attribute pop
+#pragma clang attribute pop
+#pragma clang attribute pop
 }
 
-extern "C" void local_barrier() __attribute__((noduplicate, sysv_abi));
-floor_inline_always void local_mem_fence() {
-	local_barrier();
-}
-floor_inline_always void local_read_mem_fence() {
-	local_barrier();
-}
-floor_inline_always void local_write_mem_fence() {
-	local_barrier();
-}
-
-extern "C" void barrier() __attribute__((noduplicate, sysv_abi));
-
-extern "C" void image_barrier() __attribute__((noduplicate, sysv_abi));
-floor_inline_always void image_mem_fence() {
-	image_barrier();
-}
-floor_inline_always void image_read_mem_fence() {
-	image_barrier();
-}
-floor_inline_always void image_write_mem_fence() {
-	image_barrier();
-}
 #endif
 
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE) // host-only (host-device deals with local memory differently)

@@ -277,8 +277,6 @@ enum class ELF_RELOCATION_TYPE_X86_64 : uint32_t {
 	DTPMOD64 [[deprecated("unused")]] = 16,
 	DTPOFF64 = 17,
 	TPOFF64 = 18,
-	TLSGD = 19,
-	TLSLD = 20,
 	DTPOFF32 = 21,
 	GOTTPOFF = 22,
 	TPOFF32 = 23,
@@ -292,9 +290,6 @@ enum class ELF_RELOCATION_TYPE_X86_64 : uint32_t {
 	PLTOFF64 [[deprecated("unused")]] = 31,
 	SIZE32 = 32,
 	SIZE64 = 33,
-	GOTPC32_TLSDESC = 34,
-	TLSDESC_CALL = 35,
-	TLSDESC [[deprecated("unused")]] = 36,
 	IRELATIVE [[deprecated("unused")]] = 37,
 	// RELATIVE64 = 38 -- 32-bit only
 	// deprecated = 39
@@ -307,6 +302,7 @@ enum class ELF_RELOCATION_TYPE_X86_64 : uint32_t {
 //! relocation types specified by the SysV ARM64/AArch64 ABI
 enum class ELF_RELOCATION_TYPE_ARM64 : uint32_t {
 	NONE = 0,
+	NONE_256 = 0x100,
 	__MIN_ELF_RELOCATION_TYPE_ARM64 = 0x101,
 	ABS64 = 0x101,
 	ABS32 = 0x102,
@@ -359,76 +355,10 @@ enum class ELF_RELOCATION_TYPE_ARM64 : uint32_t {
 	ADR_GOT_PAGE = 0x137,
 	LD64_GOT_LO12_NC = 0x138,
 	LD64_GOTPAGE_LO15 = 0x139,
-	TLSGD_ADR_PREL21 = 0x200,
-	TLSGD_ADR_PAGE21 = 0x201,
-	TLSGD_ADD_LO12_NC = 0x202,
-	TLSGD_MOVW_G1 = 0x203,
-	TLSGD_MOVW_G0_NC = 0x204,
-	TLSLD_ADR_PREL21 = 0x205,
-	TLSLD_ADR_PAGE21 = 0x206,
-	TLSLD_ADD_LO12_NC = 0x207,
-	TLSLD_MOVW_G1 = 0x208,
-	TLSLD_MOVW_G0_NC = 0x209,
-	TLSLD_LD_PREL19 = 0x20A,
-	TLSLD_MOVW_DTPREL_G2 = 0x20B,
-	TLSLD_MOVW_DTPREL_G1 = 0x20C,
-	TLSLD_MOVW_DTPREL_G1_NC = 0x20D,
-	TLSLD_MOVW_DTPREL_G0 = 0x20E,
-	TLSLD_MOVW_DTPREL_G0_NC = 0x20F,
-	TLSLD_ADD_DTPREL_HI12 = 0x210,
-	TLSLD_ADD_DTPREL_LO12 = 0x211,
-	TLSLD_ADD_DTPREL_LO12_NC = 0x212,
-	TLSLD_LDST8_DTPREL_LO12 = 0x213,
-	TLSLD_LDST8_DTPREL_LO12_NC = 0x214,
-	TLSLD_LDST16_DTPREL_LO12 = 0x215,
-	TLSLD_LDST16_DTPREL_LO12_NC = 0x216,
-	TLSLD_LDST32_DTPREL_LO12 = 0x217,
-	TLSLD_LDST32_DTPREL_LO12_NC = 0x218,
-	TLSLD_LDST64_DTPREL_LO12 = 0x219,
-	TLSLD_LDST64_DTPREL_LO12_NC = 0x21A,
-	TLSIE_MOVW_GOTTPREL_G1 = 0x21B,
-	TLSIE_MOVW_GOTTPREL_G0_NC = 0x21C,
-	TLSIE_ADR_GOTTPREL_PAGE21 = 0x21D,
-	TLSIE_LD64_GOTTPREL_LO12_NC = 0x21E,
-	TLSIE_LD_GOTTPREL_PREL19 = 0x21F,
-	TLSLE_MOVW_TPREL_G2 = 0x220,
-	TLSLE_MOVW_TPREL_G1 = 0x221,
-	TLSLE_MOVW_TPREL_G1_NC = 0x222,
-	TLSLE_MOVW_TPREL_G0 = 0x223,
-	TLSLE_MOVW_TPREL_G0_NC = 0x224,
-	TLSLE_ADD_TPREL_HI12 = 0x225,
-	TLSLE_ADD_TPREL_LO12 = 0x226,
-	TLSLE_ADD_TPREL_LO12_NC = 0x227,
-	TLSLE_LDST8_TPREL_LO12 = 0x228,
-	TLSLE_LDST8_TPREL_LO12_NC = 0x229,
-	TLSLE_LDST16_TPREL_LO12 = 0x22A,
-	TLSLE_LDST16_TPREL_LO12_NC = 0x22B,
-	TLSLE_LDST32_TPREL_LO12 = 0x22C,
-	TLSLE_LDST32_TPREL_LO12_NC = 0x22D,
-	TLSLE_LDST64_TPREL_LO12 = 0x22E,
-	TLSLE_LDST64_TPREL_LO12_NC = 0x22F,
-	TLSDESC_LD_PREL19 = 0x230,
-	TLSDESC_ADR_PREL21 = 0x231,
-	TLSDESC_ADR_PAGE21 = 0x232,
-	TLSDESC_LD64_LO12 = 0x233,
-	TLSDESC_ADD_LO12 = 0x234,
-	TLSDESC_OFF_G1 = 0x235,
-	TLSDESC_OFF_G0_NC = 0x236,
-	TLSDESC_LDR = 0x237,
-	TLSDESC_ADD = 0x238,
-	TLSDESC_CALL = 0x239,
-	TLSLE_LDST128_TPREL_LO12 = 0x23A,
-	TLSLE_LDST128_TPREL_LO12_NC = 0x23B,
-	TLSLD_LDST128_DTPREL_LO12 = 0x23C,
-	TLSLD_LDST128_DTPREL_LO12_NC = 0x23D,
 	COPY = 0x400,
 	GLOB_DAT = 0x401,
 	JUMP_SLOT = 0x402,
 	RELATIVE = 0x403,
-	TLS_DTPREL64 = 0x404,
-	TLS_DTPMOD64 = 0x405,
-	TLS_TPREL64 = 0x406,
-	TLSDESC = 0x407,
 	IRELATIVE = 0x408,
 	__MAX_ELF_RELOCATION_TYPE_ARM64
 };
@@ -528,7 +458,7 @@ void elf_binary::instance_t::reset(const uint3& global_work_size,
 
 void elf_binary::internal_instance_t::init_GOT(const uint64_t& entry_count) {
 	GOT_entry_count = 1ull + entry_count;
-	GOT.resize(GOT_entry_count, 0);
+	GOT = make_aligned_ptr<uint64_t>(GOT_entry_count);
 	// first address/entry always points to the GOT itself
 	GOT[0] = (uint64_t)&GOT[0];
 }
@@ -642,11 +572,19 @@ bool elf_binary::parse_elf() {
 			log_error("ELF object type must be REL/relocatable");
 			return false;
 		}
+#if defined(__x86_64__)
 		if (header.machine != 0x3E) {
-			// TODO: ARM (0xB7)
-			log_error("only AMD64 is supported right now");
+			log_error("ELF machine type is not AMD64");
 			return false;
 		}
+#elif defined(__aarch64__)
+		if (header.machine != 0xB7) {
+			log_error("ELF machine type is not AArch64");
+			return false;
+		}
+#else
+#error "unhandled arch"
+#endif
 		if (header.elf_version != 1) {
 			log_error("ELF version must be 1");
 			return false;
@@ -874,12 +812,17 @@ bool elf_binary::parse_elf() {
 			} else if (sec_header.type == ELF_SECTION_TYPE::PROGRAM_DATA) {
 				const auto is_rodata = (section.name.find(".rodata") == 0);
 				const auto is_exec = (section.name.find(".text") == 0);
+				const auto is_comment = (section.name.find(".comment") == 0);
+				if (is_comment) {
+					// ignore this
+					continue;
+				}
 				if (!is_rodata && !is_exec) {
-					log_error("invalid program data section name");
+					log_error("invalid program data section name: $", section.name);
 					return false;
 				}
 				if (has_flag<ELF_SECTION_FLAG::WRITE>(sec_header.flags)) {
-					log_error("program data section must be non-writable");
+					log_error("program data section must be non-writable: $", section.name);
 					return false;
 				}
 				if (is_exec) {
@@ -1159,220 +1102,57 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 		ext_instance.functions.insert(sym.name, instance.exec_memory.get() + sym.symbol_ptr->value);
 	}
 	
-	// relocate
-	const auto get_external_symbol_ptr = [](const string& name) {
-		return dlsym(RTLD_DEFAULT, name.c_str());
-	};
-	
-	const auto resolve_symbol = [&instance, &ext_instance, &get_external_symbol_ptr](const symbol_t& sym) -> const void* {
-		const void* ext_sym_ptr = nullptr;
-		
-		// TODO: handle floor specific symbols that need to be handled per execution later on
-		// TODO: retrieve all allowed external functions/ptrs before loading a binary
-		if (sym.name == "floor_global_idx") {
-			ext_sym_ptr = &ext_instance.ids.instance_global_idx;
-		} else if (sym.name == "floor_global_work_size") {
-			ext_sym_ptr = &ext_instance.ids.instance_global_work_size;
-		} else if (sym.name == "floor_local_idx") {
-			ext_sym_ptr = &ext_instance.ids.instance_local_idx;
-		} else if (sym.name == "floor_local_work_size") {
-			ext_sym_ptr = &ext_instance.ids.instance_local_work_size;
-		} else if (sym.name == "floor_group_idx") {
-			ext_sym_ptr = &ext_instance.ids.instance_group_idx;
-		} else if (sym.name == "floor_group_size") {
-			ext_sym_ptr = &ext_instance.ids.instance_group_size;
-		} else if (sym.name == "floor_work_dim") {
-			ext_sym_ptr = &ext_instance.ids.instance_work_dim;
-		} else if (sym.name == "global_barrier" ||
-				   sym.name == "local_barrier" ||
-				   sym.name == "barrier" ||
-				   sym.name == "image_barrier") {
-			ext_sym_ptr = get_external_symbol_ptr("host_compute_device_barrier");
-		} else if (sym.name == "_GLOBAL_OFFSET_TABLE_") {
-			if (instance.GOT.empty()) {
-				log_error("GOT is empty");
-				return nullptr;
-			}
-			ext_sym_ptr = &instance.GOT[0];
-		} else {
-			// normal symbol
-			ext_sym_ptr = get_external_symbol_ptr(sym.name);
-		}
-		if (ext_sym_ptr == nullptr) {
-			log_error("external symbol $ could not be resolved", sym.name);
-			return nullptr;
-		}
-		return ext_sym_ptr;
-	};
-	
-	const auto resolve_section = [this, &instance](const symbol_t& sym) -> const void* {
-		if (sym.symbol_ptr->section_header_table_index >= info->sections.size()) {
-			log_error("section index is out-of-bounds: $", sym.symbol_ptr->section_header_table_index);
-			return nullptr;
-		}
-		const auto& sec = info->sections[sym.symbol_ptr->section_header_table_index];
-		const auto sec_iter = instance.section_map.find(&sec);
-		if (sec_iter == instance.section_map.end()) {
-			log_error("failed to find section: $", sym.symbol_ptr->section_header_table_index);
-			return nullptr;
-		}
-		return sec_iter->second;
-	};
-	
-	const auto resolve = [resolve_symbol, resolve_section](const relocation_t& relocation) -> const void* {
-		const void* resolved_ptr = nullptr;
-		const auto& reloc = *relocation.reloc_ptr;
-		if (reloc.symbol_index != 0) {
-			// symbol relocation
-			if (relocation.symbol_ptr) {
-				const auto& sym = *relocation.symbol_ptr;
-				if (sym.symbol_ptr->section_header_table_index == 0 &&
-					(sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::GLOBAL || sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::WEAK)) {
-					// -> external
-					resolved_ptr = resolve_symbol(sym);
-				} else {
-					if (sym.symbol_ptr->type == ELF_SYMBOL_TYPE::SECTION ||
-						sym.symbol_ptr->type == ELF_SYMBOL_TYPE::CODE ||
-						sym.symbol_ptr->type == ELF_SYMBOL_TYPE::DATA) {
-						resolved_ptr = resolve_section(sym);
-					} else {
-						log_error("non-external symbol for relocation: $ (type: $)", sym.name, (uint32_t)sym.symbol_ptr->type);
-						return nullptr;
-					}
-				}
-			} else {
-				log_error("invalid symbol index for relocation: $", reloc.symbol_index);
-				return nullptr;
-			}
-		} else {
-			log_error("section relocation not implemented yet");
-			return nullptr;
-		}
-		return resolved_ptr;
-	};
+	// perform relocation
 	
 	// figure out how many GOT entries we need
 	uint64_t got_entry_count = 0;
-	for (const auto& relocation : info->exec_relocations) {
-#if !defined(FLOOR_IOS)
-		if (relocation.reloc_ptr->type_x86_64 == ELF_RELOCATION_TYPE_X86_64::GOT64) {
-			++got_entry_count;
+	const auto is_got_entry_reloc = [](const elf64_relocation_addend_entry_t* reloc_ptr) {
+#if defined(__x86_64__)
+		if (reloc_ptr->type_x86_64 == ELF_RELOCATION_TYPE_X86_64::GOT64) {
+			return true;
+		}
+#elif defined(__aarch64__)
+		switch (reloc_ptr->type_arm64) {
+			default:
+				break;
+			// GOT-relative offsets inline relocations
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G0:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G0_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G1:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G1_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G2:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G2_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_GOTOFF_G3:
+			// GOT-relative instruction relocations
+			case ELF_RELOCATION_TYPE_ARM64::GOT_LD_PREL19:
+			case ELF_RELOCATION_TYPE_ARM64::LD64_GOTOFF_LO15:
+			case ELF_RELOCATION_TYPE_ARM64::ADR_GOT_PAGE:
+			case ELF_RELOCATION_TYPE_ARM64::LD64_GOT_LO12_NC:
+			case ELF_RELOCATION_TYPE_ARM64::LD64_GOTPAGE_LO15:
+				return true;
 		}
 #else
-		// TODO: implement this
-		break;
+#error "unhandled arch"
 #endif
+		return false;
+	};
+	for (const auto& relocation : info->exec_relocations) {
+		if (is_got_entry_reloc(relocation.reloc_ptr)) {
+			++got_entry_count;
+		}
 	}
 	for (const auto& relocation : info->rodata_relocations) {
-#if !defined(FLOOR_IOS)
-		if (relocation.reloc_ptr->type_x86_64 == ELF_RELOCATION_TYPE_X86_64::GOT64) {
+		if (is_got_entry_reloc(relocation.reloc_ptr)) {
 			++got_entry_count;
 		}
-#else
-		// TODO: implement this
-		break;
-#endif
 	}
 	instance.init_GOT(got_entry_count);
 	
-	// perform relocations in exec memory and optionally rodata memory
-	const auto perform_relocations = [&instance, &resolve](const vector<relocation_t>& relocations, aligned_ptr<uint8_t>& memory) {
-		for (const auto& relocation : relocations) {
-			const auto& reloc = *relocation.reloc_ptr;
-#if !defined(FLOOR_IOS)
-			switch (reloc.type_x86_64) {
-				case ELF_RELOCATION_TYPE_X86_64::GOT64: /* G (GOT offset) + Addend */ {
-					if (reloc.addend != 0) {
-						// TODO: handle/implement this
-						log_error("addend not handled yet for GOT64");
-						return false;
-					}
-					
-					const auto GOT_offset = instance.allocate_GOT_entries(1);
-					const void* resolved_ptr = resolve(relocation);
-					if (resolved_ptr == nullptr) {
-						log_error("failed to resolve symbol");
-						return false;
-					}
-					
-					// update GOT entry
-					instance.GOT[GOT_offset] = (uint64_t)resolved_ptr;
-					const auto value = int64_t(GOT_offset * sizeof(uint64_t)) + reloc.addend;
-					
-					// relocate in code
-					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: $", reloc.offset);
-						return false;
-					}
-					memcpy(memory.get() + reloc.offset, &value, sizeof(value));
-					break;
-				}
-				case ELF_RELOCATION_TYPE_X86_64::GOTPC64: /* GOT - P (place/offset) + Addend */ {
-					// NOTE: specified symbol is ignored for this
-					const auto GOT_start_ptr = (int64_t)&instance.GOT[0];
-					const auto place = int64_t(memory.get() + reloc.offset);
-					const auto ptr_value = (GOT_start_ptr + reloc.addend) - place;
-					
-					// relocate in code
-					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: $", reloc.offset);
-						return false;
-					}
-					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
-					break;
-				}
-				case ELF_RELOCATION_TYPE_X86_64::GOTOFF64: /* L (PLT place) - GOT + Addend */ {
-					const auto resolved_ptr = (const uint8_t*)resolve(relocation);
-					if (resolved_ptr == nullptr) {
-						log_error("failed to resolve symbol");
-						return false;
-					}
-					
-					const auto GOT_start_ptr = (const uint8_t*)&instance.GOT[0];
-					const auto ptr_value = uint64_t(resolved_ptr - GOT_start_ptr + reloc.addend);
-					
-					// relocate in code
-					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: $", reloc.offset);
-						return false;
-					}
-					memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
-					break;
-				}
-				case ELF_RELOCATION_TYPE_X86_64::PC32: /* Symbol + Addend - P (place/offset) */ {
-					const auto resolved_ptr = (const uint8_t*)resolve(relocation);
-					if (resolved_ptr == nullptr) {
-						log_error("failed to resolve symbol");
-						return false;
-					}
-					
-					const auto place = int64_t(memory.get() + reloc.offset);
-					const auto offset_value = int32_t(int64_t(resolved_ptr) + reloc.addend - place);
-					
-					// relocate in code
-					if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
-						log_error("relocation offset is out-of-bounds: $", reloc.offset);
-						return false;
-					}
-					memcpy(memory.get() + reloc.offset, &offset_value, sizeof(offset_value));
-					break;
-				}
-				default:
-					log_error("unhandled relocation type: $", reloc.type_x86_64);
-					return false;
-			}
-#else
-			log_error("ARM relocation not implemented yet");
-			return false;
-#endif
-		}
-		return true;
-	};
-	if (!perform_relocations(info->exec_relocations, instance.exec_memory)) {
+	if (!perform_relocations(instance, ext_instance, info->exec_relocations, instance.exec_memory)) {
 		return false;
 	}
 	if (info->relocate_rodata) {
-		if (!perform_relocations(info->rodata_relocations, instance.ro_memory)) {
+		if (!perform_relocations(instance, ext_instance, info->rodata_relocations, instance.ro_memory)) {
 			return false;
 		}
 	}
@@ -1406,10 +1186,348 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 				return false;
 			}
 		}
+		
+		if (!instance.GOT.set_protection(decltype(instance.GOT)::PAGE_PROTECTION::READ_ONLY)) {
+			log_error("failed to set read-only memory protection on GOT");
+			return false;
+		}
 	}
 	
 	return true;
 #endif
+}
+
+static auto get_external_symbol_ptr(const string& name) {
+	return dlsym(RTLD_DEFAULT, name.c_str());
+}
+
+const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t& ext_instance, const symbol_t& sym) {
+	const void* ext_sym_ptr = nullptr;
+	
+	// TODO: handle floor specific symbols that need to be handled per execution later on
+	// TODO: retrieve all allowed external functions/ptrs before loading a binary
+	if (sym.name == "floor_global_idx") {
+		ext_sym_ptr = &ext_instance.ids.instance_global_idx;
+	} else if (sym.name == "floor_global_work_size") {
+		ext_sym_ptr = &ext_instance.ids.instance_global_work_size;
+	} else if (sym.name == "floor_local_idx") {
+		ext_sym_ptr = &ext_instance.ids.instance_local_idx;
+	} else if (sym.name == "floor_local_work_size") {
+		ext_sym_ptr = &ext_instance.ids.instance_local_work_size;
+	} else if (sym.name == "floor_group_idx") {
+		ext_sym_ptr = &ext_instance.ids.instance_group_idx;
+	} else if (sym.name == "floor_group_size") {
+		ext_sym_ptr = &ext_instance.ids.instance_group_size;
+	} else if (sym.name == "floor_work_dim") {
+		ext_sym_ptr = &ext_instance.ids.instance_work_dim;
+	} else if (sym.name == "global_barrier" ||
+			   sym.name == "local_barrier" ||
+			   sym.name == "barrier" ||
+			   sym.name == "image_barrier" ||
+			   sym.name == "host_compute_device_barrier") {
+		ext_sym_ptr = get_external_symbol_ptr("host_compute_device_barrier");
+	} else if (sym.name == "_GLOBAL_OFFSET_TABLE_") {
+		if (!instance.GOT) {
+			log_error("GOT is empty");
+			return nullptr;
+		}
+		ext_sym_ptr = &instance.GOT[0];
+	} else {
+		// normal symbol
+		ext_sym_ptr = get_external_symbol_ptr(sym.name);
+	}
+	if (ext_sym_ptr == nullptr) {
+		log_error("external symbol $ could not be resolved", sym.name);
+		return nullptr;
+	}
+	return ext_sym_ptr;
+}
+
+const void* elf_binary::resolve_section(internal_instance_t& instance, const symbol_t& sym) {
+	if (sym.symbol_ptr->section_header_table_index >= info->sections.size()) {
+		log_error("section index is out-of-bounds: $", sym.symbol_ptr->section_header_table_index);
+		return nullptr;
+	}
+	const auto& sec = info->sections[sym.symbol_ptr->section_header_table_index];
+	const auto sec_iter = instance.section_map.find(&sec);
+	if (sec_iter == instance.section_map.end()) {
+		log_error("failed to find section: $", sym.symbol_ptr->section_header_table_index);
+		return nullptr;
+	}
+	return sec_iter->second;
+}
+
+const void* elf_binary::resolve(internal_instance_t& instance, instance_t& ext_instance, const relocation_t& relocation) {
+	const void* resolved_ptr = nullptr;
+	const auto& reloc = *relocation.reloc_ptr;
+	if (reloc.symbol_index != 0) {
+		// symbol relocation
+		if (relocation.symbol_ptr) {
+			const auto& sym = *relocation.symbol_ptr;
+			if (sym.symbol_ptr->section_header_table_index == 0 &&
+				(sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::GLOBAL || sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::WEAK)) {
+				// -> external
+				resolved_ptr = resolve_symbol(instance, ext_instance, sym);
+			} else {
+				if (sym.symbol_ptr->type == ELF_SYMBOL_TYPE::SECTION ||
+					sym.symbol_ptr->type == ELF_SYMBOL_TYPE::CODE ||
+					sym.symbol_ptr->type == ELF_SYMBOL_TYPE::DATA) {
+					resolved_ptr = resolve_section(instance, sym);
+				} else {
+					log_error("non-external symbol for relocation: $ (type: $)", sym.name, (uint32_t)sym.symbol_ptr->type);
+					return nullptr;
+				}
+			}
+		} else {
+			log_error("invalid symbol index for relocation: $", reloc.symbol_index);
+			return nullptr;
+		}
+	} else {
+		log_error("section relocation not implemented yet");
+		return nullptr;
+	}
+	return resolved_ptr;
+}
+
+bool elf_binary::perform_relocations(internal_instance_t& instance,
+									 instance_t& ext_instance,
+									 const vector<relocation_t>& relocations,
+									 aligned_ptr<uint8_t>& memory) {
+	for (const auto& relocation : relocations) {
+		const auto& reloc = *relocation.reloc_ptr;
+#if defined(__x86_64__)
+		switch (reloc.type_x86_64) {
+			case ELF_RELOCATION_TYPE_X86_64::GOT64: /* G (GOT offset) + Addend */ {
+				if (reloc.addend != 0) {
+					// TODO: handle/implement this
+					log_error("addend not handled yet for GOT64");
+					return false;
+				}
+				
+				const auto GOT_offset = instance.allocate_GOT_entries(1);
+				const void* resolved_ptr = resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				// update GOT entry
+				instance.GOT[GOT_offset] = (uint64_t)resolved_ptr;
+				const auto value = int64_t(GOT_offset * sizeof(uint64_t)) + reloc.addend;
+				
+				// relocate in code
+				if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+					log_error("relocation offset is out-of-bounds: $", reloc.offset);
+					return false;
+				}
+				memcpy(memory.get() + reloc.offset, &value, sizeof(value));
+				break;
+			}
+			case ELF_RELOCATION_TYPE_X86_64::GOTPC64: /* GOT - P (place/offset) + Addend */ {
+				// NOTE: specified symbol is ignored for this
+				const auto GOT_start_ptr = (int64_t)&instance.GOT[0];
+				const auto place = int64_t(memory.get() + reloc.offset);
+				const auto ptr_value = (GOT_start_ptr + reloc.addend) - place;
+				
+				// relocate in code
+				if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+					log_error("relocation offset is out-of-bounds: $", reloc.offset);
+					return false;
+				}
+				memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
+				break;
+			}
+			case ELF_RELOCATION_TYPE_X86_64::GOTOFF64: /* L (PLT place) - GOT + Addend */ {
+				const auto resolved_ptr = (const uint8_t*)resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				const auto GOT_start_ptr = (const uint8_t*)&instance.GOT[0];
+				const auto ptr_value = uint64_t(resolved_ptr - GOT_start_ptr + reloc.addend);
+				
+				// relocate in code
+				if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+					log_error("relocation offset is out-of-bounds: $", reloc.offset);
+					return false;
+				}
+				memcpy(memory.get() + reloc.offset, &ptr_value, sizeof(ptr_value));
+				break;
+			}
+			case ELF_RELOCATION_TYPE_X86_64::PC32: /* Symbol + Addend - P (place/offset) */ {
+				const auto resolved_ptr = (const uint8_t*)resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				const auto place = int64_t(memory.get() + reloc.offset);
+				const auto offset_value = int32_t(int64_t(resolved_ptr) + reloc.addend - place);
+				
+				// relocate in code
+				if (reloc.offset + sizeof(uint64_t) > memory.allocation_size()) {
+					log_error("relocation offset is out-of-bounds: $", reloc.offset);
+					return false;
+				}
+				memcpy(memory.get() + reloc.offset, &offset_value, sizeof(offset_value));
+				break;
+			}
+			default:
+				log_error("unhandled relocation type: $", reloc.type_x86_64);
+				return false;
+		}
+#elif defined(__aarch64__)
+		const auto patch_or_32 = [&memory, &reloc](int32_t value_32) {
+			if (reloc.offset + sizeof(uint32_t) > memory.allocation_size()) {
+				log_error("relocation offset is out-of-bounds: $", reloc.offset);
+				return false;
+			}
+			int32_t cur_value_32 = 0;
+			memcpy(&cur_value_32, memory.get() + reloc.offset, sizeof(cur_value_32));
+			value_32 |= cur_value_32;
+			memcpy(memory.get() + reloc.offset, &value_32, sizeof(value_32));
+			return true;
+		};
+		switch (reloc.type_arm64) {
+			case ELF_RELOCATION_TYPE_ARM64::NONE:
+			case ELF_RELOCATION_TYPE_ARM64::NONE_256:
+				// just ignore these
+				break;
+			case ELF_RELOCATION_TYPE_ARM64::ADR_GOT_PAGE: /* Page(G(GDAT(Symbol + Addend))) - Page(place/offset) */ {
+				const auto GOT_offset = instance.allocate_GOT_entries(1);
+				const void* resolved_ptr = resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				// update GOT entry
+				instance.GOT[GOT_offset] = (uint64_t)(((const uint8_t*)resolved_ptr) + reloc.addend);
+				const auto place = int64_t(memory.get() + reloc.offset) & int64_t(~0xFFFull);
+				auto value = (int64_t(&instance.GOT[GOT_offset]) & int64_t(~0xFFFull));
+				value -= place;
+				if (value < -(1ll << 32ll) || value >= (1ll << 32ll)) {
+					log_error("out-of-bounds ADR_GOT_PAGE relocation: $", value);
+					return false;
+				}
+				int32_t value_32 = int32_t(value >> 12); // bits [32:12]
+				value_32 = ((value_32 & 3) << 29) | ((value_32 & 0x1F'FFFC) << 3);
+				
+				// relocate in code
+				if (!patch_or_32(value_32)) {
+					return false;
+				}
+				break;
+			}
+			case ELF_RELOCATION_TYPE_ARM64::LD64_GOT_LO12_NC: /* G(GDAT(Symbol + Addend)) */ {
+				const auto GOT_offset = instance.allocate_GOT_entries(1);
+				const void* resolved_ptr = resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				// update GOT entry
+				instance.GOT[GOT_offset] = (uint64_t)(((const uint8_t*)resolved_ptr) + reloc.addend);
+				auto value = int64_t(&instance.GOT[GOT_offset]);
+				if ((value & 0x7) != 0) {
+					log_error("relocation is not 8-byte aligned: $", value);
+					return false;
+				}
+				value = (value >> 3) & 0x1FF; // bits [11:3]
+				int32_t value_32 = int32_t(value << 10);
+				
+				// relocate in code
+				if (!patch_or_32(value_32)) {
+					return false;
+				}
+				break;
+			}
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G0: /* Symbol + Addend */
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G0_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G1:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G1_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G2:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G2_NC:
+			case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G3: {
+				const auto resolved_ptr = (const uint8_t*)resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				auto value = int64_t(resolved_ptr) + reloc.addend;
+				switch (reloc.type_arm64) {
+					default:
+						log_error("unhandled relocation sub-type");
+						return false;
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G0:
+						if (value < 0 || value > 0xFFFFll) {
+							log_error("out-of-bounds G0 relocation: $", value);
+							return false;
+						}
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G0_NC:
+						value = (value & 0xFFFFll) << 5ll;
+						break;
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G1:
+						if (value < 0 || value > 0xFFFF'FFFFll) {
+							log_error("out-of-bounds G1 relocation: $", value);
+							return false;
+						}
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G1_NC:
+						value = (value & 0xFFFF'0000ll) >> 11ll;
+						break;
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G2:
+						if (value < 0 || value > 0xFFFF'FFFF'FFFFll) {
+							log_error("out-of-bounds G2 relocation: $", value);
+							return false;
+						}
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G2_NC:
+						value = (value & 0xFFFF'0000'0000ll) >> 27ll;
+						break;
+					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G3:
+						value = (value & int64_t(0xFFFF'0000'0000'0000ll)) >> 43ll;
+						break;
+				}
+				auto value_32 = int32_t(value);
+				
+				// relocate in code
+				if (!patch_or_32(value_32)) {
+					return false;
+				}
+				break;
+			}
+			case ELF_RELOCATION_TYPE_ARM64::CALL26: /* Symbol + Addend - P (place/offset) */ {
+				const auto resolved_ptr = (const uint8_t*)resolve(instance, ext_instance, relocation);
+				if (resolved_ptr == nullptr) {
+					log_error("failed to resolve symbol");
+					return false;
+				}
+				
+				const auto place = int64_t(memory.get() + reloc.offset);
+				const auto offset_value = int32_t(int64_t(resolved_ptr) + reloc.addend - place);
+				if (offset_value < -(1ll << 27ll) || offset_value >= (1ll << 27ll)) {
+					log_error("out-of-bounds CALL26 relocation: $", offset_value);
+					return false;
+				}
+				auto value_32 = int32_t(offset_value & 0xFFFF'FFFCll) >> 2;
+				
+				// relocate in code
+				if (!patch_or_32(value_32)) {
+					return false;
+				}
+				break;
+			}
+			default:
+				log_error("unhandled relocation type: $", reloc.type_arm64);
+				return false;
+		}
+#else
+#error "unhandled arch"
+#endif
+	}
+	return true;
 }
 
 FLOOR_POP_WARNINGS()

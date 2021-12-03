@@ -34,10 +34,12 @@ public:
 	
 	//! CPU tier
 	HOST_CPU_TIER cpu_tier {
-#if !defined(FLOOR_IOS)
+#if defined(__x86_64__)
 		HOST_CPU_TIER::X86_TIER_1
-#else
+#elif defined(__aarch64__)
 		HOST_CPU_TIER::ARM_TIER_1
+#else
+#error "unhandled arch"
 #endif
 	};
 	
