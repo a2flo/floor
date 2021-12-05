@@ -491,7 +491,7 @@ void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_meta
 	[view set_hdr_metadata:hdr_metadata];
 }
 
-float darwin_helper::get_metal_view_edr_max(metal_view* view) {
+float darwin_helper::get_metal_view_edr_max(metal_view* view floor_unused_on_ios) {
 #if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
 #else
@@ -499,7 +499,7 @@ float darwin_helper::get_metal_view_edr_max(metal_view* view) {
 #endif
 }
 
-float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view) {
+float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view floor_unused_on_ios) {
 #if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
 	using get_nominal_pixel_nits_func_type = float (*)(int32_t);
 	static const auto get_nominal_pixel_nits = []() -> get_nominal_pixel_nits_func_type {

@@ -1198,7 +1198,11 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 }
 
 static auto get_external_symbol_ptr(const string& name) {
+#if !defined(__WINDOWS__)
 	return dlsym(RTLD_DEFAULT, name.c_str());
+#else
+	return nullptr;
+#endif
 }
 
 const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t& ext_instance, const symbol_t& sym) {

@@ -54,26 +54,29 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 		default: floor_unreachable();
 	}
 	
-	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		// if buffer is not accessed by the host at all, use private storage
 		// note that this disables pretty much all functionality of this class!
 		options |= MTLResourceStorageModePrivate;
-	}
-	else {
+	} else {
 #if !defined(FLOOR_IOS)
-		if (!is_staging_buffer && !has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-			// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
-			// that we'll use to copy memory to and from the private storage buffer
-			options |= MTLResourceStorageModePrivate;
-			staging_buffer = make_unique<metal_buffer>(true, cqueue, size, nullptr,
-													   COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0);
-			staging_buffer->set_debug_label(debug_label + "_staging_buffer");
-		}
-		else {
-			// use managed storage for the staging buffer or host memory backed buffer
-			// note that this requires us to perform explicit sync operations
-			options |= MTLResourceStorageModeManaged;
+		if (!dev.unified_memory) {
+			if (!is_staging_buffer && !has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+				// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
+				// that we'll use to copy memory to and from the private storage buffer
+				options |= MTLResourceStorageModePrivate;
+				staging_buffer = make_unique<metal_buffer>(true, cqueue, size, nullptr,
+														   COMPUTE_MEMORY_FLAG::READ_WRITE |
+														   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0);
+				staging_buffer->set_debug_label(debug_label + "_staging_buffer");
+			} else {
+				// use managed storage for the staging buffer or host memory backed buffer
+				// note that this requires us to perform explicit sync operations
+				options |= MTLResourceStorageModeManaged;
+			}
+		} else {
+			// used shared storage when we have unified memory that needs to be accessed by both the CPU and GPU
+			options |= MTLResourceStorageModeShared;
 		}
 #else
 		// iOS only knows private and shared storage modes
@@ -148,7 +151,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_ptr length:size options:options
-															deallocator:^(void*, NSUInteger) { /* nop */ }];
+											  deallocator:^(void*, NSUInteger) { /* nop */ }];
 	}
 	// -> alloc and use device memory
 	else {
@@ -162,17 +165,16 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 				//    if available), then blit from the host memory buffer
 				buffer = [mtl_dev.device newBufferWithLength:size options:options];
 				if (staging_buffer == nullptr) {
+					MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
 #if !defined(FLOOR_IOS)
-					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
-																			length:size
-																		   options:(MTLResourceStorageModeManaged |
-																					MTLResourceCPUCacheModeWriteCombined)];
-#else
-					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
-																			length:size
-																		   options:(MTLResourceStorageModeShared |
-																					MTLResourceCPUCacheModeWriteCombined)];
+					if (!dev.unified_memory) {
+						host_mem_storage = MTLResourceStorageModeManaged;
+					}
 #endif
+					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
+																			length:size
+																		   options:(host_mem_storage |
+																					MTLResourceCPUCacheModeWriteCombined)];
 					
 					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -212,7 +214,7 @@ void metal_buffer::read(const compute_queue& cqueue, const size_t size_, const s
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::read(const compute_queue& cqueue floor_unused_on_ios, void* dst, const size_t size_, const size_t offset) {
+void metal_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
@@ -224,11 +226,11 @@ void metal_buffer::read(const compute_queue& cqueue floor_unused_on_ios, void* d
 		staging_buffer->read(cqueue, dst, read_size, offset);
 		return;
 	}
+#endif
 	
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	if (metal_resource_type_needs_sync(options)) {
 		sync_metal_resource(cqueue, buffer);
 	}
-#endif
 	
 	GUARD(lock);
 	memcpy(dst, (uint8_t*)[buffer contents] + offset, read_size);
@@ -250,18 +252,18 @@ void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const 
 	memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
 	
 #if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
-	   staging_buffer != nullptr) {
+	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+		staging_buffer != nullptr) {
 		[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
 	}
 	
-	if(staging_buffer != nullptr) {
+	if (staging_buffer != nullptr) {
 		copy(cqueue, *staging_buffer, write_size, offset, offset);
 	}
 #endif
 }
 
-void metal_buffer::copy(const compute_queue& cqueue floor_unused_on_ios, const compute_buffer& src,
+void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;
 	
@@ -288,14 +290,14 @@ void metal_buffer::copy(const compute_queue& cqueue floor_unused_on_ios, const c
 		[cmd_buffer waitUntilCompleted];
 		return;
 	}
+#endif
 	
-	if((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	if (metal_resource_type_needs_sync(src_mtl_buffer.get_metal_resource_options())) {
 		sync_metal_resource(cqueue, src_mtl_buffer.get_metal_buffer());
 	}
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+	if (metal_resource_type_needs_sync(options)) {
 		sync_metal_resource(cqueue, buffer);
 	}
-#endif
 	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
 		   (uint8_t*)[src_mtl_buffer.get_metal_buffer() contents] + src_offset,
@@ -357,12 +359,12 @@ bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 	}
 	
 #if !defined(FLOOR_IOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
-	   staging_buffer != nullptr) {
+	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+		staging_buffer != nullptr) {
 		[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
 	}
 	
-	if(staging_buffer != nullptr) {
+	if (staging_buffer != nullptr) {
 		copy(cqueue, *staging_buffer, fill_size, offset, offset);
 	}
 #endif
@@ -384,7 +386,7 @@ bool metal_buffer::resize(const compute_queue& cqueue floor_unused, const size_t
 	return false;
 }
 
-void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueue floor_unused_on_ios,
+void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_,
 													  const size_t size_, const size_t offset) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return nullptr;
@@ -418,9 +420,9 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 	// must lock this to make sure all prior work has completed
 	_lock();
 	
-#if !defined(FLOOR_IOS)
 	// NOTE: MTLResourceStorageModePrivate handled by map_check (-> no host access is handled)
 	const bool write_only = (!does_read && does_write);
+#if !defined(FLOOR_IOS)
 	const bool read_only = (does_read && !does_write);
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		aligned_ptr<uint8_t> alloc_host_buffer;
@@ -461,6 +463,10 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 	}
 	else {
 #endif
+		if (!write_only && metal_resource_type_needs_sync(options)) {
+			// need to sync buffer (resource) before being able to read it
+			sync_metal_resource(cqueue, buffer);
+		}
 		// can just return the cpu mapped pointer
 		return (void*)(((uint8_t*)[buffer contents]) + offset);
 #if !defined(FLOOR_IOS)
@@ -468,8 +474,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 #endif
 }
 
-bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
-						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
+bool metal_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return false;
 	if(mapped_ptr == nullptr) return false;
 	
@@ -477,18 +482,18 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 #if !defined(FLOOR_IOS)
 	const bool is_managed = ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
 	const bool has_staging_buffer = (staging_buffer != nullptr);
-	if(is_managed || has_staging_buffer) {
+	if (is_managed || has_staging_buffer) {
 		// check if this is actually a mapped pointer (+get the mapped size)
 		const auto iter = mappings.find(mapped_ptr);
-		if(iter == mappings.end()) {
+		if (iter == mappings.end()) {
 			log_error("invalid mapped pointer: $X", mapped_ptr);
 			return false;
 		}
 		
 		if (is_managed) {
 			// check if we need to actually copy data back to the device (not the case if read-only mapping)
-			if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-			   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+			if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+				has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 				// if mapping is write-only, mapped_ptr was manually alloc'ed and we need to copy the data
 				// to the actual metal buffer
 				if(iter->second.write_only) {
@@ -499,8 +504,7 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 				// finally, notify the buffer that we changed its contents
 				[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];
 			}
-		}
-		else if(has_staging_buffer) {
+		} else if(has_staging_buffer) {
 			// perform unmap on the staging buffer, then update this buffer if necessary
 			success = staging_buffer->unmap(cqueue, mapped_ptr);
 			if (iter->second.write_only || !iter->second.read_only) {
@@ -512,7 +516,10 @@ bool metal_buffer::unmap(const compute_queue& cqueue floor_unused_on_ios,
 		mappings.erase(mapped_ptr);
 	}
 #endif
-	// else: don't need to do anything for shared host/device memory
+	
+	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
+		sync_metal_resource(cqueue, buffer);
+	}
 	
 	_unlock();
 	
@@ -529,8 +536,19 @@ bool metal_buffer::release_opengl_object(const compute_queue* cqueue floor_unuse
 	return true;
 }
 
-void metal_buffer::sync_metal_resource(const compute_queue& cqueue floor_unused_on_ios,
-									   id <MTLResource> rsrc floor_unused_on_ios) {
+void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc) {
+#if defined(FLOOR_DEBUG)
+	if (!metal_resource_type_needs_sync([rsrc storageMode])) {
+		log_error("only call this with managed memory");
+		return;
+	}
+#endif
+	if (([rsrc storageMode] & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
+		// for shared storage: just wait until all previously queued command buffers have executed
+		cqueue.finish();
+		return;
+	}
+	
 #if !defined(FLOOR_IOS)
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -538,8 +556,6 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue floor_unused_
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
-#else
-	// not available on iOS for now
 #endif
 }
 

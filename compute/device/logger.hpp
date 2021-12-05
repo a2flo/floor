@@ -42,8 +42,7 @@ template <size_t n> constexpr auto make_constant_string(const constant char (&st
 #define print(str, ...) ({ \
 	typedef decltype(device_logger::create_tupled_args(__VA_ARGS__)) tupled_args_type; \
 	constexpr auto arg_types = device_logger::process_args<device_logger::str_dollar_count(str)>(tupled_args_type {}); \
-	constexpr constant const auto pstr = device_logger::make_printf_string<make_constant_string(str).hash(), \
-																		   device_logger::compute_expanded_len(arg_types)>(str, arg_types); \
+	constexpr constant const auto pstr = device_logger::make_printf_string<device_logger::compute_expanded_len(arg_types)>(str, arg_types); \
 	device_logger::log(pstr.content.data, ##__VA_ARGS__); \
 })
 
@@ -276,7 +275,7 @@ public:
 	}
 	
 	// creates the actual printf format string
-	template<uint32_t hash, size_t expanded_len, size_t len, size_t array_len>
+	template <size_t expanded_len, size_t len, size_t array_len>
 	static constexpr auto make_printf_string(const constant char (&str)[len],
 											 const const_array<ARG_TYPE, array_len>& arg_types) {
 		// +1 for '\n'

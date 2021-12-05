@@ -24,7 +24,10 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/aligned_ptr.hpp>
 #include <floor/compute/metal/metal_kernel.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <Metal/MTLArgumentEncoder.h>
+#include <Metal/MTLComputeCommandEncoder.h>
+#include <Metal/MTLRenderCommandEncoder.h>
 
 class metal_argument_buffer : public argument_buffer {
 public:
@@ -33,11 +36,29 @@ public:
 	
 	void set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
 	
+	//! ensures all tracked resources are resident during the lifetime of the specified encoder
+	void make_resident(id <MTLComputeCommandEncoder> enc) const;
+	//! ensures all tracked resources are resident during the lifetime of the specified encoder
+	void make_resident(id <MTLRenderCommandEncoder> enc, const llvm_toolchain::FUNCTION_TYPE& func_type) const;
+	
+	//! contains the state of multiple/all tracked resources
+	//! TODO/NOTE: right now, all buffers are considered read+write, images may be read-only or read+write (TODO: handle write-only/read-only buffers)
+	struct resource_info_t {
+		vector<id <MTLResource> __unsafe_unretained> read_only;
+		vector<id <MTLResource> __unsafe_unretained> write_only;
+		vector<id <MTLResource> __unsafe_unretained> read_write;
+		vector<id <MTLResource> __unsafe_unretained> read_only_images;
+		vector<id <MTLResource> __unsafe_unretained> read_write_images;
+	};
+	
 protected:
 	aligned_ptr<uint8_t> storage_buffer_backing;
 	id <MTLArgumentEncoder> encoder;
 	const llvm_toolchain::function_info& arg_info;
 	const vector<uint32_t> arg_indices;
+	
+	//! currently tracked resources
+	resource_info_t resources;
 	
 };
 

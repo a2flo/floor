@@ -112,6 +112,16 @@ public:
 	//! returns the MTLResourceOptions of this buffer
 	MTLResourceOptions get_metal_resource_options() const { return options; }
 	
+	//! returns true if the specified resource type/options requires CPU/GPU sync
+	static bool metal_resource_type_needs_sync(const MTLResourceOptions& opts) {
+#if !defined(FLOOR_IOS)
+		return ((opts & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+				(opts & MTLResourceStorageModeMask) == MTLResourceStorageModeShared);
+#else
+		return ((opts & MTLResourceStorageModeMask) == MTLResourceStorageModeShared);
+#endif
+	}
+	
 	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
 	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc);
 	

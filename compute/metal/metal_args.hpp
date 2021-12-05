@@ -21,6 +21,7 @@ using namespace llvm_toolchain;
 
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
+#include <floor/compute/metal/metal_argument_buffer.hpp>
 #include <Metal/MTLComputeCommandEncoder.h>
 #include <Metal/MTLRenderCommandEncoder.h>
 #include <Metal/MTLArgumentEncoder.h>
@@ -89,7 +90,8 @@ namespace metal_args {
 	static void set_argument(const idx_handler& idx,
 							 encoder_selector_t<enc_type> encoder, const function_info& entry,
 							 const compute_buffer* arg,
-							 const vector<uint32_t>* arg_buffer_indices) {
+							 const vector<uint32_t>* arg_buffer_indices,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_buffer = arg->get_shared_metal_buffer();
@@ -110,21 +112,23 @@ namespace metal_args {
 			mtl_buffer = (const metal_buffer*)arg;
 		}
 		
+		auto mtl_buffer_obj = mtl_buffer->get_metal_buffer();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
-			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:idx.buffer_idx];
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
+			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
-				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
+				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
 			} else {
-				[encoder setFragmentBuffer:mtl_buffer->get_metal_buffer()
+				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
 			}
@@ -137,7 +141,8 @@ namespace metal_args {
 							 const function_info& entry floor_unused,
 							 const vector<shared_ptr<compute_buffer>>& arg,
 							 const compute_device& dev,
-							 const vector<uint32_t>* arg_buffer_indices) {
+							 const vector<uint32_t>* arg_buffer_indices,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -157,6 +162,7 @@ namespace metal_args {
 			[encoder setBuffers:mtl_buf_array.data()
 						offsets:offsets.data()
 					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 		} else {
 			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
 			log_error("buffer arrays are only supported for argument buffers");
@@ -169,7 +175,8 @@ namespace metal_args {
 							 const function_info& entry floor_unused,
 							 const vector<compute_buffer*>& arg,
 							 const compute_device& dev,
-							 const vector<uint32_t>* arg_buffer_indices) {
+							 const vector<uint32_t>* arg_buffer_indices,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -189,6 +196,7 @@ namespace metal_args {
 			[encoder setBuffers:mtl_buf_array.data()
 						offsets:offsets.data()
 					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 		} else {
 			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
 			log_error("buffer arrays are only supported for argument buffers");
@@ -200,7 +208,8 @@ namespace metal_args {
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
 							 const argument_buffer* arg_buf,
-							 const vector<uint32_t>* arg_buffer_indices) {
+							 const vector<uint32_t>* arg_buffer_indices,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const auto buf = arg_buf->get_storage_buffer();
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(buf->get_flags())) {
@@ -222,23 +231,28 @@ namespace metal_args {
 			mtl_buffer = (const metal_buffer*)buf;
 		}
 		
+		auto mtl_buffer_obj = mtl_buffer->get_metal_buffer();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
-			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:idx.buffer_idx];
+			((const metal_argument_buffer*)arg_buf)->make_resident(encoder);
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setBuffer:mtl_buffer->get_metal_buffer()
+			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
+			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
-				[encoder setVertexBuffer:mtl_buffer->get_metal_buffer()
+				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
+				((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::VERTEX);
 			} else {
-				[encoder setFragmentBuffer:mtl_buffer->get_metal_buffer()
+				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
+				((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::FRAGMENT);
 			}
 		}
 	}
@@ -248,7 +262,8 @@ namespace metal_args {
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
 							 const compute_image* arg,
-							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
+							 const vector<uint32_t>* arg_buffer_indices floor_unused,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const metal_image* mtl_image = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_image = arg->get_shared_metal_image();
@@ -270,15 +285,16 @@ namespace metal_args {
 		}
 		
 		
+		auto mtl_image_obj = mtl_image->get_metal_image();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setTexture:mtl_image->get_metal_image()
+			[encoder setTexture:mtl_image_obj
 						atIndex:idx.texture_idx];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
-				[encoder setVertexTexture:mtl_image->get_metal_image()
+				[encoder setVertexTexture:mtl_image_obj
 								  atIndex:idx.texture_idx];
 			} else {
-				[encoder setFragmentTexture:mtl_image->get_metal_image()
+				[encoder setFragmentTexture:mtl_image_obj
 									atIndex:idx.texture_idx];
 			}
 		}
@@ -286,16 +302,23 @@ namespace metal_args {
 		// if this is a read/write image, add it again (one is read-only, the other is write-only)
 		if (entry.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 			if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
-				[encoder setTexture:mtl_image->get_metal_image()
+				[encoder setTexture:mtl_image_obj
 							atIndex:(idx.texture_idx + 1)];
+				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+					res_info->read_write_images.emplace_back(mtl_image_obj);
+				}
 			} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 				if (entry.type == FUNCTION_TYPE::VERTEX) {
-					[encoder setVertexTexture:mtl_image->get_metal_image()
+					[encoder setVertexTexture:mtl_image_obj
 									  atIndex:(idx.texture_idx + 1)];
 				} else {
-					[encoder setFragmentTexture:mtl_image->get_metal_image()
+					[encoder setFragmentTexture:mtl_image_obj
 										atIndex:(idx.texture_idx + 1)];
 				}
+			}
+		} else {
+			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+				res_info->read_only_images.emplace_back(mtl_image_obj);
 			}
 		}
 	}
@@ -305,7 +328,8 @@ namespace metal_args {
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
 							 const vector<shared_ptr<compute_image>>& arg,
-							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
+							 const vector<uint32_t>* arg_buffer_indices floor_unused,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -317,6 +341,9 @@ namespace metal_args {
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTextures:mtl_img_array.data()
 					   withRange:NSRange { idx.texture_idx, count }];
+			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+			}
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexTextures:mtl_img_array.data()
@@ -333,7 +360,8 @@ namespace metal_args {
 							 encoder_selector_t<enc_type> encoder,
 							 const function_info& entry,
 							 const vector<compute_image*>& arg,
-							 const vector<uint32_t>* arg_buffer_indices floor_unused) {
+							 const vector<uint32_t>* arg_buffer_indices floor_unused,
+							 metal_argument_buffer::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -345,6 +373,9 @@ namespace metal_args {
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTextures:mtl_img_array.data()
 					   withRange:NSRange { idx.texture_idx, count }];
+			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+			}
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexTextures:mtl_img_array.data()
@@ -448,7 +479,8 @@ namespace metal_args {
 								  const vector<const function_info*>& entries,
 								  const vector<compute_kernel_arg>& args,
 								  const vector<compute_kernel_arg>& implicit_args,
-								  const vector<uint32_t>* arg_buffer_indices = nullptr) {
+								  const vector<uint32_t>* arg_buffer_indices = nullptr,
+								  metal_argument_buffer::resource_info_t* res_info = nullptr) {
 		const size_t arg_count = args.size() + implicit_args.size();
 		idx_handler idx;
 		size_t explicit_idx = 0, implicit_idx = 0;
@@ -460,19 +492,19 @@ namespace metal_args {
 			const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
 			
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices, res_info);
 			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices, res_info);
 			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices, res_info);
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices, res_info);
 			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs, arg_buffer_indices, res_info);
 			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs, arg_buffer_indices, res_info);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr, arg_buffer_indices);
+				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr, arg_buffer_indices, res_info);
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *generic_arg_ptr, arg.size, arg_buffer_indices);
 			} else {

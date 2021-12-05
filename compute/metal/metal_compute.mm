@@ -305,7 +305,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.local_mem_size = [dev maxThreadgroupMemoryLength];
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
-		device.unified_memory = true;
+		device.unified_memory = true; // always true
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_3d_dim = { 2048, 2048, 2048 };
 		if (device.simd_width == 0) {
@@ -343,6 +343,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.global_mem_size = [dev_spi dedicatedMemorySize];
 		}
 		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
+		if ([dev_spi respondsToSelector:@selector(hasUnifiedMemory)]) {
+			device.unified_memory = [dev_spi hasUnifiedMemory];
+		}
 		
 		// there is no direct way of querying the highest available feature set
 		// -> find the highest (currently known) version
@@ -383,7 +386,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.mem_clock = 0;
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = ([dev_spi doubleFPConfig] > 0);
-		device.unified_memory = true; // TODO: not sure about this?
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_1d_dim = { (uint32_t)[dev_spi maxTextureWidth1D] };
 		device.max_image_2d_dim = { (uint32_t)[dev_spi maxTextureWidth2D], (uint32_t)[dev_spi maxTextureHeight2D] };
@@ -430,6 +432,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("max local size: $'", device.max_local_size);
 		log_msg("max global size: $'", device.max_global_size);
 		log_msg("SIMD width: $", device.simd_width);
+		log_msg("argument buffer tier: $", [dev argumentBuffersSupport] + 1);
 		
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					 device.max_image_3d_dim.max_element()),
@@ -438,9 +441,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (global: $' MB, local: $' bytes): $, Metal $, family type $ tier $",
+		log_debug("GPU (global: $' MB, local: $' bytes, unified: $): $, Metal $, family type $ tier $",
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.local_mem_size,
+				  (device.unified_memory ? "yes" : "no"),
 				  device.name,
 				  metal_version_to_string(device.metal_software_version),
 				  metal_device::family_type_to_string(device.family_type),

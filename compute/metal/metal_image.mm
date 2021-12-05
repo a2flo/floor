@@ -78,11 +78,16 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		options |= MTLResourceStorageModePrivate;
 		storage_options = MTLStorageModePrivate;
-	}
-	else {
+	} else {
 #if !defined(FLOOR_IOS)
-		options |= MTLResourceStorageModeManaged;
-		storage_options = MTLStorageModeManaged;
+		if (!dev.unified_memory) {
+			options |= MTLResourceStorageModeManaged;
+			storage_options = MTLStorageModeManaged;
+		} else {
+			// used shared storage when we have unified memory that needs to be accessed by both the CPU and GPU
+			options |= MTLResourceStorageModeShared;
+			storage_options = MTLStorageModeShared;
+		}
 #else
 		options |= MTLResourceStorageModeShared;
 		storage_options = MTLStorageModeShared;
@@ -201,6 +206,12 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
+#if !defined(FLOOR_IOS) || (__IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
+		{ MTLPixelFormatDepth16Unorm, (COMPUTE_IMAGE_TYPE::UINT |
+									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
+									   COMPUTE_IMAGE_TYPE::FORMAT_16 |
+									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
+#endif
 #if !defined(FLOOR_IOS) // os x only
 		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
@@ -652,12 +663,10 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		// must finish up all current work before we can properly read from the current image
 		cqueue.finish();
 		
-#if !defined(FLOOR_IOS)
 		// need to sync image (resource) before being able to read it
-		if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		if (metal_buffer::metal_resource_type_needs_sync(options)) {
 			metal_buffer::sync_metal_resource(cqueue, image);
 		}
-#endif
 		
 		// copy image data to the host
 		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
@@ -892,6 +901,12 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
+#if !defined(FLOOR_IOS) || (__IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
+		{ (COMPUTE_IMAGE_TYPE::UINT |
+		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
+		   COMPUTE_IMAGE_TYPE::FORMAT_16 |
+		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
+#endif
 #if !defined(FLOOR_IOS) // os x only
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |

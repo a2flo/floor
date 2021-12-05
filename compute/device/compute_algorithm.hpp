@@ -310,7 +310,11 @@ namespace compute_algorithm {
 				
 				lmem[lane] = group_scan_value;
 			}
+#if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) // work around weird sync issue on Apple GPUs
+			air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+#else
 			local_barrier();
+#endif
 			
 			// broadcast final per-sub-group offsets to all sub-groups
 			const auto group_offset = (group > 0u ? lmem[group - 1u] : data_type(0));

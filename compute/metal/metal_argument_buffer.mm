@@ -29,14 +29,30 @@ metal_argument_buffer::metal_argument_buffer(const compute_kernel& func_, shared
 argument_buffer(func_, storage_buffer_), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_), arg_info(arg_info_),
 arg_indices(move(arg_indices_)) {}
 
+static void sort_and_unique_resources(vector<id <MTLResource> __unsafe_unretained>& res) {
+	std::sort(res.begin(), res.end());
+	auto last_iter = std::unique(res.begin(), res.end());
+	if (last_iter != res.end()) {
+		res.erase(last_iter, res.end());
+	}
+}
+
 void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe_unused]], const vector<compute_kernel_arg>& args) {
 	auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();
 	auto mtl_buffer = mtl_storage_buffer->get_metal_buffer();
 	
 	[encoder setArgumentBuffer:mtl_buffer offset:0];
 	assert(&dev_queue.get_device() == &mtl_storage_buffer->get_device());
+	resources = {}; // clear current resource tracking
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
-																			 (!arg_indices.empty() ? &arg_indices : nullptr));
+																			 (!arg_indices.empty() ? &arg_indices : nullptr),
+																			 &resources);
+	
+	sort_and_unique_resources(resources.read_only);
+	sort_and_unique_resources(resources.write_only);
+	sort_and_unique_resources(resources.read_write);
+	sort_and_unique_resources(resources.read_only_images);
+	sort_and_unique_resources(resources.read_write_images);
 	
 #if !defined(FLOOR_IOS)
 	// signal buffer update if this is a managed buffer
@@ -45,6 +61,97 @@ void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe
 		[mtl_buffer didModifyRange:NSRange { 0, update_range }];
 	}
 #endif
+}
+
+void metal_argument_buffer::make_resident(id <MTLComputeCommandEncoder> enc) const {
+	if (!resources.read_only.empty()) {
+		[enc useResources:resources.read_only.data()
+					count:resources.read_only.size()
+					usage:MTLResourceUsageRead];
+	}
+	if (!resources.write_only.empty()) {
+		[enc useResources:resources.write_only.data()
+					count:resources.write_only.size()
+					usage:MTLResourceUsageWrite];
+	}
+	if (!resources.read_write.empty()) {
+		[enc useResources:resources.read_write.data()
+					count:resources.read_write.size()
+					usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+	}
+	if (!resources.read_only_images.empty()) {
+		[enc useResources:resources.read_write.data()
+					count:resources.read_write.size()
+					usage:(MTLResourceUsageRead | MTLResourceUsageSample)];
+	}
+	if (!resources.read_write_images.empty()) {
+		[enc useResources:resources.read_write_images.data()
+					count:resources.read_write_images.size()
+					usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
+	}
+}
+
+void metal_argument_buffer::make_resident(id <MTLRenderCommandEncoder> enc, const llvm_toolchain::FUNCTION_TYPE& func_type) const {
+	assert(func_type == llvm_toolchain::FUNCTION_TYPE::VERTEX || func_type == llvm_toolchain::FUNCTION_TYPE::FRAGMENT);
+	if ([encoder respondsToSelector:@selector(useResources:count:usage:stages:)]) {
+		const auto stage = (func_type == llvm_toolchain::FUNCTION_TYPE::VERTEX ? MTLRenderStageVertex : MTLRenderStageFragment);
+		if (!resources.read_only.empty()) {
+			[enc useResources:resources.read_only.data()
+						count:resources.read_only.size()
+						usage:MTLResourceUsageRead
+					   stages:stage];
+		}
+		if (!resources.write_only.empty()) {
+			[enc useResources:resources.write_only.data()
+						count:resources.write_only.size()
+						usage:MTLResourceUsageWrite
+					   stages:stage];
+		}
+		if (!resources.read_write.empty()) {
+			[enc useResources:resources.read_write.data()
+						count:resources.read_write.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
+					   stages:stage];
+		}
+		if (!resources.read_only_images.empty()) {
+			[enc useResources:resources.read_write.data()
+						count:resources.read_write.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageSample)
+					   stages:stage];
+		}
+		if (!resources.read_write_images.empty()) {
+			[enc useResources:resources.read_write_images.data()
+						count:resources.read_write_images.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)
+					   stages:stage];
+		}
+	} else {
+		if (!resources.read_only.empty()) {
+			[enc useResources:resources.read_only.data()
+						count:resources.read_only.size()
+						usage:MTLResourceUsageRead];
+		}
+		if (!resources.write_only.empty()) {
+			[enc useResources:resources.write_only.data()
+						count:resources.write_only.size()
+						usage:MTLResourceUsageWrite];
+		}
+		if (!resources.read_write.empty()) {
+			[enc useResources:resources.read_write.data()
+						count:resources.read_write.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+		}
+		if (!resources.read_only_images.empty()) {
+			[enc useResources:resources.read_write.data()
+						count:resources.read_write.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageSample)];
+		}
+		if (!resources.read_write_images.empty()) {
+			[enc useResources:resources.read_write_images.data()
+						count:resources.read_write_images.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
+		}
+	}
 }
 
 #endif
