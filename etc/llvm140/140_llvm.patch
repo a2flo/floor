@@ -4760,10 +4760,10 @@ index ae9434f96529..e95011ea1a0e 100644
                                        Src, DstTy, "astype");
  }
 diff --git a/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-index dbe375294d17..3000ddb0b9ac 100644
+index dbe375294d17..286781c11338 100644
 --- a/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 +++ b/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-@@ -37,36 +37,84 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
+@@ -37,36 +37,90 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
    llvm::LLVMContext& Ctx = CGM.getLLVMContext();
    uint32_t AddrSpc = CGM.getContext().getTargetAddressSpace(
        CGM.getContext().getOpenCLTypeAddrSpace(T));
@@ -4824,48 +4824,54 @@ index dbe375294d17..3000ddb0b9ac 100644
  #include "clang/Basic/OpenCLExtensionTypes.def"
 +    }
 +  } else if (CGM.getLangOpts().Metal) { // Metal/AIR
++    const auto get_or_create_opaque_ptr_type = [&Ctx](const char* name, uint32_t address_space) {
++      auto opaque_type = llvm::StructType::getTypeByName(Ctx, name);
++      if (!opaque_type) {
++        opaque_type = llvm::StructType::create(Ctx, name);
++      }
++      return llvm::PointerType::get(opaque_type, address_space);
++    };
 +    switch (cast<BuiltinType>(T)->getKind()) {
 +      default:
 +        llvm_unreachable("Unexpected metal builtin type!");
 +        return nullptr;
 +      case BuiltinType::OCLImage1d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_1d_t", AddrSpc);
 +      case BuiltinType::OCLImage1dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_array_t"), AddrSpc);
++                return get_or_create_opaque_ptr_type("struct._texture_1d_array_t", AddrSpc);
 +      case BuiltinType::OCLImage1dBuffer:
 +        llvm_unreachable("Unsupported image type (1D-buffer is not supported by metal)!");
 +        return nullptr;
 +      case BuiltinType::OCLImage2d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_2d_t", AddrSpc);
 +      case BuiltinType::OCLImage2dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_2d_array_t", AddrSpc);
 +      case BuiltinType::OCLImage2dDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_2d_t", AddrSpc);
 +      case BuiltinType::OCLImage2dArrayDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_2d_array_t", AddrSpc);
 +      case BuiltinType::OCLImage2dMSAA:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_ms_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_2d_ms_t", AddrSpc);
 +      case BuiltinType::OCLImage2dArrayMSAA:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_ms_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_2d_ms_array_t", AddrSpc);
 +      case BuiltinType::OCLImage2dMSAADepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_ms_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_2d_ms_t", AddrSpc);
 +      case BuiltinType::OCLImage2dArrayMSAADepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_ms_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_2d_ms_array_t", AddrSpc);
 +      case BuiltinType::OCLImageCube:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_cube_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_cube_t", AddrSpc);
 +      case BuiltinType::OCLImageCubeArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_cube_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_cube_array_t", AddrSpc);
 +      case BuiltinType::OCLImageCubeDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_cube_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_cube_t", AddrSpc);
 +      case BuiltinType::OCLImageCubeArrayDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_cube_array_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._depth_cube_array_t", AddrSpc);
 +      case BuiltinType::OCLImage3d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_3d_t"), AddrSpc);
++        return get_or_create_opaque_ptr_type("struct._texture_3d_t", AddrSpc);
 +      case BuiltinType::OCLSampler:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._sampler_t"),
-+                                      CGM.getContext().getTargetAddressSpace(LangAS::opencl_constant));
++        return get_or_create_opaque_ptr_type("struct._sampler_t", CGM.getContext().getTargetAddressSpace(LangAS::opencl_constant));
 +      case BuiltinType::OCLEvent:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._event_t"), 0);
++        return get_or_create_opaque_ptr_type("struct._event_t", 0);
 +    }
    }
 +  llvm_unreachable("Unexpected builtin type!");
@@ -4873,7 +4879,7 @@ index dbe375294d17..3000ddb0b9ac 100644
  }
  
  llvm::Type *CGOpenCLRuntime::getPipeType(const PipeType *T) {
-@@ -180,7 +228,58 @@ CGOpenCLRuntime::emitOpenCLEnqueuedBlock(CodeGenFunction &CGF, const Expr *E) {
+@@ -180,7 +234,58 @@ CGOpenCLRuntime::emitOpenCLEnqueuedBlock(CodeGenFunction &CGF, const Expr *E) {
    // The common part of the post-processing of the kernel goes here.
    F->addFnAttr(llvm::Attribute::NoUnwind);
    F->setCallingConv(
@@ -5538,10 +5544,19 @@ index 52c54d3c7a72..a172e1c8cba1 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/clang/lib/CodeGen/CodeGenFunction.cpp b/clang/lib/CodeGen/CodeGenFunction.cpp
-index fc4540f26aab..4958be02beb0 100644
+index fc4540f26aab..cd3d53bd7635 100644
 --- a/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -46,6 +46,10 @@
+@@ -30,6 +30,8 @@
+ #include "clang/AST/StmtObjC.h"
+ #include "clang/Basic/Builtins.h"
+ #include "clang/Basic/CodeGenOptions.h"
++#include "clang/Basic/FileManager.h"
++#include "clang/Basic/SourceManager.h"
+ #include "clang/Basic/TargetInfo.h"
+ #include "clang/CodeGen/CGFunctionInfo.h"
+ #include "clang/Frontend/FrontendDiagnostic.h"
+@@ -46,6 +48,10 @@
  #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
  #include "llvm/Transforms/Utils/PromoteMemToReg.h"
  
@@ -5552,7 +5567,7 @@ index fc4540f26aab..4958be02beb0 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -589,14 +593,28 @@ CodeGenFunction::DecodeAddrUsedInPrologue(llvm::Value *F,
+@@ -589,14 +595,28 @@ CodeGenFunction::DecodeAddrUsedInPrologue(llvm::Value *F,
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -5584,7 +5599,7 @@ index fc4540f26aab..4958be02beb0 100644
  
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType HintQTy = A->getTypeHint();
-@@ -636,6 +654,114 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -636,6 +656,118 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -5652,7 +5667,11 @@ index fc4540f26aab..4958be02beb0 100644
 +	  if (CGM.getLangOpts().MetalVersion >= 220) {
 +	    llvm::NamedMDNode *AIRSourceFile = CGM.getModule().getOrInsertNamedMetadata("air.source_file_name");
 +	    SmallVector <llvm::Metadata*, 1> air_source_file;
-+	    air_source_file.push_back(llvm::MDString::get(Context, CGM.getModule().getSourceFileName()));
++	    const auto& src_file_name_str = CGM.getModule().getSourceFileName();
++	    SmallVector<char> src_file_name(src_file_name_str.size());
++	    src_file_name.assign(src_file_name_str.begin(), src_file_name_str.end());
++	    CGM.getContext().getSourceManager().getFileManager().makeAbsolutePath(src_file_name);
++	    air_source_file.push_back(llvm::MDString::get(Context, src_file_name.data()));
 +	    AIRSourceFile->addOperand(llvm::MDNode::get(Context, air_source_file));
 +	  }
 +	  
@@ -5699,7 +5718,7 @@ index fc4540f26aab..4958be02beb0 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -895,9 +1021,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -895,9 +1027,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
    if (D && D->hasAttr<NoProfileFunctionAttr>())
      Fn->addFnAttr(llvm::Attribute::NoProfile);
  
@@ -5719,7 +5738,7 @@ index fc4540f26aab..4958be02beb0 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -943,8 +1076,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -943,8 +1082,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
    //     recursive code, virtual functions or make use of C++ libraries that
    //     are not compiled for the device.
    if (FD && ((getLangOpts().CPlusPlus && FD->isMain()) ||
@@ -5729,7 +5748,7 @@ index fc4540f26aab..4958be02beb0 100644
      Fn->addFnAttr(llvm::Attribute::NoRecurse);
  
    llvm::RoundingMode RM = getLangOpts().getFPRoundingMode();
-@@ -1084,7 +1216,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -1084,7 +1222,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
      Addr = Builder.CreateAlignedLoad(Ty, Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, CGM.getNaturalTypeAlignment(RetTy));
    } else {
@@ -5749,7 +5768,7 @@ index fc4540f26aab..4958be02beb0 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1285,6 +1428,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1285,6 +1434,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -5759,7 +5778,7 @@ index fc4540f26aab..4958be02beb0 100644
    return ResTy;
  }
  
-@@ -1374,7 +1520,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1374,7 +1526,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -5808,7 +5827,7 @@ index dd60e21b0ce1..12324cc99fcf 100644
    llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
                              const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 74c4490d5422..465aa13d357c 100644
+index 74c4490d5422..b9b11a9f26a7 100644
 --- a/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -18,6 +18,7 @@
@@ -8380,14 +8399,14 @@ index 74c4490d5422..465aa13d357c 100644
                                            : llvm::Function::InternalLinkage;
      return llvm::Function::WeakODRLinkage;
    }
-@@ -4853,12 +6968,66 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -4853,12 +6968,73 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
-+static llvm::Type* GraphicsExpandReturnType(const CanQualType& type,
-+                                            llvm::Type* llvm_type,
-+                                            CodeGenTypes& CGT,
-+											const bool is_metal_2_3) {
++static llvm::Type* GraphicsExpandIOType(const QualType& type,
++										llvm::Type* llvm_type,
++										CodeGenTypes& CGT,
++										const bool is_metal_2_3) {
 +	const llvm::StructType* ST = dyn_cast<llvm::StructType>(llvm_type);
 +	if(!ST) return llvm_type;
 +	
@@ -8420,7 +8439,7 @@ index 74c4490d5422..465aa13d357c 100644
 +		// Metal 2.3+: make this an unnamed struct
 +		ret = llvm::StructType::get(CGT.getLLVMContext(), llvm_fields, true); // always make this packed
 +	}
-+	ret->setGraphicsReturnType(); // fix up alignment/sizes/offsets
++	ret->setGraphicsIOType(); // fix up alignment/sizes/offsets
 +	CGT.create_flattened_cg_layout(cxx_rdecl, ret, fields); // create corresponding flattend CGRecordLayout
 +	return ret;
 +}
@@ -8433,21 +8452,28 @@ index 74c4490d5422..465aa13d357c 100644
    const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(GD);
 +  if (D && (getLangOpts().Metal || getLangOpts().Vulkan)) {
 +    // TODO: do this properly in CGCall
-+    // if this is a vertex/fragment shader function and the return type is a struct/aggregate,
++    // if this is a vertex/fragment shader function and we have an I/O type that is a struct/aggregate,
 +    // fully expand/flatten all types within (i.e. structs and arrays to scalars, keep existing scalars)
-+    if ((D->hasAttr<GraphicsVertexShaderAttr>() ||
-+         D->hasAttr<GraphicsFragmentShaderAttr>()) &&
-+        FI.getReturnType()->isStructureOrClassType()) {
-+      auto& retInfo = const_cast<ABIArgInfo&>(FI.getReturnInfo());
-+      //const bool is_metal_2_3 = (getLangOpts().MetalVersion >= 230); // TODO/NOTE: disabled for now, see above
-+      const bool is_metal_2_3 = false;
-+      retInfo.setCoerceToType(GraphicsExpandReturnType(FI.getReturnType(), retInfo.getCoerceToType(), getTypes(), is_metal_2_3));
++    if (D->hasAttr<GraphicsVertexShaderAttr>() || D->hasAttr<GraphicsFragmentShaderAttr>()) {
++		//const bool is_metal_2_3 = (getLangOpts().MetalVersion >= 230); // TODO/NOTE: disabled for now, see above
++		const bool is_metal_2_3 = false;
++		if (FI.getReturnType()->isStructureOrClassType()) {
++			auto& retInfo = const_cast<ABIArgInfo&>(FI.getReturnInfo());
++			retInfo.setCoerceToType(GraphicsExpandIOType(FI.getReturnType(), retInfo.getCoerceToType(), getTypes(), is_metal_2_3));
++		}
++		for (const auto& param : D->parameters()) {
++			const auto param_type = param->getType();
++			if (param_type->isStructureOrClassType() && param->hasAttr<GraphicsStageInputAttr>()) {
++				auto llvm_param_type = getTypes().ConvertType(param_type);
++				(void)GraphicsExpandIOType(param_type, llvm_param_type, getTypes(), is_metal_2_3);
++			}
++		}
 +    }
 +  }
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -4962,8 +7131,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -4962,8 +7138,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -8457,7 +8483,7 @@ index 74c4490d5422..465aa13d357c 100644
      Entry->eraseFromParent();
    } else {
      GA->setName(MangledName);
-@@ -6261,6 +8429,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+@@ -6261,6 +8436,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
    }
  }
  
@@ -8529,7 +8555,7 @@ index 74c4490d5422..465aa13d357c 100644
  llvm::Metadata *
  CodeGenModule::CreateMetadataIdentifierImpl(QualType T, MetadataTypeMap &Map,
                                              StringRef Suffix) {
-@@ -6368,17 +8601,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
+@@ -6368,17 +8608,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
    return *SanStats;
  }
  
@@ -18974,7 +19000,7 @@ index 7a4152994b98..d6f05689d494 100644
    DIFlags Flags;
    DISPFlags SPFlags;
 diff --git a/llvm/include/llvm/IR/DerivedTypes.h b/llvm/include/llvm/IR/DerivedTypes.h
-index 8a1b26e699e3..4480965238cc 100644
+index 8a1b26e699e3..a94b3bdb72cd 100644
 --- a/llvm/include/llvm/IR/DerivedTypes.h
 +++ b/llvm/include/llvm/IR/DerivedTypes.h
 @@ -218,7 +218,8 @@ class StructType : public Type {
@@ -18983,7 +19009,7 @@ index 8a1b26e699e3..4480965238cc 100644
      SCDB_IsLiteral = 4,
 -    SCDB_IsSized = 8
 +    SCDB_IsSized = 8,
-+    SCDB_IsGraphicsReturnType = 16
++    SCDB_IsGraphicsIOType = 16
    };
  
    /// For a named struct that actually has a name, this is a pointer to the
@@ -18991,13 +19017,13 @@ index 8a1b26e699e3..4480965238cc 100644
    /// yet. These prints as 'opaque' in .ll files.
    bool isOpaque() const { return (getSubclassData() & SCDB_HasBody) == 0; }
  
-+  /// isGraphicsReturnType - Return true if this type is used as a Metal vertex/fragment
-+  /// shader return type.
-+  bool isGraphicsReturnType() const { return (getSubclassData() & SCDB_IsGraphicsReturnType) != 0; }
++  /// isGraphicsIOType - Return true if this type is used as a graphics vertex/fragment
++  /// shader input/output type.
++  bool isGraphicsIOType() const { return (getSubclassData() & SCDB_IsGraphicsIOType) != 0; }
 +
-+  /// setGraphicsReturnType - Flags this type as a Metal return type.
-+  void setGraphicsReturnType() {
-+    setSubclassData(getSubclassData() | SCDB_IsGraphicsReturnType);
++  /// setGraphicsIOType - Flags this type as a graphics input/output type.
++  void setGraphicsIOType() {
++    setSubclassData(getSubclassData() | SCDB_IsGraphicsIOType);
 +  }
 +
    /// isSized - Return true if this is a sized type.
@@ -23189,10 +23215,10 @@ index 000000000000..6e0e79cec35c
 +}
 diff --git a/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 000000000000..fba48531ccd9
+index 000000000000..024d6872f91b
 --- /dev/null
 +++ b/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,687 @@
+@@ -0,0 +1,690 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -23636,6 +23662,9 @@ index 000000000000..fba48531ccd9
 +      return false;
 +    });
 +
++    // metallib uses the function name as the source file name
++    cloned_mod->setSourceFileName(func->getName());
++
 +    // update data layout
 +    if (target_air_version >= 230) {
 +      cloned_mod->setDataLayout(
@@ -23736,7 +23765,7 @@ index 000000000000..fba48531ccd9
 +        if (MDNode *ident_op = llvm_ident->getOperand(0)) {
 +          static const std::unordered_map<uint32_t, std::string> ident_versions {
 +            { 230, "Apple LLVM version 31001.143 (metalfe-31001.143)" },
-+            { 240, "Apple metal version 31001.322 (metalfe-31001.322.1)" },
++            { 240, "Apple metal version 31001.363 (metalfe-31001.363)" },
 +          };
 +          ident_op->replaceOperandWith(
 +              0, llvm::MDString::get(
@@ -27721,10 +27750,10 @@ index 000000000000..baf76070e164
 +}
 diff --git a/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp b/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp
 new file mode 100644
-index 000000000000..73a87b083968
+index 000000000000..6d254d4500d1
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/BitcodeWriter50.cpp
-@@ -0,0 +1,4068 @@
+@@ -0,0 +1,4074 @@
 +//===--- Bitcode/Writer50/BitcodeWriter50.cpp - Bitcode 5.0 Writer --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -28359,7 +28388,7 @@ index 000000000000..73a87b083968
 +
 +  SmallVector<uint64_t, 64> Record;
 +  for (ValueEnumerator50::IndexAndAttrSet Pair : AttrGrps) {
-+    if (Pair.first == ~0u) {
++    if (Pair.first == ValueEnumerator50::invalid_attribute_group_id) {
 +      // this complete set/group can't be encoded for 5.0
 +      continue;
 +    }
@@ -28381,7 +28410,7 @@ index 000000000000..73a87b083968
 +            Record.push_back(enc_attr);
 +            Record.push_back(Attr.getValueAsInt());
 +          }
-+		}
++        }
 +      } else if (Attr.isStringAttribute()) {
 +        StringRef Kind = Attr.getKindAsString();
 +        StringRef Val = Attr.getValueAsString();
@@ -28395,7 +28424,13 @@ index 000000000000..73a87b083968
 +        }
 +      } else {
 +        assert(Attr.isTypeAttribute());
-+        // ignore this
++        // NOTE: we do want to encode the "byval" attribute (in the 5.0 format -> no type)
++        if (Attr.getKindAsEnum() == Attribute::ByVal) {
++          const auto enc_attr = getAttrKindEncodingBC50(Attr.getKindAsEnum());
++          Record.push_back(0);
++          Record.push_back(enc_attr);
++        }
++        // else: ignore this
 +      }
 +    }
 +
@@ -30198,7 +30233,7 @@ index 000000000000..73a87b083968
 +    break;
 +
 +  case Instruction::FNeg: {
-+	// emit as "fsub -0, value"
++    // emit as "fsub -0, value"
 +    Code = bitc::FUNC_CODE_INST_BINOP;
 +    pushValue(ConstantFP::get(I.getOperand(0)->getType(), -0.0), InstID, Vals);
 +    if (!pushValueAndType(I.getOperand(0), InstID, Vals))
@@ -30566,7 +30601,7 @@ index 000000000000..73a87b083968
 +    // freeze instruction is not supported by LLVM 5.0,
 +    // but we can more or less emulate it as an identity function
 +    // -> encode as a bitcast to the same type
-+	auto Operand = I.getOperand(0);
++    auto Operand = I.getOperand(0);
 +    Code = bitc::FUNC_CODE_INST_CAST;
 +    if (!pushValueAndType(Operand, InstID, Vals))
 +      AbbrevToUse = FUNCTION_INST_CAST_ABBREV;
@@ -31906,10 +31941,10 @@ index 000000000000..d5de180f3cce
 +  )
 diff --git a/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp
 new file mode 100644
-index 000000000000..c0b2bbb96181
+index 000000000000..cc917b72741c
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.cpp
-@@ -0,0 +1,1049 @@
+@@ -0,0 +1,1055 @@
 +//===- ValueEnumerator50.cpp - Number values and types for bitcode writer -===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -32842,12 +32877,18 @@ index 000000000000..c0b2bbb96181
 +      } else if (Attr.isStringAttribute()) {
 +        has_any_valid_attr = true;
 +        break;
++      } else if (Attr.isTypeAttribute()) {
++        if (Attr.getKindAsEnum() == Attribute::ByVal) {
++          has_any_valid_attr = true;
++          break;
++        }
++        // else: ignore all other type attributes
 +      }
-+      // else: ignore type attributes
++      // else: ignore
 +    }
 +    auto AS_index = i;
 +    if (!has_any_valid_attr) {
-+      AS_index = ~0u;
++      AS_index = invalid_attribute_group_id;
 +    }
 +
 +    IndexAndAttrSet Pair = {AS_index, AS};
@@ -32961,10 +33002,10 @@ index 000000000000..c0b2bbb96181
 +}
 diff --git a/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h
 new file mode 100644
-index 000000000000..2a9d3b39f0be
+index 000000000000..c11047101ea9
 --- /dev/null
 +++ b/llvm/lib/Bitcode/Writer50/ValueEnumerator50.h
-@@ -0,0 +1,300 @@
+@@ -0,0 +1,303 @@
 +//===-- Bitcode/Writer50/ValueEnumerator50.h - Number values ----*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -33110,6 +33151,9 @@ index 000000000000..2a9d3b39f0be
 +public:
 +  ValueEnumerator50(const Module &M, bool ShouldPreserveUseListOrder);
 +
++  //! signals that an attribute group id is invalid / should not be used
++  static constexpr const uint32_t invalid_attribute_group_id = 0x7FFF'FFFFu;
++
 +  void dump() const;
 +  void print(raw_ostream &OS, const ValueMapType &Map, const char *Name) const;
 +  void print(raw_ostream &OS, const MetadataMapType &Map,
@@ -33150,7 +33194,7 @@ index 000000000000..2a9d3b39f0be
 +    AttributeGroupMapType::const_iterator I = AttributeGroupMap.find(Group);
 +    //assert(I != AttributeGroupMap.end() && "Attribute not in ValueEnumerator50!");
 +    if (I == AttributeGroupMap.end()) {
-+      return ~0u;
++      return invalid_attribute_group_id;
 +    }
 +    return I->second;
 +  }
@@ -33409,7 +33453,7 @@ index c66cfb6e9ac1..4face84fc12a 100644
    // It is common to ask for a bitcast of a value to its own type, handle this
    // speedily.
 diff --git a/llvm/lib/IR/DataLayout.cpp b/llvm/lib/IR/DataLayout.cpp
-index 5edff7a74136..7ddd60668095 100644
+index 5edff7a74136..920bdc96a9fa 100644
 --- a/llvm/lib/IR/DataLayout.cpp
 +++ b/llvm/lib/IR/DataLayout.cpp
 @@ -75,6 +75,19 @@ StructLayout::StructLayout(StructType *ST, const DataLayout &DL) {
@@ -33417,8 +33461,8 @@ index 5edff7a74136..7ddd60668095 100644
      StructSize = alignTo(StructSize, StructAlignment);
    }
 +
-+  // fix up graphics return types (densely pack vector types)
-+  if (ST->isGraphicsReturnType()) {
++  // fix up graphics I/O types (densely pack vector types)
++  if (ST->isGraphicsIOType()) {
 +    uint64_t offset_fix = 0;
 +    for (uint32_t i = 0; i < NumElements; ++i) {
 +      getMemberOffsets()[i] -= offset_fix;
@@ -42169,10 +42213,10 @@ index 000000000000..310e5f6c9cea
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/MetalImage.cpp b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 new file mode 100644
-index 000000000000..c7e35e8a2144
+index 000000000000..cc2b6129b584
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
-@@ -0,0 +1,730 @@
+@@ -0,0 +1,741 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -42234,6 +42278,7 @@ index 000000000000..c7e35e8a2144
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/LibFloor.h"
 +#include "llvm/Transforms/LibFloor/FloorImage.h"
++#include <unordered_map>
 +using namespace llvm;
 +
 +#define DEBUG_TYPE "MetalImage"
@@ -42416,16 +42461,35 @@ index 000000000000..c7e35e8a2144
 +				}
 +				
 +				// create global sampler state
-+				auto sampler_state = new GlobalVariable(*M,
-+														sampler_constant_value->getType(),
-+														true,
-+														GlobalVariable::InternalLinkage,
-+														sampler_constant_value,
-+														"__air_sampler_state",
-+														nullptr,
-+														GlobalValue::NotThreadLocal,
-+														Metal_ConstantAS);
-+				sampler_state->setAlignment(MaybeAlign { 8u }); // always 8-byte aligned
++				// NOTE: since we're often using the same sampler -> cache them
++				static std::unordered_map<uint64_t, GlobalVariable*> sample_state_cache;
++				auto sampler_constant_value_u64 = sampler_constant_value->getZExtValue();
++				auto cache_iter = sample_state_cache.find(sampler_constant_value_u64);
++				GlobalVariable* sampler_state = nullptr;
++				if (cache_iter != sample_state_cache.end()) {
++					sampler_state = cache_iter->second;
++				} else {
++					sampler_state = new GlobalVariable(*M,
++													   sampler_constant_value->getType(),
++													   true,
++													   GlobalVariable::InternalLinkage,
++													   sampler_constant_value,
++													   "__air_sampler_state",
++													   nullptr,
++													   GlobalValue::NotThreadLocal,
++													   Metal_ConstantAS);
++					sampler_state->setAlignment(MaybeAlign { 8u }); // always 8-byte aligned
++					sample_state_cache.emplace(sampler_constant_value_u64, sampler_state);
++					
++					// insert metadata
++					auto ctx = &M->getContext();
++					SmallVector<llvm::Metadata*, 2> sampler_md_info;
++					sampler_md_info.push_back(llvm::MDString::get(*ctx, "air.sampler_state"));
++					sampler_md_info.push_back(llvm::ConstantAsMetadata::get(sampler_state));
++					
++					auto samplers_md = M->getOrInsertNamedMetadata("air.sampler_states");
++					samplers_md->addOperand(llvm::MDNode::get(*ctx, sampler_md_info));
++				}
 +				
 +				// still need to bitcast to %struct._sampler_t*
 +				auto sampler_type = dyn_cast<PointerType>(dyn_sampler_arg->getType());
@@ -42436,15 +42500,6 @@ index 000000000000..c7e35e8a2144
 +				
 +				set_sampler_attrs = true;
 +				sampler_param_idx = func_args.size() - 1;
-+				
-+				// insert metadata
-+				auto ctx = &M->getContext();
-+				SmallVector<llvm::Metadata*, 2> sampler_md_info;
-+				sampler_md_info.push_back(llvm::MDString::get(*ctx, "air.sampler_state"));
-+				sampler_md_info.push_back(llvm::ConstantAsMetadata::get(sampler_state));
-+				
-+				auto samplers_md = M->getOrInsertNamedMetadata("air.sampler_states");
-+				samplers_md->addOperand(llvm::MDNode::get(*ctx, sampler_md_info));
 +			}
 +			
 +			if(is_depth) {
@@ -54729,10 +54784,10 @@ index 000000000000..5b1bb7e5a61f
 +  )
 diff --git a/llvm/tools/metallib-dis/metallib-dis.cpp b/llvm/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 000000000000..ba5920e5eb21
+index 000000000000..c2f872982ab6
 --- /dev/null
 +++ b/llvm/tools/metallib-dis/metallib-dis.cpp
-@@ -0,0 +1,519 @@
+@@ -0,0 +1,521 @@
 +//===-- metallib-dis.cpp - The low-level MetalLib + LLVM disassembler -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -54996,7 +55051,7 @@ index 000000000000..ba5920e5eb21
 +};
 +} // end anon namespace
 +
-+static Expected<bool> openInputFile(LLVMContext &Context, std::unique_ptr<ToolOutputFile>& Out) {
++static Expected<bool> openInputFile(char** argv, std::unique_ptr<ToolOutputFile>& Out) {
 +	auto& os = Out->os();
 +	
 +	//
@@ -55173,6 +55228,8 @@ index 000000000000..ba5920e5eb21
 +		os << '\n';
 +		memcpy((char*)bc_mem->getBufferStart(), data + bc_offset, bc_mem->getBufferSize());
 +		
++		LLVMContext Context;
++		Context.setDiagnosticHandler(std::make_unique<MetalLibDisDiagnosticHandler>(argv[0]));
 +		auto bc_mod = parseBitcodeFile(*bc_mem, Context);
 +		if(bc_mod) {
 +			std::unique_ptr<AssemblyAnnotationWriter> Annotator;
@@ -55237,7 +55294,7 @@ index 000000000000..ba5920e5eb21
 +    return -1;
 +  }
 +
-+  Expected<bool> SuccessOrErr = openInputFile(Context, Out);
++  Expected<bool> SuccessOrErr = openInputFile(argv, Out);
 +  if (!SuccessOrErr) {
 +    handleAllErrors(SuccessOrErr.takeError(), [&](ErrorInfoBase &EIB) {
 +      errs() << argv[0] << ": ";
