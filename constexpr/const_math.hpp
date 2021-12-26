@@ -1032,7 +1032,8 @@ namespace const_math {
 	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type copysign(const fp_type a, const fp_type b) {
-		return (b < fp_type(0) ? fp_type(-1) : fp_type(1)) * const_math::abs(a);
+		const auto abs_a = const_math::abs(a);
+		return (b < fp_type(0) ? -abs_a : abs_a);
 	}
 	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"

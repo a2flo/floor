@@ -139,11 +139,10 @@ typedef double clang_double4 __attribute__((ext_vector_type(4)));
 #define const_func __attribute__((const))
 #endif
 
-using namespace std;
-
-
 // stl headers that can be included before atomic functions
 #include <type_traits>
+
+using namespace std;
 
 // atomics (needed before c++ headers)
 #include <floor/compute/device/atomic_fallback.hpp>

@@ -539,7 +539,7 @@ bool metal_buffer::release_opengl_object(const compute_queue* cqueue floor_unuse
 void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc) {
 #if defined(FLOOR_DEBUG)
 	if (!metal_resource_type_needs_sync([rsrc storageMode])) {
-		log_error("only call this with managed memory");
+		log_error("only call this with managed/shared memory");
 		return;
 	}
 #endif

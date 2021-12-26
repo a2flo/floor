@@ -213,15 +213,31 @@ namespace llvm_toolchain {
 		//! if true, enables the default set of warning flags
 		bool enable_warnings { false };
 		
-		//! if true, explicitly enables the emission of debug line info (-gline-tables-only)
-		bool emit_debug_line_info { false };
-		
 		//! if true, overrides the config compute.log_commands option and silences other debug output
 		bool silence_debug_output { false };
 		
 		//! ignore changing compile settings based on querying these at runtime
 		//! e.g. OS, CPU features, ...
 		bool ignore_runtime_info { false };
+		
+		//! debug options
+		struct {
+			//! if true, enables the emission of target dependent debug info,
+			//! i.e. for most targets this will enable -gline-tables-only,
+			//! for others (e.g. Metal) this will enable other debug options as well
+			bool emit_debug_info { false };
+			
+			//! if true, preprocesses the input (-E) and condenses it into a single .ii file
+			//! before compiling it into the target specific format/binary
+			//! NOTE: this is useful when debugging capabilities are limited to a single file
+			//! NOTE: only available for Metal targets
+			bool preprocess_condense { false };
+			
+			//! if true and "preprocess_condense" is enabled, this will not remove
+			//! all comments from the preprocessed .ii file
+			//! NOTE: only available for Metal targets
+			bool preprocess_preserve_comments { false };
+		} debug;
 		
 		//! CUDA specific options
 		struct {

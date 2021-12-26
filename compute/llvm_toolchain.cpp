@@ -225,7 +225,9 @@ program_data compile_input(const string& input,
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
-	switch(options.target) {
+	string metal_emit_format;
+	const bool metal_preprocess = (options.target == TARGET::AIR && options.debug.preprocess_condense);
+	switch (options.target) {
 		case TARGET::SPIR:
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
@@ -247,7 +249,8 @@ program_data compile_input(const string& input,
 				(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(floor::get_opencl_verify_spir() ? " -Xclang -cl-verify-spir" : "") +
 				(device.platform_vendor == COMPUTE_VENDOR::INTEL &&
-				 device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "")
+				 device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "") +
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -357,11 +360,11 @@ program_data compile_input(const string& input,
 				soft_printf = floor::get_metal_soft_printf();
 			}
 			
+			metal_emit_format = (!build_pch ? " -Xclang -emit-metallib" : "");
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				" -x " + (!build_pch ? "metal" : "metal-header") +
 				" -std=" + metal_std + " -target air64-apple-" + os_target +
-				(!build_pch ? " -Xclang -emit-metallib" : "") +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
@@ -376,7 +379,8 @@ program_data compile_input(const string& input,
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" +
 				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
-				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(metal_version)
+				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(metal_version) +
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
@@ -480,6 +484,7 @@ program_data compile_input(const string& input,
 				" -DFLOOR_COMPUTE_NO_DOUBLE"
 				// TODO: fix Vulkan double support
 				//(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -512,7 +517,8 @@ program_data compile_input(const string& input,
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_OPENCL_MAJOR=" + cl_major_version_to_string(cl_device.cl_version) +
 				" -DFLOOR_COMPUTE_OPENCL_MINOR=" + cl_minor_version_to_string(cl_device.cl_version) +
-				(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				(!device.double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -596,11 +602,12 @@ program_data compile_input(const string& input,
 	}
 	
 	// handle pch
+	string pch_include;
 	if (build_pch) {
 		output_file_type = "pch";
 	} else {
 		if (options.pch) {
-			clang_cmd += " -include-pch " + *options.pch;
+			pch_include = " -include-pch " + *options.pch;
 		}
 	}
 	
@@ -932,9 +939,23 @@ program_data compile_input(const string& input,
 	}
 
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
-	if(((floor::get_toolchain_debug() && !options.ignore_runtime_info) || options.emit_debug_line_info) &&
+	string metal_debug_preprocess, metal_final_output_file_type;
+	if (((floor::get_toolchain_debug() && !options.ignore_runtime_info) || options.debug.emit_debug_info) &&
 		options.target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
+		
+		if (options.target == TARGET::AIR) {
+			clang_cmd += " -gstrict-dwarf -gcolumn-info -frecord-command-line";
+			if (options.debug.preprocess_condense && !build_pch) {
+				metal_debug_preprocess = " -E -P";
+				if (options.debug.preprocess_preserve_comments) {
+					metal_debug_preprocess += " -C";
+				}
+				
+				metal_final_output_file_type = output_file_type;
+				output_file_type = "cpp";
+			}
+		}
 	}
 	
 	// default disabled warning flags
@@ -967,16 +988,20 @@ program_data compile_input(const string& input,
 	
 	// add generic flags/options that are always used
 	string compiled_file_or_code;
+	string include_flags {
+		" -isystem \"" + libcxx_path + "\"" +
+		" -isystem \"" + clang_path + "\"" +
+		" -isystem \"" + floor_path + "\"" +
+		" -include floor/compute/device/common.hpp" +
+		pch_include
+	};
 	clang_cmd += {
 #if defined(FLOOR_DEBUG)
 		" -DFLOOR_DEBUG"
 #endif
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR"s +
-		" -isystem \"" + libcxx_path + "\"" +
-		" -isystem \"" + clang_path + "\"" +
-		" -isystem \"" + floor_path + "\"" +
-		" -include floor/compute/device/common.hpp" +
+		(!metal_preprocess ? include_flags : "") +
 		(options.target != TARGET::HOST_COMPUTE_CPU ? " -fno-pic" : "") +
 		" -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-addrsig"
 		" -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
@@ -1002,16 +1027,36 @@ program_data compile_input(const string& input,
 		if (options.target != TARGET::HOST_COMPUTE_CPU && options.target != TARGET::PTX) {
 			clang_cmd += " -emit-llvm";
 		}
-		if (options.target == TARGET::PTX) {
-			clang_cmd += " -S";
+		if (!metal_preprocess) {
+			if (options.target == TARGET::PTX) {
+				clang_cmd += " -S";
+			} else {
+				clang_cmd += " -c";
+			}
+			// else: none
+			clang_cmd += " -o " + compiled_file_or_code + " " + input;
 		} else {
-			clang_cmd += " -c";
+			metal_debug_preprocess += " -o " + compiled_file_or_code + " " + input;
 		}
-		clang_cmd += " -o " + compiled_file_or_code + " " + input;
 	} else {
 		compiled_file_or_code = *options.pch;
 		clang_cmd += " \"" + floor_path + "/floor/compute/device/common.hpp\"";
 		clang_cmd += " -o " + compiled_file_or_code;
+	}
+	
+	// Metal: when we do a two-step compilation (.cpp -> .ii -> .metallib),
+	// build the final preprocess and compile commands here
+	string metal_pp_compile_cmd, metal_final_output_file;
+	if (metal_preprocess) {
+		metal_final_output_file = core::create_tmp_file_name("", '.' + metal_final_output_file_type);
+		metal_pp_compile_cmd = clang_cmd + metal_emit_format + " -Wno-everything";
+		metal_pp_compile_cmd += " -emit-llvm -c -o " + metal_final_output_file + " " + compiled_file_or_code;
+#if !defined(_MSC_VER)
+		metal_pp_compile_cmd += " 2>&1";
+#endif
+		clang_cmd += include_flags + metal_debug_preprocess;
+	} else if (options.target == TARGET::AIR) {
+		clang_cmd += metal_emit_format;
 	}
 	
 	// on sane systems, redirect errors to stdout so that we can grab them
@@ -1023,6 +1068,9 @@ program_data compile_input(const string& input,
 	if(floor::get_toolchain_log_commands() &&
 	   !options.silence_debug_output) {
 		log_debug("clang cmd: $", clang_cmd);
+		if (metal_preprocess) {
+			log_debug("metal final cmd: $", metal_pp_compile_cmd);
+		}
 		logger::flush();
 	}
 	string compilation_output;
@@ -1038,6 +1086,25 @@ program_data compile_input(const string& input,
 	if(compilation_output != "" &&
 	   !options.silence_debug_output) {
 		log_debug("compilation output:\n$", compilation_output);
+	}
+	
+	// Metal: final build step when pre-processing is enabled
+	if (metal_preprocess) {
+		// compile pre-processed file into final .metallib
+		compilation_output = "";
+		core::system(metal_pp_compile_cmd, compilation_output);
+		if (compilation_output.find(" error: ") != string::npos ||
+			compilation_output.find(" errors:") != string::npos) {
+			log_error("final Metal compilation failed! failed cmd was:\n$", metal_pp_compile_cmd);
+			log_error("final Metal compilation errors:\n$", compilation_output);
+			return {};
+		}
+		if (compilation_output != "" &&
+			!options.silence_debug_output) {
+			log_debug("final Metal compilation output:\n$", compilation_output);
+		}
+		// switch out output file (.ii -> .metallib)
+		compiled_file_or_code = metal_final_output_file;
 	}
 	
 	// grab floor function info and create the internal per-function info
