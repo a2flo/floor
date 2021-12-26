@@ -4803,7 +4803,7 @@ index a756290..9dbc9b2 100644
                                             spv::Op OC,
                                             ArrayRef<Type *> ArgTys) {
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
-index 6263a87..b669145 100644
+index 6263a87..9cfd946 100644
 --- a/lib/SPIRV/SPIRVWriter.cpp
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -6,6 +6,7 @@
@@ -6514,8 +6514,7 @@ index 6263a87..b669145 100644
 +    return "kernel";
 +  default:
 +    break;
-   }
--  for (auto &FI : *I) {
++  }
 +  return "";
 +}
 +constexpr VULKAN_STAGE operator|(const VULKAN_STAGE &e0,
@@ -6579,7 +6578,8 @@ index 6263a87..b669145 100644
 +
 +    // recurse
 +    decorateComposite(array_type->getElementType(), spirv_elem_type);
-+  }
+   }
+-  for (auto &FI : *I) {
 +}
 +
 +SPIRVVariable *LLVMToSPIRVBase::emitShaderSPIRVGlobal(
@@ -7665,7 +7665,9 @@ index 6263a87..b669145 100644
 +  if (VulkanVersion == nullptr || VulkanVersion->getNumOperands() != 1) {
 +    return false;
 +  }
-+
+ 
+-  if (IsKernelEntryPoint) {
+-    collectInputOutputVariables(BF, I);
 +  const MDNode *vulkan_version_md = VulkanVersion->getOperand(0);
 +  if (vulkan_version_md->getNumOperands() < 2) {
 +    return false;
@@ -7698,9 +7700,7 @@ index 6263a87..b669145 100644
 +  } else {
 +    return false;
 +  }
- 
--  if (IsKernelEntryPoint) {
--    collectInputOutputVariables(BF, I);
++
 +  switch (version_major) {
 +  case 1:
 +    switch (version_minor) {
@@ -7872,7 +7872,7 @@ index 6263a87..b669145 100644
    BM->setSourceLanguage(static_cast<SourceLanguage>(SrcLang), SrcLangVer);
    return true;
  }
-@@ -4098,9 +6051,283 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
+@@ -4098,9 +6051,299 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
    return OC;
  }
  
@@ -7961,6 +7961,22 @@ index 6263a87..b669145 100644
 +    auto lod_type = (vulkan_sampling::LOD_TYPE)lod_type_arg->getZExtValue();
 +    assert(lod_type <= vulkan_sampling::LOD_TYPE::__MAX_LOD_TYPE &&
 +           "invalid lod type");
++
++    const bool is_fragment_shader = (CI->getParent()->getParent()->getCallingConv() == CallingConv::FLOOR_FRAGMENT);
++    if (!is_fragment_shader && (lod_type == vulkan_sampling::LOD_TYPE::IMPLICIT_LOD ||
++                                lod_type == vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS)) {
++      // implicit LOD is only allowed in fragment shaders -> fix it
++      auto explicit_lod_arg = ConstantInt::get(IntegerType::get(M->getContext(), 32), 0);
++      if (lod_type == vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS) {
++        // replace bias arg with dummy 0
++        args[arg_idx] = explicit_lod_arg;
++      } else {
++        // insert dummy 0
++        args.insert(args.begin() + arg_idx, explicit_lod_arg);
++      }
++      lod_type = vulkan_sampling::LOD_TYPE::EXPLICIT_LOD;
++    }
++
 +    switch (lod_type) {
 +    case vulkan_sampling::LOD_TYPE::NO_LOD:
 +      read_opcode = spv::OpImageFetch;
@@ -8021,9 +8037,9 @@ index 6263a87..b669145 100644
 +      assert((read_opcode == spv::OpImageSampleImplicitLod ||
 +              read_opcode == spv::OpImageSampleExplicitLod) &&
 +             "invalid read opcode");
-+      read_opcode =
-+          (spv::OpImageSampleImplicitLod ? spv::OpImageSampleDrefImplicitLod
-+                                         : spv::OpImageSampleDrefExplicitLod);
++      read_opcode = (read_opcode == spv::OpImageSampleImplicitLod ?
++                     spv::OpImageSampleDrefImplicitLod :
++                     spv::OpImageSampleDrefExplicitLod);
 +      read_operands.emplace_back(transValue(compare_arg, BB)->getId());
 +    }
 +
@@ -8156,7 +8172,7 @@ index 6263a87..b669145 100644
    if (isGroupOpCode(OC))
      BM->addCapability(CapabilityGroups);
    switch (OC) {
-@@ -4497,6 +6724,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
+@@ -4497,6 +6740,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
    PassMgr.add(createOCLTypeToSPIRVLegacy());
    PassMgr.add(createSPIRVLowerOCLBlocksLegacy());
    PassMgr.add(createOCLToSPIRVLegacy());
@@ -8164,7 +8180,7 @@ index 6263a87..b669145 100644
    PassMgr.add(createSPIRVRegularizeLLVMLegacy());
    PassMgr.add(createSPIRVLowerConstExprLegacy());
    PassMgr.add(createSPIRVLowerBoolLegacy());
-@@ -4520,26 +6748,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
+@@ -4520,26 +6764,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
    return true;
  }
  
@@ -8197,7 +8213,7 @@ index 6263a87..b669145 100644
    PassMgr.add(createLLVMToSPIRVLegacy(BM.get()));
    PassMgr.run(*M);
  
-@@ -4551,9 +6783,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
+@@ -4551,9 +6799,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
  
  bool llvm::regularizeLlvmForSpirv(Module *M, std::string &ErrMsg) {
    SPIRV::TranslatorOpts DefaultOpts;
