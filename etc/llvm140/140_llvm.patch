@@ -422,7 +422,7 @@ index 99bb67fd26d1..a4f3dbb47cf9 100644
    cuda_device,
    cuda_constant,
 diff --git a/clang/include/clang/Basic/Attr.td b/clang/include/clang/Basic/Attr.td
-index 31ca7d21b902..81a3391c3d45 100644
+index 31ca7d21b902..2d732362f434 100644
 --- a/clang/include/clang/Basic/Attr.td
 +++ b/clang/include/clang/Basic/Attr.td
 @@ -140,7 +140,7 @@ def FunctionLike : SubsetSubject<DeclBase,
@@ -486,7 +486,7 @@ index 31ca7d21b902..81a3391c3d45 100644
  def SYCLKernel : InheritableAttr {
    let Spellings = [Clang<"sycl_kernel">];
    let Subjects = SubjectList<[FunctionTmpl]>;
-@@ -1205,81 +1181,166 @@ def CXX11NoReturn : InheritableAttr {
+@@ -1205,81 +1181,191 @@ def CXX11NoReturn : InheritableAttr {
    let SimpleHandler = 1;
  }
  
@@ -612,19 +612,44 @@ index 31ca7d21b902..81a3391c3d45 100644
 +def FloorArgBuffer : DeclOrTypeAttr {
 +  let Spellings = [GNU<"floor_arg_buffer">, CXX11<"","floor_arg_buffer", 200809>];
 +  let Documentation = [Undocumented];
- }
- 
++}
++
 +def CUDAConstant : InheritableAttr {
 +  let Spellings = [GNU<"constant_cuda">, CXX11<"","constant_cuda", 200809>];
 +  let Subjects = SubjectList<[Var]>;
 +  let LangOpts = [CUDA];
 +  let Documentation = [Undocumented];
-+}
-+
+ }
+ 
 +def FloorImageDataType : InheritableAttr {
-+  let Spellings = [GNU<"floor_image">, CXX11<"","floor_image", 200809>];
++  let Spellings = [CXX11<"floor","image_data_type", 200809>];
 +  let Args = [TypeArgument<"ImageDataType">];
 +  let TemplateDependent = 1;
++  let Documentation = [Undocumented];
++}
++
++def FloorImageFlags : InheritableAttr {
++  let Spellings = [CXX11<"floor","image_flags", 200809>];
++  let Args = [ExprArgument<"ImageFlags">];
++  let TemplateDependent = 1;
++  let AdditionalMembers = [{
++    uint64_t eval_flags = 0;
++    uint64_t getEvalFlags() const {
++      return eval_flags;
++    }
++    void setEvalFlags(uint64_t flags) {
++      eval_flags = flags;
++    }
++    bool isReadOnly() const {
++        return (eval_flags & 0xC00u) == 0x400u;
++    }
++    bool isWriteOnly() const {
++        return (eval_flags & 0xC00u) == 0x800u;
++    }
++    bool isReadWrite() const {
++        return (eval_flags & 0xC00u) == 0xC00u;
++    }
++  }];
 +  let Documentation = [Undocumented];
 +}
 +
@@ -1654,7 +1679,7 @@ index 52b2c0d963fc..f502e1e4f6e6 100644
        return LangAS::Default;
      }
 diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
-index 11e157bc7d73..bed22063d7af 100644
+index 11e157bc7d73..094e52b470e6 100644
 --- a/clang/include/clang/Sema/Sema.h
 +++ b/clang/include/clang/Sema/Sema.h
 @@ -403,7 +403,7 @@ public:
@@ -1666,13 +1691,17 @@ index 11e157bc7d73..bed22063d7af 100644
    FPOptions CurFPFeatures;
  
    const LangOptions &LangOpts;
-@@ -10372,6 +10372,10 @@ private:
+@@ -10372,6 +10372,14 @@ private:
    SmallVector<AssumptionAttr *, 4> OMPAssumeGlobal;
  
  public:
 +  /// Adds a color(location) attribute to a particular declaration.
 +  void AddGraphicsFBOColorLocationAttr(SourceRange AttrRange, Decl *D, Expr *E,
 +									   const AttributeCommonInfo &CI);
++
++  /// Adds a floor::image_flags(flags) attribute to a particular declaration.
++  void AddFloorImageFlagsAttr(SourceRange AttrRange, Decl *D, Expr *E,
++                              const AttributeCommonInfo &CI);
 +
    /// The declarator \p D defines a function in the scope \p S which is nested
    /// in an `omp begin/end declare variant` scope. In this method we create a
@@ -2113,7 +2142,7 @@ index 04baa85fe145..1984af679f4b 100644
  #include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
 diff --git a/clang/lib/AST/Type.cpp b/clang/lib/AST/Type.cpp
-index ead3944284ae..be057089feea 100644
+index ead3944284ae..4dbebbc12ed7 100644
 --- a/clang/lib/AST/Type.cpp
 +++ b/clang/lib/AST/Type.cpp
 @@ -2110,6 +2110,13 @@ bool Type::isFloatingType() const {
@@ -2212,7 +2241,7 @@ index ead3944284ae..be057089feea 100644
      return true;
    }
    llvm_unreachable("invalid attr kind");
-@@ -4429,3 +4475,108 @@ void AutoType::Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
+@@ -4429,3 +4475,112 @@ void AutoType::Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
    for (const TemplateArgument &Arg : Arguments)
      Arg.Profile(ID, Context);
  }
@@ -2230,8 +2259,12 @@ index ead3944284ae..be057089feea 100644
 +	bool has_any_image = false;
 +	for(const auto* field : decl->fields()) {
 +		// direct image type or array thereof
-+		if(!field->getType()->isImageType() &&
-+		   !field->getType()->isArrayImageType(false)) {
++		if (!field->getType()->isImageType() &&
++			!field->getType()->isArrayImageType(false)) {
++			// ignore zero-sized fields (if there are not an image)
++			if (field->isZeroSize(decl->getASTContext())) {
++				continue;
++			}
 +			return { false, false };
 +		}
 +		has_any_image = true;
@@ -4397,7 +4430,7 @@ index d22f9dc3b68c..99709c86e653 100644
    assert(!getLangOpts().CUDA || !getLangOpts().CUDAIsDevice ||
           getLangOpts().GPUAllowDeviceInit);
 diff --git a/clang/lib/CodeGen/CGExpr.cpp b/clang/lib/CodeGen/CGExpr.cpp
-index e73782f2d317..702e1d0a784a 100644
+index e73782f2d317..5f60a26c6406 100644
 --- a/clang/lib/CodeGen/CGExpr.cpp
 +++ b/clang/lib/CodeGen/CGExpr.cpp
 @@ -140,7 +140,15 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
@@ -4449,7 +4482,7 @@ index e73782f2d317..702e1d0a784a 100644
        if (Addr.getElementType() != SrcTy) {
          Addr = Builder.CreateElementBitCast(Addr, SrcTy, "storetmp");
        }
-@@ -4228,14 +4240,29 @@ static Address emitAddrOfZeroSizeField(CodeGenFunction &CGF, Address Base,
+@@ -4228,14 +4240,39 @@ static Address emitAddrOfZeroSizeField(CodeGenFunction &CGF, Address Base,
  ///
  /// The resulting address doesn't necessarily have the right type.
  static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
@@ -4473,15 +4506,25 @@ index e73782f2d317..702e1d0a784a 100644
 +
 +  // deal with array of opaque (struct) types (e.g. used for array of images)
 +  if (elem_type->isArrayTy() &&
-+      elem_type->getArrayElementType()->isPointerTy() &&
-+      elem_type->getArrayElementType()->getPointerElementType()->isStructTy() &&
-+      !elem_type->getArrayElementType()->getPointerElementType()->isSized()) {
-+    return CGF.Builder.CreateConstArrayGEP(base, idx, field->getName());
++      elem_type->getArrayElementType()->isPointerTy()) {
++    if (elem_type->getArrayElementType()->getPointerElementType()->isStructTy() &&
++        !elem_type->getArrayElementType()->getPointerElementType()->isSized()) {
++      // -> 1D
++      return CGF.Builder.CreateConstArrayGEP(base, idx, field->getName());
++    } else if (elem_type->getArrayElementType()->getPointerElementType()->isArrayTy()) {
++      // -> 2D
++      auto arr_type = dyn_cast<llvm::ArrayType>(elem_type->getArrayElementType()->getPointerElementType());
++      if (arr_type && arr_type->getElementType()->isPointerTy() &&
++          arr_type->getElementType()->getPointerElementType()->isStructTy() &&
++          !arr_type->getElementType()->getPointerElementType()->isSized()) {
++        return CGF.Builder.CreateConstArrayGEP(base, idx, field->getName());
++      }
++    }
 +  }
  
    return CGF.Builder.CreateStructGEP(base, idx, field->getName());
  }
-@@ -4275,10 +4302,13 @@ static bool hasAnyVptr(const QualType Type, const ASTContext &Context) {
+@@ -4275,10 +4312,13 @@ static bool hasAnyVptr(const QualType Type, const ASTContext &Context) {
  LValue CodeGenFunction::EmitLValueForField(LValue base,
                                             const FieldDecl *field) {
    LValueBaseInfo BaseInfo = base.getBaseInfo();
@@ -4497,7 +4540,7 @@ index e73782f2d317..702e1d0a784a 100644
      const CGBitFieldInfo &Info = RL.getBitFieldInfo(field);
      const bool UseVolatile = isAAPCS(CGM.getTarget()) &&
                               CGM.getCodeGenOpts().AAPCSBitfieldWidth &&
-@@ -4286,7 +4316,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4286,7 +4326,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
                               field->getType()
                                   .withCVRQualifiers(base.getVRQualifiers())
                                   .isVolatileQualified();
@@ -4505,7 +4548,7 @@ index e73782f2d317..702e1d0a784a 100644
      unsigned Idx = RL.getLLVMFieldNo(field);
      const RecordDecl *rec = field->getParent();
      if (!UseVolatile) {
-@@ -4309,6 +4338,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4309,6 +4348,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
      llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
      if (Addr.getElementType() != FieldIntTy)
        Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
@@ -4513,7 +4556,7 @@ index e73782f2d317..702e1d0a784a 100644
      if (UseVolatile) {
        const unsigned VolatileOffset = Info.VolatileStorageOffset.getQuantity();
        if (VolatileOffset)
-@@ -4327,7 +4357,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4327,7 +4367,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
    // FIXME: this should get propagated down through anonymous structs
    // and unions.
    QualType FieldType = field->getType();
@@ -4521,7 +4564,7 @@ index e73782f2d317..702e1d0a784a 100644
    AlignmentSource BaseAlignSource = BaseInfo.getAlignmentSource();
    LValueBaseInfo FieldBaseInfo(getFieldAlignmentSource(BaseAlignSource));
    TBAAAccessInfo FieldTBAAInfo;
-@@ -4341,7 +4370,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4341,7 +4380,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
      // If no base type been assigned for the base access, then try to generate
      // one for this base lvalue.
      FieldTBAAInfo = base.getTBAAInfo();
@@ -4530,7 +4573,7 @@ index e73782f2d317..702e1d0a784a 100644
          FieldTBAAInfo.BaseType = CGM.getTBAABaseTypeInfo(base.getType());
          assert(!FieldTBAAInfo.Offset &&
                 "Nonzero offset for an access with no base type!");
-@@ -4361,7 +4390,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4361,7 +4400,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
          getContext().getTypeSizeInChars(FieldType).getQuantity();
    }
  
@@ -4539,7 +4582,7 @@ index e73782f2d317..702e1d0a784a 100644
    if (auto *ClassDef = dyn_cast<CXXRecordDecl>(rec)) {
      if (CGM.getCodeGenOpts().StrictVTablePointers &&
          ClassDef->isDynamicClass()) {
-@@ -4402,7 +4431,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -4402,7 +4441,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
      if (!IsInPreservedAIRegion &&
          (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
        // For structs, we GEP to the field that the record layout suggests.
@@ -4548,7 +4591,7 @@ index e73782f2d317..702e1d0a784a 100644
      else
        // Remember the original struct field index
        addr = emitPreserveStructAccess(*this, base, addr, field);
-@@ -4449,7 +4478,8 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
+@@ -4449,7 +4488,8 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
    if (!FieldType->isReferenceType())
      return EmitLValueForField(Base, Field);
  
@@ -4558,7 +4601,7 @@ index e73782f2d317..702e1d0a784a 100644
  
    // Make sure that the address is pointing to the right type.
    llvm::Type *llvmType = ConvertTypeForMem(FieldType);
-@@ -4651,7 +4681,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -4651,7 +4691,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    case CK_ARCReclaimReturnedObject:
    case CK_ARCExtendBlockObject:
    case CK_CopyAndAutoreleaseBlockObject:
@@ -4566,7 +4609,7 @@ index e73782f2d317..702e1d0a784a 100644
    case CK_FloatingToFixedPoint:
    case CK_FixedPointToFloating:
    case CK_FixedPointCast:
-@@ -4788,6 +4817,12 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -4788,6 +4827,12 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    }
    case CK_ZeroToOCLOpaqueType:
      llvm_unreachable("NULL to OpenCL opaque type lvalue cast is not valid");
@@ -4579,7 +4622,7 @@ index e73782f2d317..702e1d0a784a 100644
    }
  
    llvm_unreachable("Unhandled lvalue cast kind?");
-@@ -4923,7 +4958,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
+@@ -4923,7 +4968,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
  
    llvm::Constant *CalleePtr = EmitFunctionDeclPointer(CGF.CGM, GD);
    if (CGF.CGM.getLangOpts().CUDA && !CGF.CGM.getLangOpts().CUDAIsDevice &&
@@ -5916,7 +5959,7 @@ index dd60e21b0ce1..12324cc99fcf 100644
    llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
                              const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 74c4490d5422..b9b11a9f26a7 100644
+index 74c4490d5422..5d82f6e5c49a 100644
 --- a/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -18,6 +18,7 @@
@@ -5935,18 +5978,19 @@ index 74c4490d5422..b9b11a9f26a7 100644
  #include "clang/Basic/FileManager.h"
  #include "clang/Basic/Module.h"
  #include "clang/Basic/SourceManager.h"
-@@ -65,6 +67,10 @@
+@@ -65,6 +67,11 @@
  #include "llvm/Support/TimeProfiler.h"
  #include "llvm/Support/X86TargetParser.h"
  
 +#include <sstream>
 +#include <unordered_set>
 +#include <fstream>
++#include <optional>
 +
  using namespace clang;
  using namespace CodeGen;
  
-@@ -629,7 +635,10 @@ void CodeGenModule::Release() {
+@@ -629,7 +636,10 @@ void CodeGenModule::Release() {
      // parser will drop debug info with a different version number
      // (and warn about it, too).
      getModule().addModuleFlag(llvm::Module::Warning, "Debug Info Version",
@@ -5958,7 +6002,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  
    // We need to record the widths of enums and wchar_t, so that we can generate
    // the correct build attributes in the ARM backend. wchar_size is also used by
-@@ -733,9 +742,10 @@ void CodeGenModule::Release() {
+@@ -733,9 +743,10 @@ void CodeGenModule::Release() {
  
    // Emit OpenCL specific module metadata: OpenCL/SPIR version.
    if (LangOpts.OpenCL) {
@@ -5970,7 +6014,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
        // SPIR v2.0 s2.12 - The SPIR version used by the module is stored in the
        // opencl.spir.version named metadata.
        // C++ for OpenCL has a distinct mapping for version compatibility with
-@@ -793,6 +803,9 @@ void CodeGenModule::Release() {
+@@ -793,6 +804,9 @@ void CodeGenModule::Release() {
  
    SimplifyPersonality();
  
@@ -5980,7 +6024,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
    if (getCodeGenOpts().EmitDeclMetadata)
      EmitDeclMetadata();
  
-@@ -802,6 +815,34 @@ void CodeGenModule::Release() {
+@@ -802,6 +816,34 @@ void CodeGenModule::Release() {
    if (CGDebugInfo *DI = getModuleDebugInfo())
      DI->finalize();
  
@@ -6015,7 +6059,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
    if (getCodeGenOpts().EmitVersionIdentMetadata)
      EmitVersionIdentMetadata();
  
-@@ -1261,7 +1302,7 @@ static std::string getMangledNameImpl(CodeGenModule &CGM, GlobalDecl GD,
+@@ -1261,7 +1303,7 @@ static std::string getMangledNameImpl(CodeGenModule &CGM, GlobalDecl GD,
      if (FD &&
          FD->getType()->castAs<FunctionType>()->getCallConv() == CC_X86RegCall) {
        Out << "__regcall3__" << II->getName();
@@ -6024,7 +6068,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
                 GD.getKernelReferenceKind() == KernelReferenceKind::Stub) {
        Out << "__device_stub__" << II->getName();
      } else {
-@@ -1377,6 +1418,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
+@@ -1377,6 +1419,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
    const auto *ND = cast<NamedDecl>(GD.getDecl());
    std::string MangledName = getMangledNameImpl(*this, GD, ND);
  
@@ -6032,7 +6076,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
    // Ensure either we have different ABIs between host and device compilations,
    // says host compilation following MSVC ABI but device compilation follows
    // Itanium C++ ABI or, if they follow the same ABI, kernel names after
-@@ -1386,7 +1428,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
+@@ -1386,7 +1429,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
    // result in undefined behavior. Even though we cannot check that naming
    // directly between host- and device-compilations, the host- and
    // device-mangling in host compilation could help catching certain ones.
@@ -6041,7 +6085,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
           getLangOpts().CUDAIsDevice ||
           (getContext().getAuxTargetInfo() &&
            (getContext().getAuxTargetInfo()->getCXXABI() !=
-@@ -1396,6 +1438,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
+@@ -1396,6 +1439,7 @@ StringRef CodeGenModule::getMangledName(GlobalDecl GD) {
                   *this,
                   GD.getWithKernelReferenceKind(KernelReferenceKind::Kernel),
                   ND));
@@ -6049,7 +6093,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  
    auto Result = Manglings.insert(std::make_pair(MangledName, GD));
    return MangledDeclNames[CanonicalGD] = Result.first->first();
-@@ -1525,6 +1568,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
+@@ -1525,6 +1569,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
    F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
  }
  
@@ -6057,7 +6101,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  static void removeImageAccessQualifier(std::string& TyName) {
    std::string ReadOnlyQual("__read_only");
    std::string::size_type ReadOnlyPos = TyName.find(ReadOnlyQual);
-@@ -1544,6 +1588,7 @@ static void removeImageAccessQualifier(std::string& TyName) {
+@@ -1544,6 +1589,7 @@ static void removeImageAccessQualifier(std::string& TyName) {
      }
    }
  }
@@ -6065,7 +6109,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  
  // Returns the address space id that should be produced to the
  // kernel_arg_addr_space metadata. This is always fixed to the ids
-@@ -1551,6 +1596,7 @@ static void removeImageAccessQualifier(std::string& TyName) {
+@@ -1551,6 +1597,7 @@ static void removeImageAccessQualifier(std::string& TyName) {
  // for example in clGetKernelArgInfo() implementation between the address
  // spaces with targets without unique mapping to the OpenCL address spaces
  // (basically all single AS CPUs).
@@ -6073,7 +6117,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  static unsigned ArgInfoAddressSpace(LangAS AS) {
    switch (AS) {
    case LangAS::opencl_global:
-@@ -1562,152 +1608,2112 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -1562,152 +1609,2150 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    case LangAS::opencl_generic:
      return 4; // Not in SPIR 2.0 specs.
    case LangAS::opencl_global_device:
@@ -6120,36 +6164,76 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +// NOTE: will return an empty vector if not a proper aggregate image
 +static std::vector<RecordDecl::field_iterator> get_aggregate_image_fields(const CXXRecordDecl* decl) {
 +	// extract all fields, then check if all are image types (if one isn't, fail)
-+	const auto ret = get_aggregate_fields(decl);
-+	for (const auto& iter : ret) {
-+		if (!iter->getType()->isImageType() &&
-+			!iter->getType()->isArrayImageType(false)) {
++	auto ret = get_aggregate_fields(decl);
++	for (auto iter = ret.begin(); iter != ret.end(); ) {
++		if (!(*iter)->getType()->isImageType() &&
++			!(*iter)->getType()->isArrayImageType(false)) {
++			// ignore zero-sized fields (if there are not an image)
++			if ((*iter)->isZeroSize(decl->getASTContext())) {
++				iter = ret.erase(iter);
++				continue;
++			}
 +			return {};
 +		}
++		++iter;
 +	}
 +	return ret;
 +}
 +
-+static std::pair<FieldDecl*, uint32_t> get_array_image_info(const CXXRecordDecl* decl, const ASTContext& ASTCtx) {
++struct array_image_info_t {
++	QualType image_type;
++	FloorImageFlagsAttr* flags { nullptr };
++	FloorImageDataTypeAttr* data_type { nullptr };
++	uint32_t element_count { 0u };
++};
++static std::optional<array_image_info_t> get_array_image_info(const CXXRecordDecl* decl, const ASTContext& ASTCtx) {
 +	const auto ret = get_aggregate_fields(decl);
-+	if (ret.size() != 1) return { nullptr, 0 };
++	if (ret.size() != 1) return {};
 +	
 +	FieldDecl* arr_field_decl = *ret[0];
 +	const ConstantArrayType *CAT = ASTCtx.getAsConstantArrayType(arr_field_decl->getType());
-+	if (!CAT) return { nullptr, 0 };
++	if (!CAT) return {};
 +	
 +	auto img_cxx_rdecl = CAT->getElementType()->getAsCXXRecordDecl();
-+	if (!img_cxx_rdecl) return { nullptr, 0 };
++	if (!img_cxx_rdecl) return {};
 +	
-+	auto img_fields = get_aggregate_fields(img_cxx_rdecl);
-+	if (img_fields.size() != 1) return { nullptr, 0 };
++	// handle nested/2D image arrays (Vulkan)
++	// NOTE: expecting a single field (write-only) or two fields (read-write) here,
++	// with the writable image consisting of a pointer to another array
++	const auto inner = get_aggregate_image_fields(img_cxx_rdecl);
++	if (inner.size() == 1 || inner.size() == 2) {
++		const auto writable_img_idx = inner.size() - 1;
++		if ((*inner[writable_img_idx])->getType()->isPointerType()) {
++			FieldDecl* inner_field_decl = *inner[0];
++			const ConstantArrayType *inner_CAT = ASTCtx.getAsConstantArrayType(inner_field_decl->getType()->getPointeeType());
++			// if this is not an array, something is wrong (field isn't an image either)
++			if (!inner_CAT) return {};
++			
++			// NOTE: the outer array element count is reported here (which is user-specified),
++			//       the inner array element count is an implementation detail
++			return array_image_info_t {
++				inner_CAT->getElementType(),
++				inner[0]->getAttr<FloorImageFlagsAttr>(),
++				inner[0]->getAttr<FloorImageDataTypeAttr>(),
++				uint32_t(CAT->getSize().getZExtValue()),
++			};
++		}
++	}
 +	
-+	return { *img_fields[0], uint32_t(CAT->getSize().getZExtValue()) };
++	auto img_fields = get_aggregate_image_fields(img_cxx_rdecl);
++	if (img_fields.size() != 1) return {};
++	
++	return array_image_info_t {
++		img_fields[0]->getType(),
++		img_fields[0]->getAttr<FloorImageFlagsAttr>(),
++		img_fields[0]->getAttr<FloorImageDataTypeAttr>(),
++		uint32_t(CAT->getSize().getZExtValue()),
++	};
 +}
 +
 +// will recurse through the specified class/struct decl and its base classes,
-+// returning the first image access attribute that it encounters (or nullptr if none)
-+static const ImageAccessAttr* get_aggregate_access_attr(const CXXRecordDecl* decl) {
++// returning the first image flags attribute that it encounters (or nullptr if none)
++static const FloorImageFlagsAttr* get_aggregate_image_flags_attr(const CXXRecordDecl* decl) {
 +	if (decl == nullptr) return nullptr;
 +	
 +	// must have definition
@@ -6157,7 +6241,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +	
 +	// iterate over / recurse into all bases
 +	for (const auto& base : decl->bases()) {
-+		const auto base_ret = get_aggregate_access_attr(base.getTypeSourceInfo()->getType()->getAsCXXRecordDecl());
++		const auto base_ret = get_aggregate_image_flags_attr(base.getTypeSourceInfo()->getType()->getAsCXXRecordDecl());
 +		if (base_ret != nullptr) {
 +			return base_ret;
 +		}
@@ -6165,18 +6249,22 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +	
 +	// iterate over all fields/members and return the first access attr
 +	for (auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
++		if (iter->isZeroSize(decl->getASTContext())) {
++			continue;
++		}
++		
 +		// try direct attr first
-+		const ImageAccessAttr* access_attr = iter->getAttr<ImageAccessAttr>();
-+		if (access_attr != nullptr) {
-+			return access_attr;
++		const FloorImageFlagsAttr* flags_attr = iter->getAttr<FloorImageFlagsAttr>();
++		if (flags_attr != nullptr) {
++			return flags_attr;
 +		}
 +		
 +		// then check if this is a c++ decl (struct/union/class) and check if it has the attr
 +		const auto as_decl = iter->getType()->getAsCXXRecordDecl();
 +		if (as_decl != nullptr) {
-+			access_attr = as_decl->getAttr<ImageAccessAttr>();
-+			if (access_attr != nullptr) {
-+				return access_attr;
++			flags_attr = as_decl->getAttr<FloorImageFlagsAttr>();
++			if (flags_attr != nullptr) {
++				return flags_attr;
 +			}
 +		}
 +	}
@@ -6235,7 +6323,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +	return getScalarMetadataValue(ElemTy.getTypePtr(), Policy);
 +}
 +
-+static ImageAccessAttr* getImageAccessAttribute(const NamedDecl* decl_, const QualType* type_, llvm::LLVMContext &Context) {
++static FloorImageFlagsAttr* getFloorImageFlagsAttribute(const NamedDecl* decl_, const QualType* type_, llvm::LLVMContext &Context) {
 +	const Decl* decl = decl_;
 +	if (type_) {
 +		if (const TypedefType *QTT = dyn_cast<const TypedefType>(*type_)) {
@@ -6243,8 +6331,8 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +		}
 +	}
 +	
-+	if (decl->hasAttr<ImageAccessAttr>()) {
-+		return decl->getAttr<ImageAccessAttr>();
++	if (decl->hasAttr<FloorImageFlagsAttr>()) {
++		return decl->getAttr<FloorImageFlagsAttr>();
 +	}
 +	return nullptr;
 +}
@@ -6471,15 +6559,15 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +	};
 +	
 +	const auto add_image_arg = [&Builder, this, &Policy, &addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames, &argNames, &argTypeQuals](const clang::QualType& type,
-+																																				  const ImageAccessAttr* access_attr,
++																																				  const FloorImageFlagsAttr* flags_attr,
 +																																				  const std::string& name) {
 +		// image is always in global address space
 +		addressQuals.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(getContext().getTargetAddressSpace(LangAS::opencl_global))));
 +		
 +		// set access qualifier
-+		if (access_attr && access_attr->isWriteOnly()) {
++		if (flags_attr && flags_attr->isWriteOnly()) {
 +			accessQuals.push_back(llvm::MDString::get(VMContext, "write_only"));
-+		} else if (access_attr && access_attr->isReadWrite()) {
++		} else if (flags_attr && flags_attr->isReadWrite()) {
 +			accessQuals.push_back(llvm::MDString::get(VMContext, "read_write"));
 +		} else {
 +			accessQuals.push_back(llvm::MDString::get(VMContext, "read_only"));
@@ -6554,7 +6642,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			accessQuals.push_back(llvm::MDString::get(VMContext, "none"));
 +			argNames.push_back(llvm::MDString::get(VMContext, parm->getName()));
 +		} else if (clang_type->isImageType()) { // normal image
-+			add_image_arg(clang_type, getImageAccessAttribute(parm, &clang_type, VMContext), parm->getName().str());
++			add_image_arg(clang_type, getFloorImageFlagsAttribute(parm, &clang_type, VMContext), parm->getName().str());
 +		} else if (clang_type->isAggregateImageType()) { // aggregate image
 +			const auto decl = clang_type->getAsCXXRecordDecl();
 +			const auto agg_images = get_aggregate_image_fields(decl);
@@ -6564,7 +6652,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			for (const auto& img : agg_images) {
 +				const auto img_type = img->getType();
 +				
-+				add_image_arg(img_type, getImageAccessAttribute(*img, &img_type, VMContext),
++				add_image_arg(img_type, getFloorImageFlagsAttribute(*img, &img_type, VMContext),
 +							  base_name + std::to_string(img_idx));
 +				++img_idx;
 +			}
@@ -6778,16 +6866,15 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +	//
 +	stage_infos.push_back(llvm::MDString::get(VMContext, "stage_input"));
 +	
-+	const auto add_image_arg = [this, &stage_infos](const clang::QualType& type,
-+													const ImageAccessAttr* access_attr,
++	const auto add_image_arg = [this, &stage_infos](const FloorImageFlagsAttr* flags_attr,
 +													const FloorImageDataTypeAttr* data_type,
 +													const std::string& name,
 +													const uint32_t elem_count = 1,
 +													const bool is_array = false) {
 +		std::string access_str = "read";
-+		if (access_attr && access_attr->isWriteOnly()) {
++		if (flags_attr && flags_attr->isWriteOnly()) {
 +			access_str = "write";
-+		} else if (access_attr && access_attr->isReadWrite()) {
++		} else if (flags_attr && flags_attr->isReadWrite()) {
 +			assert(false && "read/write is not supported");
 +		}
 +		
@@ -6841,13 +6928,11 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			handle_stage_input_output(clang_type, llvm_type, false, &arg_idx);
 +		} else if (clang_type->isArrayImageType(true)) { // image array
 +			const auto array_image_info = get_array_image_info(cxx_rdecl, Context);
-+			if (array_image_info.first != nullptr &&
-+				array_image_info.second > 0) {
-+				add_image_arg(array_image_info.first->getType(),
-+							  array_image_info.first->getAttr<ImageAccessAttr>(),
-+							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
++			if (array_image_info) {
++				add_image_arg(array_image_info->flags,
++							  array_image_info->data_type,
 +							  parm->getName().str(),
-+							  array_image_info.second,
++							  array_image_info->element_count,
 +							  true /* always an array */);
 +			}
 +		} else if (clang_type->isAggregateImageType()) { // aggregate image
@@ -6859,8 +6944,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +					elem_count = Context.getAsConstantArrayType(img->getType()->getPointeeType())->getSize().getZExtValue();
 +					is_array = true;
 +				}
-+				add_image_arg(img->getType(),
-+							  img->getAttr<ImageAccessAttr>(),
++				add_image_arg(img->getAttr<FloorImageFlagsAttr>(),
 +							  img->getAttr<FloorImageDataTypeAttr>(),
 +							  parm->getName().str(),
 +							  elem_count,
@@ -7048,7 +7132,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +		
 +		//
 +		const auto add_image_arg = [this, &Builder, &tex_idx, &arg_infos, &arg_idx, &parm](const clang::QualType& type,
-+																						   const ImageAccessAttr* access_attr,
++																						   const FloorImageFlagsAttr* flags_attr,
 +																						   const FloorImageDataTypeAttr* data_type,
 +																						   const std::string& name,
 +																						   const uint32_t elem_count = 1) {
@@ -7066,9 +7150,9 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(elem_count)));
 +			// #5: access type (sample = 0, read = 1 or write = 2)
 +			// note that "read" is essentially a subset of "sample" -> use "sample" for r/o
-+			if (access_attr && access_attr->isWriteOnly()) {
++			if (flags_attr && flags_attr->isWriteOnly()) {
 +				arg_info.push_back(llvm::MDString::get(VMContext, "air.write"));
-+			} else if (access_attr && access_attr->isReadWrite()) {
++			} else if (flags_attr && flags_attr->isReadWrite()) {
 +				// TODO: this isn't really supported
 +				arg_info.push_back(llvm::MDString::get(VMContext, "air.write"));
 +			} else {
@@ -7142,7 +7226,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			}
 +			tex_type_name += sample_type_str;
 +			tex_type_name += ", ";
-+			if (access_attr && access_attr->isReadOnly()) {
++			if (flags_attr && flags_attr->isReadOnly()) {
 +				tex_type_name += "sample";
 +			} else {
 +				tex_type_name += "write";
@@ -7400,17 +7484,16 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			}
 +			arg_infos.push_back(llvm::MDNode::get(VMContext, arg_info));
 +		} else if (clang_type->isImageType()) { // image
-+			add_image_arg(clang_type, parm->getAttr<ImageAccessAttr>(),
++			add_image_arg(clang_type, parm->getAttr<FloorImageFlagsAttr>(),
 +						  parm->getAttr<FloorImageDataTypeAttr>(), parm->getName().str());
 +		} else if (clang_type->isArrayImageType(true)) { // image array
 +			const auto array_image_info = get_array_image_info(cxx_rdecl, Context);
-+			if (array_image_info.first != nullptr &&
-+				array_image_info.second > 0) {
-+				add_image_arg(array_image_info.first->getType(),
-+							  array_image_info.first->getAttr<ImageAccessAttr>(),
-+							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
++			if (array_image_info) {
++				add_image_arg(array_image_info->image_type,
++							  array_image_info->flags,
++							  array_image_info->data_type,
 +							  parm->getName().str(),
-+							  array_image_info.second);
++							  array_image_info->element_count);
 +			} else {
 +				Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
 +				return;
@@ -7422,7 +7505,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			unsigned int img_idx = 0;
 +			for (const auto& img : agg_images) {
 +				add_image_arg(img->getType(),
-+							  img->getAttr<ImageAccessAttr>(),
++							  img->getAttr<FloorImageFlagsAttr>(),
 +							  img->getAttr<FloorImageDataTypeAttr>(),
 +							  base_name + std::to_string(img_idx));
 +				++img_idx;
@@ -7924,11 +8007,11 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			return CGM.getDataLayout().getTypeStoreSize(type).getFixedValue();
 +		};
 +		
-+		static const auto get_image_access = [](const ImageAccessAttr* access_attr) {
-+			if (access_attr != nullptr) {
-+				if (access_attr->isWriteOnly()) {
++		static const auto get_image_access = [](const FloorImageFlagsAttr* flags_attr) {
++			if (flags_attr != nullptr) {
++				if (flags_attr->isWriteOnly()) {
 +					return FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
-+				} else if (access_attr->isReadWrite()) {
++				} else if (flags_attr->isReadWrite()) {
 +					return FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
 +				}
 +			}
@@ -8134,18 +8217,17 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			info << arg_info << ",";
 +		} else if (clang_type->isImageType()) { // handle image types
 +			const auto arg_info = add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
-+												get_image_access(parm->getAttr<ImageAccessAttr>()));
++												get_image_access(parm->getAttr<FloorImageFlagsAttr>()));
 +			info << arg_info << ",";
 +		}
 +		// image array (std::array<*image_*<type>, extent>)
 +		// NOTE: check before "isAggregateImageType()", because this is essentially a sub-type of it
 +		else if (clang_type->isArrayImageType(true)) {
 +			const auto array_image_info = get_array_image_info(cxx_rdecl, getContext());
-+			if (array_image_info.first != nullptr &&
-+				array_image_info.second > 0) {
-+				const auto arg_info = add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
-+													get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
-+													array_image_info.second);
++			if (array_image_info) {
++				const auto arg_info = add_image_arg(img_type_to_floor_type(array_image_info->image_type.getTypePtr()),
++													get_image_access(array_image_info->flags),
++													array_image_info->element_count);
 +				info << arg_info << ",";
 +			} else {
 +				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
@@ -8174,7 +8256,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +			FLOOR_ARG_INFO floor_img_type = FLOOR_ARG_INFO::NONE;
 +			uint64_t floor_img_access = 0;
 +			for (const auto& img : agg_images) {
-+				const auto access_attr = img->getAttr<ImageAccessAttr>();
++				const auto access_attr = img->getAttr<FloorImageFlagsAttr>();
 +				if (access_attr == nullptr) {
 +					CGM.Error(img->getSourceRange().getBegin(),
 +							  StringRef("image type in an aggregate-image must have an access qualifier"));
@@ -8226,10 +8308,10 @@ index 74c4490d5422..b9b11a9f26a7 100644
 +				(abi_arg_info_iter->info.isDirect() || abi_arg_info_iter->info.isIndirect()) &&
 +				TargetCodeGenInfo::TCGIisAggregateTypeForABI(abi_arg_info_iter->type)) {
 +				// check if this is an aggregate image (must have image access qualifiers)
-+				const ImageAccessAttr* access_attr = get_aggregate_access_attr(cxx_rdecl);
-+				if (access_attr != nullptr) {
++				const FloorImageFlagsAttr* flags_attr = get_aggregate_image_flags_attr(cxx_rdecl);
++				if (flags_attr != nullptr) {
 +					uint64_t arg_info = 0; // size is irrelevant for cuda images
-+					arg_info |= uint64_t(get_image_access(access_attr));
++					arg_info |= uint64_t(get_image_access(flags_attr));
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
 +					info << arg_info << ",";
 +				} else if (abi_arg_info_iter->info.isDirect()) {
@@ -8325,7 +8407,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  }
  
  /// Determines whether the language options require us to model
-@@ -2508,6 +4514,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
+@@ -2508,6 +4553,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
    gv->setSection(AnnotationSection);
  }
  
@@ -8439,7 +8521,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
    llvm::Constant *&AStr = AnnotationStrings[Str];
    if (AStr)
-@@ -2897,11 +5010,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2897,11 +5049,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<CPUDispatchAttr>())
      return emitCPUDispatchDefinition(GD);
  
@@ -8453,7 +8535,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
            !Global->hasAttr<CUDAConstantAttr>() &&
            !Global->hasAttr<CUDASharedAttr>() &&
            !Global->getType()->isCUDADeviceBuiltinSurfaceType() &&
-@@ -2922,6 +5036,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2922,6 +5075,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
               "Expected Variable or Function");
      }
    }
@@ -8461,7 +8543,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  
    if (LangOpts.OpenMP) {
      // If this is OpenMP, check if it is legal to emit this global normally.
-@@ -3738,7 +5853,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
+@@ -3738,7 +5892,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
                                      IsForDefinition);
    // Returns kernel handle for HIP kernel stub function.
    if (LangOpts.CUDA && !LangOpts.CUDAIsDevice &&
@@ -8470,7 +8552,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
      auto *Handle = getCUDARuntime().getKernelHandle(
          cast<llvm::Function>(F->stripPointerCasts()), GD);
      if (IsForDefinition)
-@@ -4291,7 +6406,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
+@@ -4291,7 +6445,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
  
    // Do not set COMDAT attribute for CUDA/HIP stub functions to prevent
    // them being "merged" by the COMDAT Folding linker optimization.
@@ -8479,7 +8561,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
      return false;
  
    if (D.hasAttr<SelectAnyAttr>())
-@@ -4693,7 +6808,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
+@@ -4693,7 +6847,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
        return llvm::Function::ExternalLinkage;
      if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice &&
          !getLangOpts().GPURelocatableDeviceCode)
@@ -8488,7 +8570,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
                                            : llvm::Function::InternalLinkage;
      return llvm::Function::WeakODRLinkage;
    }
-@@ -4853,12 +6968,73 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -4853,12 +7007,73 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -8562,7 +8644,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -4962,8 +7138,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -4962,8 +7177,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -8572,7 +8654,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
      Entry->eraseFromParent();
    } else {
      GA->setName(MangledName);
-@@ -6261,6 +8436,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+@@ -6261,6 +8475,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
    }
  }
  
@@ -8644,7 +8726,7 @@ index 74c4490d5422..b9b11a9f26a7 100644
  llvm::Metadata *
  CodeGenModule::CreateMetadataIdentifierImpl(QualType T, MetadataTypeMap &Map,
                                              StringRef Suffix) {
-@@ -6368,17 +8608,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
+@@ -6368,17 +8647,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
    return *SanStats;
  }
  
@@ -8758,7 +8840,7 @@ index ab953c2c7d52..85fa79e76d1e 100644
      return true;
  
 diff --git a/clang/lib/CodeGen/CodeGenTypes.cpp b/clang/lib/CodeGen/CodeGenTypes.cpp
-index fb05475a4e8c..4c90814625b8 100644
+index fb05475a4e8c..b9bf754eab19 100644
 --- a/clang/lib/CodeGen/CodeGenTypes.cpp
 +++ b/clang/lib/CodeGen/CodeGenTypes.cpp
 @@ -397,6 +397,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
@@ -8913,46 +8995,46 @@ index fb05475a4e8c..4c90814625b8 100644
 +	if(expand_array_image ||
 +	   !(CAT->getElementType()->isAggregateImageType() ||
 +		 CAT->getElementType()->isImageType())) {
-+	const auto count = CAT->getSize().getZExtValue();
-+	const auto ET = CAT->getElementType();
-+	if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
++		const auto count = CAT->getSize().getZExtValue();
++		const auto ET = CAT->getElementType();
++		if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
 +			auto contained_ret = get_aggregate_scalar_fields(root_decl, arr_rdecl, false, false, expand_array_image);
-+		for(auto& entry : contained_ret) {
-+			entry.parents.push_back(parent_decl);
-+		}
-+		for(uint64_t i = 0; i < count; ++i) {
-+			ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
-+		}
-+	}
-+	else if(ET->isArrayType()) {
-+		const auto aoa_decl = dyn_cast<ConstantArrayType>(ET->getAsArrayTypeUnsafe());
-+		if(aoa_decl) {
++			for(auto& entry : contained_ret) {
++				entry.parents.push_back(parent_decl);
++			}
 +			for(uint64_t i = 0; i < count; ++i) {
-+				const auto idx_str = "_" + std::to_string(i);
++				ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++			}
++		}
++		else if(ET->isArrayType()) {
++			const auto aoa_decl = dyn_cast<ConstantArrayType>(ET->getAsArrayTypeUnsafe());
++			if(aoa_decl) {
++				for(uint64_t i = 0; i < count; ++i) {
++					const auto idx_str = "_" + std::to_string(i);
 +					aggregate_scalar_fields_add_array(root_decl, parent_decl, aoa_decl, attrs, parent_field_decl,
 +													  name + idx_str, expand_array_image, ret);
++				}
++			}
++			else {
++				// TODO: error
 +			}
 +		}
 +		else {
-+			// TODO: error
-+		}
-+	}
-+	else {
-+		for(uint64_t i = 0; i < count; ++i) {
-+			const auto idx_str = "_" + std::to_string(i);
-+			ret.push_back(aggregate_scalar_entry {
-+				ET,
-+				name + idx_str,
-+				aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name + idx_str, ET),
-+				attrs,
++			for(uint64_t i = 0; i < count; ++i) {
++				const auto idx_str = "_" + std::to_string(i);
++				ret.push_back(aggregate_scalar_entry {
++					ET,
++					name + idx_str,
++					aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name + idx_str, ET),
++					attrs,
 +					parent_field_decl,
-+				{ parent_decl },
-+				false,
-+				false
-+			});
++					{ parent_decl },
++					false,
++					false
++				});
++			}
 +		}
 +	}
-+}
 +	else {
 +		// directly add an array entry
 +		ret.push_back(aggregate_scalar_entry {
@@ -11844,7 +11926,7 @@ index 8228292a3153..4d72010308a5 100644
        InvalidDecl = true;
      }
 diff --git a/clang/lib/Sema/SemaDeclAttr.cpp b/clang/lib/Sema/SemaDeclAttr.cpp
-index 743b292d2975..ca7b88225e83 100644
+index 743b292d2975..c7a5262d334e 100644
 --- a/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/clang/lib/Sema/SemaDeclAttr.cpp
 @@ -96,7 +96,7 @@ static bool hasFunctionProto(const Decl *D) {
@@ -11881,7 +11963,7 @@ index 743b292d2975..ca7b88225e83 100644
  template <typename... DiagnosticArgs>
  static const Sema::SemaDiagnosticBuilder&
  appendDiagnostics(const Sema::SemaDiagnosticBuilder &Bldr) {
-@@ -2748,6 +2766,121 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
+@@ -2748,6 +2766,166 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
      D->addAttr(newAttr);
  }
  
@@ -11894,6 +11976,52 @@ index 743b292d2975..ca7b88225e83 100644
 +  TypeSourceInfo *ParmTSI = nullptr;
 +  S.GetTypeFromParser(Attr.getTypeArg(), &ParmTSI);
 +  D->addAttr(::new (S.Context) FloorImageDataTypeAttr(S.Context, Attr, ParmTSI));
++}
++
++static void handleFloorImageFlagsAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
++  if (!Attr.checkExactlyNumArgs(S, 1)) {
++    Attr.setInvalid();
++    return;
++  }
++  S.AddFloorImageFlagsAttr(Attr.getRange(), D, Attr.getArgAsExpr(0), Attr);
++}
++
++void Sema::AddFloorImageFlagsAttr(SourceRange AttrRange, Decl *D, Expr *E, const AttributeCommonInfo &CI) {
++  FloorImageFlagsAttr TmpAttr(Context, CI, E);
++  SourceLocation AttrLoc = AttrRange.getBegin();
++
++  QualType T;
++  if (ValueDecl *VD = dyn_cast<ValueDecl>(D))
++    T = VD->getType();
++  else {
++    Diag(AttrLoc, diag::err_attribute_argument_type) <<
++      &TmpAttr << AANT_ArgumentIntegerConstant;
++    return;
++  }
++
++  if (!E->isValueDependent()) {
++    Expr::EvalResult result;
++    if (!E->EvaluateAsRValue(result, Context) || !result.Val.isInt()) {
++      Diag(AttrLoc, diag::err_attribute_argument_n_type)
++        << &TmpAttr << 0u << AANT_ArgumentConstantExpr
++        << E->getSourceRange();
++      return;
++    }
++    auto& ImageFlags = result.Val.getInt();
++    if (ImageFlags.getBitWidth() != 64 || !ImageFlags.isUnsigned()) {
++      Diag(AttrLoc, diag::err_attribute_argument_invalid) <<
++        &TmpAttr << AANT_ArgumentIntegerConstant;
++      return;
++    }
++
++    auto attr = ::new (Context) FloorImageFlagsAttr(Context, CI, E);
++    attr->setEvalFlags(ImageFlags.getZExtValue());
++    D->addAttr(attr);
++    return;
++  }
++
++  // Save dependent expressions in the AST to be instantiated.
++  D->addAttr(::new (Context) FloorImageFlagsAttr(TmpAttr));
 +}
 +
 +static void handleGraphicsFBOColorLocationAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -11945,7 +12073,6 @@ index 743b292d2975..ca7b88225e83 100644
 +
 +  // Save dependent expressions in the AST to be instantiated.
 +  D->addAttr(::new (Context) GraphicsFBOColorLocationAttr(TmpAttr));
-+  return;
 +}
 +
 +static void handleGraphicsFBODepthTypeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -12003,7 +12130,7 @@ index 743b292d2975..ca7b88225e83 100644
  static void handleObjCDirectAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
    // objc_direct cannot be set on methods declared in the context of a protocol
    if (isa<ObjCProtocolDecl>(D->getDeclContext())) {
-@@ -4564,87 +4697,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+@@ -4564,87 +4742,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
      D->addAttr(Optnone);
  }
  
@@ -12091,7 +12218,7 @@ index 743b292d2975..ca7b88225e83 100644
  static void handleManagedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
    if (const auto *VD = dyn_cast<VarDecl>(D)) {
      if (VD->hasLocalStorage()) {
-@@ -4919,6 +4971,9 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
+@@ -4919,6 +5016,9 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
    case ParsedAttr::AT_PreserveAll:
      CC = CC_PreserveAll;
      break;
@@ -12101,7 +12228,7 @@ index 743b292d2975..ca7b88225e83 100644
    default: llvm_unreachable("unexpected attribute kind");
    }
  
-@@ -7544,53 +7599,6 @@ static void handleOpenCLNoSVMAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+@@ -7544,53 +7644,6 @@ static void handleOpenCLNoSVMAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
          << AL << S.LangOpts.getOpenCLVersionString();
  }
  
@@ -12155,7 +12282,7 @@ index 743b292d2975..ca7b88225e83 100644
  static void handleSYCLKernelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
    // The 'sycl_kernel' attribute applies only to function templates.
    const auto *FD = cast<FunctionDecl>(D);
-@@ -8009,7 +8017,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -8009,7 +8062,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
      handleCommonAttr(S, D, AL);
      break;
    case ParsedAttr::AT_CUDAConstant:
@@ -12164,7 +12291,7 @@ index 743b292d2975..ca7b88225e83 100644
      break;
    case ParsedAttr::AT_PassObjectSize:
      handlePassObjectSizeAttr(S, D, AL);
-@@ -8065,11 +8073,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -8065,11 +8118,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case ParsedAttr::AT_CalledOnce:
      handleCalledOnceAttr(S, D, AL);
      break;
@@ -12177,7 +12304,7 @@ index 743b292d2975..ca7b88225e83 100644
      break;
    case ParsedAttr::AT_HIPManaged:
      handleManagedAttr(S, D, AL);
-@@ -8121,7 +8126,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -8121,7 +8171,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
        handleSimpleAttribute<NoThrowAttr>(S, D, AL);
      break;
    case ParsedAttr::AT_CUDAShared:
@@ -12186,7 +12313,7 @@ index 743b292d2975..ca7b88225e83 100644
      break;
    case ParsedAttr::AT_VecReturn:
      handleVecReturnAttr(S, D, AL);
-@@ -8271,6 +8276,45 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -8271,6 +8321,48 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case ParsedAttr::AT_Sentinel:
      handleSentinelAttr(S, D, AL);
      break;
@@ -12211,6 +12338,9 @@ index 743b292d2975..ca7b88225e83 100644
 +  case ParsedAttr::AT_FloorImageDataType:
 +    handleFloorImageDataTypeAttr(S, D, AL);
 +    break;
++  case ParsedAttr::AT_FloorImageFlags:
++    handleFloorImageFlagsAttr(S, D, AL);
++    break;
 +  case ParsedAttr::AT_VectorCompat:
 +    handleSimpleAttribute<VectorCompatAttr>(S, D, AL);
 +    break;
@@ -12232,7 +12362,7 @@ index 743b292d2975..ca7b88225e83 100644
    case ParsedAttr::AT_Cleanup:
      handleCleanupAttr(S, D, AL);
      break;
-@@ -8305,9 +8349,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -8305,9 +8397,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case ParsedAttr::AT_Pointer:
      handleLifetimeCategoryAttr(S, D, AL);
      break;
@@ -12242,7 +12372,7 @@ index 743b292d2975..ca7b88225e83 100644
    case ParsedAttr::AT_OpenCLNoSVM:
      handleOpenCLNoSVMAttr(S, D, AL);
      break;
-@@ -8555,7 +8596,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -8555,7 +8644,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
    // good to have a way to specify "these attributes must appear as a group",
    // for these. Additionally, it would be good to have a way to specify "these
    // attribute must never appear as a group" for attributes like cold and hot.
@@ -12251,7 +12381,7 @@ index 743b292d2975..ca7b88225e83 100644
      // These attributes cannot be applied to a non-kernel function.
      if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
        // FIXME: This emits a different error message than
-@@ -8571,7 +8612,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -8571,7 +8660,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      } else if (const auto *A = D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
        D->setInvalidDecl();
@@ -12957,10 +13087,10 @@ index facd3e0998e8..279ac48125e9 100644
      }
    } else {
 diff --git a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index 7142e6ae56bb..1ced063feac6 100644
+index 7142e6ae56bb..c9893594f1ed 100644
 --- a/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-@@ -643,6 +643,28 @@ attrToRetainOwnershipKind(const Attr *A) {
+@@ -643,6 +643,37 @@ attrToRetainOwnershipKind(const Attr *A) {
    }
  }
  
@@ -12976,6 +13106,15 @@ index 7142e6ae56bb..1ced063feac6 100644
 +  }
 +}
 +
++static void instantiateDependentFloorImageFlagsAttr(
++    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
++    const FloorImageFlagsAttr *A, const Decl *Tmpl, Decl *New) {
++  EnterExpressionEvaluationContext Unevaluated(S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
++  ExprResult Result = S.SubstExpr(A->getImageFlags(), TemplateArgs);
++  if (!Result.isInvalid())
++    S.AddFloorImageFlagsAttr(A->getLocation(), New, Result.getAs<Expr>(), *A);
++}
++
 +static void instantiateDependentGraphicsFBOColorLocationAttr(
 +    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
 +    const GraphicsFBOColorLocationAttr *A, const Decl *Tmpl, Decl *New) {
@@ -12989,13 +13128,18 @@ index 7142e6ae56bb..1ced063feac6 100644
  void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                              const Decl *Tmpl, Decl *New,
                              LateInstantiatedAttrVec *LateAttrs,
-@@ -761,6 +783,17 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+@@ -761,6 +792,22 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
        continue;
      }
  
 +    auto *ImgType = dyn_cast<FloorImageDataTypeAttr>(TmplAttr);
 +    if (ImgType && ImgType->getImageDataType()->isDependentType()) {
 +      instantiateDependentFloorImageDataTypeAttr(*this, TemplateArgs, ImgType, Tmpl, New);
++      continue;
++    }
++
++    if (auto *ImgFlags = dyn_cast<FloorImageFlagsAttr>(TmplAttr)) {
++      instantiateDependentFloorImageFlagsAttr(*this, TemplateArgs, ImgFlags, Tmpl, New);
 +      continue;
 +    }
 +
@@ -13024,7 +13168,7 @@ index c0bb310e64fb..3c308e7578b2 100644
    case TST_error:
      break;
 diff --git a/clang/lib/Sema/SemaType.cpp b/clang/lib/Sema/SemaType.cpp
-index 5918876c02bf..0a5b109c1def 100644
+index 5918876c02bf..897677e2fd60 100644
 --- a/clang/lib/Sema/SemaType.cpp
 +++ b/clang/lib/Sema/SemaType.cpp
 @@ -19,6 +19,7 @@
@@ -13566,7 +13710,7 @@ index 5918876c02bf..0a5b109c1def 100644
      case ParsedAttr::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state);
        attr.setUsedAsTypeAttr();
-@@ -8177,8 +8260,31 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -8177,8 +8260,34 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        attr.setUsedAsTypeAttr();
        break;
      }
@@ -13579,6 +13723,9 @@ index 5918876c02bf..0a5b109c1def 100644
 +      attr.setUsedAsTypeAttr();
 +      break;
 +    case ParsedAttr::AT_FloorImageDataType:
++      attr.setUsedAsTypeAttr();
++      break;
++    case ParsedAttr::AT_FloorImageFlags:
 +      attr.setUsedAsTypeAttr();
 +      break;
 +    case ParsedAttr::AT_VectorCompat:
@@ -13600,7 +13747,7 @@ index 5918876c02bf..0a5b109c1def 100644
        attr.setUsedAsTypeAttr();
        break;
      case ParsedAttr::AT_LifetimeBound:
-@@ -8310,6 +8416,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -8310,6 +8419,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
            attr.getMacroExpansionLoc());
      }
    }
@@ -47775,10 +47922,10 @@ index 000000000000..c776ba8d3628
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/MetalFinal.cpp b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 new file mode 100644
-index 000000000000..e6c3c107dca3
+index 000000000000..8421de9e24d7
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
-@@ -0,0 +1,1259 @@
+@@ -0,0 +1,1320 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -47830,6 +47977,7 @@ index 000000000000..e6c3c107dca3
 +#include "llvm/IR/IntrinsicInst.h"
 +#include "llvm/IR/IRBuilder.h"
 +#include "llvm/IR/LLVMContext.h"
++#include "../../IR/LLVMContextImpl.h"
 +#include "llvm/IR/Metadata.h"
 +#include "llvm/IR/Module.h"
 +#include "llvm/IR/LegacyPassManager.h"
@@ -47852,6 +48000,9 @@ index 000000000000..e6c3c107dca3
 +#include <cxxabi.h>
 +using namespace llvm;
 +
++#if defined(DEBUG_TYPE)
++#undef DEBUG_TYPE
++#endif
 +#define DEBUG_TYPE "MetalFinal"
 +
 +#if 1
@@ -48956,6 +49107,7 @@ index 000000000000..e6c3c107dca3
 +	};
 +	
 +	// MetalFinalModuleCleanup:
++	// * image storage class name replacement
 +	// * calling convention cleanup
 +	// * strip unused functions/prototypes/externs
 +	// * debug info cleanup
@@ -48970,14 +49122,70 @@ index 000000000000..e6c3c107dca3
 +			initializeMetalFinalModuleCleanupPass(*PassRegistry::getPassRegistry());
 +		}
 +		
++		// this finds all libfloor image storage class structs and replaces their names with the appropriate Apple Metal texture struct type name
++		// NOTE: we need to do this, since Apple decided to handle these specially based on their name alone (e.g. no allocating additional registers)
++		bool run_array_of_images_name_replacement() {
++			std::vector<llvm::StructType*> image_storage_types;
++			for (const auto& st_type : ctx->pImpl->NamedStructTypes) {
++				if (st_type.first().startswith("struct.floor_image::image_storage")) {
++					image_storage_types.emplace_back(st_type.second);
++				}
++			}
++			for (auto& st_type : image_storage_types) {
++				if (st_type->getNumElements() != 1) {
++					// we only expect a single element
++					continue;
++				}
++				auto img_ptr_type = st_type->getElementType(0);
++				if (!img_ptr_type->isPointerTy()) {
++					// expected a pointer type
++					continue;
++				}
++				auto img_type = dyn_cast_or_null<llvm::StructType>(img_ptr_type->getPointerElementType());
++				if (!img_type || !img_type->isOpaque()) {
++					// expected an opaque struct type
++					continue;
++				}
++				
++				// we already emit the correct texture opaque texture type name -> find the corresponding Metal struct name
++				static const std::unordered_map<std::string, std::string> metal_name_lut {
++					{ "struct._texture_1d_t", "struct.metal::texture1d" },
++					{ "struct._texture_1d_array_t", "struct.metal::texture1d_array" },
++					{ "struct._texture_2d_t", "struct.metal::texture2d" },
++					{ "struct._texture_2d_array_t", "struct.metal::texture2d_array" },
++					{ "struct._depth_2d_t", "struct.metal::depth2d" },
++					{ "struct._depth_2d_array_t", "struct.metal::depth2d_array" },
++					{ "struct._texture_2d_ms_t", "struct.metal::texture2d_ms" },
++					{ "struct._texture_2d_ms_array_t", "struct.metal::texture2d_ms_array" },
++					{ "struct._depth_2d_ms_t", "struct.metal::depth2d_ms" },
++					{ "struct._depth_2d_ms_array_t", "struct.metal::depth2d_ms_array" },
++					{ "struct._texture_cube_t", "struct.metal::texturecube" },
++					{ "struct._texture_cube_array_t", "struct.metal::texturecube_array" },
++					{ "struct._depth_cube_t", "struct.metal::depthcube" },
++					{ "struct._depth_cube_array_t", "struct.metal::depthcube_array" },
++					{ "struct._texture_3d_t", "struct.metal::texture3d" },
++				};
++				auto repl_iter = metal_name_lut.find(img_type->getName().str());
++				if (repl_iter == metal_name_lut.end()) {
++					continue;
++				}
++				
++				//llvm::dbgs() << "replace " << img_type->getName().str() << " -> " << repl_iter->second << "\n";
++				st_type->setName(repl_iter->second);
++			}
++			
++			return false;
++		}
++		
 +		bool runOnModule(Module& Mod) override {
 +			M = &Mod;
 +			ctx = &M->getContext();
 +			
++			bool module_modified = run_array_of_images_name_replacement();
++			
 +			// * strip floor_* calling convention from all functions and their users (replace it with C CC)
 +			// * kill all functions named floor.*
 +			// * strip debug info from declarations
-+			bool module_modified = false;
 +			for (auto func_iter = Mod.begin(); func_iter != Mod.end();) {
 +				auto& func = *func_iter;
 +				if (func.getName().startswith("floor.")) {
@@ -55506,10 +55714,10 @@ index 000000000000..463e60712e92
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/VulkanImage.cpp b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
 new file mode 100644
-index 000000000000..4c3258f0d347
+index 000000000000..b8fd8d45f5fb
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
-@@ -0,0 +1,832 @@
+@@ -0,0 +1,878 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +////
 +//  Flo's Open libRary (floor)
@@ -56204,6 +56412,30 @@ index 000000000000..4c3258f0d347
 +			if(!array_type_->isArrayTy()) return;
 +			ArrayType* array_type = cast<ArrayType>(array_type_);
 +			
++			// check if this is a 2D array, in which case there is another load
++			LoadInst* outer_load = dyn_cast<LoadInst>(src_ptr);
++			GetElementPtrInst* outer_array_elem_gep = nullptr;
++			bool is_2d_array = false;
++			if (outer_load) {
++				is_2d_array = true;
++				auto outer_load_ptr_op = outer_load->getPointerOperand();
++				// might be bitcasted as well
++				BitCastInst* outer_load_ptr_op_bc = dyn_cast_or_null<BitCastInst>(outer_load_ptr_op);
++				if (outer_load_ptr_op_bc) {
++					outer_load_ptr_op = outer_load_ptr_op_bc->getOperand(0);
++				}
++				
++				// again: array element ptr must have come from a GEP
++				outer_array_elem_gep = dyn_cast<GetElementPtrInst>(outer_load_ptr_op);
++				if (!outer_array_elem_gep) return;
++				
++				// actual GEP src pointer
++				src_ptr = outer_array_elem_gep->getPointerOperand();
++				array_type_ = src_ptr->getType()->getPointerElementType();
++				if (!array_type_->isArrayTy()) return;
++				array_type = cast<ArrayType>(array_type_);
++			}
++			
 +			// check if it started out from a bitcast (used by dynamic indexing)
 +			BitCastInst* BC = dyn_cast<BitCastInst>(src_ptr);
 +			ArrayType* src_array_type = nullptr;
@@ -56230,27 +56462,49 @@ index 000000000000..4c3258f0d347
 +			
 +			// abort if not an opaque ptr type in an address space
 +			// TODO: opaque type check?
-+			if(!src_array_type->getArrayElementType()->isPointerTy() ||
-+			   src_array_type->getArrayElementType()->getPointerAddressSpace() == 0) {
-+				return;
++			llvm::Type* img_type = nullptr;
++			if (!is_2d_array) {
++				if (!src_array_type->getArrayElementType()->isPointerTy() ||
++					src_array_type->getArrayElementType()->getPointerAddressSpace() == 0) {
++					return;
++				}
++				img_type = src_array_type->getArrayElementType();
++			} else {
++				if (!src_array_type->getArrayElementType()->isPointerTy() ||
++					!src_array_type->getArrayElementType()->getPointerElementType()->isArrayTy() ||
++					!src_array_type->getArrayElementType()->getPointerElementType()->getArrayElementType()->isPointerTy() ||
++					src_array_type->getArrayElementType()->getPointerElementType()->getArrayElementType()->getPointerAddressSpace() == 0) {
++					return;
++				}
++				img_type = src_array_type->getArrayElementType()->getPointerElementType()->getArrayElementType();
 +			}
 +			
 +			// create the call
-+			const auto img_type = src_array_type->getArrayElementType();
-+			const std::vector<Value*> params {
-+				img_array,
-+				// GEP ptr, 0, %idx, ... -> want third operand
-+				array_elem_gep->getOperand(2)
++			std::vector<Value*> params {
++				img_array
 +			};
-+			const std::vector<Type*> param_types {
-+				params[0]->getType(), params[1]->getType()
-+			};
++			// GEP ptr, 0, (%outer_idx,) %idx, ... -> want third operand(s)
++			if (is_2d_array) {
++				params.push_back(outer_array_elem_gep->getOperand(2));
++			}
++			params.push_back(array_elem_gep->getOperand(2));
++			
++			std::vector<Type*> param_types;
++			for (const auto& param : params) {
++				param_types.push_back(param->getType());
++			}
++			
 +			const auto func_type = llvm::FunctionType::get(img_type, param_types, false);
 +			
 +			auto handle_instr = cast<Instruction>(handle);
++			std::string elem_counts_str = "." + std::to_string(src_array_type->getNumElements());
++			if (is_2d_array) {
++				auto inner_arr_type = src_array_type = cast<ArrayType>(src_array_type->getArrayElementType()->getPointerElementType());
++				elem_counts_str += "." + std::to_string(inner_arr_type->getNumElements());
++			}
 +			auto CI = CallInst::Create(M->getOrInsertFunction("floor.image_array_load." +
 +															  img_type->getPointerElementType()->getStructName().str() +
-+															  "." + std::to_string(src_array_type->getNumElements()),
++															  elem_counts_str,
 +															  func_type),
 +									   params, "imgarrld", handle_instr);
 +			
@@ -61529,11 +61783,11 @@ index 57b11e9414ba..6810eec8e4f8 100644
    PreservedAnalyses PA;
 diff --git a/llvm/projects/spirv b/llvm/projects/spirv
 new file mode 160000
-index 000000000000..13b53a97be43
+index 000000000000..d75382c77bc8
 --- /dev/null
 +++ b/llvm/projects/spirv
 @@ -0,0 +1 @@
-+Subproject commit 13b53a97be4305905fa9663c25ab8dc1862f73ed
++Subproject commit d75382c77bc8384870169f4d3bf983922a355eb4
 diff --git a/llvm/tools/bugpoint/CMakeLists.txt b/llvm/tools/bugpoint/CMakeLists.txt
 index d64481df1c1c..3202aa3a5633 100644
 --- a/llvm/tools/bugpoint/CMakeLists.txt
@@ -61638,10 +61892,10 @@ index 000000000000..5b1bb7e5a61f
 +  )
 diff --git a/llvm/tools/metallib-dis/metallib-dis.cpp b/llvm/tools/metallib-dis/metallib-dis.cpp
 new file mode 100644
-index 000000000000..1ccaaa80e5c9
+index 000000000000..d4569df074dd
 --- /dev/null
 +++ b/llvm/tools/metallib-dis/metallib-dis.cpp
-@@ -0,0 +1,785 @@
+@@ -0,0 +1,786 @@
 +//===-- metallib-dis.cpp - The low-level MetalLib + LLVM disassembler -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -61688,6 +61942,7 @@ index 000000000000..1ccaaa80e5c9
 +#include <vector>
 +#include <string>
 +#include <sstream>
++#include <optional>
 +using namespace llvm;
 +using namespace std;
 +

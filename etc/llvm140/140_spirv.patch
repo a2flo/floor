@@ -4803,7 +4803,7 @@ index a756290..9dbc9b2 100644
                                             spv::Op OC,
                                             ArrayRef<Type *> ArgTys) {
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
-index 6263a87..9cfd946 100644
+index 6263a87..d2d01da 100644
 --- a/lib/SPIRV/SPIRVWriter.cpp
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -6,6 +6,7 @@
@@ -6157,7 +6157,7 @@ index 6263a87..9cfd946 100644
      return addDecorations(
          BM->addExtInst(
              transType(CI->getType()), BM->getExtInstSetId(ExtSetKind), ExtOp,
-@@ -3306,26 +3777,223 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
+@@ -3306,26 +3777,225 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
                             SPIRVEntry::createUnique(ExtSetKind, ExtOp).get()),
              BB),
          Dec);
@@ -6286,10 +6286,12 @@ index 6263a87..9cfd946 100644
 +                                             img_type_iter->second);
 +
 +      auto img_array = transValue(CI->getOperand(0), BB);
-+      const std::vector<SPIRVValue *> indices{
-+          transValue(CI->getOperand(1), BB)};
++      std::vector<SPIRVValue *> indices;
++      for (uint32_t arg_idx = 1; arg_idx < CI->arg_size(); ++arg_idx) {
++        indices.emplace_back(transValue(CI->getArgOperand(arg_idx), BB));
++      }
 +      auto gep =
-+          BM->addAccessChainInst(img_ptr_type, img_array, indices, BB, true);
++          BM->addAccessChainInst(img_ptr_type, img_array, indices, BB, true, false);
 +      return BM->addLoadInst(gep, {}, BB);
 +    } else if (MangledName == "floor.loop_merge") {
 +      auto merge_bb = transValue(CI->getArgOperand(0), nullptr);
@@ -6398,7 +6400,7 @@ index 6263a87..9cfd946 100644
  }
  
  SPIRVValue *LLVMToSPIRVBase::transIndirectCallInst(CallInst *CI,
-@@ -3371,12 +4039,31 @@ SPIRVValue *LLVMToSPIRVBase::transAsmCallINTEL(CallInst *CI,
+@@ -3371,12 +4041,31 @@ SPIRVValue *LLVMToSPIRVBase::transAsmCallINTEL(CallInst *CI,
  bool LLVMToSPIRVBase::transAddressingMode() {
    Triple TargetTriple(M->getTargetTriple());
  
@@ -6436,7 +6438,7 @@ index 6263a87..9cfd946 100644
    return true;
  }
  std::vector<SPIRVValue *>
-@@ -3470,7 +4157,42 @@ void LLVMToSPIRVBase::transGlobalIOPipeStorage(GlobalVariable *V, MDNode *IO) {
+@@ -3470,7 +4159,42 @@ void LLVMToSPIRVBase::transGlobalIOPipeStorage(GlobalVariable *V, MDNode *IO) {
  }
  
  bool LLVMToSPIRVBase::transGlobalVariables() {
@@ -6479,7 +6481,7 @@ index 6263a87..9cfd946 100644
      if ((*I).getName() == "llvm.global.annotations")
        transGlobalAnnotation(&(*I));
      else if ([I]() -> bool {
-@@ -3653,13 +4375,1153 @@ void LLVMToSPIRVBase::fpContractUpdateRecursive(Function *F, FPContract FPC) {
+@@ -3653,13 +4377,1178 @@ void LLVMToSPIRVBase::fpContractUpdateRecursive(Function *F, FPContract FPC) {
    }
  }
  
@@ -6578,8 +6580,7 @@ index 6263a87..9cfd946 100644
 +
 +    // recurse
 +    decorateComposite(array_type->getElementType(), spirv_elem_type);
-   }
--  for (auto &FI : *I) {
++  }
 +}
 +
 +SPIRVVariable *LLVMToSPIRVBase::emitShaderSPIRVGlobal(
@@ -6681,6 +6682,7 @@ index 6263a87..9cfd946 100644
 +
 +      //
 +      const auto elem_count = (uint32_t)std::stoull(elem_count_str);
++      uint32_t elem_count_inner_2d = 0;
 +      llvm::Type *img_type = GV.getType();
 +      if (is_array) {
 +        // image array
@@ -6690,7 +6692,17 @@ index 6263a87..9cfd946 100644
 +        assert(img_array_type != nullptr && "image type must be an array type");
 +        assert(img_array_type->getNumElements() == elem_count &&
 +               "invalid image array element count");
-+        img_type = img_array_type->getArrayElementType();
++
++        // writable image arrays may be a 2D array
++        auto img_array_elem_type = img_array_type->getArrayElementType();
++        if (img_array_elem_type->isPointerTy() &&
++            img_array_elem_type->getPointerElementType()->isArrayTy()) {
++          auto inner_img_array_type = dyn_cast<ArrayType>(img_array_elem_type->getPointerElementType());
++          img_type = inner_img_array_type->getArrayElementType();
++          elem_count_inner_2d = inner_img_array_type->getNumElements();
++        } else {
++          img_type = img_array_elem_type;
++        }
 +      }
 +      //
 +      auto SPIRVImageTy = getSPIRVImageTypeFromGLSL(
@@ -6703,8 +6715,11 @@ index 6263a87..9cfd946 100644
 +      //
 +      auto ptr_img_type = transSPIRVImageTy;
 +      if (is_array) {
-+        ptr_img_type = BM->addArrayType(
-+            transSPIRVImageTy, BM->getLiteralAsConstant(elem_count, false));
++        if (elem_count_inner_2d == 0) {
++          ptr_img_type = BM->addArrayType(transSPIRVImageTy, BM->getLiteralAsConstant(elem_count, false));
++        } else {
++          ptr_img_type = BM->addArrayType(BM->addArrayType(transSPIRVImageTy, BM->getLiteralAsConstant(elem_count_inner_2d, false)), BM->getLiteralAsConstant(elem_count, false));
++        }
 +      }
 +
 +      mapped_type =
@@ -6754,7 +6769,8 @@ index 6263a87..9cfd946 100644
 +
 +  } else {
 +    mapped_type = transType(GV.getType());
-+  }
+   }
+-  for (auto &FI : *I) {
 +
 +  auto BVar = static_cast<SPIRVVariable *>(
 +      BM->addVariable(mapped_type, false, spv::internal::LinkageTypeInternal, nullptr,
@@ -7304,11 +7320,22 @@ index 6263a87..9cfd946 100644
 +
 +          auto img_ptr_type = array_type->getArrayElementType();
 +          assert(img_ptr_type->isPointerTy() && "expected image pointer type");
-+          auto img_type = img_ptr_type->getPointerElementType();
++          auto arr_elem_type = array_type->getArrayElementType();
++          assert(arr_elem_type->isPointerTy() && "expected array element to be a pointer type");
++          auto arr_elem_ptr_type = arr_elem_type->getPointerElementType();
++          llvm::Type* img_type = nullptr;
++          if (arr_elem_ptr_type->isStructTy()) { // 1D
++            img_type = arr_elem_ptr_type;
++          } else if (arr_elem_ptr_type->isArrayTy()) { // 2D
++            auto inner_arr_elem_type = arr_elem_ptr_type->getArrayElementType();
++            assert(inner_arr_elem_type->isPointerTy() && "expected inner array element to be a pointer type");
++            img_type = inner_arr_elem_type->getPointerElementType();
++          } else {
++            assert(false && "unexpected array element type");
++          }
 +          assert(img_type->isStructTy() && "expected image struct type");
 +          auto st_img_type = cast<StructType>(img_type);
-+          assert(st_img_type->getStructName().startswith("opencl.image") &&
-+                 "expected image type");
++          assert(st_img_type->getStructName().startswith("opencl.image") && "expected image type");
 +
 +          // -> image array
 +          spirv_global_io_type global_type;
@@ -7639,7 +7666,7 @@ index 6263a87..9cfd946 100644
      SPIRVBasicBlock *BB =
          static_cast<SPIRVBasicBlock *>(transValue(&FI, nullptr));
      for (auto &BI : FI) {
-@@ -3667,14 +5529,74 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
+@@ -3667,14 +5556,74 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
      }
    }
    // Enable FP contraction unless proven otherwise
@@ -7658,23 +7685,23 @@ index 6263a87..9cfd946 100644
 +  if (SrcLang != SourceLanguageGLSL) {
 +    return true;
 +  }
- 
--  bool IsKernelEntryPoint = isKernel(I);
++
 +  const llvm::NamedMDNode *VulkanVersion =
 +      M->getNamedMetadata("vulkan.version");
 +  if (VulkanVersion == nullptr || VulkanVersion->getNumOperands() != 1) {
 +    return false;
 +  }
- 
--  if (IsKernelEntryPoint) {
--    collectInputOutputVariables(BF, I);
++
 +  const MDNode *vulkan_version_md = VulkanVersion->getOperand(0);
 +  if (vulkan_version_md->getNumOperands() < 2) {
 +    return false;
 +  }
-+
+ 
+-  bool IsKernelEntryPoint = isKernel(I);
 +  uint64_t version_major = 0, version_minor = 0;
-+
+ 
+-  if (IsKernelEntryPoint) {
+-    collectInputOutputVariables(BF, I);
 +  const MDOperand &version_major_op = vulkan_version_md->getOperand(0);
 +  if (const ConstantAsMetadata *version_major_md =
 +          dyn_cast_or_null<ConstantAsMetadata>(version_major_op.get())) {
@@ -7686,7 +7713,7 @@ index 6263a87..9cfd946 100644
 +    }
 +  } else {
 +    return false;
-+  }
+   }
 +
 +  const MDOperand &version_minor_op = vulkan_version_md->getOperand(1);
 +  if (const ConstantAsMetadata *version_minor_md =
@@ -7713,13 +7740,13 @@ index 6263a87..9cfd946 100644
 +    break;
 +  default:
 +    return false;
-   }
++  }
 +
 +  return true;
  }
  
  bool isEmptyLLVMModule(Module *M) {
-@@ -3692,6 +5614,8 @@ bool LLVMToSPIRVBase::translate() {
+@@ -3692,6 +5641,8 @@ bool LLVMToSPIRVBase::translate() {
    if (!transWorkItemBuiltinCallsToVariables())
      return false;
  
@@ -7728,7 +7755,7 @@ index 6263a87..9cfd946 100644
    if (!transSourceLanguage())
      return false;
    if (!transExtension())
-@@ -3790,37 +5714,55 @@ SPIRVInstruction *LLVMToSPIRVBase::transBuiltinToInst(StringRef DemangledName,
+@@ -3790,37 +5741,55 @@ SPIRVInstruction *LLVMToSPIRVBase::transBuiltinToInst(StringRef DemangledName,
                                                        CallInst *CI,
                                                        SPIRVBasicBlock *BB) {
    SmallVector<std::string, 2> Dec;
@@ -7812,7 +7839,7 @@ index 6263a87..9cfd946 100644
    addDecorations(Inst, Dec);
    return Inst;
  }
-@@ -3846,8 +5788,10 @@ bool LLVMToSPIRVBase::transExecutionMode() {
+@@ -3846,8 +5815,10 @@ bool LLVMToSPIRVBase::transExecutionMode() {
  
        switch (EMode) {
        case spv::ExecutionModeContractionOff:
@@ -7825,7 +7852,7 @@ index 6263a87..9cfd946 100644
          break;
        case spv::ExecutionModeInitializer:
        case spv::ExecutionModeFinalizer:
-@@ -3959,9 +5903,9 @@ void LLVMToSPIRVBase::transFPContract() {
+@@ -3959,9 +5930,9 @@ void LLVMToSPIRVBase::transFPContract() {
      }
      SPIRVFunction *BF = static_cast<SPIRVFunction *>(TranslatedF);
  
@@ -7837,7 +7864,7 @@ index 6263a87..9cfd946 100644
        continue;
  
      FPContract FPC = getFPContract(&F);
-@@ -3980,7 +5924,7 @@ void LLVMToSPIRVBase::transFPContract() {
+@@ -3980,7 +5951,7 @@ void LLVMToSPIRVBase::transFPContract() {
        break;
      }
  
@@ -7846,7 +7873,7 @@ index 6263a87..9cfd946 100644
        BF->addExecutionMode(BF->getModule()->add(
            new SPIRVExecutionMode(BF, spv::ExecutionModeContractionOff)));
      }
-@@ -4009,8 +5953,13 @@ static void transKernelArgTypeMD(SPIRVModule *BM, Function *F, MDNode *MD,
+@@ -4009,8 +5980,13 @@ static void transKernelArgTypeMD(SPIRVModule *BM, Function *F, MDNode *MD,
  }
  
  bool LLVMToSPIRVBase::transOCLMetadata() {
@@ -7861,7 +7888,7 @@ index 6263a87..9cfd946 100644
        continue;
  
      SPIRVFunction *BF = static_cast<SPIRVFunction *>(getTranslatedValue(&F));
-@@ -4057,6 +6006,10 @@ bool LLVMToSPIRVBase::transSourceLanguage() {
+@@ -4057,6 +6033,10 @@ bool LLVMToSPIRVBase::transSourceLanguage() {
    auto Src = getSPIRVSource(M);
    SrcLang = std::get<0>(Src);
    SrcLangVer = std::get<1>(Src);
@@ -7872,7 +7899,7 @@ index 6263a87..9cfd946 100644
    BM->setSourceLanguage(static_cast<SourceLanguage>(SrcLang), SrcLangVer);
    return true;
  }
-@@ -4098,9 +6051,299 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
+@@ -4098,9 +6078,299 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
    return OC;
  }
  
@@ -8172,7 +8199,7 @@ index 6263a87..9cfd946 100644
    if (isGroupOpCode(OC))
      BM->addCapability(CapabilityGroups);
    switch (OC) {
-@@ -4497,6 +6740,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
+@@ -4497,6 +6767,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
    PassMgr.add(createOCLTypeToSPIRVLegacy());
    PassMgr.add(createSPIRVLowerOCLBlocksLegacy());
    PassMgr.add(createOCLToSPIRVLegacy());
@@ -8180,7 +8207,7 @@ index 6263a87..9cfd946 100644
    PassMgr.add(createSPIRVRegularizeLLVMLegacy());
    PassMgr.add(createSPIRVLowerConstExprLegacy());
    PassMgr.add(createSPIRVLowerBoolLegacy());
-@@ -4520,26 +6764,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
+@@ -4520,26 +6791,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
    return true;
  }
  
@@ -8213,7 +8240,7 @@ index 6263a87..9cfd946 100644
    PassMgr.add(createLLVMToSPIRVLegacy(BM.get()));
    PassMgr.run(*M);
  
-@@ -4551,9 +6799,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
+@@ -4551,9 +6826,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
  
  bool llvm::regularizeLlvmForSpirv(Module *M, std::string &ErrMsg) {
    SPIRV::TranslatorOpts DefaultOpts;
@@ -9210,7 +9237,7 @@ index 2c47e49..0451035 100644
  _SPIRV_OP(ImageQueryOrder, true, 4)
  _SPIRV_OP(ImageQuerySizeLod, true, 5)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-index 9cd9249..1016106 100644
+index 9cd9249..8fafe9c 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 @@ -51,11 +51,22 @@
@@ -9317,7 +9344,7 @@ index 9cd9249..1016106 100644
                                            SPIRVBasicBlock *, bool) override;
 +  SPIRVInstruction *addAccessChainInst(SPIRVType *, SPIRVValue *,
 +                                       std::vector<SPIRVValue *>,
-+                                       SPIRVBasicBlock *, bool) override;
++                                       SPIRVBasicBlock *, bool, bool) override;
    SPIRVInstruction *addAsyncGroupCopy(SPIRVValue *Scope, SPIRVValue *Dest,
                                        SPIRVValue *Src, SPIRVValue *NumElems,
                                        SPIRVValue *Stride, SPIRVValue *Event,
@@ -9742,14 +9769,15 @@ index 9cd9249..1016106 100644
  }
  
  SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
-@@ -1531,6 +1775,37 @@ SPIRVModuleImpl::addPtrAccessChainInst(SPIRVType *Type, SPIRVValue *Base,
+@@ -1531,6 +1775,40 @@ SPIRVModuleImpl::addPtrAccessChainInst(SPIRVType *Type, SPIRVValue *Base,
        BB);
  }
  
 +SPIRVInstruction *
 +SPIRVModuleImpl::addAccessChainInst(SPIRVType *Type, SPIRVValue *Base,
 +                                    std::vector<SPIRVValue *> Indices,
-+                                    SPIRVBasicBlock *BB, bool IsInBounds) {
++                                    SPIRVBasicBlock *BB, bool IsInBounds,
++                                    bool erase_first_index_if_static_array) {
 +  // check if this is a run-time array access (SSBO)
 +  bool is_rtarr_access = false;
 +  if (Base->getType()->isTypePointer() &&
@@ -9767,8 +9795,10 @@ index 9cd9249..1016106 100644
 +        begin(Indices),
 +        addIntegerConstant((SPIRVTypeInt *)Indices[0]->getType(), 0));
 +  } else if (Indices.size() > 1) {
-+    // if it's not a run-time array access, remove the first (0) index
-+    Indices.erase(Indices.begin());
++    if (erase_first_index_if_static_array) {
++      // if it's not a run-time array access, remove the first (0) index
++      Indices.erase(Indices.begin());
++    }
 +  }
 +  return addInstruction(
 +      SPIRVInstTemplateBase::create(
@@ -9780,7 +9810,7 @@ index 9cd9249..1016106 100644
  SPIRVInstruction *SPIRVModuleImpl::addAsyncGroupCopy(
      SPIRVValue *Scope, SPIRVValue *Dest, SPIRVValue *Src, SPIRVValue *NumElems,
      SPIRVValue *Stride, SPIRVValue *Event, SPIRVBasicBlock *BB) {
-@@ -1661,16 +1936,73 @@ SPIRVInstruction *SPIRVModuleImpl::addVariable(
+@@ -1661,16 +1939,73 @@ SPIRVInstruction *SPIRVModuleImpl::addVariable(
      SPIRVStorageClassKind StorageClass, SPIRVBasicBlock *BB) {
    SPIRVVariable *Variable = new SPIRVVariable(Type, getId(), Initializer, Name,
                                                StorageClass, BB, this);
@@ -9857,7 +9887,7 @@ index 9cd9249..1016106 100644
  template <class T>
  spv_ostream &operator<<(spv_ostream &O, const std::vector<T *> &V) {
    for (auto &I : V)
-@@ -1823,6 +2155,13 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
+@@ -1823,6 +2158,13 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
  
    for (auto &I : M.getExtension()) {
      assert(!I.empty() && "Invalid extension");
@@ -9871,7 +9901,7 @@ index 9cd9249..1016106 100644
      O << SPIRVExtension(&M, I);
    }
  
-@@ -1831,10 +2170,24 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
+@@ -1831,10 +2173,24 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
  
    O << SPIRVMemoryModel(&M);
  
@@ -9900,7 +9930,7 @@ index 9cd9249..1016106 100644
  
    for (auto &I : MI.EntryPointVec)
      for (auto &II : I.second)
-@@ -1850,6 +2203,7 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
+@@ -1850,6 +2206,7 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
    O << SPIRVSource(&M);
  
    for (auto &I : MI.NamedId) {
@@ -9908,7 +9938,7 @@ index 9cd9249..1016106 100644
      // Don't output name for entry point since it is redundant
      bool IsEntryPoint = false;
      for (auto &EPS : MI.EntryPointSet)
-@@ -1859,6 +2213,9 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
+@@ -1859,6 +2216,9 @@ spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M) {
        }
      if (!IsEntryPoint)
        M.getEntry(I)->encodeName(O);
@@ -9918,7 +9948,7 @@ index 9cd9249..1016106 100644
    }
  
    if (M.isAllowedToUseExtension(
-@@ -1963,6 +2320,9 @@ static std::string to_string(uint32_t Version) {
+@@ -1963,6 +2323,9 @@ static std::string to_string(uint32_t Version) {
    case static_cast<uint32_t>(VersionNumber::SPIRV_1_4):
      Res = "1.4";
      break;
@@ -9928,7 +9958,7 @@ index 9cd9249..1016106 100644
    default:
      Res = "unknown";
    }
-@@ -2132,7 +2492,7 @@ bool isSpirvBinary(const std::string &Img) {
+@@ -2132,7 +2495,7 @@ bool isSpirvBinary(const std::string &Img) {
  
  #ifdef _SPIRV_SUPPORT_TEXT_FMT
  
@@ -9937,7 +9967,7 @@ index 9cd9249..1016106 100644
                    bool FromText, bool ToText) {
    auto SaveOpt = SPIRVUseTextFormat;
    SPIRVUseTextFormat = FromText;
-@@ -2142,7 +2502,9 @@ bool convertSpirv(std::istream &IS, std::ostream &OS, std::string &ErrMsg,
+@@ -2142,7 +2505,9 @@ bool convertSpirv(std::istream &IS, std::ostream &OS, std::string &ErrMsg,
    // particular SPIR-V versions: all known SPIR-V versions are allowed, all
    // known SPIR-V extensions are enabled during this conversion
    SPIRV::TranslatorOpts DefaultOpts;
@@ -9947,7 +9977,7 @@ index 9cd9249..1016106 100644
    SPIRVModuleImpl M(DefaultOpts);
    IS >> M;
    if (M.getError(ErrMsg) != SPIRVEC_Success) {
-@@ -2176,10 +2538,10 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
+@@ -2176,10 +2541,10 @@ bool convertSpirv(std::string &Input, std::string &Out, std::string &ErrMsg,
      return true;
    }
    std::istringstream IS(Input);
@@ -9961,7 +9991,7 @@ index 9cd9249..1016106 100644
  }
  
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
-index d65e9a6..6daf354 100644
+index d65e9a6..d939686 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVModule.h
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
 @@ -65,6 +65,7 @@ class SPIRVFunction;
@@ -10025,7 +10055,7 @@ index d65e9a6..6daf354 100644
    virtual SPIRVValue *addSamplerConstant(SPIRVType *TheType, SPIRVWord AddrMode,
                                           SPIRVWord ParametricMode,
                                           SPIRVWord FilterMode) = 0;
-@@ -286,10 +294,20 @@ public:
+@@ -286,10 +294,21 @@ public:
                                               SPIRVWord PacketAlign,
                                               SPIRVWord Capacity) = 0;
  
@@ -10042,11 +10072,12 @@ index d65e9a6..6daf354 100644
                                                    SPIRVBasicBlock *, bool) = 0;
 +  virtual SPIRVInstruction *addAccessChainInst(SPIRVType *, SPIRVValue *,
 +                                               std::vector<SPIRVValue *>,
-+                                               SPIRVBasicBlock *, bool) = 0;
++                                               SPIRVBasicBlock *, bool,
++                                               bool = true) = 0;
    virtual SPIRVInstruction *
    addAsyncGroupCopy(SPIRVValue *Scope, SPIRVValue *Dest, SPIRVValue *Src,
                      SPIRVValue *NumElems, SPIRVValue *Stride, SPIRVValue *Event,
-@@ -467,6 +485,17 @@ public:
+@@ -467,6 +486,17 @@ public:
                                               SPIRVValue *ExpectedValue,
                                               SPIRVBasicBlock *BB) = 0;
  
