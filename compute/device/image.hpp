@@ -190,98 +190,97 @@ namespace floor_image {
 					COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS);
 		}
 	};
+
+	//! image struct that is used for disabled image members
+	struct disabled_image_t {};
 	
-	//! implementation specific image storage: read-only, write-only and read-write
-	template <COMPUTE_IMAGE_TYPE image_type> struct image_storage {};
-	//! read-only
+	//! implementation specific image storage
 	template <COMPUTE_IMAGE_TYPE image_type>
-	requires(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-			 !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
-	struct image_storage<image_type> {
-		typedef typename to_sample_type<image_type>::type sample_type;
+	struct image_storage {
+		// helpers
+		static constexpr bool is_readable() { return has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type); }
+		static constexpr bool is_writable() { return has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type); }
+		static constexpr bool is_read_only() { return is_readable() && !is_writable(); }
+		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
+		static constexpr bool is_read_write() { return is_readable() && is_writable(); }
+		static constexpr bool has_read_write_support() { return FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT; }
 		
+		using sample_type = typename to_sample_type<image_type>::type;
+		
+		// actual image storage/types
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-		typedef typename opaque_image_type<image_type>::type opaque_type;
-		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
-#elif defined(FLOOR_COMPUTE_CUDA)
-		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
-		uint64_t w_img_obj;
-		uint64_t* w_img_lod_obj;
-		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
-#elif defined(FLOOR_COMPUTE_HOST)
-		const host_device_image<image_type>* r_img_obj;
-#endif
-		
-		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-	};
-	//! write-only
-	template <COMPUTE_IMAGE_TYPE image_type>
-	requires(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-			 has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
-	struct image_storage<image_type> {
-		typedef typename to_sample_type<image_type>::type sample_type;
+		// OpenCL/Metal/Vulkan have/store different image types dependent on access mode
+		using opaque_type = typename opaque_image_type<image_type>::type;
 		
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-		typedef typename opaque_image_type<image_type>::type opaque_type;
-		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		using primary_image_type = opaque_type;
+		using secondary_image_type = conditional_t<is_read_write() && !has_read_write_support(), opaque_type, disabled_image_t>;
 #elif defined(FLOOR_COMPUTE_VULKAN)
-		typedef typename opaque_image_type<image_type>::type opaque_type;
-		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
-		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
-#elif defined(FLOOR_COMPUTE_CUDA)
-		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
-		uint64_t w_img_obj;
-		uint64_t* w_img_lod_obj;
-		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
-#elif defined(FLOOR_COMPUTE_HOST)
-		host_device_image<image_type>* w_img_obj;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		// Vulkan needs to deal with selecting between a simple image (readable) and a pointer to an image array (writable)
+		static_assert(!has_read_write_support(), "Vulkan has no native read+write support");
+		using writeable_image_array_type = opaque_type[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
+		using writeable_image_type = writeable_image_array_type*;
+		using primary_image_type = conditional_t<is_readable(), opaque_type, writeable_image_type>;
+		using secondary_image_type = conditional_t<is_read_write(), writeable_image_type, disabled_image_t>;
 #endif
-	};
-	//! read-write
-	template <COMPUTE_IMAGE_TYPE image_type>
-	requires(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-			 has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))
-	struct image_storage<image_type> {
-		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-		typedef typename opaque_image_type<image_type>::type opaque_type;
-#if !defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT_1)
-		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
-		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
-		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
-#else
-		__attribute__((floor_image(sample_type), image_read_write)) opaque_type rw_img_obj;
-		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
-#endif
-#elif defined(FLOOR_COMPUTE_VULKAN)
-		typedef typename opaque_image_type<image_type>::type opaque_type;
-		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
-		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
-		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
+		// primary image: can be read-only or write-only, or read+write if supported by backend
+		static constexpr const COMPUTE_IMAGE_TYPE primary_image_flags = ((image_type & ~COMPUTE_IMAGE_TYPE::__ACCESS_MASK) |
+																		 (is_read_write() && has_read_write_support() ? COMPUTE_IMAGE_TYPE::READ_WRITE :
+																		  (is_readable() ? COMPUTE_IMAGE_TYPE::READ : COMPUTE_IMAGE_TYPE::WRITE)));
+		
+		// secondary image: can only be write-only if image is read+write and backend has no read+write support
+		static constexpr const COMPUTE_IMAGE_TYPE secondary_image_flags = ((image_type & ~COMPUTE_IMAGE_TYPE::__ACCESS_MASK) |
+																		   (is_read_write() && !has_read_write_support() ? COMPUTE_IMAGE_TYPE::WRITE : COMPUTE_IMAGE_TYPE::NONE));
+		
+		[[floor::image_data_type(sample_type), floor::image_flags(primary_image_flags)]] primary_image_type primary_img_obj;
+		[[no_unique_address, floor::image_data_type(sample_type), floor::image_flags(secondary_image_flags)]] secondary_image_type secondary_img_obj;
+		
 #elif defined(FLOOR_COMPUTE_CUDA)
+		// readable and writable images always exist, regardless of access mode
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		uint64_t w_img_obj;
 		uint64_t* w_img_lod_obj;
-		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
-		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		const COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
-		host_device_image<image_type>* rw_img_obj;
-		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
+		// always the same image object, regardless of access mode
+		host_device_image<image_type>* img_obj;
 #endif
+		
+		// image accessors
+		constexpr auto& r_img() const requires(is_readable()) {
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+			return primary_img_obj;
+#elif defined(FLOOR_COMPUTE_CUDA)
+			return r_img_obj;
+#elif defined(FLOOR_COMPUTE_HOST)
+			return img_obj;
+#endif
+		}
+		constexpr auto& w_img(const uint32_t lod [[maybe_unused]] = 0) const requires(is_writable()) {
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+			if constexpr (has_read_write_support() || !is_readable()) {
+				return primary_img_obj;
+			} else {
+				return secondary_img_obj;
+			}
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			if constexpr (!is_readable()) {
+				return (*primary_img_obj)[lod];
+			} else {
+				return (*secondary_img_obj)[lod];
+			}
+#elif defined(FLOOR_COMPUTE_CUDA)
+			return w_img_obj;
+#elif defined(FLOOR_COMPUTE_HOST)
+			return img_obj;
+#endif
+		}
 	};
 	
 	//! image base type, containing the appropriate storage type
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_base : image_storage<image_type> {
+	struct image_base : public image_storage<image_type> {
 		typedef image_storage<image_type> image_storage_type;
 		
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() { return image_type; }
@@ -289,12 +288,6 @@ namespace floor_image {
 		
 		using typename image_storage_type::sample_type;
 		using vector_sample_type = conditional_t<channel_count() == 1, sample_type, vector_n<sample_type, channel_count()>>;
-		
-		static constexpr bool is_readable() { return has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type); }
-		static constexpr bool is_writable() { return has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type); }
-		static constexpr bool is_read_only() { return is_readable() && !is_writable(); }
-		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
-		static constexpr bool is_read_write() { return is_readable() && is_writable(); }
 		
 		static constexpr bool is_array() { return has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type); }
 		
@@ -347,19 +340,19 @@ namespace floor_image {
 		//! queries the image dimension at run-time, returning it in the same format as compute_image::image_dim
 		uint4 dim(const uint32_t lod = 0) const {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			if constexpr (is_readable()) {
+			if constexpr (image_storage_type::is_readable()) {
 				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::r_img(), image_type, lod));
 			} else {
 				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
-			if constexpr (is_readable()) {
+			if constexpr (image_storage_type::is_readable()) {
 				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::r_img()[0], image_type, lod));
 			} else {
 				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
 			}
 #elif defined(FLOOR_COMPUTE_HOST)
-			if constexpr (is_readable()) {
+			if constexpr (image_storage_type::is_readable()) {
 				return image_storage_type::r_img()->level_info[lod].dim;
 			} else {
 				return image_storage_type::w_img()->level_info[lod].dim;
@@ -912,11 +905,7 @@ namespace floor_image {
 		using typename image_base_type::sample_type;
 		using typename image_base_type::vector_sample_type;
 		using image_base_type::convert_coord;
-#if !defined(FLOOR_COMPUTE_VULKAN)
 		using image_storage_type::w_img;
-#else
-		using image_storage_type::w_img_lod_obj;
-#endif
 #if defined(FLOOR_COMPUTE_CUDA)
 		using image_storage_type::w_img_obj;
 		using image_storage_type::w_img_lod_obj;
@@ -965,13 +954,13 @@ namespace floor_image {
 			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
 #elif defined(FLOOR_COMPUTE_VULKAN)
 			if constexpr(!is_lod) {
-				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (float4)converted_data);
-				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (int4)converted_data);
-				else opaque_image::write_image_uint((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+				if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, 0, false, (float4)converted_data);
+				else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, 0, false, (int4)converted_data);
+				else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, 0, false, (uint4)converted_data);
 			} else {
-				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-				else opaque_image::write_image_uint((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				if constexpr(is_float) opaque_image::write_image_float(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr(is_int) opaque_image::write_image_int(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else opaque_image::write_image_uint(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
 			if constexpr(!is_lod) {

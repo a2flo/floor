@@ -69,6 +69,11 @@ namespace metal_image {
 			OPAQUE_BLACK		= 1,
 			OPAQUE_WHITE		= 2
 		};
+		enum REDUCTION {
+			WEIGHTED_AVERAGE	= 0,
+			MINIMUM				= 1,
+			MAXIMUM				= 2
+		};
 		
 		union {
 			struct {
@@ -98,8 +103,11 @@ namespace metal_image {
 				// macOS or Metal 2.3+ (iOS): border color
 				uint64_t border_color : 2;
 				
+				// Metal 2.4+: reduction
+				uint64_t reduction : 2;
+				
 				// currently unused/reserved
-				uint64_t _unused : 5;
+				uint64_t _unused : 3;
 				
 				// constant sampler flag
 				uint64_t is_constant : 1;
@@ -121,6 +129,7 @@ namespace metal_image {
 		anisotropy(filter_mode == NEAREST ? 0u : 15u),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
+		reduction(WEIGHTED_AVERAGE),
 		_unused(0u), is_constant(1u) {}
 		
 		constexpr sampler(const sampler& s) :
@@ -131,6 +140,7 @@ namespace metal_image {
 		anisotropy(s.anisotropy),
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
+		reduction(WEIGHTED_AVERAGE),
 		_unused(0u), is_constant(1u) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
