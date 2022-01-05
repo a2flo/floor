@@ -8840,10 +8840,18 @@ index ab953c2c7d52..85fa79e76d1e 100644
      return true;
  
 diff --git a/clang/lib/CodeGen/CodeGenTypes.cpp b/clang/lib/CodeGen/CodeGenTypes.cpp
-index fb05475a4e8c..b9bf754eab19 100644
+index fb05475a4e8c..a12862c05f11 100644
 --- a/clang/lib/CodeGen/CodeGenTypes.cpp
 +++ b/clang/lib/CodeGen/CodeGenTypes.cpp
-@@ -397,6 +397,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+@@ -25,6 +25,7 @@
+ #include "llvm/IR/DataLayout.h"
+ #include "llvm/IR/DerivedTypes.h"
+ #include "llvm/IR/Module.h"
++#include "llvm/Transforms/LibFloor/FloorImageType.h"
+ using namespace clang;
+ using namespace CodeGen;
+ 
+@@ -397,6 +398,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
  
    const Type *Ty = T.getTypePtr();
  
@@ -8854,7 +8862,122 @@ index fb05475a4e8c..b9bf754eab19 100644
    // For the device-side compilation, CUDA device builtin surface/texture types
    // may be represented in different types.
    if (Context.getLangOpts().CUDAIsDevice) {
-@@ -870,9 +874,72 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+@@ -807,6 +812,87 @@ bool CodeGenModule::isPaddedAtomicType(const AtomicType *type) {
+   return Context.getTypeSize(type) != Context.getTypeSize(type->getValueType());
+ }
+ 
++/// image type cache for structs with 1 image field and 2 image fields (used below)
++static std::unordered_map<COMPUTE_IMAGE_TYPE, llvm::StructType*> image_type_cache_1if;
++static std::unordered_map<COMPUTE_IMAGE_TYPE, llvm::StructType*> image_type_cache_2if;
++
++/// we need to ensure that image-based types are always unique (for Metal)
++/// -> if this RecordDecl contains an opaque (image) type, check the existing cache of converted image types and
++///    set Entry to a matching StructType if there is one + return { true-if-new, cache-func } if this is an image type
++static std::pair<bool, std::function<void(llvm::StructType*)>>
++handle_image_rdecl(ASTContext& Context, const RecordDecl *RD, llvm::StructType *&Entry) {
++	if (Entry || !Context.getLangOpts().Metal) {
++		return { false, {} };
++	}
++	
++	auto def = RD->getDefinition();
++	if (!def || !def->isCompleteDefinition()) {
++		return { false, {} };
++	}
++	
++	auto pot_img_def = dyn_cast_or_null<ClassTemplateSpecializationDecl>(def);
++	if (!pot_img_def) {
++		return { false, {} };
++	}
++	
++	bool is_all_image_fields = true;
++	uint32_t active_field_count = 0;
++	for (auto field : def->fields()) {
++		if (field->isZeroSize(RD->getASTContext())) {
++			continue;
++		}
++		++active_field_count;
++		if (!field->getType()->isImageType() &&
++			!field->getType()->isArrayImageType(true)) {
++			is_all_image_fields = false;
++			break;
++		}
++	}
++	if (!is_all_image_fields || active_field_count < 1 || active_field_count > 2) {
++		// must have either 1 or 2 image fields, and all fields must be image types
++		return { false, {} };
++	}
++	
++	const auto& templ_args = pot_img_def->getTemplateArgs();
++	if (templ_args.size() == 0) {
++		return { false, {} };
++	}
++	const auto& arg_0 = templ_args.get(0);
++	if (arg_0.getKind() != TemplateArgument::Integral) {
++		return { false, {} };
++	}
++	
++	// mask/bits that we need to identify an opaque image type
++	static constexpr const COMPUTE_IMAGE_TYPE opaque_image_mask {
++		COMPUTE_IMAGE_TYPE::__DIM_MASK |
++		COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
++		COMPUTE_IMAGE_TYPE::FLAG_ARRAY |
++		COMPUTE_IMAGE_TYPE::FLAG_BUFFER |
++		COMPUTE_IMAGE_TYPE::FLAG_CUBE |
++		COMPUTE_IMAGE_TYPE::FLAG_MSAA
++	};
++	const auto image_type = (COMPUTE_IMAGE_TYPE)arg_0.getAsIntegral().getZExtValue();
++	const auto masked_image_type = image_type & opaque_image_mask;
++	
++	// check if we have a cached entry, return it if so
++	std::unordered_map<COMPUTE_IMAGE_TYPE, llvm::StructType*>& cache =
++		(active_field_count == 1 ? image_type_cache_1if : image_type_cache_2if);
++	auto iter = cache.find(masked_image_type);
++	if (iter != cache.end()) {
++		Entry = iter->second;
++		return { true, {} };
++	}
++	
++	// this is a new image type, provide cache function
++	std::function<void(llvm::StructType*)> cache_func = [masked_image_type, active_field_count](llvm::StructType* type) {
++		std::unordered_map<COMPUTE_IMAGE_TYPE, llvm::StructType*>& cache =
++			(active_field_count == 1 ? image_type_cache_1if : image_type_cache_2if);
++		cache.emplace(masked_image_type, type);
++	};
++	
++	return { true, std::move(cache_func) };
++}
++
+ /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
+ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+   // TagDecl's are not necessarily unique, instead use the (clang)
+@@ -815,6 +901,9 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+ 
+   llvm::StructType *&Entry = RecordDeclTypes[Key];
+ 
++  // we need to ensure that image-based types are always unique (for Metal)
++  auto [is_new_image_rdecl, cache_func] = handle_image_rdecl(Context, RD, Entry);
++
+   // If we don't have a StructType at all yet, create the forward declaration.
+   if (!Entry) {
+     Entry = llvm::StructType::create(getLLVMContext());
+@@ -825,7 +914,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+   // If this is still a forward declaration, or the LLVM type is already
+   // complete, there's nothing more to do.
+   RD = RD->getDefinition();
+-  if (!RD || !RD->isCompleteDefinition() || !Ty->isOpaque())
++  if (!RD || !RD->isCompleteDefinition() || (!Ty->isOpaque() && !is_new_image_rdecl))
+     return Ty;
+ 
+   // If converting this type would cause us to infinitely loop, don't do it!
+@@ -867,12 +956,80 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+     while (!DeferredRecords.empty())
+       ConvertRecordDeclType(DeferredRecords.pop_back_val());
+ 
++  // cache the image type
++  if (is_new_image_rdecl && cache_func) {
++    cache_func(Ty);
++  }
++
    return Ty;
  }
  
@@ -8928,7 +9051,7 @@ index fb05475a4e8c..b9bf754eab19 100644
    const Type *Key = Context.getTagDeclType(RD).getTypePtr();
  
    auto I = CGRecordLayouts.find(Key);
-@@ -889,6 +956,11 @@ CodeGenTypes::getCGRecordLayout(const RecordDecl *RD) {
+@@ -889,6 +1046,11 @@ CodeGenTypes::getCGRecordLayout(const RecordDecl *RD) {
    return *I->second;
  }
  
@@ -8940,7 +9063,7 @@ index fb05475a4e8c..b9bf754eab19 100644
  bool CodeGenTypes::isPointerZeroInitializable(QualType T) {
    assert((T->isAnyPointerType() || T->isBlockPointerType()) && "Invalid type");
    return isZeroInitializable(T);
-@@ -925,3 +997,230 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -925,3 +1087,230 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -21080,10 +21203,10 @@ index 000000000000..ca7915acec1c
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImage.h b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
 new file mode 100644
-index 000000000000..7e012868852c
+index 000000000000..227e25af1f29
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
-@@ -0,0 +1,453 @@
+@@ -0,0 +1,139 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
@@ -21125,6 +21248,141 @@ index 000000000000..7e012868852c
 +#include "llvm/IR/IntrinsicInst.h"
 +#include "llvm/IR/IRBuilder.h"
 +#include "llvm/IR/LLVMContext.h"
++#include "FloorImageType.h"
++
++namespace llvm {
++	struct FloorImageBasePass : public FunctionPass, InstVisitor<FloorImageBasePass> {
++		friend class InstVisitor<FloorImageBasePass>;
++		
++		enum class IMAGE_TYPE_ID {
++			CUDA,
++			OPAQUE
++		};
++		
++		explicit FloorImageBasePass(char &ID,
++									const IMAGE_TYPE_ID& image_type_id,
++									const uint32_t& image_capabilities);
++		
++		bool runOnFunction(Function &F) override;
++		
++		using InstVisitor<FloorImageBasePass>::visit;
++		void visit(Instruction& I);
++		void visitCallBase(CallBase& CB);
++		
++		void handle_image(CallBase& CB, const StringRef& func_name);
++		void handle_image_query(CallBase& CB, const StringRef& func_name);
++		
++		virtual void handle_read_image(Instruction& I,
++									   const StringRef& func_name,
++									   llvm::Value* img_handle_arg,
++									   const COMPUTE_IMAGE_TYPE& image_type,
++									   llvm::ConstantInt* const_sampler_arg,
++									   llvm::Value* dyn_sampler_arg,
++									   llvm::Value* coord_arg,
++									   llvm::Value* layer_arg,
++									   llvm::Value* sample_arg,
++									   llvm::Value* offset_arg,
++									   const SmallVector<llvm::Value*, 3>& offset_elems,
++									   const bool is_offset,
++									   llvm::Value* lod_or_bias_arg,
++									   const bool is_lod_or_bias, // true: lod, false: bias
++									   llvm::Value* dpdx_arg,
++									   llvm::Value* dpdy_arg,
++									   const bool is_gradient,
++									   const COMPARE_FUNCTION& compare_function,
++									   llvm::Value* compare_value_arg,
++									   const bool is_compare) = 0;
++		
++		virtual void handle_write_image(Instruction& I,
++										const StringRef& func_name,
++										llvm::Value* img_handle_arg,
++										const COMPUTE_IMAGE_TYPE& full_image_type,
++										const COMPUTE_IMAGE_TYPE& image_type,
++										const COMPUTE_IMAGE_TYPE& format_type,
++										const COMPUTE_IMAGE_TYPE& data_type,
++										llvm::Value* rt_image_type,
++										const bool& is_normalized,
++										const uint32_t& image_channel_count,
++										llvm::Value* coord_arg,
++										llvm::Value* layer_arg,
++										llvm::Value* lod_arg,
++										const bool is_lod,
++										llvm::Value* data_arg) = 0;
++		
++		virtual void handle_get_image_dim(Instruction& I,
++										  const StringRef& func_name,
++										  llvm::Value* img_handle_arg,
++										  const COMPUTE_IMAGE_TYPE& full_image_type,
++										  const COMPUTE_IMAGE_TYPE& image_type,
++										  llvm::Value* lod_arg) = 0;
++		
++	protected:
++		const IMAGE_TYPE_ID image_type_id;
++		const char* image_read_prefix;
++		const char* image_write_prefix;
++		const char* image_get_dim_prefix;
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		std::shared_ptr<IRBuilder<>> builder;
++		bool was_modified { false };
++		bool is_fragment_shader { false };
++		bool is_metal { false };
++		bool is_metal_2_3 { false };
++		bool is_metal_2_4 { false };
++		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
++		
++		llvm::AttributeList nounwind_readnone_attr;
++		llvm::AttributeList nounwind_attr;
++		
++		// depth compare s/w emulation if not supported by backend h/w or s/w
++		void emulate_depth_compare(llvm::Value*& dst_vec,
++								   llvm::Value* tex_value,
++								   const COMPARE_FUNCTION& compare_function,
++								   llvm::Value* compare_value_arg);
++		
++	};
++}
++
++#endif
+diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
+new file mode 100644
+index 000000000000..a0de110263f2
+--- /dev/null
++++ b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
+@@ -0,0 +1,348 @@
++//===-- FloorImageType.h - base class for image transformations--*- C++ -*-===//
++//
++//  Flo's Open libRary (floor)
++//  Copyright (C) 2004 - 2021 Florian Ziesche
++//
++//  This program is free software; you can redistribute it and/or modify
++//  it under the terms of the GNU General Public License as published by
++//  the Free Software Foundation; version 2 of the License only.
++//
++//  This program is distributed in the hope that it will be useful,
++//  but WITHOUT ANY WARRANTY; without even the implied warranty of
++//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++//  GNU General Public License for more details.
++//
++//  You should have received a copy of the GNU General Public License along
++//  with this program; if not, write to the Free Software Foundation, Inc.,
++//  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++//
++//===----------------------------------------------------------------------===//
++//
++// This header file and class define and implement the base class for all
++// image transformations (CUDA and opaque, as used for Metal, OpenCL and Vulkan).
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_TRANSFORMS_LIBFLOOR_FLOORIMAGETYPE_H
++#define LLVM_TRANSFORMS_LIBFLOOR_FLOORIMAGETYPE_H
++
++#include <cstdarg>
++#include <cstdint>
++#include <type_traits>
 +
 +// condensed version of the COMPUTE_IMAGE_TYPE defined by floor
 +enum class COMPUTE_IMAGE_TYPE : uint64_t {
@@ -21439,101 +21697,6 @@ index 000000000000..7e012868852c
 +template <IMAGE_CAPABILITY flag, typename int_type = typename std::underlying_type<IMAGE_CAPABILITY>::type>
 +__attribute__((always_inline, used)) static constexpr bool has_flag(const IMAGE_CAPABILITY& enum_object) {
 +	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
-+}
-+
-+namespace llvm {
-+	struct FloorImageBasePass : public FunctionPass, InstVisitor<FloorImageBasePass> {
-+		friend class InstVisitor<FloorImageBasePass>;
-+		
-+		enum class IMAGE_TYPE_ID {
-+			CUDA,
-+			OPAQUE
-+		};
-+		
-+		explicit FloorImageBasePass(char &ID,
-+									const IMAGE_TYPE_ID& image_type_id,
-+									const uint32_t& image_capabilities);
-+		
-+		bool runOnFunction(Function &F) override;
-+		
-+		using InstVisitor<FloorImageBasePass>::visit;
-+		void visit(Instruction& I);
-+		void visitCallBase(CallBase& CB);
-+		
-+		void handle_image(CallBase& CB, const StringRef& func_name);
-+		void handle_image_query(CallBase& CB, const StringRef& func_name);
-+		
-+		virtual void handle_read_image(Instruction& I,
-+									   const StringRef& func_name,
-+									   llvm::Value* img_handle_arg,
-+									   const COMPUTE_IMAGE_TYPE& image_type,
-+									   llvm::ConstantInt* const_sampler_arg,
-+									   llvm::Value* dyn_sampler_arg,
-+									   llvm::Value* coord_arg,
-+									   llvm::Value* layer_arg,
-+									   llvm::Value* sample_arg,
-+									   llvm::Value* offset_arg,
-+									   const SmallVector<llvm::Value*, 3>& offset_elems,
-+									   const bool is_offset,
-+									   llvm::Value* lod_or_bias_arg,
-+									   const bool is_lod_or_bias, // true: lod, false: bias
-+									   llvm::Value* dpdx_arg,
-+									   llvm::Value* dpdy_arg,
-+									   const bool is_gradient,
-+									   const COMPARE_FUNCTION& compare_function,
-+									   llvm::Value* compare_value_arg,
-+									   const bool is_compare) = 0;
-+		
-+		virtual void handle_write_image(Instruction& I,
-+										const StringRef& func_name,
-+										llvm::Value* img_handle_arg,
-+										const COMPUTE_IMAGE_TYPE& full_image_type,
-+										const COMPUTE_IMAGE_TYPE& image_type,
-+										const COMPUTE_IMAGE_TYPE& format_type,
-+										const COMPUTE_IMAGE_TYPE& data_type,
-+										llvm::Value* rt_image_type,
-+										const bool& is_normalized,
-+										const uint32_t& image_channel_count,
-+										llvm::Value* coord_arg,
-+										llvm::Value* layer_arg,
-+										llvm::Value* lod_arg,
-+										const bool is_lod,
-+										llvm::Value* data_arg) = 0;
-+		
-+		virtual void handle_get_image_dim(Instruction& I,
-+										  const StringRef& func_name,
-+										  llvm::Value* img_handle_arg,
-+										  const COMPUTE_IMAGE_TYPE& full_image_type,
-+										  const COMPUTE_IMAGE_TYPE& image_type,
-+										  llvm::Value* lod_arg) = 0;
-+		
-+	protected:
-+		const IMAGE_TYPE_ID image_type_id;
-+		const char* image_read_prefix;
-+		const char* image_write_prefix;
-+		const char* image_get_dim_prefix;
-+		Module* M { nullptr };
-+		LLVMContext* ctx { nullptr };
-+		Function* func { nullptr };
-+		Instruction* alloca_insert { nullptr };
-+		std::shared_ptr<IRBuilder<>> builder;
-+		bool was_modified { false };
-+		bool is_fragment_shader { false };
-+		bool is_metal { false };
-+		bool is_metal_2_3 { false };
-+		bool is_metal_2_4 { false };
-+		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
-+		
-+		llvm::AttributeList nounwind_readnone_attr;
-+		llvm::AttributeList nounwind_attr;
-+		
-+		// depth compare s/w emulation if not supported by backend h/w or s/w
-+		void emulate_depth_compare(llvm::Value*& dst_vec,
-+								   llvm::Value* tex_value,
-+								   const COMPARE_FUNCTION& compare_function,
-+								   llvm::Value* compare_value_arg);
-+		
-+	};
 +}
 +
 +#endif
@@ -23578,10 +23741,10 @@ index 000000000000..6e0e79cec35c
 +}
 diff --git a/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 000000000000..420e9a638584
+index 000000000000..ffad0e7651b5
 --- /dev/null
 +++ b/llvm/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
-@@ -0,0 +1,1095 @@
+@@ -0,0 +1,1100 @@
 +//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -23622,6 +23785,11 @@ index 000000000000..420e9a638584
 +#include <sstream>
 +using namespace llvm;
 +using namespace std;
++
++// workaround Windows stupidity ...
++#if defined(uuid_t)
++#undef uuid_t
++#endif
 +
 +PreservedAnalyses MetalLibWriterPass::run(Module &M, ModuleAnalysisManager &) {
 +  WriteMetalLibToFile(M, OS);
@@ -24400,7 +24568,7 @@ index 000000000000..420e9a638584
 +    if (target_air_version >= 230) {
 +      if (auto llvm_ident = cloned_mod->getNamedMetadata("llvm.ident")) {
 +        if (MDNode *ident_op = llvm_ident->getOperand(0)) {
-+          static const std::unordered_map<uint32_t, std::string> ident_versions{
++          static const std::unordered_map<uint32_t, const char*> ident_versions{
 +              {230, "Apple LLVM version 31001.143 (metalfe-31001.143)"},
 +              {240, "Apple metal version 31001.363 (metalfe-31001.363)"},
 +          };
@@ -40552,6 +40720,26 @@ index 01bfff84f0c7..ce38adb4f6d0 100644
  }
  
  DISubprogram *Function::getSubprogram() const {
+diff --git a/llvm/lib/IR/Type.cpp b/llvm/lib/IR/Type.cpp
+index 0a28a001ef0d..6b3efd820886 100644
+--- a/llvm/lib/IR/Type.cpp
++++ b/llvm/lib/IR/Type.cpp
+@@ -445,6 +445,15 @@ bool StructType::containsScalableVectorType() const {
+ }
+ 
+ void StructType::setBody(ArrayRef<Type*> Elements, bool isPacked) {
++  // ignore already layed out (cached) image types
++  if (!isOpaque() && !Elements.empty()) {
++    if (Elements[0]->isPointerTy() &&
++        Elements[0]->getPointerAddressSpace() != 0 &&
++        !Elements[0]->getPointerElementType()->isSized()) {
++      return;
++    }
++  }
++
+   assert(isOpaque() && "Struct body already set!");
+ 
+   setSubclassData(getSubclassData() | SCDB_HasBody);
 diff --git a/llvm/lib/IR/Value.cpp b/llvm/lib/IR/Value.cpp
 index 4136a9afc9cf..6a71cd491f3a 100644
 --- a/llvm/lib/IR/Value.cpp
@@ -47922,7 +48110,7 @@ index 000000000000..c776ba8d3628
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/MetalFinal.cpp b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 new file mode 100644
-index 000000000000..8421de9e24d7
+index 000000000000..bf5ed9354127
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 @@ -0,0 +1,1320 @@
@@ -49127,7 +49315,7 @@ index 000000000000..8421de9e24d7
 +		bool run_array_of_images_name_replacement() {
 +			std::vector<llvm::StructType*> image_storage_types;
 +			for (const auto& st_type : ctx->pImpl->NamedStructTypes) {
-+				if (st_type.first().startswith("struct.floor_image::image_storage")) {
++				if (st_type.first().startswith("class.floor_image::image")) {
 +					image_storage_types.emplace_back(st_type.second);
 +				}
 +			}
@@ -49170,7 +49358,7 @@ index 000000000000..8421de9e24d7
 +					continue;
 +				}
 +				
-+				//llvm::dbgs() << "replace " << img_type->getName().str() << " -> " << repl_iter->second << "\n";
++				//llvm::dbgs() << "replace " << st_type->getName().str() << " (" << img_type->getName().str() << ") -> " << repl_iter->second << "\n";
 +				st_type->setName(repl_iter->second);
 +			}
 +			
