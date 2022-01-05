@@ -20727,7 +20727,7 @@ index 000000000000..e29825518d5a
 +//===-- LibFloor.h - LibFloor Transformations -------------------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -20885,7 +20885,7 @@ index 000000000000..584de800e22d
 +//==- AddressSpaceFix.cpp - OpenCL/Metal/Vulkan and related addrspace fixes -=//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -20937,7 +20937,7 @@ index 000000000000..ca7915acec1c
 +//===-- FloorGPUTTI.h - LibFloor GPU TTI implementation ---------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -21210,7 +21210,7 @@ index 000000000000..227e25af1f29
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -21355,7 +21355,7 @@ index 000000000000..a0de110263f2
 +//===-- FloorImageType.h - base class for image transformations--*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -22210,7 +22210,7 @@ index 000000000000..bdf733dbc9d4
 +//===- VulkanSampling.h - Vulkan-specific sampler/image info --------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -44336,7 +44336,7 @@ index 000000000000..2c6ca7500f2a
 +//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -44955,7 +44955,7 @@ index 000000000000..057508b557aa
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -45639,7 +45639,7 @@ index 000000000000..a2fca8696834
 +//===- CUDAFinal.cpp - CUDA final pass ------------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -45773,7 +45773,7 @@ index 000000000000..c531b22f388d
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -47388,7 +47388,7 @@ index 000000000000..c714a3c244c9
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -47989,7 +47989,7 @@ index 000000000000..c776ba8d3628
 +//===-- LibFloor.cpp ------------------------------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -48117,7 +48117,7 @@ index 000000000000..bf5ed9354127
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -49443,7 +49443,7 @@ index 000000000000..cc2b6129b584
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -50190,7 +50190,7 @@ index 000000000000..a8bd4b111962
 +//===- PropagateRangeInfo.cpp - Vulkan final pass -------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -50415,7 +50415,7 @@ index 000000000000..c860b36c5e2f
 +//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -50768,7 +50768,7 @@ index 000000000000..e1b28e6ba2d9
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -54169,7 +54169,7 @@ index 000000000000..463e60712e92
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -55909,7 +55909,7 @@ index 000000000000..b8fd8d45f5fb
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +////
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by

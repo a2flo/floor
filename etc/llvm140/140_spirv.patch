@@ -2607,7 +2607,7 @@ index 0000000..8627272
 +//===- LLVMToSPIRVTransformations.cpp -------------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -3881,7 +3881,7 @@ index 0000000..5fbdc39
 +//===- SPIRVContainerWriterPass.cpp - SPIRV writing pass ------------------===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
@@ -4135,7 +4135,7 @@ index 0000000..82678dc
 +//===-SPIRVContainerWriterPass.h - SPIR-V container writing pass -- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
-+//  Copyright (C) 2004 - 2021 Florian Ziesche
++//  Copyright (C) 2004 - 2022 Florian Ziesche
 +//
 +//  This program is free software; you can redistribute it and/or modify
 +//  it under the terms of the GNU General Public License as published by
