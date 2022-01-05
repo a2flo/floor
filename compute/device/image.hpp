@@ -168,27 +168,27 @@ namespace floor_image {
 	//!       vector sample types will return the corresponding channel variant
 	template <typename sample_type> struct from_sample_type {};
 	template <typename sample_type> requires(is_same_v<float, sample_type>) struct from_sample_type<sample_type> {
-		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
-			return COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
-		}
+		static constexpr COMPUTE_IMAGE_TYPE type {
+			COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::CHANNELS_4
+		};
 	};
 	template <typename sample_type> requires(is_same_v<int32_t, sample_type>) struct from_sample_type<sample_type> {
-		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
-			return COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
-		}
+		static constexpr COMPUTE_IMAGE_TYPE type {
+			COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::CHANNELS_4
+		};
 	};
 	template <typename sample_type> requires(is_same_v<uint32_t, sample_type>) struct from_sample_type<sample_type> {
-		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
-			return COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::CHANNELS_4;
-		}
+		static constexpr COMPUTE_IMAGE_TYPE type {
+			COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::CHANNELS_4
+		};
 	};
 	template <typename sample_type> requires(is_floor_vector<sample_type>::value) struct from_sample_type<sample_type> {
-		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() {
+		static constexpr COMPUTE_IMAGE_TYPE type {
 			// get scalar type, clear out channel count, OR with actual channel count, set FIXED_CHANNELS flag
-			return ((from_sample_type<typename sample_type::this_scalar_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
-					(COMPUTE_IMAGE_TYPE)(uint32_t(sample_type::dim() - 1u) << uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) |
-					COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS);
-		}
+			((from_sample_type<typename sample_type::this_scalar_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
+			 (COMPUTE_IMAGE_TYPE)(uint32_t(sample_type::dim() - 1u) << uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) |
+			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS)
+		};
 	};
 
 	//! image struct that is used for disabled image members
@@ -196,7 +196,8 @@ namespace floor_image {
 	
 	//! implementation specific image storage
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_storage {
+	class image {
+	public: // image storage
 		// helpers
 		static constexpr bool is_readable() { return has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type); }
 		static constexpr bool is_writable() { return has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type); }
@@ -204,8 +205,14 @@ namespace floor_image {
 		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
 		static constexpr bool is_read_write() { return is_readable() && is_writable(); }
 		static constexpr bool has_read_write_support() { return FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT; }
+		static constexpr bool is_array() { return has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type); }
+		static constexpr uint32_t channel_count() { return image_channel_count(image_type); }
+		static constexpr COMPUTE_IMAGE_TYPE type { image_type };
 		
 		using sample_type = typename to_sample_type<image_type>::type;
+		using vector_sample_type = conditional_t<channel_count() == 1, sample_type, vector_n<sample_type, channel_count()>>;
+		using offset_vec_type = typename offset_vec_type_for_image_type<image_type>::type;
+		using gradient_vec_type = typename gradient_vec_type_for_image_type<image_type>::type;
 		
 		// actual image storage/types
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
@@ -276,21 +283,8 @@ namespace floor_image {
 			return img_obj;
 #endif
 		}
-	};
-	
-	//! image base type, containing the appropriate storage type
-	template <COMPUTE_IMAGE_TYPE image_type>
-	struct image_base : public image_storage<image_type> {
-		typedef image_storage<image_type> image_storage_type;
 		
-		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() { return image_type; }
-		floor_inline_always static constexpr uint32_t channel_count() { return image_channel_count(image_type); }
-		
-		using typename image_storage_type::sample_type;
-		using vector_sample_type = conditional_t<channel_count() == 1, sample_type, vector_n<sample_type, channel_count()>>;
-		
-		static constexpr bool is_array() { return has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type); }
-		
+	public: // additional image helper functions
 #if !defined(FLOOR_COMPUTE_HOST) // opencl/metal/cuda coordinate conversion
 		//! convert any coordinate vector type to int* or float* clang vector types
 		template <typename coord_type>
@@ -337,55 +331,40 @@ namespace floor_image {
 			return vector_n<scalar_type, 4> { data };
 		}
 		
+	public: // image query functions
 		//! queries the image dimension at run-time, returning it in the same format as compute_image::image_dim
 		uint4 dim(const uint32_t lod = 0) const {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			if constexpr (image_storage_type::is_readable()) {
-				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::r_img(), image_type, lod));
+			if constexpr (is_readable()) {
+				return uint4::from_clang_vector(opaque_image::get_image_dim(r_img(), image_type, lod));
 			} else {
-				return uint4::from_clang_vector(opaque_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
+				return uint4::from_clang_vector(opaque_image::get_image_dim(w_img(), image_type, lod));
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
-			if constexpr (image_storage_type::is_readable()) {
-				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::r_img()[0], image_type, lod));
+			if constexpr (is_readable()) {
+				return uint4::from_clang_vector(cuda_image::get_image_dim(r_img()[0], image_type, lod));
 			} else {
-				return uint4::from_clang_vector(cuda_image::get_image_dim(image_storage_type::w_img(), image_type, lod));
+				return uint4::from_clang_vector(cuda_image::get_image_dim(w_img(), image_type, lod));
 			}
 #elif defined(FLOOR_COMPUTE_HOST)
-			if constexpr (image_storage_type::is_readable()) {
-				return image_storage_type::r_img()->level_info[lod].dim;
+			if constexpr (is_readable()) {
+				return r_img()->level_info[lod].dim;
 			} else {
-				return image_storage_type::w_img()->level_info[lod].dim;
+				return w_img()->level_info[lod].dim;
 			}
 #else
 #error "unknown backend"
 #endif
 		}
-	};
-	
-	//! const/read-only image container
-	template <COMPUTE_IMAGE_TYPE image_type>
-	class const_image : public image_base<image_type> {
-	public:
-		using image_base_type = image_base<image_type>;
-		using typename image_base_type::image_storage_type;
-		using typename image_base_type::sample_type;
-		using image_base_type::convert_coord;
-		using image_storage_type::r_img;
-#if defined(FLOOR_COMPUTE_CUDA)
-		using image_storage_type::r_img_obj;
-#endif
 		
-		using offset_vec_type = typename offset_vec_type_for_image_type<image_type>::type;
-		using gradient_vec_type = typename gradient_vec_type_for_image_type<image_type>::type;
-		
-	public:
+	public: // image read functions
 		//! internal read function, handling all kinds of reads
 		//! NOTE: while this is an internal function, it might be useful for anyone insane enough to use it directly on the outside
 		//!       -> this is a public function and not protected
 		template <bool sample_linear, bool sample_repeat = false, bool is_lod = false, bool is_gradient = false,
 				  bool is_compare = false, COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER,
 				  typename coord_type, typename lod_type = int32_t>
+		requires (is_readable())
 		floor_inline_always auto read_internal(const coord_type& coord,
 											   const uint32_t layer,
 #if defined(FLOOR_COMPUTE_HOST) // NOTE: MSAA/sample is not supported on host-compute
@@ -893,28 +872,10 @@ namespace floor_image {
 			return read_internal<true, false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
-	};
-	
-	//! read-write/write-only image container
-	//! NOTE: write function will be inlined for performance/code size reasons (matters for CUDA)
-	template <COMPUTE_IMAGE_TYPE image_type>
-	class image : public conditional_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type), const_image<image_type> /* r/w */, image_base<image_type> /* w/o */> {
-	public:
-		typedef image_base<image_type> image_base_type;
-		using typename image_base_type::image_storage_type;
-		using typename image_base_type::sample_type;
-		using typename image_base_type::vector_sample_type;
-		using image_base_type::convert_coord;
-		using image_storage_type::w_img;
-#if defined(FLOOR_COMPUTE_CUDA)
-		using image_storage_type::w_img_obj;
-		using image_storage_type::w_img_lod_obj;
-		using image_storage_type::runtime_image_type;
-#endif
-		
-	public:
+	public: // image write functions
 		//! internal write function
 		template <bool is_lod = false, typename coord_type>
+		requires (is_writable())
 		floor_inline_always void write_internal(const coord_type& coord,
 												const uint32_t layer,
 												const uint32_t lod,
@@ -933,13 +894,13 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST)
 			const auto converted_data = [&data]() {
 				if constexpr (!is_depth) {
-					return image_base_type::template convert_data<sample_type>(data);
+					return convert_data<sample_type>(data);
 				} else {
 					return data;
 				}
 			}();
 #else
-			const auto converted_data = image_base_type::template convert_data<sample_type>(data);
+			const auto converted_data = convert_data<sample_type>(data);
 #endif
 			
 			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
@@ -1025,151 +986,152 @@ namespace floor_image {
 
 //! read-write image (if write_only == false), write-only image (if write_only == true)
 template <COMPUTE_IMAGE_TYPE image_type, bool write_only = false>
-using image = floor_image::image<(image_type | COMPUTE_IMAGE_TYPE::WRITE |
+using image = floor_image::image<((image_type & ~COMPUTE_IMAGE_TYPE::__ACCESS_MASK) |
+								  COMPUTE_IMAGE_TYPE::WRITE |
 								  (write_only ? COMPUTE_IMAGE_TYPE::NONE : COMPUTE_IMAGE_TYPE::READ))>;
 
 //! const/read-only image
 template <COMPUTE_IMAGE_TYPE image_type>
-using const_image = floor_image::const_image<image_type | COMPUTE_IMAGE_TYPE::READ>;
+using const_image = floor_image::image<(image_type & ~COMPUTE_IMAGE_TYPE::__ACCESS_MASK) | COMPUTE_IMAGE_TYPE::READ>;
 
 // const/read-only image types
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_1d =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_1D | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_1D | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_1d_array =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_array =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_msaa =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_msaa_array =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_cube =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_cube_array =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_depth =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_depth_stencil =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL | ext_type |
 			 // always 2 channels
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_depth_array =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_cube_depth =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_cube_depth_array =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_depth_msaa =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_2d_depth_msaa_array =
 const_image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY | ext_type |
 			 // always single channel
 			 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-			 (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
+			 (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK))>;
 
 template <typename sample_type, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using const_image_3d =
-const_image<COMPUTE_IMAGE_TYPE::IMAGE_3D | ext_type | floor_image::from_sample_type<sample_type>::type()>;
+const_image<COMPUTE_IMAGE_TYPE::IMAGE_3D | ext_type | floor_image::from_sample_type<sample_type>::type>;
 
 // read-write/write-only image types
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_1d =
-image<COMPUTE_IMAGE_TYPE::IMAGE_1D | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_1D | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_1d_array =
-image<COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d =
-image<COMPUTE_IMAGE_TYPE::IMAGE_2D | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_array =
-image<COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa =
-image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa_array =
-image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_cube =
-image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_cube_array =
-image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_stencil =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL | ext_type |
 	   // always 2 channels
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_array =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_cube_depth =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_cube_depth_array =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa_array =
 image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY | ext_type |
 	   // always single channel
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+	   (floor_image::from_sample_type<sample_type>::type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_3d =
-image<COMPUTE_IMAGE_TYPE::IMAGE_3D | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+image<COMPUTE_IMAGE_TYPE::IMAGE_3D | ext_type | floor_image::from_sample_type<sample_type>::type, write_only>;
 
 #endif
