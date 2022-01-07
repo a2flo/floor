@@ -837,10 +837,10 @@ index 7afee4dbc80b..aa3281a83033 100644
  #pragma pop_macro("PTX74")
 +#pragma pop_macro("PTX75")
 diff --git a/clang/include/clang/Basic/CodeGenOptions.def b/clang/include/clang/Basic/CodeGenOptions.def
-index 610123260175..57562fac39a3 100644
+index 610123260175..a5c3632b9d91 100644
 --- a/clang/include/clang/Basic/CodeGenOptions.def
 +++ b/clang/include/clang/Basic/CodeGenOptions.def
-@@ -88,6 +88,15 @@ CODEGENOPT(EmitVersionIdentMetadata , 1, 1) ///< Emit compiler version metadata.
+@@ -88,6 +88,17 @@ CODEGENOPT(EmitVersionIdentMetadata , 1, 1) ///< Emit compiler version metadata.
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
@@ -853,6 +853,8 @@ index 610123260175..57562fac39a3 100644
 +VALUE_CODEGENOPT(VulkanIUBCount, 32, 4) ///< max supported count of Vulkan inline uniform blocks
 +CODEGENOPT(VulkanLLVMPreStructurizationPass , 1, 0) ///< Enable LLVM CFG structurization pass prior to actual structurization.
 +CODEGENOPT(VulkanSoftPrintf , 1, 0) ///< Enables support of software printf emulation.
++CODEGENOPT(GraphicsPrimitiveID , 1, 0) ///< Enables support for builtin primitive id.
++CODEGENOPT(GraphicsBarycentricCoord , 1, 0) ///< Enables support for builtin primitive id.
  CODEGENOPT(EmulatedTLS       , 1, 0) ///< Set by default or -f[no-]emulated-tls.
  CODEGENOPT(ExplicitEmulatedTLS , 1, 0) ///< Set if -f[no-]emulated-tls is used.
  /// Embed Bitcode mode (off/all/bitcode/marker).
@@ -1377,7 +1379,7 @@ index b5721344046d..3cd849714950 100644
    virtual void anchor();
  public:
 diff --git a/clang/include/clang/Driver/Options.td b/clang/include/clang/Driver/Options.td
-index 0d3c053e89ae..537309ca0645 100644
+index 0d3c053e89ae..348108e6dc76 100644
 --- a/clang/include/clang/Driver/Options.td
 +++ b/clang/include/clang/Driver/Options.td
 @@ -1506,7 +1506,7 @@ defm jump_tables : BoolFOption<"jump-tables",
@@ -1439,7 +1441,7 @@ index 0d3c053e89ae..537309ca0645 100644
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -5856,6 +5885,32 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
+@@ -5856,6 +5885,41 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
    HelpText<"Don't treat unattributed constexpr functions as __host__ __device__.">,
    MarshallingInfoNegativeFlag<LangOpts<"CUDAHostDeviceConstexpr">>;
  
@@ -1468,6 +1470,15 @@ index 0d3c053e89ae..537309ca0645 100644
 +  HelpText<"Enable LLVM CFG structurization pass prior to actual structurization">;
 +def vulkan_soft_printf : Flag<["-"], "vulkan-soft-printf">,
 +  HelpText<"Enables support of software printf emulation">;
++
++//===----------------------------------------------------------------------===//
++// Graphics Options
++//===----------------------------------------------------------------------===//
++
++def graphics_primitive_id : Flag<["-"], "graphics-primitive-id">,
++  HelpText<"Enables support for primitive id query in fragment shaders">;
++def graphics_barycentric_coord : Flag<["-"], "graphics-barycentric-coord">,
++  HelpText<"Enables support for barycentric coordinate query in fragment shaders">;
 +
  //===----------------------------------------------------------------------===//
  // OpenMP Options
@@ -3352,7 +3363,7 @@ index 501b0e3c3443..255fe9b0b4be 100644
          break;
        }
 diff --git a/clang/lib/CodeGen/CGCall.cpp b/clang/lib/CodeGen/CGCall.cpp
-index daea09be3e70..cedf77a45aa2 100644
+index daea09be3e70..f65c5f986373 100644
 --- a/clang/lib/CodeGen/CGCall.cpp
 +++ b/clang/lib/CodeGen/CGCall.cpp
 @@ -61,8 +61,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3404,19 +3415,22 @@ index daea09be3e70..cedf77a45aa2 100644
      const FunctionType *FT = FTy->getAs<FunctionType>();
      CGM.getTargetCodeGenInfo().setCUDAKernelCallingConvention(FT);
      FTy = FT->getCanonicalTypeUnqualified();
-@@ -432,6 +445,159 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
+@@ -432,6 +445,184 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
                                   ParamInfos, Required);
  }
  
 +uint32_t CodeGenTypes::getMetalVulkanImplicitArgCount(const FunctionDecl* FD) const {
 +  if (!FD) return 0;
 +
-+  if (!CGM.getLangOpts().Metal && !CGM.getLangOpts().Vulkan) {
++  const auto& LangOpts = CGM.getLangOpts();
++  const auto& CodeGenOpts = CGM.getCodeGenOpts();
++
++  if (!LangOpts.Metal && !LangOpts.Vulkan) {
 +    return 0;
 +  }
 +
-+  if (CGM.getLangOpts().Metal) {
-+    const uint32_t printf_arg = (CGM.getCodeGenOpts().MetalSoftPrintf > 0 ? 1 : 0);
++  if (LangOpts.Metal) {
++    const uint32_t printf_arg = (CodeGenOpts.MetalSoftPrintf > 0 ? 1 : 0);
 +    if (FD->hasAttr<ComputeKernelAttr>()) {
 +      if (CGM.getTriple().getOS() != llvm::Triple::OSType::MacOSX) {
 +        return 6 + printf_arg;
@@ -3426,16 +3440,16 @@ index daea09be3e70..cedf77a45aa2 100644
 +    } else if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
 +      return 2 + printf_arg;
 +    } else if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+      return 1 + printf_arg;
++      return 1 + printf_arg + (CodeGenOpts.GraphicsPrimitiveID ? 1 : 0) + (CodeGenOpts.GraphicsBarycentricCoord ? 1 : 0);
 +    }
-+  } else if(CGM.getLangOpts().Vulkan) {
-+    const uint32_t printf_arg = (CGM.getCodeGenOpts().VulkanSoftPrintf > 0 ? 1 : 0);
++  } else if(LangOpts.Vulkan) {
++    const uint32_t printf_arg = (CodeGenOpts.VulkanSoftPrintf > 0 ? 1 : 0);
 +    if (FD->hasAttr<ComputeKernelAttr>()) {
 +      return 4 + printf_arg;
 +    } else if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
 +      return 3 + printf_arg;
 +    } else if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+      return 3 + printf_arg;
++      return 3 + printf_arg + (CodeGenOpts.GraphicsPrimitiveID ? 1 : 0) + (CodeGenOpts.GraphicsBarycentricCoord ? 1 : 0);
 +    }
 +  }
 +
@@ -3446,7 +3460,10 @@ index daea09be3e70..cedf77a45aa2 100644
 +void CodeGenTypes::handleMetalVulkanEntryFunction(CanQualType* FTy, FunctionArgList* ArgList, const FunctionDecl* FD) {
 +  if (!FD) return; // just in case
 +
-+  if (!CGM.getLangOpts().Metal && !CGM.getLangOpts().Vulkan) {
++  const auto& LangOpts = CGM.getLangOpts();
++  const auto& CodeGenOpts = CGM.getCodeGenOpts();
++
++  if (!LangOpts.Metal && !LangOpts.Vulkan) {
 +    return; // nothing to change here
 +  }
 +
@@ -3489,8 +3506,8 @@ index daea09be3e70..cedf77a45aa2 100644
 +
 +  // add implicit internal args
 +  // NOTE: Metal and Vulkan handle these differently: Metal uses direct params, Vulkan uses pointers in input AS
-+  if (CGM.getLangOpts().Metal) {
-+    if (CGM.getCodeGenOpts().MetalSoftPrintf > 0) {
++  if (LangOpts.Metal) {
++    if (CodeGenOpts.MetalSoftPrintf > 0) {
 +      add_arg(Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.IntTy, LangAS::opencl_global)), "__metal__printf_buffer__");
 +    }
 +
@@ -3515,12 +3532,21 @@ index daea09be3e70..cedf77a45aa2 100644
 +      add_arg(Ctx.IntTy, "__metal__vertex_id__");
 +      add_arg(Ctx.IntTy, "__metal__instance_id__");
 +    } else if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+      // only point coord for now:
++      // optional: primitive id and barycentric coord
++      if (CodeGenOpts.GraphicsPrimitiveID) {
++        add_arg(Ctx.IntTy, "__metal__primitive_id__");
++      }
++      if (CodeGenOpts.GraphicsBarycentricCoord) {
++        auto float3_type = Ctx.getExtVectorType(Ctx.FloatTy, 3);
++        add_arg(float3_type, "__metal__barycentric_coord__");
++      }
++
++      // fixed: only point coord for now:
 +      auto float2_type = Ctx.getExtVectorType(Ctx.FloatTy, 2);
 +      add_arg(float2_type, "__metal__point_coord__");
 +    }
-+  } else if(CGM.getLangOpts().Vulkan) {
-+    if (CGM.getCodeGenOpts().VulkanSoftPrintf > 0) {
++  } else if(LangOpts.Vulkan) {
++    if (CodeGenOpts.VulkanSoftPrintf > 0) {
 +      add_arg(Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.IntTy, LangAS::opencl_global)), "vulkan.printf_buffer");
 +    }
 +
@@ -3539,12 +3565,22 @@ index daea09be3e70..cedf77a45aa2 100644
 +      add_arg(int_ptr_type, "vulkan.view_index");
 +      add_arg(int_ptr_type, "vulkan.instance_index");
 +    } else if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+      // only point + frag coord + view index for now:
++      auto int_ptr_type = Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.IntTy, LangAS::vulkan_input));
++
++      // optional: primitive id and barycentric coord
++      if (CodeGenOpts.GraphicsPrimitiveID) {
++        add_arg(int_ptr_type, "vulkan.primitive_id");
++      }
++      if (CodeGenOpts.GraphicsBarycentricCoord) {
++        auto float3_ptr_type = Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.getExtVectorType(Ctx.FloatTy, 3), LangAS::vulkan_input));
++        add_arg(float3_ptr_type, "vulkan.barycentric_coord");
++      }
++
++      // fixed: only point + frag coord + view index for now:
 +      auto float2_ptr_type = Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.getExtVectorType(Ctx.FloatTy, 2), LangAS::vulkan_input));
 +      add_arg(float2_ptr_type, "vulkan.point_coord");
 +      auto float4_ptr_type = Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.getExtVectorType(Ctx.FloatTy, 4), LangAS::vulkan_input));
 +      add_arg(float4_ptr_type, "vulkan.frag_coord");
-+      auto int_ptr_type = Ctx.getPointerType(Context.getAddrSpaceQualType(Ctx.IntTy, LangAS::vulkan_input));
 +      add_arg(int_ptr_type, "vulkan.view_index");
 +    }
 +  }
@@ -3564,7 +3600,7 @@ index daea09be3e70..cedf77a45aa2 100644
  /// Arrange the argument and result information for the declaration or
  /// definition of the given function.
  const CGFunctionInfo &
-@@ -445,6 +611,8 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
+@@ -445,6 +636,8 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
    assert(isa<FunctionType>(FTy));
    setCUDAKernelCallingConvention(FTy, CGM, FD);
  
@@ -3573,7 +3609,7 @@ index daea09be3e70..cedf77a45aa2 100644
    // When declaring a function without a prototype, always use a
    // non-variadic type.
    if (CanQual<FunctionNoProtoType> noProto = FTy.getAs<FunctionNoProtoType>()) {
-@@ -770,11 +938,14 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
+@@ -770,11 +963,14 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
    assert(inserted && "Recursively being processed?");
  
    // Compute ABI information.
@@ -3590,7 +3626,7 @@ index daea09be3e70..cedf77a45aa2 100644
      swiftcall::computeABIInfo(CGM, *FI);
    } else {
      getABIInfo().computeInfo(*FI);
-@@ -854,6 +1025,10 @@ struct TypeExpansion {
+@@ -854,6 +1050,10 @@ struct TypeExpansion {
      TEK_Record,
      // For complex types, real and imaginary parts are expanded recursively.
      TEK_Complex,
@@ -3601,7 +3637,7 @@ index daea09be3e70..cedf77a45aa2 100644
      // All other types are not expandable.
      TEK_None
    };
-@@ -898,6 +1073,31 @@ struct ComplexExpansion : TypeExpansion {
+@@ -898,6 +1098,31 @@ struct ComplexExpansion : TypeExpansion {
    }
  };
  
@@ -3633,7 +3669,7 @@ index daea09be3e70..cedf77a45aa2 100644
  struct NoExpansion : TypeExpansion {
    NoExpansion() : TypeExpansion(TEK_None) {}
    static bool classof(const TypeExpansion *TE) {
-@@ -907,12 +1107,61 @@ struct NoExpansion : TypeExpansion {
+@@ -907,12 +1132,61 @@ struct NoExpansion : TypeExpansion {
  }  // namespace
  
  static std::unique_ptr<TypeExpansion>
@@ -3697,7 +3733,7 @@ index daea09be3e70..cedf77a45aa2 100644
      SmallVector<const CXXBaseSpecifier *, 1> Bases;
      SmallVector<const FieldDecl *, 1> Fields;
      const RecordDecl *RD = RT->getDecl();
-@@ -962,17 +1211,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
+@@ -962,17 +1236,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
    return std::make_unique<NoExpansion>();
  }
  
@@ -3727,7 +3763,7 @@ index daea09be3e70..cedf77a45aa2 100644
      return Res;
    }
    if (isa<ComplexExpansion>(Exp.get()))
-@@ -983,17 +1239,30 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
+@@ -983,17 +1264,30 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
  
  void
  CodeGenTypes::getExpandedTypes(QualType Ty,
@@ -3763,7 +3799,7 @@ index daea09be3e70..cedf77a45aa2 100644
    } else if (auto CExp = dyn_cast<ComplexExpansion>(Exp.get())) {
      llvm::Type *EltTy = ConvertType(CExp->EltTy);
      *TI++ = EltTy;
-@@ -1020,17 +1289,81 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
+@@ -1020,17 +1314,81 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
  }
  
  void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
@@ -3848,7 +3884,7 @@ index daea09be3e70..cedf77a45aa2 100644
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = LV.getAddress(*this);
      for (const CXXBaseSpecifier *BS : RExp->Bases) {
-@@ -1041,12 +1374,12 @@ void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -1041,12 +1399,12 @@ void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
        LValue SubLV = MakeAddrLValue(Base, BS->getType());
  
        // Recurse onto bases.
@@ -3863,7 +3899,7 @@ index daea09be3e70..cedf77a45aa2 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      auto realValue = &*AI++;
-@@ -1065,8 +1398,9 @@ void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -1065,8 +1423,9 @@ void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
  
  void CodeGenFunction::ExpandTypeToArgs(
      QualType Ty, CallArg Arg, llvm::FunctionType *IRFuncTy,
@@ -3875,7 +3911,7 @@ index daea09be3e70..cedf77a45aa2 100644
    if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
      Address Addr = Arg.hasLValue() ? Arg.getKnownLValue().getAddress(*this)
                                     : Arg.getKnownRValue().getAggregateAddress();
-@@ -1076,8 +1410,41 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1076,8 +1435,41 @@ void CodeGenFunction::ExpandTypeToArgs(
                convertTempToRValue(EltAddr, CAExp->EltTy, SourceLocation()),
                CAExp->EltTy);
            ExpandTypeToArgs(CAExp->EltTy, EltArg, IRFuncTy, IRCallArgs,
@@ -3918,7 +3954,7 @@ index daea09be3e70..cedf77a45aa2 100644
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = Arg.hasLValue() ? Arg.getKnownLValue().getAddress(*this)
                                     : Arg.getKnownRValue().getAggregateAddress();
-@@ -1090,7 +1457,7 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1090,7 +1482,7 @@ void CodeGenFunction::ExpandTypeToArgs(
  
        // Recurse onto bases.
        ExpandTypeToArgs(BS->getType(), BaseArg, IRFuncTy, IRCallArgs,
@@ -3927,7 +3963,7 @@ index daea09be3e70..cedf77a45aa2 100644
      }
  
      LValue LV = MakeAddrLValue(This, Ty);
-@@ -1098,7 +1465,7 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1098,7 +1490,7 @@ void CodeGenFunction::ExpandTypeToArgs(
        CallArg FldArg =
            CallArg(EmitRValueForField(LV, FD, SourceLocation()), FD->getType());
        ExpandTypeToArgs(FD->getType(), FldArg, IRFuncTy, IRCallArgs,
@@ -3936,7 +3972,7 @@ index daea09be3e70..cedf77a45aa2 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      ComplexPairTy CV = Arg.getKnownRValue().getComplexVal();
-@@ -1305,6 +1672,11 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
+@@ -1305,6 +1697,11 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
    return CGF.Builder.CreateLoad(Tmp);
  }
  
@@ -3948,7 +3984,7 @@ index daea09be3e70..cedf77a45aa2 100644
  // Function to store a first-class aggregate into memory.  We prefer to
  // store the elements rather than the aggregate to be more friendly to
  // fast-isel.
-@@ -1316,6 +1688,13 @@ void CodeGenFunction::EmitAggregateStore(llvm::Value *Val, Address Dest,
+@@ -1316,6 +1713,13 @@ void CodeGenFunction::EmitAggregateStore(llvm::Value *Val, Address Dest,
      for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
        Address EltPtr = Builder.CreateStructGEP(Dest, i);
        llvm::Value *Elt = Builder.CreateExtractValue(Val, i);
@@ -3962,7 +3998,7 @@ index daea09be3e70..cedf77a45aa2 100644
        Builder.CreateStore(Elt, EltPtr, DestIsVolatile);
      }
    } else {
-@@ -1329,10 +1708,10 @@ void CodeGenFunction::EmitAggregateStore(llvm::Value *Val, Address Dest,
+@@ -1329,10 +1733,10 @@ void CodeGenFunction::EmitAggregateStore(llvm::Value *Val, Address Dest,
  ///
  /// This safely handles the case when the src type is larger than the
  /// destination type; the upper bits of the src will be lost.
@@ -3977,7 +4013,7 @@ index daea09be3e70..cedf77a45aa2 100644
    llvm::Type *SrcTy = Src->getType();
    llvm::Type *DstTy = Dst.getElementType();
    if (SrcTy == DstTy) {
-@@ -1431,10 +1810,10 @@ class ClangToLLVMArgMapping {
+@@ -1431,10 +1835,10 @@ class ClangToLLVMArgMapping {
  
  public:
    ClangToLLVMArgMapping(const ASTContext &Context, const CGFunctionInfo &FI,
@@ -3990,7 +4026,7 @@ index daea09be3e70..cedf77a45aa2 100644
    }
  
    bool hasInallocaArg() const { return InallocaArgNo != InvalidIndex; }
-@@ -1470,11 +1849,12 @@ public:
+@@ -1470,11 +1874,12 @@ public:
  
  private:
    void construct(const ASTContext &Context, const CGFunctionInfo &FI,
@@ -4004,7 +4040,7 @@ index daea09be3e70..cedf77a45aa2 100644
                                        bool OnlyRequiredArgs) {
    unsigned IRArgNo = 0;
    bool SwapThisWithSRet = false;
-@@ -1523,7 +1903,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+@@ -1523,7 +1928,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
        IRArgs.NumberOfArgs = AI.getCoerceAndExpandTypeSequence().size();
        break;
      case ABIArgInfo::Expand:
@@ -4013,7 +4049,7 @@ index daea09be3e70..cedf77a45aa2 100644
        break;
      }
  
-@@ -1632,7 +2012,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1632,7 +2037,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
      break;
    }
  
@@ -4022,7 +4058,7 @@ index daea09be3e70..cedf77a45aa2 100644
    SmallVector<llvm::Type*, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
  
    // Add type for sret argument.
-@@ -1714,7 +2094,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1714,7 +2119,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
  
      case ABIArgInfo::Expand:
        auto ArgTypesIter = ArgTypes.begin() + FirstIRArg;
@@ -4031,7 +4067,7 @@ index daea09be3e70..cedf77a45aa2 100644
        assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
        break;
      }
-@@ -2132,7 +2512,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -2132,7 +2537,7 @@ void CodeGenModule::ConstructAttributeList(
                                   NumElemsParam);
      }
  
@@ -4040,7 +4076,7 @@ index daea09be3e70..cedf77a45aa2 100644
        if (getLangOpts().OpenCLVersion <= 120) {
          // OpenCL v1.2 Work groups are always uniform
          FuncAttrs.addAttribute("uniform-work-group-size", "true");
-@@ -2229,7 +2609,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -2229,7 +2634,7 @@ void CodeGenModule::ConstructAttributeList(
    }
  
    // Collect attributes from arguments and return values.
@@ -4049,7 +4085,7 @@ index daea09be3e70..cedf77a45aa2 100644
  
    QualType RetTy = FI.getReturnType();
    const ABIArgInfo &RetAI = FI.getReturnInfo();
-@@ -2625,7 +3005,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2625,7 +3030,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
    // FIXME: We no longer need the types from FunctionArgList; lift up and
    // simplify.
  
@@ -4058,7 +4094,7 @@ index daea09be3e70..cedf77a45aa2 100644
    assert(Fn->arg_size() == IRFunctionArgs.totalIRArgs());
  
    // If we're using inalloca, all the memory arguments are GEPs off of the last
-@@ -2979,7 +3359,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2979,7 +3384,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
        ArgVals.push_back(ParamValue::forIndirect(Alloca));
  
        auto FnArgIter = Fn->arg_begin() + FirstIRArg;
@@ -4067,7 +4103,7 @@ index daea09be3e70..cedf77a45aa2 100644
        assert(FnArgIter == Fn->arg_begin() + FirstIRArg + NumIRArgs);
        for (unsigned i = 0, e = NumIRArgs; i != e; ++i) {
          auto AI = Fn->getArg(FirstIRArg + i);
-@@ -4649,6 +5029,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4649,6 +5054,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
    }
  
  #ifndef NDEBUG
@@ -4075,7 +4111,7 @@ index daea09be3e70..cedf77a45aa2 100644
    if (!(CallInfo.isVariadic() && CallInfo.getArgStruct())) {
      // For an inalloca varargs function, we don't expect CallInfo to match the
      // function pointer's type, because the inalloca struct a will have extra
-@@ -4665,6 +5046,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4665,6 +5071,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
            Callee.getFunctionPointer()->getType()->getPointerElementType();
      assert(IRFuncTy == TypeFromVal);
    }
@@ -4083,7 +4119,7 @@ index daea09be3e70..cedf77a45aa2 100644
  #endif
  
    // 1. Set up the arguments.
-@@ -4690,7 +5072,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4690,7 +5097,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      ArgMemory = Address(AI, Align);
    }
  
@@ -4092,7 +4128,7 @@ index daea09be3e70..cedf77a45aa2 100644
    SmallVector<llvm::Value *, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
  
    // If the call returns a temporary with struct return, create a temporary
-@@ -4933,8 +5315,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4933,8 +5340,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
          if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -4109,7 +4145,7 @@ index daea09be3e70..cedf77a45aa2 100644
  
          IRCallArgs[FirstIRArg] = V;
          break;
-@@ -5055,7 +5443,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -5055,7 +5468,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
  
      case ABIArgInfo::Expand: {
        unsigned IRArgPos = FirstIRArg;
@@ -4119,7 +4155,7 @@ index daea09be3e70..cedf77a45aa2 100644
        assert(IRArgPos == FirstIRArg + NumIRArgs);
        break;
      }
-@@ -5161,8 +5550,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -5161,8 +5575,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      if (IRFunctionArgs.hasInallocaArg() &&
          i == IRFunctionArgs.getInallocaArgNo())
        continue;
@@ -4138,7 +4174,7 @@ index daea09be3e70..cedf77a45aa2 100644
    }
  #endif
  
-@@ -5458,6 +5856,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -5458,6 +5881,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
              DestPtr = CreateMemTemp(RetTy, "agg.tmp");
              DestIsVolatile = false;
            }
@@ -4152,7 +4188,7 @@ index daea09be3e70..cedf77a45aa2 100644
            EmitAggregateStore(CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -5502,6 +5907,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -5502,6 +5932,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      AllocAlignAttrEmitter.EmitAsAnAssumption(Loc, RetTy, Ret);
    }
  
@@ -5661,7 +5697,7 @@ index 52c54d3c7a72..a172e1c8cba1 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/clang/lib/CodeGen/CodeGenFunction.cpp b/clang/lib/CodeGen/CodeGenFunction.cpp
-index fc4540f26aab..382c45f98a2e 100644
+index fc4540f26aab..991325c2c2de 100644
 --- a/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,8 @@
@@ -5716,7 +5752,7 @@ index fc4540f26aab..382c45f98a2e 100644
  
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType HintQTy = A->getTypeHint();
-@@ -636,6 +656,133 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -636,6 +656,142 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      Fn->setMetadata("intel_reqd_sub_group_size",
                      llvm::MDNode::get(Context, AttrMDArgs));
    }
@@ -5730,11 +5766,20 @@ index fc4540f26aab..382c45f98a2e 100644
 +      (FD->hasAttr<GraphicsVertexShaderAttr>() ? "air.vertex" :
 +       (FD->hasAttr<GraphicsFragmentShaderAttr>() ? "air.fragment" : "air.kernel")));
 +  }
++  MainMetadataNode->addOperand(kernelMDNode);
++
 +  // add soft-printf info
 +  if (CGM.getCodeGenOpts().MetalSoftPrintf > 0 || CGM.getCodeGenOpts().VulkanSoftPrintf > 0) {
 +    CGM.getModule().getOrInsertNamedMetadata("floor.soft_printf");
 +  }
-+  MainMetadataNode->addOperand(kernelMDNode);
++
++  // add primitive id and barycentric coord info
++  if (CGM.getCodeGenOpts().GraphicsPrimitiveID) {
++    CGM.getModule().getOrInsertNamedMetadata("floor.primitive_id");
++  }
++  if (CGM.getCodeGenOpts().GraphicsBarycentricCoord) {
++    CGM.getModule().getOrInsertNamedMetadata("floor.barycentric_coord");
++  }
 +
 +  // additional air info
 +  if (CGM.getLangOpts().Metal) {
@@ -5850,7 +5895,7 @@ index fc4540f26aab..382c45f98a2e 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -895,9 +1042,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -895,9 +1051,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
    if (D && D->hasAttr<NoProfileFunctionAttr>())
      Fn->addFnAttr(llvm::Attribute::NoProfile);
  
@@ -5870,7 +5915,7 @@ index fc4540f26aab..382c45f98a2e 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -943,8 +1097,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -943,8 +1106,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
    //     recursive code, virtual functions or make use of C++ libraries that
    //     are not compiled for the device.
    if (FD && ((getLangOpts().CPlusPlus && FD->isMain()) ||
@@ -5880,7 +5925,7 @@ index fc4540f26aab..382c45f98a2e 100644
      Fn->addFnAttr(llvm::Attribute::NoRecurse);
  
    llvm::RoundingMode RM = getLangOpts().getFPRoundingMode();
-@@ -1084,7 +1237,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
+@@ -1084,7 +1246,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
      Addr = Builder.CreateAlignedLoad(Ty, Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, CGM.getNaturalTypeAlignment(RetTy));
    } else {
@@ -5900,7 +5945,7 @@ index fc4540f26aab..382c45f98a2e 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -1285,6 +1449,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
+@@ -1285,6 +1458,9 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
    if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
      CGM.getCXXABI().addImplicitStructorParams(*this, ResTy, Args);
  
@@ -5910,7 +5955,7 @@ index fc4540f26aab..382c45f98a2e 100644
    return ResTy;
  }
  
-@@ -1374,7 +1541,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1374,7 +1550,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -5959,7 +6004,7 @@ index dd60e21b0ce1..12324cc99fcf 100644
    llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
                              const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 74c4490d5422..5d82f6e5c49a 100644
+index 74c4490d5422..489f37b1e628 100644
 --- a/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -18,6 +18,7 @@
@@ -6117,7 +6162,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
  static unsigned ArgInfoAddressSpace(LangAS AS) {
    switch (AS) {
    case LangAS::opencl_global:
-@@ -1562,152 +1609,2150 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -1562,152 +1609,2182 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    case LangAS::opencl_generic:
      return 4; // Not in SPIR 2.0 specs.
    case LangAS::opencl_global_device:
@@ -6995,6 +7040,12 @@ index 74c4490d5422..5d82f6e5c49a 100644
 +		stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "view_index"));
 +		stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "instance_index"));
 +	} else if (is_fragment) {
++		if (getCodeGenOpts().GraphicsPrimitiveID) {
++			stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "primitive_id"));
++		}
++		if (getCodeGenOpts().GraphicsBarycentricCoord) {
++			stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "barycentric_coord"));
++		}
 +		stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "point_coord"));
 +		stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "frag_coord"));
 +		stage_infos.push_back(llvm::MDString::get(VMContext, prefix_builtin + "view_index"));
@@ -7728,17 +7779,43 @@ index 74c4490d5422..5d82f6e5c49a 100644
 +			}, true);
 +		}
 +	} else if (is_fragment) {
-+		// TODO: other stuff
++		if (getCodeGenOpts().GraphicsPrimitiveID) {
++			SmallVector<llvm::Metadata*, 6> arg_info;
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.primitive_id"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "uint"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "__metal__primitive_id__"));
++			arg_infos.push_back(llvm::MDNode::get(VMContext, arg_info));
++			++arg_idx; // next llvm arg
++		}
 +		
-+		SmallVector<llvm::Metadata*, 6> arg_info;
-+		arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
-+		arg_info.push_back(llvm::MDString::get(VMContext, "air.point_coord"));
-+		arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_type_name"));
-+		arg_info.push_back(llvm::MDString::get(VMContext, "float2"));
-+		arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_name"));
-+		arg_info.push_back(llvm::MDString::get(VMContext, "__metal__point_coord__"));
-+		arg_infos.push_back(llvm::MDNode::get(VMContext, arg_info));
-+		++arg_idx; // next llvm arg
++		if (getCodeGenOpts().GraphicsBarycentricCoord) {
++			SmallVector<llvm::Metadata*, 8> arg_info;
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.barycentric_coord"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.center"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.perspective"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "float3"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "__metal__barycentric_coord__"));
++			arg_infos.push_back(llvm::MDNode::get(VMContext, arg_info));
++			++arg_idx; // next llvm arg
++		}
++		
++		{
++			SmallVector<llvm::Metadata*, 6> arg_info;
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(arg_idx)));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.point_coord"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "float2"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(VMContext, "__metal__point_coord__"));
++			arg_infos.push_back(llvm::MDNode::get(VMContext, arg_info));
++			++arg_idx; // next llvm arg
++		}
 +		
 +		const auto add_fs_output = [this, &Builder, &stage_infos, &make_type_name](const CodeGenTypes::aggregate_scalar_entry& entry,
 +																				   const unsigned int& location) {
@@ -8407,7 +8484,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
  }
  
  /// Determines whether the language options require us to model
-@@ -2508,6 +4553,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
+@@ -2508,6 +4585,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
    gv->setSection(AnnotationSection);
  }
  
@@ -8521,7 +8598,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
  llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
    llvm::Constant *&AStr = AnnotationStrings[Str];
    if (AStr)
-@@ -2897,11 +5049,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2897,11 +5081,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<CPUDispatchAttr>())
      return emitCPUDispatchDefinition(GD);
  
@@ -8535,7 +8612,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
            !Global->hasAttr<CUDAConstantAttr>() &&
            !Global->hasAttr<CUDASharedAttr>() &&
            !Global->getType()->isCUDADeviceBuiltinSurfaceType() &&
-@@ -2922,6 +5075,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2922,6 +5107,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
               "Expected Variable or Function");
      }
    }
@@ -8543,7 +8620,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
  
    if (LangOpts.OpenMP) {
      // If this is OpenMP, check if it is legal to emit this global normally.
-@@ -3738,7 +5892,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
+@@ -3738,7 +5924,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
                                      IsForDefinition);
    // Returns kernel handle for HIP kernel stub function.
    if (LangOpts.CUDA && !LangOpts.CUDAIsDevice &&
@@ -8552,7 +8629,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
      auto *Handle = getCUDARuntime().getKernelHandle(
          cast<llvm::Function>(F->stripPointerCasts()), GD);
      if (IsForDefinition)
-@@ -4291,7 +6445,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
+@@ -4291,7 +6477,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
  
    // Do not set COMDAT attribute for CUDA/HIP stub functions to prevent
    // them being "merged" by the COMDAT Folding linker optimization.
@@ -8561,7 +8638,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
      return false;
  
    if (D.hasAttr<SelectAnyAttr>())
-@@ -4693,7 +6847,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
+@@ -4693,7 +6879,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
        return llvm::Function::ExternalLinkage;
      if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice &&
          !getLangOpts().GPURelocatableDeviceCode)
@@ -8570,7 +8647,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
                                            : llvm::Function::InternalLinkage;
      return llvm::Function::WeakODRLinkage;
    }
-@@ -4853,12 +7007,73 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -4853,12 +7039,73 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -8644,7 +8721,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -4962,8 +7177,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -4962,8 +7209,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -8654,7 +8731,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
      Entry->eraseFromParent();
    } else {
      GA->setName(MangledName);
-@@ -6261,6 +8475,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+@@ -6261,6 +8507,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
    }
  }
  
@@ -8726,7 +8803,7 @@ index 74c4490d5422..5d82f6e5c49a 100644
  llvm::Metadata *
  CodeGenModule::CreateMetadataIdentifierImpl(QualType T, MetadataTypeMap &Map,
                                              StringRef Suffix) {
-@@ -6368,17 +8647,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
+@@ -6368,17 +8679,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
    return *SanStats;
  }
  
@@ -10193,7 +10270,7 @@ index a9b9e6516d56..729298a6e924 100644
      return Language::OpenCL;
    if (LangOpts.CUDA)
 diff --git a/clang/lib/Frontend/CompilerInvocation.cpp b/clang/lib/Frontend/CompilerInvocation.cpp
-index 8d33a59cb983..56263229caca 100644
+index 8d33a59cb983..46ee7c6a756f 100644
 --- a/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -96,6 +96,7 @@
@@ -10217,7 +10294,7 @@ index 8d33a59cb983..56263229caca 100644
      DefaultOpt = llvm::CodeGenOpt::Default;
  
    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-@@ -1832,6 +1835,22 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
+@@ -1832,6 +1835,24 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
      Opts.LinkBitcodeFiles.push_back(F);
    }
  
@@ -10236,11 +10313,13 @@ index 8d33a59cb983..56263229caca 100644
 +  Opts.VulkanLLVMPreStructurizationPass = Args.hasArg(OPT_vulkan_llvm_pre_structurization_pass);
 +  Opts.VulkanSoftPrintf = Args.hasArg(OPT_vulkan_soft_printf);
 +  Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options).trim("\t\n\v\f\r\" ");
++  Opts.GraphicsPrimitiveID = Args.hasArg(OPT_graphics_primitive_id);
++  Opts.GraphicsBarycentricCoord = Args.hasArg(OPT_graphics_barycentric_coord);
 +
    if (Args.getLastArg(OPT_femulated_tls) ||
        Args.getLastArg(OPT_fno_emulated_tls)) {
      Opts.ExplicitEmulatedTLS = true;
-@@ -2403,6 +2422,11 @@ static const auto &getFrontendActionTable() {
+@@ -2403,6 +2424,11 @@ static const auto &getFrontendActionTable() {
        {frontend::DumpTokens, OPT_dump_tokens},
        {frontend::EmitAssembly, OPT_S},
        {frontend::EmitBC, OPT_emit_llvm_bc},
@@ -10252,7 +10331,7 @@ index 8d33a59cb983..56263229caca 100644
        {frontend::EmitHTML, OPT_emit_html},
        {frontend::EmitLLVM, OPT_emit_llvm},
        {frontend::EmitLLVMOnly, OPT_emit_llvm_only},
-@@ -2572,6 +2596,12 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
+@@ -2572,6 +2598,12 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
      case Language::OpenCL:
        Lang = "cl";
        break;
@@ -10265,7 +10344,7 @@ index 8d33a59cb983..56263229caca 100644
      case Language::OpenCLCXX:
        Lang = "clcpp";
        break;
-@@ -2763,8 +2793,14 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -2763,8 +2795,14 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(XValue)
                  .Case("c", Language::C)
                  .Case("cl", Language::OpenCL)
@@ -10280,7 +10359,7 @@ index 8d33a59cb983..56263229caca 100644
                  .Case("hip", Language::HIP)
                  .Case("c++", Language::CXX)
                  .Case("objective-c", Language::ObjC)
-@@ -3132,6 +3168,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -3132,6 +3170,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case Language::OpenCLCXX:
        LangStd = LangStandard::lang_openclcpp10;
        break;
@@ -10293,7 +10372,7 @@ index 8d33a59cb983..56263229caca 100644
      case Language::CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -3199,6 +3241,10 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -3199,6 +3243,10 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -10304,7 +10383,7 @@ index 8d33a59cb983..56263229caca 100644
    else if (LangStd == LangStandard::lang_opencl30)
      Opts.OpenCLVersion = 300;
    else if (LangStd == LangStandard::lang_openclcpp10)
-@@ -3206,15 +3252,50 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -3206,15 +3254,50 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
    else if (LangStd == LangStandard::lang_openclcpp2021)
      Opts.OpenCLCPlusPlusVersion = 202100;
  
@@ -10358,7 +10437,7 @@ index 8d33a59cb983..56263229caca 100644
      // Include default header file for OpenCL.
      if (Opts.IncludeDefaultHeader) {
        if (Opts.DeclareOpenCLBuiltins) {
-@@ -3224,6 +3305,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -3224,6 +3307,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
          Includes.push_back("opencl-c.h");
        }
      }
@@ -10366,7 +10445,7 @@ index 8d33a59cb983..56263229caca 100644
    }
  
    Opts.HIP = IK.getLanguage() == Language::HIP;
-@@ -3243,13 +3325,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -3243,13 +3327,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.setDefaultFPContractMode(LangOptions::FPM_Fast);
    }
  
@@ -10384,7 +10463,7 @@ index 8d33a59cb983..56263229caca 100644
  }
  
  /// Check if input file kind and language standard are compatible.
-@@ -3269,6 +3353,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
+@@ -3269,6 +3355,12 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
      return S.getLanguage() == Language::OpenCL ||
             S.getLanguage() == Language::OpenCLCXX;
  
@@ -10397,7 +10476,7 @@ index 8d33a59cb983..56263229caca 100644
    case Language::OpenCLCXX:
      return S.getLanguage() == Language::OpenCLCXX;
  
-@@ -3307,6 +3397,10 @@ static const StringRef GetInputKindName(InputKind IK) {
+@@ -3307,6 +3399,10 @@ static const StringRef GetInputKindName(InputKind IK) {
      return "Objective-C++";
    case Language::OpenCL:
      return "OpenCL";
@@ -10408,7 +10487,7 @@ index 8d33a59cb983..56263229caca 100644
    case Language::OpenCLCXX:
      return "C++ for OpenCL";
    case Language::CUDA:
-@@ -3351,6 +3445,8 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
+@@ -3351,6 +3447,8 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
    case LangStandard::lang_opencl11:
    case LangStandard::lang_opencl12:
    case LangStandard::lang_opencl20:
@@ -10417,7 +10496,7 @@ index 8d33a59cb983..56263229caca 100644
    case LangStandard::lang_opencl30:
    case LangStandard::lang_openclcpp10:
    case LangStandard::lang_openclcpp2021:
-@@ -3438,7 +3534,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
+@@ -3438,7 +3536,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
        GenerateArg(Args, OPT_ftrigraphs, SA);
    }
  
@@ -10426,7 +10505,7 @@ index 8d33a59cb983..56263229caca 100644
      GenerateArg(Args, OPT_fblocks, SA);
  
    if (Opts.ConvergentFunctions &&
-@@ -3662,6 +3758,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3662,6 +3760,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
          .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
          .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
          .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
@@ -10435,7 +10514,7 @@ index 8d33a59cb983..56263229caca 100644
          .Cases("cl3.0", "CL3.0", LangStandard::lang_opencl30)
          .Cases("clc++", "CLC++", LangStandard::lang_openclcpp10)
          .Cases("clc++1.0", "CLC++1.0", LangStandard::lang_openclcpp10)
-@@ -3676,6 +3774,36 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3676,6 +3776,36 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        LangStd = OpenCLLangStd;
    }
  
@@ -10472,7 +10551,7 @@ index 8d33a59cb983..56263229caca 100644
    // These need to be parsed now. They are used to set OpenCL defaults.
    Opts.IncludeDefaultHeader = Args.hasArg(OPT_finclude_default_header);
    Opts.DeclareOpenCLBuiltins = Args.hasArg(OPT_fdeclare_opencl_builtins);
-@@ -3830,11 +3958,15 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3830,11 +3960,15 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        Args.hasFlag(OPT_ftrigraphs, OPT_fno_trigraphs, Opts.Trigraphs);
  
    Opts.Blocks = Args.hasArg(OPT_fblocks) || (Opts.OpenCL
@@ -10489,7 +10568,7 @@ index 8d33a59cb983..56263229caca 100644
  
    Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
    if (!Opts.NoBuiltin)
-@@ -3879,7 +4011,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3879,7 +4013,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        Opts.OpenMPIsDevice &&
        Args.hasArg(options::OPT_fopenmp_target_new_runtime);
  
@@ -10499,7 +10578,7 @@ index 8d33a59cb983..56263229caca 100644
  
    if (Opts.OpenMP || Opts.OpenMPSimd) {
      if (int Version = getLastArgIntValue(
-@@ -3904,8 +4038,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -3904,8 +4040,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
    // Set the flag to prevent the implementation from emitting device exception
    // handling code for those requiring so.
    if ((Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN())) ||
@@ -10509,7 +10588,7 @@ index 8d33a59cb983..56263229caca 100644
      Opts.Exceptions = 0;
      Opts.CXXExceptions = 0;
    }
-@@ -4021,6 +4154,19 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
+@@ -4021,6 +4156,19 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
        Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
    }
  
@@ -10529,7 +10608,7 @@ index 8d33a59cb983..56263229caca 100644
    // Parse -fsanitize= arguments.
    parseSanitizerKinds("-fsanitize=", Args.getAllArgValues(OPT_fsanitize_EQ),
                        Diags, Opts.Sanitize);
-@@ -4136,6 +4282,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
+@@ -4136,6 +4284,11 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -10541,7 +10620,7 @@ index 8d33a59cb983..56263229caca 100644
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
-@@ -4477,6 +4628,11 @@ bool CompilerInvocation::CreateFromArgsImpl(
+@@ -4477,6 +4630,11 @@ bool CompilerInvocation::CreateFromArgsImpl(
        Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
    }
  
@@ -13291,7 +13370,7 @@ index c0bb310e64fb..3c308e7578b2 100644
    case TST_error:
      break;
 diff --git a/clang/lib/Sema/SemaType.cpp b/clang/lib/Sema/SemaType.cpp
-index 5918876c02bf..897677e2fd60 100644
+index 5918876c02bf..045d46c1c038 100644
 --- a/clang/lib/Sema/SemaType.cpp
 +++ b/clang/lib/Sema/SemaType.cpp
 @@ -19,6 +19,7 @@
@@ -13379,10 +13458,10 @@ index 5918876c02bf..897677e2fd60 100644
 +    break;
 +  case DeclSpec::TST_queue_t:
 +    Result = Context.OCLQueueTy;
-+    break;
+     break;
 +  case DeclSpec::TST_clk_event_t:
 +    Result = Context.OCLClkEventTy;
-     break;
++    break;
 +  case DeclSpec::TST_reserve_id_t:
 +    Result = Context.OCLReserveIDTy;
 +    break;
@@ -13833,44 +13912,26 @@ index 5918876c02bf..897677e2fd60 100644
      case ParsedAttr::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state);
        attr.setUsedAsTypeAttr();
-@@ -8177,8 +8260,34 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -8177,8 +8260,16 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        attr.setUsedAsTypeAttr();
        break;
      }
 -    case ParsedAttr::AT_OpenCLAccess:
 -      HandleOpenCLAccessAttr(type, attr, state.getSema());
 +    case ParsedAttr::AT_ImageAccess:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_FloorArgBuffer:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_FloorImageDataType:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_FloorImageFlags:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_VectorCompat:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_GraphicsFBOColorLocation:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_GraphicsFBODepthType:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_GraphicsVertexPosition:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_GraphicsPointSize:
-+      attr.setUsedAsTypeAttr();
-+      break;
 +    case ParsedAttr::AT_GraphicsStageInput:
        attr.setUsedAsTypeAttr();
        break;
      case ParsedAttr::AT_LifetimeBound:
-@@ -8310,6 +8419,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -8310,6 +8401,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
            attr.getMacroExpansionLoc());
      }
    }
@@ -20720,7 +20781,7 @@ index 42735b730886..3b3a447f0250 100644
    virtual ~InstCombiner() {}
 diff --git a/llvm/include/llvm/Transforms/LibFloor.h b/llvm/include/llvm/Transforms/LibFloor.h
 new file mode 100644
-index 000000000000..e29825518d5a
+index 000000000000..28a470519393
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor.h
 @@ -0,0 +1,152 @@
@@ -20878,7 +20939,7 @@ index 000000000000..e29825518d5a
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/AddressSpaceFix.h b/llvm/include/llvm/Transforms/LibFloor/AddressSpaceFix.h
 new file mode 100644
-index 000000000000..584de800e22d
+index 000000000000..72391a5e911d
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/AddressSpaceFix.h
 @@ -0,0 +1,46 @@
@@ -20930,7 +20991,7 @@ index 000000000000..584de800e22d
 +#endif //LLVM_TRANSFORMS_ADDRESSSPACEFIX_HPP
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorGPUTTI.h b/llvm/include/llvm/Transforms/LibFloor/FloorGPUTTI.h
 new file mode 100644
-index 000000000000..ca7915acec1c
+index 000000000000..d34eea96dd93
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorGPUTTI.h
 @@ -0,0 +1,267 @@
@@ -21203,7 +21264,7 @@ index 000000000000..ca7915acec1c
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImage.h b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
 new file mode 100644
-index 000000000000..227e25af1f29
+index 000000000000..613e9c09e640
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImage.h
 @@ -0,0 +1,139 @@
@@ -21348,7 +21409,7 @@ index 000000000000..227e25af1f29
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
 new file mode 100644
-index 000000000000..a0de110263f2
+index 000000000000..3f424ae4ce62
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
 @@ -0,0 +1,348 @@
@@ -22203,7 +22264,7 @@ index 000000000000..d4dafc581c8e
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/VulkanSampling.h b/llvm/include/llvm/Transforms/LibFloor/VulkanSampling.h
 new file mode 100644
-index 000000000000..bdf733dbc9d4
+index 000000000000..8941bbf852ae
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/VulkanSampling.h
 @@ -0,0 +1,79 @@
@@ -44329,7 +44390,7 @@ index 1b401566dad7..624beb545d91 100644
  }
 diff --git a/llvm/lib/Transforms/LibFloor/AddressSpaceFix.cpp b/llvm/lib/Transforms/LibFloor/AddressSpaceFix.cpp
 new file mode 100644
-index 000000000000..2c6ca7500f2a
+index 000000000000..f18d9b07538d
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/AddressSpaceFix.cpp
 @@ -0,0 +1,613 @@
@@ -44948,7 +45009,7 @@ index 000000000000..2c6ca7500f2a
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/CFGStructurization.cpp b/llvm/lib/Transforms/LibFloor/CFGStructurization.cpp
 new file mode 100644
-index 000000000000..057508b557aa
+index 000000000000..d7e826af8cb2
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/CFGStructurization.cpp
 @@ -0,0 +1,631 @@
@@ -45632,7 +45693,7 @@ index 000000000000..9d735328d897
 +  )
 diff --git a/llvm/lib/Transforms/LibFloor/CUDAFinal.cpp b/llvm/lib/Transforms/LibFloor/CUDAFinal.cpp
 new file mode 100644
-index 000000000000..a2fca8696834
+index 000000000000..6bc78ee318e6
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/CUDAFinal.cpp
 @@ -0,0 +1,128 @@
@@ -45766,7 +45827,7 @@ index 000000000000..a2fca8696834
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/CUDAImage.cpp b/llvm/lib/Transforms/LibFloor/CUDAImage.cpp
 new file mode 100644
-index 000000000000..c531b22f388d
+index 000000000000..72714e5f1efb
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/CUDAImage.cpp
 @@ -0,0 +1,819 @@
@@ -47381,7 +47442,7 @@ index 000000000000..2d36efa5f553
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/FloorImage.cpp b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
 new file mode 100644
-index 000000000000..c714a3c244c9
+index 000000000000..d4215be4828f
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
 @@ -0,0 +1,595 @@
@@ -47982,7 +48043,7 @@ index 000000000000..c714a3c244c9
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/LibFloor.cpp b/llvm/lib/Transforms/LibFloor/LibFloor.cpp
 new file mode 100644
-index 000000000000..c776ba8d3628
+index 000000000000..621aea3fd0c7
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/LibFloor.cpp
 @@ -0,0 +1,122 @@
@@ -48110,10 +48171,10 @@ index 000000000000..c776ba8d3628
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/MetalFinal.cpp b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 new file mode 100644
-index 000000000000..bf5ed9354127
+index 000000000000..a65fadc972b8
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
-@@ -0,0 +1,1320 @@
+@@ -0,0 +1,1368 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -48427,6 +48488,8 @@ index 000000000000..bf5ed9354127
 +		
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
++		Argument* primitive_id { nullptr };
++		Argument* barycentric_coord { nullptr };
 +		
 +		// any function args
 +		Argument* soft_printf { nullptr };
@@ -48575,10 +48638,16 @@ index 000000000000..bf5ed9354127
 +				}
 +			}
 +			
-+			// check for soft-printf
-+			bool has_soft_printf = false;
++			// check for optional features: soft-printf, primitive id, barycentric coord
++			bool has_soft_printf = false, has_primitive_id = false, has_barycentric_coord = false;
 +			if (auto soft_printf_meta = M->getNamedMetadata("floor.soft_printf")) {
 +				has_soft_printf = true;
++			}
++			if (auto primitive_id_meta = M->getNamedMetadata("floor.primitive_id")) {
++				has_primitive_id = true;
++			}
++			if (auto barycentric_coord_meta = M->getNamedMetadata("floor.barycentric_coord")) {
++				has_barycentric_coord = true;
 +			}
 +			
 +			// get args if this is a kernel function
@@ -48638,14 +48707,32 @@ index 000000000000..bf5ed9354127
 +			// get args if this is a fragment function
 +			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
 +			if(is_fragment_func) {
-+				if (F.arg_size() >= METAL_FRAGMENT_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
++				const uint32_t opt_arg_count = (has_soft_printf ? 1u : 0u) + (has_primitive_id ? 1u : 0u) + (has_barycentric_coord ? 1u : 0u);
++				if (F.arg_size() >= METAL_FRAGMENT_ARG_COUNT + opt_arg_count) {
 +					point_coord = get_arg_by_idx(METAL_POINT_COORD);
++					
++					// NOTE: reverse order!
++					uint32_t opt_arg_counter = 1;
++					if (has_barycentric_coord) {
++						barycentric_coord = get_arg_by_idx(-(METAL_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						barycentric_coord = nullptr;
++					}
++					if (has_primitive_id) {
++						primitive_id = get_arg_by_idx(-(METAL_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						primitive_id = nullptr;
++					}
 +					if (has_soft_printf) {
-+						soft_printf = get_arg_by_idx(-(METAL_FRAGMENT_ARG_COUNT + 1));
++						soft_printf = get_arg_by_idx(-(METAL_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						soft_printf = nullptr;
 +					}
 +				} else {
 +					errs() << "invalid fragment function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					point_coord = nullptr;
++					primitive_id = nullptr;
++					barycentric_coord = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -49011,6 +49098,28 @@ index 000000000000..bf5ed9354127
 +				
 +				// special case
 +				I.replaceAllUsesWith(soft_printf);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_primitive_id.i32") {
++				if (primitive_id == nullptr) {
++					llvm::errs() << "failed to get primitive_id arg, not in a fragment function or feature is not enabled\n";
++					llvm::errs().flush();
++					return;
++				}
++				
++				I.replaceAllUsesWith(primitive_id);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_barycentric_coord.float3") {
++				if (barycentric_coord == nullptr) {
++					llvm::errs() << "failed to get barycentric_coord arg, not in a fragment function or feature is not enabled\n";
++					llvm::errs().flush();
++					return;
++				}
++			
++				I.replaceAllUsesWith(barycentric_coord);
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -49436,7 +49545,7 @@ index 000000000000..bf5ed9354127
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/MetalImage.cpp b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 new file mode 100644
-index 000000000000..cc2b6129b584
+index 000000000000..66da29964474
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalImage.cpp
 @@ -0,0 +1,741 @@
@@ -50183,7 +50292,7 @@ index 000000000000..cc2b6129b584
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/PropagateRangeInfo.cpp b/llvm/lib/Transforms/LibFloor/PropagateRangeInfo.cpp
 new file mode 100644
-index 000000000000..a8bd4b111962
+index 000000000000..bbabd068ef1b
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/PropagateRangeInfo.cpp
 @@ -0,0 +1,219 @@
@@ -50408,7 +50517,7 @@ index 000000000000..a8bd4b111962
 +
 diff --git a/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp b/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp
 new file mode 100644
-index 000000000000..c860b36c5e2f
+index 000000000000..e95b51d07638
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/SPIRFinal.cpp
 @@ -0,0 +1,347 @@
@@ -50761,7 +50870,7 @@ index 000000000000..c860b36c5e2f
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/SPIRImage.cpp b/llvm/lib/Transforms/LibFloor/SPIRImage.cpp
 new file mode 100644
-index 000000000000..e1b28e6ba2d9
+index 000000000000..ed640c5cde1f
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/SPIRImage.cpp
 @@ -0,0 +1,769 @@
@@ -54162,10 +54271,10 @@ index 000000000000..ee4af6a5c663
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp b/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp
 new file mode 100644
-index 000000000000..463e60712e92
+index 000000000000..6444c7b4e4bd
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/VulkanFinal.cpp
-@@ -0,0 +1,1734 @@
+@@ -0,0 +1,1782 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -54295,6 +54404,8 @@ index 000000000000..463e60712e92
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		Argument* frag_coord { nullptr };
++		Argument* primitive_id { nullptr };
++		Argument* barycentric_coord { nullptr };
 +		
 +		// any function args
 +		Argument* soft_printf { nullptr };
@@ -54359,10 +54470,16 @@ index 000000000000..463e60712e92
 +				return &*arg_iter;
 +			};
 +			
-+			// check for soft-printf
-+			bool has_soft_printf = false;
++			// check for optional features: soft-printf, primitive id, barycentric coord
++			bool has_soft_printf = false, has_primitive_id = false, has_barycentric_coord = false;
 +			if (auto soft_printf_meta = M->getNamedMetadata("floor.soft_printf")) {
 +				has_soft_printf = true;
++			}
++			if (auto primitive_id_meta = M->getNamedMetadata("floor.primitive_id")) {
++				has_primitive_id = true;
++			}
++			if (auto barycentric_coord_meta = M->getNamedMetadata("floor.barycentric_coord")) {
++				has_barycentric_coord = true;
 +			}
 +			
 +			DBG(errs() << "> adding built-in args ...\n";)
@@ -54407,18 +54524,36 @@ index 000000000000..463e60712e92
 +			
 +			// add args if this is a fragment function
 +			if(is_fragment_func) {
-+				if (F.arg_size() >= VULKAN_FRAGMENT_ARG_COUNT + (has_soft_printf ? 1 : 0)) {
++				const uint32_t opt_arg_count = (has_soft_printf ? 1u : 0u) + (has_primitive_id ? 1u : 0u) + (has_barycentric_coord ? 1u : 0u);
++				if (F.arg_size() >= VULKAN_FRAGMENT_ARG_COUNT + opt_arg_count) {
 +					point_coord = get_arg_by_idx(VULKAN_POINT_COORD);
 +					frag_coord = get_arg_by_idx(VULKAN_FRAG_COORD);
 +					view_index = get_arg_by_idx(VULKAN_FRAGMENT_VIEW_INDEX);
++					
++					// NOTE: reverse order!
++					uint32_t opt_arg_counter = 1;
++					if (has_barycentric_coord) {
++						barycentric_coord = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						barycentric_coord = nullptr;
++					}
++					if (has_primitive_id) {
++						primitive_id = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						primitive_id = nullptr;
++					}
 +					if (has_soft_printf) {
-+						soft_printf = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + 1));
++						soft_printf = get_arg_by_idx(-(VULKAN_FRAGMENT_ARG_COUNT + opt_arg_counter++));
++					} else {
++						soft_printf = nullptr;
 +					}
 +				} else {
 +					errs() << "invalid fragment function (" << F.getName() << ") argument count: " << F.arg_size() << "\n";
 +					point_coord = nullptr;
 +					frag_coord = nullptr;
 +					view_index = nullptr;
++					primitive_id = nullptr;
++					barycentric_coord = nullptr;
 +					soft_printf = nullptr;
 +				}
 +			}
@@ -54568,6 +54703,28 @@ index 000000000000..463e60712e92
 +				}
 +				
 +				I.replaceAllUsesWith(builder->CreateLoad(view_index->getType()->getPointerElementType(), view_index, "view_index"));
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.builtin.primitive_id.i32") {
++				if (primitive_id == nullptr) {
++					llvm::errs() << "failed to get primitive_id arg, not in a fragment function or feature is not enabled\n";
++					llvm::errs().flush();
++					return;
++				}
++				
++				I.replaceAllUsesWith(builder->CreateLoad(primitive_id->getType()->getPointerElementType(), primitive_id, "primitive_id"));
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.builtin.barycentric_coord.float3") {
++				if (barycentric_coord == nullptr) {
++					llvm::errs() << "failed to get barycentric_coord arg, not in a fragment function or feature is not enabled\n";
++					llvm::errs().flush();
++					return;
++				}
++				
++				I.replaceAllUsesWith(builder->CreateLoad(barycentric_coord->getType()->getPointerElementType(), barycentric_coord, "barycentric_coord"));
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -55902,7 +56059,7 @@ index 000000000000..463e60712e92
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/VulkanImage.cpp b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
 new file mode 100644
-index 000000000000..b8fd8d45f5fb
+index 000000000000..af419960686c
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/VulkanImage.cpp
 @@ -0,0 +1,878 @@
@@ -61971,11 +62128,11 @@ index 57b11e9414ba..6810eec8e4f8 100644
    PreservedAnalyses PA;
 diff --git a/llvm/projects/spirv b/llvm/projects/spirv
 new file mode 160000
-index 000000000000..d75382c77bc8
+index 000000000000..cf7742c67caf
 --- /dev/null
 +++ b/llvm/projects/spirv
 @@ -0,0 +1 @@
-+Subproject commit d75382c77bc8384870169f4d3bf983922a355eb4
++Subproject commit cf7742c67caff2c103f76f656df27553ef37c5bb
 diff --git a/llvm/tools/bugpoint/CMakeLists.txt b/llvm/tools/bugpoint/CMakeLists.txt
 index d64481df1c1c..3202aa3a5633 100644
 --- a/llvm/tools/bugpoint/CMakeLists.txt

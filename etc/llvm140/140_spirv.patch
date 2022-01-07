@@ -1,3 +1,16 @@
+diff --git a/include/LLVMSPIRVExtensions.inc b/include/LLVMSPIRVExtensions.inc
+index a8f620d..b5c26e3 100644
+--- a/include/LLVMSPIRVExtensions.inc
++++ b/include/LLVMSPIRVExtensions.inc
+@@ -10,6 +10,8 @@ EXT(SPV_KHR_linkonce_odr)
+ EXT(SPV_KHR_expect_assume)
+ EXT(SPV_KHR_integer_dot_product)
+ EXT(SPV_KHR_bit_instructions)
++//EXT(SPV_KHR_fragment_shader_barycentric)
++EXT(SPV_NV_fragment_shader_barycentric)
+ EXT(SPV_INTEL_subgroups)
+ EXT(SPV_INTEL_media_block_io)
+ EXT(SPV_INTEL_device_side_avc_motion_estimation)
 diff --git a/include/LLVMSPIRVLib.h b/include/LLVMSPIRVLib.h
 index 261b5d4..d122900 100644
 --- a/include/LLVMSPIRVLib.h
@@ -84,10 +97,10 @@ index 8c73b64..ddea616 100644
    bool SPIRVMemToReg = false;
 diff --git a/include/spirv/unified1/spirv.hpp b/include/spirv/unified1/spirv.hpp
 new file mode 100644
-index 0000000..83356b6
+index 0000000..03ad0bb
 --- /dev/null
 +++ b/include/spirv/unified1/spirv.hpp
-@@ -0,0 +1,2490 @@
+@@ -0,0 +1,2492 @@
 +// Copyright (c) 2014-2020 The Khronos Group Inc.
 +// 
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -721,6 +734,7 @@ index 0000000..83356b6
 +    BuiltInMeshViewCountNV = 5280,
 +    BuiltInMeshViewIndicesNV = 5281,
 +    BuiltInBaryCoordNV = 5286,
++    BuiltInBaryCoordKHR = 5286,
 +    BuiltInBaryCoordNoPerspNV = 5287,
 +    BuiltInFragSizeEXT = 5292,
 +    BuiltInFragmentSizeNV = 5292,
@@ -1061,6 +1075,7 @@ index 0000000..83356b6
 +    CapabilityMeshShadingNV = 5266,
 +    CapabilityImageFootprintNV = 5282,
 +    CapabilityFragmentBarycentricNV = 5284,
++    CapabilityFragmentBarycentricKHR = 5284,
 +    CapabilityComputeDerivativeGroupQuadsNV = 5288,
 +    CapabilityFragmentDensityEXT = 5291,
 +    CapabilityShadingRateNV = 5291,
@@ -2600,7 +2615,7 @@ index 0d80372..bdddcc2 100644
    SPIRVLowerMemmove.cpp
 diff --git a/lib/SPIRV/LLVMToSPIRVTransformations.cpp b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
 new file mode 100644
-index 0000000..8627272
+index 0000000..07ad978
 --- /dev/null
 +++ b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
 @@ -0,0 +1,302 @@
@@ -3874,10 +3889,10 @@ index ac1c00b..93c62be 100644
      // Add VC float control execution modes
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 new file mode 100644
-index 0000000..5fbdc39
+index 0000000..87bed55
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,249 @@
 +//===- SPIRVContainerWriterPass.cpp - SPIRV writing pass ------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -4032,6 +4047,7 @@ index 0000000..5fbdc39
 +    // TODO: only enable extensions that are generally supported (needs host enablement as well)
 +    SPIRV::TranslatorOpts::ExtensionsStatusMap exts;
 +    exts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float_add] = true;
++    exts[SPIRV::ExtensionID::SPV_NV_fragment_shader_barycentric] = true; // TODO: use KHR extension
 +    //exts[SPIRV::ExtensionID::SPV_KHR_no_integer_wrap_decoration] = true;
 +    //exts[SPIRV::ExtensionID::SPV_KHR_float_controls] = true;
 +    SPIRV::TranslatorOpts opts(SPIRV::VersionNumber::MaximumVersion, exts);
@@ -4128,7 +4144,7 @@ index 0000000..5fbdc39
 +}
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.h b/lib/SPIRV/SPIRVContainerWriterPass.h
 new file mode 100644
-index 0000000..82678dc
+index 0000000..3cde12e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.h
 @@ -0,0 +1,62 @@
@@ -4803,7 +4819,7 @@ index a756290..9dbc9b2 100644
                                             spv::Op OC,
                                             ArrayRef<Type *> ArgTys) {
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
-index 6263a87..d2d01da 100644
+index 6263a87..9ea6604 100644
 --- a/lib/SPIRV/SPIRVWriter.cpp
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -6,6 +6,7 @@
@@ -6481,7 +6497,7 @@ index 6263a87..d2d01da 100644
      if ((*I).getName() == "llvm.global.annotations")
        transGlobalAnnotation(&(*I));
      else if ([I]() -> bool {
-@@ -3653,13 +4377,1178 @@ void LLVMToSPIRVBase::fpContractUpdateRecursive(Function *F, FPContract FPC) {
+@@ -3653,13 +4377,1183 @@ void LLVMToSPIRVBase::fpContractUpdateRecursive(Function *F, FPContract FPC) {
    }
  }
  
@@ -6769,8 +6785,7 @@ index 6263a87..d2d01da 100644
 +
 +  } else {
 +    mapped_type = transType(GV.getType());
-   }
--  for (auto &FI : *I) {
++  }
 +
 +  auto BVar = static_cast<SPIRVVariable *>(
 +      BM->addVariable(mapped_type, false, spv::internal::LinkageTypeInternal, nullptr,
@@ -6780,6 +6795,9 @@ index 6263a87..d2d01da 100644
 +
 +  if (global_type.is_builtin) {
 +    BVar->setBuiltin(builtin);
++    if (builtin == spv::BuiltInBaryCoordKHR) {
++      BM->addExtension(ExtensionID::SPV_NV_fragment_shader_barycentric); // TODO: use KHR extension
++    }
 +  }
 +
 +  BM->addEntryPointIO(spirv_func->getId(), BVar);
@@ -7037,6 +7055,7 @@ index 6263a87..d2d01da 100644
 +          {"vertex_index", spv::BuiltInVertexIndex},
 +          {"instance_index", spv::BuiltInInstanceIndex},
 +          {"view_index", spv::BuiltInViewIndex},
++          {"barycentric_coord", spv::BuiltInBaryCoordKHR},
 +      };
 +      const auto iter = builtin_lut.find(str);
 +      if (iter == builtin_lut.end()) {
@@ -7066,7 +7085,7 @@ index 6263a87..d2d01da 100644
 +                VULKAN_STAGE::GEOMETRY)},
 +              //{ spv::BuiltInVertexId, VULKAN_STAGE::NONE },
 +              //{ spv::BuiltInInstanceId, VULKAN_STAGE::NONE },
-+              {spv::BuiltInPrimitiveId, VULKAN_STAGE::GEOMETRY},
++              {spv::BuiltInPrimitiveId, VULKAN_STAGE::GEOMETRY | VULKAN_STAGE::FRAGMENT},
 +              {spv::BuiltInInvocationId,
 +               (VULKAN_STAGE::TESSELLATION_CONTROL | VULKAN_STAGE::GEOMETRY)},
 +              {spv::BuiltInLayer, VULKAN_STAGE::FRAGMENT},
@@ -7111,6 +7130,7 @@ index 6263a87..d2d01da 100644
 +               (VULKAN_STAGE::VERTEX | VULKAN_STAGE::TESSELLATION_CONTROL |
 +                VULKAN_STAGE::TESSELLATION_EVALUATION | VULKAN_STAGE::GEOMETRY |
 +                VULKAN_STAGE::FRAGMENT)},
++              {spv::BuiltInBaryCoordKHR, VULKAN_STAGE::FRAGMENT},
 +          };
 +      static const std::unordered_map<spv::BuiltIn, VULKAN_STAGE>
 +          builtin_validity_output_lut{
@@ -7590,7 +7610,8 @@ index 6263a87..d2d01da 100644
 +    for (auto &FI : *F) {
 +      transValue(&FI, nullptr);
 +    }
-+  }
+   }
+-  for (auto &FI : *I) {
 +
 +  // handle global constant variables, these need to be lowered to
 +  // function-scope (duplicate per function)
@@ -7666,7 +7687,7 @@ index 6263a87..d2d01da 100644
      SPIRVBasicBlock *BB =
          static_cast<SPIRVBasicBlock *>(transValue(&FI, nullptr));
      for (auto &BI : FI) {
-@@ -3667,14 +5556,74 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
+@@ -3667,14 +5561,74 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
      }
    }
    // Enable FP contraction unless proven otherwise
@@ -7685,7 +7706,8 @@ index 6263a87..d2d01da 100644
 +  if (SrcLang != SourceLanguageGLSL) {
 +    return true;
 +  }
-+
+ 
+-  bool IsKernelEntryPoint = isKernel(I);
 +  const llvm::NamedMDNode *VulkanVersion =
 +      M->getNamedMetadata("vulkan.version");
 +  if (VulkanVersion == nullptr || VulkanVersion->getNumOperands() != 1) {
@@ -7696,8 +7718,7 @@ index 6263a87..d2d01da 100644
 +  if (vulkan_version_md->getNumOperands() < 2) {
 +    return false;
 +  }
- 
--  bool IsKernelEntryPoint = isKernel(I);
++
 +  uint64_t version_major = 0, version_minor = 0;
  
 -  if (IsKernelEntryPoint) {
@@ -7713,7 +7734,7 @@ index 6263a87..d2d01da 100644
 +    }
 +  } else {
 +    return false;
-   }
++  }
 +
 +  const MDOperand &version_minor_op = vulkan_version_md->getOperand(1);
 +  if (const ConstantAsMetadata *version_minor_md =
@@ -7740,13 +7761,13 @@ index 6263a87..d2d01da 100644
 +    break;
 +  default:
 +    return false;
-+  }
+   }
 +
 +  return true;
  }
  
  bool isEmptyLLVMModule(Module *M) {
-@@ -3692,6 +5641,8 @@ bool LLVMToSPIRVBase::translate() {
+@@ -3692,6 +5646,8 @@ bool LLVMToSPIRVBase::translate() {
    if (!transWorkItemBuiltinCallsToVariables())
      return false;
  
@@ -7755,7 +7776,7 @@ index 6263a87..d2d01da 100644
    if (!transSourceLanguage())
      return false;
    if (!transExtension())
-@@ -3790,37 +5741,55 @@ SPIRVInstruction *LLVMToSPIRVBase::transBuiltinToInst(StringRef DemangledName,
+@@ -3790,37 +5746,55 @@ SPIRVInstruction *LLVMToSPIRVBase::transBuiltinToInst(StringRef DemangledName,
                                                        CallInst *CI,
                                                        SPIRVBasicBlock *BB) {
    SmallVector<std::string, 2> Dec;
@@ -7839,7 +7860,7 @@ index 6263a87..d2d01da 100644
    addDecorations(Inst, Dec);
    return Inst;
  }
-@@ -3846,8 +5815,10 @@ bool LLVMToSPIRVBase::transExecutionMode() {
+@@ -3846,8 +5820,10 @@ bool LLVMToSPIRVBase::transExecutionMode() {
  
        switch (EMode) {
        case spv::ExecutionModeContractionOff:
@@ -7852,7 +7873,7 @@ index 6263a87..d2d01da 100644
          break;
        case spv::ExecutionModeInitializer:
        case spv::ExecutionModeFinalizer:
-@@ -3959,9 +5930,9 @@ void LLVMToSPIRVBase::transFPContract() {
+@@ -3959,9 +5935,9 @@ void LLVMToSPIRVBase::transFPContract() {
      }
      SPIRVFunction *BF = static_cast<SPIRVFunction *>(TranslatedF);
  
@@ -7864,7 +7885,7 @@ index 6263a87..d2d01da 100644
        continue;
  
      FPContract FPC = getFPContract(&F);
-@@ -3980,7 +5951,7 @@ void LLVMToSPIRVBase::transFPContract() {
+@@ -3980,7 +5956,7 @@ void LLVMToSPIRVBase::transFPContract() {
        break;
      }
  
@@ -7873,7 +7894,7 @@ index 6263a87..d2d01da 100644
        BF->addExecutionMode(BF->getModule()->add(
            new SPIRVExecutionMode(BF, spv::ExecutionModeContractionOff)));
      }
-@@ -4009,8 +5980,13 @@ static void transKernelArgTypeMD(SPIRVModule *BM, Function *F, MDNode *MD,
+@@ -4009,8 +5985,13 @@ static void transKernelArgTypeMD(SPIRVModule *BM, Function *F, MDNode *MD,
  }
  
  bool LLVMToSPIRVBase::transOCLMetadata() {
@@ -7888,7 +7909,7 @@ index 6263a87..d2d01da 100644
        continue;
  
      SPIRVFunction *BF = static_cast<SPIRVFunction *>(getTranslatedValue(&F));
-@@ -4057,6 +6033,10 @@ bool LLVMToSPIRVBase::transSourceLanguage() {
+@@ -4057,6 +6038,10 @@ bool LLVMToSPIRVBase::transSourceLanguage() {
    auto Src = getSPIRVSource(M);
    SrcLang = std::get<0>(Src);
    SrcLangVer = std::get<1>(Src);
@@ -7899,7 +7920,7 @@ index 6263a87..d2d01da 100644
    BM->setSourceLanguage(static_cast<SourceLanguage>(SrcLang), SrcLangVer);
    return true;
  }
-@@ -4098,9 +6078,299 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
+@@ -4098,9 +6083,299 @@ Op LLVMToSPIRVBase::transBoolOpCode(SPIRVValue *Opn, Op OC) {
    return OC;
  }
  
@@ -8199,7 +8220,7 @@ index 6263a87..d2d01da 100644
    if (isGroupOpCode(OC))
      BM->addCapability(CapabilityGroups);
    switch (OC) {
-@@ -4497,6 +6767,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
+@@ -4497,6 +6772,7 @@ void addPassesForSPIRV(legacy::PassManager &PassMgr,
    PassMgr.add(createOCLTypeToSPIRVLegacy());
    PassMgr.add(createSPIRVLowerOCLBlocksLegacy());
    PassMgr.add(createOCLToSPIRVLegacy());
@@ -8207,7 +8228,7 @@ index 6263a87..d2d01da 100644
    PassMgr.add(createSPIRVRegularizeLLVMLegacy());
    PassMgr.add(createSPIRVLowerConstExprLegacy());
    PassMgr.add(createSPIRVLowerBoolLegacy());
-@@ -4520,26 +6791,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
+@@ -4520,26 +6796,30 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
    return true;
  }
  
@@ -8240,7 +8261,7 @@ index 6263a87..d2d01da 100644
    PassMgr.add(createLLVMToSPIRVLegacy(BM.get()));
    PassMgr.run(*M);
  
-@@ -4551,9 +6826,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
+@@ -4551,9 +6831,11 @@ bool llvm::writeSpirv(Module *M, const SPIRV::TranslatorOpts &Opts,
  
  bool llvm::regularizeLlvmForSpirv(Module *M, std::string &ErrMsg) {
    SPIRV::TranslatorOpts DefaultOpts;
@@ -8735,7 +8756,7 @@ index 2c6f5ca..4ba71d1 100644
  _SPIRV_OP(ImageSparseSampleExplicitLod)
  _SPIRV_OP(ImageSparseSampleDrefImplicitLod)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
-index 9bf34c1..d1eab68 100644
+index 9bf34c1..5f3d582 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVEnum.h
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 @@ -78,6 +78,7 @@ enum SPIRVExtInstSetKind {
@@ -8780,7 +8801,18 @@ index 9bf34c1..d1eab68 100644
    ADD_VEC_INIT(DecorationBlock, {CapabilityShader});
    ADD_VEC_INIT(DecorationBufferBlock, {CapabilityShader});
    ADD_VEC_INIT(DecorationRowMajor, {CapabilityMatrix});
-@@ -474,12 +478,18 @@ template <> inline void SPIRVMap<BuiltIn, SPIRVCapVec>::init() {
+@@ -451,8 +455,9 @@ template <> inline void SPIRVMap<BuiltIn, SPIRVCapVec>::init() {
+   ADD_VEC_INIT(BuiltInCullDistance, {CapabilityCullDistance});
+   ADD_VEC_INIT(BuiltInVertexId, {CapabilityShader});
+   ADD_VEC_INIT(BuiltInInstanceId, {CapabilityShader});
++  // NOTE: just add on cap, not both
+   ADD_VEC_INIT(BuiltInPrimitiveId,
+-               {CapabilityGeometry, CapabilityTessellation});
++               {CapabilityGeometry/*, CapabilityTessellation*/});
+   ADD_VEC_INIT(BuiltInInvocationId,
+                {CapabilityGeometry, CapabilityTessellation});
+   ADD_VEC_INIT(BuiltInLayer, {CapabilityGeometry});
+@@ -474,12 +479,18 @@ template <> inline void SPIRVMap<BuiltIn, SPIRVCapVec>::init() {
    ADD_VEC_INIT(BuiltInEnqueuedWorkgroupSize, {CapabilityKernel});
    ADD_VEC_INIT(BuiltInGlobalOffset, {CapabilityKernel});
    ADD_VEC_INIT(BuiltInGlobalLinearId, {CapabilityKernel});
@@ -8799,11 +8831,12 @@ index 9bf34c1..d1eab68 100644
    ADD_VEC_INIT(BuiltInSubgroupEqMask, {CapabilityGroupNonUniformBallot});
    ADD_VEC_INIT(BuiltInSubgroupGeMask, {CapabilityGroupNonUniformBallot});
    ADD_VEC_INIT(BuiltInSubgroupGtMask, {CapabilityGroupNonUniformBallot});
-@@ -493,6 +503,7 @@ template <> inline void SPIRVMap<BuiltIn, SPIRVCapVec>::init() {
+@@ -493,6 +504,8 @@ template <> inline void SPIRVMap<BuiltIn, SPIRVCapVec>::init() {
                 {internal::CapabilityHWThreadQueryINTEL});
    ADD_VEC_INIT(internal::BuiltInMaxHWThreadIDPerSubDeviceINTEL,
                 {internal::CapabilityHWThreadQueryINTEL});
 +  ADD_VEC_INIT(BuiltInViewIndex, {CapabilityMultiView});
++  ADD_VEC_INIT(BuiltInBaryCoordKHR, {CapabilityFragmentBarycentricKHR});
  }
  
  template <> inline void SPIRVMap<MemorySemanticsMask, SPIRVCapVec>::init() {
@@ -10095,6 +10128,19 @@ index d65e9a6..d939686 100644
    virtual SPIRVId getExtInstSetId(SPIRVExtInstSetKind Kind) const = 0;
  
    virtual bool
+diff --git a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
+index daeaea4..f2864c3 100644
+--- a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
++++ b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
+@@ -441,7 +441,7 @@ template <> inline void SPIRVMap<Capability, std::string>::init() {
+   add(CapabilityFragmentFullyCoveredEXT, "FragmentFullyCoveredEXT");
+   add(CapabilityMeshShadingNV, "MeshShadingNV");
+   add(CapabilityImageFootprintNV, "ImageFootprintNV");
+-  add(CapabilityFragmentBarycentricNV, "FragmentBarycentricNV");
++  add(CapabilityFragmentBarycentricKHR, "FragmentBarycentricKHR");
+   add(CapabilityComputeDerivativeGroupQuadsNV, "ComputeDerivativeGroupQuadsNV");
+   add(CapabilityFragmentDensityEXT, "FragmentDensityEXT");
+   add(CapabilityShadingRateNV, "ShadingRateNV");
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCode.h b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 index ce5c3df..9cbe577 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVOpCode.h
