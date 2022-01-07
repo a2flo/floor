@@ -159,6 +159,22 @@ floor_inline_always const_func float4 get_frag_coord() { return float4::from_cla
 //! NOTE/TODO: temporary
 #define frag_coord get_frag_coord()
 
+#if defined(FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID_1)
+//! returns the primitive id inside a fragment shader
+const_func uint32_t get_primitive_id() asm("floor.builtin.primitive_id.i32");
+#else
+const_func uint32_t get_primitive_id() __attribute__((unavailable("not supported on this target")));
+#endif
+
+#if defined(FLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD_1)
+const_func clang_float3 get_barycentric_coord_cf3() asm("floor.builtin.barycentric_coord.float3");
+//! returns the barycentric coordinate inside a fragment shader
+floor_inline_always const_func float3 get_barycentric_coord() { return float3::from_clang_vector(get_barycentric_coord_cf3()); }
+#else
+const_func clang_float3 get_barycentric_coord_cf3() __attribute__((unavailable("not supported on this target")));
+const_func float3 get_barycentric_coord() __attribute__((unavailable("not supported on this target")));
+#endif
+
 //! discards the current fragment
 void discard_fragment() __attribute__((noreturn)) asm("floor.discard_fragment");
 

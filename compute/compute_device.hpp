@@ -149,6 +149,10 @@ public:
 	bool sub_group_shuffle_support { false };
 	//! true if the device supports cooperative kernel launchs
 	bool cooperative_kernel_support { false };
+	//! true if the device supports retrieving the primitive ID in the fragment shader
+	bool primitive_id_support { false };
+	//! true if the device supports retrieving the barycentric coordinate in the fragment shader
+	bool barycentric_coord_support { false };
 	
 	//! true if images are supported by the device
 	bool image_support { false };

@@ -438,6 +438,11 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 																					 device.max_image_3d_dim.max_element()),
 																			device.max_image_1d_dim));
 		
+		if ([dev respondsToSelector:@selector(supportsShaderBarycentricCoordinates)]) {
+			device.barycentric_coord_support = [dev supportsShaderBarycentricCoordinates];
+			device.primitive_id_support = device.barycentric_coord_support;
+		}
+		
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;

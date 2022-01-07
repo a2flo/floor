@@ -21,6 +21,7 @@
 vulkan_device::vulkan_device() : compute_device() {
 	// init statically known info
 	local_mem_dedicated = true;
+	primitive_id_support = true;
 	
 	// enable all the things
 	image_support = true;

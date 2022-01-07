@@ -124,6 +124,16 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
 	}
 	
+	//! returns true if the device has primitive ID support
+	constexpr bool has_primitive_id() {
+		return (FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID != 0);
+	}
+	
+	//! returns true if the device has barycentric coordinate support
+	constexpr bool has_barycentric_coord() {
+		return (FLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD != 0);
+	}
+	
 	//! returns the min part of the possible global id [min, max) range of this device
 	constexpr uint32_t global_id_range_min() {
 		return FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN;

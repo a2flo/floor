@@ -460,6 +460,8 @@ template <typename T> using param = const T&;
 #define instance_id get_instance_id()
 #define point_coord get_point_coord()
 #define view_index get_view_index()
+#define primitive_id get_primitive_id()
+#define barycentric_coord get_barycentric_coord()
 #endif
 
 #endif

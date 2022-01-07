@@ -186,7 +186,15 @@ namespace universal_binary {
 			//! NOTE: if set, this overrides any global option; if not set, it can be overriden by the global option
 			uint64_t soft_printf : 1;
 			
-			uint64_t _unused : 32;
+			//! if set, enables primitive id support
+			//! NOTE: requires Metal 2.2 on macOS, Metal 2.3 on iOS
+			uint64_t primitive_id_support : 1;
+			
+			//! if set, enables barycentric coord support
+			//! NOTE: requires Metal 2.2 on macOS, Metal 2.3 on iOS
+			uint64_t barycentric_coord_support : 1;
+			
+			uint64_t _unused : 30;
 		} metal;
 		
 		struct __attribute__((packed)) {
@@ -233,9 +241,16 @@ namespace universal_binary {
 			//! NOTE: if set, this overrides any global option; if not set, it can be overriden by the global option
 			uint64_t soft_printf : 1;
 			
+			//! if set, enables basic 32-bit float atomics support (add/ld/st/xchg)
 			uint64_t basic_32_bit_float_atomics_support : 1;
 			
-			uint64_t _unused : 27;
+			//! if set, enables primitive id support
+			uint64_t primitive_id_support : 1;
+			
+			//! if set, enables barycentric coord support
+			uint64_t barycentric_coord_support : 1;
+			
+			uint64_t _unused : 25;
 		} vulkan;
 
 		//! packed value

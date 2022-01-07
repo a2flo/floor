@@ -495,9 +495,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV barycentric_features {
+			// NOTE/TODO: it seems this will be promoted to a Khronos extension soon -> update this once available
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_NV,
+			.pNext = nullptr,
+			.fragmentShaderBarycentric = false,
+		};
 		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
-			.pNext = nullptr,
+			.pNext = &barycentric_features,
 			.shaderBufferFloat32Atomics = false,
 			.shaderBufferFloat32AtomicAdd = false,
 			.shaderBufferFloat64Atomics = false,
@@ -826,6 +832,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		} else {
 			hdr_supported = false;
 		}
+		if (barycentric_features.fragmentShaderBarycentric) {
+			device_extensions_set.emplace(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+		}
 
 		// deal with swapchain ext
 		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -1017,6 +1026,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_inline_uniform_block_count);
 		
 		device.min_storage_buffer_offset_alignment = (uint32_t)limits.minStorageBufferOffsetAlignment;
+		
+		device.barycentric_coord_support = barycentric_features.fragmentShaderBarycentric;
 		
 		// set memory info
 		device.mem_props = dev_mem_info.mem_props;

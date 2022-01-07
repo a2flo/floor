@@ -210,6 +210,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL 0
 #define FLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL_0
 
+// host-compute doesn't support primitive ID or barycentric coordinates
+#define FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID 0
+#define FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID_0
+#define FLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD 0
+#define FLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD_0
+
 // handle simd-width, as this obviously needs to be known at compile-time (even though it might be different at run-time),
 // make this dependent on compiler specific defines
 #if !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE) && !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH) // use these to override

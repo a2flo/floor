@@ -227,6 +227,8 @@ program_data compile_input(const string& input,
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
 	string metal_emit_format;
 	const bool metal_preprocess = (options.target == TARGET::AIR && options.debug.preprocess_condense);
+	bool primitive_id_support = device.primitive_id_support;
+	bool barycentric_coord_support = device.barycentric_coord_support;
 	switch (options.target) {
 		case TARGET::SPIR:
 			toolchain_version = floor::get_opencl_toolchain_version();
@@ -358,6 +360,15 @@ program_data compile_input(const string& input,
 				soft_printf = *options.metal.soft_printf;
 			} else {
 				soft_printf = floor::get_metal_soft_printf();
+			}
+			
+			// primitive ID and barycentric coord support also depend on Metal version and OS
+			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC && metal_version < METAL_VERSION::METAL_2_2) {
+				primitive_id_support = false;
+				barycentric_coord_support = false;
+			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE && metal_version < METAL_VERSION::METAL_2_3) {
+				primitive_id_support = false;
+				barycentric_coord_support = false;
 			}
 			
 			metal_emit_format = (!build_pch ? " -Xclang -emit-metallib" : "");
@@ -699,6 +710,20 @@ program_data compile_input(const string& input,
 	const auto has_dedicated_local_memory_str = to_string(device.local_mem_dedicated);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
+	
+	// primitive ID / barycentric coord support
+	const auto has_primitive_id_support_str = to_string(primitive_id_support);
+	const auto has_barycentric_coord_support_str = to_string(barycentric_coord_support);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID="s + has_primitive_id_support_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID_"s + has_primitive_id_support_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD="s + has_barycentric_coord_support_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD_"s + has_barycentric_coord_support_str;
+	if (primitive_id_support) {
+		clang_cmd += " -Xclang -graphics-primitive-id";
+	}
+	if (barycentric_coord_support) {
+		clang_cmd += " -Xclang -graphics-barycentric-coord";
+	}
 	
 	// id/size ranges
 	// NOTE: ranges are specified as [min, max), i.e. min is inclusive, max is exclusive

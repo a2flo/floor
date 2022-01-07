@@ -405,6 +405,8 @@ namespace universal_binary {
 				mtl_dev.family_tier = 1; // can't be overwritten right now
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
 				mtl_dev.double_support = false; // always disabled for now
+				mtl_dev.primitive_id_support = mtl_target.primitive_id_support;
+				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
 				
 				// overwrite compute_device/metal_device defaults
 				if (mtl_target.is_ios) {
@@ -525,6 +527,8 @@ namespace universal_binary {
 				vlk_dev.basic_64_bit_atomics_support = vlk_target.basic_64_bit_atomics_support;
 				vlk_dev.extended_64_bit_atomics_support = vlk_target.extended_64_bit_atomics_support;
 				vlk_dev.basic_32_bit_float_atomics_support = vlk_target.basic_32_bit_float_atomics_support;
+				vlk_dev.primitive_id_support = vlk_target.primitive_id_support;
+				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
 				
 				// assume minimum required support for now
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
@@ -1212,6 +1216,14 @@ namespace universal_binary {
 						continue;
 					}
 					
+					// check caps
+					if (mtl_target.primitive_id_support && !dev.primitive_id_support) {
+						continue;
+					}
+					if (mtl_target.barycentric_coord_support && !dev.barycentric_coord_support) {
+						continue;
+					}
+					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
 						// higher version beats lower version
@@ -1243,6 +1255,19 @@ namespace universal_binary {
 							continue;
 						}
 						if (mtl_target.simd_width < best_mtl.simd_width) {
+							continue; // ignore lower target
+						}
+						
+						// more used/supported caps beats lower
+						const auto cap_sum = (mtl_target.primitive_id_support +
+											  mtl_target.barycentric_coord_support);
+						const auto best_cap_sum = (best_mtl.primitive_id_support +
+												   best_mtl.barycentric_coord_support);
+						if (cap_sum > best_cap_sum) {
+							best_target_idx = i;
+							continue;
+						}
+						if (cap_sum < best_cap_sum) {
 							continue; // ignore lower target
 						}
 						
@@ -1342,6 +1367,12 @@ namespace universal_binary {
 					if (vlk_target.basic_32_bit_float_atomics_support && !dev.basic_32_bit_float_atomics_support) {
 						continue;
 					}
+					if (vlk_target.primitive_id_support && !dev.primitive_id_support) {
+						continue;
+					}
+					if (vlk_target.barycentric_coord_support && !dev.barycentric_coord_support) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1380,11 +1411,15 @@ namespace universal_binary {
 						const auto cap_sum = (vlk_target.double_support +
 											  vlk_target.basic_64_bit_atomics_support +
 											  vlk_target.extended_64_bit_atomics_support +
-											  vlk_target.basic_32_bit_float_atomics_support);
+											  vlk_target.basic_32_bit_float_atomics_support +
+											  vlk_target.primitive_id_support +
+											  vlk_target.barycentric_coord_support);
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
 												   best_vlk.extended_64_bit_atomics_support +
-												   best_vlk.basic_32_bit_float_atomics_support);
+												   best_vlk.basic_32_bit_float_atomics_support +
+												   best_vlk.primitive_id_support +
+												   best_vlk.barycentric_coord_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;

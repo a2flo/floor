@@ -38,6 +38,14 @@ floor_inline_always __attribute__((const)) static uint32_t get_view_index() {
 	return 0;
 }
 // NOTE: not supported
+floor_inline_always __attribute__((const)) static uint32_t get_primitive_id() {
+	return 0;
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float3 get_barycentric_coord() {
+	return {};
+}
+// NOTE: not supported
 floor_inline_always void discard_fragment() /*__attribute__((noreturn))*/ {
 	// TODO: exit current fiber instead of returning here
 	return;
