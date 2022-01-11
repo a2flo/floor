@@ -94,8 +94,8 @@ cd ../../../../
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
-git clone git://github.com/a2flo/SPIRV-Tools.git
-git clone git://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
+git clone https://github.com/a2flo/SPIRV-Tools.git
+git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
 cd SPIRV-Tools/external/spirv-headers
 git reset --hard 19e8350415ed9516c8afffa19ae2c58559495a67
 cd ../../../
