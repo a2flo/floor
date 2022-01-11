@@ -8756,7 +8756,7 @@ index 2c6f5ca..4ba71d1 100644
  _SPIRV_OP(ImageSparseSampleExplicitLod)
  _SPIRV_OP(ImageSparseSampleDrefImplicitLod)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
-index 9bf34c1..5f3d582 100644
+index 9bf34c1..bffddb0 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVEnum.h
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 @@ -78,6 +78,7 @@ enum SPIRVExtInstSetKind {
@@ -8805,7 +8805,7 @@ index 9bf34c1..5f3d582 100644
    ADD_VEC_INIT(BuiltInCullDistance, {CapabilityCullDistance});
    ADD_VEC_INIT(BuiltInVertexId, {CapabilityShader});
    ADD_VEC_INIT(BuiltInInstanceId, {CapabilityShader});
-+  // NOTE: just add on cap, not both
++  // NOTE: just add one cap, not both
    ADD_VEC_INIT(BuiltInPrimitiveId,
 -               {CapabilityGeometry, CapabilityTessellation});
 +               {CapabilityGeometry/*, CapabilityTessellation*/});

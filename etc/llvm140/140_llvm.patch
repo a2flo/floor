@@ -48171,10 +48171,10 @@ index 000000000000..621aea3fd0c7
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/MetalFinal.cpp b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 new file mode 100644
-index 000000000000..a65fadc972b8
+index 000000000000..520824239688
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
-@@ -0,0 +1,1368 @@
+@@ -0,0 +1,1376 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -48775,7 +48775,12 @@ index 000000000000..a65fadc972b8
 +		
 +		static std::optional<std::string> get_suffix_for_type(llvm::Type* type, const bool is_signed) {
 +			std::string ret = ".";
-+			switch (type->getTypeID()) {
++			auto elem_type = type;
++			if (auto vec_type = dyn_cast_or_null<FixedVectorType>(type); vec_type) {
++				elem_type = vec_type->getElementType();
++				ret += "v" + std::to_string(vec_type->getNumElements());
++			}
++			switch (elem_type->getTypeID()) {
 +				case llvm::Type::IntegerTyID:
 +					ret += (is_signed ? "s." : "u.");
 +					ret += "i" + std::to_string(cast<IntegerType>(type)->getBitWidth());
@@ -48873,6 +48878,9 @@ index 000000000000..a65fadc972b8
 +					// handled signedness and AIR function name
 +					bool is_signed = true;
 +					std::string func_name = "air.";
++					const bool is_fast = (op_lhs->getType()->isFloatTy() ||
++										  (op_lhs->getType()->isVectorTy() &&
++										   cast<FixedVectorType>(op_lhs->getType())->getElementType()->isFloatTy()));
 +					switch (I.getIntrinsicID()) {
 +						case Intrinsic::umin:
 +							is_signed = false;
@@ -48889,10 +48897,10 @@ index 000000000000..a65fadc972b8
 +							func_name += "max";
 +							break;
 +						case Intrinsic::minnum:
-+							func_name += (op_lhs->getType()->isFloatTy() ? "fast_fmin" : "fmin");
++							func_name += (is_fast ? "fast_fmin" : "fmin");
 +							break;
 +						case Intrinsic::maxnum:
-+							func_name += (op_lhs->getType()->isFloatTy() ? "fast_fmax" : "fmax");
++							func_name += (is_fast ? "fast_fmax" : "fmax");
 +							break;
 +						default:
 +							ctx->emitError(&I, "unexpected intrinsic:\n" + print_instr(I));
@@ -62128,11 +62136,11 @@ index 57b11e9414ba..6810eec8e4f8 100644
    PreservedAnalyses PA;
 diff --git a/llvm/projects/spirv b/llvm/projects/spirv
 new file mode 160000
-index 000000000000..cf7742c67caf
+index 000000000000..1b34dbc9ffe4
 --- /dev/null
 +++ b/llvm/projects/spirv
 @@ -0,0 +1 @@
-+Subproject commit cf7742c67caff2c103f76f656df27553ef37c5bb
++Subproject commit 1b34dbc9ffe44fbb7041de664f16ef75aca03804
 diff --git a/llvm/tools/bugpoint/CMakeLists.txt b/llvm/tools/bugpoint/CMakeLists.txt
 index d64481df1c1c..3202aa3a5633 100644
 --- a/llvm/tools/bugpoint/CMakeLists.txt
