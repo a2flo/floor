@@ -74,7 +74,8 @@ protected:
 	unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
 																const kernel_entry& entry,
 																const llvm_toolchain::arg_info& arg,
-																const uint32_t& arg_index) const override;
+																const uint32_t& user_arg_index,
+																const uint32_t& ll_arg_index) const override;
 	
 };
 

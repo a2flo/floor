@@ -60,23 +60,41 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 		return {};
 	}
 	
-	if (arg_index >= entry->info->args.size()) {
-		log_error("argument index is out-of-bounds: $", arg_index);
-		return {};
+	// need to take care of argument index translation when stage_input arguments exist
+	uint32_t idx = 0;
+	for (uint32_t actual_idx = 0, count = uint32_t(entry->info->args.size()); idx <= count; ++actual_idx) {
+		if (idx >= count) {
+			log_error("argument index is out-of-bounds: $", arg_index);
+			return {};
+		}
+		
+		const auto& arg_info = entry->info->args[idx];
+		if (actual_idx == arg_index) {
+			if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+				log_error("argument #$ is not an argument buffer", arg_index);
+				return {};
+			}
+			break;
+		}
+		
+		if (arg_info.special_type == llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT) {
+			// skip to next actual arg
+			while (idx < entry->info->args.size() &&
+				   entry->info->args[idx].special_type == llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT) {
+				++idx;
+			}
+		} else {
+			++idx;
+		}
 	}
 	
-	const auto& arg_info = entry->info->args[arg_index];
-	if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
-		log_error("argument #$ is not an argument buffer", arg_index);
-		return {};
-	}
-	
-	return create_argument_buffer_internal(cqueue, *entry, arg_info, arg_index);
+	return create_argument_buffer_internal(cqueue, *entry, entry->info->args[idx], arg_index, idx);
 }
 
 unique_ptr<argument_buffer> compute_kernel::create_argument_buffer_internal(const compute_queue&,
 																			const kernel_entry&,
 																			const llvm_toolchain::arg_info&,
+																			const uint32_t&,
 																			const uint32_t&) const {
 	log_error("argument buffer creation not implemented for this backend");
 	return {};

@@ -299,23 +299,25 @@ static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const ui
 unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
 																		  const kernel_entry& entry,
 																		  const llvm_toolchain::arg_info& arg floor_unused,
-																		  const uint32_t& arg_index) const {
+																		  const uint32_t& user_arg_index,
+																		  const uint32_t& ll_arg_index) const {
 	const auto& dev = cqueue.get_device();
 	const auto& mtl_entry = (const metal_kernel_entry&)entry;
 	auto mtl_func = (__bridge id<MTLFunction>)mtl_entry.kernel;
 	
 	// check if info exists
-	const auto& arg_info = mtl_entry.info->args[arg_index].argument_buffer_info;
+	const auto& arg_info = mtl_entry.info->args[ll_arg_index].argument_buffer_info;
 	if (!arg_info) {
-		log_error("no argument buffer info for arg at index #$", arg_index);
+		log_error("no argument buffer info for arg at index #$", user_arg_index);
 		return {};
 	}
 	
 	// find the metal buffer index
 	uint32_t buffer_idx = 0;
-	for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(arg_index, count); ++i) {
-		if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE) {
-			// all args except for images are buffers
+	for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
+		if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE &&
+			mtl_entry.info->args[i].special_type != SPECIAL_TYPE::STAGE_INPUT) {
+			// all args except for images and stage-input are buffers
 			++buffer_idx;
 		}
 	}

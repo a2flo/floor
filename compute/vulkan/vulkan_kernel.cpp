@@ -700,27 +700,19 @@ const compute_kernel::kernel_entry* vulkan_kernel::get_kernel_entry(const comput
 unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const compute_queue& cqueue,
 																		   const kernel_entry& kern_entry,
 																		   const llvm_toolchain::arg_info& arg floor_unused,
-																		   const uint32_t& arg_index) const {
+																		   const uint32_t& user_arg_index,
+																		   const uint32_t& ll_arg_index) const {
 	const auto& dev = cqueue.get_device();
 	const auto& vulkan_entry = (const vulkan_kernel_entry&)kern_entry;
 	
 	// check if info exists
-	const auto& arg_info = vulkan_entry.info->args[arg_index].argument_buffer_info;
+	const auto& arg_info = vulkan_entry.info->args[ll_arg_index].argument_buffer_info;
 	if (!arg_info) {
-		log_error("no argument buffer info for arg at index #$", arg_index);
+		log_error("no argument buffer info for arg at index #$", user_arg_index);
 		return {};
 	}
 	
-	// find the buffer index
-	uint32_t buffer_idx = 0;
-	for (uint32_t i = 0, count = uint32_t(vulkan_entry.info->args.size()); i < min(arg_index, count); ++i) {
-		if (vulkan_entry.info->args[i].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
-			// all args except for images are buffers
-			++buffer_idx;
-		}
-	}
-	
-	const auto arg_buffer_size = vulkan_entry.info->args[arg_index].size;
+	const auto arg_buffer_size = vulkan_entry.info->args[ll_arg_index].size;
 	if (arg_buffer_size == 0) {
 		log_error("computed argument buffer size is 0");
 		return {};
