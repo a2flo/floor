@@ -142,12 +142,12 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 					case '.': {
 						// NOTE: we'll only handle decimal precision here
 						if (++ch == format_str.cend()) {
-							log_error("premature end of format string after '$'", cur_ch);
+							log_error("premature end of format string after \"$\"", cur_ch);
 							is_invalid = true;
 							break;
 						}
 						if (!(*ch >= '0' && *ch <= '9')) {
-							log_error("invalid precision '$'", *ch);
+							log_error("invalid precision \"$\"", *ch);
 							is_invalid = true;
 							break;
 						}
@@ -178,7 +178,7 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 					case 't': // ptrdiff
 					case 'L': // long double
 						if (++ch == format_str.cend()) {
-							log_error("premature end of format string after '$'", cur_ch);
+							log_error("premature end of format string after \"$\"", cur_ch);
 							is_invalid = true;
 							break;
 						}

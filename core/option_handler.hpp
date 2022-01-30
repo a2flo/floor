@@ -53,7 +53,7 @@ public:
 					return (elem.first == arg);
 				});
 				if(opt_iter == const_options.end()) {
-					log_error("unknown argument '$'", arg);
+					log_error("unknown argument \"$\"", arg);
 					return;
 				}
 				opt_iter->second(option_ctx, arg_ptr);

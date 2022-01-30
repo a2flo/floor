@@ -22,6 +22,7 @@ using namespace llvm_toolchain;
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_argument_buffer.hpp>
+#include <floor/compute/metal/metal_resource_tracking.hpp>
 #include <Metal/MTLComputeCommandEncoder.h>
 #include <Metal/MTLRenderCommandEncoder.h>
 #include <Metal/MTLArgumentEncoder.h>
@@ -33,11 +34,18 @@ namespace metal_args {
 		COMPUTE,
 		SHADER,
 		ARGUMENT,
+		INDIRECT_SHADER,
+		INDIRECT_COMPUTE,
 	};
 	
 	template <ENCODER_TYPE enc_type>
-	using encoder_selector_t = conditional_t<(enc_type == ENCODER_TYPE::COMPUTE), id <MTLComputeCommandEncoder>,
-											 conditional_t<(enc_type == ENCODER_TYPE::SHADER), id <MTLRenderCommandEncoder>, id <MTLArgumentEncoder>>>;
+	using encoder_selector_t =
+		conditional_t<(enc_type == ENCODER_TYPE::COMPUTE), id <MTLComputeCommandEncoder>,
+		conditional_t<(enc_type == ENCODER_TYPE::SHADER), id <MTLRenderCommandEncoder>,
+		conditional_t<(enc_type == ENCODER_TYPE::ARGUMENT), id <MTLArgumentEncoder>,
+		conditional_t<(enc_type == ENCODER_TYPE::INDIRECT_COMPUTE), id <MTLIndirectComputeCommand>,
+		conditional_t<(enc_type == ENCODER_TYPE::INDIRECT_SHADER), id <MTLIndirectRenderCommand>,
+					  void>>>>>;
 	
 	struct idx_handler {
 		//! actual argument index (directly corresponding to the c++ source code)
@@ -83,6 +91,10 @@ namespace metal_args {
 			}
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			memcpy([encoder constantDataAtIndex:arg_buffer_index(idx, arg_buffer_indices)], ptr, size);
+		} else if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+#if defined(FLOOR_DEBUG)
+			log_error("can not encode a raw value into an indirect compute/render command");
+#endif
 		}
 	}
 	
@@ -91,7 +103,7 @@ namespace metal_args {
 							 encoder_selector_t<enc_type> encoder, const function_info& entry,
 							 const compute_buffer* arg,
 							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_buffer = arg->get_shared_metal_buffer();
@@ -117,12 +129,17 @@ namespace metal_args {
 			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:idx.buffer_idx];
+		} else if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE) {
+			[encoder setKernelBuffer:mtl_buffer_obj
+							  offset:0
+							 atIndex:idx.buffer_idx];
+			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 			res_info->read_write.emplace_back(mtl_buffer_obj);
-		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
@@ -131,6 +148,9 @@ namespace metal_args {
 				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
+			}
+			if constexpr (enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+				res_info->read_write.emplace_back(mtl_buffer_obj);
 			}
 		}
 	}
@@ -142,7 +162,7 @@ namespace metal_args {
 							 const vector<shared_ptr<compute_buffer>>& arg,
 							 const compute_device& dev,
 							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -176,7 +196,7 @@ namespace metal_args {
 							 const vector<compute_buffer*>& arg,
 							 const compute_device& dev,
 							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -209,7 +229,7 @@ namespace metal_args {
 							 const function_info& entry,
 							 const argument_buffer* arg_buf,
 							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
 		const auto buf = arg_buf->get_storage_buffer();
 		const metal_buffer* mtl_buffer = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(buf->get_flags())) {
@@ -237,23 +257,40 @@ namespace metal_args {
 						offset:0
 					   atIndex:idx.buffer_idx];
 			((const metal_argument_buffer*)arg_buf)->make_resident(encoder);
+		} else if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE) {
+			[encoder setKernelBuffer:mtl_buffer_obj
+							  offset:0
+							 atIndex:idx.buffer_idx];
+			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setBuffer:mtl_buffer_obj
 						offset:0
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 			res_info->read_write.emplace_back(mtl_buffer_obj);
-		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+		} else if constexpr (enc_type == ENCODER_TYPE::SHADER || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX) {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
-				((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::VERTEX);
+				if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::VERTEX);
+				} else {
+					res_info->read_write.emplace_back(mtl_buffer_obj);
+				}
 			} else {
 				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
-				((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::FRAGMENT);
+				if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::FRAGMENT);
+				} else {
+					res_info->read_write.emplace_back(mtl_buffer_obj);
+				}
 			}
+		}
+		
+		if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+			res_info->add_resources(((const metal_argument_buffer*)arg_buf)->get_resources());
 		}
 	}
 	
@@ -263,7 +300,14 @@ namespace metal_args {
 							 const function_info& entry,
 							 const compute_image* arg,
 							 const vector<uint32_t>* arg_buffer_indices floor_unused,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
+		if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+#if defined(FLOOR_DEBUG)
+			log_error("can not encode an image into an indirect compute/render command");
+#endif
+			return;
+		}
+		
 		const metal_image* mtl_image = nullptr;
 		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
 			mtl_image = arg->get_shared_metal_image();
@@ -329,7 +373,14 @@ namespace metal_args {
 							 const function_info& entry,
 							 const vector<shared_ptr<compute_image>>& arg,
 							 const vector<uint32_t>* arg_buffer_indices floor_unused,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
+		if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+#if defined(FLOOR_DEBUG)
+			log_error("can not encode images into an indirect compute/render command");
+#endif
+			return;
+		}
+		
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -361,7 +412,14 @@ namespace metal_args {
 							 const function_info& entry,
 							 const vector<compute_image*>& arg,
 							 const vector<uint32_t>* arg_buffer_indices floor_unused,
-							 metal_argument_buffer::resource_info_t* res_info) {
+							 metal_resource_tracking::resource_info_t* res_info) {
+		if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
+#if defined(FLOOR_DEBUG)
+			log_error("can not encode images into an indirect compute/render command");
+#endif
+			return;
+		}
+		
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -480,7 +538,7 @@ namespace metal_args {
 								  const vector<compute_kernel_arg>& args,
 								  const vector<compute_kernel_arg>& implicit_args,
 								  const vector<uint32_t>* arg_buffer_indices = nullptr,
-								  metal_argument_buffer::resource_info_t* res_info = nullptr) {
+								  metal_resource_tracking::resource_info_t* res_info = nullptr) {
 		const size_t arg_count = args.size() + implicit_args.size();
 		idx_handler idx;
 		size_t explicit_idx = 0, implicit_idx = 0;

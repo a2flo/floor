@@ -57,6 +57,10 @@ public:
 	bool set_attachments(vector<attachment_t>& attachments) override;
 	bool set_attachment(const uint32_t& index, attachment_t& attachment) override;
 	
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+						  const uint32_t command_offset = 0u,
+						  const uint32_t command_count = ~0u) const override;
+	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 	
 protected:

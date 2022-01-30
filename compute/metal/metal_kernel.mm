@@ -44,6 +44,22 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue, con
 metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
+pair<uint3, uint3> metal_kernel::compute_grid_and_block_dim(const kernel_entry& entry,
+															const uint32_t& dim,
+															const uint3& global_work_size,
+															const uint3& local_work_size) const {
+	// check work size (NOTE: will set elements to at least 1)
+	const auto block_dim = check_local_work_size(entry, local_work_size);
+	const uint3 grid_dim_overflow {
+		dim >= 1 && global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
+		dim >= 2 && global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
+		dim >= 3 && global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
+	};
+	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
+	grid_dim.max(1u);
+	return { grid_dim, block_dim };
+}
+
 void metal_kernel::execute(const compute_queue& cqueue,
 						   const bool& is_cooperative,
 						   const uint32_t& dim,
@@ -63,8 +79,6 @@ void metal_kernel::execute(const compute_queue& cqueue,
 		return;
 	}
 	
-	// check work size (NOTE: will set elements to at least 1)
-	const auto block_dim = check_local_work_size(kernel_iter->second, local_work_size);
 	
 	//
 	auto encoder = create_encoder(cqueue, kernel_iter->second);
@@ -85,18 +99,13 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	const kernel_entry& entry = kernel_iter->second;
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(cqueue.get_device(), encoder->encoder, { entry.info }, args, implicit_args);
 	
-	// run
-	const uint3 grid_dim_overflow {
-		dim >= 1 && global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
-		dim >= 2 && global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
-		dim >= 3 && global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
-	};
-	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
-	grid_dim.max(1u);
-	
-	// TODO/NOTE: guarantee that all buffers have finished their prior processing
+	// compute sizes
+	auto [grid_dim, block_dim] = compute_grid_and_block_dim(kernel_iter->second, dim, global_work_size, local_work_size);
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
+	
+	// run
+	// TODO/NOTE: guarantee that all buffers have finished their prior processing
 	[encoder->encoder dispatchThreadgroups:metal_grid_dim threadsPerThreadgroup:metal_block_dim];
 	[encoder->encoder endEncoding];
 	[encoder->cmd_buffer commit];

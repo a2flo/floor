@@ -658,7 +658,7 @@ size_t darwin_helper::get_system_version() {
 	return 101300;
 #else
 	log_error("unable to retrieve iOS version!");
-	return 110000;
+	return 120000;
 #endif
 }
 

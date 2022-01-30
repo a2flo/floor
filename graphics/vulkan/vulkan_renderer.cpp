@@ -414,6 +414,13 @@ bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 	return attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_depth);
 }
 
+void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
+									   const uint32_t command_offset floor_unused,
+									   const uint32_t command_count floor_unused) const {
+	// TODO: implement this!
+	log_error("execute_indirect() not implemented yet!");
+}
+
 bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {
 	if (!graphics_renderer::switch_pipeline(pipeline_)) {
 		return false;

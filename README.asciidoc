@@ -1669,7 +1669,7 @@ function void simplified_nbody ( %void() ) {
 ** only AMD64/Intel64/ARM64 are supported
 ** Windows: NT 6.1+
 ** macOS: 10.13+
-** iOS: 11.0+
+** iOS: 12.0+
 ** Linux: any current x64 distribution
 ** other Unix: if other requirements are met
 * compiler/toolchain:
@@ -1682,7 +1682,7 @@ function void simplified_nbody ( %void() ) {
 ** link:https://www.opengl.org/registry/#headers[OpenGL 4.1+ Core headers]
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_30+/Kepler+ GPU and CUDA 9.0+ drivers (CUDA SDK not required!)
-** (opt) Metal: requires iOS 11.0+ and A7+ CPU/GPU, or macOS 10.13+ and appropriate GPU
+** (opt) Metal: requires iOS 12.0+ and A7+ CPU/GPU, or macOS 10.13+ and appropriate GPU
 ** (opt) Host-Compute: requires just the compiler/toolchain that is stated above
 ** (opt) Vulkan: requires 1.2.142+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
 ** (opt) networking: requires link:https://think-async.com/Asio[Asio] headers and link:https://www.openssl.org[OpenSSL] 1.0.1+

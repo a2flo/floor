@@ -52,4 +52,7 @@ floor_inline_always static bool stob(const string& str) {
 
 #endif // !FLOOR_COMPUTE || FLOOR_COMPUTE_HOST
 
+//! static_assert that only triggers on instantiation, e.g. for use in "if constexpr" branches that may not be taken / should trigger an error
+#define instantiation_trap(msg) static_assert([]() { return false; }(), msg)
+
 #endif

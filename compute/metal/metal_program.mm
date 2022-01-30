@@ -59,13 +59,40 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					
 					NSError* err = nullptr;
 					id <MTLComputePipelineState> kernel_state = nil;
+					bool supports_indirect_compute = false;
 					if([func functionType] == MTLFunctionTypeKernel) {
-						kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:func error:&err];
-						if(!kernel_state) {
+						MTLComputePipelineDescriptor* mtl_pipeline_desc = [[MTLComputePipelineDescriptor alloc] init];
+						const string label = info.name + " pipeline";
+						mtl_pipeline_desc.label = [NSString stringWithUTF8String:label.c_str()];
+						mtl_pipeline_desc.computeFunction = func;
+						
+						// optimization opt-in
+						mtl_pipeline_desc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true;
+						
+						// implicitly support indirect compute when the function doesn't take any image parameters
+						bool has_image_args = false;
+						for (const auto& func_arg : info.args) {
+							if (func_arg.image_type != llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
+								has_image_args = true;
+								break;
+							}
+						}
+						if (!has_image_args) {
+							mtl_pipeline_desc.supportIndirectCommandBuffers = true;
+						}
+						
+						// TODO: set buffer mutability
+						
+						kernel_state = [[prog.second.program device] newComputePipelineStateWithDescriptor:mtl_pipeline_desc
+																								   options:MTLPipelineOptionNone
+																								reflection:nil
+																									 error:&err];
+						if (!kernel_state) {
 							log_error("failed to create kernel state \"$\" for device \"$\": $", info.name, prog.first.get().name,
 									  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 							continue;
 						}
+						supports_indirect_compute = [kernel_state supportIndirectCommandBuffers];
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS)
 						log_debug("$ ($): max work-items: $, simd width: $, local mem: $",
 								  info.name, prog.first.get().name,
@@ -77,6 +104,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					prog.second.metal_kernels.emplace_back(metal_program_entry::metal_kernel_data { func, kernel_state });
 					entry.kernel = (__bridge void*)func;
 					entry.kernel_state = (__bridge void*)kernel_state;
+					entry.supports_indirect_compute = supports_indirect_compute;
 					if(kernel_state != nil) {
 						entry.max_total_local_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
 					}

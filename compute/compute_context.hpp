@@ -46,6 +46,9 @@ class vulkan_image;
 class metal_buffer;
 class metal_image;
 
+class indirect_command_pipeline;
+struct indirect_command_description;
+
 class graphics_pipeline;
 struct render_pipeline_description;
 class graphics_pass;
@@ -273,6 +276,13 @@ public:
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(const compute_device& device,
 																			llvm_toolchain::program_data program,
 																			const llvm_toolchain::TARGET target) = 0;
+	
+	//////////////////////////////////////////
+	// execution functionality
+	
+	//! creates an indirect compute/render command pipeline from the specified description
+	//! NOTE: only supported when the context has any devices with support for either indirect compute or rendering
+	virtual unique_ptr<indirect_command_pipeline> create_indirect_command_pipeline(const indirect_command_description& desc) const = 0;
 	
 	//////////////////////////////////////////
 	// graphics functionality

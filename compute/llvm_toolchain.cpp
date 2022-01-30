@@ -294,12 +294,12 @@ program_data compile_input(const string& input,
 			
 			string os_target;
 			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE) {
-				// -> iOS 11.0+
+				// -> iOS 12.0+
 				switch (metal_version) {
-					default:
 					case METAL_VERSION::METAL_2_0:
-						os_target = "ios11.0.0";
-						break;
+						log_error("iOS 11.0 / Metal 2.0 on iOS target is no longer supported");
+						return {};
+					default:
 					case METAL_VERSION::METAL_2_1:
 						os_target = "ios12.0.0";
 						break;
@@ -930,6 +930,17 @@ program_data compile_input(const string& input,
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_MIP_LEVELS="s + to_string(device.max_mip_levels) + "u";
+	
+	// indirect command support
+	const auto has_indirect_cmd_str = to_string(device.indirect_command_support);
+	const auto has_indirect_compute_cmd_str = to_string(device.indirect_compute_command_support);
+	const auto has_indirect_render_cmd_str = to_string(device.indirect_render_command_support);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_COMMAND_SUPPORT="s + has_indirect_cmd_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_COMMAND_SUPPORT_"s + has_indirect_cmd_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT="s + has_indirect_compute_cmd_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_"s + has_indirect_compute_cmd_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT="s + has_indirect_render_cmd_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT_"s + has_indirect_render_cmd_str;
 	
 	// set param workaround define
 	if(device.param_workaround) {

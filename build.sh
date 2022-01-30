@@ -770,7 +770,7 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
 		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.13"
 	else # ios
-		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=11.0"
+		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=12.0"
 	fi
 	
 	# set lib version

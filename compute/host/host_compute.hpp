@@ -154,6 +154,11 @@ public:
 																	const llvm_toolchain::TARGET target) override;
 	
 	//////////////////////////////////////////
+	// execution functionality
+	
+	unique_ptr<indirect_command_pipeline> create_indirect_command_pipeline(const indirect_command_description& desc) const override;
+	
+	//////////////////////////////////////////
 	// host specific functions
 	
 	//! returns true if host-compute device support is available

@@ -23,6 +23,7 @@
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
+#include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/graphics/metal/metal_pass.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/graphics/metal/metal_shader.hpp>
@@ -240,6 +241,96 @@ bool metal_renderer::set_attachment(const uint32_t& index, attachment_t& attachm
 		return false;
 	}
 	return true;
+}
+
+void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd,
+									  const uint32_t command_offset,
+									  const uint32_t command_count) const {
+	if (command_count == 0) {
+		return;
+	}
+	
+	const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
+	const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(cqueue.get_device());
+	if (!mtl_indirect_pipeline_entry) {
+		log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
+				  cqueue.get_device().name, indirect_cmd.get_description().debug_label);
+		return;
+	}
+	
+	NSRange range { command_offset, command_count };
+	if (command_count == ~0u) {
+		range.length = indirect_cmd.get_command_count();
+	}
+#if defined(FLOOR_DEBUG)
+	{
+		const auto cmd_count = indirect_cmd.get_command_count();
+		if (command_offset != 0 || range.length != cmd_count) {
+			static once_flag flag;
+			call_once(flag, [] {
+				// see below
+				log_warn("efficient resource usage declarations when using partial command ranges is not implemented yet");
+			});
+		}
+		if (cmd_count == 0) {
+			log_warn("no commands in indirect command pipeline \"$\"",
+					 indirect_cmd.get_description().debug_label);
+		}
+		if (range.location >= cmd_count) {
+			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
+					  range.location, indirect_cmd.get_description().debug_label);
+			return;
+		}
+		uint32_t sum = 0;
+		if (__builtin_uadd_overflow((uint32_t)range.location, (uint32_t)range.length, &sum)) {
+			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
+					  range.location, range.length, indirect_cmd.get_description().debug_label);
+			return;
+		}
+		if (sum > cmd_count) {
+			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
+					  range.length, indirect_cmd.get_description().debug_label);
+			return;
+		}
+	}
+#endif
+	// post count check, since this might have been modified, but we still want the debug messages
+	if (range.length == 0) {
+		return;
+	}
+	
+	
+	// declare all used resources
+	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
+	const auto& resources = mtl_indirect_pipeline_entry->get_resources();
+	if (!resources.read_only.empty()) {
+		[encoder useResources:resources.read_only.data()
+						count:resources.read_only.size()
+						usage:MTLResourceUsageRead];
+	}
+	if (!resources.write_only.empty()) {
+		[encoder useResources:resources.write_only.data()
+						count:resources.write_only.size()
+						usage:MTLResourceUsageWrite];
+	}
+	if (!resources.read_write.empty()) {
+		[encoder useResources:resources.read_write.data()
+						count:resources.read_write.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+	}
+	if (!resources.read_only_images.empty()) {
+		[encoder useResources:resources.read_only_images.data()
+						count:resources.read_only_images.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageSample)];
+	}
+	if (!resources.read_write_images.empty()) {
+		[encoder useResources:resources.read_write_images.data()
+						count:resources.read_write_images.size()
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
+	}
+	
+	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
+						   withRange:range];
 }
 
 bool metal_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {

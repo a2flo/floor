@@ -200,6 +200,9 @@ struct render_pipeline_description {
 	//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering
 	bool automatic_multi_view_handling { true };
 	
+	//! if enabled, allows the use of the graphics_pipeline in indirect rendering (indirect_command_pipeline, ...)
+	bool support_indirect_rendering { false };
+	
 	//! sets the debug label for pipelines created from this description (e.g. for display in a debugger)
 	string debug_label;
 };

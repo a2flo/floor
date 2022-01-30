@@ -37,6 +37,7 @@ public:
 	struct metal_kernel_entry : kernel_entry {
 		const void* kernel { nullptr };
 		const void* kernel_state { nullptr };
+		bool supports_indirect_compute { false };
 	};
 	typedef flat_map<const metal_device&, metal_kernel_entry> kernel_map_type;
 	
@@ -51,6 +52,12 @@ public:
 				 const vector<compute_kernel_arg>& args) const override;
 	
 	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
+	
+	//! helper function to compute the Metal grid dim ("#threadgroups") and block dim ("threads per threadgroup")
+	pair<uint3, uint3> compute_grid_and_block_dim(const kernel_entry& entry,
+												  const uint32_t& dim,
+												  const uint3& global_work_size,
+												  const uint3& local_work_size) const;
 	
 protected:
 	const kernel_map_type kernels;

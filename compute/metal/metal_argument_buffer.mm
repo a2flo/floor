@@ -26,24 +26,8 @@ metal_argument_buffer::metal_argument_buffer(const compute_kernel& func_, shared
 											 aligned_ptr<uint8_t>&& storage_buffer_backing_,
 											 id <MTLArgumentEncoder> encoder_, const llvm_toolchain::function_info& arg_info_,
 											 vector<uint32_t>&& arg_indices_) :
-argument_buffer(func_, storage_buffer_), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_), arg_info(arg_info_),
-arg_indices(move(arg_indices_)) {}
-
-static void sort_and_unique_resources(vector<id <MTLResource> __unsafe_unretained>& res) {
-	std::sort(res.begin(), res.end());
-	auto last_iter = std::unique(res.begin(), res.end());
-	if (last_iter != res.end()) {
-		res.erase(last_iter, res.end());
-	}
-	// kill nil resources
-	for (auto iter = res.begin(); iter != res.end(); ) {
-		if (*iter == nil) {
-			iter = res.erase(iter);
-		} else {
-			++iter;
-		}
-	}
-}
+argument_buffer(func_, storage_buffer_), metal_resource_tracking(), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_),
+arg_info(arg_info_), arg_indices(move(arg_indices_)) {}
 
 void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe_unused]], const vector<compute_kernel_arg>& args) {
 	auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();
@@ -55,12 +39,7 @@ void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
 																			 (!arg_indices.empty() ? &arg_indices : nullptr),
 																			 &resources);
-	
-	sort_and_unique_resources(resources.read_only);
-	sort_and_unique_resources(resources.write_only);
-	sort_and_unique_resources(resources.read_write);
-	sort_and_unique_resources(resources.read_only_images);
-	sort_and_unique_resources(resources.read_write_images);
+	sort_and_unique_all_resources();
 	
 #if !defined(FLOOR_IOS)
 	// signal buffer update if this is a managed buffer

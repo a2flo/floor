@@ -404,6 +404,21 @@ namespace device_info {
 		return FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS;
 	}
 	
+	//! returns true if the backend and device have general indirect command support
+	constexpr bool has_indirect_command_support() {
+		return (FLOOR_COMPUTE_INFO_INDIRECT_COMMAND_SUPPORT != 0);
+	}
+	
+	//! returns true if the backend and device have general indirect compute command support
+	constexpr bool has_indirect_compute_command_support() {
+		return (FLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT != 0);
+	}
+	
+	//! returns true if the backend and device have general indirect render command support
+	constexpr bool has_indirect_render_command_support() {
+		return (FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT != 0);
+	}
+	
 }
 
 //! range attribute containing the global [min, max) id range

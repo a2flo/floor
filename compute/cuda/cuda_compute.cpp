@@ -735,4 +735,10 @@ shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(co
 	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program((const cuda_device&)device, program));
 }
 
+unique_ptr<indirect_command_pipeline> cuda_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
+	// TODO: !
+	log_error("not yet supported by cuda_compute!");
+	return {};
+}
+
 #endif

@@ -196,6 +196,13 @@ public:
 	//! max anisotropy that is supported
 	uint32_t max_anisotropy { 1u };
 	
+	//! true if the device supports indirect commands in general
+	bool indirect_command_support { false };
+	//! true if the device supports indirect compute commands
+	bool indirect_compute_command_support { false };
+	//! true if the device supports indirect render/graphics commands
+	bool indirect_render_command_support { false };
+	
 	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
 	bool param_workaround { false };
 	

@@ -49,6 +49,12 @@
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
+		5C1496D8279D68DC00194181 /* indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496D6279D68DC00194181 /* indirect_command.cpp */; };
+		5C1496D9279D68DC00194181 /* indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496D6279D68DC00194181 /* indirect_command.cpp */; };
+		5C1496DA279D68DC00194181 /* indirect_command.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1496D7279D68DC00194181 /* indirect_command.hpp */; };
+		5C1496DF279D751100194181 /* metal_indirect_command.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1496DC279D751100194181 /* metal_indirect_command.hpp */; };
+		5C1496E1279D769F00194181 /* metal_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496E0279D769E00194181 /* metal_indirect_command.mm */; };
+		5C1496E2279D769F00194181 /* metal_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496E0279D769E00194181 /* metal_indirect_command.mm */; };
 		5C15E35D223E797E001F53A2 /* compute_kernel_arg.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */; };
 		5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */; };
 		5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */; };
@@ -106,6 +112,7 @@
 		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
 		5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61D91C60FD4400358DAB /* opaque_image.hpp */; };
 		5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61DB1C61647600358DAB /* sampler.hpp */; };
+		5C3BBC6827A4C25C0084094A /* metal_resource_tracking.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3BBC6727A4C25C0084094A /* metal_resource_tracking.hpp */; };
 		5C3D13B223B67784000BB608 /* vr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3D13B023B67784000BB608 /* vr_context.hpp */; };
 		5C3D13B323B67784000BB608 /* vr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3D13B123B67784000BB608 /* vr_context.cpp */; };
 		5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
@@ -429,6 +436,10 @@
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
 		5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_pre.hpp; path = device/cuda_pre.hpp; sourceTree = "<group>"; };
 		5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_pre.hpp; path = device/metal_pre.hpp; sourceTree = "<group>"; };
+		5C1496D6279D68DC00194181 /* indirect_command.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = indirect_command.cpp; sourceTree = "<group>"; };
+		5C1496D7279D68DC00194181 /* indirect_command.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = indirect_command.hpp; sourceTree = "<group>"; };
+		5C1496DC279D751100194181 /* metal_indirect_command.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_indirect_command.hpp; path = metal/metal_indirect_command.hpp; sourceTree = "<group>"; };
+		5C1496E0279D769E00194181 /* metal_indirect_command.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_indirect_command.mm; path = metal/metal_indirect_command.mm; sourceTree = "<group>"; };
 		5C15E35C223E797D001F53A2 /* compute_kernel_arg.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel_arg.hpp; sourceTree = "<group>"; };
 		5C1CC4F72117ADF200FE4280 /* serializer_storage.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = serializer_storage.hpp; sourceTree = "<group>"; };
 		5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_compat.hpp; path = device/atomic_compat.hpp; sourceTree = "<group>"; };
@@ -484,6 +495,7 @@
 		5C3B3777272F534300FD708D /* 140_spirv.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 140_spirv.patch; path = etc/llvm140/140_spirv.patch; sourceTree = "<group>"; };
 		5C3B61D91C60FD4400358DAB /* opaque_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opaque_image.hpp; path = device/opaque_image.hpp; sourceTree = "<group>"; };
 		5C3B61DB1C61647600358DAB /* sampler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = sampler.hpp; path = device/sampler.hpp; sourceTree = "<group>"; };
+		5C3BBC6727A4C25C0084094A /* metal_resource_tracking.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_resource_tracking.hpp; path = metal/metal_resource_tracking.hpp; sourceTree = "<group>"; };
 		5C3D13B023B67784000BB608 /* vr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vr_context.hpp; path = vr/vr_context.hpp; sourceTree = "<group>"; };
 		5C3D13B123B67784000BB608 /* vr_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vr_context.cpp; path = vr/vr_context.cpp; sourceTree = "<group>"; };
 		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
@@ -1083,6 +1095,8 @@
 				5CAD573424D70EAB0022D36D /* argument_buffer.cpp */,
 				5CAD573324D70EAB0022D36D /* argument_buffer.hpp */,
 				5C2A907D243B7CDE00C82150 /* hdr_metadata.hpp */,
+				5C1496D6279D68DC00194181 /* indirect_command.cpp */,
+				5C1496D7279D68DC00194181 /* indirect_command.hpp */,
 				5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */,
 				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
 				5CB95F8D229FF2520092D4C5 /* soft_printf.hpp */,
@@ -1182,6 +1196,8 @@
 				5C84613F1A914758004D4745 /* metal_device.hpp */,
 				5C8FD0D01AD3944F00215230 /* metal_image.mm */,
 				5C8FD0CA1AD38FA000215230 /* metal_image.hpp */,
+				5C1496E0279D769E00194181 /* metal_indirect_command.mm */,
+				5C1496DC279D751100194181 /* metal_indirect_command.hpp */,
 				5C8461461A914758004D4745 /* metal_kernel.mm */,
 				5C84613E1A914758004D4745 /* metal_kernel.hpp */,
 				5C0C3DC722BE9F2A00501B16 /* metal_args.hpp */,
@@ -1189,6 +1205,7 @@
 				5C84613D1A914758004D4745 /* metal_program.hpp */,
 				5C84613B1A914758004D4745 /* metal_queue.mm */,
 				5C84613C1A914758004D4745 /* metal_queue.hpp */,
+				5C3BBC6727A4C25C0084094A /* metal_resource_tracking.hpp */,
 			);
 			name = metal;
 			sourceTree = "<group>";
@@ -1284,6 +1301,7 @@
 				5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */,
 				5C678CF5262FA8D8001A1C1F /* cuda_argument_buffer.hpp in Headers */,
 				5C1CC4F82117ADF300FE4280 /* serializer_storage.hpp in Headers */,
+				5C3BBC6827A4C25C0084094A /* metal_resource_tracking.hpp in Headers */,
 				5C8FD0CF1AD38FAA00215230 /* cuda_image.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C8F323C2635BA88008144CF /* vulkan_argument_buffer.hpp in Headers */,
@@ -1349,6 +1367,7 @@
 				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */,
+				5C1496DA279D68DC00194181 /* indirect_command.hpp in Headers */,
 				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
 				5C4E30ED1B428B120034E536 /* host.hpp in Headers */,
@@ -1379,6 +1398,7 @@
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C0C3DC122BE552F00501B16 /* metal_shader.hpp in Headers */,
 				5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */,
+				5C1496DF279D751100194181 /* metal_indirect_command.hpp in Headers */,
 				5C5419021CD1C915003BD2CA /* host_limits.hpp in Headers */,
 				5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */,
 				5C5383E91A641B1E007AEDD7 /* cuda_device.hpp in Headers */,
@@ -1482,7 +1502,7 @@
 		5C10915617D114BC007F536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1320;
+				LastUpgradeCheck = 1330;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1562,6 +1582,7 @@
 				5C2B87D91C73893E00F11EA5 /* vulkan_program.cpp in Sources */,
 				5C84531422B1A6D80014AECF /* vulkan_pass.cpp in Sources */,
 				5C0C3DC522BE554F00501B16 /* metal_shader.mm in Sources */,
+				5C1496D8279D68DC00194181 /* indirect_command.cpp in Sources */,
 				5CC063BA1B85A06600F5979A /* cuda_api.cpp in Sources */,
 				5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5C6C6B1C22D0D8A200AEE5F3 /* vulkan_shader.cpp in Sources */,
@@ -1591,6 +1612,7 @@
 				5C4B89BD25576830001CB537 /* host_argument_buffer.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
+				5C1496E1279D769F00194181 /* metal_indirect_command.mm in Sources */,
 				5C8FD0D51AD3983000215230 /* compute_memory.cpp in Sources */,
 				5CD4E86B22B4449B00AE0385 /* metal_renderer.mm in Sources */,
 				5CEEA6E01A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
@@ -1681,6 +1703,7 @@
 				5C4331D8214DAA0F004F0CD0 /* vector_4d.cpp in Sources */,
 				5C266C351B4E84C90055F511 /* host_compute.cpp in Sources */,
 				5C266C361B4E84C90055F511 /* host_buffer.cpp in Sources */,
+				5C1496E2279D769F00194181 /* metal_indirect_command.mm in Sources */,
 				5C266C371B4E84C90055F511 /* host_device.cpp in Sources */,
 				5C266C381B4E84C90055F511 /* host_image.cpp in Sources */,
 				5C34F17F1C29BB9300C8F645 /* metal_device.cpp in Sources */,
@@ -1741,6 +1764,7 @@
 				5C8FD0D61AD3983000215230 /* compute_memory.cpp in Sources */,
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
+				5C1496D9279D68DC00194181 /* indirect_command.cpp in Sources */,
 				5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
 				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
@@ -1843,7 +1867,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2000,7 +2024,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2255,7 +2279,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2526,7 +2550,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",

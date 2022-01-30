@@ -60,6 +60,12 @@ public:
 	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size
 	virtual unique_ptr<argument_buffer> create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index) const;
 	
+	//! checks the specified local work size against the max local work size in the kernel_entry,
+	//! and will compute a proper local work size if the specified one is invalid
+	//! NOTE: will only warn/error once per kernel per device
+	uint3 check_local_work_size(const kernel_entry& entry,
+								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
+	
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
@@ -67,12 +73,6 @@ protected:
 	mutable atomic_spin_lock warn_map_lock;
 	//! used to prevent console/log spam by remembering if a warning/error has already been printed for a kernel
 	mutable flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
-	
-	//! checks the specified local work size against the max local work size in the kernel_entry,
-	//! and will compute a proper local work size if the specified one is invalid
-	//! NOTE: will only warn/error once per kernel per device
-	uint3 check_local_work_size(const kernel_entry& entry,
-								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
 	
 	//! internal function to create the actual argument buffer (should be implemented by backends)
 	virtual unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,

@@ -43,6 +43,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		mtl_pipeline_desc.label = @"metal pipeline";
 		mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
 		mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
+		mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
 		
 		// multi-sampling
 		if (pipeline_desc.sample_count > 1) {

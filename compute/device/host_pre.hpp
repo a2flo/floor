@@ -105,10 +105,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #if __clang_major__ == 12 // Xcode 12.5+
 #define FLOOR_TOOLCHAIN_VERSION 110000u
-#elif __clang_major__ >= 13 // Xcode 13.0+
+#elif (__clang_major__ == 13 && __clang_minor__ == 0) // Xcode 13.0 - 13.2
 #define FLOOR_TOOLCHAIN_VERSION 120000u
-#else // newer/unreleased Xcode, default to 12.0 for now
-#define FLOOR_TOOLCHAIN_VERSION 120000u
+#elif (__clang_major__ == 13 && __clang_minor__ >= 1) // Xcode 13.3
+#define FLOOR_TOOLCHAIN_VERSION 130000u
+#else // newer/unreleased Xcode, default to 13.0 for now
+#define FLOOR_TOOLCHAIN_VERSION 130000u
 #endif
 
 #endif
@@ -163,10 +165,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #elif defined(__APPLE__) && defined(FLOOR_IOS) // ios
 #define FLOOR_COMPUTE_INFO_OS_VERSION __IPHONE_OS_VERSION_MAX_ALLOWED
-#if FLOOR_COMPUTE_INFO_OS_VERSION < 110000
+#if FLOOR_COMPUTE_INFO_OS_VERSION < 120000
 #error "invalid os version"
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000 && FLOOR_COMPUTE_INFO_OS_VERSION < 120000
-#define FLOOR_COMPUTE_INFO_OS_VERSION_110000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 120000 && FLOOR_COMPUTE_INFO_OS_VERSION < 130000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_120000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 130000 && FLOOR_COMPUTE_INFO_OS_VERSION < 140000
@@ -272,6 +272,14 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT_1
 
 #define FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS 16u
+
+// indirect command info
+#define FLOOR_COMPUTE_INFO_INDIRECT_COMMAND_SUPPORT 0
+#define FLOOR_COMPUTE_INFO_INDIRECT_COMMAND_SUPPORT_0
+#define FLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT 0
+#define FLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_0
+#define FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT 0
+#define FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT_0
 
 // other required c++ headers
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)

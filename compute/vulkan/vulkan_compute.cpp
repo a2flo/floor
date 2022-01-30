@@ -2289,4 +2289,10 @@ void vulkan_compute::vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffe
 }
 #endif
 
+unique_ptr<indirect_command_pipeline> vulkan_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
+	// TODO: !
+	log_error("not yet supported by vulkan_compute!");
+	return {};
+}
+
 #endif

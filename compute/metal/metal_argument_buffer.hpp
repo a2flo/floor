@@ -28,8 +28,9 @@
 #include <Metal/MTLArgumentEncoder.h>
 #include <Metal/MTLComputeCommandEncoder.h>
 #include <Metal/MTLRenderCommandEncoder.h>
+#include <floor/compute/metal/metal_resource_tracking.hpp>
 
-class metal_argument_buffer : public argument_buffer {
+class metal_argument_buffer : public argument_buffer, public metal_resource_tracking {
 public:
 	metal_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer, aligned_ptr<uint8_t>&& storage_buffer_backing,
 						  id <MTLArgumentEncoder> encoder, const llvm_toolchain::function_info& arg_info, vector<uint32_t>&& arg_indices);
@@ -41,24 +42,11 @@ public:
 	//! ensures all tracked resources are resident during the lifetime of the specified encoder
 	void make_resident(id <MTLRenderCommandEncoder> enc, const llvm_toolchain::FUNCTION_TYPE& func_type) const;
 	
-	//! contains the state of multiple/all tracked resources
-	//! TODO/NOTE: right now, all buffers are considered read+write, images may be read-only or read+write (TODO: handle write-only/read-only buffers)
-	struct resource_info_t {
-		vector<id <MTLResource> __unsafe_unretained> read_only;
-		vector<id <MTLResource> __unsafe_unretained> write_only;
-		vector<id <MTLResource> __unsafe_unretained> read_write;
-		vector<id <MTLResource> __unsafe_unretained> read_only_images;
-		vector<id <MTLResource> __unsafe_unretained> read_write_images;
-	};
-	
 protected:
 	aligned_ptr<uint8_t> storage_buffer_backing;
 	id <MTLArgumentEncoder> encoder;
 	const llvm_toolchain::function_info& arg_info;
 	const vector<uint32_t> arg_indices;
-	
-	//! currently tracked resources
-	resource_info_t resources;
 	
 };
 

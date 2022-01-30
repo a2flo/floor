@@ -26,6 +26,7 @@
 #include <floor/core/flat_map.hpp>
 
 class compute_context;
+class indirect_command_pipeline;
 
 //! renderer object for a specific pass and one or more pipelines
 //! NOTE: create this every time something should be rendered (this doesn't/shouldn't be a static object)
@@ -234,6 +235,12 @@ public:
 	template <typename... Args> void multi_draw_indexed(const vector<multi_draw_indexed_entry>& draw_entries, const Args&... args) const {
 		draw_internal(nullptr, &draw_entries, { args... });
 	}
+	
+	//! executes the render/compute commands from an indirect command pipeline
+	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
+	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+								  const uint32_t command_offset = 0u,
+								  const uint32_t command_count = ~0u) const = 0;
 	
 	//////////////////////////////////////////
 	// misc

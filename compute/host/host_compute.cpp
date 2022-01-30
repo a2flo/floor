@@ -513,4 +513,10 @@ bool host_compute::has_host_device_support() const {
 #endif
 }
 
+unique_ptr<indirect_command_pipeline> host_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
+	// TODO: !
+	log_error("not yet supported by host_compute!");
+	return {};
+}
+
 #endif

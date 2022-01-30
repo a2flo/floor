@@ -146,6 +146,11 @@ public:
 																	const llvm_toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
+	// execution functionality
+	
+	unique_ptr<indirect_command_pipeline> create_indirect_command_pipeline(const indirect_command_description& desc) const override;
+	
+	//////////////////////////////////////////
 	// graphics functionality
 	
 	unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
@@ -198,7 +203,7 @@ public:
 	bool stop_metal_capture() const;
 	
 	//! returns the null-buffer for the specified device
-	//! NOTE: the null buffer is 4KiB in size
+	//! NOTE: the null buffer is one page in size (x86: 4KiB, ARM: 16KiB)
 	const metal_buffer* get_null_buffer(const compute_device& dev) const;
 	
 protected:

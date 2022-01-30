@@ -91,6 +91,16 @@ namespace ext {
 	template <typename any_type> struct is_span_helper : public false_type {};
 	template <typename elem_type, size_t extent> struct is_span_helper<span<elem_type, extent>> : public true_type {};
 	template <typename any_type> static constexpr bool is_span_v = is_span_helper<decay_t<any_type>>::value;
+
+	//! shared_ptr<T> detection
+	template <typename any_type> struct is_shared_ptr : public false_type {};
+	template <typename any_type> struct is_shared_ptr<shared_ptr<any_type>> : public true_type {};
+	template <typename T> constexpr bool is_shared_ptr_v = ext::is_shared_ptr<T>::value;
+
+	//! unique_ptr<T> detection
+	template <typename any_type> struct is_unique_ptr : public false_type {};
+	template <typename any_type> struct is_unique_ptr<unique_ptr<any_type>> : public true_type {};
+	template <typename T> constexpr bool is_unique_ptr_v = ext::is_unique_ptr<T>::value;
 #endif
 	
 	//! the equivalent/corresponding unsigned integer type to sizeof(T)

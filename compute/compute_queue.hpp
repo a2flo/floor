@@ -39,7 +39,8 @@ public:
 	template <typename T> struct is_compute_memory_pointer : public false_type {};
 	template <typename T>
 	requires (is_pointer_v<T> &&
-			  is_base_of_v<compute_memory, remove_pointer_t<T>>)
+			  (is_base_of_v<compute_memory, remove_pointer_t<T>> ||
+			   is_base_of_v<argument_buffer, remove_pointer_t<T>>))
 	struct is_compute_memory_pointer<T> : public true_type {};
 	
 	template <typename T>

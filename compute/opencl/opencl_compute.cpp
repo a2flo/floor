@@ -1148,4 +1148,10 @@ cl_int opencl_compute::get_kernel_sub_group_info(cl_kernel kernel,
 	return CL_INVALID_DEVICE;
 }
 
+unique_ptr<indirect_command_pipeline> opencl_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
+	// TODO: !
+	log_error("not yet supported by opencl_compute!");
+	return {};
+}
+
 #endif

@@ -38,6 +38,7 @@
 #include <floor/compute/metal/metal_device_query.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
+#include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/graphics/metal/metal_pass.hpp>
 #include <floor/graphics/metal/metal_renderer.hpp>
@@ -187,9 +188,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		} else if (darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_1;
 			device.metal_language_version = METAL_VERSION::METAL_2_1;
-		} else if (darwin_helper::get_system_version() >= 110000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_0;
-			device.metal_language_version = METAL_VERSION::METAL_2_0;
 		}
 		
 		// TODO: switch over to new MTLGPUFamily
@@ -300,6 +298,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
 				break;
+				
+			// A15
+			case 8:
+				device.units = 8;
+				device.mem_clock = 1600; // TODO: ram clock
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_total_local_size = 1024;
+				break;
 		}
 		device.local_mem_size = 16384; // fallback
 		device.local_mem_size = [dev maxThreadgroupMemoryLength];
@@ -313,6 +320,16 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.simd_range = { device.simd_width, device.simd_width };
 		}
 		device.image_cube_write_support = false;
+		
+		// check for indirect command support
+		// NOTE: while initially supported in iOS 12.0, we do require iOS 13.0 functionality
+		if (@available(iOS 13.0, *)) {
+			if ([dev supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v4]) {
+				device.indirect_command_support = true;
+				device.indirect_render_command_support = true;
+				device.indirect_compute_command_support = true;
+			}
+		}
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
@@ -415,6 +432,16 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// Metal 2.0+ on macOS supports sub-groups and shuffle
 		device.sub_group_support = true;
 		device.sub_group_shuffle_support = true;
+		
+		// check for indirect command support
+		// NOTE: while initially supported in macOS 10.14, we do require macOS 11.0 functionality
+		if (@available(macOS 11.0, *)) {
+			if ([dev supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1]) {
+				device.indirect_command_support = true;
+				device.indirect_render_command_support = true;
+				device.indirect_compute_command_support = true;
+			}
+		}
 #endif
 		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
@@ -433,6 +460,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("max global size: $'", device.max_global_size);
 		log_msg("SIMD width: $", device.simd_width);
 		log_msg("argument buffer tier: $", [dev argumentBuffersSupport] + 1);
+		log_msg("indirect commands: $", device.indirect_command_support ? "yes" : "no");
 		
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					 device.max_image_3d_dim.max_element()),
@@ -794,6 +822,14 @@ shared_ptr<compute_program> metal_compute::create_metal_test_program(shared_ptr<
 	metal_program::program_map_type prog_map;
 	prog_map.insert(*metal_dev, *metal_entry);
 	return make_shared<metal_program>(move(prog_map));
+}
+
+unique_ptr<indirect_command_pipeline> metal_compute::create_indirect_command_pipeline(const indirect_command_description& desc) const {
+	auto pipeline = make_unique<metal_indirect_command_pipeline>(desc, devices);
+	if (!pipeline || !pipeline->is_valid()) {
+		return {};
+	}
+	return pipeline;
 }
 
 MTLPixelFormat metal_compute::get_metal_renderer_pixel_format() const {
