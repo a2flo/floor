@@ -86,6 +86,9 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	}
 	if (depth_attachment) {
 		mtl_pass_desc.depthAttachment.texture = ((const metal_image*)depth_attachment->image)->get_metal_image();
+		if (depth_attachment->resolve_image) {
+			mtl_pass_desc.depthAttachment.resolveTexture = ((const metal_image*)depth_attachment->resolve_image)->get_metal_image();
+		}
 		if (dynamic_render_state.clear_values) {
 			mtl_pass_desc.depthAttachment.clearDepth = double((*dynamic_render_state.clear_values)[attachment_idx].depth);
 		}
