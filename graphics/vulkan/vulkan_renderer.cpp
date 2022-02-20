@@ -454,4 +454,11 @@ void vulkan_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries
 			 args);
 }
 
+void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry floor_unused,
+											const patch_draw_indexed_entry* draw_indexed_entry floor_unused,
+											const vector<compute_kernel_arg>& args floor_unused) const {
+	// TODO: implement this!
+	log_error("patch drawing not implemented yet!");
+}
+
 #endif

@@ -368,4 +368,30 @@ void metal_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries,
 	}
 }
 
+bool metal_renderer::set_tessellation_factors(const compute_buffer& tess_factors_buffer) {
+	if (!graphics_renderer::set_tessellation_factors(tess_factors_buffer)) {
+		return false;
+	}
+	
+	[encoder setTessellationFactorBuffer:((const metal_buffer&)tess_factors_buffer).get_metal_buffer()
+								  offset:0u
+						  instanceStride:0u];
+	
+	return true;
+}
+
+void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
+										   const patch_draw_indexed_entry* draw_indexed_entry,
+										   const vector<compute_kernel_arg>& args) const {
+	const auto tes = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
+	tes->set_shader_arguments(cqueue, encoder, cmd_buffer,
+							  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
+							  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
+	if (draw_entry != nullptr) {
+		tes->draw(encoder, *draw_entry);
+	} else if (draw_indexed_entry != nullptr) {
+		tes->draw(encoder, *draw_indexed_entry);
+	}
+}
+
 #endif

@@ -258,6 +258,8 @@
 		5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9C1377209E3C34005C516C /* universal_binary.hpp */; };
 		5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
 		5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
+		5CA2ADDE27B011F50061D07E /* tessellation.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA2ADDD27B011F50061D07E /* tessellation.hpp */; };
+		5CA2ADE027B192310061D07E /* graphics_vertex_format.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAC7FB91D91D14D00994062 /* ext_traits.hpp */; };
@@ -609,6 +611,8 @@
 		5C93EB4324B10B54002588D5 /* soft_pack.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = soft_pack.hpp; path = device/soft_pack.hpp; sourceTree = "<group>"; };
 		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
 		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
+		5CA2ADDD27B011F50061D07E /* tessellation.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = tessellation.hpp; path = device/tessellation.hpp; sourceTree = "<group>"; };
+		5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_vertex_format.hpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
@@ -1051,6 +1055,7 @@
 				5C3B61DB1C61647600358DAB /* sampler.hpp */,
 				5C93EB4324B10B54002588D5 /* soft_pack.hpp */,
 				5C5FF22B22515775007457AF /* soft_printf.hpp */,
+				5CA2ADDD27B011F50061D07E /* tessellation.hpp */,
 			);
 			name = device;
 			sourceTree = "<group>";
@@ -1144,6 +1149,7 @@
 				5C8452FF22B1A64C0014AECF /* graphics_pass.hpp */,
 				5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */,
 				5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */,
+				5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */,
 				5C84530422B1A6C90014AECF /* metal */,
 				5C84530F22B1A6D80014AECF /* vulkan */,
 			);
@@ -1285,6 +1291,7 @@
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C2A907E243B7CDF00C82150 /* hdr_metadata.hpp in Headers */,
 				5C5383ED1A641B1E007AEDD7 /* cuda_program.hpp in Headers */,
+				5CA2ADE027B192310061D07E /* graphics_vertex_format.hpp in Headers */,
 				5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */,
 				5CE0BDDC19BB2A75000B28B3 /* matrix4.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
@@ -1352,6 +1359,7 @@
 				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
 				5C2B87D51C73893E00F11EA5 /* vulkan_compute.hpp in Headers */,
 				5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */,
+				5CA2ADDE27B011F50061D07E /* tessellation.hpp in Headers */,
 				5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */,
 				5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */,
 				5C1091B617D1153E007F536E /* unicode.hpp in Headers */,

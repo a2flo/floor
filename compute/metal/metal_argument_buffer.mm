@@ -79,7 +79,9 @@ void metal_argument_buffer::make_resident(id <MTLComputeCommandEncoder> enc) con
 }
 
 void metal_argument_buffer::make_resident(id <MTLRenderCommandEncoder> enc, const llvm_toolchain::FUNCTION_TYPE& func_type) const {
-	assert(func_type == llvm_toolchain::FUNCTION_TYPE::VERTEX || func_type == llvm_toolchain::FUNCTION_TYPE::FRAGMENT);
+	assert(func_type == llvm_toolchain::FUNCTION_TYPE::VERTEX ||
+		   func_type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION ||
+		   func_type == llvm_toolchain::FUNCTION_TYPE::FRAGMENT);
 	if (!resources.read_only.empty()) {
 		[enc useResources:resources.read_only.data()
 					count:resources.read_only.size()

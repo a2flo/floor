@@ -419,6 +419,16 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT != 0);
 	}
 	
+	//! returns true if the backend and device have tessellation shader support
+	constexpr bool has_tessellation_support() {
+		return (FLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT != 0);
+	}
+	
+	//! returns the max supported tessellation factor that is supported by the device
+	constexpr uint32_t max_tessellation_factor() {
+		return FLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR;
+	}
+	
 }
 
 //! range attribute containing the global [min, max) id range

@@ -80,14 +80,15 @@ bool create_floor_function_info(const string& ffi_file_name,
 		if (token_type == "1") func_type = FUNCTION_TYPE::KERNEL;
 		else if (token_type == "2") func_type = FUNCTION_TYPE::VERTEX;
 		else if (token_type == "3") func_type = FUNCTION_TYPE::FRAGMENT;
-		else if (token_type == "4") func_type = FUNCTION_TYPE::GEOMETRY;
-		else if (token_type == "5") func_type = FUNCTION_TYPE::TESSELLATION_CONTROL;
-		else if (token_type == "6") func_type = FUNCTION_TYPE::TESSELLATION_EVALUATION;
+		else if (token_type == "4") func_type = FUNCTION_TYPE::TESSELLATION_CONTROL;
+		else if (token_type == "5") func_type = FUNCTION_TYPE::TESSELLATION_EVALUATION;
 		else if (token_type == "100") func_type = FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT;
 		
 		if (func_type != FUNCTION_TYPE::KERNEL &&
 			func_type != FUNCTION_TYPE::VERTEX &&
 			func_type != FUNCTION_TYPE::FRAGMENT &&
+			func_type != FUNCTION_TYPE::TESSELLATION_CONTROL &&
+			func_type != FUNCTION_TYPE::TESSELLATION_EVALUATION &&
 			func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
 			log_error("unsupported function type: $", token_type);
 			return false;
@@ -941,6 +942,12 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_"s + has_indirect_compute_cmd_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT="s + has_indirect_render_cmd_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT_"s + has_indirect_render_cmd_str;
+	
+	// tessellation support
+	const auto has_tessellation_str = to_string(device.tessellation_support);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT="s + has_tessellation_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT_"s + has_tessellation_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR="s + to_string(device.max_tessellation_factor) + "u";
 	
 	// set param workaround define
 	if(device.param_workaround) {

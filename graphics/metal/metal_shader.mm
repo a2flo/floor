@@ -102,11 +102,65 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& p
 							indexCount:entry.index_count
 							 indexType:MTLIndexTypeUInt32
 						   indexBuffer:((const metal_buffer*)entry.index_buffer)->get_metal_buffer()
-					 indexBufferOffset:entry.first_index
+					 indexBufferOffset:(entry.first_index * 4u)
 						 instanceCount:entry.instance_count
 							baseVertex:entry.vertex_offset
 						  baseInstance:entry.first_instance];
 	}
+}
+
+void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const graphics_renderer::patch_draw_entry& entry) const {
+	if (entry.control_point_buffers.empty()) {
+		log_error("no control-point buffer specified");
+		return;
+	}
+	
+	// always contiguous at the front
+	uint32_t vbuffer_idx = 0u;
+	for (const auto& vbuffer : entry.control_point_buffers) {
+		[encoder setVertexBuffer:((const metal_buffer*)vbuffer)->get_metal_buffer()
+						  offset:0u
+						 atIndex:vbuffer_idx++];
+	}
+	
+	[encoder drawPatches:entry.patch_control_point_count
+			  patchStart:entry.first_patch
+			  patchCount:entry.patch_count
+		patchIndexBuffer:nil
+  patchIndexBufferOffset:0u
+		   instanceCount:entry.instance_count
+			baseInstance:entry.first_instance];
+}
+
+void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
+						const graphics_renderer::patch_draw_indexed_entry& entry) const {
+	if (entry.control_point_buffers.empty()) {
+		log_error("no control-point buffer specified");
+		return;
+	}
+	if (!entry.control_point_index_buffer) {
+		log_error("invalid control-point index buffer");
+		return;
+	}
+	
+	// always contiguous at the front
+	uint32_t vbuffer_idx = 0u;
+	for (const auto& vbuffer : entry.control_point_buffers) {
+		[encoder setVertexBuffer:((const metal_buffer*)vbuffer)->get_metal_buffer()
+						  offset:0u
+						 atIndex:vbuffer_idx];
+		++vbuffer_idx;
+	}
+	
+	[encoder drawIndexedPatches:entry.patch_control_point_count
+					 patchStart:entry.first_patch
+					 patchCount:entry.patch_count
+			   patchIndexBuffer:nil
+		 patchIndexBufferOffset:0u
+		controlPointIndexBuffer:((const metal_buffer*)entry.control_point_index_buffer)->get_metal_buffer()
+  controlPointIndexBufferOffset:(entry.first_index * 4u)
+				  instanceCount:entry.instance_count
+				   baseInstance:entry.first_instance];
 }
 
 #endif

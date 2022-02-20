@@ -330,6 +330,13 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.indirect_compute_command_support = true;
 			}
 		}
+		
+		// tessellation is supported since A9
+		if (device.family_tier >= 3) {
+			device.tessellation_support = true;
+			// 64 since A12, 16 before that
+			device.max_tessellation_factor = (device.family_tier >= 5 ? 64u : 16u);
+		}
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
@@ -442,6 +449,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.indirect_compute_command_support = true;
 			}
 		}
+		
+		// tessellation is always supported on macOS with 64 max factor
+		device.tessellation_support = true;
+		device.max_tessellation_factor = 64u;
 #endif
 		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {

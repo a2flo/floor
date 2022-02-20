@@ -63,6 +63,16 @@ public:
 	//! returns the corresponding MTLCompareFunction for the specified DEPTH_COMPARE
 	static MTLCompareFunction metal_compare_func_from_depth_compare(const DEPTH_COMPARE& depth_compare);
 	
+	//! returns the corresponding MTLTessellationPartitionMode for the specified TESSELLATION_SPACING
+	static MTLTessellationPartitionMode metal_tessellation_partition_mode_from_spacing(const TESSELLATION_SPACING& spacing);
+	
+	//! returns the corresponding MTLWinding for the specified TESSELLATION_WINDING
+	static MTLWinding metal_winding_from_winding(const TESSELLATION_WINDING& winding);
+	
+	//! returns the corresponding MTLVertexFormat for the specified VERTEX_FORMAT
+	//! NOTE: returns MTLVertexFormatInvalid when there is no Metal-compatible vertex format
+	static MTLVertexFormat metal_vertex_format_from_vertex_format(const VERTEX_FORMAT& vertex_format);
+	
 protected:
 	flat_map<const compute_device&, metal_pipeline_entry> pipelines;
 	

@@ -181,6 +181,13 @@ public:
 	//! manually set or update/replace an attachment at a specific index
 	//! NOTE: depth attachments are automatically detected
 	virtual bool set_attachment(const uint32_t& index, attachment_t& attachment);
+	
+	//////////////////////////////////////////
+	// tessellation
+	
+	//! sets the tessellation per-patch factors buffer
+	//! NOTE: must be set before making any patch draw calls
+	virtual bool set_tessellation_factors(const compute_buffer& tess_factors_buffer);
 
 	//////////////////////////////////////////
 	// pipeline functions
@@ -236,6 +243,42 @@ public:
 		draw_internal(nullptr, &draw_entries, { args... });
 	}
 	
+	//! draw info with contiguous control points creating a new primitive every "patch_control_point_count" points
+	struct patch_draw_entry {
+		//! control point data for each vertex attribute
+		vector<compute_buffer* floor_nonnull> control_point_buffers;
+		uint32_t patch_control_point_count { 0u };
+		uint32_t patch_count { 0u };
+		uint32_t first_patch { 0u };
+		uint32_t instance_count { 1u };
+		uint32_t first_instance { 0u };
+	};
+	
+	//! draw info with primitives/control points created via indices into the control point buffer
+	struct patch_draw_indexed_entry {
+		//! control point data for each vertex attribute
+		vector<compute_buffer* floor_nonnull> control_point_buffers;
+		compute_buffer* floor_nonnull control_point_index_buffer;
+		uint32_t patch_control_point_count { 0u };
+		uint32_t first_index { 0u };
+		uint32_t patch_count { 0u };
+		uint32_t first_patch { 0u };
+		uint32_t instance_count { 1u };
+		uint32_t first_instance { 0u };
+	};
+	
+	//! emit a patch draw call with the draw-call information stored in "draw_entry"
+	//! NOTE: post-tessellation vertex shader arguments are specified first, fragment shader arguments after
+	template <typename... Args> void draw_patches(const patch_draw_entry& draw_entry, const Args&... args) const {
+		draw_patches_internal(&draw_entry, nullptr, { args... });
+	}
+	
+	//! emit an indexed patch draw call with the draw-call information stored in "draw_entry"
+	//! NOTE: post-tessellation vertex shader arguments are specified first, fragment shader arguments after
+	template <typename... Args> void draw_patches_indexed(const patch_draw_indexed_entry& draw_entry, const Args&... args) const {
+		draw_patches_internal(nullptr, &draw_entry, { args... });
+	}
+	
 	//! executes the render/compute commands from an indirect command pipeline
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
@@ -264,6 +307,11 @@ protected:
 	virtual void draw_internal(const vector<multi_draw_entry>* floor_nullable draw_entries,
 							   const vector<multi_draw_indexed_entry>* floor_nullable draw_indexed_entries,
 							   const vector<compute_kernel_arg>& args) const = 0;
+	
+	//! internal draw-patches call dispatcher for the respective backend
+	virtual void draw_patches_internal(const patch_draw_entry* floor_nullable draw_entry,
+									   const patch_draw_indexed_entry* floor_nullable draw_indexed_entry,
+									   const vector<compute_kernel_arg>& args) const = 0;
 	
 	//! sets the depth attachment
 	virtual bool set_depth_attachment(attachment_t& attachment);

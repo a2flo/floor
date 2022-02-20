@@ -436,6 +436,31 @@ SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_max)
 
 #endif
 
+#if defined(FLOOR_COMPUTE_VULKAN)
+// tessellation
+
+template <typename point_data_t>
+class vulkan_patch_control_point {
+public:
+	size_t size() const {
+		// TODO: implement this
+		return 0u;
+	}
+	
+	auto operator[](const size_t idx) const {
+		// TODO: implement this
+		//return __libfloor_access_patch_control_point(uint32_t(idx), p, point_data_t {});
+		return point_data_t {};
+	}
+	
+protected:
+	//! compiler-internal opaque type to deal with generic control point types
+	__patch_control_point_t p;
+	
+};
+
+#endif
+
 #endif
 
 #endif

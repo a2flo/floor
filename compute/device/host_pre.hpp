@@ -50,6 +50,8 @@ typedef __SIZE_TYPE__ size_t;
 #define kernel extern "C" __attribute__((compute_kernel, used, visibility("default")))
 #define vertex extern "C" __attribute__((vertex_shader, used, visibility("default")))
 #define fragment extern "C" __attribute__((fragment_shader, used, visibility("default")))
+#define tessellation_control extern "C" __attribute__((tessellation_control_shader, used, visibility("default")))
+#define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader, used, visibility("default")))
 #else // host toolchain
 #if !defined(__WINDOWS__)
 #define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default")))
@@ -63,6 +65,8 @@ typedef __SIZE_TYPE__ size_t;
 #define kernel FLOOR_ENTRY_POINT_SPEC_C
 #define vertex FLOOR_ENTRY_POINT_SPEC
 #define fragment FLOOR_ENTRY_POINT_SPEC
+#define tessellation_control FLOOR_ENTRY_POINT_SPEC
+#define tessellation_evaluation FLOOR_ENTRY_POINT_SPEC
 #endif
 
 // define calling convention
@@ -280,6 +284,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_0
 #define FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT 0
 #define FLOOR_COMPUTE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT_0
+
+// tessellation info
+#define FLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT 0
+#define FLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT_0
+
+#define FLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR 0u
 
 // other required c++ headers
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)

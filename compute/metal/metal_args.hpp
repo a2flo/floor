@@ -84,7 +84,7 @@ namespace metal_args {
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBytes:ptr length:size atIndex:idx.buffer_idx];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexBytes:ptr length:size atIndex:idx.buffer_idx];
 			} else {
 				[encoder setFragmentBytes:ptr length:size atIndex:idx.buffer_idx];
@@ -140,7 +140,7 @@ namespace metal_args {
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
@@ -268,12 +268,12 @@ namespace metal_args {
 					   atIndex:arg_buffer_index(idx, arg_buffer_indices)];
 			res_info->read_write.emplace_back(mtl_buffer_obj);
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
 				if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::VERTEX);
+					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, entry.type);
 				} else {
 					res_info->read_write.emplace_back(mtl_buffer_obj);
 				}
@@ -334,7 +334,7 @@ namespace metal_args {
 			[encoder setTexture:mtl_image_obj
 						atIndex:idx.texture_idx];
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexTexture:mtl_image_obj
 								  atIndex:idx.texture_idx];
 			} else {
@@ -352,7 +352,7 @@ namespace metal_args {
 					res_info->read_write_images.emplace_back(mtl_image_obj);
 				}
 			} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-				if (entry.type == FUNCTION_TYPE::VERTEX) {
+				if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					[encoder setVertexTexture:mtl_image_obj
 									  atIndex:(idx.texture_idx + 1)];
 				} else {
@@ -396,7 +396,7 @@ namespace metal_args {
 				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
 			}
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexTextures:mtl_img_array.data()
 								 withRange:NSRange { idx.texture_idx, count }];
 			} else {
@@ -435,7 +435,7 @@ namespace metal_args {
 				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
 			}
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX) {
+			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexTextures:mtl_img_array.data()
 								 withRange:NSRange { idx.texture_idx, count }];
 			} else {
@@ -465,6 +465,10 @@ namespace metal_args {
 			// ignore any stage input args
 			while (idx.arg < entry->args.size() &&
 				   entry->args[idx.arg].special_type == SPECIAL_TYPE::STAGE_INPUT) {
+				if (entry->type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					// offset buffer index by the amount of vertex attribute buffers
+					idx.buffer_idx += entry->args[idx.arg].size;
+				}
 				++idx.arg;
 			}
 			

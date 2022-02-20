@@ -41,6 +41,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 	
 		MTLRenderPipelineDescriptor* mtl_pipeline_desc = [[MTLRenderPipelineDescriptor alloc] init];
 		mtl_pipeline_desc.label = @"metal pipeline";
+		// NOTE: there is no difference here between a pre- and post-tessallation vertex shader
 		mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
 		mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
 		mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
@@ -126,6 +127,50 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 					break;
 			}
 			mtl_pipeline_desc.inputPrimitiveTopology = primitive;
+		}
+		
+		// tessellation
+		MTLVertexDescriptor* mtl_vertex_desc = [MTLVertexDescriptor vertexDescriptor];
+		if (pipeline_desc.tessellation.max_factor > 0u) {
+			if (pipeline_desc.tessellation.max_factor > 64u) {
+				log_error("max tessellation factor is out-of-range: $!", pipeline_desc.tessellation.max_factor);
+				return;
+			}
+			if (pipeline_desc.primitive != PRIMITIVE::TRIANGLE) {
+				log_error("when using tessellation, pipeline primitive type must be triangle");
+				return;
+			}
+			mtl_pipeline_desc.maxTessellationFactor = pipeline_desc.tessellation.max_factor;
+			mtl_pipeline_desc.tessellationFactorScaleEnabled = false; // never
+			mtl_pipeline_desc.tessellationFactorFormat = MTLTessellationFactorFormatHalf;
+			mtl_pipeline_desc.tessellationControlPointIndexType = (pipeline_desc.tessellation.is_indexed_draw ?
+																   MTLTessellationControlPointIndexTypeUInt32 :
+																   MTLTessellationControlPointIndexTypeNone);
+			mtl_pipeline_desc.tessellationFactorStepFunction = MTLTessellationFactorStepFunctionPerPatch;
+			mtl_pipeline_desc.tessellationPartitionMode = metal_tessellation_partition_mode_from_spacing(pipeline_desc.tessellation.spacing);
+			mtl_pipeline_desc.tessellationOutputWindingOrder = metal_winding_from_winding(pipeline_desc.tessellation.winding);
+			
+			// when using tessellation, we *must* also specify the vertex attributes that are being used,
+			// since vertices / control points will be fetched by fixed-function hardware and not a shader
+			if (pipeline_desc.tessellation.vertex_attributes.empty()) {
+				log_error("must specify vertex attributes when using tessellation");
+				return;
+			}
+			uint32_t vattr_idx = 0;
+			for (const auto& vattr : pipeline_desc.tessellation.vertex_attributes) {
+				mtl_vertex_desc.attributes[vattr_idx].format = metal_vertex_format_from_vertex_format(vattr);
+				if (mtl_vertex_desc.attributes[vattr_idx].format == MTLVertexFormatInvalid) {
+					log_error("invalid or incompatible vertex attribute format: $X", vattr);
+					return;
+				}
+				mtl_vertex_desc.attributes[vattr_idx].offset = 0u;
+				mtl_vertex_desc.attributes[vattr_idx].bufferIndex = vattr_idx; // contiguous (ensured on the compiler side)
+				mtl_vertex_desc.layouts[vattr_idx].stepFunction = MTLVertexStepFunctionPerPatchControlPoint;
+				mtl_vertex_desc.layouts[vattr_idx].stepRate = 1u;
+				mtl_vertex_desc.layouts[vattr_idx].stride = vertex_bytes(vattr);
+				++vattr_idx;
+			}
+			mtl_pipeline_desc.vertexDescriptor = mtl_vertex_desc;
 		}
 		
 		// TODO: set per-buffer mutability
@@ -270,6 +315,92 @@ MTLCompareFunction metal_pipeline::metal_compare_func_from_depth_compare(const D
 		case DEPTH_COMPARE::ALWAYS:
 			return MTLCompareFunctionAlways;
 	}
+}
+
+MTLTessellationPartitionMode metal_pipeline::metal_tessellation_partition_mode_from_spacing(const TESSELLATION_SPACING& spacing) {
+	switch (spacing) {
+		case TESSELLATION_SPACING::EQUAL:
+			return MTLTessellationPartitionModeInteger;
+		case TESSELLATION_SPACING::FRACTIONAL_ODD:
+			return MTLTessellationPartitionModeFractionalOdd;
+		case TESSELLATION_SPACING::FRACTIONAL_EVEN:
+			return MTLTessellationPartitionModeFractionalEven;
+	}
+}
+
+MTLWinding metal_pipeline::metal_winding_from_winding(const TESSELLATION_WINDING& winding) {
+	switch (winding) {
+		case TESSELLATION_WINDING::CLOCKWISE:
+			return MTLWindingClockwise;
+		case TESSELLATION_WINDING::COUNTER_CLOCKWISE:
+			return MTLWindingCounterClockwise;
+	}
+}
+
+MTLVertexFormat metal_pipeline::metal_vertex_format_from_vertex_format(const VERTEX_FORMAT& vertex_format) {
+	static const unordered_map<VERTEX_FORMAT, MTLVertexFormat> format_lut {
+		{ VERTEX_FORMAT::HALF1, MTLVertexFormatHalf },
+		{ VERTEX_FORMAT::HALF2, MTLVertexFormatHalf2 },
+		{ VERTEX_FORMAT::HALF3, MTLVertexFormatHalf3 },
+		{ VERTEX_FORMAT::HALF4, MTLVertexFormatHalf4 },
+		{ VERTEX_FORMAT::FLOAT1, MTLVertexFormatFloat },
+		{ VERTEX_FORMAT::FLOAT2, MTLVertexFormatFloat2 },
+		{ VERTEX_FORMAT::FLOAT3, MTLVertexFormatFloat3 },
+		{ VERTEX_FORMAT::FLOAT4, MTLVertexFormatFloat4 },
+		
+		{ VERTEX_FORMAT::UCHAR1, MTLVertexFormatUChar },
+		{ VERTEX_FORMAT::UCHAR2, MTLVertexFormatUChar2 },
+		{ VERTEX_FORMAT::UCHAR3, MTLVertexFormatUChar3 },
+		{ VERTEX_FORMAT::UCHAR4, MTLVertexFormatUChar4 },
+		{ VERTEX_FORMAT::USHORT1, MTLVertexFormatUShort },
+		{ VERTEX_FORMAT::USHORT2, MTLVertexFormatUShort2 },
+		{ VERTEX_FORMAT::USHORT3, MTLVertexFormatUShort3 },
+		{ VERTEX_FORMAT::USHORT4, MTLVertexFormatUShort4 },
+		{ VERTEX_FORMAT::UINT1, MTLVertexFormatUInt },
+		{ VERTEX_FORMAT::UINT2, MTLVertexFormatUInt2 },
+		{ VERTEX_FORMAT::UINT3, MTLVertexFormatUInt3 },
+		{ VERTEX_FORMAT::UINT4, MTLVertexFormatUInt4 },
+		
+		{ VERTEX_FORMAT::CHAR1, MTLVertexFormatChar },
+		{ VERTEX_FORMAT::CHAR2, MTLVertexFormatChar2 },
+		{ VERTEX_FORMAT::CHAR3, MTLVertexFormatChar3 },
+		{ VERTEX_FORMAT::CHAR4, MTLVertexFormatChar4 },
+		{ VERTEX_FORMAT::SHORT1, MTLVertexFormatShort },
+		{ VERTEX_FORMAT::SHORT2, MTLVertexFormatShort2 },
+		{ VERTEX_FORMAT::SHORT3, MTLVertexFormatShort3 },
+		{ VERTEX_FORMAT::SHORT4, MTLVertexFormatShort4 },
+		{ VERTEX_FORMAT::INT1, MTLVertexFormatInt },
+		{ VERTEX_FORMAT::INT2, MTLVertexFormatInt2 },
+		{ VERTEX_FORMAT::INT3, MTLVertexFormatInt3 },
+		{ VERTEX_FORMAT::INT4, MTLVertexFormatInt4 },
+		
+		{ VERTEX_FORMAT::UCHAR1_NORM, MTLVertexFormatUCharNormalized },
+		{ VERTEX_FORMAT::UCHAR2_NORM, MTLVertexFormatUChar2Normalized },
+		{ VERTEX_FORMAT::UCHAR3_NORM, MTLVertexFormatUChar3Normalized },
+		{ VERTEX_FORMAT::UCHAR4_NORM, MTLVertexFormatUChar4Normalized },
+		{ VERTEX_FORMAT::USHORT1_NORM, MTLVertexFormatUShortNormalized },
+		{ VERTEX_FORMAT::USHORT2_NORM, MTLVertexFormatUShort2Normalized },
+		{ VERTEX_FORMAT::USHORT3_NORM, MTLVertexFormatUShort3Normalized },
+		{ VERTEX_FORMAT::USHORT4_NORM, MTLVertexFormatUShort4Normalized },
+		{ VERTEX_FORMAT::USHORT4_NORM_BGRA, MTLVertexFormatUChar4Normalized_BGRA },
+		
+		{ VERTEX_FORMAT::CHAR1_NORM, MTLVertexFormatCharNormalized },
+		{ VERTEX_FORMAT::CHAR2_NORM, MTLVertexFormatChar2Normalized },
+		{ VERTEX_FORMAT::CHAR3_NORM, MTLVertexFormatChar3Normalized },
+		{ VERTEX_FORMAT::CHAR4_NORM, MTLVertexFormatChar4Normalized },
+		{ VERTEX_FORMAT::SHORT1_NORM, MTLVertexFormatShortNormalized },
+		{ VERTEX_FORMAT::SHORT2_NORM, MTLVertexFormatShort2Normalized },
+		{ VERTEX_FORMAT::SHORT3_NORM, MTLVertexFormatShort3Normalized },
+		{ VERTEX_FORMAT::SHORT4_NORM, MTLVertexFormatShort4Normalized },
+		
+		{ VERTEX_FORMAT::U1010102_NORM, MTLVertexFormatUInt1010102Normalized },
+		{ VERTEX_FORMAT::I1010102_NORM, MTLVertexFormatInt1010102Normalized },
+	};
+	const auto metal_vertex_format = format_lut.find(vertex_format);
+	if (metal_vertex_format == end(format_lut)) {
+		return MTLVertexFormatInvalid;
+	}
+	return metal_vertex_format->second;
 }
 
 const metal_pipeline::metal_pipeline_entry* metal_pipeline::get_metal_pipeline_entry(const compute_device& dev) const {

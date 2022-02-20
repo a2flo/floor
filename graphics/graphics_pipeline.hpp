@@ -23,6 +23,7 @@
 #include <floor/core/enum_helpers.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/device/image_types.hpp>
+#include <floor/graphics/graphics_vertex_format.hpp>
 #include <optional>
 
 enum class PRIMITIVE {
@@ -87,12 +88,26 @@ enum class BLEND_OP {
 	MAX,
 };
 
+enum class TESSELLATION_SPACING {
+	EQUAL,
+	FRACTIONAL_ODD,
+	FRACTIONAL_EVEN,
+};
+
+enum class TESSELLATION_WINDING {
+	CLOCKWISE,
+	COUNTER_CLOCKWISE,
+};
+
 class compute_kernel;
 
 //! full pipeline description used to create pipeline objects
 struct render_pipeline_description {
-	//! shaders for this pipeline
+	//! standard vertex shader or post-tessellation vertex shader (run after the fixed-function tessellator)
+	//! NOTE: when tessellation is active, only the TES will be run and act as the vertex shader
+	//! NOTE: for Vulkan, a synthetic/builtin pass-through "pre-tessellation vertex shader" will be used internally
 	const compute_kernel* vertex_shader { nullptr };
+	//! standard fragment shader
 	const compute_kernel* fragment_shader { nullptr };
 	
 	//! to be rendered primitive type
@@ -195,6 +210,28 @@ struct render_pipeline_description {
 		bool automatic_multi_view_transformation { true };
 	};
 	depth_attachment_t depth_attachment;
+	
+	//! tessellation state
+	struct tessellation_t {
+		//! maximum tessellation factor that may be used
+		//! NOTE: tessellation is inactive if this is 0
+		//! NOTE: for active tessellation, the value must be in [1, 64]
+		uint32_t max_factor { 0u };
+		
+		//! vertex attributes of the control points that are read by the fixed-function tessellator (e.g. position, tex coord, ...)
+		//! NOTE: it is assumed that each specified vertex attribute is a separate vertex buffer
+		//! NOTE: for each attribute, it is assumed that data is densely packed without any padding (stride == size of type)
+		vector<VERTEX_FORMAT> vertex_attributes;
+		
+		//! tessellation spacing/partition-mode of the output primitives
+		TESSELLATION_SPACING spacing { TESSELLATION_SPACING::EQUAL };
+		
+		//! winding order of the output primitives
+		TESSELLATION_WINDING winding { TESSELLATION_WINDING::COUNTER_CLOCKWISE };
+		
+		//! only either of "draw_patches()" or "draw_patches_indexed()" is allowed and must be known at pipeline creation time
+		bool is_indexed_draw { false };
+	} tessellation;
 
 	//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering
 	//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering

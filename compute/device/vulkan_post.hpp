@@ -142,7 +142,7 @@ const_func uint32_t get_view_index() asm("floor.builtin.view_index.i32");
 // vertex shader
 //! returns the vertex id inside a vertex shader
 const_func uint32_t get_vertex_id() asm("floor.builtin.vertex_id.i32");
-//! returns the instance id inside a vertex shader
+//! returns the instance id inside a vertex shader or tessellation evaluation shader
 const_func uint32_t get_instance_id() asm("floor.builtin.instance_id.i32");
 
 //////////////////////////////////////////
@@ -196,6 +196,19 @@ floor_inline_always const_func pair<float2, float2> dfdx_dfdy_gradient(const flo
 floor_inline_always const_func pair<float3, float3> dfdx_dfdy_gradient(const float3& p) {
 	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdy(p.z) } };
 }
+
+//////////////////////////////////////////
+// tessellation evaluation shader
+
+//! returns the patch id inside a tessellation evaluation shader
+const_func uint32_t get_patch_id() asm("floor.builtin.patch_id.i32"); // TODO: implement this
+
+//! returns the position within a patch inside a tessellation evaluation shader (clang vector variant)
+const_func clang_float3 get_position_in_patch_cf3() asm("floor.builtin.position_in_patch.float3"); // TODO: implement this
+//! returns the position within a patch inside a tessellation evaluation shader
+floor_inline_always const_func float3 get_position_in_patch() { return float3::from_clang_vector(get_position_in_patch_cf3()); }
+
+// NOTE: for tessellation evaluation shader instance_id, see vertex shader
 
 #endif
 

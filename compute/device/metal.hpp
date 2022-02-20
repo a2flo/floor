@@ -250,6 +250,27 @@ static void printf(constant const char (&format)[format_N], const Args&... args)
 
 #endif
 
+// tessellation
+
+const_func metal_func uint16_t metal_get_num_patch_control_points() asm("air.get_num_patch_control_points");
+
+template <typename point_data_t>
+class metal_patch_control_point {
+public:
+	size_t size() const {
+		return metal_get_num_patch_control_points();
+	}
+	
+	auto operator[](const size_t idx) const {
+		return __libfloor_access_patch_control_point(uint32_t(idx), p, point_data_t {});
+	}
+	
+protected:
+	//! compiler-internal opaque type to deal with generic control point types
+	__patch_control_point_t p;
+	
+};
+
 #endif
 
 #endif

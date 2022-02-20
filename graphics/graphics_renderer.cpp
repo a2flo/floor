@@ -100,3 +100,7 @@ bool graphics_renderer::set_depth_attachment(attachment_t& attachment) {
 	depth_attachment = attachment;
 	return true;
 }
+
+bool graphics_renderer::set_tessellation_factors(const compute_buffer& tess_factors_buffer floor_unused) {
+	return true;
+}

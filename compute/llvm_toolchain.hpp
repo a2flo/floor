@@ -47,12 +47,10 @@ namespace llvm_toolchain {
 		KERNEL							= (1u),
 		VERTEX							= (2u),
 		FRAGMENT						= (3u),
-		//! NOTE: unsupported right now
-		GEOMETRY						= (4u),
-		//! NOTE: unsupported right now
-		TESSELLATION_CONTROL			= (5u),
-		//! NOTE: unsupported right now
-		TESSELLATION_EVALUATION			= (6u),
+		//! NOTE: for internal use only
+		TESSELLATION_CONTROL			= (4u),
+		//! aka "post-tessellation vertex shader"
+		TESSELLATION_EVALUATION			= (5u),
 		
 		//! argument buffer structs are treated the same way as actual functions
 		ARGUMENT_BUFFER_STRUCT			= (100u),

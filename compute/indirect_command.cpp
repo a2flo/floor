@@ -60,7 +60,10 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 				case llvm_toolchain::SPECIAL_TYPE::SSBO:
 					break;
 				case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
-					skip = true; // skip stage input parameters
+					// only tessellation evaluation shaders may contain buffers in stage_input
+					if (entry->info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+						buf_count += arg.size;
+					}
 					break;
 				case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
 				case llvm_toolchain::SPECIAL_TYPE::IUB:
@@ -82,15 +85,14 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 				max_kernel_buffer_count = max(max_kernel_buffer_count, buf_count);
 				break;
 			case llvm_toolchain::FUNCTION_TYPE::VERTEX:
+			case llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION:
 				max_vertex_buffer_count = max(max_vertex_buffer_count, buf_count);
 				break;
 			case llvm_toolchain::FUNCTION_TYPE::FRAGMENT:
 				max_fragment_buffer_count = max(max_fragment_buffer_count, buf_count);
 				break;
 			case llvm_toolchain::FUNCTION_TYPE::NONE:
-			case llvm_toolchain::FUNCTION_TYPE::GEOMETRY:
 			case llvm_toolchain::FUNCTION_TYPE::TESSELLATION_CONTROL:
-			case llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION:
 			case llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT:
 				throw runtime_error("unhandled function type");
 		}

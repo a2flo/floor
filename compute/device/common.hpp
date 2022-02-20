@@ -445,6 +445,9 @@ template <typename T> using param = const T&;
 // software pack/unpack functions
 #include <floor/compute/device/soft_pack.hpp>
 
+// tessellation support
+#include <floor/compute/device/tessellation.hpp>
+
 // late function declarations that require any of the prior functionality
 #if defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_post.hpp>
@@ -462,6 +465,8 @@ template <typename T> using param = const T&;
 #define view_index get_view_index()
 #define primitive_id get_primitive_id()
 #define barycentric_coord get_barycentric_coord()
+#define patch_id get_patch_id()
+#define position_in_patch get_position_in_patch()
 #endif
 
 #endif

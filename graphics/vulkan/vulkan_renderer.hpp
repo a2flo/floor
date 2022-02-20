@@ -79,6 +79,10 @@ protected:
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 					   const vector<compute_kernel_arg>& args) const override;
 	
+	void draw_patches_internal(const patch_draw_entry* draw_entry,
+							   const patch_draw_indexed_entry* draw_indexed_entry,
+							   const vector<compute_kernel_arg>& args) const override;
+	
 	bool update_vulkan_pipeline();
 	
 	const vulkan_pipeline::vulkan_pipeline_state_t* vk_pipeline_state { nullptr };

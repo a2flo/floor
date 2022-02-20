@@ -69,6 +69,11 @@ floor_inline_always __attribute__((const)) pair<float3, float3> dfdx_dfdy_gradie
 	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdy(p.z) } };
 }
 
+// NOTE: not supported
+floor_inline_always __attribute__((const)) uint32_t get_patch_id() { return 0u; }
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float3 get_position_in_patch() { return {}; }
+
 #endif
 
 #endif

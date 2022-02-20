@@ -275,6 +275,24 @@ void image_write_mem_fence();
 uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset) noexcept;
 #endif
 
+// tessellation
+
+// TODO: implement this
+template <typename point_data_t>
+class host_patch_control_point {
+public:
+	size_t size() const {
+		return 0;
+	}
+	
+	point_data_t operator[](const size_t idx floor_unused) const {
+		return {};
+	}
+	
+protected:
+	
+};
+
 #endif
 
 #endif

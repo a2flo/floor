@@ -324,9 +324,13 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	// find the metal buffer index
 	uint32_t buffer_idx = 0;
 	for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
-		if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE &&
-			mtl_entry.info->args[i].special_type != SPECIAL_TYPE::STAGE_INPUT) {
-			// all args except for images and stage-input are buffers
+		if (mtl_entry.info->args[i].special_type != SPECIAL_TYPE::STAGE_INPUT) {
+			// only tessellation evaluation shaders may contain buffers in stage_input
+			if (mtl_entry.info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+				buffer_idx += mtl_entry.info->args[i].size;
+			}
+		} else if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE) {
+			// all args except for images are buffers
 			++buffer_idx;
 		}
 	}

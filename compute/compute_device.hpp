@@ -203,6 +203,11 @@ public:
 	//! true if the device supports indirect render/graphics commands
 	bool indirect_render_command_support { false };
 	
+	//! true if the device supports tessellation shaders
+	bool tessellation_support { false };
+	//! if tessellation shaders are supported, this specifies the max supported tessellation factor
+	uint32_t max_tessellation_factor { 0u };
+	
 	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
 	bool param_workaround { false };
 	
