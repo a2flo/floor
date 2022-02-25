@@ -77,6 +77,24 @@ public:
 												  const int32_t vertex_offset = 0u,
 												  const uint32_t first_instance = 0u) override;
 	
+	indirect_render_command_encoder& draw_patches(const vector<const compute_buffer*> control_point_buffers,
+												  const compute_buffer& tessellation_factors_buffer,
+												  const uint32_t patch_control_point_count,
+												  const uint32_t patch_count,
+												  const uint32_t first_patch = 0u,
+												  const uint32_t instance_count = 1u,
+												  const uint32_t first_instance = 0u) override;
+	
+	indirect_render_command_encoder& draw_patches_indexed(const vector<const compute_buffer*> control_point_buffers,
+														  const compute_buffer& control_point_index_buffer,
+														  const compute_buffer& tessellation_factors_buffer,
+														  const uint32_t patch_control_point_count,
+														  const uint32_t patch_count,
+														  const uint32_t first_index = 0u,
+														  const uint32_t first_patch = 0u,
+														  const uint32_t instance_count = 1u,
+														  const uint32_t first_instance = 0u) override;
+	
 protected:
 	const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry;
 	const uint32_t command_idx { 0u };

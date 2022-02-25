@@ -407,6 +407,8 @@ namespace universal_binary {
 				mtl_dev.double_support = false; // always disabled for now
 				mtl_dev.primitive_id_support = mtl_target.primitive_id_support;
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
+				mtl_dev.tessellation_support = mtl_target.tessellation_support;
+				mtl_dev.max_tessellation_factor = (mtl_target.tessellation_max_factor_tier == 0 ? 16u : 64u);
 				
 				// overwrite compute_device/metal_device defaults
 				if (mtl_target.is_ios) {
@@ -529,6 +531,8 @@ namespace universal_binary {
 				vlk_dev.basic_32_bit_float_atomics_support = vlk_target.basic_32_bit_float_atomics_support;
 				vlk_dev.primitive_id_support = vlk_target.primitive_id_support;
 				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
+				vlk_dev.tessellation_support = vlk_target.tessellation_support;
+				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
 				
 				// assume minimum required support for now
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
@@ -1223,6 +1227,13 @@ namespace universal_binary {
 					if (mtl_target.barycentric_coord_support && !dev.barycentric_coord_support) {
 						continue;
 					}
+					if (mtl_target.tessellation_support && !dev.tessellation_support) {
+						continue;
+					}
+					if (mtl_target.tessellation_support &&
+						mtl_target.tessellation_max_factor_tier == 1 && dev.max_tessellation_factor < 64u) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1260,9 +1271,13 @@ namespace universal_binary {
 						
 						// more used/supported caps beats lower
 						const auto cap_sum = (mtl_target.primitive_id_support +
-											  mtl_target.barycentric_coord_support);
+											  mtl_target.barycentric_coord_support +
+											  mtl_target.tessellation_support +
+											  (mtl_target.tessellation_support && mtl_target.tessellation_max_factor_tier > 0 ? 1u : 0u));
 						const auto best_cap_sum = (best_mtl.primitive_id_support +
-												   best_mtl.barycentric_coord_support);
+												   best_mtl.barycentric_coord_support +
+												   best_mtl.tessellation_support +
+												   (best_mtl.tessellation_support && best_mtl.tessellation_max_factor_tier > 0 ? 1u : 0u));
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
@@ -1373,6 +1388,9 @@ namespace universal_binary {
 					if (vlk_target.barycentric_coord_support && !dev.barycentric_coord_support) {
 						continue;
 					}
+					if (vlk_target.tessellation_support && (!dev.tessellation_support || dev.max_tessellation_factor < 64u)) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1413,13 +1431,15 @@ namespace universal_binary {
 											  vlk_target.extended_64_bit_atomics_support +
 											  vlk_target.basic_32_bit_float_atomics_support +
 											  vlk_target.primitive_id_support +
-											  vlk_target.barycentric_coord_support);
+											  vlk_target.barycentric_coord_support +
+											  vlk_target.tessellation_support);
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
 												   best_vlk.extended_64_bit_atomics_support +
 												   best_vlk.basic_32_bit_float_atomics_support +
 												   best_vlk.primitive_id_support +
-												   best_vlk.barycentric_coord_support);
+												   best_vlk.barycentric_coord_support +
+												   best_vlk.tessellation_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;

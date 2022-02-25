@@ -194,7 +194,13 @@ namespace universal_binary {
 			//! NOTE: requires Metal 2.2 on macOS, Metal 2.3 on iOS
 			uint64_t barycentric_coord_support : 1;
 			
-			uint64_t _unused : 30;
+			//! if set, enables tessellation support
+			uint64_t tessellation_support : 1;
+			
+			//! signals the max tessellation factor that can be used: 0 = 16, 1 = 64
+			uint64_t tessellation_max_factor_tier : 1;
+			
+			uint64_t _unused : 28;
 		} metal;
 		
 		struct __attribute__((packed)) {
@@ -250,7 +256,10 @@ namespace universal_binary {
 			//! if set, enables barycentric coord support
 			uint64_t barycentric_coord_support : 1;
 			
-			uint64_t _unused : 25;
+			//! if set, enables tessellation support
+			uint64_t tessellation_support : 1;
+			
+			uint64_t _unused : 24;
 		} vulkan;
 
 		//! packed value

@@ -267,6 +267,74 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_ind
 	return *this;
 }
 
+indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_patches(const vector<const compute_buffer*> control_point_buffers,
+																					 const compute_buffer& tessellation_factors_buffer,
+																					 const uint32_t patch_control_point_count,
+																					 const uint32_t patch_count,
+																					 const uint32_t first_patch,
+																					 const uint32_t instance_count,
+																					 const uint32_t first_instance) {
+	uint32_t vbuffer_idx = 0u;
+	for (const auto& vbuffer : control_point_buffers) {
+		auto mtl_buf = ((const metal_buffer*)vbuffer)->get_metal_buffer();
+		[command setVertexBuffer:mtl_buf
+						  offset:0u
+						 atIndex:vbuffer_idx++];
+		resources.read_only.emplace_back(mtl_buf);
+	}
+	
+	auto factors_buffer = ((const metal_buffer&)tessellation_factors_buffer).get_metal_buffer();
+	[command drawPatches:patch_control_point_count
+			  patchStart:first_patch
+			  patchCount:patch_count
+		patchIndexBuffer:nil
+  patchIndexBufferOffset:0u
+		   instanceCount:instance_count
+			baseInstance:first_instance
+tessellationFactorBuffer:factors_buffer
+tessellationFactorBufferOffset:0u
+tessellationFactorBufferInstanceStride:0u];
+	resources.read_only.emplace_back(factors_buffer);
+	return *this;
+}
+
+indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_patches_indexed(const vector<const compute_buffer*> control_point_buffers,
+																							 const compute_buffer& control_point_index_buffer,
+																							 const compute_buffer& tessellation_factors_buffer,
+																							 const uint32_t patch_control_point_count,
+																							 const uint32_t patch_count,
+																							 const uint32_t first_index,
+																							 const uint32_t first_patch,
+																							 const uint32_t instance_count,
+																							 const uint32_t first_instance) {
+	uint32_t vbuffer_idx = 0u;
+	for (const auto& vbuffer : control_point_buffers) {
+		auto mtl_buf = ((const metal_buffer*)vbuffer)->get_metal_buffer();
+		[command setVertexBuffer:mtl_buf
+						  offset:0u
+						 atIndex:vbuffer_idx++];
+		resources.read_only.emplace_back(mtl_buf);
+	}
+	
+	auto idx_buffer = ((const metal_buffer&)control_point_index_buffer).get_metal_buffer();
+	auto factors_buffer = ((const metal_buffer&)tessellation_factors_buffer).get_metal_buffer();
+	[command drawIndexedPatches:patch_control_point_count
+					 patchStart:first_patch
+					 patchCount:patch_count
+			   patchIndexBuffer:nil
+		 patchIndexBufferOffset:0u
+		controlPointIndexBuffer:idx_buffer
+  controlPointIndexBufferOffset:(first_index * 4u)
+				  instanceCount:instance_count
+				   baseInstance:first_instance
+	   tessellationFactorBuffer:factors_buffer
+ tessellationFactorBufferOffset:0u
+tessellationFactorBufferInstanceStride:0u];
+	resources.read_only.emplace_back(idx_buffer);
+	resources.read_only.emplace_back(factors_buffer);
+	return *this;
+}
+
 metal_indirect_compute_command_encoder::metal_indirect_compute_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
 																			   const compute_queue& dev_queue_, const compute_kernel& kernel_obj_) :

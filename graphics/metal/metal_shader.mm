@@ -148,8 +148,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
 	for (const auto& vbuffer : entry.control_point_buffers) {
 		[encoder setVertexBuffer:((const metal_buffer*)vbuffer)->get_metal_buffer()
 						  offset:0u
-						 atIndex:vbuffer_idx];
-		++vbuffer_idx;
+						 atIndex:vbuffer_idx++];
 	}
 	
 	[encoder drawIndexedPatches:entry.patch_control_point_count
