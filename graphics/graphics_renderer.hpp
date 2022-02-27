@@ -279,7 +279,7 @@ public:
 		draw_patches_internal(nullptr, &draw_entry, { args... });
 	}
 	
-	//! executes the render/compute commands from an indirect command pipeline
+	//! executes the render commands from an indirect command pipeline
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								  const uint32_t command_offset = 0u,

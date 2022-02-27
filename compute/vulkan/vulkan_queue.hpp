@@ -72,6 +72,10 @@ public:
 	void finish() const override REQUIRES(!queue_lock);
 	void flush() const override;
 	
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+						  const uint32_t command_offset = 0u,
+						  const uint32_t command_count = ~0u) const override;
+	
 	// this is synchronized elsewhere
 	const void* get_queue_ptr() const override NO_THREAD_SAFETY_ANALYSIS {
 		return vk_queue;

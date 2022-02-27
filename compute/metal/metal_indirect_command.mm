@@ -193,6 +193,51 @@ void metal_indirect_command_pipeline::reset() {
 	indirect_command_pipeline::reset();
 }
 
+optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
+																					  const uint32_t command_count) const {
+	NSRange range { command_offset, command_count };
+	if (command_count == ~0u) {
+		range.length = get_command_count();
+	}
+#if defined(FLOOR_DEBUG)
+	{
+		const auto cmd_count = get_command_count();
+		if (command_offset != 0 || range.length != cmd_count) {
+			static once_flag flag;
+			call_once(flag, [] {
+				// see below
+				log_warn("efficient resource usage declarations when using partial command ranges is not implemented yet");
+			});
+		}
+		if (cmd_count == 0) {
+			log_warn("no commands in indirect command pipeline \"$\"", desc.debug_label);
+		}
+		if (range.location >= cmd_count) {
+			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
+					  range.location, desc.debug_label);
+			return {};
+		}
+		uint32_t sum = 0;
+		if (__builtin_uadd_overflow((uint32_t)range.location, (uint32_t)range.length, &sum)) {
+			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
+					  range.location, range.length, desc.debug_label);
+			return {};
+		}
+		if (sum > cmd_count) {
+			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
+					  range.length, desc.debug_label);
+			return {};
+		}
+	}
+#endif
+	// post count check, since this might have been modified, but we still want the debug messages
+	if (range.length == 0) {
+		return {};
+	}
+	
+	return range;
+}
+
 metal_indirect_render_command_encoder::metal_indirect_render_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			 const uint32_t command_idx_,
 																			 const compute_queue& dev_queue_, const graphics_pipeline& pipeline_) :

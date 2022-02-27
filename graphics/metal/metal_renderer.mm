@@ -261,47 +261,10 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 		return;
 	}
 	
-	NSRange range { command_offset, command_count };
-	if (command_count == ~0u) {
-		range.length = indirect_cmd.get_command_count();
-	}
-#if defined(FLOOR_DEBUG)
-	{
-		const auto cmd_count = indirect_cmd.get_command_count();
-		if (command_offset != 0 || range.length != cmd_count) {
-			static once_flag flag;
-			call_once(flag, [] {
-				// see below
-				log_warn("efficient resource usage declarations when using partial command ranges is not implemented yet");
-			});
-		}
-		if (cmd_count == 0) {
-			log_warn("no commands in indirect command pipeline \"$\"",
-					 indirect_cmd.get_description().debug_label);
-		}
-		if (range.location >= cmd_count) {
-			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
-					  range.location, indirect_cmd.get_description().debug_label);
-			return;
-		}
-		uint32_t sum = 0;
-		if (__builtin_uadd_overflow((uint32_t)range.location, (uint32_t)range.length, &sum)) {
-			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
-					  range.location, range.length, indirect_cmd.get_description().debug_label);
-			return;
-		}
-		if (sum > cmd_count) {
-			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
-					  range.length, indirect_cmd.get_description().debug_label);
-			return;
-		}
-	}
-#endif
-	// post count check, since this might have been modified, but we still want the debug messages
-	if (range.length == 0) {
+	const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
+	if (!range) {
 		return;
 	}
-	
 	
 	// declare all used resources
 	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
@@ -333,7 +296,7 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 	}
 	
 	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
-						   withRange:range];
+						   withRange:*range];
 }
 
 bool metal_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {

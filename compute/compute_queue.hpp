@@ -30,6 +30,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_device;
 class compute_memory;
 class compute_kernel;
+class indirect_command_pipeline;
 
 class compute_queue {
 public:
@@ -115,6 +116,7 @@ public:
 	
 #if !defined(FLOOR_IOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
+	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
 	template <typename... Args, class work_size_type_global, class work_size_type_local>
 	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
 			   is_same_v<decay_t<work_size_type_global>, uint2> ||
@@ -143,6 +145,13 @@ public:
 	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
+	
+	//! executes the compute commands from an indirect command pipeline
+	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
+	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
+	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+								  const uint32_t command_offset = 0u,
+								  const uint32_t command_count = ~0u) const = 0;
 	
 	//! returns the compute device associated with this queue
 	const compute_device& get_device() const { return device; }

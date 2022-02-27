@@ -49,6 +49,11 @@ public:
 	void complete() override;
 	void reset() override;
 	
+	//! computes the command NSRange that is necessary for indirect command execution from the given parameters
+	//! and validates if the given parameters specify a correct range, returning empty if invalid
+	optional<NSRange> compute_and_validate_command_range(const uint32_t command_offset,
+														 const uint32_t command_count) const;
+	
 protected:
 	flat_map<const compute_device&, metal_pipeline_entry> pipelines;
 	

@@ -325,6 +325,13 @@ void vulkan_queue::flush() const {
 	// nop
 }
 
+void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
+									const uint32_t command_offset floor_unused,
+									const uint32_t command_count floor_unused) const {
+	// TODO: implement this
+	log_error("indirect compute command execution is not implemented for Vulkan");
+}
+
 vulkan_command_buffer vulkan_queue::make_command_buffer(const char* name) const {
 	impl->create_thread_command_pool();
 	return impl->thread_cmd_pool->make_command_buffer(name);

@@ -32,6 +32,10 @@ public:
 	void finish() const override;
 	void flush() const override;
 	
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+						  const uint32_t command_offset = 0u,
+						  const uint32_t command_count = ~0u) const override;
+	
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;
 	
