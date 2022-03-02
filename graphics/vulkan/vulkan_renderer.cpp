@@ -293,6 +293,30 @@ bool vulkan_renderer::commit() {
 		is_presenting = false;
 	}
 	
+	// call all user completion handlers
+	// NOTE/TODO: if submit_command_buffer() is no longer blocking, we need to actually add this to the vk_queue
+	for (const auto& compl_handler : completion_handlers) {
+		compl_handler();
+	}
+	
+	// reset
+	completion_handlers.clear();
+	did_begin_cmd_buffer = false;
+	
+	return true;
+}
+
+bool vulkan_renderer::commit(completion_handler_f&& compl_handler) {
+	(void)add_completion_handler(move(compl_handler));
+	return commit();
+}
+
+bool vulkan_renderer::add_completion_handler(completion_handler_f&& compl_handler) {
+	if (!did_begin_cmd_buffer) {
+		log_error("no work has been started or enqueued yet");
+		return false;
+	}
+	completion_handlers.emplace_back(move(compl_handler));
 	return true;
 }
 

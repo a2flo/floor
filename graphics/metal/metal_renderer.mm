@@ -182,6 +182,19 @@ bool metal_renderer::commit() {
 	return true;
 }
 
+bool metal_renderer::commit(completion_handler_f&& compl_handler) {
+	(void)add_completion_handler(move(compl_handler));
+	return commit();
+}
+
+bool metal_renderer::add_completion_handler(completion_handler_f&& compl_handler) {
+	completion_handler_f compl_handler_copy(move(compl_handler));
+	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+		compl_handler_copy();
+	}];
+	return true;
+}
+
 metal_renderer::metal_drawable_t::~metal_drawable_t() {
 	// nop
 }

@@ -49,6 +49,9 @@ public:
 		optional<vector<clear_value_t>> clear_values;
 	};
 	
+	//! user-definable completion handler
+	using completion_handler_f = std::function<void()>;
+	
 	//! begins drawing with the specified pass and pipeline
 	virtual bool begin(const dynamic_render_state_t dynamic_render_state floor_unused = {}) {
 		return true;
@@ -63,11 +66,19 @@ public:
 	virtual bool commit() {
 		return true;
 	}
+	
+	//! commits all currently queued work to the queue,
+	//! calling the specified completion handler once the work has been executed
+	virtual bool commit(completion_handler_f&&) = 0;
 
 	//! returns true if this is a multi-view/VR renderer
 	bool is_multi_view() const {
 		return multi_view;
 	}
+	
+	//! calls the specified completion handler once the current work has been executed
+	//! NOTE: must call this before commit()
+	virtual bool add_completion_handler(completion_handler_f&&) = 0;
 	
 	//////////////////////////////////////////
 	// screen presentation and drawable

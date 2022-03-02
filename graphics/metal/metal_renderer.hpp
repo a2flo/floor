@@ -39,6 +39,8 @@ public:
 	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
 	bool commit() override;
+	bool commit(completion_handler_f&& compl_handler) override;
+	bool add_completion_handler(completion_handler_f&& compl_handler) override;
 	
 	struct metal_drawable_t final : public drawable_t {
 		metal_drawable_t() : drawable_t() {}

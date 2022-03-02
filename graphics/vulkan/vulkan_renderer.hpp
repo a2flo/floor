@@ -39,6 +39,8 @@ public:
 	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
 	bool commit() override;
+	bool commit(completion_handler_f&& compl_handler) override;
+	bool add_completion_handler(completion_handler_f&& compl_handler) override;
 	
 	struct vulkan_drawable_t final : public drawable_t {
 		vulkan_drawable_t() : drawable_t() {}
@@ -73,6 +75,7 @@ protected:
 	// cmd buffer begin must be delayed until we actually start drawing,
 	// otherwise we'll run into trouble with the drawable cmd buffer and dependencies
 	bool did_begin_cmd_buffer { false };
+	vector<completion_handler_f> completion_handlers;
 	bool create_cmd_buffer();
 	
 	void draw_internal(const vector<multi_draw_entry>* draw_entries,
