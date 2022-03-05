@@ -6711,7 +6711,7 @@ index dd60e21b0ce1..12324cc99fcf 100644
    llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
                              const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 74c4490d5422..99f90460bf3b 100644
+index 74c4490d5422..b890a98043d8 100644
 --- a/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -18,6 +18,7 @@
@@ -6870,7 +6870,7 @@ index 74c4490d5422..99f90460bf3b 100644
  static unsigned ArgInfoAddressSpace(LangAS AS) {
    switch (AS) {
    case LangAS::opencl_global:
-@@ -1562,152 +1610,2640 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
+@@ -1562,152 +1610,2641 @@ static unsigned ArgInfoAddressSpace(LangAS AS) {
    case LangAS::opencl_generic:
      return 4; // Not in SPIR 2.0 specs.
    case LangAS::opencl_global_device:
@@ -7641,6 +7641,7 @@ index 74c4490d5422..99f90460bf3b 100644
 +			const auto canon_data_type = data_type->getImageDataType().getCanonicalType();
 +			if (canon_data_type->isIntegerType()) sample_type_str = "int";
 +			if (canon_data_type->isUnsignedIntegerType()) sample_type_str = "uint";
++			if (canon_data_type->isHalfType()) sample_type_str = "half";
 +			// else: just assume float
 +		}
 +		
@@ -9650,7 +9651,7 @@ index 74c4490d5422..99f90460bf3b 100644
  }
  
  /// Determines whether the language options require us to model
-@@ -2508,6 +5044,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
+@@ -2508,6 +5045,113 @@ void CodeGenModule::EmitGlobalAnnotations() {
    gv->setSection(AnnotationSection);
  }
  
@@ -9764,7 +9765,7 @@ index 74c4490d5422..99f90460bf3b 100644
  llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
    llvm::Constant *&AStr = AnnotationStrings[Str];
    if (AStr)
-@@ -2897,11 +5540,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2897,11 +5541,12 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<CPUDispatchAttr>())
      return emitCPUDispatchDefinition(GD);
  
@@ -9778,7 +9779,7 @@ index 74c4490d5422..99f90460bf3b 100644
            !Global->hasAttr<CUDAConstantAttr>() &&
            !Global->hasAttr<CUDASharedAttr>() &&
            !Global->getType()->isCUDADeviceBuiltinSurfaceType() &&
-@@ -2922,6 +5566,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -2922,6 +5567,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
               "Expected Variable or Function");
      }
    }
@@ -9786,7 +9787,7 @@ index 74c4490d5422..99f90460bf3b 100644
  
    if (LangOpts.OpenMP) {
      // If this is OpenMP, check if it is legal to emit this global normally.
-@@ -3738,7 +6383,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
+@@ -3738,7 +6384,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
                                      IsForDefinition);
    // Returns kernel handle for HIP kernel stub function.
    if (LangOpts.CUDA && !LangOpts.CUDAIsDevice &&
@@ -9795,7 +9796,7 @@ index 74c4490d5422..99f90460bf3b 100644
      auto *Handle = getCUDARuntime().getKernelHandle(
          cast<llvm::Function>(F->stripPointerCasts()), GD);
      if (IsForDefinition)
-@@ -4291,7 +6936,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
+@@ -4291,7 +6937,7 @@ static bool shouldBeInCOMDAT(CodeGenModule &CGM, const Decl &D) {
  
    // Do not set COMDAT attribute for CUDA/HIP stub functions to prevent
    // them being "merged" by the COMDAT Folding linker optimization.
@@ -9804,7 +9805,7 @@ index 74c4490d5422..99f90460bf3b 100644
      return false;
  
    if (D.hasAttr<SelectAnyAttr>())
-@@ -4693,7 +7338,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
+@@ -4693,7 +7339,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
        return llvm::Function::ExternalLinkage;
      if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice &&
          !getLangOpts().GPURelocatableDeviceCode)
@@ -9813,7 +9814,7 @@ index 74c4490d5422..99f90460bf3b 100644
                                            : llvm::Function::InternalLinkage;
      return llvm::Function::WeakODRLinkage;
    }
-@@ -4853,12 +7498,74 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -4853,12 +7499,74 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -9888,7 +9889,7 @@ index 74c4490d5422..99f90460bf3b 100644
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -4962,8 +7669,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -4962,8 +7670,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -9898,7 +9899,7 @@ index 74c4490d5422..99f90460bf3b 100644
      Entry->eraseFromParent();
    } else {
      GA->setName(MangledName);
-@@ -6261,6 +8967,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+@@ -6261,6 +8968,71 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
    }
  }
  
@@ -9970,7 +9971,7 @@ index 74c4490d5422..99f90460bf3b 100644
  llvm::Metadata *
  CodeGenModule::CreateMetadataIdentifierImpl(QualType T, MetadataTypeMap &Map,
                                              StringRef Suffix) {
-@@ -6368,17 +9139,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
+@@ -6368,17 +9140,6 @@ llvm::SanitizerStatReport &CodeGenModule::getSanStats() {
    return *SanStats;
  }
  
@@ -21168,7 +21169,7 @@ index 000000000000..c9832b81f8cc
 +#endif // __SPIR_ERRORS_H__
 diff --git a/llvm/include/llvm/SPIRVerifier/SpirIterators.h b/llvm/include/llvm/SPIRVerifier/SpirIterators.h
 new file mode 100644
-index 000000000000..f8b38d90c35f
+index 000000000000..a43751425611
 --- /dev/null
 +++ b/llvm/include/llvm/SPIRVerifier/SpirIterators.h
 @@ -0,0 +1,467 @@
@@ -21348,9 +21349,9 @@ index 000000000000..f8b38d90c35f
 +
 +struct DataHolder {
 +  DataHolder() :
-+    Is32Bit(true),
-+    HasDoubleFeature(false), HasImageFeature(false),
-+    HASFp16Extension(false) {
++    Is32Bit(false),
++    HasDoubleFeature(true), HasImageFeature(true),
++    HASFp16Extension(true) {
 +  }
 +
 +  /// @brief Sizeof pointer indectaor
@@ -21603,7 +21604,7 @@ index 000000000000..f8b38d90c35f
 +
 +private:
 +  ErrorCreator *ErrCreator;
-+  DataHolder *Data;
++  [[maybe_unused]] DataHolder *Data;
 +};
 +
 +struct VerifyMetadataKHRExtensions : public ModuleExecutor {
@@ -21618,7 +21619,7 @@ index 000000000000..f8b38d90c35f
 +
 +private:
 +  ErrorCreator *ErrCreator;
-+  DataHolder *Data;
++  [[maybe_unused]] DataHolder *Data;
 +};
 +
 +struct VerifyMetadataCompilerOptions : public ModuleExecutor {
@@ -22631,10 +22632,10 @@ index 000000000000..613e9c09e640
 +#endif
 diff --git a/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
 new file mode 100644
-index 000000000000..3f424ae4ce62
+index 000000000000..ac1702d3242d
 --- /dev/null
 +++ b/llvm/include/llvm/Transforms/LibFloor/FloorImageType.h
-@@ -0,0 +1,348 @@
+@@ -0,0 +1,350 @@
 +//===-- FloorImageType.h - base class for image transformations--*- C++ -*-===//
 +//
 +//  Flo's Open libRary (floor)
@@ -22681,7 +22682,9 @@ index 000000000000..3f424ae4ce62
 +	//! extended type: in combination with FLAG_MSAA, an MSAA image can be made transient, i.e. does not need to be stored in memory
 +	//! NOTE: only applicable for Metal and Vulkan
 +	FLAG_TRANSIENT			= (1ull << (__EXT_FLAG_SHIFT + 0ull)),
-+	__UNUSED_EXT_FLAG_1		= (1ull << (__EXT_FLAG_SHIFT + 1ull)),
++	//! extended optional type: internal flag that signals that we want to sample an image as a 16-bit type (e.g. half)
++	//! NOTE: only used internally, serves no purpose on the user-side
++	FLAG_16_BIT_SAMPLING	= (1ull << (__EXT_FLAG_SHIFT + 1ull)),
 +	__UNUSED_EXT_FLAG_2		= (1ull << (__EXT_FLAG_SHIFT + 2ull)),
 +	__UNUSED_EXT_FLAG_3		= (1ull << (__EXT_FLAG_SHIFT + 3ull)),
 +	
@@ -43397,10 +43400,10 @@ index 000000000000..1256e5dddcea
 +} // End SPIR namespace
 diff --git a/llvm/lib/SPIRVerifier/SpirIterators.cpp b/llvm/lib/SPIRVerifier/SpirIterators.cpp
 new file mode 100644
-index 000000000000..f399dee13833
+index 000000000000..15d4aa2dabe7
 --- /dev/null
 +++ b/llvm/lib/SPIRVerifier/SpirIterators.cpp
-@@ -0,0 +1,1029 @@
+@@ -0,0 +1,1033 @@
 +//===------------------------ SpirValidation.h ---------------------------===//
 +//
 +//                              SPIR Tools
@@ -44305,6 +44308,7 @@ index 000000000000..f399dee13833
 +    return;
 +  }
 +
++#if 0 // don't/can't check this here
 +  // Optional core features MetaData structure:
 +  // !opencl.used.optional.core.features  = {!8}
 +  // ...
@@ -44347,6 +44351,7 @@ index 000000000000..f399dee13833
 +      assert(false && "Unhandled core feature");
 +    }
 +  }
++#endif
 +}
 +
 +
@@ -44358,6 +44363,7 @@ index 000000000000..f399dee13833
 +    return;
 +  }
 +
++#if 0 // don't/can't check this here
 +  // KHR extensions MetaData structure:
 +  // !opencl.used.extensions = !{!6}
 +  // ...
@@ -44393,6 +44399,7 @@ index 000000000000..f399dee13833
 +      //assert(false && "Unhandled KHR extension");
 +    }
 +  }
++#endif
 +}
 +
 +void VerifyMetadataCompilerOptions::execute(const llvm::Module *M) {
@@ -47766,10 +47773,10 @@ index 000000000000..6bc78ee318e6
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/CUDAImage.cpp b/llvm/lib/Transforms/LibFloor/CUDAImage.cpp
 new file mode 100644
-index 000000000000..72714e5f1efb
+index 000000000000..7a121eeead22
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/CUDAImage.cpp
-@@ -0,0 +1,819 @@
+@@ -0,0 +1,833 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -47924,7 +47931,7 @@ index 000000000000..72714e5f1efb
 +			// -> return data
 +			std::string dtype;
 +			llvm::Type* ret_type, *ret_vec_type;
-+			if(func_name == "floor.cuda.read_image.float") {
++			if (func_name == "floor.cuda.read_image.float") {
 +				dtype = "f32";
 +				constraints_str = "=f,=f,=f,=f";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -47934,8 +47941,17 @@ index 000000000000..72714e5f1efb
 +					llvm::Type::getFloatTy(*ctx)
 +				}});
 +				ret_vec_type = llvm::FixedVectorType::get(llvm::Type::getFloatTy(*ctx), 4);
-+			}
-+			else if(func_name == "floor.cuda.read_image.int") {
++			} else if (func_name == "floor.cuda.read_image.half") {
++				dtype = "f16";
++				constraints_str = "=h,=h,=h,=h";
++				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
++					llvm::Type::getHalfTy(*ctx),
++					llvm::Type::getHalfTy(*ctx),
++					llvm::Type::getHalfTy(*ctx),
++					llvm::Type::getHalfTy(*ctx)
++				}});
++				ret_vec_type = llvm::FixedVectorType::get(llvm::Type::getHalfTy(*ctx), 4);
++			} else if (func_name == "floor.cuda.read_image.int") {
 +				dtype = "s32";
 +				constraints_str = "=r,=r,=r,=r";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -47945,8 +47961,7 @@ index 000000000000..72714e5f1efb
 +					llvm::Type::getInt32Ty(*ctx)
 +				}});
 +				ret_vec_type = llvm::FixedVectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
-+			}
-+			else if(func_name == "floor.cuda.read_image.uint") {
++			} else if (func_name == "floor.cuda.read_image.uint") {
 +				dtype = "u32";
 +				constraints_str = "=r,=r,=r,=r";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -48232,6 +48247,7 @@ index 000000000000..72714e5f1efb
 +								   const std::string& geom,
 +								   const bool is_array,
 +								   const bool is_float,
++								   const bool is_half,
 +								   const bool is_int,
 +								   const DebugLoc& debug_loc) {
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
@@ -48294,6 +48310,10 @@ index 000000000000..72714e5f1efb
 +				rtype = "h"; // can't go lower than 16-bit
 +				
 +				for (uint32_t i = 0; i < write_channel_count; ++i) {
++					if (data_args[i]->getType()->isHalfTy()) {
++						// using half precision for normalization here would lose precision -> cast to float first
++						data_args[i] = builder->CreateFPCast(data_args[i], builder->getFloatTy());
++					}
 +					data_args[i] = builder->CreateFMul(data_args[i],
 +													   ConstantFP::get(builder->getFloatTy(),
 +																	   is_int ?
@@ -48310,13 +48330,13 @@ index 000000000000..72714e5f1efb
 +						break;
 +					case COMPUTE_IMAGE_TYPE::FORMAT_16:
 +						dtype = "b16";
-+						rtype = (is_float ? "f" : "h");
++						rtype = (is_float && !is_half ? "f" : "h");
 +						break;
 +					case COMPUTE_IMAGE_TYPE::FORMAT_24:
 +					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
 +					case COMPUTE_IMAGE_TYPE::FORMAT_32:
 +						dtype = "b32";
-+						rtype = (is_float ? "f" : "r");
++						rtype = (is_float || is_half ? "f" : "r");
 +						break;
 +					default:
 +						assert(false && "invalid write format - should not be here!");
@@ -48325,7 +48345,7 @@ index 000000000000..72714e5f1efb
 +				}
 +				
 +				// need to trunc 32-bit data to 16-bit (for 8-bit/16-bit int/uint writes)
-+				if (rtype == "h") {
++				if (rtype == "h" && !is_half) {
 +					for (uint32_t i = 0; i < write_channel_count; ++i) {
 +						builder->CreateTrunc(data_args[i], builder->getInt16Ty());
 +					}
@@ -48403,9 +48423,10 @@ index 000000000000..72714e5f1efb
 +			}
 +			
 +			const auto is_float = (func_name == "floor.cuda.write_image.float");
++			const auto is_half = (func_name == "floor.cuda.write_image.half");
 +			const auto is_int = (func_name == "floor.cuda.write_image.int");
 +			const auto is_uint = (func_name == "floor.cuda.write_image.uint");
-+			if (!is_float && !is_int && !is_uint) {
++			if (!is_float && !is_half && !is_int && !is_uint) {
 +				return; // unknown -> ignore
 +			}
 +			
@@ -48449,7 +48470,7 @@ index 000000000000..72714e5f1efb
 +				auto start_block = I.getParent();
 +				auto end_block = start_block->splitBasicBlock(&I, "write_end");
 +				builder->SetInsertPoint(start_block->getTerminator());
-+				llvm::SwitchInst* sw = builder->CreateSwitch(rt_cmp_val, def_unreachable_block, is_float ? 7 : 4);
++				llvm::SwitchInst* sw = builder->CreateSwitch(rt_cmp_val, def_unreachable_block, is_float || is_half ? 7 : 4);
 +				start_block->getTerminator()->eraseFromParent();
 +				
 +				const bool is_fixed_channel_count = image_channel_count.has_value();
@@ -48458,36 +48479,36 @@ index 000000000000..72714e5f1efb
 +							COMPUTE_IMAGE_TYPE(uint64_t(channel_count - 1u) << uint64_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)));
 +				};
 +				const auto emit_block = [&](const std::string& name, COMPUTE_IMAGE_TYPE base_format, COMPUTE_IMAGE_TYPE case_rt_type, const uint32_t channel_count,
-+											const bool is_float, const bool is_int) {
++											const bool is_float, const bool is_half, const bool is_int) {
 +					auto block = BasicBlock::Create(*ctx, "write_" + name, func);
 +					sw->addCase(ConstantInt::get(img_type_int_type, uint64_t(case_rt_type | channel_bit(channel_count))), block);
 +					builder->SetInsertPoint(block);
 +					emit_write_image(img_handle_arg, base_format, has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(case_rt_type), channel_count,
-+									 coord_arg, coord_type, coord_vec_type, layer_arg, data_args, geom, is_array, is_float, is_int, debug_loc);
++									 coord_arg, coord_type, coord_vec_type, layer_arg, data_args, geom, is_array, is_float, is_half, is_int, debug_loc);
 +					BranchInst::Create(end_block, block);
 +					return block;
 +				};
 +				
 +				for (uint32_t channel_count = (image_channel_count ? *image_channel_count : 1); channel_count <= (image_channel_count ? *image_channel_count : 4); ++channel_count) {
-+					if (is_float) {
-+						emit_block("unorm8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false);
-+						emit_block("snorm8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, true);
-+						emit_block("unorm16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false);
-+						emit_block("snorm16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, true);
-+						emit_block("f16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::FLOAT, channel_count, true, false);
-+						auto f32_block = emit_block("f32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::FLOAT, channel_count, true, false);
++					if (is_float || is_half) {
++						emit_block("unorm8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false, false);
++						emit_block("snorm8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false, true);
++						emit_block("unorm16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false, false);
++						emit_block("snorm16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED, channel_count, false, false, true);
++						emit_block("f16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::FLOAT, channel_count, is_float, is_half, false);
++						auto f32_block = emit_block("f32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::FLOAT, channel_count, is_float, is_half, false);
 +						// NOTE: 32-bit float + 8-bit stencil contains exactly the same code as only 32-bit float -> reuse "f32"
 +						sw->addCase(ConstantInt::get(img_type_int_type, uint64_t(COMPUTE_IMAGE_TYPE::FORMAT_32_8 | COMPUTE_IMAGE_TYPE::FLOAT | channel_bit(channel_count))), f32_block);
 +					} else if (is_uint) {
-+						emit_block("ui8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false);
-+						emit_block("ui16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false);
-+						emit_block("ui24", COMPUTE_IMAGE_TYPE::FORMAT_24, COMPUTE_IMAGE_TYPE::FORMAT_24 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false);
-+						emit_block("ui32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false);
++						emit_block("ui8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false, false);
++						emit_block("ui16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false, false);
++						emit_block("ui24", COMPUTE_IMAGE_TYPE::FORMAT_24, COMPUTE_IMAGE_TYPE::FORMAT_24 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false, false);
++						emit_block("ui32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::UINT, channel_count, false, false, false);
 +					} else if (is_int) {
-+						emit_block("i8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, true);
-+						emit_block("i16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, true);
-+						emit_block("i24", COMPUTE_IMAGE_TYPE::FORMAT_24, COMPUTE_IMAGE_TYPE::FORMAT_24 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, true);
-+						emit_block("i32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, true);
++						emit_block("i8", COMPUTE_IMAGE_TYPE::FORMAT_8, COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, false, true);
++						emit_block("i16", COMPUTE_IMAGE_TYPE::FORMAT_16, COMPUTE_IMAGE_TYPE::FORMAT_16 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, false, true);
++						emit_block("i24", COMPUTE_IMAGE_TYPE::FORMAT_24, COMPUTE_IMAGE_TYPE::FORMAT_24 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, false, true);
++						emit_block("i32", COMPUTE_IMAGE_TYPE::FORMAT_32, COMPUTE_IMAGE_TYPE::FORMAT_32 | COMPUTE_IMAGE_TYPE::INT, channel_count, false, false, true);
 +					}
 +				}
 +			};
@@ -49391,10 +49412,10 @@ index 000000000000..232d78dccdf2
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/llvm/lib/Transforms/LibFloor/FloorImage.cpp b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
 new file mode 100644
-index 000000000000..d4215be4828f
+index 000000000000..397b492e20d6
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/FloorImage.cpp
-@@ -0,0 +1,595 @@
+@@ -0,0 +1,596 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -49848,14 +49869,15 @@ index 000000000000..d4215be4828f
 +				return;
 +			}
 +			if(!data_vec_type->getElementType()->isFloatTy() &&
++			   !data_vec_type->getElementType()->isHalfTy() &&
 +			   !data_vec_type->getElementType()->isIntegerTy()) {
-+				ctx->emitError(&CB, "invalid image data type (must be a float or integer vector)");
++				ctx->emitError(&CB, "invalid image data type (must be a float, half or integer vector)");
 +				return;
 +			}
 +		} else {
 +			const auto data_type = data_arg->getType();
-+			if (!data_type->isFloatTy()) {
-+				ctx->emitError(&CB, "invalid image data type (must be a single float when writing depth)");
++			if (!data_type->isFloatTy() && !data_type->isHalfTy()) {
++				ctx->emitError(&CB, "invalid image data type (must be a single float or half when writing depth)");
 +				return;
 +			}
 +		}
@@ -50120,10 +50142,10 @@ index 000000000000..621aea3fd0c7
 +}
 diff --git a/llvm/lib/Transforms/LibFloor/MetalFinal.cpp b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
 new file mode 100644
-index 000000000000..cc36dcda5607
+index 000000000000..679e956a7757
 --- /dev/null
 +++ b/llvm/lib/Transforms/LibFloor/MetalFinal.cpp
-@@ -0,0 +1,1456 @@
+@@ -0,0 +1,1474 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//  Flo's Open libRary (floor)
@@ -50990,7 +51012,7 @@ index 000000000000..cc36dcda5607
 +		
 +		//
 +		void visitCallInst(CallInst &I) {
-+			// if this isn't a kernel function we don't need to do anything here (yet)
++			// if this isn't a kernel/shader function we don't need to do anything here (yet)
 +			if (!is_kernel_func &&
 +				!is_vertex_func &&
 +				!is_fragment_func &&
@@ -51000,9 +51022,13 @@ index 000000000000..cc36dcda5607
 +			}
 +			
 +			const auto func = I.getCalledFunction();
-+			if(!func) return;
++			if (!func) return;
 +			const auto func_name = func->getName();
-+			if(!func_name.startswith("floor.")) return;
++			if (func_name.startswith("air.")) {
++				check_air_call(I);
++				return;
++			}
++			if (!func_name.startswith("floor.")) return;
 +			
 +			builder->SetInsertPoint(&I);
 +			
@@ -51157,6 +51183,20 @@ index 000000000000..cc36dcda5607
 +			// replace call with vector load / elem extraction from the appropriate vector
 +			I.replaceAllUsesWith(get_from_vector ? builder->CreateExtractElement(id, I.getOperand(0)) : id);
 +			I.eraseFromParent();
++		}
++		
++		// performs some simple air.* call checks (e.g. if the call is valid in the current function type)
++		void check_air_call(CallInst& CI) {
++			const auto air_func = CI.getCalledFunction();
++			const auto air_func_name = air_func->getName();
++			if (air_func_name == "air.dfdx.f32" || air_func_name == "air.dfdy.f32" || air_func_name == "air.fwidth.f32" ||
++				air_func_name == "air.discard_fragment") {
++				if (!is_fragment_func) {
++					llvm::errs() << "in " << func->getName() << ": calling '" << air_func_name << "' is only allowed inside a fragment shader\n";
++					llvm::errs() << CI << "\n";
++					llvm::errs().flush();
++				}
++			}
 +		}
 +		
 +		// like SPIR, Metal only supports scalar conversion ops ->
@@ -64193,11 +64233,11 @@ index 57b11e9414ba..6810eec8e4f8 100644
    PreservedAnalyses PA;
 diff --git a/llvm/projects/spirv b/llvm/projects/spirv
 new file mode 160000
-index 000000000000..c0b1955664f4
+index 000000000000..0ce641167319
 --- /dev/null
 +++ b/llvm/projects/spirv
 @@ -0,0 +1 @@
-+Subproject commit c0b1955664f4fca19dfcb99f0c617fc4c2e6ced0
++Subproject commit 0ce6411673196265ca77107b29edf86967a1bf6c
 diff --git a/llvm/tools/bugpoint/CMakeLists.txt b/llvm/tools/bugpoint/CMakeLists.txt
 index d64481df1c1c..3202aa3a5633 100644
 --- a/llvm/tools/bugpoint/CMakeLists.txt
