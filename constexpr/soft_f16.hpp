@@ -353,16 +353,17 @@ struct soft_f16 {
 		return (int64_t)to_float();
 	}
 	
-	// non-functional, just a hack to make this compile
-	// TODO: implement this!
 #if FLOOR_HAS_NATIVE_FP16 != 1
 #define FLOOR_F16_OP(op) \
 	constexpr soft_f16 operator op (const soft_f16& val) const noexcept { \
-		return value op val.value; \
+		return float(value) op float(val.value); \
 	} \
 	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
-		value = value op val.value; \
+		value = float(value) op float(val.value); \
 		return *this; \
+	} \
+	constexpr friend soft_f16 operator op (const float& lhs, const soft_f16& rhs) { \
+		return lhs * float(rhs.value); \
 	}
 #else
 #define FLOOR_F16_OP(op) \
@@ -372,6 +373,9 @@ struct soft_f16 {
 	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
 		value_fp16 = __fp16(float(value_fp16) op float(val.value_fp16)); \
 		return *this; \
+	} \
+	constexpr friend soft_f16 operator op (const float& lhs, const soft_f16& rhs) { \
+	   return lhs * float(rhs); \
 	}
 #endif
 	

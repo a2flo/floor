@@ -33,7 +33,9 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	//! extended type: in combination with FLAG_MSAA, an MSAA image can be made transient, i.e. does not need to be stored in memory
 	//! NOTE: only applicable for Metal and Vulkan
 	FLAG_TRANSIENT			= (1ull << (__EXT_FLAG_SHIFT + 0ull)),
-	__UNUSED_EXT_FLAG_1		= (1ull << (__EXT_FLAG_SHIFT + 1ull)),
+	//! extended optional type: internal flag that signals that we want to sample an image as a 16-bit type (e.g. half)
+	//! NOTE: only used internally, serves no purpose on the user-side
+	FLAG_16_BIT_SAMPLING	= (1ull << (__EXT_FLAG_SHIFT + 1ull)),
 	__UNUSED_EXT_FLAG_2		= (1ull << (__EXT_FLAG_SHIFT + 2ull)),
 	__UNUSED_EXT_FLAG_3		= (1ull << (__EXT_FLAG_SHIFT + 3ull)),
 	
