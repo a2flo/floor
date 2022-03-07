@@ -228,6 +228,21 @@ FLOOR_POP_WARNINGS()
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+		// BC formats
+		{ MTLPixelFormatBC1_RGBA, COMPUTE_IMAGE_TYPE::BC1_RGBA },
+		{ MTLPixelFormatBC1_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB },
+		{ MTLPixelFormatBC2_RGBA, COMPUTE_IMAGE_TYPE::BC2_RGBA },
+		{ MTLPixelFormatBC2_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC2_RGBA_SRGB },
+		{ MTLPixelFormatBC3_RGBA, COMPUTE_IMAGE_TYPE::BC3_RGBA },
+		{ MTLPixelFormatBC3_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC3_RGBA_SRGB },
+		{ MTLPixelFormatBC4_RUnorm, COMPUTE_IMAGE_TYPE::BC4_RUI },
+		{ MTLPixelFormatBC4_RSnorm, COMPUTE_IMAGE_TYPE::BC4_RI },
+		{ MTLPixelFormatBC5_RGUnorm, COMPUTE_IMAGE_TYPE::BC5_RGUI },
+		{ MTLPixelFormatBC5_RGSnorm, COMPUTE_IMAGE_TYPE::BC5_RGI },
+		{ MTLPixelFormatBC6H_RGBFloat, COMPUTE_IMAGE_TYPE::BC6H_RGBHF },
+		{ MTLPixelFormatBC6H_RGBUfloat, COMPUTE_IMAGE_TYPE::BC6H_RGBUHF },
+		{ MTLPixelFormatBC7_RGBAUnorm, COMPUTE_IMAGE_TYPE::BC7_RGBA },
+		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB },
 #if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ MTLPixelFormatPVRTC_RGB_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB2 },
@@ -558,16 +573,35 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 	
 	auto src_image = ((const metal_image&)src).get_metal_image();
 	const auto dim_count = image_dim_count(image_type);
-	// TODO: deal with mip-mapping
-	[blit_encoder copyFromTexture:src_image
-					  sourceSlice:0
-					  sourceLevel:0
-					 sourceOrigin:{ 0, 0, 0 }
-					   sourceSize:{ max(image_dim.x, 1u), dim_count >= 2 ? max(image_dim.y, 1u) : 1, dim_count >= 3 ? max(image_dim.z, 1u) : 1 }
-						toTexture:image
-				 destinationSlice:0
-				 destinationLevel:0
-				destinationOrigin:{ 0, 0, 0 }];
+	
+	apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,
+																							  const uint4& mip_image_dim,
+																							  const uint32_t&,
+																							  const uint32_t&) {
+		const MTLSize mipmap_size {
+			max(mip_image_dim.x, 1u),
+			dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1u,
+			dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1u,
+		};
+		for (size_t slice = 0; slice < layer_count; ++slice) {
+			[blit_encoder copyFromTexture:src_image
+							  sourceSlice:slice
+							  sourceLevel:level
+							 sourceOrigin:{ 0, 0, 0 }
+							   sourceSize:mipmap_size
+								toTexture:image
+						 destinationSlice:slice
+						 destinationLevel:level
+						destinationOrigin:{ 0, 0, 0 }];
+		}
+		
+		return true;
+	}, shim_image_type);
+	
+	// always optimize for GPU use
+	if (@available(iOS 12.0, macOS 10.14, *)) {
+		[blit_encoder optimizeContentsForGPUAccess:image];
+	}
 	
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
@@ -928,6 +962,21 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
+		// BC formats
+		{ COMPUTE_IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
+		{ COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
+		{ COMPUTE_IMAGE_TYPE::BC2_RGBA, MTLPixelFormatBC2_RGBA },
+		{ COMPUTE_IMAGE_TYPE::BC2_RGBA_SRGB, MTLPixelFormatBC2_RGBA_sRGB },
+		{ COMPUTE_IMAGE_TYPE::BC3_RGBA, MTLPixelFormatBC3_RGBA },
+		{ COMPUTE_IMAGE_TYPE::BC3_RGBA_SRGB, MTLPixelFormatBC3_RGBA_sRGB },
+		{ COMPUTE_IMAGE_TYPE::BC4_RUI, MTLPixelFormatBC4_RUnorm },
+		{ COMPUTE_IMAGE_TYPE::BC4_RI, MTLPixelFormatBC4_RSnorm },
+		{ COMPUTE_IMAGE_TYPE::BC5_RGUI, MTLPixelFormatBC5_RGUnorm },
+		{ COMPUTE_IMAGE_TYPE::BC5_RGI, MTLPixelFormatBC5_RGSnorm },
+		{ COMPUTE_IMAGE_TYPE::BC6H_RGBHF, MTLPixelFormatBC6H_RGBFloat },
+		{ COMPUTE_IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
+		{ COMPUTE_IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
+		{ COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
 #if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
