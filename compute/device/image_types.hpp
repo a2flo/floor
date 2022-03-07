@@ -495,8 +495,10 @@ floor_inline_always static constexpr bool image_compressed(const COMPUTE_IMAGE_T
 //! returns true if the specified image format/type is valid
 //! NOTE: this currently only makes sure that the format corresponds to the channel count and that dim != 0
 floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE_TYPE& image_type) {
-	if(image_dim_count(image_type) == 0) return false;
-	if(image_storage_dim_count(image_type) == 0) return false;
+	if (image_dim_count(image_type) == 0) return false;
+	if (image_storage_dim_count(image_type) == 0) return false;
+	// TODO: properly validate compressed formats
+	if (image_compressed(image_type)) return true;
 	const auto channel_count = image_channel_count(image_type);
 	switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
 		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel_count == 3);
@@ -550,9 +552,19 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 		}
 	} else {
 		switch (image_type & COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK) {
-			case COMPUTE_IMAGE_TYPE::PVRTC: return (format == COMPUTE_IMAGE_TYPE::FORMAT_2 ? 2 : 4);
+			case COMPUTE_IMAGE_TYPE::PVRTC:
+				return (format == COMPUTE_IMAGE_TYPE::FORMAT_2 ? 2u : 4u);
+			case COMPUTE_IMAGE_TYPE::BC1:
+				return 4u;
+			case COMPUTE_IMAGE_TYPE::RGTC:
+				return (image_channel_count(image_type) == 1u ? 4u : 8u);
+			case COMPUTE_IMAGE_TYPE::BC2:
+			case COMPUTE_IMAGE_TYPE::BC3:
+			case COMPUTE_IMAGE_TYPE::BPTC:
+				return 8u;
 			// TODO: other compressed formats
-			default: return 1;
+			default:
+				return 1;
 		}
 	}
 }
@@ -596,6 +608,29 @@ static constexpr uint32_t image_bits_of_channel(const COMPUTE_IMAGE_TYPE& image_
 static constexpr uint32_t image_bytes_per_pixel(const COMPUTE_IMAGE_TYPE& image_type) {
 	const auto bpp = image_bits_per_pixel(image_type);
 	return ((bpp + 7u) / 8u);
+}
+
+//! returns the 2D block size of the compression method that is being used
+static constexpr uint2 image_compression_block_size(const COMPUTE_IMAGE_TYPE& image_type) {
+	if (!image_compressed(image_type)) {
+		return {};
+	}
+	switch (image_type & COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK) {
+		case COMPUTE_IMAGE_TYPE::PVRTC:
+			return {
+				(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_2 ? 8u : 4u,
+				4u,
+			};
+		case COMPUTE_IMAGE_TYPE::BC1:
+		case COMPUTE_IMAGE_TYPE::BC2:
+		case COMPUTE_IMAGE_TYPE::BC3:
+		case COMPUTE_IMAGE_TYPE::RGTC:
+		case COMPUTE_IMAGE_TYPE::BPTC:
+			return { 4u, 4u };
+		// TODO: other compressed formats
+		default:
+			return {};
+	}
 }
 
 //! returns the total amount of bytes needed to store a slice of an image of the specified dimensions and types

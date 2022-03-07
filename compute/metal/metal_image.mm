@@ -477,7 +477,14 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 													 const uint32_t& slice_data_size,
 													 const uint32_t& level_data_size) {
 			// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+			const auto bpp = image_bytes_per_pixel(shim_image_type);
+			auto bytes_per_row = bpp * max(mip_image_dim.x, 1u);
+			if (is_compressed) {
+				// for compressed formats, we need to consider the full block size per row -> need to multiply with Y block size
+				const auto block_size = image_compression_block_size(shim_image_type);
+				assert((mip_image_dim.x % block_size.x) == 0u && "image width must be a multiple of the underlying block size");
+				bytes_per_row *= block_size.y;
+			}
 			
 			const uint8_t* data_ptr = cpy_host_ptr;
 			unique_ptr<uint8_t[]> conv_data_ptr;
@@ -500,7 +507,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 						 mipmapLevel:level
 							   slice:slice
 						   withBytes:(data_ptr + slice * slice_data_size)
-						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+						 bytesPerRow:bytes_per_row
 					   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
 			}
 			
