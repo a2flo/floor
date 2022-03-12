@@ -243,6 +243,21 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatBC6H_RGBUfloat, COMPUTE_IMAGE_TYPE::BC6H_RGBUHF },
 		{ MTLPixelFormatBC7_RGBAUnorm, COMPUTE_IMAGE_TYPE::BC7_RGBA },
 		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB },
+		// EAC/ETC formats
+		{ MTLPixelFormatEAC_R11Unorm, COMPUTE_IMAGE_TYPE::EAC_R11UI },
+		{ MTLPixelFormatEAC_R11Snorm, COMPUTE_IMAGE_TYPE::EAC_R11I },
+		{ MTLPixelFormatEAC_RG11Unorm, COMPUTE_IMAGE_TYPE::EAC_RG11UI },
+		{ MTLPixelFormatEAC_RG11Snorm, COMPUTE_IMAGE_TYPE::EAC_RG11I },
+		{ MTLPixelFormatEAC_RGBA8, COMPUTE_IMAGE_TYPE::EAC_RGBA8 },
+		{ MTLPixelFormatEAC_RGBA8_sRGB, COMPUTE_IMAGE_TYPE::EAC_RGBA8_SRGB },
+		{ MTLPixelFormatETC2_RGB8, COMPUTE_IMAGE_TYPE::ETC2_RGB8 },
+		{ MTLPixelFormatETC2_RGB8_sRGB, COMPUTE_IMAGE_TYPE::ETC2_RGB8_SRGB },
+		{ MTLPixelFormatETC2_RGB8A1, COMPUTE_IMAGE_TYPE::ETC2_RGB8A1 },
+		{ MTLPixelFormatETC2_RGB8A1_sRGB, COMPUTE_IMAGE_TYPE::ETC2_RGB8A1_SRGB },
+		// ASTC formats
+		{ MTLPixelFormatASTC_4x4_sRGB, COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB },
+		{ MTLPixelFormatASTC_4x4_LDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR },
+		{ MTLPixelFormatASTC_4x4_HDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR },
 #if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ MTLPixelFormatPVRTC_RGB_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB2 },
@@ -481,7 +496,9 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			if (is_compressed) {
 				// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
 				const auto block_size = image_compression_block_size(shim_image_type);
-				assert((mip_image_dim.x % block_size.x) == 0u && "image width must be a multiple of the underlying block size");
+				// at small mip levels (< block size), we need to ensure that we actually upload the full block
+				bytes_per_row = max(block_size.x, bytes_per_row);
+				assert((bytes_per_row % block_size.x) == 0u && "image width must be a multiple of the underlying block size");
 				bytes_per_row *= image_bits_per_pixel(shim_image_type) * block_size.y;
 				bytes_per_row = (bytes_per_row + 7u) / 8u;
 			} else {
@@ -986,6 +1003,21 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
 		{ COMPUTE_IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
 		{ COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
+		// EAC/ETC formats
+		{ COMPUTE_IMAGE_TYPE::EAC_R11UI, MTLPixelFormatEAC_R11Unorm },
+		{ COMPUTE_IMAGE_TYPE::EAC_R11I, MTLPixelFormatEAC_R11Snorm },
+		{ COMPUTE_IMAGE_TYPE::EAC_RG11UI, MTLPixelFormatEAC_RG11Unorm },
+		{ COMPUTE_IMAGE_TYPE::EAC_RG11I, MTLPixelFormatEAC_RG11Snorm },
+		{ COMPUTE_IMAGE_TYPE::EAC_RGBA8, MTLPixelFormatEAC_RGBA8 },
+		{ COMPUTE_IMAGE_TYPE::EAC_RGBA8_SRGB, MTLPixelFormatEAC_RGBA8_sRGB },
+		{ COMPUTE_IMAGE_TYPE::ETC2_RGB8, MTLPixelFormatETC2_RGB8 },
+		{ COMPUTE_IMAGE_TYPE::ETC2_RGB8_SRGB, MTLPixelFormatETC2_RGB8_sRGB },
+		{ COMPUTE_IMAGE_TYPE::ETC2_RGB8A1, MTLPixelFormatETC2_RGB8A1 },
+		{ COMPUTE_IMAGE_TYPE::ETC2_RGB8A1_SRGB, MTLPixelFormatETC2_RGB8A1_sRGB },
+		// ASTC formats
+		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB, MTLPixelFormatASTC_4x4_sRGB },
+		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
+		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
 #if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },

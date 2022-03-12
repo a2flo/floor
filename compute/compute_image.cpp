@@ -1017,7 +1017,7 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 			case COMPUTE_IMAGE_TYPE::BPTC: ret << "BPTC/BC6/BC7 "; break;
 			case COMPUTE_IMAGE_TYPE::PVRTC: ret << "PVRTC "; break;
 			case COMPUTE_IMAGE_TYPE::PVRTC2: ret << "PVRTC2 "; break;
-			case COMPUTE_IMAGE_TYPE::EAC: ret << "EAC/ETC1 "; break;
+			case COMPUTE_IMAGE_TYPE::EAC: ret << "EAC "; break;
 			case COMPUTE_IMAGE_TYPE::ETC2: ret << "ETC2 "; break;
 			case COMPUTE_IMAGE_TYPE::ASTC: ret << "ASTC "; break;
 			default: ret << "INVALID-COMPRESSION-TYPE "; break;

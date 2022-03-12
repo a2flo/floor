@@ -165,9 +165,8 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	PVRTC					= (6ull << __COMPRESSION_SHIFT),
 	//! PVRTC2
 	PVRTC2					= (7ull << __COMPRESSION_SHIFT),
-	//! EAC/ETC1
+	//! EAC
 	EAC						= (8ull << __COMPRESSION_SHIFT),
-	ETC1					= EAC,
 	//! ETC2
 	ETC2					= (9ull << __COMPRESSION_SHIFT),
 	//! ASTC
@@ -200,12 +199,16 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	FORMAT_5_6_5			= (10ull),
 	//! 8 bits per channel
 	FORMAT_8				= (11ull),
+	//! 4 channel format: 8-bit/8-bit/8-bit/1-bit
+	FORMAT_8_8_8_ALPHA_1	= (25ull),
 	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
 	FORMAT_9_9_9_EXP_5		= (12ull),
 	//! 3 or 4 channel format: 10-bit/10-bit/10-bit(/10-bit)
 	FORMAT_10				= (13ull),
 	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
 	FORMAT_10_10_10_ALPHA_2	= (14ull),
+	//! 11 bits per channel
+	FORMAT_11				= (26ull),
 	//! 3 channel format: 11-bit/11-bit/10-bit
 	FORMAT_11_11_10			= (15ull),
 	//! 3 channel format: 12-bit/12-bit/12-bit
@@ -389,6 +392,7 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	BPTC_RGBA_SRGB			= BPTC | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	BC7_RGBA				= BPTC_RGBA,
 	BC7_RGBA_SRGB			= BPTC_RGBA_SRGB,
+	
 	PVRTC_RGB2				= PVRTC | CHANNELS_3 | FORMAT_2 | UINT | FLAG_NORMALIZED,
 	PVRTC_RGB4				= PVRTC | CHANNELS_3 | FORMAT_4 | UINT | FLAG_NORMALIZED,
 	PVRTC_RGBA2				= PVRTC | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED,
@@ -397,6 +401,21 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	PVRTC_RGB4_SRGB			= PVRTC | CHANNELS_3 | FORMAT_4 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	PVRTC_RGBA2_SRGB		= PVRTC | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	PVRTC_RGBA4_SRGB		= PVRTC | CHANNELS_4 | FORMAT_4 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
+	
+	EAC_R11UI				= EAC | CHANNELS_1 | FORMAT_11 | UINT | FLAG_NORMALIZED,
+	EAC_R11I				= EAC | CHANNELS_1 | FORMAT_11 | INT | FLAG_NORMALIZED,
+	EAC_RG11UI				= EAC | CHANNELS_2 | FORMAT_11 | UINT | FLAG_NORMALIZED,
+	EAC_RG11I				= EAC | CHANNELS_2 | FORMAT_11 | INT | FLAG_NORMALIZED,
+	EAC_RGBA8				= EAC | CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	EAC_RGBA8_SRGB			= EAC | CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
+	ETC2_RGB8				= ETC2 | CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	ETC2_RGB8_SRGB			= ETC2 | CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
+	ETC2_RGB8A1				= ETC2 | CHANNELS_4 | FORMAT_8_8_8_ALPHA_1 | UINT | FLAG_NORMALIZED,
+	ETC2_RGB8A1_SRGB		= ETC2 | CHANNELS_4 | FORMAT_8_8_8_ALPHA_1 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
+	
+	ASTC_4X4_SRGB			= ASTC | CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
+	ASTC_4X4_LDR			= ASTC | CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	ASTC_4X4_HDR			= ASTC | CHANNELS_4 | FORMAT_8 | FLOAT,
 	
 };
 floor_global_enum_ext(COMPUTE_IMAGE_TYPE)
@@ -514,6 +533,10 @@ floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE
 		case COMPUTE_IMAGE_TYPE::FORMAT_24: return (channel_count == 1);
 		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return (channel_count == 2);
 		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return (channel_count == 2);
+		case COMPUTE_IMAGE_TYPE::FORMAT_8_8_8_ALPHA_1:
+		case COMPUTE_IMAGE_TYPE::FORMAT_11:
+			// only used with compressed formats
+			return false;
 		default: break;
 	}
 	return true;
@@ -522,8 +545,8 @@ floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE
 //! returns the amount of bits needed to store one pixel
 static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_type) {
 	const auto format = image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
+	const auto channel_count = image_channel_count(image_type);
 	if (!image_compressed(image_type)) {
-		const auto channel_count = image_channel_count(image_type);
 		const auto sample_count = image_sample_count(image_type);
 		switch (format) {
 			// arbitrary channel formats
@@ -562,7 +585,12 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 			case COMPUTE_IMAGE_TYPE::BC3:
 			case COMPUTE_IMAGE_TYPE::BPTC:
 				return 8u;
-			// TODO: other compressed formats
+			case COMPUTE_IMAGE_TYPE::EAC:
+			case COMPUTE_IMAGE_TYPE::ETC2:
+				return (channel_count == 1u || channel_count == 3u ? 4u : 8u);
+			case COMPUTE_IMAGE_TYPE::ASTC:
+				// TODO: other ASTC block sizes
+				return 8u;
 			default:
 				return 1;
 		}
@@ -626,8 +654,12 @@ static constexpr uint2 image_compression_block_size(const COMPUTE_IMAGE_TYPE& im
 		case COMPUTE_IMAGE_TYPE::BC3:
 		case COMPUTE_IMAGE_TYPE::RGTC:
 		case COMPUTE_IMAGE_TYPE::BPTC:
+		case COMPUTE_IMAGE_TYPE::EAC:
+		case COMPUTE_IMAGE_TYPE::ETC2:
 			return { 4u, 4u };
-		// TODO: other compressed formats
+		case COMPUTE_IMAGE_TYPE::ASTC:
+			// TODO: other ASTC block sizes
+			return { 4u, 4u };
 		default:
 			return {};
 	}
@@ -671,14 +703,7 @@ static constexpr uint32_t image_mip_level_count(const uint4& image_dim, const CO
 	const auto max_dim = std::max(std::max(image_dim.x, dim_count >= 2 ? image_dim.y : 1), dim_count >= 3 ? image_dim.z : 1);
 	if(max_dim == 1) return 1;
 	
-	auto levels = image_mip_level_count_from_max_dim(max_dim);
-	
-	// for compressed images, 8x8 is the minimum image and mip-map size -> substract 3 levels (1x1, 2x2 and 4x4)
-	if(image_compressed(image_type)) {
-		levels = (std::max(levels, 4u) - 3u);
-	}
-	
-	return levels;
+	return image_mip_level_count_from_max_dim(max_dim);
 }
 
 //! returns the amount of image layers specified by the image dim and type
