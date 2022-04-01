@@ -135,22 +135,53 @@ namespace compute_algorithm {
 	//////////////////////////////////////////
 	// work-group reduce functions
 	// TODO: add specialized reduce (sub-group/warp, shuffle, spir/spir-v built-in)
+
+	//! computes the linear/1D work group size from the specified 1D, 2D or 3D work group size
+	template <auto work_group_size>
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
+	requires(is_same_v<decltype(work_group_size), uint32_t>)
+#else
+	requires(is_same_v<decltype(work_group_size), uint32_t> ||
+			 is_same_v<decltype(work_group_size), uint2> ||
+			 is_same_v<decltype(work_group_size), uint3>)
+#endif
+	static inline constexpr uint32_t compute_linear_work_group_size() {
+		if constexpr (is_same_v<decltype(work_group_size), uint32_t>) {
+			return work_group_size;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint2>) {
+			return work_group_size.x * work_group_size.y;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint3>) {
+			return work_group_size.x * work_group_size.y * work_group_size.z;
+		} else {
+			instantiation_trap("invalid work_group_size type");
+		}
+	}
 	
 	//! generic work-group reduce function, without initializing local memory with a work-item specific value
-	//! NOTE: only work-item #0 (local_id.x == 0) is guaranteed to contain the final result
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
 	//! NOTE: local memory must be allocated on the user side and passed into this function
-	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
-	template <uint32_t work_group_size, typename reduced_type, typename local_memory_type, typename F>
+	template <auto work_group_size, typename reduced_type, typename local_memory_type, typename F>
+	requires(is_same_v<decltype(work_group_size), uint32_t> ||
+			 is_same_v<decltype(work_group_size), uint2> ||
+			 is_same_v<decltype(work_group_size), uint3>)
 	floor_inline_always static reduced_type reduce_no_init(local_memory_type& lmem,
 														   F&& op) {
-		const auto lid = local_id.x;
+		constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+		uint32_t lid = 0u;
+		if constexpr (is_same_v<decltype(work_group_size), uint32_t>) {
+			lid = local_id.x;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint2>) {
+			lid = local_id.x + local_id.y * local_size.x;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint3>) {
+			lid = local_id.x + local_id.y * local_size.x + local_id.z * local_size.x * local_size.y;
+		}
 		
 #if !defined(FLOOR_COMPUTE_HOST)
 		auto value = lmem[lid];
 		// butterfly reduce to [0]
 #pragma unroll
-		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
+		for(uint32_t i = linear_work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
 			if(i >= device_info::simd_width())
@@ -175,7 +206,7 @@ namespace compute_algorithm {
 #else
 			auto& arr = lmem;
 #endif
-			for(uint32_t i = 1; i < work_group_size; ++i) {
+			for(uint32_t i = 1; i < linear_work_group_size; ++i) {
 				arr[0] = op(arr[0], arr[i]);
 			}
 		}
@@ -184,23 +215,37 @@ namespace compute_algorithm {
 	}
 	
 	//! generic work-group reduce function
-	//! NOTE: only work-item #0 (local_id.x == 0) is guaranteed to contain the final result
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
 	//! NOTE: local memory must be allocated on the user side and passed into this function
-	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
-	template <uint32_t work_group_size, typename reduced_type, typename local_memory_type, typename F>
+	template <auto work_group_size, typename reduced_type, typename local_memory_type, typename F>
+#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
+	requires(is_same_v<decltype(work_group_size), uint32_t>)
+#else
+	requires(is_same_v<decltype(work_group_size), uint32_t> ||
+			 is_same_v<decltype(work_group_size), uint2> ||
+			 is_same_v<decltype(work_group_size), uint3>)
+#endif
 	floor_inline_always static reduced_type reduce(const reduced_type& work_item_value,
 												   local_memory_type& lmem,
 												   F&& op) {
 		// init/set all work-item values
-		const auto lid = local_id.x;
+		constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+		uint32_t lid = 0u;
+		if constexpr (is_same_v<decltype(work_group_size), uint32_t>) {
+			lid = local_id.x;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint2>) {
+			lid = local_id.x + local_id.y * local_size.x;
+		} else if constexpr (is_same_v<decltype(work_group_size), uint3>) {
+			lid = local_id.x + local_id.y * local_size.x + local_id.z * local_size.x * local_size.y;
+		}
 		auto value = work_item_value;
 		lmem[lid] = value;
 		
 #if !defined(FLOOR_COMPUTE_HOST)
 		// butterfly reduce to [0]
 #pragma unroll
-		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
+		for(uint32_t i = linear_work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
 			if(i >= device_info::simd_width())
@@ -226,7 +271,7 @@ namespace compute_algorithm {
 #else
 			auto& arr = lmem;
 #endif
-			for(uint32_t i = 1; i < work_group_size; ++i) {
+			for(uint32_t i = 1; i < linear_work_group_size; ++i) {
 				arr[0] = op(arr[0], arr[i]);
 			}
 		}
