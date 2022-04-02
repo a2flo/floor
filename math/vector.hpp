@@ -1923,14 +1923,14 @@ public:
 	//! returns a bool vector with each component representing the sign of the corresponding component in this vector:
 	//! true: sign, false: no sign
 	template <typename signed_type = decayed_scalar_type> requires(ext::is_signed_v<signed_type>)
-	constexpr FLOOR_VECNAME<bool> signbit() const {
+	constexpr FLOOR_VECNAME<bool> sign_bit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
 	}
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all false
 	template <typename signed_type = decayed_scalar_type> requires(!ext::is_signed_v<signed_type>)
-	constexpr FLOOR_VECNAME<bool> signbit() const {
+	constexpr FLOOR_VECNAME<bool> sign_bit() const {
 		// unsigned version
 		return { false };
 	}
