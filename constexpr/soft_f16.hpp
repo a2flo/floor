@@ -444,16 +444,16 @@ struct soft_f16 {
 		return (*this > val || *this == val);
 	}
 	
-	constexpr bool isnan() const {
+	constexpr bool is_nan() const {
 		return ((value & EXPONENT_MASK) == EXPONENT_MASK) && ((value & MANTISSA_MASK) != 0);
 	}
-	constexpr bool isinf() const {
+	constexpr bool is_infinite() const {
 		return ((value & EXPONENT_MASK) == EXPONENT_MASK) && ((value & MANTISSA_MASK) == 0);
 	}
-	constexpr bool isnormal() const {
+	constexpr bool is_normal() const {
 		return ((value & EXPONENT_MASK) != EXPONENT_MASK) && ((value & EXPONENT_MASK) != 0);
 	}
-	constexpr bool isfinite() const {
+	constexpr bool is_finite() const {
 		return ((value & EXPONENT_MASK) != EXPONENT_MASK);
 	}
 	

@@ -117,13 +117,13 @@ namespace const_math {
 	
 	//! tests if the specified floating point value is infinite
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type> && !is_same_v<fp_type, half>)
-	constexpr bool isinf(const fp_type val) {
+	constexpr bool is_infinite(const fp_type val) {
 		return __builtin_isinf(val);
 	}
 	template <typename fp_type> requires(is_same_v<fp_type, half>)
-	constexpr bool isinf(const fp_type val) {
+	constexpr bool is_infinite(const fp_type val) {
 #if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
-		return val.isinf();
+		return val.is_infinite();
 #else
 		return __builtin_isinf(val);
 #endif
@@ -131,13 +131,13 @@ namespace const_math {
 	
 	//! tests if the specified floating point value is NaN
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type> && !is_same_v<fp_type, half>)
-	constexpr bool isnan(const fp_type val) {
+	constexpr bool is_nan(const fp_type val) {
 		return __builtin_isnan(val);
 	}
 	template <typename fp_type> requires(is_same_v<fp_type, half>)
-	constexpr bool isnan(const fp_type val) {
+	constexpr bool is_nan(const fp_type val) {
 #if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
-		return val.isnan();
+		return val.is_nan();
 #else
 		return __builtin_isnan(val);
 #endif
@@ -145,13 +145,13 @@ namespace const_math {
 	
 	//! tests if the specified floating point value is normal
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type> && !is_same_v<fp_type, half>)
-	constexpr bool isnormal(const fp_type val) {
+	constexpr bool is_normal(const fp_type val) {
 		return __builtin_isnormal(val);
 	}
 	template <typename fp_type> requires(is_same_v<fp_type, half>)
-	constexpr bool isnormal(const fp_type val) {
+	constexpr bool is_normal(const fp_type val) {
 #if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
-		return val.isnormal();
+		return val.is_normal();
 #else
 		return __builtin_isnormal(val);
 #endif
@@ -159,13 +159,13 @@ namespace const_math {
 	
 	//! tests if the specified floating point value is finite
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type> && !is_same_v<fp_type, half>)
-	constexpr bool isfinite(const fp_type val) {
+	constexpr bool is_finite(const fp_type val) {
 		return __builtin_isfinite(val);
 	}
 	template <typename fp_type> requires(is_same_v<fp_type, half>)
-	constexpr bool isfinite(const fp_type val) {
+	constexpr bool is_finite(const fp_type val) {
 #if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
-		return val.isfinite();
+		return val.is_finite();
 #else
 		return __builtin_isfinite(val);
 #endif
@@ -475,8 +475,8 @@ namespace const_math {
 		if(val == (fp_type)0 || val == -(fp_type)0) return ln_ret { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
 		if(val == (fp_type)1) return ln_ret { false, (fp_type)0, 0.0_fp, 0.0_fp };
 		if(val < (fp_type)0) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
-		if(const_math::isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
-		if(const_math::isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		if(const_math::is_infinite(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(const_math::is_nan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
 		
 		// decompose into [1, 2) part and 2^x part
 		const auto decomp = const_math::decompose_fp(val);
@@ -588,15 +588,15 @@ namespace const_math {
 		}
 		
 		// * return unmodified +inf (note: support for __builtin_isinf_sign is problematic)
-		if(const_math::isinf(val) && val > (fp_type)0) {
+		if(const_math::is_infinite(val) && val > (fp_type)0) {
 			return { val, (fp_type)0 };
 		}
 		// * return NaN if val is NaN, -infinity or negative
-		if(const_math::isnan(val) || const_math::isinf(val) || val < -(fp_type)0) {
+		if(const_math::is_nan(val) || const_math::is_infinite(val) || val < -(fp_type)0) {
 			return { numeric_limits<fp_type>::quiet_NaN(), numeric_limits<fp_type>::quiet_NaN() };
 		}
 		// * return 0 if val is a denormal
-		if(!const_math::isnormal(val)) {
+		if(!const_math::is_normal(val)) {
 			return { (fp_type)0, (fp_type)0 };
 		}
 		
@@ -731,7 +731,7 @@ namespace const_math {
 		if(val < (fp_type)-1 || val > (fp_type)1) {
 			return numeric_limits<fp_type>::quiet_NaN();
 		}
-		if(const_math::isnan(val)) {
+		if(const_math::is_nan(val)) {
 			return val;
 		}
 		
