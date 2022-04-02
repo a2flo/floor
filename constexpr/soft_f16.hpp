@@ -356,14 +356,14 @@ struct soft_f16 {
 #if FLOOR_HAS_NATIVE_FP16 != 1
 #define FLOOR_F16_OP(op) \
 	constexpr soft_f16 operator op (const soft_f16& val) const noexcept { \
-		return float(value) op float(val.value); \
+		return from_float(float(value) op float(val.value)); \
 	} \
 	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
-		value = float(value) op float(val.value); \
+		value = from_float(float(value) op float(val.value)); \
 		return *this; \
 	} \
 	constexpr friend soft_f16 operator op (const float& lhs, const soft_f16& rhs) { \
-		return lhs * float(rhs.value); \
+		return from_float(lhs * float(rhs.value)); \
 	}
 #else
 #define FLOOR_F16_OP(op) \
