@@ -843,10 +843,12 @@ else
 	COMMON_FLAGS="${COMMON_FLAGS} -I${FLOOR_SELF_INCL_DIR}"
 fi
 
-# mingw sdl fixes
+# mingw fixes/workarounds
 if [ $BUILD_OS == "mingw" ]; then
 	# remove sdls main redirect, we want to use our own main
 	COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-Dmain=SDL_main//g")
+	# don't include "mingw64/include" directly
+	COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-isystem ([A-Za-z0-9_\-\:\/\.\(\) ]+)mingw64\/include //g")
 	# remove windows flag -> creates a separate cmd window + working iostream output
 	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-mwindows //g")
 	# remove unwanted -static-libgcc flag (this won't work and lead to linker errors!)
