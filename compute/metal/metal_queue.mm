@@ -47,7 +47,11 @@ void metal_queue::finish() const {
 		GUARD(cmd_buffers_lock);
 		cur_cmd_buffers = cmd_buffers;
 	}
-	for(const auto& cmd_buffer : cur_cmd_buffers) {
+	for (const auto& cmd_buffer : cur_cmd_buffers) {
+		// we may only call "waitUntilCompleted" once the command buffer has been committed
+		while ([cmd_buffer.first status] < MTLCommandBufferStatusCommitted) {
+			this_thread::yield();
+		}
 		[cmd_buffer.first waitUntilCompleted];
 	}
 }
