@@ -555,8 +555,11 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 
 metal_image::~metal_image() {
 	// kill the image
+	if (image) {
+		[image setPurgeableState:MTLPurgeableStateEmpty];
+	}
 	image = nil;
-	if(desc != nil) {
+	if (desc != nil) {
 		desc = nil;
 	}
 }
@@ -680,6 +683,8 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
+	
+	mtl_zero_buffer = nil;
 	
 	return success;
 }

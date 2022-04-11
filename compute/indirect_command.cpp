@@ -80,6 +80,9 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 			}
 			++buf_count;
 		}
+		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
+			++buf_count;
+		}
 		switch (entry->info->type) {
 			case llvm_toolchain::FUNCTION_TYPE::KERNEL:
 				max_kernel_buffer_count = max(max_kernel_buffer_count, buf_count);

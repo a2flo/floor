@@ -20,11 +20,14 @@
 
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/logger.hpp>
+#include <floor/compute/compute_context.hpp>
+#include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/compute/metal/metal_args.hpp>
+#include <floor/compute/soft_printf.hpp>
 #include <Metal/MTLIndirectCommandEncoder.h>
 
 metal_indirect_command_pipeline::metal_indirect_command_pipeline(const indirect_command_description& desc_,
@@ -102,7 +105,7 @@ indirect_command_pipeline(desc_) {
 		entry.icb.label = (desc.debug_label.empty() ? @"metal_icb" :
 						   [NSString stringWithUTF8String:(desc.debug_label).c_str()]);
 		
-		pipelines.insert(*dev, entry);
+		pipelines.emplace_or_assign(*dev, move(entry));
 	}
 }
 
@@ -238,6 +241,40 @@ optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_
 	return range;
 }
 
+metal_indirect_command_pipeline::metal_pipeline_entry::metal_pipeline_entry(metal_pipeline_entry&& entry) :
+icb(entry.icb), printf_buffer(entry.printf_buffer) {
+	entry.icb = nil;
+	entry.printf_buffer = nullptr;
+}
+
+metal_indirect_command_pipeline::metal_pipeline_entry& metal_indirect_command_pipeline::metal_pipeline_entry::operator=(metal_pipeline_entry&& entry) {
+	icb = entry.icb;
+	printf_buffer = entry.printf_buffer;
+	entry.icb = nil;
+	entry.printf_buffer = nullptr;
+	return *this;
+}
+
+metal_indirect_command_pipeline::metal_pipeline_entry::~metal_pipeline_entry() {
+	if (icb) {
+		[icb setPurgeableState:MTLPurgeableStateEmpty];
+	}
+	icb = nil;
+}
+
+void metal_indirect_command_pipeline::metal_pipeline_entry::printf_init(const compute_queue& dev_queue) const {
+	initialize_printf_buffer(dev_queue, *printf_buffer);
+}
+
+void metal_indirect_command_pipeline::metal_pipeline_entry::printf_completion(const compute_queue& dev_queue, id <MTLCommandBuffer> cmd_buffer) const {
+	auto internal_dev_queue = ((const metal_compute*)dev_queue.get_device().context)->get_device_default_queue(dev_queue.get_device());
+	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+		auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
+		printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());
+		handle_printf_buffer(cpu_printf_buffer);
+	}];
+}
+
 metal_indirect_render_command_encoder::metal_indirect_render_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			 const uint32_t command_idx_,
 																			 const compute_queue& dev_queue_, const graphics_pipeline& pipeline_) :
@@ -255,14 +292,23 @@ indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_
 		return;
 	}
 #endif
+	bool has_soft_printf = false;
 	if (mtl_render_pipeline_entry->vs_entry) {
 		vs_info = mtl_render_pipeline_entry->vs_entry->info;
+		has_soft_printf |= has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags);
 	}
 	if (mtl_render_pipeline_entry->fs_entry) {
 		fs_info = mtl_render_pipeline_entry->fs_entry->info;
+		has_soft_printf |= has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags);
 	}
 	command = [pipeline_entry.icb indirectRenderCommandAtIndex:command_idx];
 	[command setRenderPipelineState:mtl_render_pipeline_entry->pipeline_state];
+	
+	if (has_soft_printf) {
+		if (!pipeline_entry.printf_buffer) {
+			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+		}
+	}
 }
 
 metal_indirect_render_command_encoder::~metal_indirect_render_command_encoder() {
@@ -270,9 +316,22 @@ metal_indirect_render_command_encoder::~metal_indirect_render_command_encoder() 
 }
 
 void metal_indirect_render_command_encoder::set_arguments_vector(const vector<compute_kernel_arg>& args) {
+	vector<compute_kernel_arg> implicit_args;
+	const auto vs_has_soft_printf = (vs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
+	const auto fs_has_soft_printf = (fs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
+	if (vs_has_soft_printf || fs_has_soft_printf) {
+		// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
+		// NOTE: these are automatically added to the used resources
+		if (vs_has_soft_printf) {
+			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+		}
+		if (fs_has_soft_printf) {
+			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+		}
+	}
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_SHADER>(dev_queue.get_device(), command,
 																					{ vs_info, fs_info },
-																					args, {},
+																					args, implicit_args,
 																					nullptr,
 																					&resources);
 	sort_and_unique_all_resources();
@@ -398,6 +457,12 @@ indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeli
 	kernel_entry = mtl_kernel_entry;
 	command = [pipeline_entry.icb indirectComputeCommandAtIndex:command_idx];
 	[command setComputePipelineState:(__bridge id <MTLComputePipelineState>)mtl_kernel_entry->kernel_state];
+	
+	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(mtl_kernel_entry->info->flags)) {
+		if (!pipeline_entry.printf_buffer) {
+			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+		}
+	}
 }
 
 metal_indirect_compute_command_encoder::~metal_indirect_compute_command_encoder() {
@@ -405,9 +470,14 @@ metal_indirect_compute_command_encoder::~metal_indirect_compute_command_encoder(
 }
 
 void metal_indirect_compute_command_encoder::set_arguments_vector(const vector<compute_kernel_arg>& args) {
+	vector<compute_kernel_arg> implicit_args;
+	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_entry->info->flags)) {
+		// NOTE: this is automatically added to the used resources
+		implicit_args.emplace_back(pipeline_entry.printf_buffer);
+	}
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev_queue.get_device(), command,
 																					 { kernel_entry->info },
-																					 args, {},
+																					 args, implicit_args,
 																					 nullptr,
 																					 &resources);
 	sort_and_unique_all_resources();

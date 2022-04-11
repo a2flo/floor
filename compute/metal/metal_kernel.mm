@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/compute_context.hpp>
+#include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
@@ -89,9 +90,8 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	// create + init printf buffer if this function uses soft-printf
 	shared_ptr<compute_buffer> printf_buffer;
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		printf_buffer = cqueue.get_device().context->create_buffer(cqueue, printf_buffer_size);
-		printf_buffer->set_debug_label("printf_buffer");
-		printf_buffer->write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, cqueue);
+		printf_buffer = allocate_printf_buffer(cqueue);
+		initialize_printf_buffer(cqueue, *printf_buffer);
 		implicit_args.emplace_back(printf_buffer);
 	}
 
@@ -108,15 +108,18 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	// TODO/NOTE: guarantee that all buffers have finished their prior processing
 	[encoder->encoder dispatchThreadgroups:metal_grid_dim threadsPerThreadgroup:metal_block_dim];
 	[encoder->encoder endEncoding];
-	[encoder->cmd_buffer commit];
 	
 	// if soft-printf is being used, block/wait for completion here and read-back results
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		[encoder->cmd_buffer waitUntilCompleted];
-		auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
-		printf_buffer->read(cqueue, cpu_printf_buffer.get());
-		handle_printf_buffer(cpu_printf_buffer);
+		auto internal_dev_queue = ((const metal_compute*)cqueue.get_device().context)->get_device_default_queue(cqueue.get_device());
+		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+			auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
+			printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());
+			handle_printf_buffer(cpu_printf_buffer);
+		}];
 	}
+
+	[encoder->cmd_buffer commit];
 }
 
 typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(const compute_queue& cqueue) const {

@@ -308,8 +308,16 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
 	}
 	
+	if (mtl_indirect_pipeline_entry->printf_buffer) {
+		mtl_indirect_pipeline_entry->printf_init(cqueue);
+	}
+	
 	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
 						   withRange:*range];
+	
+	if (mtl_indirect_pipeline_entry->printf_buffer) {
+		mtl_indirect_pipeline_entry->printf_completion(cqueue, cmd_buffer);
+	}
 }
 
 bool metal_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {

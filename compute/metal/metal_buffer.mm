@@ -207,6 +207,10 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 
 metal_buffer::~metal_buffer() {
 	// kill the buffer / auto-release
+	if (buffer) {
+		[buffer removeAllDebugMarkers];
+		[buffer setPurgeableState:MTLPurgeableStateEmpty];
+	}
 	buffer = nil;
 }
 
@@ -261,6 +265,8 @@ void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const 
 		copy(cqueue, *staging_buffer, write_size, offset, offset);
 	}
 #endif
+	
+	write_buffer = nil;
 }
 
 void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
@@ -368,6 +374,8 @@ bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 		copy(cqueue, *staging_buffer, fill_size, offset, offset);
 	}
 #endif
+	
+	fill_buffer = nil;
 	
 	return true;
 }
@@ -546,6 +554,7 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResou
 	if (([rsrc storageMode] & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
 		// for shared storage: just wait until all previously queued command buffers have executed
 		cqueue.finish();
+		rsrc = nil;
 		return;
 	}
 	
@@ -557,6 +566,8 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResou
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
 #endif
+	
+	rsrc = nil;
 }
 
 void metal_buffer::set_debug_label(const string& label) {

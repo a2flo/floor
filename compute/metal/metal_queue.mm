@@ -121,10 +121,19 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
 	}
 	
+	if (mtl_indirect_pipeline_entry->printf_buffer) {
+		mtl_indirect_pipeline_entry->printf_init(*this);
+	}
+	
 	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
 						   withRange:*range];
 	
 	[encoder endEncoding];
+	
+	if (mtl_indirect_pipeline_entry->printf_buffer) {
+		mtl_indirect_pipeline_entry->printf_completion(*this, cmd_buffer);
+	}
+	
 	[cmd_buffer commit];
 }
 

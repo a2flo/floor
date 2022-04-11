@@ -258,4 +258,14 @@ static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
 	} while(true);
 }
 
+static inline shared_ptr<compute_buffer> allocate_printf_buffer(const compute_queue& dev_queue) {
+	auto printf_buffer = dev_queue.get_device().context->create_buffer(dev_queue, printf_buffer_size);
+	printf_buffer->set_debug_label("printf_buffer");
+	return printf_buffer;
+}
+
+static inline void initialize_printf_buffer(const compute_queue& dev_queue, compute_buffer& printf_buffer) {
+	printf_buffer.write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, dev_queue);
+}
+
 #endif

@@ -35,8 +35,18 @@ public:
 	
 	//! all Metal pipeline state
 	struct metal_pipeline_entry : public metal_resource_tracking {
+		metal_pipeline_entry() = default;
+		metal_pipeline_entry(metal_pipeline_entry&&);
+		metal_pipeline_entry& operator=(metal_pipeline_entry&&);
+		~metal_pipeline_entry();
+		
 		friend metal_indirect_command_pipeline;
 		id <MTLIndirectCommandBuffer> icb;
+		
+		//! soft-printf handling
+		mutable shared_ptr<compute_buffer> printf_buffer;
+		void printf_init(const compute_queue& dev_queue) const;
+		void printf_completion(const compute_queue& dev_queue, id <MTLCommandBuffer> cmd_buffer) const;
 	};
 	
 	//! return the device specific Metal pipeline state for the specified device (or nullptr if it doesn't exist)
