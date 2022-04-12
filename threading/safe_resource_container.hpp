@@ -38,8 +38,11 @@ class safe_resource_container {
 public:
 	//! true if "resource_type" is a smart ptr (shared_ptr/unique_ptr)
 	static constexpr const bool is_smart_ptr_resource { ext::is_shared_ptr_v<resource_type> || ext::is_unique_ptr_v<resource_type> };
+	//! specialized resource access type
+	template <typename T> struct resource_access_type_handler { using type = T; };
+	template <typename T> requires(is_smart_ptr_resource) struct resource_access_type_handler<T> { using type = typename resource_type::element_type*; };
 	//! the type with which the resource is accessed
-	using resource_access_type = conditional_t<is_smart_ptr_resource, typename resource_type::element_type*, resource_type>;
+	using resource_access_type = typename resource_access_type_handler<resource_type>::type;
 	
 	explicit safe_resource_container(array<resource_type, resource_count>&& resources_) : resources(resources_) {}
 	
