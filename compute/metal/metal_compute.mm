@@ -32,6 +32,7 @@
 
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/universal_binary.hpp>
+#include <floor/compute/soft_printf.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
@@ -526,17 +527,26 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 	log_debug("fastest GPU device: $", fastest_gpu_device->name);
 	
-	// create an internal queue and null buffer for each device
+	// create an internal queue, null buffer and (if enabled) soft-printf buffer cache for each device
 	for(auto& dev : devices) {
 		// queue
 		auto dev_queue = create_queue(*dev);
 		internal_queues.insert_or_assign(*dev, dev_queue);
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 		
-		// null buffer
+		// create null buffer
 		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
 		null_buffer->zero(*dev_queue);
 		internal_null_buffers.insert_or_assign(*dev, null_buffer);
+		
+		// create soft-printf buffer cache
+		if (floor::get_metal_soft_printf()) {
+			array<shared_ptr<compute_buffer>, soft_printf_buffer_count> dev_soft_printf_buffers;
+			for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
+				dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
+			}
+			soft_printf_buffers.emplace_or_assign(*dev, make_unique<soft_printf_buffer_rsrc_container_type>(move(dev_soft_printf_buffers)));
+		}
 	}
 	
 	// init renderer
@@ -586,6 +596,22 @@ const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) co
 	}
 	log_error("no null-buffer exists for this device: $!", dev.name);
 	return nullptr;
+}
+
+pair<compute_buffer*, uint32_t> metal_compute::acquire_soft_printf_buffer(const compute_device& dev) const {
+	if (const auto iter = soft_printf_buffers.find(dev); iter != soft_printf_buffers.end()) {
+		return iter->second->acquire();
+	}
+	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);
+	return {};
+}
+
+void metal_compute::release_soft_printf_buffer(const compute_device& dev, const pair<compute_buffer*, uint32_t>& buf) const {
+	if (const auto iter = soft_printf_buffers.find(dev); iter != soft_printf_buffers.end()) {
+		iter->second->release(buf);
+		return;
+	}
+	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,

@@ -94,6 +94,10 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 #endif
 	}
 	
+	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+		options |= MTLResourceHazardTrackingModeUntracked;
+	}
+	
 	// actually create the image
 	if(!create_internal(true, cqueue)) {
 		return; // can't do much else
@@ -315,6 +319,10 @@ compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_ima
 	
 	// copy existing options
 	options = [image cpuCacheMode];
+	
+	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+		options |= MTLResourceHazardTrackingModeUntracked;
+	}
 
 #if defined(FLOOR_IOS)
 FLOOR_PUSH_WARNINGS()

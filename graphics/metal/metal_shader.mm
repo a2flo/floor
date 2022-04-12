@@ -45,20 +45,23 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 										const metal_kernel_entry* vertex_shader,
 										const metal_kernel_entry* fragment_shader,
 										const vector<compute_kernel_arg>& args) const {
+	const auto dev = &cqueue.get_device();
+	const auto ctx = (const metal_compute*)dev->context;
+	
 	// create implicit args
 	vector<compute_kernel_arg> implicit_args;
 
 	// create + init printf buffers if soft-printf is used
-	vector<shared_ptr<compute_buffer>> printf_buffers;
+	vector<pair<compute_buffer*, uint32_t>> printf_buffer_rsrcs;
 	const auto is_vs_soft_printf = has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(vertex_shader->info->flags);
 	const auto is_fs_soft_printf = (fragment_shader != nullptr && has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
 	if (is_vs_soft_printf || is_fs_soft_printf) {
 		const uint32_t printf_buffer_count = (is_vs_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
 		for (uint32_t i = 0; i < printf_buffer_count; ++i) {
-			auto printf_buffer = allocate_printf_buffer(cqueue);
-			initialize_printf_buffer(cqueue, *printf_buffer);
-			printf_buffers.emplace_back(printf_buffer);
-			implicit_args.emplace_back(printf_buffer);
+			auto rsrc = ctx->acquire_soft_printf_buffer(*dev);
+			initialize_printf_buffer(cqueue, *rsrc.first);
+			implicit_args.emplace_back(rsrc.first);
+			printf_buffer_rsrcs.emplace_back(move(rsrc));
 		}
 	}
 
@@ -72,10 +75,11 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 	if (is_vs_soft_printf || is_fs_soft_printf) {
 		auto internal_dev_queue = ((const metal_compute*)cqueue.get_device().context)->get_device_default_queue(cqueue.get_device());
 		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
-			for (const auto& printf_buffer : printf_buffers) {
+			for (const auto& printf_buffer_rsrc : printf_buffer_rsrcs) {
 				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
-				printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());
+				printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
 				handle_printf_buffer(cpu_printf_buffer);
+				ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
 			}
 		}];
 	}

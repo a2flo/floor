@@ -25,6 +25,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #endif
+#include <floor/constexpr/ext_traits.hpp>
 #include <bitset>
 #include <thread>
 #include <array>
@@ -32,15 +33,20 @@
 using namespace std;
 
 //! a thread-safe container of multiple resources of the same type, allowing thread-safe resource allocation/usage/release
-template <typename resource_type, uint32_t resource_count>
+template <typename resource_type, uint32_t resource_count, uint32_t stuck_count = 1000u>
 class safe_resource_container {
 public:
+	//! true if "resource_type" is a smart ptr (shared_ptr/unique_ptr)
+	static constexpr const bool is_smart_ptr_resource { ext::is_shared_ptr_v<resource_type> || ext::is_unique_ptr_v<resource_type> };
+	//! the type with which the resource is accessed
+	using resource_access_type = conditional_t<is_smart_ptr_resource, typename resource_type::element_type*, resource_type>;
+	
 	explicit safe_resource_container(array<resource_type, resource_count>&& resources_) : resources(resources_) {}
 	
 	//! tries to acquire a resource,
 	//! returns { resource, index } on success,
 	//! returns { {}, ~0u } on failure
-	pair<resource_type, uint32_t> try_acquire() REQUIRES(!resource_lock) {
+	pair<resource_access_type, uint32_t> try_acquire() REQUIRES(!resource_lock) {
 		for (uint32_t trial = 0, limiter = 10; trial < limiter; ++trial) {
 			{
 				GUARD(resource_lock);
@@ -48,7 +54,11 @@ public:
 					for (uint32_t i = 0; i < resource_count; ++i) {
 						if (!resources_in_use[i]) {
 							resources_in_use.set(i);
-							return { resources[i], i };
+							if constexpr (!is_smart_ptr_resource) {
+								return { resources[i], i };
+							} else {
+								return { resources[i].get(), i };
+							}
 						}
 					}
 					floor_unreachable();
@@ -60,7 +70,7 @@ public:
 	}
 	
 	//! acquires a resource, returns { resource, index }
-	pair<resource_type, uint32_t> acquire() REQUIRES(!resource_lock) {
+	pair<resource_access_type, uint32_t> acquire() REQUIRES(!resource_lock) {
 		for (uint32_t counter = 0;; ++counter) {
 			{
 				GUARD(resource_lock);
@@ -68,7 +78,11 @@ public:
 					for (uint32_t i = 0; i < resource_count; ++i) {
 						if (!resources_in_use[i]) {
 							resources_in_use.set(i);
-							return { resources[i], i };
+							if constexpr (!is_smart_ptr_resource) {
+								return { resources[i], i };
+							} else {
+								return { resources[i].get(), i };
+							}
 						}
 					}
 					floor_unreachable();
@@ -76,7 +90,7 @@ public:
 			}
 			this_thread::yield();
 #if defined(FLOOR_DEBUG)
-			if (counter == 1000) {
+			if (counter == stuck_count) {
 				log_warn("resource acquisition is probably stuck ($: $)", core::get_current_thread_name(), typeid(*this).name());
 			}
 #endif
@@ -84,7 +98,7 @@ public:
 	}
 	
 	//! release a resource again
-	void release(const pair<resource_type, uint32_t>& resource) REQUIRES(!resource_lock) {
+	void release(const pair<resource_access_type, uint32_t>& resource) REQUIRES(!resource_lock) {
 		GUARD(resource_lock);
 		resources_in_use.reset(resource.second);
 	}

@@ -84,6 +84,10 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 #endif
 	}
 	
+	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+		options |= MTLResourceHazardTrackingModeUntracked;
+	}
+	
 	// TODO: handle the remaining flags + host ptr
 	
 	// actually create the buffer
@@ -113,6 +117,10 @@ compute_buffer(cqueue, [external_buffer length], host_ptr_, flags_, 0, 0), buffe
 	
 	// copy existing options
 	options = [buffer cpuCacheMode];
+	
+	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+		options |= MTLResourceHazardTrackingModeUntracked;
+	}
 	
 #if defined(FLOOR_IOS)
 	FLOOR_PUSH_WARNINGS()
@@ -186,13 +194,14 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 					[blit_encoder endEncoding];
 					[cmd_buffer commit];
 					[cmd_buffer waitUntilCompleted];
-				}
-				else {
+					
+					[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
+					buffer_with_host_mem = nil;
+				} else {
 					staging_buffer->write(cqueue, host_ptr, size);
 					copy(cqueue, *staging_buffer);
 				}
-			}
-			else {
+			} else {
 				// all other storage modes can just use it
 				buffer = [mtl_dev.device newBufferWithBytes:host_ptr length:size options:options];
 			}

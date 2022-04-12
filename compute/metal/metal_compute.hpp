@@ -26,6 +26,7 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/threading/thread_safety.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
+#include <floor/threading/safe_resource_container.hpp>
 
 #if defined(__OBJC__)
 @class metal_view;
@@ -206,6 +207,11 @@ public:
 	//! NOTE: the null buffer is one page in size (x86: 4KiB, ARM: 16KiB)
 	const metal_buffer* get_null_buffer(const compute_device& dev) const;
 	
+	//! acquire an internal soft-printf buffer
+	pair<compute_buffer*, uint32_t> acquire_soft_printf_buffer(const compute_device& dev) const;
+	//! release an internal soft-printf buffer
+	void release_soft_printf_buffer(const compute_device& dev, const pair<compute_buffer*, uint32_t>& buf) const;
+	
 protected:
 	void* ctx { nullptr };
 	vr_context* vr_ctx { nullptr };
@@ -233,6 +239,11 @@ protected:
 	mutable array<vr_image_t, vr_image_count> vr_images;
 	mutable uint32_t vr_image_index { 0 };
 	bool init_vr_renderer();
+	
+	// soft-printf buffer cache
+	static constexpr const uint32_t soft_printf_buffer_count { 32u };
+	using soft_printf_buffer_rsrc_container_type = safe_resource_container<shared_ptr<compute_buffer>, soft_printf_buffer_count, ~0u>;
+	flat_map<const compute_device&, unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
 	
 };
 

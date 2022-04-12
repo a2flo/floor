@@ -67,6 +67,9 @@ void metal_kernel::execute(const compute_queue& cqueue,
 						   const uint3& global_work_size,
 						   const uint3& local_work_size,
 						   const vector<compute_kernel_arg>& args) const {
+	const auto dev = &cqueue.get_device();
+	const auto ctx = (const metal_compute*)dev->context;
+	
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Metal");
@@ -88,16 +91,18 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	vector<compute_kernel_arg> implicit_args;
 
 	// create + init printf buffer if this function uses soft-printf
-	shared_ptr<compute_buffer> printf_buffer;
+	pair<compute_buffer*, uint32_t> printf_buffer_rsrc;
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		printf_buffer = allocate_printf_buffer(cqueue);
-		initialize_printf_buffer(cqueue, *printf_buffer);
-		implicit_args.emplace_back(printf_buffer);
+		printf_buffer_rsrc = ctx->acquire_soft_printf_buffer(*dev);
+		if (printf_buffer_rsrc.first) {
+			initialize_printf_buffer(cqueue, *printf_buffer_rsrc.first);
+			implicit_args.emplace_back(*printf_buffer_rsrc.first);
+		}
 	}
 
 	// set and handle kernel arguments
 	const kernel_entry& entry = kernel_iter->second;
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(cqueue.get_device(), encoder->encoder, { entry.info }, args, implicit_args);
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
 	
 	// compute sizes
 	auto [grid_dim, block_dim] = compute_grid_and_block_dim(kernel_iter->second, dim, global_work_size, local_work_size);
@@ -111,11 +116,12 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	
 	// if soft-printf is being used, block/wait for completion here and read-back results
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		auto internal_dev_queue = ((const metal_compute*)cqueue.get_device().context)->get_device_default_queue(cqueue.get_device());
+		auto internal_dev_queue = ctx->get_device_default_queue(*dev);
 		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 			auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
-			printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());
+			printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
 			handle_printf_buffer(cpu_printf_buffer);
+			ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
 		}];
 	}
 

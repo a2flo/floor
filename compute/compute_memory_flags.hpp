@@ -107,6 +107,9 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! Vulkan-only: allocate memory in device-local / host-coherent memory
 	VULKAN_HOST_COHERENT		= (1u << 15u),
 	
+	//! Metal/internal-only: disables any resource tracking on the allocated Metal object
+	__NO_RESOURCE_TRACKING		= (1u << 16u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 
