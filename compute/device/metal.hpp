@@ -60,13 +60,43 @@ namespace std {
 	const_func metal_func float log2(float) asm("air.fast_log2.f32");
 	const_func metal_func float pow(float, float) asm("air.fast_pow.f32");
 	const_func metal_func float fmod(float, float) asm("air.fast_fmod.f32");
+
+	const_func metal_func half sqrt(half) asm("air.sqrt.f16");
+	const_func metal_func half rsqrt(half) asm("air.rsqrt.f16");
+	const_func metal_func half fabs(half) asm("air.fabs.f16");
+	const_func metal_func half abs(half) asm("air.fabs.f16");
+	const_func metal_func half fmin(half, half) asm("air.fmin.f16");
+	const_func metal_func half fmax(half, half) asm("air.fmax.f16");
+	const_func metal_func half floor(half) asm("air.floor.f16");
+	const_func metal_func half ceil(half) asm("air.ceil.f16");
+	const_func metal_func half round(half) asm("air.round.f16");
+	const_func metal_func half trunc(half) asm("air.trunc.f16");
+	const_func metal_func half rint(half) asm("air.rint.f16");
+	const_func metal_func half sin(half) asm("air.sin.f16");
+	const_func metal_func half cos(half) asm("air.cos.f16");
+	const_func metal_func half tan(half) asm("air.tan.f16");
+	const_func metal_func half asin(half) asm("air.asin.f16");
+	const_func metal_func half acos(half) asm("air.acos.f16");
+	const_func metal_func half atan(half) asm("air.atan.f16");
+	const_func metal_func half atan2(half, half) asm("air.atan2.f16");
+	const_func metal_func half sinh(half) asm("air.sinh.f16");
+	const_func metal_func half cosh(half) asm("air.cosh.f16");
+	const_func metal_func half tanh(half) asm("air.tanh.f16");
+	const_func metal_func half asinh(half) asm("air.asinh.f16");
+	const_func metal_func half acosh(half) asm("air.acosh.f16");
+	const_func metal_func half atanh(half) asm("air.atanh.f16");
+	const_func metal_func half fma(half, half, half) asm("air.fma.f16");
+	const_func metal_func half exp(half) asm("air.exp.f16");
+	const_func metal_func half exp2(half) asm("air.exp2.f16");
+	const_func metal_func half log(half) asm("air.log.f16");
+	const_func metal_func half log2(half) asm("air.log2.f16");
+	const_func metal_func half pow(half, half) asm("air.pow.f16");
+	const_func metal_func half fmod(half, half) asm("air.fmod.f16");
 	
 	const_func floor_inline_always metal_func float copysign(float a, float b) {
 		// metal/air doesn't have a builtin function/intrinsic for this and does bit ops instead -> do the same
 		return bit_cast<float>((bit_cast<uint32_t>(a) & 0x7FFF'FFFFu) | (bit_cast<uint32_t>(b) & 0x8000'0000u));
 	}
-	
-	const_func metal_func half abs(half) asm("air.fabs.f16");
 	
 	const_func metal_func int8_t abs(int8_t) asm("air.abs.s.i8");
 	const_func metal_func int16_t abs(int16_t) asm("air.abs.s.i16");

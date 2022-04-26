@@ -230,6 +230,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint16_t, "t")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint32_t, "j")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint64_t, "m")
+	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, half, "h")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, float, "f")
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, double, "d")
@@ -243,6 +244,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint16_t, "t")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint32_t, "j")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint64_t, "m")
+	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, half, "h")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, float, "f")
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, double, "d")
@@ -278,6 +280,12 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 
 // always include const_math, rt_math and math constexpr-select functionality
 #include <floor/constexpr/const_math.hpp>
+
+// we can't use the 'h' suffix everywhere (e.g. Host-Compute with a vanilla clang)
+// -> add custom '_h' UDL which can be used everywhere
+static constexpr inline half operator "" _h (long double val) {
+	return half(val);
+}
 
 // always include vector lib/types
 #if !defined(FLOOR_DEBUG)
