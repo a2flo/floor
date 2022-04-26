@@ -54,7 +54,8 @@ public:
 						 const uint32_t& dim,
 						 const uint3& global_work_size,
 						 const uint3& local_work_size,
-						 const vector<compute_kernel_arg>& args) const = 0;
+						 const vector<compute_kernel_arg>& args,
+						 kernel_completion_handler_f&& completion_handler = {}) const = 0;
 	
 	//! creates an argument buffer for the specified argument index
 	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size

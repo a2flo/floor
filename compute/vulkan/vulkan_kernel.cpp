@@ -325,7 +325,8 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 							const uint32_t& dim floor_unused,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
-							const vector<compute_kernel_arg>& args) const {
+							const vector<compute_kernel_arg>& args,
+							kernel_completion_handler_f&& completion_handler) const {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Vulkan");
@@ -338,6 +339,8 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		log_error("no kernel for this compute queue/device exists!");
 		return;
 	}
+	
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	
 	// check work size
 	const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
@@ -425,16 +428,22 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
+	// add completion handler if required
+	if (completion_handler) {
+		vk_queue.add_completion_handler(encoder->cmd_buffer, [handler = std::move(completion_handler)]() {
+			handler();
+		});
+	}
 #if defined(FLOOR_DEBUG)
 	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
 #endif
-	((const vulkan_queue&)cqueue).submit_command_buffer(encoder->cmd_buffer,
-														[encoder](const vulkan_command_buffer&) {
-															// -> completion handler
-															
-															// kill constant buffers after the kernel has finished execution
-															encoder->constant_buffers.clear();
-														}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
+	vk_queue.submit_command_buffer(encoder->cmd_buffer,
+								   [encoder](const vulkan_command_buffer&) {
+		// -> completion handler
+		
+		// kill constant buffers after the kernel has finished execution
+		encoder->constant_buffers.clear();
+	}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
 	
 	// release all acquired descriptor sets and constant buffers again
 	for (auto& desc_set_instance : encoder->acquired_descriptor_sets) {

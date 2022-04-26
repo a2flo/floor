@@ -68,4 +68,7 @@ floor_inline_always static constexpr const char* compute_vendor_to_string(const 
 	}
 }
 
+//! user-definable kernel completion handler
+using kernel_completion_handler_f = std::function<void()>;
+
 #endif

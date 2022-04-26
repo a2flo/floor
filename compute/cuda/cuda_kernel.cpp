@@ -61,12 +61,39 @@ void cuda_kernel::execute_cooperative_internal(const compute_queue& cqueue,
 					  "failed to execute cooperative kernel")
 }
 
+struct cuda_completion_handler {
+	kernel_completion_handler_f handler;
+};
+static safe_mutex completion_handlers_in_flight_lock;
+static unordered_map<void*, shared_ptr<cuda_completion_handler>> completion_handlers_in_flight GUARDED_BY(completion_handlers_in_flight_lock);
+static CU_API void cuda_stream_completion_callback(cu_stream stream floor_unused, CU_RESULT result floor_unused,
+												   void* user_data) REQUIRES(!completion_handlers_in_flight_lock) {
+	if (user_data == nullptr) {
+		return;
+	}
+	shared_ptr<cuda_completion_handler> compl_handler;
+	{
+		GUARD(completion_handlers_in_flight_lock);
+		auto iter = completion_handlers_in_flight.find(user_data);
+		if (iter == completion_handlers_in_flight.end()) {
+			log_error("invalid CUDA completion handler");
+			return;
+		}
+		compl_handler = iter->second;
+		completion_handlers_in_flight.erase(iter);
+	}
+	if (compl_handler->handler) {
+		compl_handler->handler();
+	}
+}
+
 void cuda_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
 						  const uint32_t& dim floor_unused,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
-						  const vector<compute_kernel_arg>& args) const {
+						  const vector<compute_kernel_arg>& args,
+						  kernel_completion_handler_f&& completion_handler) const REQUIRES(!completion_handlers_in_flight_lock) {
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
@@ -207,6 +234,17 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 		execute_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	} else {
 		execute_cooperative_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+	}
+	
+	if (completion_handler) {
+		auto compl_handler = make_shared<cuda_completion_handler>();
+		compl_handler->handler = move(completion_handler);
+		{
+			GUARD(completion_handlers_in_flight_lock);
+			completion_handlers_in_flight.emplace(compl_handler.get(), compl_handler);
+		}
+		CU_CALL_NO_ACTION(cu_stream_add_callback((const_cu_stream)cqueue.get_queue_ptr(), &cuda_stream_completion_callback, compl_handler.get(), 0),
+						  "failed to add kernel completion handler")
 	}
 }
 

@@ -38,7 +38,8 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 							const uint32_t& work_dim,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
-							const vector<compute_kernel_arg>& args) const REQUIRES(!args_lock) {
+							const vector<compute_kernel_arg>& args,
+							kernel_completion_handler_f&& completion_handler) const REQUIRES(!args_lock) {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for OpenCL");
@@ -99,14 +100,19 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 									   global_ws.data(), local_ws.data(),
 									   0, nullptr,
 									   // when using the param workaround, we have created tmp buffers
-									   // that need to be destroyed once the kernel has finished execution
-									   handler->needs_param_workaround && has_tmp_buffers ? &wait_evt : nullptr),
+									   // that need to be destroyed once the kernel has finished execution,
+									   // we also need the wait event if a user specified completion handler is set
+									   (handler->needs_param_workaround && has_tmp_buffers) || completion_handler ? &wait_evt : nullptr),
 				"failed to execute kernel " + entry.info->name)
 	
-	if(handler->needs_param_workaround && has_tmp_buffers) {
-		task::spawn([handler, wait_evt]() {
+	if ((handler->needs_param_workaround && has_tmp_buffers) || completion_handler) {
+		task::spawn([handler, wait_evt, user_compl_handler = std::move(completion_handler)]() {
 			CL_CALL_IGNORE(clWaitForEvents(1, &wait_evt), "waiting for kernel execution failed")
 			// NOTE: will hold onto all tmp buffers of handler until the end of this scope, then auto-destruct everything
+			
+			if (user_compl_handler) {
+				user_compl_handler();
+			}
 		}, "kernel cleanup");
 	}
 }

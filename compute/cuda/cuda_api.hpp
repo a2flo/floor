@@ -499,6 +499,7 @@ using cu_surf_object = uint64_t;
 using cu_tex_object = uint64_t;
 using cu_tex_only_object = uint32_t;
 typedef size_t (CU_API *cu_occupancy_b2d_size)(int32_t block_size);
+typedef void (CU_API *cu_stream_callback)(cu_stream stream, CU_RESULT result, void* user_data);
 
 // structs that can actually be filled by the user
 struct cu_array_3d_descriptor {
@@ -810,6 +811,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size_with_flags)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit, uint32_t flags);
 	CU_API CU_RESULT (*signal_external_semaphore_async)(const cu_external_semaphore* ext_sem_array, const cu_external_semaphore_signal_parameters* params_array, const uint32_t num_ext_sems, cu_stream stream);
+	CU_API CU_RESULT (*stream_add_callback)(const_cu_stream h_stream, cu_stream_callback callback, void* user_data, uint32_t flags);
 	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
 	CU_API CU_RESULT (*stream_synchronize)(const_cu_stream h_stream);
 	CU_API CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
@@ -901,6 +903,7 @@ extern bool cuda_can_use_external_memory();
 #define cu_occupancy_max_potential_block_size cuda_api.occupancy_max_potential_block_size
 #define cu_occupancy_max_potential_block_size_with_flags cuda_api.occupancy_max_potential_block_size_with_flags
 #define cu_signal_external_semaphore_async cuda_api.signal_external_semaphore_async
+#define cu_stream_add_callback cuda_api.stream_add_callback
 #define cu_stream_create cuda_api.stream_create
 #define cu_stream_synchronize cuda_api.stream_synchronize
 #define cu_surf_object_create cuda_api.surf_object_create

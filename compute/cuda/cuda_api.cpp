@@ -273,6 +273,9 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.occupancy_max_potential_block_size_with_flags = load_symbol(cuda_lib, "cuOccupancyMaxPotentialBlockSizeWithFlags");
 	if(cuda_api.occupancy_max_potential_block_size_with_flags == nullptr) log_error("failed to retrieve function pointer for \"cuOccupancyMaxPotentialBlockSizeWithFlags\"");
 	
+	(void*&)cuda_api.stream_add_callback = load_symbol(cuda_lib, "cuStreamAddCallback");
+	if(cuda_api.stream_add_callback == nullptr) log_error("failed to retrieve function pointer for \"cuStreamAddCallback\"");
+	
 	(void*&)cuda_api.stream_create = load_symbol(cuda_lib, "cuStreamCreate");
 	if(cuda_api.stream_create == nullptr) log_error("failed to retrieve function pointer for \"cuStreamCreate\"");
 	

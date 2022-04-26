@@ -39,7 +39,8 @@ public:
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
-				 const vector<compute_kernel_arg>& args) const override;
+				 const vector<compute_kernel_arg>& args,
+				 kernel_completion_handler_f&& completion_handler) const override;
 	
 	//! sets and handles all vertex and fragment shader arguments in the specified encoder
 	void set_shader_arguments(const compute_queue& cqueue,

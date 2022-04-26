@@ -23,6 +23,7 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
+#include <floor/compute/compute_common.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
@@ -86,63 +87,87 @@ public:
 	virtual void* get_queue_ptr() = 0;
 	
 	//! enqueues (and executes) the specified kernel into this queue
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
 	void execute(const compute_kernel& kernel,
-				 work_size_type_global&& global_work_size,
-				 work_size_type_local&& local_work_size,
+				 const work_size_type& global_work_size,
+				 const work_size_type& local_work_size,
 				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, { args... });
+		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, {}, { args... });
 	}
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	void execute(const compute_kernel&, work_size_type_global&&, work_size_type_local&&, const Args&...) const
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
+	//! enqueues (and executes) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute_with_handler(const compute_kernel& kernel,
+							  const work_size_type& global_work_size,
+							  const work_size_type& local_work_size,
+							  kernel_completion_handler_f&& completion_handler,
+							  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size,
+								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
+	}
+	
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute_with_handler(const compute_kernel&, const work_size_type&, const work_size_type&, kernel_completion_handler_f&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
 	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
 	void execute_cooperative(const compute_kernel& kernel,
-							 work_size_type_global&& global_work_size,
-							 work_size_type_local&& local_work_size,
+							 const work_size_type& global_work_size,
+							 const work_size_type& local_work_size,
 							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, { args... });
+		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, {}, { args... });
 	}
 	
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	void execute_cooperative(const compute_kernel&, work_size_type_global&&, work_size_type_local&&, const Args&...) const
-	
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute_cooperative(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
-	template <typename... Args, class work_size_type_global, class work_size_type_local>
-	requires ((is_same_v<decay_t<work_size_type_global>, uint1> ||
-			   is_same_v<decay_t<work_size_type_global>, uint2> ||
-			   is_same_v<decay_t<work_size_type_global>, uint3>) &&
-			  is_same_v<decay_t<work_size_type_global>, decay_t<work_size_type_local>>)
-	void execute_cooperative(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, const Args&...) const
+	
+	//! enqueues (and executes cooperatively) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
+	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute_cooperative_with_handler(const compute_kernel& kernel,
+										  const work_size_type& global_work_size,
+										  const work_size_type& local_work_size,
+										  kernel_completion_handler_f&& completion_handler,
+										  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size,
+								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
+	}
+	
+	template <typename... Args, class work_size_type>
+	requires (is_same_v<work_size_type, uint1> ||
+			  is_same_v<work_size_type, uint2> ||
+			  is_same_v<work_size_type, uint3>)
+	void execute_cooperative_with_handler(const compute_kernel&, const work_size_type&, const work_size_type&,
+										  kernel_completion_handler_f&&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	
@@ -175,14 +200,17 @@ protected:
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
 								  const uint1& global_size, const uint1& local_size,
+								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
 								  const uint2& global_size, const uint2& local_size,
+								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
 								  const uint3& global_size, const uint3& local_size,
+								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;
 	
 };

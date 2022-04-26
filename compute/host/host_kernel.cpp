@@ -796,7 +796,8 @@ void host_kernel::execute(const compute_queue& cqueue,
 						  const uint32_t& work_dim,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
-						  const vector<compute_kernel_arg>& args) const {
+						  const vector<compute_kernel_arg>& args,
+						  kernel_completion_handler_f&& completion_handler) const {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Host-Compute");
@@ -906,6 +907,11 @@ void host_kernel::execute(const compute_queue& cqueue,
 			cur_kernel_function = &kernel_func;
 			execute_host(cpu_count, group_dim, local_dim);
 			cur_kernel_function = nullptr;
+		}
+		
+		// this is always executed synchronously, so we can just directly call the completion handler
+		if (completion_handler) {
+			completion_handler();
 		}
 	}
 }

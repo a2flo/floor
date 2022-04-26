@@ -66,7 +66,8 @@ void metal_kernel::execute(const compute_queue& cqueue,
 						   const uint32_t& dim,
 						   const uint3& global_work_size,
 						   const uint3& local_work_size,
-						   const vector<compute_kernel_arg>& args) const {
+						   const vector<compute_kernel_arg>& args,
+						   kernel_completion_handler_f&& completion_handler) const {
 	const auto dev = &cqueue.get_device();
 	const auto ctx = (const metal_compute*)dev->context;
 	
@@ -122,6 +123,13 @@ void metal_kernel::execute(const compute_queue& cqueue,
 			printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
 			handle_printf_buffer(cpu_printf_buffer);
 			ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+		}];
+	}
+	
+	if (completion_handler) {
+		auto local_completion_handler = move(completion_handler);
+		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+			local_completion_handler();
 		}];
 	}
 
