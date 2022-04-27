@@ -43,16 +43,6 @@
 #include <floor/core/timer.hpp>
 #endif
 
-#if defined(__APPLE__)
-#include <mach/thread_policy.h>
-#include <mach/thread_act.h>
-#elif defined(__linux__) || defined(__FreeBSD__)
-#include <pthread.h>
-#if defined(__FreeBSD__)
-#include <pthread_np.h>
-#endif
-#endif
-
 #if !defined(_WIN32)
 // sanity check (mostly necessary on os x where some fool had the idea to make the size of ucontext_t define dependent)
 static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
@@ -592,25 +582,6 @@ static_assert(offsetof(fiber_context, main_ctx) == 200);
 static_assert(offsetof(fiber_context, init_arg) == 208);
 #endif
 
-// thread affinity handling
-static void floor_set_thread_affinity(const uint32_t& affinity) {
-#if defined(__APPLE__)
-	thread_port_t thread_port = pthread_mach_thread_np(pthread_self());
-	thread_affinity_policy thread_affinity { int(affinity) };
-	thread_policy_set(thread_port, THREAD_AFFINITY_POLICY, (thread_policy_t)&thread_affinity, THREAD_AFFINITY_POLICY_COUNT);
-#elif defined(__linux__) || defined(__FreeBSD__)
-	// use gnu extension
-	cpu_set_t cpu_set;
-	CPU_ZERO(&cpu_set);
-	CPU_SET(affinity - 1, &cpu_set);
-	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
-#elif defined(__OpenBSD__)
-	// TODO: pthread gnu extension not available here
-#elif defined(__WINDOWS__)
-	SetThreadAffinityMask(GetCurrentThread(), 1u << (affinity - 1u));
-#endif
-}
-
 // id handling vars
 uint32_t floor_work_dim { 1u };
 uint3 floor_global_work_size;
@@ -1055,7 +1026,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 													   local_size, local_dim] {
 			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
 			// on different cpus (starting at index 1, with 0 representing no affinity)
-			floor_set_thread_affinity(cpu_idx + 1);
+			core::set_thread_affinity(cpu_idx + 1);
 			
 			// set the tls thread index for this (needed to compute local memory offsets)
 			floor_thread_idx = cpu_idx;
@@ -1190,7 +1161,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 													   local_size, local_dim, work_dim] {
 			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
 			// on different cpus (starting at index 1, with 0 representing no affinity)
-			floor_set_thread_affinity(cpu_idx + 1);
+			core::set_thread_affinity(cpu_idx + 1);
 			
 			// retrieve the instance for this CPU + reset/init it
 			auto instance = func_entry.program->get_instance(cpu_idx);

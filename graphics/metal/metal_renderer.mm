@@ -43,7 +43,7 @@ graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 	
 	// create a command buffer from the specified queue (this will be used throughout until commit)
 	const auto mtl_queue = ((const metal_queue&)cqueue).get_queue();
-	cmd_buffer = [mtl_queue commandBuffer];
+	cmd_buffer = [mtl_queue commandBufferWithUnretainedReferences];
 	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 	cmd_buffer.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer" :
 						[NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
@@ -183,11 +183,16 @@ bool metal_renderer::commit() {
 }
 
 bool metal_renderer::commit(completion_handler_f&& compl_handler) {
-	(void)add_completion_handler(move(compl_handler));
+	if (compl_handler) {
+		(void)add_completion_handler(move(compl_handler));
+	}
 	return commit();
 }
 
 bool metal_renderer::add_completion_handler(completion_handler_f&& compl_handler) {
+	if (!compl_handler) {
+		return false;
+	}
 	completion_handler_f compl_handler_copy(move(compl_handler));
 	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 		compl_handler_copy();

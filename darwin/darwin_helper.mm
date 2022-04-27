@@ -56,7 +56,7 @@ typedef NSWindow* wnd_type_ptr;
 typedef UIWindow* wnd_type_ptr;
 #endif
 
-static constexpr const uint32_t max_drawables_in_flight { 3 };
+static constexpr const uint32_t max_drawables_in_flight { 4 };
 static atomic<bool> window_did_resize { true };
 
 // metal renderer NSView/UIView implementation
@@ -64,7 +64,14 @@ static atomic<bool> window_did_resize { true };
 @public
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(objc-interface-ivars)
+	//! current amount of frames that can be scheduled
 	atomic<uint32_t> max_scheduled_frames;
+	//! required lock for "available_frame_cv"
+	mutex available_frame_cv_lock;
+	//! if all frames are in flight, this is the CV we will wait on
+	//! NOTE: this is more efficient and faster than spin looping
+	condition_variable available_frame_cv;
+	
 	chrono::time_point<chrono::high_resolution_clock> tp_prev_frame;
 	CGColorSpaceRef colorspace_ref;
 FLOOR_POP_WARNINGS()
@@ -446,8 +453,12 @@ CAMetalLayer* darwin_helper::get_metal_layer(metal_view* view) {
 id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer) {
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(direct-ivar-access)
-	while(view->max_scheduled_frames == 0) {
-		this_thread::yield();
+	while (view->max_scheduled_frames == 0) {
+		// wait until woken up or 250ms timeout
+		unique_lock<mutex> start_render_lock_guard(view->available_frame_cv_lock);
+		if (view->available_frame_cv.wait_for(start_render_lock_guard, 250ms) == cv_status::timeout) {
+			continue;
+		}
 	}
 	
 	// take away one frame/drawable + compute how many frames we're ahead
@@ -472,7 +483,9 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 	
 	__block atomic<uint32_t>& max_scheduled_frames_ = view->max_scheduled_frames;
 	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer> buffer floor_unused) {
-		++max_scheduled_frames_; // free up frame
+		// free up frame + signal that a new frame can be rendered again
+		++max_scheduled_frames_;
+		view->available_frame_cv.notify_one();
 	}];
 	return [[view metal_layer] nextDrawable];
 FLOOR_POP_WARNINGS()

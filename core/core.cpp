@@ -50,6 +50,16 @@
 #error "unhandled arch"
 #endif
 
+#if defined(__APPLE__)
+#include <mach/thread_policy.h>
+#include <mach/thread_act.h>
+#elif defined(__linux__) || defined(__FreeBSD__)
+#include <pthread.h>
+#if defined(__FreeBSD__)
+#include <pthread_np.h>
+#endif
+#endif
+
 namespace core {
 static random_device rd {};
 static mt19937 gen { rd() };
@@ -539,6 +549,24 @@ uint32_t get_hw_thread_count() {
 #else // other platforms?
 #endif
 	return hw_thread_count;
+}
+
+void set_thread_affinity(const uint32_t affinity) {
+#if defined(__APPLE__)
+	thread_port_t thread_port = pthread_mach_thread_np(pthread_self());
+	thread_affinity_policy thread_affinity { int(affinity) };
+	thread_policy_set(thread_port, THREAD_AFFINITY_POLICY, (thread_policy_t)&thread_affinity, THREAD_AFFINITY_POLICY_COUNT);
+#elif defined(__linux__) || defined(__FreeBSD__)
+	// use gnu extension
+	cpu_set_t cpu_set;
+	CPU_ZERO(&cpu_set);
+	CPU_SET(affinity - 1, &cpu_set);
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
+#elif defined(__OpenBSD__)
+	// TODO: pthread gnu extension not available here
+#elif defined(__WINDOWS__)
+	SetThreadAffinityMask(GetCurrentThread(), 1u << (affinity - 1u));
+#endif
 }
 
 void set_current_thread_name(const string&

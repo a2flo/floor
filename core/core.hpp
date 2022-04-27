@@ -192,8 +192,13 @@ namespace core {
 		return (uint32_t)chrono::duration_cast<chrono::seconds>(time_point.time_since_epoch()).count();
 	}
 	
+	//! returns the number of hardware threads ("logical CPU cores")
 	uint32_t get_hw_thread_count();
-	
+
+	//! sets the current threads affinity to the specified "affinity"
+	//! NOTE: 0 represents no affinity, 1 is CPU core #0, ...
+	void set_thread_affinity(const uint32_t affinity);
+
 	//! sets the name/label of the current thread to "thread_name" (only works with pthreads)
 	void set_current_thread_name(const string& thread_name);
 	
