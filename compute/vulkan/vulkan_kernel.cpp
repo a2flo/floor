@@ -110,6 +110,7 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 														 const VkPipeline pipeline,
 														 const VkPipelineLayout pipeline_layout,
 														 const vector<const vulkan_kernel_entry*>& entries,
+														 const char* debug_label floor_unused_if_release,
 														 bool& success) const {
 	success = false;
 	if (entries.empty()) return {};
@@ -139,6 +140,10 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 	string encoder_label = "encoder_"s + (entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ? "compute" : "graphics");
 	if (entries[0]->info) {
 		encoder_label += "_" + entries[0]->info->name;
+	}
+	if (debug_label) {
+		encoder_label += '#';
+		encoder_label += debug_label;
 	}
 	((const vulkan_compute*)vk_dev.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
 #endif
@@ -326,6 +331,9 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
 							const vector<compute_kernel_arg>& args,
+							const vector<const compute_fence*>& wait_fences floor_unused,
+							const vector<const compute_fence*>& signal_fences floor_unused,
+							const char* debug_label,
 							kernel_completion_handler_f&& completion_handler) const {
 	// no cooperative support yet
 	if (is_cooperative) {
@@ -361,7 +369,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	auto encoder = create_encoder(cqueue, nullptr,
 								  get_pipeline_spec(kernel_iter->first, kernel_iter->second, block_dim),
 								  kernel_iter->second.pipeline_layout,
-								  shader_entries, encoder_success);
+								  shader_entries, debug_label, encoder_success);
 	if(!encoder_success) {
 		log_error("failed to create vulkan encoder / command buffer for kernel \"$\"", kernel_iter->second.info->name);
 		return;
@@ -397,6 +405,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// run
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	// TODO: implement waiting for "wait_fences"
 	
 	// set/write/update descriptors
 	vkUpdateDescriptorSets(vk_dev.device,
@@ -437,6 +446,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 #if defined(FLOOR_DEBUG)
 	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
 #endif
+	// TODO: implement signaling for "signal_fences"
 	vk_queue.submit_command_buffer(encoder->cmd_buffer,
 								   [encoder](const vulkan_command_buffer&) {
 		// -> completion handler

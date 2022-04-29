@@ -39,6 +39,9 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
 							const vector<compute_kernel_arg>& args,
+							const vector<const compute_fence*>& wait_fences floor_unused,
+							const vector<const compute_fence*>& signal_fences floor_unused,
+							const char* debug_label floor_unused,
 							kernel_completion_handler_f&& completion_handler) const REQUIRES(!args_lock) {
 	// no cooperative support yet
 	if (is_cooperative) {
@@ -94,6 +97,7 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 	const size3 global_ws { global_work_size };
 	const size3 local_ws { local_work_size };
 	const bool has_tmp_buffers = !handler->args.empty();
+	// TODO: implement waiting for "wait_fences"
 	cl_event wait_evt = nullptr;
 	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()),
 									   entry.kernel, work_dim, nullptr,
@@ -104,6 +108,8 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 									   // we also need the wait event if a user specified completion handler is set
 									   (handler->needs_param_workaround && has_tmp_buffers) || completion_handler ? &wait_evt : nullptr),
 				"failed to execute kernel " + entry.info->name)
+	
+	// TODO: implement signaling of "signal_fences"
 	
 	if ((handler->needs_param_workaround && has_tmp_buffers) || completion_handler) {
 		task::spawn([handler, wait_evt, user_compl_handler = std::move(completion_handler)]() {

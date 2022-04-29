@@ -55,6 +55,8 @@ public:
 		return main_queue.get();
 	}
 	
+	unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	

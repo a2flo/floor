@@ -372,6 +372,13 @@ void vulkan_queue::add_completion_handler(const vulkan_command_buffer& cmd_buffe
 	impl->thread_cmd_pool->add_completion_handler(cmd_buffer, move(completion_handler));
 }
 
+void vulkan_queue::set_debug_label(const string& label) {
+	GUARD(queue_lock);
+	if (vk_queue) {
+		((const vulkan_compute*)device.context)->set_vulkan_debug_label((const vulkan_device&)device, VK_OBJECT_TYPE_QUEUE, uint64_t(vk_queue), label);
+	}
+}
+
 vulkan_command_block vulkan_queue::make_command_block(const char* name, bool& error_signal, const bool is_blocking,
 													  const VkSemaphore* wait_semas, const uint32_t wait_sema_count,
 													  const VkPipelineStageFlags wait_stage_flags) const {

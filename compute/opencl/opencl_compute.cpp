@@ -817,6 +817,11 @@ const compute_queue* opencl_compute::get_device_default_queue(const compute_devi
 	return nullptr;
 }
 
+unique_ptr<compute_fence> opencl_compute::create_fence(const compute_queue&) const {
+	log_error("fence creation not yet supported by opencl_compute!");
+	return {};
+}
+
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) const {

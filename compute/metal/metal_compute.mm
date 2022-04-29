@@ -37,6 +37,7 @@
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_device_query.hpp>
+#include <floor/compute/metal/metal_fence.hpp>
 #include <floor/compute/metal/metal_program.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
@@ -531,6 +532,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	for(auto& dev : devices) {
 		// queue
 		auto dev_queue = create_queue(*dev);
+		dev_queue->set_debug_label("default_queue");
 		internal_queues.insert_or_assign(*dev, dev_queue);
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 		
@@ -588,6 +590,11 @@ const compute_queue* metal_compute::get_device_default_queue(const compute_devic
 	}
 	log_error("no default queue exists for this device: $!", dev.name);
 	return nullptr;
+}
+
+unique_ptr<compute_fence> metal_compute::create_fence(const compute_queue& cqueue) const {
+	id <MTLFence> mtl_fence = [((const metal_device&)cqueue.get_device()).device newFence];
+	return make_unique<metal_fence>(mtl_fence);
 }
 
 const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) const {

@@ -39,6 +39,9 @@ void vulkan_shader::execute(const compute_queue& cqueue floor_unused,
 							const uint3& global_work_size floor_unused,
 							const uint3& local_work_size floor_unused,
 							const vector<compute_kernel_arg>& args floor_unused,
+							const vector<const compute_fence*>& wait_fences floor_unused,
+							const vector<const compute_fence*>& signal_fences floor_unused,
+							const char* debug_label floor_unused,
 							kernel_completion_handler_f&& completion_handler floor_unused) const {
 	log_error("executing a shader is not supported!");
 }
@@ -65,7 +68,7 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		vertex_shader, fragment_shader
 	};
 	auto encoder = create_encoder(cqueue, &cmd_buffer, pipeline, pipeline_layout,
-								  shader_entries, encoder_success);
+								  shader_entries, nullptr, encoder_success);
 	if (!encoder_success) {
 		log_error("failed to create vulkan encoder / command buffer for shader \"$\"",
 				  vertex_shader->info->name);

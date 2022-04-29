@@ -35,8 +35,8 @@ void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const uint1& global_size, const uint1& local_size,
 											 kernel_completion_handler_f&& completion_handler,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel.execute(*this, is_cooperative, 1, uint3 { global_size }, uint3 { local_size },
-				   args, std::forward<kernel_completion_handler_f>(completion_handler));
+	kernel.execute(*this, is_cooperative, 1, uint3 { global_size }, uint3 { local_size }, args,
+				   {}, {}, nullptr, std::forward<kernel_completion_handler_f>(completion_handler));
 }
 
 void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
@@ -44,8 +44,8 @@ void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const uint2& global_size, const uint2& local_size,
 											 kernel_completion_handler_f&& completion_handler,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel.execute(*this, is_cooperative, 2, uint3 { global_size }, uint3 { local_size },
-				   args, std::forward<kernel_completion_handler_f>(completion_handler));
+	kernel.execute(*this, is_cooperative, 2, uint3 { global_size }, uint3 { local_size }, args,
+				   {}, {}, nullptr, std::forward<kernel_completion_handler_f>(completion_handler));
 }
 
 void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
@@ -53,6 +53,16 @@ void compute_queue::kernel_execute_forwarder(const compute_kernel& kernel,
 											 const uint3& global_size, const uint3& local_size,
 											 kernel_completion_handler_f&& completion_handler,
 											 const vector<compute_kernel_arg>& args) const {
-	kernel.execute(*this, is_cooperative, 3, global_size, local_size,
-				   args, std::forward<kernel_completion_handler_f>(completion_handler));
+	kernel.execute(*this, is_cooperative, 3, global_size, local_size, args,
+				   {}, {}, nullptr, std::forward<kernel_completion_handler_f>(completion_handler));
+}
+
+void compute_queue::execute_with_parameters(const compute_kernel& kernel, const execution_parameters_t& params,
+											kernel_completion_handler_f&& completion_handler) const {
+	if (params.execution_dim < 1u || params.execution_dim > 3u) {
+		log_error("invalid execution dim: $", params.execution_dim);
+		return;
+	}
+	kernel.execute(*this, params.is_cooperative, params.execution_dim, params.global_work_size, params.local_work_size, params.args,
+				   params.wait_fences, params.signal_fences, params.debug_label, std::forward<kernel_completion_handler_f>(completion_handler));
 }

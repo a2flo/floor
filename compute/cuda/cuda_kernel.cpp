@@ -93,6 +93,9 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
 						  const vector<compute_kernel_arg>& args,
+						  const vector<const compute_fence*>& wait_fences floor_unused,
+						  const vector<const compute_fence*>& signal_fences floor_unused,
+						  const char* debug_label floor_unused,
 						  kernel_completion_handler_f&& completion_handler) const REQUIRES(!completion_handlers_in_flight_lock) {
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
@@ -230,11 +233,15 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 	grid_dim.max(1u);
 	
+	// TODO: implement waiting for "wait_fences"
+	
 	if (!is_cooperative) {
 		execute_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	} else {
 		execute_cooperative_internal(cqueue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	}
+	
+	// TODO: implement signaling of "signal_fences"
 	
 	if (completion_handler) {
 		auto compl_handler = make_shared<cuda_completion_handler>();

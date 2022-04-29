@@ -206,4 +206,10 @@ uint64_t metal_queue::stop_profiling() {
 	return ret;
 }
 
+void metal_queue::set_debug_label(const string& label) {
+	if (queue) {
+		queue.label = [NSString stringWithUTF8String:label.c_str()];
+	}
+}
+
 #endif

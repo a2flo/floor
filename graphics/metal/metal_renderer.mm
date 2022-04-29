@@ -24,6 +24,7 @@
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
+#include <floor/compute/metal/metal_fence.hpp>
 #include <floor/graphics/metal/metal_pass.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/graphics/metal/metal_shader.hpp>
@@ -381,6 +382,23 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 	} else if (draw_indexed_entry != nullptr) {
 		tes->draw(encoder, *draw_indexed_entry);
 	}
+}
+
+static inline MTLRenderStages render_stage_to_metal_render_stages(const graphics_renderer::RENDER_STAGE stage) {
+	switch (stage) {
+		case graphics_renderer::RENDER_STAGE::VERTEX:
+			return MTLRenderStageVertex;
+		case graphics_renderer::RENDER_STAGE::FRAGMENT:
+			return MTLRenderStageFragment;
+	}
+}
+
+void metal_renderer::wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage) {
+	[encoder waitForFence:((const metal_fence&)fence).get_metal_fence() beforeStages:render_stage_to_metal_render_stages(before_stage)];
+}
+
+void metal_renderer::signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage) {
+	[encoder updateFence:((const metal_fence&)fence).get_metal_fence() afterStages:render_stage_to_metal_render_stages(after_stage)];
 }
 
 #endif

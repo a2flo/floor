@@ -490,4 +490,14 @@ void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry f
 	log_error("patch drawing not implemented yet!");
 }
 
+void vulkan_renderer::wait_for_fence(const compute_fence& fence floor_unused, const RENDER_STAGE before_stage floor_unused) {
+	// TODO: implement this!
+	log_error("wait_for_fence not implemented yet!");
+}
+
+void vulkan_renderer::signal_fence(const compute_fence& fence floor_unused, const RENDER_STAGE after_stage floor_unused) {
+	// TODO: implement this!
+	log_error("signal_fence not implemented yet!");
+}
+
 #endif

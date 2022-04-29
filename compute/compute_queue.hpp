@@ -24,6 +24,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
 #include <floor/compute/compute_common.hpp>
+#include <floor/compute/compute_fence.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
@@ -178,6 +179,30 @@ public:
 								  const uint32_t command_offset = 0u,
 								  const uint32_t command_count = ~0u) const = 0;
 	
+	//! reusable kernel execution parameters
+	struct execution_parameters_t {
+		//! the execution dimensionality of the kernel: 1/1D, 2/2D or 3/3D
+		uint32_t execution_dim { 1u };
+		//! global work size (must be non-zero for all dimensions that are executed)
+		uint3 global_work_size;
+		//! local work size (must be non-zero for all dimensions that are executed)
+		uint3 local_work_size;
+		//! kernel arguments
+		vector<compute_kernel_arg> args;
+		//! all fences the kernel execution will wait on before execution
+		vector<const compute_fence*> wait_fences;
+		//! all fences the kernel will signal once execution has completed
+		vector<const compute_fence*> signal_fences;
+		//! flag whether this is a cooperative kernel launch
+		bool is_cooperative { false };
+		//! sets the debug label for the kernel execution (e.g. for display in a debugger)
+		const char* debug_label { nullptr };
+	};
+	
+	//! enqueues the specified kernel into this queue, using the specified execution parameters
+	virtual void execute_with_parameters(const compute_kernel& kernel, const execution_parameters_t& params,
+										 kernel_completion_handler_f&& completion_handler = {}) const;
+	
 	//! returns the compute device associated with this queue
 	const compute_device& get_device() const { return device; }
 	
@@ -191,6 +216,9 @@ public:
 	
 	//! stops the previously started profiling and returns the elapsed time in microseconds
 	virtual uint64_t stop_profiling();
+	
+	//! sets the debug label of this compute queue
+	virtual void set_debug_label(const string& label [[maybe_unused]]) {}
 	
 protected:
 	const compute_device& device;

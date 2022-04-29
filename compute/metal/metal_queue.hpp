@@ -50,6 +50,8 @@ public:
 	void start_profiling() override;
 	uint64_t stop_profiling() override REQUIRES(!cmd_buffers_lock);
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	id <MTLCommandQueue> queue { nil };
 	

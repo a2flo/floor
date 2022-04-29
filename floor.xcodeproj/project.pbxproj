@@ -255,6 +255,12 @@
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
 		5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */; };
 		5C93EB4424B10B54002588D5 /* soft_pack.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C93EB4324B10B54002588D5 /* soft_pack.hpp */; };
+		5C9AAEF9281A13C70049ABA6 /* metal_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9AAEF7281A13C70049ABA6 /* metal_fence.hpp */; };
+		5C9AAEFD281A14D00049ABA6 /* metal_fence.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAEFC281A14D00049ABA6 /* metal_fence.mm */; };
+		5C9AAEFE281A14D00049ABA6 /* metal_fence.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAEFC281A14D00049ABA6 /* metal_fence.mm */; };
+		5C9AAF01281A18CB0049ABA6 /* compute_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9AAEFF281A18CB0049ABA6 /* compute_fence.hpp */; };
+		5C9AAF02281A18CB0049ABA6 /* compute_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */; };
+		5C9AAF03281A18CB0049ABA6 /* compute_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */; };
 		5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9C1377209E3C34005C516C /* universal_binary.hpp */; };
 		5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
 		5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
@@ -609,6 +615,10 @@
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
 		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
 		5C93EB4324B10B54002588D5 /* soft_pack.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = soft_pack.hpp; path = device/soft_pack.hpp; sourceTree = "<group>"; };
+		5C9AAEF7281A13C70049ABA6 /* metal_fence.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_fence.hpp; path = metal/metal_fence.hpp; sourceTree = "<group>"; };
+		5C9AAEFC281A14D00049ABA6 /* metal_fence.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_fence.mm; path = metal/metal_fence.mm; sourceTree = "<group>"; };
+		5C9AAEFF281A18CB0049ABA6 /* compute_fence.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_fence.hpp; sourceTree = "<group>"; };
+		5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_fence.cpp; sourceTree = "<group>"; };
 		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
 		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
 		5CA2ADDD27B011F50061D07E /* tessellation.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = tessellation.hpp; path = device/tessellation.hpp; sourceTree = "<group>"; };
@@ -1085,6 +1095,8 @@
 				5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */,
 				5CD2175F19EA9D620049D6AE /* compute_device.cpp */,
 				5CD2175E19EA9D620049D6AE /* compute_device.hpp */,
+				5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */,
+				5C9AAEFF281A18CB0049ABA6 /* compute_fence.hpp */,
 				5C8FD0C01AD38F8B00215230 /* compute_image.cpp */,
 				5C8FD0C11AD38F8B00215230 /* compute_image.hpp */,
 				5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */,
@@ -1200,6 +1212,8 @@
 				5C8F323326347402008144CF /* metal_device_query.hpp */,
 				5C34F17D1C29BB9300C8F645 /* metal_device.cpp */,
 				5C84613F1A914758004D4745 /* metal_device.hpp */,
+				5C9AAEFC281A14D00049ABA6 /* metal_fence.mm */,
+				5C9AAEF7281A13C70049ABA6 /* metal_fence.hpp */,
 				5C8FD0D01AD3944F00215230 /* metal_image.mm */,
 				5C8FD0CA1AD38FA000215230 /* metal_image.hpp */,
 				5C1496E0279D769E00194181 /* metal_indirect_command.mm */,
@@ -1334,6 +1348,7 @@
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */,
 				5CBF88CA1CE1095700C04AB0 /* cuda_sampler.hpp in Headers */,
+				5C9AAF01281A18CB0049ABA6 /* compute_fence.hpp in Headers */,
 				5C4A85B118F953590039BFD4 /* lexer.hpp in Headers */,
 				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5CD4E86522B4448E00AE0385 /* graphics_renderer.hpp in Headers */,
@@ -1375,6 +1390,7 @@
 				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */,
+				5C9AAEF9281A13C70049ABA6 /* metal_fence.hpp in Headers */,
 				5C1496DA279D68DC00194181 /* indirect_command.hpp in Headers */,
 				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
@@ -1596,6 +1612,7 @@
 				5C6C6B1C22D0D8A200AEE5F3 /* vulkan_shader.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
+				5C9AAF02281A18CB0049ABA6 /* compute_fence.cpp in Sources */,
 				5CC5980D201E724600D8D19F /* vector_2d.cpp in Sources */,
 				5C8F323A2635BA88008144CF /* vulkan_argument_buffer.cpp in Sources */,
 				5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */,
@@ -1606,6 +1623,7 @@
 				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C20C8D01B4139260005F5EA /* host_queue.cpp in Sources */,
 				5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */,
+				5C9AAEFD281A14D00049ABA6 /* metal_fence.mm in Sources */,
 				5C2DA5BB1B9ECAA200FA6F23 /* compute_context.cpp in Sources */,
 				5C84531E22B1A99C0014AECF /* metal_pipeline.mm in Sources */,
 				5C5383E61A641B1E007AEDD7 /* cuda_buffer.cpp in Sources */,
@@ -1724,6 +1742,7 @@
 				5CD4E86722B4448E00AE0385 /* graphics_renderer.cpp in Sources */,
 				5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
+				5C9AAEFE281A14D00049ABA6 /* metal_fence.mm in Sources */,
 				5C8FD0D11AD3944F00215230 /* metal_image.mm in Sources */,
 				5C8461491A914759004D4745 /* metal_compute.mm in Sources */,
 				5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */,
@@ -1733,6 +1752,7 @@
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
 				5CE0BDDB19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
+				5C9AAF03281A18CB0049ABA6 /* compute_fence.cpp in Sources */,
 				5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */,
 				5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,

@@ -30,6 +30,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/compute_program.hpp>
 #include <floor/compute/hdr_metadata.hpp>
+#include <floor/compute/compute_fence.hpp>
 
 // necessary here, because there are no out-of-line virtual method definitions
 FLOOR_PUSH_WARNINGS()
@@ -45,6 +46,7 @@ class vulkan_buffer;
 class vulkan_image;
 class metal_buffer;
 class metal_image;
+class compute_fence;
 
 class indirect_command_pipeline;
 struct indirect_command_description;
@@ -98,6 +100,9 @@ public:
 	
 	//! returns the internal default compute_queue for the specified device
 	virtual const compute_queue* get_device_default_queue(const compute_device& dev) const = 0;
+	
+	//! creates and returns a fence for the specified queue
+	virtual unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const = 0;
 	
 	//////////////////////////////////////////
 	// buffer creation

@@ -68,6 +68,8 @@ public:
 	
 	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
 	
+	unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	

@@ -20,6 +20,7 @@
 #define __FLOOR_GRAPHICS_GRAPHICS_RENDERER_HPP__
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/compute_fence.hpp>
 #include <floor/graphics/graphics_pass.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
 #include <floor/core/logger.hpp>
@@ -295,6 +296,25 @@ public:
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								  const uint32_t command_offset = 0u,
 								  const uint32_t command_count = ~0u) const = 0;
+	
+	//////////////////////////////////////////
+	// synchronization
+	
+	//! render stage
+	//! NOTE: vertex and tessellation stages are handled in the same way
+	enum class RENDER_STAGE {
+		VERTEX = 1u,
+		TESSELLATION = VERTEX,
+		FRAGMENT = 2u,
+	};
+	
+	//! waits for the specified "fence" before starting the specified "before_stage" (defaulting to vertex)
+	//! NOTE: this must be called after a begin() call and before the corresponding end() call
+	virtual void wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage = RENDER_STAGE::VERTEX) = 0;
+	
+	//! signals the specified "fence" after the specified "after_stage" has finished execution (defaulting to fragment)
+	//! NOTE: this must be called after a begin() call and before the corresponding end() call
+	virtual void signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage = RENDER_STAGE::FRAGMENT) = 0;
 	
 	//////////////////////////////////////////
 	// misc

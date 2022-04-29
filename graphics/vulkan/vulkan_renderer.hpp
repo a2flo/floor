@@ -63,6 +63,9 @@ public:
 						  const uint32_t command_count = ~0u) const override;
 	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
+	
+	void wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage) override;
+	void signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage) override;
 
 protected:
 	vulkan_command_buffer render_cmd_buffer;

@@ -1087,7 +1087,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
 	for(auto& dev : devices) {
-		default_queues.insert(*dev, create_queue(*dev));
+		auto default_queue = create_queue(*dev);
+		default_queue->set_debug_label("default_queue");
+		default_queues.insert(*dev, default_queue);
 		
 		// reset idx to 0 so that the first user request gets the same queue
 		((vulkan_device&)*dev).cur_queue_idx = 0;
@@ -1801,6 +1803,11 @@ const compute_queue* vulkan_compute::get_device_default_queue(const compute_devi
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
 	return nullptr;
+}
+
+unique_ptr<compute_fence> vulkan_compute::create_fence(const compute_queue&) const {
+	log_error("fence creation not yet supported by vulkan_compute!");
+	return {};
 }
 
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,

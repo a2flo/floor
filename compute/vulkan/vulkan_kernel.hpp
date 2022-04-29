@@ -105,6 +105,9 @@ public:
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
 				 const vector<compute_kernel_arg>& args,
+				 const vector<const compute_fence*>& wait_fences,
+				 const vector<const compute_fence*>& signal_fences,
+				 const char* debug_label,
 				 kernel_completion_handler_f&& completion_handler) const override;
 	
 	const kernel_entry* get_kernel_entry(const compute_device& dev) const override;
@@ -121,6 +124,7 @@ protected:
 											  const VkPipeline pipeline,
 											  const VkPipelineLayout pipeline_layout,
 											  const vector<const vulkan_kernel_entry*>& entries,
+											  const char* debug_label,
 											  bool& success) const;
 	VkPipeline get_pipeline_spec(const vulkan_device& device,
 								 vulkan_kernel_entry& entry,

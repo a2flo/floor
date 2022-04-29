@@ -28,6 +28,7 @@
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_args.hpp>
 #include <floor/compute/metal/metal_argument_buffer.hpp>
+#include <floor/compute/metal/metal_fence.hpp>
 #include <floor/compute/soft_printf.hpp>
 
 struct metal_encoder {
@@ -35,10 +36,15 @@ struct metal_encoder {
 	id <MTLComputeCommandEncoder> encoder { nil };
 };
 
-static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue, const metal_kernel::metal_kernel_entry& entry) {
+static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
+												const metal_kernel::metal_kernel_entry& entry,
+												const char* debug_label) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, [cmd_buffer computeCommandEncoder] });
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
+	if (debug_label) {
+		[ret->encoder setLabel:[NSString stringWithUTF8String:debug_label]];
+	}
 	return ret;
 }
 
@@ -67,6 +73,9 @@ void metal_kernel::execute(const compute_queue& cqueue,
 						   const uint3& global_work_size,
 						   const uint3& local_work_size,
 						   const vector<compute_kernel_arg>& args,
+						   const vector<const compute_fence*>& wait_fences,
+						   const vector<const compute_fence*>& signal_fences,
+						   const char* debug_label,
 						   kernel_completion_handler_f&& completion_handler) const {
 	const auto dev = &cqueue.get_device();
 	const auto ctx = (const metal_compute*)dev->context;
@@ -86,7 +95,10 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	
 	
 	//
-	auto encoder = create_encoder(cqueue, kernel_iter->second);
+	auto encoder = create_encoder(cqueue, kernel_iter->second, debug_label);
+	for (const auto& fence : wait_fences) {
+		[encoder->encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
+	}
 	
 	// create implicit args
 	vector<compute_kernel_arg> implicit_args;
@@ -111,8 +123,10 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
 	
 	// run
-	// TODO/NOTE: guarantee that all buffers have finished their prior processing
 	[encoder->encoder dispatchThreadgroups:metal_grid_dim threadsPerThreadgroup:metal_block_dim];
+	for (const auto& fence : signal_fences) {
+		[encoder->encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
+	}
 	[encoder->encoder endEncoding];
 	
 	// if soft-printf is being used, block/wait for completion here and read-back results

@@ -24,6 +24,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
+#include <floor/compute/compute_fence.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/argument_buffer.hpp>
 #include <floor/core/flat_map.hpp>
@@ -55,6 +56,9 @@ public:
 						 const uint3& global_work_size,
 						 const uint3& local_work_size,
 						 const vector<compute_kernel_arg>& args,
+						 const vector<const compute_fence*>& wait_fences,
+						 const vector<const compute_fence*>& signal_fences,
+						 const char* debug_label = nullptr,
 						 kernel_completion_handler_f&& completion_handler = {}) const = 0;
 	
 	//! creates an argument buffer for the specified argument index

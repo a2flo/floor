@@ -121,6 +121,8 @@ public:
 	void add_completion_handler(const vulkan_command_buffer& cmd_buffer,
 								vulkan_completion_handler_t&& completion_handler) const;
 	
+	void set_debug_label(const string& label) override REQUIRES(!queue_lock);
+	
 protected:
 	VkQueue vk_queue GUARDED_BY(queue_lock);
 	mutable safe_mutex queue_lock;
