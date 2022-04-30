@@ -35,6 +35,7 @@ vulkan_shader::vulkan_shader(kernel_map_type&& kernels_) : vulkan_kernel(move(ke
 
 void vulkan_shader::execute(const compute_queue& cqueue floor_unused,
 							const bool& is_cooperative floor_unused,
+							const bool& wait_until_completion floor_unused,
 							const uint32_t& dim floor_unused,
 							const uint3& global_work_size floor_unused,
 							const uint3& local_work_size floor_unused,

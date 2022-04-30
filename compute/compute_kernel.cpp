@@ -52,7 +52,8 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 	return ret;
 }
 
-unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index) const {
+unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index,
+																   const COMPUTE_MEMORY_FLAG add_mem_flags) const {
 	const auto& dev = cqueue.get_device();
 	const auto entry = get_kernel_entry(dev);
 	if (!entry || !entry->info) {
@@ -88,14 +89,15 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 		}
 	}
 	
-	return create_argument_buffer_internal(cqueue, *entry, entry->info->args[idx], arg_index, idx);
+	return create_argument_buffer_internal(cqueue, *entry, entry->info->args[idx], arg_index, idx, add_mem_flags);
 }
 
 unique_ptr<argument_buffer> compute_kernel::create_argument_buffer_internal(const compute_queue&,
 																			const kernel_entry&,
 																			const llvm_toolchain::arg_info&,
 																			const uint32_t&,
-																			const uint32_t&) const {
+																			const uint32_t&,
+																			const COMPUTE_MEMORY_FLAG&) const {
 	log_error("argument buffer creation not implemented for this backend");
 	return {};
 }

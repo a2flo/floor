@@ -96,7 +96,7 @@ public:
 				 const work_size_type& global_work_size,
 				 const work_size_type& local_work_size,
 				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size, {}, { args... });
+		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size, {}, { args... });
 	}
 	
 	template <typename... Args, class work_size_type>
@@ -116,7 +116,7 @@ public:
 							  const work_size_type& local_work_size,
 							  kernel_completion_handler_f&& completion_handler,
 							  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, false, global_work_size, local_work_size,
+		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size,
 								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
 	}
 	
@@ -138,7 +138,7 @@ public:
 							 const work_size_type& global_work_size,
 							 const work_size_type& local_work_size,
 							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size, {}, { args... });
+		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size, {}, { args... });
 	}
 	
 	template <typename... Args, class work_size_type>
@@ -159,7 +159,7 @@ public:
 										  const work_size_type& local_work_size,
 										  kernel_completion_handler_f&& completion_handler,
 										  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, true, global_work_size, local_work_size,
+		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size,
 								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
 	}
 	
@@ -195,6 +195,9 @@ public:
 		vector<const compute_fence*> signal_fences;
 		//! flag whether this is a cooperative kernel launch
 		bool is_cooperative { false };
+		//! after enqueueing the kernel, wait until the kernel has finished execution -> execute_with_parameters() becomes blocking
+		//! NOTE: since multiple kernel executions might be in-flight in this queue, this is generally more efficient than calling finish()
+		bool wait_until_completion { false };
 		//! sets the debug label for the kernel execution (e.g. for display in a debugger)
 		const char* debug_label { nullptr };
 	};
@@ -227,16 +230,19 @@ protected:
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
+								  const bool wait_until_completion,
 								  const uint1& global_size, const uint1& local_size,
 								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
+								  const bool wait_until_completion,
 								  const uint2& global_size, const uint2& local_size,
 								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;
 	void kernel_execute_forwarder(const compute_kernel& kernel,
 								  const bool is_cooperative,
+								  const bool wait_until_completion,
 								  const uint3& global_size, const uint3& local_size,
 								  kernel_completion_handler_f&& completion_handler,
 								  const vector<compute_kernel_arg>& args) const;

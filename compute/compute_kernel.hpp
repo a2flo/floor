@@ -25,6 +25,7 @@
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_kernel_arg.hpp>
 #include <floor/compute/compute_fence.hpp>
+#include <floor/compute/compute_memory_flags.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/argument_buffer.hpp>
 #include <floor/core/flat_map.hpp>
@@ -52,6 +53,7 @@ public:
 	//! don't call this directly, call the execute function in a compute_queue object instead!
 	virtual void execute(const compute_queue& cqueue,
 						 const bool& is_cooperative,
+						 const bool& wait_until_completion,
 						 const uint32_t& dim,
 						 const uint3& global_work_size,
 						 const uint3& local_work_size,
@@ -61,9 +63,11 @@ public:
 						 const char* debug_label = nullptr,
 						 kernel_completion_handler_f&& completion_handler = {}) const = 0;
 	
-	//! creates an argument buffer for the specified argument index
+	//! creates an argument buffer for the specified argument index,
+	//! "add_mem_flags" may set additional memory flags (already read-write and using host-memory by default)
 	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size
-	virtual unique_ptr<argument_buffer> create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index) const;
+	virtual unique_ptr<argument_buffer> create_argument_buffer(const compute_queue& cqueue, const uint32_t& arg_index,
+															   const COMPUTE_MEMORY_FLAG add_mem_flags = COMPUTE_MEMORY_FLAG::NONE) const;
 	
 	//! checks the specified local work size against the max local work size in the kernel_entry,
 	//! and will compute a proper local work size if the specified one is invalid
@@ -84,7 +88,8 @@ protected:
 																		const kernel_entry& entry,
 																		const llvm_toolchain::arg_info& arg,
 																		const uint32_t& user_arg_index,
-																		const uint32_t& ll_arg_index) const;
+																		const uint32_t& ll_arg_index,
+																		const COMPUTE_MEMORY_FLAG& add_mem_flags) const;
 	
 };
 

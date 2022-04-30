@@ -38,6 +38,7 @@ public:
 	//! override, since execute is not supported/allowed with shaders
 	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
+				 const bool& wait_until_completion,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,

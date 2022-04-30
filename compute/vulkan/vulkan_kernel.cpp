@@ -327,6 +327,7 @@ bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
 
 void vulkan_kernel::execute(const compute_queue& cqueue,
 							const bool& is_cooperative,
+							const bool& wait_until_completion,
 							const uint32_t& dim floor_unused,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
@@ -447,13 +448,14 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
 #endif
 	// TODO: implement signaling for "signal_fences"
+	(void)wait_until_completion;
 	vk_queue.submit_command_buffer(encoder->cmd_buffer,
 								   [encoder](const vulkan_command_buffer&) {
 		// -> completion handler
 		
 		// kill constant buffers after the kernel has finished execution
 		encoder->constant_buffers.clear();
-	}, true /* TODO: don't always block, but do block if soft-printf is enabled */);
+	}, true /*|| wait_until_completion*/ /* TODO: don't always block, but do block if soft-printf is enabled */);
 	
 	// release all acquired descriptor sets and constant buffers again
 	for (auto& desc_set_instance : encoder->acquired_descriptor_sets) {
@@ -719,7 +721,8 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 																		   const kernel_entry& kern_entry,
 																		   const llvm_toolchain::arg_info& arg floor_unused,
 																		   const uint32_t& user_arg_index,
-																		   const uint32_t& ll_arg_index) const {
+																		   const uint32_t& ll_arg_index,
+																		   const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
 	const auto& dev = cqueue.get_device();
 	const auto& vulkan_entry = (const vulkan_kernel_entry&)kern_entry;
 	
@@ -737,7 +740,7 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE | add_mem_flags);
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
 	return make_unique<vulkan_argument_buffer>(*this, buf, *arg_info);
 }

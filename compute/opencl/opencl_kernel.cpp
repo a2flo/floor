@@ -35,6 +35,7 @@ typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kerne
 
 void opencl_kernel::execute(const compute_queue& cqueue,
 							const bool& is_cooperative,
+							const bool& wait_until_completion,
 							const uint32_t& work_dim,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
@@ -42,7 +43,8 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 							const vector<const compute_fence*>& wait_fences floor_unused,
 							const vector<const compute_fence*>& signal_fences floor_unused,
 							const char* debug_label floor_unused,
-							kernel_completion_handler_f&& completion_handler) const REQUIRES(!args_lock) {
+							kernel_completion_handler_f&& completion_handler) const
+REQUIRES(!args_lock) {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for OpenCL");
@@ -105,8 +107,8 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 									   0, nullptr,
 									   // when using the param workaround, we have created tmp buffers
 									   // that need to be destroyed once the kernel has finished execution,
-									   // we also need the wait event if a user specified completion handler is set
-									   (handler->needs_param_workaround && has_tmp_buffers) || completion_handler ? &wait_evt : nullptr),
+									   // we also need the wait event if a user-specified completion handler is set or wait_until_completion is true
+									   (handler->needs_param_workaround && has_tmp_buffers) || completion_handler || wait_until_completion ? &wait_evt : nullptr),
 				"failed to execute kernel " + entry.info->name)
 	
 	// TODO: implement signaling of "signal_fences"
@@ -120,6 +122,10 @@ void opencl_kernel::execute(const compute_queue& cqueue,
 				user_compl_handler();
 			}
 		}, "kernel cleanup");
+	}
+	
+	if (wait_until_completion) {
+		CL_CALL_IGNORE(clWaitForEvents(1, &wait_evt), "waiting for kernel completion failed")
 	}
 }
 

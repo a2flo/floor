@@ -537,7 +537,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 		
 		// create null buffer
-		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE);
+		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
+										 COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE | COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING);
 		null_buffer->zero(*dev_queue);
 		internal_null_buffers.insert_or_assign(*dev, null_buffer);
 		

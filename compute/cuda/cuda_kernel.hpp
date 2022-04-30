@@ -45,6 +45,7 @@ public:
 	
 	void execute(const compute_queue& cqueue,
 				 const bool& is_cooperative,
+				 const bool& wait_until_completion,
 				 const uint32_t& dim,
 				 const uint3& global_work_size,
 				 const uint3& local_work_size,
@@ -79,7 +80,8 @@ protected:
 																const kernel_entry& entry,
 																const llvm_toolchain::arg_info& arg,
 																const uint32_t& user_arg_index,
-																const uint32_t& ll_arg_index) const override;
+																const uint32_t& ll_arg_index,
+																const COMPUTE_MEMORY_FLAG& add_mem_flags) const override;
 	
 };
 

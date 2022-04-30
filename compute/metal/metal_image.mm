@@ -54,7 +54,9 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 		default: floor_unreachable();
 	}
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
+	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
+	if (is_render_target) {
 		usage_options |= MTLTextureUsageRenderTarget;
 	}
 	
@@ -76,8 +78,18 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 	}
 	
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
-		options |= MTLResourceStorageModePrivate;
-		storage_options = MTLStorageModePrivate;
+		bool is_memory_less = false;
+		if (is_render_target && is_transient) {
+			if (@available(macOS 11.0, iOS 10.0, *)) {
+				options |= MTLResourceStorageModeMemoryless;
+				storage_options = MTLStorageModeMemoryless;
+				is_memory_less = true;
+			}
+		}
+		if (!is_memory_less) {
+			options |= MTLResourceStorageModePrivate;
+			storage_options = MTLStorageModePrivate;
+		}
 	} else {
 #if !defined(FLOOR_IOS)
 		if (!dev.unified_memory) {
@@ -655,7 +667,7 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 	
 	auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																  COMPUTE_MEMORY_FLAG::READ_WRITE);
+																  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING);
 	zero_buffer->set_debug_label("zero_buffer");
 	auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 	

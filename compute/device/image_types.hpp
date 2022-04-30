@@ -30,7 +30,9 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	//! bits 60-63: extended type flags
 	__EXT_FLAG_MASK			= (0xF000'0000'0000'0000ull),
 	__EXT_FLAG_SHIFT		= (60ull),
-	//! extended type: in combination with FLAG_MSAA, an MSAA image can be made transient, i.e. does not need to be stored in memory
+	//! extended type: signals that the image does not need to be stored in memory,
+	//!                e.g. in combination with FLAG_MSAA, an MSAA image can be made transient/memoryless when being resolved immediately,
+	//!                or: if a depth buffer is only used once during rendering and does not need be stored
 	//! NOTE: only applicable for Metal and Vulkan
 	FLAG_TRANSIENT			= (1ull << (__EXT_FLAG_SHIFT + 0ull)),
 	//! extended optional type: internal flag that signals that we want to sample an image as a 16-bit type (e.g. half)

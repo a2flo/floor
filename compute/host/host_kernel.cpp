@@ -764,6 +764,7 @@ static function<void()> make_callable_kernel_function(const host_kernel::kernel_
 
 void host_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
+						  const bool& wait_until_completion floor_unused /* will always wait anyways */,
 						  const uint32_t& work_dim,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
@@ -1413,7 +1414,8 @@ unique_ptr<argument_buffer> host_kernel::create_argument_buffer_internal(const c
 																		 const kernel_entry& kern_entry,
 																		 const llvm_toolchain::arg_info& arg floor_unused,
 																		 const uint32_t& user_arg_index,
-																		 const uint32_t& ll_arg_index) const {
+																		 const uint32_t& ll_arg_index,
+																		 const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
 	const auto& dev = cqueue.get_device();
 	const auto& host_entry = (const host_kernel_entry&)kern_entry;
 	
@@ -1431,7 +1433,7 @@ unique_ptr<argument_buffer> host_kernel::create_argument_buffer_internal(const c
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE | add_mem_flags);
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
 	return make_unique<host_argument_buffer>(*this, buf, *arg_info);
 }

@@ -32,6 +32,7 @@ metal_shader::metal_shader(kernel_map_type&& kernels_) : metal_kernel(move(kerne
 
 void metal_shader::execute(const compute_queue& cqueue floor_unused,
 						   const bool& is_cooperative floor_unused,
+						   const bool& wait_until_completion floor_unused,
 						   const uint32_t& dim floor_unused,
 						   const uint3& global_work_size floor_unused,
 						   const uint3& local_work_size floor_unused,

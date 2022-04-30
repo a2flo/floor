@@ -69,6 +69,7 @@ pair<uint3, uint3> metal_kernel::compute_grid_and_block_dim(const kernel_entry& 
 
 void metal_kernel::execute(const compute_queue& cqueue,
 						   const bool& is_cooperative,
+						   const bool& wait_until_completion,
 						   const uint32_t& dim,
 						   const uint3& global_work_size,
 						   const uint3& local_work_size,
@@ -148,6 +149,10 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	}
 
 	[encoder->cmd_buffer commit];
+	
+	if (wait_until_completion) {
+		[encoder->cmd_buffer waitUntilCompleted];
+	}
 }
 
 typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(const compute_queue& cqueue) const {
@@ -340,7 +345,8 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 																		  const kernel_entry& entry,
 																		  const llvm_toolchain::arg_info& arg floor_unused,
 																		  const uint32_t& user_arg_index,
-																		  const uint32_t& ll_arg_index) const {
+																		  const uint32_t& ll_arg_index,
+																		  const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
 	const auto& dev = cqueue.get_device();
 	const auto& mtl_entry = (const metal_kernel_entry&)entry;
 	auto mtl_func = (__bridge id<MTLFunction>)mtl_entry.kernel;
@@ -414,7 +420,8 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size_page, storage_buffer_backing.get(),
 										  COMPUTE_MEMORY_FLAG::READ |
 										  COMPUTE_MEMORY_FLAG::HOST_WRITE |
-										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY);
+										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
+										  add_mem_flags);
 	buf->set_debug_label(entry.info->name + "_arg_buffer");
 	return make_unique<metal_argument_buffer>(*this, buf, move(storage_buffer_backing), arg_encoder, *arg_info, move(arg_indices));
 }

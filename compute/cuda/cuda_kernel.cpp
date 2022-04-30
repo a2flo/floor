@@ -66,8 +66,8 @@ struct cuda_completion_handler {
 };
 static safe_mutex completion_handlers_in_flight_lock;
 static unordered_map<void*, shared_ptr<cuda_completion_handler>> completion_handlers_in_flight GUARDED_BY(completion_handlers_in_flight_lock);
-static CU_API void cuda_stream_completion_callback(cu_stream stream floor_unused, CU_RESULT result floor_unused,
-												   void* user_data) REQUIRES(!completion_handlers_in_flight_lock) {
+static CU_API void cuda_stream_completion_callback(cu_stream stream floor_unused, CU_RESULT result floor_unused, void* user_data)
+REQUIRES(!completion_handlers_in_flight_lock) {
 	if (user_data == nullptr) {
 		return;
 	}
@@ -89,6 +89,7 @@ static CU_API void cuda_stream_completion_callback(cu_stream stream floor_unused
 
 void cuda_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
+						  const bool& wait_until_completion,
 						  const uint32_t& dim floor_unused,
 						  const uint3& global_work_size,
 						  const uint3& local_work_size,
@@ -96,7 +97,8 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 						  const vector<const compute_fence*>& wait_fences floor_unused,
 						  const vector<const compute_fence*>& signal_fences floor_unused,
 						  const char* debug_label floor_unused,
-						  kernel_completion_handler_f&& completion_handler) const REQUIRES(!completion_handlers_in_flight_lock) {
+						  kernel_completion_handler_f&& completion_handler) const
+REQUIRES(!completion_handlers_in_flight_lock) {
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
@@ -253,6 +255,11 @@ void cuda_kernel::execute(const compute_queue& cqueue,
 		CU_CALL_NO_ACTION(cu_stream_add_callback((const_cu_stream)cqueue.get_queue_ptr(), &cuda_stream_completion_callback, compl_handler.get(), 0),
 						  "failed to add kernel completion handler")
 	}
+	
+	if (wait_until_completion) {
+		// NOTE: we could create an event, record it and synchronize on it here, but this would have the same effect
+		CU_CALL_RET(cu_stream_synchronize((const_cu_stream)cqueue.get_queue_ptr()), "failed to synchronize queue")
+	}
 }
 
 const compute_kernel::kernel_entry* cuda_kernel::get_kernel_entry(const compute_device& dev) const {
@@ -264,7 +271,8 @@ unique_ptr<argument_buffer> cuda_kernel::create_argument_buffer_internal(const c
 																		 const kernel_entry& kern_entry,
 																		 const llvm_toolchain::arg_info& arg floor_unused,
 																		 const uint32_t& user_arg_index,
-																		 const uint32_t& ll_arg_index) const {
+																		 const uint32_t& ll_arg_index,
+																		 const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
 	const auto& dev = cqueue.get_device();
 	const auto& cuda_entry = (const cuda_kernel_entry&)kern_entry;
 	
@@ -282,7 +290,7 @@ unique_ptr<argument_buffer> cuda_kernel::create_argument_buffer_internal(const c
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE | add_mem_flags);
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
 	return make_unique<cuda_argument_buffer>(*this, buf, *arg_info);
 }
