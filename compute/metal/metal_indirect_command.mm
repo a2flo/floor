@@ -496,4 +496,9 @@ indirect_compute_command_encoder& metal_indirect_compute_command_encoder::execut
 	return *this;
 }
 
+indirect_compute_command_encoder& metal_indirect_compute_command_encoder::barrier() {
+	[command setBarrier];
+	return *this;
+}
+
 #endif

@@ -35,8 +35,10 @@ public:
 	void flush() const override REQUIRES(!cmd_buffers_lock);
 	
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) const override REQUIRES(!cmd_buffers_lock);
+						  const indirect_execution_parameters_t& params,
+						  kernel_completion_handler_f&& completion_handler,
+						  const uint32_t command_offset,
+						  const uint32_t command_count) const override REQUIRES(!cmd_buffers_lock);
 	
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;
@@ -47,8 +49,8 @@ public:
 	bool has_profiling_support() const override {
 		return true;
 	}
-	void start_profiling() override;
-	uint64_t stop_profiling() override REQUIRES(!cmd_buffers_lock);
+	void start_profiling() const override;
+	uint64_t stop_profiling() const override REQUIRES(!cmd_buffers_lock);
 	
 	void set_debug_label(const string& label) override;
 	
@@ -59,7 +61,7 @@ protected:
 	mutable vector<pair<id <MTLCommandBuffer>, bool>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
 	
 	bool can_do_profiling { false };
-	atomic<bool> is_profiling { false };
+	mutable atomic<bool> is_profiling { false };
 	mutable atomic<uint64_t> profiling_sum { 0 };
 	
 };

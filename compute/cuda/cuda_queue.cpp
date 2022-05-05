@@ -44,6 +44,8 @@ void cuda_queue::flush() const {
 }
 
 void cuda_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
+								  const indirect_execution_parameters_t& params floor_unused,
+								  kernel_completion_handler_f&& completion_handler floor_unused,
 								  const uint32_t command_offset floor_unused,
 								  const uint32_t command_count floor_unused) const {
 	// TODO: implement this
@@ -58,11 +60,11 @@ void* cuda_queue::get_queue_ptr() {
 	return queue;
 }
 
-void cuda_queue::start_profiling() {
+void cuda_queue::start_profiling() const {
 	CU_CALL_NO_ACTION(cu_event_record(prof_start, queue), "failed to record profiling event")
 }
 
-uint64_t cuda_queue::stop_profiling() {
+uint64_t cuda_queue::stop_profiling() const {
 	CU_CALL_RET(cu_event_record(prof_stop, queue), "failed to record profiling event", 0)
 	CU_CALL_RET(cu_event_synchronize(prof_stop), "failed to synchronize profiling event", 0)
 	

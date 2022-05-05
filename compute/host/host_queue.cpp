@@ -32,6 +32,8 @@ void host_queue::flush() const {
 }
 
 void host_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
+								  const indirect_execution_parameters_t& params floor_unused,
+								  kernel_completion_handler_f&& completion_handler floor_unused,
 								  const uint32_t command_offset floor_unused,
 								  const uint32_t command_count floor_unused) const {
 	// TODO: implement this
@@ -50,11 +52,11 @@ static inline uint64_t clock_in_us() {
 	return (uint64_t)chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 }
 
-void host_queue::start_profiling() {
+void host_queue::start_profiling() const {
 	profiling_time = clock_in_us();
 }
 
-uint64_t host_queue::stop_profiling() {
+uint64_t host_queue::stop_profiling() const {
 	const auto elapsed_time = clock_in_us() - profiling_time;
 	profiling_time = 0;
 	return elapsed_time;

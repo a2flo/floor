@@ -33,8 +33,10 @@ public:
 	void flush() const override;
 	
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) const override;
+						  const indirect_execution_parameters_t& params,
+						  kernel_completion_handler_f&& completion_handler,
+						  const uint32_t command_offset,
+						  const uint32_t command_count) const override;
 	
 	const void* get_queue_ptr() const override;
 	void* get_queue_ptr() override;

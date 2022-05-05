@@ -172,13 +172,6 @@ public:
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	
-	//! executes the compute commands from an indirect command pipeline
-	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
-	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
-	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-								  const uint32_t command_offset = 0u,
-								  const uint32_t command_count = ~0u) const = 0;
-	
 	//! reusable kernel execution parameters
 	struct execution_parameters_t {
 		//! the execution dimensionality of the kernel: 1/1D, 2/2D or 3/3D
@@ -206,6 +199,38 @@ public:
 	virtual void execute_with_parameters(const compute_kernel& kernel, const execution_parameters_t& params,
 										 kernel_completion_handler_f&& completion_handler = {}) const;
 	
+	//! reusable indirect compute pipeline execution parameters
+	struct indirect_execution_parameters_t {
+		//! all fences the indirect compute pipeline execution will wait on before execution
+		vector<const compute_fence*> wait_fences;
+		//! all fences the indirect compute pipeline will signal once execution has completed
+		vector<const compute_fence*> signal_fences;
+		//! after enqueueing the indirect compute pipeline, wait until it has finished execution -> execute_indirect() becomes blocking
+		//! NOTE: since multiple kernel/pipeline executions might be in-flight in this queue, this is generally more efficient than calling finish()
+		bool wait_until_completion { false };
+		//! sets the debug label for the indirect compute pipeline execution (e.g. for display in a debugger)
+		const char* debug_label { nullptr };
+	};
+	
+	//! executes the compute commands from an indirect command pipeline, additionally using the specified execution parameters,
+	//! calling the specified "completion_handler" on indirect command completion,
+	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
+	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
+	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+								  const indirect_execution_parameters_t& params,
+								  kernel_completion_handler_f&& completion_handler = {},
+								  const uint32_t command_offset = 0u,
+								  const uint32_t command_count = ~0u) const = 0;
+	
+	//! executes the compute commands from an indirect command pipeline
+	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
+	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
+						  const uint32_t command_offset = 0u,
+						  const uint32_t command_count = ~0u) const {
+		return execute_indirect(indirect_cmd, {}, {}, command_offset, command_count);
+	}
+	
 	//! returns the compute device associated with this queue
 	const compute_device& get_device() const { return device; }
 	
@@ -215,17 +240,17 @@ public:
 	}
 	
 	//! starts profiling
-	virtual void start_profiling();
+	virtual void start_profiling() const;
 	
 	//! stops the previously started profiling and returns the elapsed time in microseconds
-	virtual uint64_t stop_profiling();
+	virtual uint64_t stop_profiling() const;
 	
 	//! sets the debug label of this compute queue
 	virtual void set_debug_label(const string& label [[maybe_unused]]) {}
 	
 protected:
 	const compute_device& device;
-	uint64_t us_prof_start { 0 };
+	mutable uint64_t us_prof_start { 0 };
 	
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(const compute_kernel& kernel,

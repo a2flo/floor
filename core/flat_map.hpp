@@ -253,6 +253,12 @@ public:
 	auto end() const { return data.end(); }
 	auto cbegin() const { return data.cbegin(); }
 	auto cend() const { return data.cend(); }
+	auto rbegin() { return data.rbegin(); }
+	auto rend() { return data.rend(); }
+	auto rbegin() const { return data.rbegin(); }
+	auto rend() const { return data.rend(); }
+	auto crbegin() const { return data.crbegin(); }
+	auto crend() const { return data.crend(); }
 	auto size() const { return data.size(); }
 	auto empty() const { return data.empty(); }
 	auto clear() { data.clear(); }

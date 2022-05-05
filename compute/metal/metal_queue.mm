@@ -22,6 +22,7 @@
 
 #include <floor/darwin/darwin_helper.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
+#include <floor/compute/metal/metal_fence.hpp>
 
 // make GPUStartTime/GPUEndTime available everywhere
 @protocol MTLCommandBufferProfiling <MTLCommandBuffer>
@@ -69,6 +70,8 @@ void metal_queue::flush() const {
 }
 
 void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd,
+								   const indirect_execution_parameters_t& params,
+								   kernel_completion_handler_f&& completion_handler,
 								   const uint32_t command_offset,
 								   const uint32_t command_count) const {
 	if (command_count == 0) {
@@ -91,6 +94,13 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	// create and setup the compute encoder
 	id <MTLCommandBuffer> cmd_buffer = make_command_buffer();
 	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoder];
+	if (params.debug_label) {
+		[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
+	}
+	
+	for (const auto& fence : params.wait_fences) {
+		[encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
+	}
 	
 	// declare all used resources
 	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
@@ -128,13 +138,27 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
 						   withRange:*range];
 	
+	for (const auto& fence : params.signal_fences) {
+		[encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
+	}
 	[encoder endEncoding];
 	
 	if (mtl_indirect_pipeline_entry->printf_buffer) {
 		mtl_indirect_pipeline_entry->printf_completion(*this, cmd_buffer);
 	}
 	
+	if (completion_handler) {
+		auto local_completion_handler = move(completion_handler);
+		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+			local_completion_handler();
+		}];
+	}
+	
 	[cmd_buffer commit];
+	
+	if (params.wait_until_completion) {
+		[cmd_buffer waitUntilCompleted];
+	}
 }
 
 const void* metal_queue::get_queue_ptr() const {
@@ -177,7 +201,7 @@ id <MTLCommandBuffer> metal_queue::make_command_buffer() const {
 	return cmd_buffer;
 }
 
-void metal_queue::start_profiling() {
+void metal_queue::start_profiling() const {
 	if (!can_do_profiling) {
 		// fallback to host side profiling
 		compute_queue::start_profiling();
@@ -188,7 +212,7 @@ void metal_queue::start_profiling() {
 	is_profiling = true;
 }
 
-uint64_t metal_queue::stop_profiling() {
+uint64_t metal_queue::stop_profiling() const {
 	if (!can_do_profiling) {
 		// fallback to host side profiling
 		return compute_queue::stop_profiling();

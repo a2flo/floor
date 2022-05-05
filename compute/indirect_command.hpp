@@ -264,6 +264,10 @@ public:
 		return execute(3u, global_work_size, local_work_size);
 	}
 	
+	//! encodes a barrier at the current location:
+	//! this ensures that all kernel executions before this barrier have finished execution, before any kernel executions past this point may begin
+	virtual indirect_compute_command_encoder& barrier() = 0;
+	
 protected:
 	const compute_kernel& kernel_obj;
 	const compute_kernel::kernel_entry* entry { nullptr };

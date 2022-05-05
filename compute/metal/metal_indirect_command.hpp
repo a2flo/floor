@@ -129,6 +129,8 @@ public:
 	
 	void set_arguments_vector(const vector<compute_kernel_arg>& args) override;
 	
+	indirect_compute_command_encoder& barrier() override;
+	
 protected:
 	const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry;
 	const uint32_t command_idx { 0u };

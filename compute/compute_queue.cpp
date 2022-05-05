@@ -20,12 +20,12 @@
 #include <floor/core/core.hpp>
 #include <floor/compute/compute_kernel.hpp>
 
-void compute_queue::start_profiling() {
+void compute_queue::start_profiling() const {
 	finish();
 	us_prof_start = core::unix_timestamp_us();
 }
 
-uint64_t compute_queue::stop_profiling() {
+uint64_t compute_queue::stop_profiling() const {
 	finish();
 	return core::unix_timestamp_us() - us_prof_start;
 }
