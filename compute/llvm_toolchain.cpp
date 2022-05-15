@@ -412,7 +412,9 @@ program_data compile_input(const string& input,
 			// * 6.3 for sm_75+
 			// * 7.0 for sm_80/sm_82
 			// * 7.1 for sm_86+
-			// * 7.6 for anything else
+			// * 7.6 for sm_87+
+			// * 7.7 for sm_90+
+			// * 7.7 for anything else
 			switch(cuda_dev.sm.x) {
 				case 3:
 				case 5:
@@ -425,8 +427,11 @@ program_data compile_input(const string& input,
 				case 8:
 					ptx_version = max(cuda_dev.sm.y < 6 ? 70u : (cuda_dev.sm.y < 7 ? 71u : 76u), ptx_version);
 					break;
+				case 9:
+					ptx_version = max(77u, ptx_version);
+					break;
 				default:
-					ptx_version = max(76u, ptx_version);
+					ptx_version = max(77u, ptx_version);
 					break;
 			}
 			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
