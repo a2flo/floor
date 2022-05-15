@@ -898,10 +898,10 @@ index 7d331a86126f..43c6a5914a8d 100644
  BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")
  BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 diff --git a/clang/include/clang/Basic/BuiltinsNVPTX.def b/clang/include/clang/Basic/BuiltinsNVPTX.def
-index 7afee4dbc80b..8b920aa42116 100644
+index 7afee4dbc80b..2fc2466340c1 100644
 --- a/clang/include/clang/Basic/BuiltinsNVPTX.def
 +++ b/clang/include/clang/Basic/BuiltinsNVPTX.def
-@@ -19,13 +19,21 @@
+@@ -19,13 +19,23 @@
  
  #pragma push_macro("SM_70")
  #pragma push_macro("SM_72")
@@ -914,7 +914,9 @@ index 7afee4dbc80b..8b920aa42116 100644
 -#define SM_80 "sm_80|" SM_86
 +#pragma push_macro("SM_87")
 +#pragma push_macro("SM_88")
-+#define SM_88 "sm_88"
++#pragma push_macro("SM_90")
++#define SM_90 "sm_90"
++#define SM_88 "sm_88|" SM_90
 +#define SM_87 "sm_87|" SM_88
 +#define SM_86 "sm_86|" SM_87
 +#define SM_82 "sm_82|" SM_86
@@ -926,7 +928,7 @@ index 7afee4dbc80b..8b920aa42116 100644
  #define SM_70 "sm_70|" SM_72
  
  #pragma push_macro("SM_60")
-@@ -33,6 +41,7 @@
+@@ -33,6 +43,7 @@
  
  #pragma push_macro("PTX60")
  #pragma push_macro("PTX61")
@@ -934,20 +936,22 @@ index 7afee4dbc80b..8b920aa42116 100644
  #pragma push_macro("PTX63")
  #pragma push_macro("PTX64")
  #pragma push_macro("PTX65")
-@@ -41,7 +50,11 @@
+@@ -41,7 +52,13 @@
  #pragma push_macro("PTX72")
  #pragma push_macro("PTX73")
  #pragma push_macro("PTX74")
 -#define PTX74 "ptx74"
 +#pragma push_macro("PTX75")
 +#pragma push_macro("PTX76")
-+#define PTX76 "ptx76"
++#pragma push_macro("PTX77")
++#define PTX77 "ptx77"
++#define PTX76 "ptx76|" PTX77
 +#define PTX75 "ptx75|" PTX76
 +#define PTX74 "ptx74|" PTX75
  #define PTX73 "ptx73|" PTX74
  #define PTX72 "ptx72|" PTX73
  #define PTX71 "ptx71|" PTX72
-@@ -49,7 +62,8 @@
+@@ -49,7 +66,8 @@
  #define PTX65 "ptx65|" PTX70
  #define PTX64 "ptx64|" PTX65
  #define PTX63 "ptx63|" PTX64
@@ -957,7 +961,7 @@ index 7afee4dbc80b..8b920aa42116 100644
  #define PTX60 "ptx60|" PTX61
  
  #pragma push_macro("AND")
-@@ -814,11 +828,16 @@ TARGET_BUILTIN(__nvvm_cp_async_wait_all, "v", "", AND(SM_80,PTX70))
+@@ -814,11 +832,17 @@ TARGET_BUILTIN(__nvvm_cp_async_wait_all, "v", "", AND(SM_80,PTX70))
  #pragma pop_macro("SM_60")
  #pragma pop_macro("SM_70")
  #pragma pop_macro("SM_72")
@@ -968,18 +972,20 @@ index 7afee4dbc80b..8b920aa42116 100644
  #pragma pop_macro("SM_86")
 +#pragma pop_macro("SM_87")
 +#pragma pop_macro("SM_88")
++#pragma pop_macro("SM_90")
  #pragma pop_macro("PTX60")
  #pragma pop_macro("PTX61")
 +#pragma pop_macro("PTX62")
  #pragma pop_macro("PTX63")
  #pragma pop_macro("PTX64")
  #pragma pop_macro("PTX65")
-@@ -827,3 +846,5 @@ TARGET_BUILTIN(__nvvm_cp_async_wait_all, "v", "", AND(SM_80,PTX70))
+@@ -827,3 +851,6 @@ TARGET_BUILTIN(__nvvm_cp_async_wait_all, "v", "", AND(SM_80,PTX70))
  #pragma pop_macro("PTX72")
  #pragma pop_macro("PTX73")
  #pragma pop_macro("PTX74")
 +#pragma pop_macro("PTX75")
 +#pragma pop_macro("PTX76")
++#pragma pop_macro("PTX77")
 diff --git a/clang/include/clang/Basic/CodeGenOptions.def b/clang/include/clang/Basic/CodeGenOptions.def
 index 610123260175..a5c3632b9d91 100644
 --- a/clang/include/clang/Basic/CodeGenOptions.def
@@ -1017,24 +1023,25 @@ index 6a0bce0ad80a..46ab5c779515 100644
    std::vector<std::string> DependentLibraries;
  
 diff --git a/clang/include/clang/Basic/Cuda.h b/clang/include/clang/Basic/Cuda.h
-index ef2023cabf7f..c608ff0953ab 100644
+index ef2023cabf7f..f10977cf99b2 100644
 --- a/clang/include/clang/Basic/Cuda.h
 +++ b/clang/include/clang/Basic/Cuda.h
-@@ -33,9 +33,11 @@ enum class CudaVersion {
+@@ -33,9 +33,12 @@ enum class CudaVersion {
    CUDA_112,
    CUDA_113,
    CUDA_114,
 -  FULLY_SUPPORTED = CUDA_114,
 +  CUDA_115,
 +  CUDA_116,
-+  FULLY_SUPPORTED = CUDA_116,
++  CUDA_117,
++  FULLY_SUPPORTED = CUDA_117,
    PARTIALLY_SUPPORTED =
 -      CUDA_114, // Partially supported. Proceed with a warning.
-+      CUDA_116, // Partially supported. Proceed with a warning.
++      CUDA_117, // Partially supported. Proceed with a warning.
    NEW = 10000,  // Too new. Issue a warning, but allow using it.
  };
  const char *CudaVersionToString(CudaVersion V);
-@@ -59,9 +61,13 @@ enum class CudaArch {
+@@ -59,9 +62,14 @@ enum class CudaArch {
    SM_62,
    SM_70,
    SM_72,
@@ -1045,6 +1052,7 @@ index ef2023cabf7f..c608ff0953ab 100644
    SM_86,
 +  SM_87,
 +  SM_88,
++  SM_90,
    GFX600,
    GFX601,
    GFX602,
@@ -3088,10 +3096,10 @@ index 2b0f4071662c..a297aee56185 100644
    bool OclCUnsupported = !LangOpts.OpenCL &&
                           (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
 diff --git a/clang/lib/Basic/Cuda.cpp b/clang/lib/Basic/Cuda.cpp
-index f5ee1fb4c228..24d808bf4870 100644
+index f5ee1fb4c228..55d81b7847d1 100644
 --- a/clang/lib/Basic/Cuda.cpp
 +++ b/clang/lib/Basic/Cuda.cpp
-@@ -40,6 +40,10 @@ const char *CudaVersionToString(CudaVersion V) {
+@@ -40,6 +40,12 @@ const char *CudaVersionToString(CudaVersion V) {
      return "11.3";
    case CudaVersion::CUDA_114:
      return "11.4";
@@ -3099,19 +3107,22 @@ index f5ee1fb4c228..24d808bf4870 100644
 +    return "11.5";
 +  case CudaVersion::CUDA_116:
 +    return "11.6";
++  case CudaVersion::CUDA_117:
++    return "11.7";
    case CudaVersion::NEW:
      return "";
    }
-@@ -62,6 +66,8 @@ CudaVersion CudaStringToVersion(const llvm::Twine &S) {
+@@ -62,6 +68,9 @@ CudaVersion CudaStringToVersion(const llvm::Twine &S) {
        .Case("11.2", CudaVersion::CUDA_112)
        .Case("11.3", CudaVersion::CUDA_113)
        .Case("11.4", CudaVersion::CUDA_114)
 +      .Case("11.5", CudaVersion::CUDA_115)
 +      .Case("11.6", CudaVersion::CUDA_116)
++      .Case("11.7", CudaVersion::CUDA_117)
        .Default(CudaVersion::UNKNOWN);
  }
  
-@@ -85,9 +91,9 @@ static const CudaArchToStringMap arch_names[] = {
+@@ -85,9 +94,10 @@ static const CudaArchToStringMap arch_names[] = {
      SM(30), SM(32), SM(35), SM(37),  // Kepler
      SM(50), SM(52), SM(53),          // Maxwell
      SM(60), SM(61), SM(62),          // Pascal
@@ -3119,11 +3130,12 @@ index f5ee1fb4c228..24d808bf4870 100644
 +    SM(70), SM(72), SM(73),          // Volta
      SM(75),                          // Turing
 -    SM(80), SM(86),                  // Ampere
-+    SM(80), SM(82), SM(86),          // Ampere
++    SM(80), SM(82), SM(86), SM(87), SM(88), // Ampere
++    SM(90),                          // Hopper
      GFX(600),  // gfx600
      GFX(601),  // gfx601
      GFX(602),  // gfx602
-@@ -179,13 +185,18 @@ CudaVersion MinVersionForCudaArch(CudaArch A) {
+@@ -179,13 +189,20 @@ CudaVersion MinVersionForCudaArch(CudaArch A) {
    case CudaArch::SM_70:
      return CudaVersion::CUDA_90;
    case CudaArch::SM_72:
@@ -3139,10 +3151,12 @@ index f5ee1fb4c228..24d808bf4870 100644
 +  case CudaArch::SM_87:
 +  case CudaArch::SM_88:
 +    return CudaVersion::CUDA_116;
++  case CudaArch::SM_90:
++    return CudaVersion::CUDA_117;
    default:
      llvm_unreachable("invalid enum");
    }
-@@ -241,6 +252,10 @@ CudaVersion ToCudaVersion(llvm::VersionTuple Version) {
+@@ -241,6 +258,12 @@ CudaVersion ToCudaVersion(llvm::VersionTuple Version) {
      return CudaVersion::CUDA_113;
    case 114:
      return CudaVersion::CUDA_114;
@@ -3150,6 +3164,8 @@ index f5ee1fb4c228..24d808bf4870 100644
 +    return CudaVersion::CUDA_115;
 +  case 116:
 +    return CudaVersion::CUDA_116;
++  case 117:
++    return CudaVersion::CUDA_117;
    default:
      return CudaVersion::UNKNOWN;
    }
@@ -3312,19 +3328,20 @@ index 393a91ff53a5..8fd4a75de4b3 100644
      }
    }
 diff --git a/clang/lib/Basic/Targets/NVPTX.cpp b/clang/lib/Basic/Targets/NVPTX.cpp
-index 0461a91d0add..349f30da5ae4 100644
+index 0461a91d0add..dbfab7f85918 100644
 --- a/clang/lib/Basic/Targets/NVPTX.cpp
 +++ b/clang/lib/Basic/Targets/NVPTX.cpp
-@@ -44,6 +44,8 @@ NVPTXTargetInfo::NVPTXTargetInfo(const llvm::Triple &Triple,
+@@ -44,6 +44,9 @@ NVPTXTargetInfo::NVPTXTargetInfo(const llvm::Triple &Triple,
      if (!Feature.startswith("+ptx"))
        continue;
      PTXVersion = llvm::StringSwitch<unsigned>(Feature)
++                     .Case("+ptx77", 77)
 +                     .Case("+ptx76", 76)
 +                     .Case("+ptx75", 75)
                       .Case("+ptx74", 74)
                       .Case("+ptx73", 73)
                       .Case("+ptx72", 72)
-@@ -52,6 +54,7 @@ NVPTXTargetInfo::NVPTXTargetInfo(const llvm::Triple &Triple,
+@@ -52,6 +55,7 @@ NVPTXTargetInfo::NVPTXTargetInfo(const llvm::Triple &Triple,
                       .Case("+ptx65", 65)
                       .Case("+ptx64", 64)
                       .Case("+ptx63", 63)
@@ -3332,7 +3349,7 @@ index 0461a91d0add..349f30da5ae4 100644
                       .Case("+ptx61", 61)
                       .Case("+ptx60", 60)
                       .Case("+ptx50", 50)
-@@ -248,12 +251,20 @@ void NVPTXTargetInfo::getTargetDefines(const LangOptions &Opts,
+@@ -248,12 +252,22 @@ void NVPTXTargetInfo::getTargetDefines(const LangOptions &Opts,
          return "700";
        case CudaArch::SM_72:
          return "720";
@@ -3350,6 +3367,8 @@ index 0461a91d0add..349f30da5ae4 100644
 +        return "870";
 +      case CudaArch::SM_88:
 +        return "880";
++      case CudaArch::SM_90:
++        return "900";
        }
        llvm_unreachable("unhandled CudaArch");
      }();
@@ -5897,10 +5916,10 @@ index 3f7aa9b0d8dc..080ffb6d229d 100644
  }
  
 diff --git a/clang/lib/CodeGen/CGOpenMPRuntimeGPU.cpp b/clang/lib/CodeGen/CGOpenMPRuntimeGPU.cpp
-index 56428cacfe7c..5b1c9decc99f 100644
+index 56428cacfe7c..a611e47d98df 100644
 --- a/clang/lib/CodeGen/CGOpenMPRuntimeGPU.cpp
 +++ b/clang/lib/CodeGen/CGOpenMPRuntimeGPU.cpp
-@@ -3866,9 +3866,13 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
+@@ -3866,9 +3866,14 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
        case CudaArch::SM_62:
        case CudaArch::SM_70:
        case CudaArch::SM_72:
@@ -5911,6 +5930,7 @@ index 56428cacfe7c..5b1c9decc99f 100644
        case CudaArch::SM_86:
 +      case CudaArch::SM_87:
 +      case CudaArch::SM_88:
++      case CudaArch::SM_90:
        case CudaArch::GFX600:
        case CudaArch::GFX601:
        case CudaArch::GFX602:
@@ -11109,10 +11129,10 @@ index 9856a42e1db5..4e9162683ef0 100644
  
      if (IsUsingLTO) {
 diff --git a/clang/lib/Driver/ToolChains/Cuda.cpp b/clang/lib/Driver/ToolChains/Cuda.cpp
-index 09418aa2390f..fd25cd91fc1e 100644
+index 09418aa2390f..39780662a057 100644
 --- a/clang/lib/Driver/ToolChains/Cuda.cpp
 +++ b/clang/lib/Driver/ToolChains/Cuda.cpp
-@@ -65,6 +65,10 @@ CudaVersion getCudaVersion(uint32_t raw_version) {
+@@ -65,6 +65,12 @@ CudaVersion getCudaVersion(uint32_t raw_version) {
      return CudaVersion::CUDA_113;
    if (raw_version < 11050)
      return CudaVersion::CUDA_114;
@@ -11120,10 +11140,12 @@ index 09418aa2390f..fd25cd91fc1e 100644
 +    return CudaVersion::CUDA_115;
 +  if (raw_version < 11070)
 +    return CudaVersion::CUDA_116;
++  if (raw_version < 11080)
++    return CudaVersion::CUDA_117;
    return CudaVersion::NEW;
  }
  
-@@ -701,6 +705,7 @@ void CudaToolChain::addClangTargetOptions(
+@@ -701,6 +707,7 @@ void CudaToolChain::addClangTargetOptions(
    // New CUDA versions often introduce new instructions that are only supported
    // by new PTX version, so we need to raise PTX level to enable them in NVPTX
    // back-end.
@@ -11131,7 +11153,7 @@ index 09418aa2390f..fd25cd91fc1e 100644
    const char *PtxFeature = nullptr;
    switch (CudaInstallationVersion) {
  #define CASE_CUDA_VERSION(CUDA_VER, PTX_VER)                                   \
-@@ -722,6 +727,10 @@ void CudaToolChain::addClangTargetOptions(
+@@ -722,6 +729,10 @@ void CudaToolChain::addClangTargetOptions(
    default:
      PtxFeature = "+ptx42";
    }
@@ -45427,7 +45449,7 @@ index 4db593b1c37c..44a96e1ad46b 100644
    SelectionDAG
    Support
 diff --git a/llvm/lib/Target/NVPTX/NVPTX.td b/llvm/lib/Target/NVPTX/NVPTX.td
-index ecbf1e0aa4b4..bc76bf17ac89 100644
+index ecbf1e0aa4b4..9feeec91c928 100644
 --- a/llvm/lib/Target/NVPTX/NVPTX.td
 +++ b/llvm/lib/Target/NVPTX/NVPTX.td
 @@ -25,10 +25,12 @@ include "NVPTXInstrInfo.td"
@@ -45443,7 +45465,7 @@ index ecbf1e0aa4b4..bc76bf17ac89 100644
  def SM30 : SubtargetFeature<"sm_30", "SmVersion", "30",
                              "Target SM 3.0">;
  def SM32 : SubtargetFeature<"sm_32", "SmVersion", "32",
-@@ -37,28 +39,41 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
+@@ -37,28 +39,45 @@ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
                              "Target SM 3.5">;
  def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
                              "Target SM 3.7">;
@@ -45482,10 +45504,14 @@ index ecbf1e0aa4b4..bc76bf17ac89 100644
 +                             "Target SM 8.7">;
 +def SM88 : SubtargetFeature<"sm_88", "SmVersion", "88",
 +                             "Target SM 8.8">;
++
++// Hopper
++def SM90 : SubtargetFeature<"sm_90", "SmVersion", "90",
++                             "Target SM 9.0">;
  
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
-@@ -77,6 +92,8 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
+@@ -77,6 +96,8 @@ def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
                               "Use PTX version 6.0">;
  def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
                               "Use PTX version 6.1">;
@@ -45494,7 +45520,7 @@ index ecbf1e0aa4b4..bc76bf17ac89 100644
  def PTX63 : SubtargetFeature<"ptx63", "PTXVersion", "63",
                               "Use PTX version 6.3">;
  def PTX64 : SubtargetFeature<"ptx64", "PTXVersion", "64",
-@@ -93,6 +110,10 @@ def PTX73 : SubtargetFeature<"ptx73", "PTXVersion", "73",
+@@ -93,6 +114,12 @@ def PTX73 : SubtargetFeature<"ptx73", "PTXVersion", "73",
                               "Use PTX version 7.3">;
  def PTX74 : SubtargetFeature<"ptx74", "PTXVersion", "74",
                               "Use PTX version 7.4">;
@@ -45502,10 +45528,12 @@ index ecbf1e0aa4b4..bc76bf17ac89 100644
 +                             "Use PTX version 7.5">;
 +def PTX76 : SubtargetFeature<"ptx76", "PTXVersion", "76",
 +                             "Use PTX version 7.6">;
++def PTX77 : SubtargetFeature<"ptx77", "PTXVersion", "77",
++                             "Use PTX version 7.7">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -115,9 +136,13 @@ def : Proc<"sm_61", [SM61, PTX50]>;
+@@ -115,9 +142,14 @@ def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
  def : Proc<"sm_70", [SM70, PTX60]>;
  def : Proc<"sm_72", [SM72, PTX61]>;
@@ -45516,6 +45544,7 @@ index ecbf1e0aa4b4..bc76bf17ac89 100644
  def : Proc<"sm_86", [SM86, PTX71]>;
 +def : Proc<"sm_87", [SM87, PTX76]>;
 +def : Proc<"sm_88", [SM88, PTX76]>;
++def : Proc<"sm_90", [SM90, PTX77]>;
  
  def NVPTXInstrInfo : InstrInfo {
  }
