@@ -40,7 +40,13 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
 												const metal_kernel::metal_kernel_entry& entry,
 												const char* debug_label) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, [cmd_buffer computeCommandEncoder] });
+	id <MTLComputeCommandEncoder> encoder;
+	if (@available(macOS 10.14, iOS 12.0, *)) {
+		encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
+	} else {
+		encoder = [cmd_buffer computeCommandEncoder];
+	}
+	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, encoder });
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
 	if (debug_label) {
 		[ret->encoder setLabel:[NSString stringWithUTF8String:debug_label]];

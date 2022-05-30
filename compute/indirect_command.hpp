@@ -163,21 +163,6 @@ public:
 		return dev_queue.get_device();
 	}
 	
-	//! sets/encodes the specified arguments in this command
-	//! NOTE: for render commands: vertex shader arguments are specified first, fragment shader arguments after
-	//! NOTE: it is only allowed to encode/use buffer-type parameters, i.e. no images or const-parameters are allowed
-	//!       -> only use buffer<T> and arg_buffer<T> parameters in vertex/fragment/kernel functions
-	template <typename... Args>
-	void set_arguments(const Args&... args)
-	__attribute__((enable_if(indirect_command_encoder::check_arg_types<Args...>(), "valid args"))) {
-		set_arguments_vector({ args... });
-	}
-	
-	//! sets/encodes the specified arguments in this command
-	template <typename... Args>
-	void set_arguments(const Args&...)
-	__attribute__((enable_if(!indirect_command_encoder::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
-	
 protected:
 	//! { device, queue } pair needed for encoding and execution purposes
 	const compute_queue& dev_queue;
@@ -232,6 +217,22 @@ public:
 																  const uint32_t instance_count = 1u,
 																  const uint32_t first_instance = 0u) = 0;
 	
+	//! sets/encodes the specified arguments in this command
+	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
+	//! NOTE: it is only allowed to encode/use buffer-type parameters, i.e. no images or const-parameters are allowed
+	//!       -> only use buffer<T> and arg_buffer<T> parameters in vertex/fragment/kernel functions
+	template <typename... Args>
+	indirect_render_command_encoder& set_arguments(const Args&... args)
+	__attribute__((enable_if(indirect_command_encoder::check_arg_types<Args...>(), "valid args"))) {
+		set_arguments_vector({ args... });
+		return *this;
+	}
+	
+	//! sets/encodes the specified arguments in this command
+	template <typename... Args>
+	indirect_render_command_encoder& set_arguments(const Args&...)
+	__attribute__((enable_if(!indirect_command_encoder::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
+	
 protected:
 	const graphics_pipeline& pipeline;
 };
@@ -267,6 +268,21 @@ public:
 	//! encodes a barrier at the current location:
 	//! this ensures that all kernel executions before this barrier have finished execution, before any kernel executions past this point may begin
 	virtual indirect_compute_command_encoder& barrier() = 0;
+	
+	//! sets/encodes the specified arguments in this command
+	//! NOTE: it is only allowed to encode/use buffer-type parameters, i.e. no images or const-parameters are allowed
+	//!       -> only use buffer<T> and arg_buffer<T> parameters in vertex/fragment/kernel functions
+	template <typename... Args>
+	indirect_compute_command_encoder& set_arguments(const Args&... args)
+	__attribute__((enable_if(indirect_command_encoder::check_arg_types<Args...>(), "valid args"))) {
+		set_arguments_vector({ args... });
+		return *this;
+	}
+	
+	//! sets/encodes the specified arguments in this command
+	template <typename... Args>
+	indirect_compute_command_encoder& set_arguments(const Args&...)
+	__attribute__((enable_if(!indirect_command_encoder::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
 	
 protected:
 	const compute_kernel& kernel_obj;

@@ -75,7 +75,7 @@ public:
 		log_undecorated("[TOTAL] $s # $ms # $",
 						to_s(entries.back().second, entries.front().second),
 						to_ms(entries.back().second, entries.front().second),
-						(uint64_t)chrono::duration_cast<chrono::nanoseconds>(entries.back().second, entries.front().second).count());
+						(uint64_t)chrono::duration_cast<chrono::nanoseconds>(total_diff).count());
 	}
 	
 protected:

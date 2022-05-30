@@ -93,7 +93,12 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	
 	// create and setup the compute encoder
 	id <MTLCommandBuffer> cmd_buffer = make_command_buffer();
-	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoder];
+	id <MTLComputeCommandEncoder> encoder;
+	if (@available(macOS 10.14, iOS 12.0, *)) {
+		encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
+	} else {
+		encoder = [cmd_buffer computeCommandEncoder];
+	}
 	if (params.debug_label) {
 		[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
 	}
