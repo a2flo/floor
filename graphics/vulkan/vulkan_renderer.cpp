@@ -280,12 +280,13 @@ bool vulkan_renderer::end() {
 	return true;
 }
 
-bool vulkan_renderer::commit() {
+bool vulkan_renderer::commit(const bool wait_until_completion) {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 
 	// TODO: blocking or not? yes for now, until we can ensure that everything gets cleaned up properly + is synced properly
+	const auto is_blocking = wait_until_completion || true;
 	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)
-	vk_queue.submit_command_buffer(render_cmd_buffer, true);
+	vk_queue.submit_command_buffer(render_cmd_buffer, is_blocking);
 	
 	// if present has been called earlier, we can now actually present the image to the screen
 	if (is_presenting) {
@@ -310,7 +311,7 @@ bool vulkan_renderer::commit(completion_handler_f&& compl_handler) {
 	if (compl_handler) {
 		(void)add_completion_handler(move(compl_handler));
 	}
-	return commit();
+	return commit(false);
 }
 
 bool vulkan_renderer::add_completion_handler(completion_handler_f&& compl_handler) {

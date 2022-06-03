@@ -63,8 +63,9 @@ public:
 		return true;
 	}
 	
-	//! commits all currently queued work to the queue
-	virtual bool commit() {
+	//! commits all currently queued work to the queue,
+	//! if "wait_until_completion" is true, this is a blocking call that waits until the rendering has completed
+	virtual bool commit(const bool wait_until_completion [[maybe_unused]] = false) {
 		return true;
 	}
 	

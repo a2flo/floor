@@ -38,7 +38,7 @@ public:
 	
 	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
-	bool commit() override;
+	bool commit(const bool wait_until_completion) override;
 	bool commit(completion_handler_f&& compl_handler) override;
 	bool add_completion_handler(completion_handler_f&& compl_handler) override;
 	

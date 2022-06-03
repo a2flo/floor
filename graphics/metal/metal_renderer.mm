@@ -178,8 +178,11 @@ bool metal_renderer::end() {
 	return true;
 }
 
-bool metal_renderer::commit() {
+bool metal_renderer::commit(const bool wait_until_completion) {
 	[cmd_buffer commit];
+	if (wait_until_completion) {
+		[cmd_buffer waitUntilCompleted];
+	}
 	return true;
 }
 
@@ -187,7 +190,7 @@ bool metal_renderer::commit(completion_handler_f&& compl_handler) {
 	if (compl_handler) {
 		(void)add_completion_handler(move(compl_handler));
 	}
-	return commit();
+	return commit(false);
 }
 
 bool metal_renderer::add_completion_handler(completion_handler_f&& compl_handler) {

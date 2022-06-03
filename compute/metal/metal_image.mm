@@ -704,6 +704,8 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
 	
+	[mtl_zero_buffer removeAllDebugMarkers];
+	[mtl_zero_buffer setPurgeableState:MTLPurgeableStateEmpty];
 	mtl_zero_buffer = nil;
 	
 	return success;
