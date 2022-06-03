@@ -60,15 +60,15 @@ if [ ! -d llvm ]; then
 	cd llvm
 	git init -b main
 	git remote add origin https://github.com/llvm/llvm-project.git
-	git fetch --depth=25000 origin main
+	git fetch origin main
 	git reset --hard ${LLVM_COMMIT}
 	
 	cd llvm/projects
 	mkdir spirv
 	cd spirv
-	git init -b master
+	git init -b main
 	git remote add origin https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
-	git fetch origin master
+	git fetch origin main
 	git reset --hard ${SPIRV_COMMIT}
 else
 	# already exists, just need to clean+reset and possibly update/fetch if head revision changed
@@ -77,7 +77,7 @@ else
 	CURRENT_LLVM_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_LLVM_COMMIT} != ${LLVM_COMMIT} ]; then
 		git reset --hard ${CURRENT_LLVM_COMMIT}
-		git fetch --depth=25000 origin main
+		git fetch origin main
 	fi
 	git reset --hard ${LLVM_COMMIT}
 	
@@ -86,7 +86,7 @@ else
 	CURRENT_SPIRV_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_SPIRV_COMMIT} != ${SPIRV_COMMIT} ]; then
 		git reset --hard ${CURRENT_SPIRV_COMMIT}
-		git fetch origin master
+		git fetch origin main
 	fi
 	git reset --hard ${SPIRV_COMMIT}
 fi
