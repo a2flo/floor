@@ -86,6 +86,7 @@ BUILD_REBUILD=0
 BUILD_STATIC=0
 BUILD_JSON=0
 BUILD_VERBOSE=0
+BUILD_DIR_ROOT="build"
 BUILD_JOB_COUNT=0
 
 BUILD_CONF_OPENCL=1
@@ -155,6 +156,7 @@ for arg in "$@"; do
 			echo "	-v                 verbose output (prints all executed compiler and linker commands, and some other information)"
 			echo "	-vv                very verbose output (same as -v + runs all compiler and linker commands with -v)"
 			echo "	-j#                explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
+			echo "	-build-dir=<dir>   sets the build directory for temporary files to the specified <dir> (defaults to 'build')"
 			echo ""
 			echo ""
 			echo "example:"
@@ -191,6 +193,9 @@ for arg in "$@"; do
 			if [ -z ${BUILD_JOB_COUNT} ]; then
 				BUILD_JOB_COUNT=0
 			fi
+			;;
+		"-build-dir="*)
+			BUILD_DIR_ROOT=$(echo $arg | cut -c 12-)
 			;;
 		"no-opencl")
 			BUILD_CONF_OPENCL=0
@@ -297,11 +302,15 @@ esac
 
 # runs the platform specific stat cmd to get the modification date of the specified file(s) as a unix timestamp
 file_mod_time() {
+	# for whatever reason, I'm having trouble calling this directly with a large number of arguments
+	# -> use eval method instead, since it actually works ...
+	stat_cmd=""
 	if [ ${STAT_IS_BSD} -gt 0 ]; then
-		echo $(stat -f "%m" $@)
+		stat_cmd="stat -f \"%m\" $@"
 	else
-		echo $(stat -c "%Y" $@)
+		stat_cmd="stat -c \"%Y\" $@"
 	fi
+	echo $(eval $stat_cmd)
 }
 
 # figure out which md5 cmd/binary can be used
@@ -388,9 +397,9 @@ fi
 # build directory where all temporary files are stored (*.o, etc.)
 BUILD_DIR=
 if [ $BUILD_MODE == "debug" ]; then
-	BUILD_DIR=build/debug
+	BUILD_DIR=${BUILD_DIR_ROOT}/debug
 else
-	BUILD_DIR=build/release
+	BUILD_DIR=${BUILD_DIR_ROOT}/release
 fi
 
 # current directory + escaped form
@@ -1004,7 +1013,7 @@ needs_rebuild() {
 		info "rebuild because >${BUILD_DIR}/${source_file}.d< doesn't exist or BUILD_REBUILD $BUILD_REBUILD"
 		rebuild_file=1
 	else
-		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//"  | sed -E "s/${ESC_CUR_DIR}\/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g"  | sed -E "s/\.\.\\\\floor\//${ESC_CUR_DIR}\//g" | sed -E "s/([^[:space:]]*)$/\"\0\"/g")
+		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/${ESC_CUR_DIR}\/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\\\\floor\//${ESC_CUR_DIR}\//g" | tr ' ' '\n' | grep -v -E '^$' | sort | uniq | sed -E "s/([^[:space:]]*)$/\"\0\"/g")
 		if [ "${dep_list}" ]; then
 			file_time=$(file_mod_time "${bin_file_name}")
 			dep_times=$(file_mod_time ${dep_list})
@@ -1149,30 +1158,38 @@ if [ ! -f ${TARGET_BIN} ]; then
 	relink_target=1
 	relink_any=1
 fi
-if [ ! -f ${TARGET_STATIC_BIN} ]; then
-	relink_static_target=1
-	relink_any=1
+if [ $BUILD_STATIC -gt 0 ]; then
+	if [ -f ${TARGET_STATIC_BIN} ]; then
+		relink_static_target=1
+		relink_any=1
+	fi
 fi
 
 if [ $relink_any -eq 0 -a ${BUILD_REBUILD} -eq 0 ]; then
 	target_time=$(file_mod_time "${TARGET_BIN}")
-	static_target_time=$(file_mod_time "${TARGET_STATIC_BIN}")
+	static_target_time=0
+	if [ $BUILD_STATIC -gt 0 ]; then
+		static_target_time=$(file_mod_time "${TARGET_STATIC_BIN}")
+	fi
 	obj_times=$(file_mod_time "${OBJ_FILES}")
 	for obj_time in ${obj_times}; do
 		if [ $obj_time -gt $target_time ]; then
 			relink_target=1
 		fi
-		if [ $obj_time -gt $static_target_time ]; then
-			relink_static_target=1
+		if [ $BUILD_STATIC -gt 0 ]; then
+			if [ $obj_time -gt $static_target_time ]; then
+				relink_static_target=1
+			fi
 		fi
 	done
 fi
 
 if [ $relink_target -gt 0  ]; then
 	info "linking ..."
-	linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+	linker_cmd="${CXX} -o ${BUILD_DIR}/${TARGET_BIN_NAME} ${OBJ_FILES} ${LDFLAGS}"
 	verbose "${linker_cmd}"
 	eval ${linker_cmd}
+	mv ${BUILD_DIR}/${TARGET_BIN_NAME} ${TARGET_BIN}
 fi
 
 if [ $relink_static_target -gt 0 -a $BUILD_STATIC -gt 0 ]; then
