@@ -238,28 +238,30 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 													 (iub_desc > 0 ? 1 : 0) +
 													 (read_image_desc > 0 ? 1 : 0) +
 													 (write_image_desc > 0 ? 1 : 0));
-						vector<VkDescriptorPoolSize> pool_sizes(pool_count);
+						vector<VkDescriptorPoolSize> pool_sizes(max(pool_count, 1u));
 						uint32_t pool_index = 0;
 						if(ssbo_desc > 0 || pool_count == 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
+							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1) * vulkan_descriptor_set_container::descriptor_count;
 							++pool_index;
 						}
 						if(iub_desc > 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
 							// amount of bytes to allocate for descriptors of this type
 							// -> use max arg size here
-							pool_sizes[pool_index].descriptorCount = max_iub_size;
+							// TODO/NOTE: no idea where the size requirement comes from -> just round to multiples of 128 for now
+							pool_sizes[pool_index].descriptorCount = (const_math::round_next_multiple(max_iub_size + 128u, 128u) *
+																	  vulkan_descriptor_set_container::descriptor_count);
 							++pool_index;
 						}
 						if(read_image_desc > 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-							pool_sizes[pool_index].descriptorCount = read_image_desc;
+							pool_sizes[pool_index].descriptorCount = read_image_desc * vulkan_descriptor_set_container::descriptor_count;
 							++pool_index;
 						}
 						if(write_image_desc > 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-							pool_sizes[pool_index].descriptorCount = write_image_desc;
+							pool_sizes[pool_index].descriptorCount = write_image_desc * vulkan_descriptor_set_container::descriptor_count;
 							++pool_index;
 						}
 						VkDescriptorPoolCreateInfo desc_pool_info {

@@ -1615,9 +1615,12 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
 				"failed to create semaphore", { false, dummy_ret })
 	
-	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
-									  nullptr, &screen.image_index),
-				"failed to acquire next presentable image", { false, dummy_ret })
+	const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
+												  nullptr, &screen.image_index);
+	if (acq_result != VK_SUCCESS && acq_result != VK_SUBOPTIMAL_KHR) {
+		log_error("failed to acquire next presentable image: $: $", acq_result, vulkan_error_to_string(acq_result));
+		return { false, dummy_ret };
+	}
 	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
@@ -1757,8 +1760,11 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 			.pImageIndices = &drawable.index,
 			.pResults = nullptr,
 		};
-		VK_CALL_RET(vkQueuePresentKHR((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), &present_info),
-					"failed to present", false)
+		const auto present_result = vkQueuePresentKHR((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), &present_info);
+		if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR) {
+			log_error("failed to present: $: $", present_result, vulkan_error_to_string(present_result));
+			return false;
+		}
 
 		// cleanup
 		vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
