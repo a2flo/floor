@@ -317,6 +317,20 @@ public:
 #endif
 	{}
 	
+	//! construction from an equally sized std::array
+	constexpr FLOOR_VECNAME(const std::array<scalar_type, FLOOR_VECTOR_WIDTH>& arr) noexcept :
+	x(arr[0])
+#if FLOOR_VECTOR_WIDTH >= 2
+	, y(arr[1])
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+	, z(arr[2])
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+	, w(arr[3])
+#endif
+	{}
+	
 	// assignments (note: these also work if scalar_type is a reference)
 	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON)
@@ -2079,6 +2093,11 @@ public:
 	template <typename vec_type = vector_type> requires(vec_type::has_clang_vector_type())
 	static constexpr vector_type from_clang_vector(const clang_vector_type& vec) {
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };
+	}
+	
+	//! returns a C++/std array with the elements of this vector
+	constexpr auto to_array() const {
+		return std::array<scalar_type, FLOOR_VECTOR_WIDTH> { FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
 	//! returns this vector as a tuple

@@ -53,6 +53,15 @@ void event::handle_events() {
 	// always acquire the gl context for internal handlers, since these are very likely to modify gl data
 	floor::acquire_context();
 	
+	// handle queued events first
+	{
+		GUARD(queued_events_lock);
+		for (auto& queued_event : queued_events) {
+			handle_event(queued_event.first, move(queued_event.second));
+		}
+		queued_events.clear();
+	}
+	
 	// internal engine event handler
 	const int coord_scale = (floor::get_hidpi() ? int(floor::get_scale_factor()) : 1);
 	const auto coord_scalef = float(coord_scale);
@@ -338,8 +347,10 @@ void event::add_internal_event_handler(handler& handler_, EVENT_TYPE type) {
 }
 
 void event::add_event(const EVENT_TYPE type, shared_ptr<event_object> obj) {
-	// for now, just pass it through
-	handle_event(type, obj); // TODO: add to queue and handle in handle_events (-> required for correct mt)
+	// queue event, this will later be handled by handle_events()
+	// NOTE: this is required for multi-threaded correctness
+	GUARD(queued_events_lock);
+	queued_events.emplace_back(type, move(obj));
 }
 
 void event::handle_event(const EVENT_TYPE& type, shared_ptr<event_object> obj) {

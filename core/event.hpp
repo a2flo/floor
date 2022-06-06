@@ -31,8 +31,8 @@ public:
 	event();
 	~event() override;
 
-	void handle_events();
-	void add_event(const EVENT_TYPE type, shared_ptr<event_object> obj);
+	void handle_events() REQUIRES(!queued_events_lock);
+	void add_event(const EVENT_TYPE type, shared_ptr<event_object> obj) REQUIRES(!queued_events_lock);
 
 	void set_vr_context(vr_context* vr_ctx_) {
 		vr_ctx = vr_ctx_;
@@ -77,6 +77,9 @@ protected:
 	static constexpr const int handlers_locked { (int)0x80000000 };
 	void handle_user_events();
 	void handle_event(const EVENT_TYPE& type, shared_ptr<event_object> obj);
+	
+	safe_mutex queued_events_lock;
+	vector<pair<EVENT_TYPE, shared_ptr<event_object>>> queued_events;
 	
 	//
 	unordered_map<EVENT_TYPE, shared_ptr<event_object>> prev_events;
