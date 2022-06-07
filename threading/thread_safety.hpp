@@ -184,28 +184,64 @@ public:
 	safe_guard& operator=(safe_guard const&) = delete;
 };
 
-//! holder class (+actual locking and unlocking) for the MULTI_GUARD/multi_guard_*
-template <class mtxs_tuple_type>
-class safe_multi_guard_holder {
+namespace floor_multi_guard {
+
+//! contains all the mutexes of a multi-guard and performs the intial locking and final unlocking (used for the MULTI_GUARD(...))
+//! NOTE: this is currently limited to a maximum of 6 mutexes (sadly can't use variadic templates here, because thread safety analysis can't handle them)
+template <typename mtxs_tuple_type>
+class SCOPED_CAPABILITY safe_multi_guard {
 protected:
+	//! contained mutexes
 	mtxs_tuple_type mtxs;
 	
+	//! number of mutexes in this multi-guard
+	static constexpr const auto mutex_count = std::tuple_size<mtxs_tuple_type>::value;
+	
 	//! unlocks all contained mutexes
-	//! NOTE: disabled thread-safety analysis here, because it can't be properly handled here and RELEASE() in multi_guard_* destructor already signals it
-	template <size_t... Indices>
-	inline void unlock_all(std::index_sequence<Indices...>) NO_THREAD_SAFETY_ANALYSIS {
-		((void)std::get<Indices>(mtxs).unlock(), ...);
+	//! NOTE: disabled thread-safety analysis here, because it can't be properly handled here and RELEASE() in destructor already signals it
+	template <size_t... indices>
+	void unlock_all(std::index_sequence<indices...>) NO_THREAD_SAFETY_ANALYSIS {
+		((void)std::get<indices>(mtxs).unlock(), ...);
 	}
 	
 public:
-	template <typename... mutex_types>
-	explicit safe_multi_guard_holder(mutex_types&... mtx_refs) : mtxs(mtx_refs...) {
-		std::lock(mtx_refs...);
+	template <typename mtx_type_0> requires(mutex_count == 1)
+	explicit safe_multi_guard(mtx_type_0& mtx_0) ACQUIRE(mtx_0) : mtxs(mtx_0) {
+		std::lock(mtx_0);
 	}
-	safe_multi_guard_holder(safe_multi_guard_holder&& holder) : mtxs(std::move(holder.mtxs)) {}
-	~safe_multi_guard_holder() {
-		unlock_all(std::make_index_sequence<std::tuple_size<mtxs_tuple_type>::value> {});
+	template <typename mtx_type_0, typename mtx_type_1> requires(mutex_count == 2)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1) ACQUIRE(mtx_0, mtx_1) : mtxs(mtx_0, mtx_1) {
+		std::lock(mtx_0, mtx_1);
 	}
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2> requires(mutex_count == 3)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2) ACQUIRE(mtx_0, mtx_1, mtx_2) : mtxs(mtx_0, mtx_1, mtx_2) {
+		std::lock(mtx_0, mtx_1, mtx_2);
+	}
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3> requires(mutex_count == 4)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3);
+	}
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4> requires(mutex_count == 5)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4);
+	}
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5> requires(mutex_count == 6)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4, mtx_type_5& mtx_5)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5);
+	}
+	
+	~safe_multi_guard() RELEASE() {
+		unlock_all(std::make_index_sequence<mutex_count> {});
+	}
+	
+	// copy and move are not allowed
+	safe_multi_guard(const safe_multi_guard&) = delete;
+	safe_multi_guard(safe_multi_guard&&) = delete;
+	safe_multi_guard& operator=(const safe_multi_guard&) = delete;
+	safe_multi_guard& operator=(safe_multi_guard&&) = delete;
 	
 };
 
@@ -215,21 +251,16 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 	return std::tuple<std::decay_t<Args>&...> { args... };
 }
 
+} // namespace floor_multi_guard
+
 #define GUARD_ID_CONCAT(num) guard_ ## num
 #define GUARD_ID_EVAL(num) GUARD_ID_CONCAT(num)
 #define GUARD(mtx) safe_guard<std::decay_t<decltype(mtx)>> GUARD_ID_EVAL(__LINE__) (mtx)
 
+//! all-or-nothing locking of multiple locks
+//! NOTE: this acts as a replacement for std::scoped_lock
 #define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
 #define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
-//! variadic all-or-nothing locking of multiple locks
-//! NOTE: we need to construct a local temporary class, so that the ACQUIRE() attribute can actually be used with variadic parameters
-//! NOTE: this acts as a replacement for std::scoped_lock
-#define MULTI_GUARD(...) \
-using MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t) = decltype(make_refs_tuple(__VA_ARGS__)); \
-struct SCOPED_CAPABILITY MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) { \
-	safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> holder; \
-	explicit MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) (decltype(holder)&& holder_) ACQUIRE(__VA_ARGS__) : holder(std::move(holder_)) {} \
-	~ MULTI_GUARD_NAME(multi_guard_, __LINE__, _t) () RELEASE() {} \
-} MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { safe_multi_guard_holder<MULTI_GUARD_NAME(multi_guard_, __LINE__, _tuple_t)> { __VA_ARGS__ } }
+#define MULTI_GUARD(...) floor_multi_guard::safe_multi_guard<decltype(floor_multi_guard::make_refs_tuple(__VA_ARGS__))> MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { __VA_ARGS__ }
 
 #endif
