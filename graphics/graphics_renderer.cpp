@@ -45,7 +45,26 @@ bool graphics_renderer::switch_pipeline(const graphics_pipeline& pipeline) {
 }
 
 bool graphics_renderer::set_attachments(vector<attachment_t>& attachments) {
-	// TODO: sanity check
+	if (attachments.empty()) {
+		log_error("no attachments set");
+		return false;
+	}
+#if defined(FLOOR_DEBUG)
+	const auto attachment_dim = attachments[0].image->get_image_dim().xy;
+	for (uint32_t att_idx = 1, att_count = (uint32_t)attachments.size(); att_idx < att_count; ++att_idx) {
+		if (attachments[att_idx].image->get_image_dim().xy != attachment_dim) {
+			log_error("attachment dim mismatch @$: got $, expected $",
+					  att_idx, attachments[att_idx].image->get_image_dim(), attachment_dim);
+			return false;
+		}
+		if (attachments[att_idx].resolve_image &&
+			attachments[att_idx].resolve_image->get_image_dim().xy != attachment_dim) {
+			log_error("attachment dim mismatch @$ (resolve): got $, expected $",
+					  att_idx, attachments[att_idx].resolve_image->get_image_dim(), attachment_dim);
+			return false;
+		}
+	}
+#endif
 	
 	// determine all fixed attachment indices
 	unordered_set<uint32_t> occupied_att_indices;
