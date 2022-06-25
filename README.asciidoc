@@ -10,7 +10,7 @@ This project provides a unified compute & graphics host API, as well as a unifie
 The unified host API is implemented at link:https://github.com/a2flo/floor/tree/master/compute[compute] and link:https://github.com/a2flo/floor/tree/master/graphics[graphics].
 All backends (CUDA/Host/Metal/OpenCL/Vulkan) currently provide compute support, while graphics support is limited to Metal and Vulkan.
 
-To provide a unified device language, a clang/LLVM/libc++ 14.0 toolchain has been link:https://github.com/a2flo/floor/tree/master/etc/llvm140[modified].
+To provide a unified device language, a clang/LLVM/libc++ 14.0 toolchain has been link:https://github.com/a2flo/floor_llvm[modified].
 
 Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/math[math] and link:https://github.com/a2flo/floor/tree/master/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/compute/device[device].
 

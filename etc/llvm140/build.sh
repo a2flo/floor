@@ -51,46 +51,27 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
-LLVM_COMMIT=1a605f395ff079ced140f04ee743dbfc7fc46ec9
-SPIRV_COMMIT=89ecd253a090b62b18add26ebdd610ac62186dba
-
 if [ ! -d llvm ]; then
-	mkdir -p llvm
-	
+	git clone -b floor_toolchain_140 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
-	git init -b main
-	git remote add origin https://github.com/llvm/llvm-project.git
-	git fetch origin main
-	git reset --hard ${LLVM_COMMIT}
-	
-	cd llvm/projects
-	mkdir spirv
-	cd spirv
-	git init -b main
-	git remote add origin https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
-	git fetch origin main
-	git reset --hard ${SPIRV_COMMIT}
+	git submodule init
+	git submodule update
 else
-	# already exists, just need to clean+reset and possibly update/fetch if head revision changed
+	# already exists, just need to clean+reset and pull
 	cd llvm
 	git clean -f -d
-	CURRENT_LLVM_COMMIT=$(git rev-parse HEAD)
-	if [ ${CURRENT_LLVM_COMMIT} != ${LLVM_COMMIT} ]; then
-		git reset --hard ${CURRENT_LLVM_COMMIT}
-		git fetch origin main
-	fi
-	git reset --hard ${LLVM_COMMIT}
+	git reset --hard
+	git pull
 	
 	cd llvm/projects/spirv
 	git clean -f -d
-	CURRENT_SPIRV_COMMIT=$(git rev-parse HEAD)
-	if [ ${CURRENT_SPIRV_COMMIT} != ${SPIRV_COMMIT} ]; then
-		git reset --hard ${CURRENT_SPIRV_COMMIT}
-		git fetch origin main
-	fi
-	git reset --hard ${SPIRV_COMMIT}
+	git reset --hard
+	git checkout floor_toolchain_140
+	
+	cd ../../../
+	git submodule update
 fi
-cd ../../../../
+cd ../
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
@@ -99,13 +80,6 @@ git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external
 cd SPIRV-Tools/external/spirv-headers
 git reset --hard 19e8350415ed9516c8afffa19ae2c58559495a67
 cd ../../../
-
-# patch
-cd llvm
-git apply -p1 --ignore-whitespace ../140_llvm.patch
-cd llvm/projects/spirv
-git apply -p1 --ignore-whitespace ../../../../140_spirv.patch
-cd ../../../../
 
 # handle platform
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
