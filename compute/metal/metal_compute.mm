@@ -178,7 +178,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 150000) {
+		if (darwin_helper::get_system_version() >= 160000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = METAL_VERSION::METAL_3_0;
+		} else if (darwin_helper::get_system_version() >= 150000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_4;
 			device.metal_language_version = METAL_VERSION::METAL_2_4;
 		} else if (darwin_helper::get_system_version() >= 140000) {
@@ -421,7 +424,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 120000) {
+		if (darwin_helper::get_system_version() >= 130000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = METAL_VERSION::METAL_3_0;
+		} else if (darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_4;
 			device.metal_language_version = METAL_VERSION::METAL_2_4;
 		} else if (darwin_helper::get_system_version() >= 110000) {

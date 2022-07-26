@@ -283,12 +283,15 @@ program_data compile_input(const string& input,
 					case 24:
 						metal_version = METAL_VERSION::METAL_2_4;
 						break;
+					case 30:
+						metal_version = METAL_VERSION::METAL_3_0;
+						break;
 					default:
 						log_error("invalid force_version: $", metal_force_version);
 						break;
 				}
 			}
-			if (metal_version > METAL_VERSION::METAL_2_4) {
+			if (metal_version > METAL_VERSION::METAL_3_0) {
 				log_error("unsupported Metal language version: $", metal_version_to_string(metal_version));
 				return {};
 			}
@@ -313,6 +316,9 @@ program_data compile_input(const string& input,
 					case METAL_VERSION::METAL_2_4:
 						os_target = "ios15.0.0";
 						break;
+					case METAL_VERSION::METAL_3_0:
+						os_target = "ios16.0.0";
+						break;
 				}
 			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC) {
 				// -> OS X 10.13+
@@ -333,6 +339,9 @@ program_data compile_input(const string& input,
 					case METAL_VERSION::METAL_2_4:
 						os_target = "macosx12.0.0";
 						break;
+					case METAL_VERSION::METAL_3_0:
+						os_target = "macosx13.0.0";
+						break;
 				}
 			} else {
 				log_error("unsupported Metal device family type: $", uint32_t(mtl_dev.family_type));
@@ -352,6 +361,9 @@ program_data compile_input(const string& input,
 					break;
 				case METAL_VERSION::METAL_2_4:
 					metal_std = "metal2.4";
+					break;
+				case METAL_VERSION::METAL_3_0:
+					metal_std = "metal3.0";
 					break;
 				default: break;
 			}

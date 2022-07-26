@@ -487,7 +487,10 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 		++max_scheduled_frames_;
 		view->available_frame_cv.notify_one();
 	}];
-	return [[view metal_layer] nextDrawable];
+	auto drawable = [[view metal_layer] nextDrawable];
+	// since macOS 13.0: must manually set this to non-volatile
+	[[drawable texture] setPurgeableState:MTLPurgeableStateNonVolatile];
+	return drawable;
 FLOOR_POP_WARNINGS()
 }
 

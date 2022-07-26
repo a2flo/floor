@@ -2152,7 +2152,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2166,7 +2166,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2200,7 +2200,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2214,7 +2214,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2413,7 +2413,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2427,7 +2427,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2685,7 +2685,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2699,7 +2699,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.21.1/include",
+					"/opt/homebrew/Cellar/openal-soft/1.22.2/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
