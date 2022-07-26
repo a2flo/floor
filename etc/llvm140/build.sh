@@ -51,6 +51,8 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
+LLVM_REV=b1b05d522dfd8cd8962148571a91d6fd5bc24962
+LLVM_SPIRV_REV=83481951d5a0cdd7d9d4168e2b369729bb7ea0e0
 if [ ! -d llvm ]; then
 	git clone -b floor_toolchain_140 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
@@ -62,14 +64,24 @@ else
 	git clean -f -d
 	git reset --hard
 	git pull
+	git reset --hard ${LLVM_REV}
+	if [ $? -ne 0 ]; then
+		error "expected LLVM rev/commit doesn't exist"
+	fi
 	
 	cd llvm/projects/spirv
 	git clean -f -d
 	git reset --hard
 	git checkout floor_toolchain_140
+	cd ../
+	git submodule update
+	cd spirv/
+	git reset --hard ${LLVM_SPIRV_REV}
+	if [ $? -ne 0 ]; then
+		error "expected LLVM-SPIRV rev/commit doesn't exist"
+	fi
 	
 	cd ../../../
-	git submodule update
 fi
 cd ../
 
