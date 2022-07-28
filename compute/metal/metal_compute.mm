@@ -304,7 +304,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_total_local_size = 1024;
 				break;
 				
-			// A15
+			// A15 / M2
 			case 8:
 				device.units = 8;
 				device.mem_clock = 1600; // TODO: ram clock
@@ -342,6 +342,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			// 64 since A12, 16 before that
 			device.max_tessellation_factor = (device.family_tier >= 5 ? 64u : 16u);
 		}
+		
+		// Apple7+ with Metal 3.0+ supports 32-bit float atomics
+		device.basic_32_bit_float_atomics_support = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
@@ -461,6 +464,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// tessellation is always supported on macOS with 64 max factor
 		device.tessellation_support = true;
 		device.max_tessellation_factor = 64u;
+		
+		// Mac2 with Metal 3.0+ supports 32-bit float atomics
+		device.basic_32_bit_float_atomics_support = (device.family_tier >= 2 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
 #endif
 		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {

@@ -200,7 +200,11 @@ namespace universal_binary {
 			//! signals the max tessellation factor that can be used: 0 = 16, 1 = 64
 			uint64_t tessellation_max_factor_tier : 1;
 			
-			uint64_t _unused : 28;
+			//! if set, enables basic 32-bit float atomics support (add/ld/st/xchg)
+			//! NOTE: this requires an Apple7+ or Mac2+ GPU, as well as Metal 3.0
+			uint64_t basic_32_bit_float_atomics_support : 1;
+			
+			uint64_t _unused : 27;
 		} metal;
 		
 		struct __attribute__((packed)) {

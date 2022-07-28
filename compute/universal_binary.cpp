@@ -409,6 +409,7 @@ namespace universal_binary {
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
 				mtl_dev.tessellation_support = mtl_target.tessellation_support;
 				mtl_dev.max_tessellation_factor = (mtl_target.tessellation_max_factor_tier == 0 ? 16u : 64u);
+				mtl_dev.basic_32_bit_float_atomics_support = mtl_target.basic_32_bit_float_atomics_support;
 				
 				// overwrite compute_device/metal_device defaults
 				if (mtl_target.is_ios) {
@@ -1234,6 +1235,9 @@ namespace universal_binary {
 						mtl_target.tessellation_max_factor_tier == 1 && dev.max_tessellation_factor < 64u) {
 						continue;
 					}
+					if (mtl_target.basic_32_bit_float_atomics_support && !dev.basic_32_bit_float_atomics_support) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1273,11 +1277,13 @@ namespace universal_binary {
 						const auto cap_sum = (mtl_target.primitive_id_support +
 											  mtl_target.barycentric_coord_support +
 											  mtl_target.tessellation_support +
-											  (mtl_target.tessellation_support && mtl_target.tessellation_max_factor_tier > 0 ? 1u : 0u));
+											  (mtl_target.tessellation_support && mtl_target.tessellation_max_factor_tier > 0 ? 1u : 0u) +
+											  mtl_target.basic_32_bit_float_atomics_support);
 						const auto best_cap_sum = (best_mtl.primitive_id_support +
 												   best_mtl.barycentric_coord_support +
 												   best_mtl.tessellation_support +
-												   (best_mtl.tessellation_support && best_mtl.tessellation_max_factor_tier > 0 ? 1u : 0u));
+												   (best_mtl.tessellation_support && best_mtl.tessellation_max_factor_tier > 0 ? 1u : 0u) +
+												   best_mtl.basic_32_bit_float_atomics_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
