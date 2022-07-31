@@ -301,6 +301,11 @@ public:
 		};
 	}
 	
+	//! creates a quaternion according to the necessary rotation to get from vector "from" to vector "to"
+	static constexpr quaternion rotation_from_to_vector(const vector3<scalar_type>& from, const vector3<scalar_type>& to) {
+		return rotation(from.angle(to), from.crossed(to).normalize());
+	}
+	
 };
 
 typedef quaternion<float> quaternionf;
