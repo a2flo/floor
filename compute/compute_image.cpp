@@ -1072,3 +1072,28 @@ void compute_image::set_shim_type_info() {
 	// == original type if not 3-channel -> 4-channel emulation
 	else shim_image_type = image_type;
 }
+
+shared_ptr<compute_image> compute_image::clone(const compute_queue& cqueue, const bool copy_contents,
+											   const COMPUTE_MEMORY_FLAG flags_override) {
+	if (dev.context == nullptr) {
+		log_error("invalid image/device state");
+		return {};
+	}
+	
+	auto clone_flags = (flags_override != COMPUTE_MEMORY_FLAG::NONE ? flags_override : flags);
+	if (host_ptr != nullptr) {
+		// never copy host data on the newly created image
+		clone_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+	}
+	
+	auto ret = dev.context->create_image(cqueue, image_dim, image_type, host_ptr, clone_flags, opengl_type);
+	if (ret == nullptr) {
+		return {};
+	}
+	
+	if (copy_contents) {
+		ret->blit(cqueue, *this);
+	}
+	
+	return ret;
+}

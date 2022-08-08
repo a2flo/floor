@@ -199,7 +199,7 @@ public:
 										   const vector<data_type>& data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, &data[0], flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type, (void*)&data[0], flags, opengl_type);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -210,7 +210,7 @@ public:
 										   const array<data_type, n>& data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, &data[0], flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type, (void*)&data[0], flags, opengl_type);
 	}
 	
 	//! wraps an already existing opengl image, with the specified flags

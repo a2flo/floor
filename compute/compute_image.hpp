@@ -157,6 +157,11 @@ public:
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	virtual bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
+	//! clones this image, optionally copying its contents as well
+	//! NOTE: contents can only be copied if the image is READ_WRITE
+	virtual shared_ptr<compute_image> clone(const compute_queue& cqueue, const bool copy_contents = false,
+											const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE);
+	
 	//! return struct of get_opengl_image_info
 	struct opengl_image_info {
 		uint4 image_dim;
@@ -242,6 +247,31 @@ public:
 	virtual bool sync_metal_image(const compute_queue* cqueue floor_unused = nullptr,
 								  const metal_queue* mtl_queue floor_unused = nullptr) const {
 		return false;
+	}
+	
+	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
+	//! NOTE: each value will printed in one line (terminated by \n)
+	template <typename value_type>
+	bool dump_to_file(const compute_queue& cqueue, const string& file_name) {
+		ofstream dump_file(file_name, ios::out);
+		if (!dump_file.is_open()) {
+			return false;
+		}
+		
+		auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (mapped_ptr == nullptr) {
+			return false;
+		}
+		
+		auto typed_ptr = (const value_type*)mapped_ptr;
+		const auto value_count = image_data_size / sizeof(value_type);
+		for (size_t value_idx = 0; value_idx < value_count; ++value_idx) {
+			dump_file << *typed_ptr++ << '\n';
+		}
+		
+		unmap(cqueue, mapped_ptr);
+		
+		return true;
 	}
 	
 protected:
