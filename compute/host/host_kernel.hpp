@@ -55,7 +55,7 @@ public:
 	struct host_kernel_entry : kernel_entry {
 		shared_ptr<elf_binary> program;
 	};
-	typedef flat_map<const host_device&, host_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const host_device&, host_kernel_entry> kernel_map_type;
 	
 	//! constructor for kernels built using the host compiler / vanilla toolchain
 	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);

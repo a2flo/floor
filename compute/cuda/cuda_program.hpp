@@ -39,7 +39,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding cuda program for multiple devices
-	typedef flat_map<const cuda_device&, cuda_program_entry> program_map_type;
+	typedef floor_core::flat_map<const cuda_device&, cuda_program_entry> program_map_type;
 	
 	cuda_program(program_map_type&& programs);
 	

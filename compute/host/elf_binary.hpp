@@ -60,7 +60,7 @@ public:
 		//! IDs/sizes for this instance
 		instance_ids_t ids;
 		//! available function name -> function pointer map
-		flat_map<string, const void*> functions;
+		floor_core::flat_map<string, const void*> functions;
 		
 		//! resets this instance to its initial state (so it can be executed again)
 		void reset(const uint3& global_work_size,

@@ -81,7 +81,7 @@ protected:
 	
 	mutable atomic_spin_lock warn_map_lock;
 	//! used to prevent console/log spam by remembering if a warning/error has already been printed for a kernel
-	mutable flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
+	mutable floor_core::flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
 	
 	//! internal function to create the actual argument buffer (should be implemented by backends)
 	virtual unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,

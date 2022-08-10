@@ -70,7 +70,7 @@ public:
 	static VkCompareOp vulkan_compare_op_from_depth_compare(const DEPTH_COMPARE& depth_compare);
 	
 protected:
-	flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;
+	floor_core::flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;
 	unique_ptr<vulkan_pass> sv_vulkan_base_pass;
 	unique_ptr<vulkan_pass> mv_vulkan_base_pass;
 	

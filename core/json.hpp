@@ -24,7 +24,7 @@
 
 namespace json {
 	struct json_value;
-	typedef flat_map<string, json_value> json_object;
+	typedef floor_core::flat_map<string, json_value> json_object;
 	typedef vector<json_value> json_array;
 	
 	//! json value (keyword, object, array, number or string)

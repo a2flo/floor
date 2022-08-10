@@ -178,7 +178,7 @@ protected:
 	uint32_t driver_version { 0 };
 	bool has_external_memory_support { false };
 	
-	flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
+	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
 	
 	cuda_program::cuda_program_entry create_cuda_program_internal(const cuda_device& device,
 																  const void* program_data,

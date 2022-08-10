@@ -330,7 +330,7 @@ protected:
 	const compute_context& ctx;
 	const graphics_pass& pass;
 	const graphics_pipeline* floor_nullable cur_pipeline { nullptr };
-	flat_map<uint32_t, attachment_t> attachments_map;
+	floor_core::flat_map<uint32_t, attachment_t> attachments_map;
 	optional<attachment_t> depth_attachment;
 	bool valid { false };
 	const bool multi_view { false };

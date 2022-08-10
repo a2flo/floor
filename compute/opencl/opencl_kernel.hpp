@@ -45,7 +45,7 @@ public:
 	struct opencl_kernel_entry : kernel_entry {
 		cl_kernel kernel { nullptr };
 	};
-	typedef flat_map<const opencl_device&, opencl_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const opencl_device&, opencl_kernel_entry> kernel_map_type;
 	
 	opencl_kernel(kernel_map_type&& kernels);
 	~opencl_kernel() override = default;

@@ -39,7 +39,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding vulkan program for multiple devices
-	typedef flat_map<const vulkan_device&, vulkan_program_entry> program_map_type;
+	typedef floor_core::flat_map<const vulkan_device&, vulkan_program_entry> program_map_type;
 	
 	vulkan_program(program_map_type&& programs);
 	

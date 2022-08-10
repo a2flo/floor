@@ -55,7 +55,7 @@ protected:
 		VkRenderPass single_view_pass;
 		VkRenderPass multi_view_pass;
 	};
-	flat_map<const compute_device&, vulkan_pass_t> render_passes;
+	floor_core::flat_map<const compute_device&, vulkan_pass_t> render_passes;
 	vector<VkClearValue> sv_clear_values;
 	vector<VkClearValue> mv_clear_values;
 	

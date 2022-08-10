@@ -226,8 +226,8 @@ protected:
 #endif
 	const metal_device* render_device { nullptr };
 	
-	flat_map<const compute_device&, shared_ptr<compute_queue>> internal_queues;
-	flat_map<const compute_device&, shared_ptr<compute_buffer>> internal_null_buffers;
+	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> internal_queues;
+	floor_core::flat_map<const compute_device&, shared_ptr<compute_buffer>> internal_null_buffers;
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
@@ -245,7 +245,7 @@ protected:
 	// soft-printf buffer cache
 	static constexpr const uint32_t soft_printf_buffer_count { 32u };
 	using soft_printf_buffer_rsrc_container_type = safe_resource_container<shared_ptr<compute_buffer>, soft_printf_buffer_count, ~0u>;
-	flat_map<const compute_device&, unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
+	floor_core::flat_map<const compute_device&, unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
 	
 };
 

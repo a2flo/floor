@@ -39,7 +39,7 @@ public:
 		const void* kernel_state { nullptr };
 		bool supports_indirect_compute { false };
 	};
-	typedef flat_map<const metal_device&, metal_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const metal_device&, metal_kernel_entry> kernel_map_type;
 	
 	metal_kernel(kernel_map_type&& kernels);
 	~metal_kernel() override = default;

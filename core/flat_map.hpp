@@ -25,6 +25,8 @@
 #include <exception>
 using namespace std;
 
+namespace floor_core {
+
 //! simple <key, value> map backed by a vector stored contiguously in memory (hence flat map),
 //! technically O(n) lookup and insert, but usually faster than unordered_map or map for small maps
 template <typename key_type, typename value_type> class flat_map {
@@ -265,5 +267,7 @@ public:
 	void reserve(const size_t& count) { data.reserve(count); }
 	
 };
+
+} // namespace floor_core
 
 #endif

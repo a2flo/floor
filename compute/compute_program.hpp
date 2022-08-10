@@ -58,7 +58,7 @@ protected:
 	mutable vector<string> kernel_names;
 	
 	template <typename device_type, typename program_entry_type>
-	void retrieve_unique_kernel_names(const flat_map<device_type, program_entry_type>& programs) {
+	void retrieve_unique_kernel_names(const floor_core::flat_map<device_type, program_entry_type>& programs) {
 		// go through all kernels in all device programs and create a unique list of all kernel names
 		kernel_names.clear(); // just in case
 		for(const auto& prog : programs) {

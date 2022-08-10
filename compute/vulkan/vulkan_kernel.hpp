@@ -56,7 +56,7 @@ public:
 			uint32_t offset;
 			uint32_t size;
 		};
-		flat_map<uint32_t, constant_buffer_info_t> constant_buffer_info;
+		floor_core::flat_map<uint32_t, constant_buffer_info_t> constant_buffer_info;
 		
 		struct spec_entry {
 			VkPipeline pipeline { nullptr };
@@ -67,7 +67,7 @@ public:
 		// must sync access to specializations
 		atomic_spin_lock specializations_lock;
 		// work-group size -> spec entry
-		flat_map<uint64_t, spec_entry> specializations GUARDED_BY(specializations_lock);
+		floor_core::flat_map<uint64_t, spec_entry> specializations GUARDED_BY(specializations_lock);
 		
 		//! creates a 64-bit key out of the specified uint3 work-group size
 		//! NOTE: components of the work-group size must fit into 16-bit
@@ -77,7 +77,7 @@ public:
 		vulkan_kernel_entry::spec_entry* specialize(const vulkan_device& device,
 													const uint3& work_group_size) REQUIRES(specializations_lock);
 	};
-	typedef flat_map<const vulkan_device&, vulkan_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const vulkan_device&, vulkan_kernel_entry> kernel_map_type;
 	
 	struct idx_handler {
 		// actual argument index (directly corresponding to the c++ source code)
