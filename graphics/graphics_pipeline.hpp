@@ -240,6 +240,9 @@ struct render_pipeline_description {
 	//! if enabled, allows the use of the graphics_pipeline in indirect rendering (indirect_command_pipeline, ...)
 	bool support_indirect_rendering { false };
 	
+	//! if enabled, renders all geometry in wireframe mode (lines fill mode)
+	bool render_wireframe { false };
+	
 	//! sets the debug label for pipelines created from this description (e.g. for display in a debugger)
 	string debug_label;
 };

@@ -136,7 +136,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 		.flags = 0,
 		.depthClampEnable = false,
 		.rasterizerDiscardEnable = false,
-		.polygonMode = VK_POLYGON_MODE_FILL,
+		.polygonMode = (!pipeline_desc.render_wireframe ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE),
 		.cullMode = vulkan_pipeline::vulkan_cull_mode_from_cull_mode(pipeline_desc.cull_mode),
 		.frontFace = vulkan_pipeline::vulkan_front_face_from_front_face(pipeline_desc.front_face),
 		.depthBiasEnable = false,

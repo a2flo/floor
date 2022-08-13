@@ -110,6 +110,9 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 						green:pipeline_desc.blend.constant_color.y
 						 blue:pipeline_desc.blend.constant_color.z
 						alpha:pipeline_desc.blend.constant_alpha];
+	if (pipeline_desc.render_wireframe) {
+		[encoder setTriangleFillMode:MTLTriangleFillModeLines];
+	}
 	
 	// viewport handling:
 	// since Metal uses top-left origin for framebuffers, flip the viewport vertically, so that the origin is where it's supposed to be
