@@ -700,6 +700,10 @@ typedef matrix4<long double> matrix4l;
 typedef matrix4<int32_t> matrix4i;
 typedef matrix4<uint32_t> matrix4ui;
 
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
+typedef matrix4<half> matrix4h;
+#endif
+
 //! type trait function to determine if a type is a floor matrix4*
 template <typename any_type> struct is_floor_matrix : public false_type {};
 template <typename mat_type>
