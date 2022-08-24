@@ -1180,7 +1180,11 @@ public:
 #if FLOOR_VECTOR_WIDTH == 2
 	//! rotates this vector counter-clockwise according to angle (in degrees)
 	constexpr vector_type& rotate(const scalar_type& angle) {
-		const auto rad_angle = const_math::deg_to_rad(angle);
+		return rotate_rad(const_math::deg_to_rad(angle));
+	}
+	
+	//! rotates this vector counter-clockwise according to angle (in rad)
+	constexpr vector_type& rotate_rad(const scalar_type& rad_angle) {
 		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
 		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		const auto x_tmp = x;
@@ -1191,7 +1195,11 @@ public:
 	
 	//! returns a rotated version of this vector, rotation is counter-clockwise according to angle (in degrees)
 	constexpr vector_type rotated(const scalar_type& angle) const {
-		const auto rad_angle = const_math::deg_to_rad(angle);
+		return rotated_rad(const_math::deg_to_rad(angle));
+	}
+	
+	//! returns a rotated version of this vector, rotation is counter-clockwise according to angle (in rad)
+	constexpr vector_type rotated_rad(const scalar_type& rad_angle) const {
 		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
 		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		return { x * cos_val - y * sin_val, x * sin_val + y * cos_val };
@@ -1202,7 +1210,15 @@ public:
 	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 	//! NOTE: axis must be normalized
 	constexpr vector_type& rotate(const vector_type& axis, const scalar_type& angle) {
-		*this = rotated(axis, angle);
+		*this = rotated_rad(axis, const_math::deg_to_rad(angle));
+		return *this;
+	}
+	
+	//! rotates this vector around the specified rotation axis vector according to angle (in rad)
+	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+	//! NOTE: axis must be normalized
+	constexpr vector_type& rotate_rad(const vector_type& axis, const scalar_type& rad_angle) {
+		*this = rotated_rad(axis, rad_angle);
 		return *this;
 	}
 	
@@ -1210,7 +1226,13 @@ public:
 	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 	//! NOTE: axis must be normalized
 	constexpr vector_type rotated(const vector_type& axis, const scalar_type& angle) const {
-		const auto rad_angle = const_math::deg_to_rad(angle);
+		return rotated_rad(axis, const_math::deg_to_rad(angle));
+	}
+	
+	//! return a rotated version of this vector around the specified rotation axis vector according to angle (in rad)
+	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+	//! NOTE: axis must be normalized
+	constexpr vector_type rotated_rad(const vector_type& axis, const scalar_type& rad_angle) const {
 		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
 		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		return { *this * cos_val + crossed(axis) * sin_val + axis * (dot(axis) * (scalar_type(1) - cos_val)) };
