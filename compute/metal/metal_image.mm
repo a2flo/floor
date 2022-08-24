@@ -193,7 +193,9 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatRG32Uint, COMPUTE_IMAGE_TYPE::RG32UI },
 		{ MTLPixelFormatRG32Sint, COMPUTE_IMAGE_TYPE::RG32I },
 		{ MTLPixelFormatRG32Float, COMPUTE_IMAGE_TYPE::RG32F },
-		// NOTE: no RGB here
+		// RGB
+		{ MTLPixelFormatRG11B10Float, COMPUTE_IMAGE_TYPE::RG11B10F },
+		{ MTLPixelFormatRGB9E5Float, COMPUTE_IMAGE_TYPE::RGB9E5F },
 		// RGBA
 		{ MTLPixelFormatRGBA8Unorm, COMPUTE_IMAGE_TYPE::RGBA8UI_NORM },
 		{ MTLPixelFormatRGBA8Snorm, COMPUTE_IMAGE_TYPE::RGBA8I_NORM },
@@ -951,6 +953,9 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
 		{ COMPUTE_IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
 		{ COMPUTE_IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
+		// RGB
+		{ COMPUTE_IMAGE_TYPE::RG11B10F, MTLPixelFormatRG11B10Float },
+		{ COMPUTE_IMAGE_TYPE::RGB9E5F, MTLPixelFormatRGB9E5Float },
 		// RGB -> RGBA
 		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
 		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
