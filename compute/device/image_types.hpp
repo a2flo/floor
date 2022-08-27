@@ -725,12 +725,14 @@ static constexpr uint32_t image_layer_count(const uint4& image_dim, const COMPUT
 }
 
 //! returns the total amount of bytes needed to store the image of the specified dimensions, types and mip-levels
+//! "max_mip_level" can be set to the max mip level that should be considered for the size computation (all by default)
 //! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px for uncompressed images, or 8px for uncompressed ones
 static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 												   const COMPUTE_IMAGE_TYPE& image_type,
-												   const bool ignore_mip_levels = false) {
+												   const bool ignore_mip_levels = false,
+												   const uint32_t max_mip_level = ~0u) {
 	const auto dim_count = image_dim_count(image_type);
-	const auto mip_levels = (ignore_mip_levels ? 1 : image_mip_level_count(image_dim, image_type));
+	const auto mip_levels = (ignore_mip_levels ? 1 : min(image_mip_level_count(image_dim, image_type), max_mip_level));
 	
 	// array count after: width (, height (, depth))
 	const size_t array_dim = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
@@ -758,6 +760,42 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 		mip_image_dim >>= 1;
 	}
 	
+	return size;
+}
+
+//! returns the offset in bytes to the specified "mip_level", using the specified image dimension and type
+static constexpr size_t image_mip_level_data_offset_from_types(const uint4& image_dim,
+															   const COMPUTE_IMAGE_TYPE& image_type,
+															   const uint32_t mip_level) {
+	return image_data_size_from_types(image_dim, image_type, false, mip_level);
+}
+
+//! returns the total amount of bytes needed to store the image of the specified dimensions and types at the specified mip level
+//! NOTE: if the mip level is out-of-bounds, this returns 0
+static constexpr size_t image_mip_level_data_size_from_types(const uint4& image_dim,
+															 const COMPUTE_IMAGE_TYPE& image_type,
+															 const uint32_t mip_level) {
+	const auto dim_count = image_dim_count(image_type);
+	if (mip_level >= image_mip_level_count(image_dim, image_type)) {
+		return 0u;
+	}
+	
+	const uint4 mip_image_dim {
+		image_dim.x >> mip_level,
+		dim_count >= 2 ? image_dim.y >> mip_level : 0u,
+		dim_count >= 3 ? image_dim.z >> mip_level : 0u,
+		0u
+	};
+	
+	size_t size = image_slice_data_size_from_types(mip_image_dim, image_type);
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+		// array count after: width (, height (, depth))
+		size *= (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+	}
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+		// 6 cube sides
+		size *= 6u;
+	}
 	return size;
 }
 

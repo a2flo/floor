@@ -176,37 +176,6 @@ public:
 												   const uint32_t& opengl_target,
 												   const COMPUTE_MEMORY_FLAG& flags);
 	
-	//! returns the image dim variable with which this image has been created
-	const uint4& get_image_dim() const {
-		return image_dim;
-	}
-
-	//! returns the image width/height aspect ratio
-	float get_aspect_ratio() const {
-		return float(image_dim.x) / float(image_dim.y);
-	}
-	
-	//! returns the amount of image layers with which this image has been created
-	//! NOTE: this count includes cube map sides (layers)
-	const uint32_t& get_layer_count() const {
-		return layer_count;
-	}
-	
-	//! returns the compute image type of this image
-	const COMPUTE_IMAGE_TYPE& get_image_type() const {
-		return image_type;
-	}
-	
-	//! returns the data size necessary to store this image in memory
-	const size_t& get_image_data_size() const {
-		return image_data_size;
-	}
-	
-	//! returns true if automatic mip-map chain generation is enabled
-	bool get_generate_mip_maps() const {
-		return generate_mip_maps;
-	}
-	
 	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
 	virtual void generate_mip_map_chain(const compute_queue& cqueue);
 	
@@ -272,6 +241,124 @@ public:
 		unmap(cqueue, mapped_ptr);
 		
 		return true;
+	}
+	
+	//! returns the compute image type of this image
+	const COMPUTE_IMAGE_TYPE& get_image_type() const {
+		return image_type;
+	}
+	
+	//! returns the image dim variable with which this image has been created
+	const uint4& get_image_dim() const {
+		return image_dim;
+	}
+
+	//! returns the image width/height aspect ratio
+	float get_aspect_ratio() const {
+		return float(image_dim.x) / float(image_dim.y);
+	}
+	
+	//! returns the amount of image layers with which this image has been created
+	//! NOTE: this count includes cube map sides (layers)
+	const uint32_t& get_layer_count() const {
+		return layer_count;
+	}
+	
+	//! returns the data size necessary to store this image in memory
+	const size_t& get_image_data_size() const {
+		return image_data_size;
+	}
+	
+	//! returns the data size necessary to store this image in memory at the specified mip level
+	size_t get_image_data_size_at_mip_level(const uint32_t mip_level) const {
+		return image_mip_level_data_size_from_types(image_dim, image_type, mip_level);
+	}
+	
+	//! returns true if automatic mip-map chain generation is enabled
+	bool get_generate_mip_maps() const {
+		return generate_mip_maps;
+	}
+	
+	//! returns the dimensionality of this image
+	uint32_t get_dim_count() const {
+		return image_dim_count(image_type);
+	}
+	
+	//! returns the storage dimensionality of this image
+	uint32_t get_storage_dim_count() const {
+		return image_storage_dim_count(image_type);
+	}
+	
+	//! returns the channel count of this image
+	uint32_t get_channel_count() const {
+		return image_channel_count(image_type);
+	}
+	
+	//! returns the format of this image
+	COMPUTE_IMAGE_TYPE get_format() const {
+		return (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+	}
+	
+	//! returns the anisotropy of this image
+	uint32_t get_anisotropy() const {
+		return image_anisotropy(image_type);
+	}
+	
+	//! returns the sample count of this image
+	uint32_t get_image_sample_count() const {
+		return image_anisotropy(image_type);
+	}
+	
+	//! returns the amount of bits needed to store one pixel
+	uint32_t get_bits_per_pixel() const {
+		return image_bits_per_pixel(image_type);
+	}
+	
+	//! returns the amount of bytes needed to store one pixel
+	uint32_t get_bytes_per_pixel() const {
+		return image_bytes_per_pixel(image_type);
+	}
+	
+	//! returns the amount of mip-map levels used by this image
+	//! NOTE: #mip-levels from image dim to 1px if uncompressed, or 8px if compressed
+	uint32_t get_mip_level_count() const {
+		return image_mip_level_count(image_dim, image_type);
+	}
+	
+	//! returns true if this image is using a compressed image format
+	bool is_compressed() const {
+		return image_compressed(image_type);
+	}
+	
+	//! returns the 2D block size of the compression method that is being used
+	uint2 get_compression_block_size() const {
+		return image_compression_block_size(image_type);
+	}
+	
+	//! returns the total amount of bytes needed to store a slice of within this image
+	//! (or of the complete image w/o mip levels if it isn't an array or cube image)
+	size_t get_slice_data_size() const {
+		return image_slice_data_size_from_types(image_dim, image_type);
+	}
+	
+	//! returns true if the image layout is R, RG, RGB or RGBA
+	bool is_layout_rgba() const {
+		return image_layout_rgba(image_type);
+	}
+	
+	//! returns true if the image layout is ABGR or BGR
+	bool is_layout_abgr() const {
+		return image_layout_abgr(image_type);
+	}
+	
+	//! returns true if the image layout is BGRA
+	bool is_layout_bgra() const {
+		return image_layout_bgra(image_type);
+	}
+	
+	//! returns true if the image layout is ARGB
+	bool is_layout_argb() const {
+		return image_layout_argb(image_type);
 	}
 	
 protected:
