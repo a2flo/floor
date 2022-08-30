@@ -408,14 +408,14 @@ unique_ptr<compute_fence> cuda_compute::create_fence(const compute_queue&) const
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
-	return make_shared<cuda_buffer>(cqueue, size, flags, opengl_type);
+	return add_resource(make_shared<cuda_buffer>(cqueue, size, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
 													   const size_t& size, void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
-	return make_shared<cuda_buffer>(cqueue, size, data, flags, opengl_type);
+	return add_resource(make_shared<cuda_buffer>(cqueue, size, data, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
@@ -424,9 +424,9 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>(cqueue, info.size, nullptr,
-									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									opengl_type, opengl_buffer);
+	return add_resource(make_shared<cuda_buffer>(cqueue, info.size, nullptr,
+												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												 opengl_type, opengl_buffer));
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
@@ -436,16 +436,16 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_buffer>(cqueue, info.size, data,
-									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									opengl_type, opengl_buffer);
+	return add_resource(make_shared<cuda_buffer>(cqueue, info.size, data,
+												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												 opengl_type, opengl_buffer));
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
 													 vulkan_buffer& vk_buffer,
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
-	return make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, &vk_buffer);
+	return add_resource(make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), nullptr, flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, &vk_buffer));
 #else
 	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
 #endif
@@ -456,7 +456,7 @@ shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 const COMPUTE_MEMORY_FLAG flags,
 													 const uint32_t opengl_type) const {
-	return make_shared<cuda_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
+	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type));
 }
 
 shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
@@ -465,7 +465,7 @@ shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags,
 													 const uint32_t opengl_type) const {
-	return make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
+	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
@@ -474,9 +474,9 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, nullptr,
-								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-								   opengl_target, opengl_image, &info);
+	return add_resource(make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, nullptr,
+												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												opengl_target, opengl_image, &info));
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
@@ -486,17 +486,17 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, data,
-								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-								   opengl_target, opengl_image, &info);
+	return add_resource(make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, data,
+												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												opengl_target, opengl_image, &info));
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   vulkan_image& vk_image,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
-	return make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,
-								   flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image);
+	return add_resource(make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), nullptr,
+												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image));
 #else
 	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif

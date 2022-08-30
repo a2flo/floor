@@ -825,14 +825,14 @@ unique_ptr<compute_fence> opencl_compute::create_fence(const compute_queue&) con
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) const {
-	return make_shared<opencl_buffer>(cqueue, size, flags, opengl_type);
+	return add_resource(make_shared<opencl_buffer>(cqueue, size, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 const size_t& size, void* data,
 														 const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) const {
-	return make_shared<opencl_buffer>(cqueue, size, data, flags, opengl_type);
+	return add_resource(make_shared<opencl_buffer>(cqueue, size, data, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
@@ -841,9 +841,9 @@ shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cque
 													   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_buffer>(cqueue, info.size, nullptr,
-									  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									  opengl_type, opengl_buffer);
+	return add_resource(make_shared<opencl_buffer>(cqueue, info.size, nullptr,
+												   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												   opengl_type, opengl_buffer));
 }
 
 shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
@@ -853,9 +853,9 @@ shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cque
 													   const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_buffer>(cqueue, info.size, data,
-									  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									  opengl_type, opengl_buffer);
+	return add_resource(make_shared<opencl_buffer>(cqueue, info.size, data,
+												   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												   opengl_type, opengl_buffer));
 }
 
 shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
@@ -863,7 +863,7 @@ shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cque
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
-	return make_shared<opencl_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
+	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type));
 }
 
 shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
@@ -872,7 +872,7 @@ shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cque
 													   void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
-	return make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
+	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
 }
 
 shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
@@ -881,9 +881,9 @@ shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, nullptr,
-									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									 opengl_target, opengl_image, &info);
+	return add_resource(make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, nullptr,
+												  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												  opengl_target, opengl_image, &info));
 }
 
 shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
@@ -893,9 +893,9 @@ shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
-	return make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, data,
-									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									 opengl_target, opengl_image, &info);
+	return add_resource(make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, data,
+												  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+												  opengl_target, opengl_image, &info));
 }
 
 shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {

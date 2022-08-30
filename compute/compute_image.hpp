@@ -159,8 +159,10 @@ public:
 	
 	//! clones this image, optionally copying its contents as well
 	//! NOTE: contents can only be copied if the image is READ_WRITE
+	//! NOTE: if "image_type_override" is set (not NONE), the cloned image type will be set to this (caller must ensure compatibility!)
 	virtual shared_ptr<compute_image> clone(const compute_queue& cqueue, const bool copy_contents = false,
-											const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE);
+											const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE,
+											const COMPUTE_IMAGE_TYPE image_type_override = COMPUTE_IMAGE_TYPE::NONE);
 	
 	//! return struct of get_opengl_image_info
 	struct opengl_image_info {

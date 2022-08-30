@@ -637,14 +637,14 @@ void metal_compute::release_soft_printf_buffer(const compute_device& dev, const 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,
 														const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														const uint32_t opengl_type) const {
-	return make_shared<metal_buffer>(cqueue, size, flags, opengl_type);
+	return add_resource(make_shared<metal_buffer>(cqueue, size, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,
 														const size_t& size, void* data,
 														const COMPUTE_MEMORY_FLAG flags,
 														const uint32_t opengl_type) const {
-	return make_shared<metal_buffer>(cqueue, size, data, flags, opengl_type);
+	return add_resource(make_shared<metal_buffer>(cqueue, size, data, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> metal_compute::wrap_buffer(const compute_queue& cqueue floor_unused,
@@ -669,7 +669,7 @@ shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueu
 													  const COMPUTE_IMAGE_TYPE image_type,
 													  const COMPUTE_MEMORY_FLAG flags,
 													  const uint32_t opengl_type) const {
-	return make_shared<metal_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type);
+	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type));
 }
 
 shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
@@ -678,7 +678,7 @@ shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueu
 													  void* data,
 													  const COMPUTE_MEMORY_FLAG flags,
 													  const uint32_t opengl_type) const {
-	return make_shared<metal_image>(cqueue, image_dim, image_type, data, flags, opengl_type);
+	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
 }
 
 shared_ptr<compute_image> metal_compute::wrap_image(const compute_queue& cqueue floor_unused,

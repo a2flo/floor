@@ -168,3 +168,78 @@ float compute_context::get_hdr_range_max() const {
 float compute_context::get_hdr_display_max_nits() const {
 	return 80.0f;
 }
+
+void compute_context::enable_resource_registry() {
+	resource_registry_enabled = true;
+}
+
+weak_ptr<compute_memory> compute_context::get_memory_from_resource_registry(const string& label) {
+	if (!resource_registry_enabled) {
+		return {};
+	}
+	
+	GUARD(resource_registry_lock);
+	const auto iter = resource_registry.find(label);
+	if (iter != resource_registry.end()) {
+		return iter->second;
+	}
+	return {};
+}
+
+void compute_context::update_resource_registry(const compute_memory* ptr, const string& prev_label, const string& label) {
+	if (!resource_registry_enabled) {
+		return;
+	}
+	
+	GUARD(resource_registry_lock);
+	const auto ptr_iter = resource_registry_ptr_lut.find(ptr);
+	if (ptr_iter == resource_registry_ptr_lut.end()) {
+		// not registered, don't update anything
+		return;
+	}
+	
+	// always update reverse LUT
+	resource_registry_reverse.insert_or_assign(ptr, label);
+	
+	// update registry:
+	//  * if the label is identical, this is a nop
+	//  * if the previous label is non-empty, remove it from the registry
+	//  * insert/assign new registry entry for the new label and resource
+	if (prev_label == label) {
+		return;
+	}
+	if (!prev_label.empty()) {
+		resource_registry.erase(prev_label);
+	}
+	resource_registry.insert_or_assign(label, ptr_iter->second);
+}
+
+void compute_context::remove_from_resource_registry(const compute_memory* ptr) {
+	if (!resource_registry_enabled) {
+		return;
+	}
+	
+	GUARD(resource_registry_lock);
+	const auto label_iter = resource_registry_reverse.find(ptr);
+	if (label_iter != resource_registry_reverse.end()) {
+		if (!label_iter->second.empty()) {
+			resource_registry.erase(label_iter->second);
+		}
+	}
+	resource_registry_reverse.erase(ptr);
+	resource_registry_ptr_lut.erase(ptr);
+}
+
+vector<string> compute_context::get_resource_registry_keys() const REQUIRES(!resource_registry_lock) {
+	if (!resource_registry_enabled) {
+		return {};
+	}
+	
+	GUARD(resource_registry_lock);
+	vector<string> ret;
+	ret.reserve(resource_registry.size());
+	for (const auto& entry : resource_registry) {
+		ret.emplace_back(entry.first);
+	}
+	return ret;
+}

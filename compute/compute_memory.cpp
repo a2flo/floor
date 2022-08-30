@@ -95,6 +95,10 @@ gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	}
 }
 
+compute_memory::~compute_memory() {
+	dev.context->remove_from_resource_registry(this);
+}
+
 void compute_memory::_lock() const {
 	lock.lock();
 }
@@ -109,6 +113,7 @@ const compute_queue* compute_memory::get_default_queue_for_memory(const compute_
 }
 
 void compute_memory::set_debug_label(const string& label) {
+	dev.context->update_resource_registry(this, debug_label, label);
 	debug_label = label;
 }
 

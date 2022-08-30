@@ -53,7 +53,7 @@ public:
 				   const uint32_t external_gl_object_ = 0) :
 	compute_memory(cqueue, nullptr, flags_, opengl_type_, external_gl_object_) {}
 	
-	virtual ~compute_memory() = default;
+	virtual ~compute_memory();
 	
 	//! memory size must always be a multiple of this
 	static constexpr size_t min_multiple() { return 4u; }

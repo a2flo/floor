@@ -313,10 +313,10 @@ public:
 	
 	//! returns the underlying image type (pixel format) of the renderer/screen
 	virtual COMPUTE_IMAGE_TYPE get_renderer_image_type() const;
-
+	
 	//! returns the image dim of the renderer/screen as (width, height, layers, _unused)
 	virtual uint4 get_renderer_image_dim() const;
-
+	
 	//! returns the associated VR context of the renderer (if the renderer supports VR and VR is enabled)
 	virtual vr_context* get_renderer_vr_context() const;
 	
@@ -334,6 +334,19 @@ public:
 	
 	//! returns the current max nits of the display that is used for rendering (defaults to 80 nits)
 	virtual float get_hdr_display_max_nits() const;
+	
+	//////////////////////////////////////////
+	// resource registry functionality
+	
+	//! enables the resource registry functionality
+	//! NOTE: only resources created *after* calling this will be available in the registry
+	virtual void enable_resource_registry();
+	
+	//! retrieves a resource from the registry
+	virtual weak_ptr<compute_memory> get_memory_from_resource_registry(const string& label) REQUIRES(!resource_registry_lock);
+	
+	//! returns a vector of resource labels of all currently registered resources
+	virtual vector<string> get_resource_registry_keys() const REQUIRES(!resource_registry_lock);
 	
 protected:
 	//! platform vendor enum (set after initialization)
@@ -356,6 +369,33 @@ protected:
 	
 	//! current HDR metadata
 	hdr_metadata_t hdr_metadata {};
+	
+	//! compute_memory must be able to access resource registry functionality
+	friend compute_memory;
+	//! access to resource registry objects must be thread-safe
+	mutable safe_mutex resource_registry_lock;
+	//! "label" -> "memory ptr" resource registry
+	unordered_map<string, weak_ptr<compute_memory>> resource_registry GUARDED_BY(resource_registry_lock);
+	//! "memory ptr" -> "label" reverse resource registry
+	unordered_map<const compute_memory*, string> resource_registry_reverse GUARDED_BY(resource_registry_lock);
+	//! "memory ptr" -> weak "memory ptr" lookup table
+	mutable unordered_map<const compute_memory*, weak_ptr<compute_memory>> resource_registry_ptr_lut GUARDED_BY(resource_registry_lock);
+	//! updates a resource registry entry for the specified "ptr", changing the label from "prev_label" to "label"
+	void update_resource_registry(const compute_memory* ptr, const string& prev_label, const string& label) REQUIRES(!resource_registry_lock);
+	//! removes a resource from the resource registry
+	void remove_from_resource_registry(const compute_memory* ptr) REQUIRES(!resource_registry_lock);
+	//! flag whether the resource registry is active
+	atomic<bool> resource_registry_enabled { false };
+	//! adds a resource to the registry (or nop/pass-through if inactive)
+	template <typename resource_type>
+	requires (is_base_of_v<compute_memory, resource_type>)
+	shared_ptr<resource_type> add_resource(shared_ptr<resource_type> resource) const REQUIRES(!resource_registry_lock) {
+		if (resource_registry_enabled) {
+			GUARD(resource_registry_lock);
+			resource_registry_ptr_lut.emplace(resource.get(), resource);
+		}
+		return resource;
+	}
 	
 };
 
