@@ -51,8 +51,10 @@ enum class HOST_CPU_TIER : uint64_t {
 	ARM_TIER_3 = (__ARM_OFFSET + 3u),
 	//! ARMv8.3 + FP16 (e.g. Apple A12)
 	ARM_TIER_4 = (__ARM_OFFSET + 4u),
-	//! ARMv8.4 + FP16 (e.g. Apple A13 - A15, Apple M1)
+	//! ARMv8.4 + FP16 (e.g. Apple A13)
 	ARM_TIER_5 = (__ARM_OFFSET + 5u),
+	//! ARMv8.5 + FP16 + FP16FML (e.g. Apple A14 - A16, Apple M1 - M2)
+	ARM_TIER_6 = (__ARM_OFFSET + 6u),
 };
 
 constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
@@ -66,6 +68,7 @@ constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
 		case HOST_CPU_TIER::ARM_TIER_3: return "ARM Tier 3";
 		case HOST_CPU_TIER::ARM_TIER_4: return "ARM Tier 4";
 		case HOST_CPU_TIER::ARM_TIER_5: return "ARM Tier 5";
+		case HOST_CPU_TIER::ARM_TIER_6: return "ARM Tier 6";
 		default: return "";
 	}
 }

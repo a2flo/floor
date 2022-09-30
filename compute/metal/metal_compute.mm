@@ -304,7 +304,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_total_local_size = 1024;
 				break;
 				
-			// A15 / M2
+			// A15 / A16 / M2
 			case 8:
 				device.units = 8;
 				device.mem_clock = 1600; // TODO: ram clock

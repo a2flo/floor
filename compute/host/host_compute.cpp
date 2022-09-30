@@ -209,7 +209,7 @@ host_compute::host_compute() : compute_context() {
 	switch (cpufamily) {
 		default:
 			// default to highest tier for all unknown (newer) cores
-			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
 			break;
 		case 0x37a09642 /* Cyclone A7 */:
 		case 0x2c91a47e /* Typhoon A8 */:
@@ -226,9 +226,11 @@ host_compute::host_compute() : compute_context() {
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_4;
 			break;
 		case 0x462504d2 /* Lightning/Thunder A13 */:
-		case 0x1b588bb3 /* Firestorm/Icestorm A14 & M1 */:
-		case 0xda33d83d /* Blizzard/Avalanche A15 */:
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
+			break;
+		case 0x1b588bb3 /* Firestorm/Icestorm A14 & M1 */:
+		case 0xda33d83d /* Blizzard/Avalanche A15 - A16 & M2 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
 			break;
 	}
 	
