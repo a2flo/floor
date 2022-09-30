@@ -34,10 +34,10 @@ enum class HOST_CPU_TIER : uint64_t {
 	//! NOTE: targets Sandy-Bridge / Bulldozer and higher (corei7-avx arch)
 	X86_TIER_2 = (__X86_OFFSET + 2u),
 	//! AVX v2 / FMA3 / F16C / BMI1+2
-	//! NOTE: targets Haswell / Excavator / Zen and higher (core-avx2 arch)
+	//! NOTE: targets Haswell / Excavator / Zen 1 and higher (core-avx2 arch)
 	X86_TIER_3 = (__X86_OFFSET + 3u),
 	//! AVX-512 (F, CD, VL, DQ, BW)
-	//! NOTE: targets Skylake-Server (skylake-avx512 arch)
+	//! NOTE: targets Skylake-Server / Zen 4 and higher (skylake-avx512 arch)
 	X86_TIER_4 = (__X86_OFFSET + 4u),
 	
 	//! ARM-based CPUs
