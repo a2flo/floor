@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 PRERELEASE=
-BASE_RELEASE=14.0.0
+BASE_RELEASE=14.0.6
 RELEASE=${BASE_RELEASE}${PRERELEASE}
-VERSION_NAME=140000
+VERSION_NAME=140006
 
 ##########################################
 # helper functions
@@ -51,8 +51,8 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
-LLVM_REV=8c526ade91dcd4a4a6e2e9884efe5daf10c37151
-LLVM_SPIRV_REV=78e1fa0ff1fa7e7f231bc1d9987b4a0dd1abe459
+LLVM_REV=7be96ec30144e659b93d7f7aa9d8374011677007
+LLVM_SPIRV_REV=641273f0f6f77db5f97a6eefe48d0ba8927dfbb5
 if [ ! -d llvm ]; then
 	git clone -b floor_toolchain_140 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm

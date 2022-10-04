@@ -3,8 +3,8 @@
 # NOTE: this script is intended for deploying a packaged/automatically built toolchain,
 #       for deploying a locally/manually built toolchain, deploy_dev.sh should be used instead
 
-RELEASE=14.0.0
-RELEASE_VERSION_NAME=140000
+RELEASE=14.0.6
+RELEASE_VERSION_NAME=140006
 
 ##########################################
 # helper functions

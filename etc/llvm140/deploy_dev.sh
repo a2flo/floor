@@ -3,8 +3,8 @@
 # NOTE: this script is intended for deploying a locally built toolchain, i.e. one that has manually been built via ./build.sh,
 #       for deploying a packaged toolchain, deploy_pkg.sh should be used instead
 
-RELEASE=14.0.0
-RELEASE_VERSION_NAME=140000
+RELEASE=14.0.6
+RELEASE_VERSION_NAME=140006
 
 ##########################################
 # helper functions
