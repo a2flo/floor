@@ -165,22 +165,66 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.clock = 450; // actually unknown, and won't matter for now
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
-		
-		// hard to make this forward compatible, there is no direct "get family" call
-		// -> just try the first 17 types, good enough for now
 		device.family_type = metal_device::FAMILY_TYPE::APPLE;
-		uint32_t feature_set = 0;
-		for(uint32_t i = 17; i > 0; --i) {
-			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
-				feature_set = i - 1;
-				break;
+		
+		if (@available(iOS 13.0, *)) {
+			// find max supported Apple* family
+			static constexpr const auto max_gpu_family = MTLGPUFamilyApple8;
+			device.family_tier = 0;
+			for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
+				if ([dev supportsFamily:family]) {
+					device.family_tier = uint32_t(family);
+				}
+			}
+		} else {
+			// old method for iOS 12.x compat
+			
+			// hard to make this forward compatible, there is no direct "get family" call
+			// -> just try the first 17 types, good enough for now
+			uint32_t feature_set = 0;
+			for(uint32_t i = 17; i > 0; --i) {
+				if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
+					feature_set = i - 1;
+					break;
+				}
+			}
+			
+			switch (feature_set) {
+				default:
+				case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
+				case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
+				case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
+				case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
+				case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
+					device.family_tier = 1;
+					break;
+				case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
+				case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
+				case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
+				case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
+				case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
+					device.family_tier = 2;
+					break;
+				case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
+				case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
+				case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
+				case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
+					device.family_tier = 3;
+					break;
+				case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
+				case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
+					device.family_tier = 4;
+					break;
+				case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
+					device.family_tier = 5;
+					break;
 			}
 		}
 		
 		// figure out which metal version we can use
 		if (darwin_helper::get_system_version() >= 160000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = (device.family_tier >= 6 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
 		} else if (darwin_helper::get_system_version() >= 150000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_4;
 			device.metal_language_version = METAL_VERSION::METAL_2_4;
@@ -193,38 +237,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		} else if (darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_1;
 			device.metal_language_version = METAL_VERSION::METAL_2_1;
-		}
-		
-		// TODO: switch over to new MTLGPUFamily
-		switch (feature_set) {
-			default:
-			case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
-			case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
-			case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
-			case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
-			case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
-				device.family_tier = 1;
-				break;
-			case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
-			case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
-			case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
-			case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
-			case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
-				device.family_tier = 2;
-				break;
-			case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
-			case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
-			case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
-			case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
-				device.family_tier = 3;
-				break;
-			case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
-			case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
-				device.family_tier = 4;
-				break;
-			case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
-				device.family_tier = 5;
-				break;
 		}
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
@@ -268,7 +280,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_total_local_size = 512;
 				break;
 			
-			// A11 and A12
+			// A11
 			case 4:
 				device.units = 3; // Apple custom
 				device.mem_clock = 1600; // TODO: ram clock
@@ -345,6 +357,12 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// Apple7+ with Metal 3.0+ supports 32-bit float atomics
 		device.basic_32_bit_float_atomics_support = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
+		
+		// Metal 3.0+ supports/requires sub-group/SIMD support
+		if (device.metal_language_version >= METAL_VERSION::METAL_3_0) {
+			device.sub_group_support = true;
+			device.sub_group_shuffle_support = true;
+		}
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
@@ -429,7 +447,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// figure out which metal version we can use
 		if (darwin_helper::get_system_version() >= 130000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = METAL_VERSION::METAL_3_0;
+			device.metal_language_version = (device.family_tier >= 2 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
 		} else if (darwin_helper::get_system_version() >= 120000) {
 			device.metal_software_version = METAL_VERSION::METAL_2_4;
 			device.metal_language_version = METAL_VERSION::METAL_2_4;

@@ -1769,7 +1769,7 @@ function void simplified_nbody ( %void() ) {
 ** Unix:
 *** automatic:
 **** development: run `./deploy_dev.sh` from the floor/etc/llvm140/ folder (this will create symlinks to everything in floor and floor/etc/llvm140)
-**** release: run `./deploy_pkg.sh` from inside the toolchain package folder (floor/etc/llvm140/toolchain_140000_*; this will copy everything)
+**** release: run `./deploy_pkg.sh` from inside the toolchain package folder (floor/etc/llvm140/toolchain_140006_*; this will copy everything)
 *** manual:
 **** copy the toolchain folder as `toolchain` to `/opt/floor/` (should then be `/opt/floor/toolchain/{bin,clang,libcxx}`)
 **** inside `/opt/floor/toolchain`, add a symlink to the `floor` include folder: `sudo ln -sf ../include floor`

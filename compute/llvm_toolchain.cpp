@@ -597,8 +597,7 @@ program_data compile_input(const string& input,
 					arch = "armv8.4-a+fp16";
 					break;
 				case HOST_CPU_TIER::ARM_TIER_6:
-					// TODO: in a future compiler version, add fp16ml
-					arch = "armv8.5-a+fp16";
+					arch = "armv8.5-a+fp16+fp16fml";
 					break;
 			}
 			

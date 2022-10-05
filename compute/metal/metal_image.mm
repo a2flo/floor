@@ -234,7 +234,7 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
 #endif
-#if !defined(FLOOR_IOS) // os x only
+#if !defined(FLOOR_IOS) // macOS only
 		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 												COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
@@ -246,6 +246,7 @@ FLOOR_POP_WARNINGS()
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+#if !defined(FLOOR_IOS) // macOS only
 		// BC formats
 		{ MTLPixelFormatBC1_RGBA, COMPUTE_IMAGE_TYPE::BC1_RGBA },
 		{ MTLPixelFormatBC1_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB },
@@ -261,6 +262,7 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatBC6H_RGBUfloat, COMPUTE_IMAGE_TYPE::BC6H_RGBUHF },
 		{ MTLPixelFormatBC7_RGBAUnorm, COMPUTE_IMAGE_TYPE::BC7_RGBA },
 		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB },
+#endif
 		// EAC/ETC formats
 		{ MTLPixelFormatEAC_R11Unorm, COMPUTE_IMAGE_TYPE::EAC_R11UI },
 		{ MTLPixelFormatEAC_R11Snorm, COMPUTE_IMAGE_TYPE::EAC_R11I },
@@ -1008,7 +1010,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
 #endif
-#if !defined(FLOOR_IOS) // os x only
+#if !defined(FLOOR_IOS) // macOS only
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
@@ -1020,6 +1022,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
+#if !defined(FLOOR_IOS) // macOS only
 		// BC formats
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
@@ -1035,6 +1038,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
 		{ COMPUTE_IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
 		{ COMPUTE_IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
+#endif
 		// EAC/ETC formats
 		{ COMPUTE_IMAGE_TYPE::EAC_R11UI, MTLPixelFormatEAC_R11Unorm },
 		{ COMPUTE_IMAGE_TYPE::EAC_R11I, MTLPixelFormatEAC_R11Snorm },
