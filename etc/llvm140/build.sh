@@ -87,10 +87,10 @@ cd ../
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
-git clone https://github.com/a2flo/SPIRV-Tools.git
+git clone -b libfloor_202210 https://github.com/a2flo/SPIRV-Tools.git
 git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
 cd SPIRV-Tools/external/spirv-headers
-git reset --hard 19e8350415ed9516c8afffa19ae2c58559495a67
+git reset --hard 87d5b782bec60822aa878941e6b13c0a9a954c9b
 cd ../../../
 
 # handle platform
@@ -171,8 +171,9 @@ info "using ${BUILD_JOB_COUNT} build jobs"
 cd SPIRV-Tools
 mkdir build
 cd build
-cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF -DSPIRV_SKIP_TESTS=ON ${APPLE_DEPLOYMENT_TARGET} ${APPLE_ARCHS} ../
-make -j ${BUILD_JOB_COUNT}
+cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release -DSPIRV_WERROR=OFF -DSPIRV_SKIP_TESTS=ON -DSPIRV_TOOLS_BUILD_STATIC=ON -DBUILD_SHARED_LIBS=0 ${APPLE_DEPLOYMENT_TARGET} ${APPLE_ARCHS} ../
+# only build what we need
+make -j ${BUILD_JOB_COUNT} spirv-as spirv-cfg spirv-dis spirv-opt spirv-val
 make_ret_code=$?
 
 if [ ${make_ret_code} -ne 0 ]; then
