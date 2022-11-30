@@ -21,6 +21,7 @@
 
 #include <type_traits>
 #include <limits>
+#include <memory>
 
 // vector is not supported on compute/graphics backends
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))

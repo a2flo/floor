@@ -104,6 +104,7 @@ enum class SPIRV_VERSION : uint32_t {
 	SPIRV_1_3,
 	SPIRV_1_4,
 	SPIRV_1_5,
+	SPIRV_1_6,
 };
 
 constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
@@ -115,6 +116,7 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 		case SPIRV_VERSION::SPIRV_1_3: return "1.3";
 		case SPIRV_VERSION::SPIRV_1_4: return "1.4";
 		case SPIRV_VERSION::SPIRV_1_5: return "1.5";
+		case SPIRV_VERSION::SPIRV_1_6: return "1.6";
 	}
 }
 constexpr SPIRV_VERSION spirv_version_from_uint(const uint32_t major, const uint32_t minor) {
@@ -127,6 +129,7 @@ constexpr SPIRV_VERSION spirv_version_from_uint(const uint32_t major, const uint
 		case 3: return SPIRV_VERSION::SPIRV_1_3;
 		case 4: return SPIRV_VERSION::SPIRV_1_4;
 		case 5: return SPIRV_VERSION::SPIRV_1_5;
+		case 6: return SPIRV_VERSION::SPIRV_1_6;
 		default: return SPIRV_VERSION::NONE;
 	}
 }

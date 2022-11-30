@@ -484,6 +484,9 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 								case make_spirv_version(1, 5):
 									spirv_version = SPIRV_VERSION::SPIRV_1_5;
 									break;
+								case make_spirv_version(1, 6):
+									spirv_version = SPIRV_VERSION::SPIRV_1_6;
+									break;
 							}
 							if (spirv_version > device.spirv_version) {
 								device.spirv_version = spirv_version;
@@ -528,9 +531,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 										case 4:
 											spirv_version = SPIRV_VERSION::SPIRV_1_4;
 											break;
-										default:
 										case 5:
 											spirv_version = SPIRV_VERSION::SPIRV_1_5;
+											break;
+										default:
+										case 6:
+											spirv_version = SPIRV_VERSION::SPIRV_1_6;
 											break;
 									}
 									break;

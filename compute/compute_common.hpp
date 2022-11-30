@@ -21,6 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 #include <cstdint>
+#include <functional>
 
 //! used to differentiate between the different compute implementations
 enum class COMPUTE_TYPE : uint64_t {

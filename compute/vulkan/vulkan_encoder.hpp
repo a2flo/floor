@@ -26,7 +26,7 @@ struct vulkan_encoder {
 	const vulkan_queue& cqueue;
 	const vulkan_device& device;
 	vector<VkWriteDescriptorSet> write_descs;
-	vector<VkWriteDescriptorSetInlineUniformBlockEXT> iub_descs;
+	vector<VkWriteDescriptorSetInlineUniformBlock> iub_descs;
 	vector<shared_ptr<compute_buffer>> constant_buffers;
 	vector<uint32_t> dyn_offsets;
 	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;

@@ -147,7 +147,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									// NOTE: buffers are always SSBOs
 									// NOTE: uniforms/param can either be SSBOs or IUBs, dpending on their size and device support
 									if (info.args[i].special_type == SPECIAL_TYPE::IUB) {
-										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK;
 										// descriptor count == size, which must be a multiple of 4
 										const uint32_t arg_size_4 = ((info.args[i].size + 3u) / 4u) * 4u;
 										max_iub_size = max(arg_size_4, max_iub_size);
@@ -246,7 +246,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							++pool_index;
 						}
 						if(iub_desc > 0) {
-							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK;
 							// amount of bytes to allocate for descriptors of this type
 							// -> use max arg size here
 							// TODO/NOTE: no idea where the size requirement comes from -> just round to multiples of 128 for now
@@ -273,11 +273,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.poolSizeCount = pool_count,
 							.pPoolSizes = pool_sizes.data(),
 						};
-						VkDescriptorPoolInlineUniformBlockCreateInfoEXT iub_pool_info;
+						VkDescriptorPoolInlineUniformBlockCreateInfo iub_pool_info;
 						if (iub_desc > 0) {
 							desc_pool_info.pNext = &iub_pool_info;
 							iub_pool_info = {
-								.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO_EXT,
+								.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO,
 								.pNext = nullptr,
 								.maxInlineUniformBlockBindings = iub_desc,
 							};

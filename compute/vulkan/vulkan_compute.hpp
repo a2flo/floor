@@ -359,7 +359,7 @@ protected:
 	
 	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
 	
-	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_2 };
+	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_3 };
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);

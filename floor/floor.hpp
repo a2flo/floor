@@ -48,10 +48,10 @@ public:
 		//! based on the OS and init_state
 		OPENGL = 2,
 		
-		//! use the Vulkan 1.2+ renderer
+		//! use the Vulkan 1.3+ renderer
 		VULKAN = 3,
 		
-		//! use the Metal 1.1+ renderer
+		//! use the Metal 2.0+ renderer
 		METAL = 4,
 	};
 	
@@ -83,7 +83,7 @@ public:
 		bool use_opengl_33 { true };
 		
 		//! min Vulkan API version that should be used
-		uint3 vulkan_api_version { 1, 2, 142 };
+		uint3 vulkan_api_version { 1, 3, 205 };
 		
 		//! SDL window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config

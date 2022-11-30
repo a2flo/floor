@@ -276,8 +276,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	
 	// create a vulkan instance (context)
 	const auto min_vulkan_api_version = floor::get_vulkan_api_version();
-	if (min_vulkan_api_version.x == 1 && min_vulkan_api_version.y < 2) {
-		log_error("Vulkan version must at least be 1.2");
+	if (min_vulkan_api_version.x == 1 && min_vulkan_api_version.y < 3) {
+		log_error("Vulkan version must at least be 1.3");
 		return;
 	}
 	const VkApplicationInfo app_info {
@@ -495,9 +495,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
-		VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV barycentric_features {
-			// NOTE/TODO: it seems this will be promoted to a Khronos extension soon -> update this once available
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_NV,
+		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
 			.pNext = nullptr,
 			.fragmentShaderBarycentric = false,
 		};
@@ -517,15 +516,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.sparseImageFloat32Atomics = false,
 			.sparseImageFloat32AtomicAdd = false,
 		};
-		VkPhysicalDeviceInlineUniformBlockFeaturesEXT inline_uniform_block_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
-			.pNext = &shader_atomic_float_features,
-			.inlineUniformBlock = false,
-			.descriptorBindingInlineUniformBlockUpdateAfterBind = false,
-		};
 		VkPhysicalDeviceVulkan11Features vulkan11_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-			.pNext = &inline_uniform_block_features,
+			.pNext = &shader_atomic_float_features,
 			.storageBuffer16BitAccess = true,
 			.uniformAndStorageBuffer16BitAccess = true,
 			.storagePushConstant16 = false,
@@ -590,9 +583,28 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.shaderOutputLayer = false,
 			.subgroupBroadcastDynamicId = false,
 		};
+		VkPhysicalDeviceVulkan13Features vulkan13_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+			.pNext = &vulkan12_features,
+			.robustImageAccess = false,
+			.inlineUniformBlock = false,
+			.descriptorBindingInlineUniformBlockUpdateAfterBind = false,
+			.pipelineCreationCacheControl = false,
+			.privateData = false,
+			.shaderDemoteToHelperInvocation = false,
+			.shaderTerminateInvocation = false,
+			.subgroupSizeControl = false,
+			.computeFullSubgroups = false,
+			.synchronization2 = false,
+			.textureCompressionASTC_HDR = false,
+			.shaderZeroInitializeWorkgroupMemory = false,
+			.dynamicRendering = false,
+			.shaderIntegerDotProduct = false,
+			.maintenance4 = false,
+		};
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = &vulkan12_features,
+			.pNext = &vulkan13_features,
 			.features = {
 				.shaderInt64 = true,
 			},
@@ -614,18 +626,58 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.deviceNodeMask = 0,
 			.deviceLUIDValid = 0,
 		};
-		VkPhysicalDeviceInlineUniformBlockPropertiesEXT inline_uniform_block_props {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT,
+		VkPhysicalDeviceVulkan13Properties vulkan13_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES,
 			.pNext = &device_id_props,
+			.minSubgroupSize = 0,
+			.maxSubgroupSize = 0,
+			.maxComputeWorkgroupSubgroups = 0,
+			.requiredSubgroupSizeStages = 0,
 			.maxInlineUniformBlockSize = 0,
 			.maxPerStageDescriptorInlineUniformBlocks = 0,
 			.maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks = 0,
 			.maxDescriptorSetInlineUniformBlocks = 0,
 			.maxDescriptorSetUpdateAfterBindInlineUniformBlocks = 0,
+			.maxInlineUniformTotalSize = 0,
+			.integerDotProduct8BitUnsignedAccelerated = false,
+			.integerDotProduct8BitSignedAccelerated = false,
+			.integerDotProduct8BitMixedSignednessAccelerated = false,
+			.integerDotProduct4x8BitPackedUnsignedAccelerated = false,
+			.integerDotProduct4x8BitPackedSignedAccelerated = false,
+			.integerDotProduct4x8BitPackedMixedSignednessAccelerated = false,
+			.integerDotProduct16BitUnsignedAccelerated = false,
+			.integerDotProduct16BitSignedAccelerated = false,
+			.integerDotProduct16BitMixedSignednessAccelerated = false,
+			.integerDotProduct32BitUnsignedAccelerated = false,
+			.integerDotProduct32BitSignedAccelerated = false,
+			.integerDotProduct32BitMixedSignednessAccelerated = false,
+			.integerDotProduct64BitUnsignedAccelerated = false,
+			.integerDotProduct64BitSignedAccelerated = false,
+			.integerDotProduct64BitMixedSignednessAccelerated = false,
+			.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating8BitSignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = false,
+			.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = false,
+			.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating16BitSignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = false,
+			.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating32BitSignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = false,
+			.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating64BitSignedAccelerated = false,
+			.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false,
+			.storageTexelBufferOffsetAlignmentBytes = 0,
+			.storageTexelBufferOffsetSingleTexelAlignment = 0,
+			.uniformTexelBufferOffsetAlignmentBytes = 0,
+			.uniformTexelBufferOffsetSingleTexelAlignment = 0,
+			.maxBufferSize = 0,
 		};
 		VkPhysicalDeviceProperties2 props_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-			.pNext = &inline_uniform_block_props,
+			.pNext = &vulkan13_props,
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
 
@@ -696,7 +748,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
-		if (!inline_uniform_block_features.inlineUniformBlock) {
+		if (!vulkan13_features.inlineUniformBlock) {
 			log_error("inline uniform blocks are not supported by $", props.deviceName);
 			continue;
 		}
@@ -709,15 +761,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// check IUB limits
-		if (inline_uniform_block_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
+		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
 			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",
-					  inline_uniform_block_props.maxInlineUniformBlockSize, vulkan_device::min_required_inline_uniform_block_size,
+					  vulkan13_props.maxInlineUniformBlockSize, vulkan_device::min_required_inline_uniform_block_size,
 					  props.deviceName);
 			continue;
 		}
-		if (inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks < vulkan_device::min_required_inline_uniform_block_count) {
+		if (vulkan13_props.maxDescriptorSetInlineUniformBlocks < vulkan_device::min_required_inline_uniform_block_count) {
 			log_error("max inline uniform block count of $ is below the required limit of $ (for device $)",
-					  inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks, vulkan_device::min_required_inline_uniform_block_count,
+					  vulkan13_props.maxDescriptorSetInlineUniformBlocks, vulkan_device::min_required_inline_uniform_block_count,
 					  props.deviceName);
 			continue;
 		}
@@ -752,24 +804,17 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_timeline_semaphore",
 			"VK_KHR_buffer_device_address",
 			"VK_KHR_separate_depth_stencil_layouts",
-			"VK_KHR_shader_non_semantic_info",
 			"VK_KHR_acceleration_structure",
 			"VK_KHR_fragment_shading_rate",
 			"VK_KHR_ray_query",
 			"VK_KHR_ray_tracing_pipeline",
-			"VK_KHR_shader_terminate_invocation",
-			"VK_KHR_synchronization2",
 			"VK_KHR_workgroup_memory_explicit_layout",
-			"VK_KHR_zero_initialize_workgroup_memory",
-			"VK_KHR_copy_commands2",
 			"VK_KHR_video_queue",
 			"VK_KHR_video_decode_queue",
 			"VK_KHR_video_encode_queue",
 			"VK_KHR_present_id",
 			"VK_KHR_present_wait",
-			"VK_KHR_shader_integer_dot_product",
-			"VK_KHR_maintenance4",
-			"VK_KHR_format_feature_flags2",
+			"VK_KHR_ray_tracing_maintenance1",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -812,10 +857,10 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 
 		// add other required or optional extensions
-		device_extensions_set.emplace(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_KHR_MAINTENANCE_4_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -833,7 +878,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			hdr_supported = false;
 		}
 		if (barycentric_features.fragmentShaderBarycentric) {
-			device_extensions_set.emplace(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+			device_extensions_set.emplace(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
 		}
 
 		// deal with swapchain ext
@@ -873,7 +918,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// ext feature enablement
-		inline_uniform_block_features.inlineUniformBlock = true;
+		vulkan13_features.inlineUniformBlock = true;
+		vulkan13_features.maintenance4 = true;
 		// NOTE: shaderFloat16 and shaderInt8 are optional
 		
 		const VkDeviceCreateInfo dev_info {
@@ -914,8 +960,8 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// TODO: determine context/platform vulkan version
 		device.vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
-		// "A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V"
-		device.spirv_version = SPIRV_VERSION::SPIRV_1_5;
+		// "A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, and 1.6 versions of SPIR-V"
+		device.spirv_version = SPIRV_VERSION::SPIRV_1_6;
 		
 		if(props.vendorID < 0x10000) {
 			switch(props.vendorID) {
@@ -1019,11 +1065,12 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 													 shader_atomic_float_features.shaderSharedFloat32Atomics &&
 													 shader_atomic_float_features.shaderSharedFloat32AtomicAdd);
 		
-		device.max_inline_uniform_block_size = inline_uniform_block_props.maxInlineUniformBlockSize;
-		device.max_inline_uniform_block_count = inline_uniform_block_props.maxDescriptorSetInlineUniformBlocks;
-		log_msg("inline uniform block: max size $, max IUBs $",
+		device.max_inline_uniform_block_size = vulkan13_props.maxInlineUniformBlockSize;
+		device.max_inline_uniform_block_count = vulkan13_props.maxDescriptorSetInlineUniformBlocks;
+		log_msg("inline uniform block: max size $, max IUBs $, max total size: $'",
 				device.max_inline_uniform_block_size,
-				device.max_inline_uniform_block_count);
+				device.max_inline_uniform_block_count,
+				vulkan13_props.maxInlineUniformTotalSize);
 		
 		device.min_storage_buffer_offset_alignment = (uint32_t)limits.minStorageBufferOffsetAlignment;
 		

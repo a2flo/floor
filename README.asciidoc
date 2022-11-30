@@ -1684,7 +1684,7 @@ function void simplified_nbody ( %void() ) {
 ** (opt) CUDA: requires sm_30+/Kepler+ GPU and CUDA 9.0+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 12.0+ and A7+ CPU/GPU, or macOS 10.13+ and appropriate GPU
 ** (opt) Host-Compute: requires just the compiler/toolchain that is stated above
-** (opt) Vulkan: requires 1.2.142+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
+** (opt) Vulkan: requires 1.3.231+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
 ** (opt) networking: requires link:https://think-async.com/Asio[Asio] headers and link:https://www.openssl.org[OpenSSL] 1.0.1+
 ** (opt) audio/OpenAL: requires link:https://openal-soft.org[OpenAL Soft]
 ** (opt) VR: requires link:https://github.com/ValveSoftware/openvr[OpenVR]

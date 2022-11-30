@@ -19,6 +19,7 @@
 #include <floor/compute/opencl/opencl_queue.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
+#include <floor/core/logger.hpp>
 
 opencl_queue::opencl_queue(const compute_device& device_, const cl_command_queue queue_) : compute_queue(device_), queue(queue_) {
 }

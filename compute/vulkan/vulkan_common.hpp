@@ -25,14 +25,14 @@
 //! vulkan version of the platform/driver/device
 enum class VULKAN_VERSION : uint32_t {
 	NONE,
-	VULKAN_1_2,
+	VULKAN_1_3,
 };
 
 constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const uint32_t minor) {
 	if (major == 0 || major > 1) return VULKAN_VERSION::NONE;
 	// major == 1
 	switch (minor) {
-		case 2: return VULKAN_VERSION::VULKAN_1_2;
+		case 3: return VULKAN_VERSION::VULKAN_1_3;
 		default: return VULKAN_VERSION::NONE;
 	}
 }
@@ -41,8 +41,8 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 
 #include <vulkan/vulkan.h>
 
-#if VK_HEADER_VERSION < 142
-#error "Vulkan header version must at least be 142"
+#if VK_HEADER_VERSION < 231
+#error "Vulkan header version must at least be 231"
 #endif
 
 // for Vulkan resource sharing on Windows

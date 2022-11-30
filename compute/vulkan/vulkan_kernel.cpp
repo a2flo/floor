@@ -482,7 +482,7 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	if (!idx.is_implicit && entry.info->args[idx.arg].special_type == SPECIAL_TYPE::IUB) {
 		// TODO: size must be a multiple of 4
 		auto& iub_write_desc = encoder.iub_descs[idx.iub];
-		iub_write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT;
+		iub_write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK;
 		iub_write_desc.pNext = nullptr;
 		iub_write_desc.dataSize = uint32_t(size);
 		iub_write_desc.pData = ptr;
