@@ -495,9 +495,17 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// query other device features
+		VkPhysicalDeviceDescriptorBufferFeaturesEXT desc_buf_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+			.pNext = nullptr,
+			.descriptorBuffer = false,
+			.descriptorBufferCaptureReplay = false,
+			.descriptorBufferImageLayoutIgnored = false,
+			.descriptorBufferPushDescriptors = false,
+		};
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
-			.pNext = nullptr,
+			.pNext = &desc_buf_features,
 			.fragmentShaderBarycentric = false,
 		};
 		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features {
@@ -610,25 +618,128 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			},
 		};
 		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
-
-		VkPhysicalDeviceMultiviewProperties multiview_properties {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES,
+		
+		VkPhysicalDeviceDescriptorBufferPropertiesEXT desc_buf_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
 			.pNext = nullptr,
+			.combinedImageSamplerDescriptorSingleArray = false,
+			.bufferlessPushDescriptors = false,
+			.allowSamplerImageViewPostSubmitCreation = false,
+			.descriptorBufferOffsetAlignment = {},
+			.maxDescriptorBufferBindings = 0,
+			.maxResourceDescriptorBufferBindings = 0,
+			.maxSamplerDescriptorBufferBindings = 0,
+			.maxEmbeddedImmutableSamplerBindings = 0,
+			.maxEmbeddedImmutableSamplers = 0,
+			.bufferCaptureReplayDescriptorDataSize = 0,
+			.imageCaptureReplayDescriptorDataSize = 0,
+			.imageViewCaptureReplayDescriptorDataSize = 0,
+			.samplerCaptureReplayDescriptorDataSize = 0,
+			.accelerationStructureCaptureReplayDescriptorDataSize = 0,
+			.samplerDescriptorSize = 0,
+			.combinedImageSamplerDescriptorSize = 0,
+			.sampledImageDescriptorSize = 0,
+			.storageImageDescriptorSize = 0,
+			.uniformTexelBufferDescriptorSize = 0,
+			.robustUniformTexelBufferDescriptorSize = 0,
+			.storageTexelBufferDescriptorSize = 0,
+			.robustStorageTexelBufferDescriptorSize = 0,
+			.uniformBufferDescriptorSize = 0,
+			.robustUniformBufferDescriptorSize = 0,
+			.storageBufferDescriptorSize = 0,
+			.robustStorageBufferDescriptorSize = 0,
+			.inputAttachmentDescriptorSize = 0,
+			.accelerationStructureDescriptorSize = 0,
+			.maxSamplerDescriptorBufferRange = {},
+			.maxResourceDescriptorBufferRange = {},
+			.samplerDescriptorBufferAddressSpaceSize = {},
+			.resourceDescriptorBufferAddressSpaceSize = {},
+			.descriptorBufferAddressSpaceSize = {},
+		};
+		VkPhysicalDeviceMultiviewProperties multiview_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES,
+			.pNext = &desc_buf_props,
 			.maxMultiviewViewCount = 0,
 			.maxMultiviewInstanceIndex = 0,
 		};
-		VkPhysicalDeviceIDProperties device_id_props {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES,
-			.pNext = &multiview_properties,
+		VkPhysicalDeviceVulkan11Properties vulkan11_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES,
+			.pNext = &multiview_props,
 			.deviceUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.driverUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.deviceLUID = { 0, 0, 0, 0, 0, 0, 0, 0 },
 			.deviceNodeMask = 0,
-			.deviceLUIDValid = 0,
+			.deviceLUIDValid = false,
+			.subgroupSize = 0,
+			.subgroupSupportedStages = {},
+			.subgroupSupportedOperations = {},
+			.subgroupQuadOperationsInAllStages = false,
+			.pointClippingBehavior = {},
+			.maxMultiviewViewCount = 0,
+			.maxMultiviewInstanceIndex = 0,
+			.protectedNoFault = false,
+			.maxPerSetDescriptors = 0,
+			.maxMemoryAllocationSize = 0,
+		};
+		VkPhysicalDeviceVulkan12Properties vulkan12_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES,
+			.pNext = &vulkan11_props,
+			.driverID = {},
+			.driverName = "",
+			.driverInfo = "",
+			.conformanceVersion = {},
+			.denormBehaviorIndependence = {},
+			.roundingModeIndependence = {},
+			.shaderSignedZeroInfNanPreserveFloat16 = false,
+			.shaderSignedZeroInfNanPreserveFloat32 = false,
+			.shaderSignedZeroInfNanPreserveFloat64 = false,
+			.shaderDenormPreserveFloat16 = false,
+			.shaderDenormPreserveFloat32 = false,
+			.shaderDenormPreserveFloat64 = false,
+			.shaderDenormFlushToZeroFloat16 = false,
+			.shaderDenormFlushToZeroFloat32 = false,
+			.shaderDenormFlushToZeroFloat64 = false,
+			.shaderRoundingModeRTEFloat16 = false,
+			.shaderRoundingModeRTEFloat32 = false,
+			.shaderRoundingModeRTEFloat64 = false,
+			.shaderRoundingModeRTZFloat16 = false,
+			.shaderRoundingModeRTZFloat32 = false,
+			.shaderRoundingModeRTZFloat64 = false,
+			.maxUpdateAfterBindDescriptorsInAllPools = 0,
+			.shaderUniformBufferArrayNonUniformIndexingNative = false,
+			.shaderSampledImageArrayNonUniformIndexingNative = false,
+			.shaderStorageBufferArrayNonUniformIndexingNative = false,
+			.shaderStorageImageArrayNonUniformIndexingNative = false,
+			.shaderInputAttachmentArrayNonUniformIndexingNative = false,
+			.robustBufferAccessUpdateAfterBind = false,
+			.quadDivergentImplicitLod = false,
+			.maxPerStageDescriptorUpdateAfterBindSamplers = 0,
+			.maxPerStageDescriptorUpdateAfterBindUniformBuffers = 0,
+			.maxPerStageDescriptorUpdateAfterBindStorageBuffers = 0,
+			.maxPerStageDescriptorUpdateAfterBindSampledImages = 0,
+			.maxPerStageDescriptorUpdateAfterBindStorageImages = 0,
+			.maxPerStageDescriptorUpdateAfterBindInputAttachments = 0,
+			.maxPerStageUpdateAfterBindResources = 0,
+			.maxDescriptorSetUpdateAfterBindSamplers = 0,
+			.maxDescriptorSetUpdateAfterBindUniformBuffers = 0,
+			.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic = 0,
+			.maxDescriptorSetUpdateAfterBindStorageBuffers = 0,
+			.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic = 0,
+			.maxDescriptorSetUpdateAfterBindSampledImages = 0,
+			.maxDescriptorSetUpdateAfterBindStorageImages = 0,
+			.maxDescriptorSetUpdateAfterBindInputAttachments = 0,
+			.supportedDepthResolveModes = {},
+			.supportedStencilResolveModes = {},
+			.independentResolveNone = false,
+			.independentResolve = false,
+			.filterMinmaxSingleComponentFormats = false,
+			.filterMinmaxImageComponentMapping = false,
+			.maxTimelineSemaphoreValueDifference = 0,
+			.framebufferIntegerColorSampleCounts = {},
 		};
 		VkPhysicalDeviceVulkan13Properties vulkan13_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES,
-			.pNext = &device_id_props,
+			.pNext = &vulkan12_props,
 			.minSubgroupSize = 0,
 			.maxSubgroupSize = 0,
 			.maxComputeWorkgroupSubgroups = 0,
@@ -689,7 +800,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				log_error("VR requirements not met: multi-view features are not supported by $", props.deviceName);
 				continue;
 			}
-			if (multiview_properties.maxMultiviewViewCount < 2) {
+			if (multiview_props.maxMultiviewViewCount < 2) {
 				log_error("VR requirements not met: multi-view count must be >= 2 for device $", props.deviceName);
 				continue;
 			}
@@ -760,6 +871,16 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!vulkan13_features.maintenance4) {
+			log_error("maintenance4 is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		if (!vulkan13_features.synchronization2) {
+			log_error("synchronization2 is not supported by $", props.deviceName);
+			continue;
+		}
+		
 		// check IUB limits
 		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
 			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",
@@ -815,6 +936,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_present_id",
 			"VK_KHR_present_wait",
 			"VK_KHR_ray_tracing_maintenance1",
+			"VK_KHR_incremental_present",
+			"VK_KHR_video_decode_h264",
+			"VK_KHR_video_decode_h265",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -879,6 +1003,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		if (barycentric_features.fragmentShaderBarycentric) {
 			device_extensions_set.emplace(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+		}
+		if (desc_buf_features.descriptorBuffer) {
+			device_extensions_set.emplace(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 		}
 
 		// deal with swapchain ext
@@ -949,7 +1076,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.device = dev;
 		device.name = props.deviceName;
 		set_vulkan_debug_label(device, VK_OBJECT_TYPE_DEVICE, uint64_t(dev), device.name);
-		copy_n(begin(device_id_props.deviceUUID), device.uuid.size(), begin(device.uuid));
+		copy_n(begin(vulkan11_props.deviceUUID), device.uuid.size(), begin(device.uuid));
 		device.has_uuid = true;
 		device.platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
 		device.version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
@@ -1075,6 +1202,32 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.min_storage_buffer_offset_alignment = (uint32_t)limits.minStorageBufferOffsetAlignment;
 		
 		device.barycentric_coord_support = barycentric_features.fragmentShaderBarycentric;
+		
+		if (desc_buf_features.descriptorBuffer && FLOOR_USE_VK_DESC_BUFFER) {
+			if (desc_buf_props.storageBufferDescriptorSize > vulkan_buffer::max_ssbo_descriptor_size) {
+				log_error("descriptor buffer: SSBO descriptor size is too large: $ (want $ bytes or less)",
+						  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
+			} else {
+				device.descriptor_buffer_support = true;
+				device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);
+				device.desc_buffer_sizes.storage_image = uint32_t(desc_buf_props.storageImageDescriptorSize);
+				device.desc_buffer_sizes.ubo = uint32_t(desc_buf_props.uniformBufferDescriptorSize);
+				device.desc_buffer_sizes.ssbo = uint32_t(desc_buf_props.storageBufferDescriptorSize);
+				log_msg("descriptor buffer: UBO $, SSBO $, image: $ / $",
+						device.desc_buffer_sizes.ubo, device.desc_buffer_sizes.ssbo,
+						device.desc_buffer_sizes.sampled_image, device.desc_buffer_sizes.storage_image);
+				
+				// init extension functions if we haven't done this yet
+				if (!get_descriptor_set_layout_binding_offset) {
+					get_descriptor_set_layout_binding_offset = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutBindingOffsetEXT");
+					get_descriptor_set_layout_size = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutSizeEXT");
+					get_descriptor = (PFN_vkGetDescriptorEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorEXT");
+					cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
+					cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
+					cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
+				}
+			}
+		}
 		
 		// set memory info
 		device.mem_props = dev_mem_info.mem_props;
@@ -2115,7 +2268,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	// 5 bits -> 32 combinations
 	static constexpr const uint32_t max_combinations { 32 };
 	
-	for(auto& dev : devices) {
+	for (auto& dev : devices) {
 		auto& vk_dev = (vulkan_device&)*dev;
 		vk_dev.fixed_sampler_set.resize(max_combinations, nullptr);
 		vk_dev.fixed_sampler_image_info.resize(max_combinations,
@@ -2123,7 +2276,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	}
 
 	// create the samplers for all devices
-	for(uint32_t combination = 0; combination < max_combinations; ++combination) {
+	for (uint32_t combination = 0; combination < max_combinations; ++combination) {
 		const vulkan_fixed_sampler smplr { .value = combination };
 		const VkFilter filter = (smplr.filter == 0 ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
 		const VkSamplerMipmapMode mipmap_filter = (smplr.filter == 0 ?
@@ -2153,9 +2306,9 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			.unnormalizedCoordinates = false,
 		};
 		
-		for(auto& dev : devices) {
+		for (auto& dev : devices) {
 			auto& vk_dev = (vulkan_device&)*dev;
-			if(sampler_create_info.anisotropyEnable) {
+			if (sampler_create_info.anisotropyEnable) {
 				sampler_create_info.anisotropyEnable = vk_dev.anisotropic_support;
 				sampler_create_info.maxAnisotropy = float(vk_dev.max_anisotropy);
 			}
@@ -2170,62 +2323,92 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	}
 	
 	// create the descriptor set for all devices
-	VkDescriptorSetLayoutBinding fixed_samplers_desc_set_layout {
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-		.descriptorCount = max_combinations,
-		.stageFlags = VK_SHADER_STAGE_ALL,
-		.pImmutableSamplers = nullptr,
-	};
-	const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.bindingCount = 1,
-		.pBindings = &fixed_samplers_desc_set_layout,
-	};
-	for(auto& dev : devices) {
+	for (auto& dev : devices) {
 		auto& vk_dev = (vulkan_device&)*dev;
-		fixed_samplers_desc_set_layout.pImmutableSamplers = vk_dev.fixed_sampler_set.data();
-		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
-												 &vk_dev.fixed_sampler_desc_set_layout),
-					 "failed to create fixed sampler set descriptor set layout")
-		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
-							   "immutable_sampler_descriptor_set_layout");
-		
-		// TODO: use device global desc pool allocation once this is in place
-		const VkDescriptorPoolSize desc_pool_size {
-			.type = VK_DESCRIPTOR_TYPE_SAMPLER,
-			.descriptorCount = max_combinations,
-		};
-		const VkDescriptorPoolCreateInfo desc_pool_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = 0,
-			.maxSets = 1,
-			.poolSizeCount = 1,
-			.pPoolSizes = &desc_pool_size,
-		};
-		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &vk_dev.fixed_sampler_desc_pool),
-					 "failed to create fixed sampler set descriptor pool")
-		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_POOL, uint64_t(vk_dev.fixed_sampler_desc_pool),
-							   "immutable_sampler_descriptor_pool");
-		
-		// allocate descriptor set
-		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.pNext = nullptr,
-			.descriptorPool = vk_dev.fixed_sampler_desc_pool,
-			.descriptorSetCount = 1,
-			.pSetLayouts = &vk_dev.fixed_sampler_desc_set_layout,
-		};
-		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &vk_dev.fixed_sampler_desc_set),
-					 "failed to allocate fixed sampler set descriptor set")
-		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.fixed_sampler_desc_set),
-							   "immutable_sampler_descriptor_set");
+		if (!vk_dev.descriptor_buffer_support) {
+			// -> legacy descriptor set
+			const VkDescriptorSetLayoutBinding fixed_samplers_desc_set_layout {
+				.binding = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+				.descriptorCount = max_combinations,
+				.stageFlags = VK_SHADER_STAGE_ALL,
+				.pImmutableSamplers = vk_dev.fixed_sampler_set.data(),
+			};
+			const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.bindingCount = 1,
+				.pBindings = &fixed_samplers_desc_set_layout,
+			};
+			
+			VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
+													 &vk_dev.fixed_sampler_desc_set_layout),
+						 "failed to create fixed sampler set descriptor set layout")
+			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
+								   "immutable_sampler_descriptor_set_layout");
+			
+			// TODO: use device global desc pool allocation once this is in place
+			const VkDescriptorPoolSize desc_pool_size {
+				.type = VK_DESCRIPTOR_TYPE_SAMPLER,
+				.descriptorCount = max_combinations,
+			};
+			const VkDescriptorPoolCreateInfo desc_pool_info {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.maxSets = 1,
+				.poolSizeCount = 1,
+				.pPoolSizes = &desc_pool_size,
+			};
+			VK_CALL_CONT(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &vk_dev.legacy_fixed_sampler_desc_pool),
+						 "failed to create fixed sampler set descriptor pool")
+			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_POOL, uint64_t(vk_dev.legacy_fixed_sampler_desc_pool),
+								   "immutable_sampler_descriptor_pool");
+			
+			// allocate descriptor set
+			const VkDescriptorSetAllocateInfo desc_set_alloc_info {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+				.pNext = nullptr,
+				.descriptorPool = vk_dev.legacy_fixed_sampler_desc_pool,
+				.descriptorSetCount = 1,
+				.pSetLayouts = &vk_dev.fixed_sampler_desc_set_layout,
+			};
+			VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &vk_dev.legacy_fixed_sampler_desc_set),
+						 "failed to allocate fixed sampler set descriptor set")
+			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.legacy_fixed_sampler_desc_set),
+								   "immutable_sampler_descriptor_set");
+			
+			// TODO: cleanup!
+		} else {
+			// -> for descriptor buffer usage
+			// NOTE: sampler arrays are not supported -> must create #max_combinations individual bindings/samplers
+			vector<VkDescriptorSetLayoutBinding> fixed_sampler_bindings(max_combinations);
+			for (uint32_t i = 0; i < max_combinations; ++i) {
+				fixed_sampler_bindings[i] = {
+					.binding = i,
+					.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+					.descriptorCount = 1,
+					.stageFlags = VK_SHADER_STAGE_ALL,
+					.pImmutableSamplers = &vk_dev.fixed_sampler_set[i],
+				};
+			}
+			const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = (VK_DESCRIPTOR_SET_LAYOUT_CREATE_EMBEDDED_IMMUTABLE_SAMPLERS_BIT_EXT |
+						  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT),
+				.bindingCount = max_combinations,
+				.pBindings = fixed_sampler_bindings.data(),
+			};
+			
+			VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
+													 &vk_dev.fixed_sampler_desc_set_layout),
+						 "failed to create fixed sampler set descriptor set layout")
+			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
+								   "immutable_sampler_descriptor_set_layout");
+		}
 	}
-	
-	// TODO: cleanup!
 }
 
 unique_ptr<graphics_pipeline> vulkan_compute::create_graphics_pipeline(const render_pipeline_description& pipeline_desc,

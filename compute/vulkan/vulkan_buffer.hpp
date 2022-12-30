@@ -122,11 +122,48 @@ FLOOR_POP_WARNINGS()
 	
 	void set_debug_label(const string& label) override;
 	
+	//! max size of an SSBO descriptor
+	static constexpr const uint32_t max_ssbo_descriptor_size { 16u };
+	
+	//! returns the descriptor data for this buffer (for use in descriptor buffers)
+	const auto& get_vulkan_descriptor_data() const {
+		return descriptor_data;
+	}
+	
+	//! returns the usage flags that this Vulkan buffer was created with
+	VkBufferUsageFlags get_vulkan_buffer_usage() const {
+		return buffer_usage;
+	}
+	
+	//! returns the underlying Vulkan buffer that should be used on the device (i.e. this or a shared buffer)
+	const vulkan_buffer* get_underlying_vulkan_buffer_safe() const {
+		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			const vulkan_buffer* ret = nullptr;
+			if (ret = get_shared_vulkan_buffer(); !ret) {
+				ret = this;
+			}
+#if defined(FLOOR_DEBUG)
+			if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(ret); !test_cast_vk_buffer) {
+				throw runtime_error("specified buffer is neither a Vulkan buffer nor a shared Vulkan buffer");
+			}
+#endif
+			return ret;
+		}
+		return this;
+	}
+	
 protected:
 	VkBuffer buffer { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
 	VkDeviceSize allocation_size { 0 };
 	VkDeviceAddress buffer_device_address { 0 };
+	VkBufferUsageFlags buffer_usage { 0 };
+	
+	//! when using descriptor buffers, this contains the descriptor data (as a SSBO descriptor)
+	array<uint8_t, max_ssbo_descriptor_size> descriptor_data {{
+		0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+		0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+	}};
 	
 	// shared memory handle when the buffer has been created with VULKAN_SHARING
 #if defined(__WINDOWS__)

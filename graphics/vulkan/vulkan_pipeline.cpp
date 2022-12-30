@@ -254,7 +254,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 	const VkGraphicsPipelineCreateInfo gfx_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = 0,
+		.flags = (vk_dev.descriptor_buffer_support ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
 		.stageCount = (vk_fs_entry != nullptr ? 2 : 1),
 		.pStages = &stages[0],
 		.pVertexInputState = &vertex_input_state,

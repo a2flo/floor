@@ -110,6 +110,9 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! Metal/internal-only: disables any resource tracking on the allocated Metal object
 	__NO_RESOURCE_TRACKING		= (1u << 16u),
 	
+	//! Vulkan-only: allocates a buffer with support for being used as a descriptor buffer
+	VULKAN_DESCRIPTOR_BUFFER	= (1u << 17u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

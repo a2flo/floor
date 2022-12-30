@@ -61,6 +61,15 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	// create the buffer
 	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
 	const auto is_host_coherent = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags);
+	const auto is_desc_buffer = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER>(flags);
+	// set all the bits here, might need some better restrictions later on
+	// NOTE: not setting vertex bit here, b/c we're always using SSBOs
+	buffer_usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+					VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+					VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+					VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+					VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 	VkExternalMemoryBufferCreateInfo ext_create_info;
 	if (is_sharing) {
 		ext_create_info = {
@@ -75,19 +84,15 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 #endif
 		};
 	}
+	if (is_desc_buffer) {
+		buffer_usage |= VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+	}
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
 		.flags = 0,
 		.size = size,
-		// set all the bits here, might need some better restrictions later on
-		// NOTE: not setting vertex bit here, b/c we're always using SSBOs
-		.usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-				  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-				  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-				  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-				  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT),
+		.usage = buffer_usage,
 		// NOTE: for performance reasons, we always want exclusive sharing
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 0,
@@ -170,6 +175,26 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 		return false;
 	}
 	//log_debug("dev addr: $X", buffer_device_address);
+	
+	// query descriptor data
+	if (device.descriptor_buffer_support) {
+		const VkDescriptorAddressInfoEXT addr_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT,
+			.pNext = nullptr,
+			.address = buffer_device_address,
+			.range = size,
+			.format = VK_FORMAT_UNDEFINED,
+		};
+		const VkDescriptorGetInfoEXT desc_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+			.pNext = nullptr,
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.data = {
+				.pStorageBuffer = &addr_info,
+			},
+		};
+		((vulkan_compute*)cqueue.get_device().context)->vulkan_get_descriptor(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
+	}
 	
 	// buffer init from host data pointer
 	if(copy_host_data &&

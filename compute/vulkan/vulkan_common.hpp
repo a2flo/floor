@@ -41,9 +41,12 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 
 #include <vulkan/vulkan.h>
 
-#if VK_HEADER_VERSION < 231
-#error "Vulkan header version must at least be 231"
+#if VK_HEADER_VERSION < 235
+#error "Vulkan header version must at least be 235"
 #endif
+
+// set this define to 0 to disable experimental VK_EXT_descriptor_buffer support
+#define FLOOR_USE_VK_DESC_BUFFER 1
 
 // for Vulkan resource sharing on Windows
 #if defined(__WINDOWS__)

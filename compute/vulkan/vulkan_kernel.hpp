@@ -42,9 +42,17 @@ public:
 		VkPipelineLayout pipeline_layout { nullptr };
 		VkPipelineShaderStageCreateInfo stage_info;
 		VkDescriptorSetLayout desc_set_layout { nullptr };
-		VkDescriptorPool desc_pool { nullptr };
-		unique_ptr<vulkan_descriptor_set_container> desc_set_container;
-		vector<VkDescriptorType> desc_types;
+		
+		struct desc_legacy_t {
+			VkDescriptorPool desc_pool { nullptr };
+			vector<VkDescriptorType> desc_types;
+			unique_ptr<vulkan_descriptor_set_container> desc_set_container;
+		} desc_legacy;
+		
+		struct desc_buffer_t {
+			vector<VkDeviceSize> argument_offsets;
+			unique_ptr<vulkan_descriptor_buffer_container> desc_buffer_container;
+		} desc_buffer;
 		
 		//! buffers/storage for constant data
 		//! NOTE: must be the same amount as the number of descriptors in "desc_set_container"
@@ -82,18 +90,21 @@ public:
 	struct idx_handler {
 		// actual argument index (directly corresponding to the c++ source code)
 		uint32_t arg { 0 };
-		// index into the descriptor set that will be updated/written
-		uint32_t write_desc { 0 };
 		// binding index in the resp. descriptor set
 		uint32_t binding { 0 };
-		// IUB index in the resp. descriptor set
-		uint32_t iub { 0 };
 		// flag if this is an implicit arg
 		bool is_implicit { false };
 		// current implicit argument index
 		uint32_t implicit { 0 };
-		// current kernel/shader entry
+		// current kernel/shader entry (set)
 		uint32_t entry { 0 };
+		// legacy descriptor set index variables
+		struct legacy_t {
+			// index into the descriptor set that will be updated/written
+			uint32_t write_desc { 0 };
+			// IUB index in the resp. descriptor set
+			uint32_t iub { 0 };
+		} legacy;
 	};
 	
 	vulkan_kernel(kernel_map_type&& kernels);
@@ -131,6 +142,11 @@ protected:
 								 vulkan_kernel_entry& entry,
 								 const uint3& work_group_size) const REQUIRES(!entry.specializations_lock);
 	
+	bool set_and_handle_arguments_legacy(vulkan_encoder& encoder,
+										 const vector<const vulkan_kernel_entry*>& shader_entries,
+										 idx_handler& idx,
+										 const vector<compute_kernel_arg>& args,
+										 const vector<compute_kernel_arg>& implicit_args) const;
 	bool set_and_handle_arguments(vulkan_encoder& encoder,
 								  const vector<const vulkan_kernel_entry*>& shader_entries,
 								  idx_handler& idx,
@@ -141,27 +157,57 @@ protected:
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
 					  const void* ptr, const size_t& size) const;
 	
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
-					  const compute_buffer* arg,
-					  const VkDescriptorBufferInfo* buffer_info_override = nullptr) const;
+					  const span<uint8_t>& host_desc_data,
+					  const compute_buffer* arg) const;
 	
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
 					  const compute_image* arg) const;
 	
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
 					  const vector<shared_ptr<compute_image>>& arg) const;
 	void set_argument(vulkan_encoder& encoder,
 					  const vulkan_kernel_entry& entry,
 					  const idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
 					  const vector<compute_image*>& arg) const;
+	
+	// actual argument setters (legacy)
+	void set_argument_legacy(vulkan_encoder& encoder,
+							 const vulkan_kernel_entry& entry,
+							 const idx_handler& idx,
+							 const void* ptr, const size_t& size) const;
+	
+	void set_argument_legacy(vulkan_encoder& encoder,
+							 const vulkan_kernel_entry& entry,
+							 const idx_handler& idx,
+							 const compute_buffer* arg,
+							 const VkDescriptorBufferInfo* buffer_info_override = nullptr) const;
+	
+	void set_argument_legacy(vulkan_encoder& encoder,
+							 const vulkan_kernel_entry& entry,
+							 const idx_handler& idx,
+							 const compute_image* arg) const;
+	
+	void set_argument_legacy(vulkan_encoder& encoder,
+							 const vulkan_kernel_entry& entry,
+							 const idx_handler& idx,
+							 const vector<shared_ptr<compute_image>>& arg) const;
+	void set_argument_legacy(vulkan_encoder& encoder,
+							 const vulkan_kernel_entry& entry,
+							 const idx_handler& idx,
+							 const vector<compute_image*>& arg) const;
 	
 	unique_ptr<argument_buffer> create_argument_buffer_internal(const compute_queue& cqueue,
 																const kernel_entry& entry,

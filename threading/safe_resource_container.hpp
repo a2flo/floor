@@ -100,10 +100,16 @@ public:
 		}
 	}
 	
-	//! release a resource again
+	//! release a resource again (via resource)
 	void release(const pair<resource_access_type, uint32_t>& resource) REQUIRES(!resource_lock) {
 		GUARD(resource_lock);
 		resources_in_use.reset(resource.second);
+	}
+	
+	//! release a resource again (via index)
+	void release(const uint32_t& resource_idx) REQUIRES(!resource_lock) {
+		GUARD(resource_lock);
+		resources_in_use.reset(resource_idx);
 	}
 
 protected:

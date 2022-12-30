@@ -62,6 +62,7 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	}
 	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	const auto& vk_ctx = *(vulkan_compute*)vk_dev.context;
 	
 	// create command buffer ("encoder") for this kernel execution
 	bool encoder_success = false;
@@ -98,13 +99,22 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		}
 	}
 	
-	// acquire shader descriptor sets and constant buffers, or set dummy ones if shader stage doesn't exist
-	if (vertex_shader->desc_set_container) {
-		encoder->acquired_descriptor_sets.emplace_back(vertex_shader->desc_set_container->acquire_descriptor_set());
+	// acquire shader descriptor sets/buffers and constant buffers, or set dummy ones if shader stage doesn't exist
+	bool vs_has_descriptors = false;
+	if (vk_dev.descriptor_buffer_support) {
+		if (vertex_shader->desc_buffer.desc_buffer_container) {
+			encoder->acquired_descriptor_buffers.emplace_back(vertex_shader->desc_buffer.desc_buffer_container->acquire_descriptor_buffer());
+			vs_has_descriptors = true;
+		}
 	} else {
-		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
+		if (vertex_shader->desc_legacy.desc_set_container) {
+			encoder->legacy.acquired_descriptor_sets.emplace_back(vertex_shader->desc_legacy.desc_set_container->acquire_descriptor_set());
+			vs_has_descriptors = true;
+		} else {
+			encoder->legacy.acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
+		}
 	}
-	if (vertex_shader->desc_set_container && vertex_shader->constant_buffers) {
+	if (vs_has_descriptors && vertex_shader->constant_buffers) {
 		encoder->acquired_constant_buffers.emplace_back(vertex_shader->constant_buffers->acquire());
 		encoder->constant_buffer_mappings.emplace_back(vertex_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
 	} else {
@@ -112,12 +122,21 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		encoder->constant_buffer_mappings.emplace_back(nullptr);
 	}
 	
-	if (fragment_shader != nullptr && fragment_shader->desc_set_container) {
-		encoder->acquired_descriptor_sets.emplace_back(fragment_shader->desc_set_container->acquire_descriptor_set());
+	bool fs_has_descriptors = false;
+	if (vk_dev.descriptor_buffer_support) {
+		if (fragment_shader != nullptr && fragment_shader->desc_buffer.desc_buffer_container) {
+			encoder->acquired_descriptor_buffers.emplace_back(fragment_shader->desc_buffer.desc_buffer_container->acquire_descriptor_buffer());
+			fs_has_descriptors = true;
+		}
 	} else {
-		encoder->acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
+		if (fragment_shader != nullptr && fragment_shader->desc_legacy.desc_set_container) {
+			encoder->legacy.acquired_descriptor_sets.emplace_back(fragment_shader->desc_legacy.desc_set_container->acquire_descriptor_set());
+			fs_has_descriptors = true;
+		} else {
+			encoder->legacy.acquired_descriptor_sets.emplace_back(descriptor_set_instance_t {}); // add dummy
+		}
 	}
-	if (fragment_shader != nullptr && fragment_shader->desc_set_container && fragment_shader->constant_buffers) {
+	if (fragment_shader != nullptr && fs_has_descriptors && fragment_shader->constant_buffers) {
 		encoder->acquired_constant_buffers.emplace_back(fragment_shader->constant_buffers->acquire());
 		encoder->constant_buffer_mappings.emplace_back(fragment_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
 	} else {
@@ -127,51 +146,98 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	
 	// set and handle arguments
 	idx_handler idx;
-	if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
-		return;
+	if (vk_dev.descriptor_buffer_support) {
+		if (!set_and_handle_arguments(*encoder, shader_entries, idx, args, implicit_args)) {
+			return;
+		}
+	} else {
+		if (!set_and_handle_arguments_legacy(*encoder, shader_entries, idx, args, implicit_args)) {
+			return;
+		}
 	}
 	
 	// set/write/update descriptors
-	vkUpdateDescriptorSets(vk_dev.device,
-						   (uint32_t)encoder->write_descs.size(), encoder->write_descs.data(),
-						   // never copy (bad for performance)
-						   0, nullptr);
-	
-	// final desc set binding after all parameters have been updated/set
-	// note that we need to take care of the situation where the vertex shader doesn't have a desc set,
-	// but the fragment shader does -> binding discontiguous sets is not directly possible
-	const bool has_vs_desc = (vertex_shader->desc_set_container != nullptr);
-	const bool has_fs_desc = (fragment_shader != nullptr && fragment_shader->desc_set_container != nullptr);
-	const bool discontiguous = (!has_vs_desc && has_fs_desc);
-	
-	array<VkDescriptorSet, 3> desc_sets {{
-		vk_dev.fixed_sampler_desc_set,
-		// NOTE: these may be nullptr / dummy ones (see above)
-		encoder->acquired_descriptor_sets[0].desc_set,
-		encoder->acquired_descriptor_sets[1].desc_set,
-	}};
-	
-	// either binds everything or just the fixed sampler set
-	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
-							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							encoder->pipeline_layout,
-							0,
-							(discontiguous || !has_vs_desc) ? 1 : (!has_fs_desc ? 2 : 3),
-							desc_sets.data(),
-							// don't want to set dyn offsets when only binding the fixed sampler set
-							discontiguous || encoder->dyn_offsets.empty() ? 0 : uint32_t(encoder->dyn_offsets.size()),
-							discontiguous || encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
-	
-	// bind fs set
-	if (discontiguous) {
+	bool legacy_has_vs_desc = false, legacy_has_fs_desc = false;
+	if (vk_dev.descriptor_buffer_support) {
+		if (!encoder->acquired_descriptor_buffers.empty()) {
+			// setup + bind descriptor buffers
+			vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
+			for (const auto& acq_desc_buffer : encoder->acquired_descriptor_buffers) {
+				const auto& desc_buffer = *(const vulkan_buffer*)acq_desc_buffer.desc_buffer;
+				desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
+					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+					.pNext = nullptr,
+					.address = desc_buffer.get_vulkan_buffer_device_address(),
+					.usage = desc_buffer.get_vulkan_buffer_usage(),
+				});
+			}
+			if (!desc_buf_bindings.empty()) {
+				vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
+														  uint32_t(desc_buf_bindings.size()),
+														  desc_buf_bindings.data());
+			}
+			
+			vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
+																	   VK_PIPELINE_BIND_POINT_GRAPHICS,
+																	   encoder->pipeline_layout, 0 /* always set #0 */);
+			
+			static constexpr const uint32_t buffer_indices[2] { 0, 1 };
+			static constexpr const VkDeviceSize offsets [2] { 0, 0 };
+			// start at set #1 if there are vertex shader descriptors, otherwise set #2
+			const uint32_t start_set = (vertex_shader->desc_buffer.desc_buffer_container ? 1 : 2);
+			// number of sets
+			const uint32_t set_count = ((vertex_shader->desc_buffer.desc_buffer_container ? 1 : 0) +
+										(fragment_shader && fragment_shader->desc_buffer.desc_buffer_container ? 1 : 0));
+			if (set_count > 0) {
+				vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
+																VK_PIPELINE_BIND_POINT_GRAPHICS,
+																encoder->pipeline_layout,
+																start_set, set_count,
+																&buffer_indices[0], &offsets[0]);
+			}
+		}
+	} else {
+		vkUpdateDescriptorSets(vk_dev.device,
+							   (uint32_t)encoder->legacy.write_descs.size(), encoder->legacy.write_descs.data(),
+							   // never copy (bad for performance)
+							   0, nullptr);
+		
+		// final desc set binding after all parameters have been updated/set
+		// note that we need to take care of the situation where the vertex shader doesn't have a desc set,
+		// but the fragment shader does -> binding discontiguous sets is not directly possible
+		legacy_has_vs_desc = (vertex_shader->desc_legacy.desc_set_container != nullptr);
+		legacy_has_fs_desc = (fragment_shader != nullptr && fragment_shader->desc_legacy.desc_set_container != nullptr);
+		const bool discontiguous = (!legacy_has_vs_desc && legacy_has_fs_desc);
+		
+		array<VkDescriptorSet, 3> desc_sets {{
+			vk_dev.legacy_fixed_sampler_desc_set,
+			// NOTE: these may be nullptr / dummy ones (see above)
+			encoder->legacy.acquired_descriptor_sets[0].desc_set,
+			encoder->legacy.acquired_descriptor_sets[1].desc_set,
+		}};
+		
+		// either binds everything or just the fixed sampler set
 		vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
 								VK_PIPELINE_BIND_POINT_GRAPHICS,
 								encoder->pipeline_layout,
-								2,
-								1,
-								&desc_sets[2],
-								encoder->dyn_offsets.empty() ? 0 : (uint32_t)encoder->dyn_offsets.size(),
-								encoder->dyn_offsets.empty() ? nullptr : encoder->dyn_offsets.data());
+								0,
+								(discontiguous || !legacy_has_vs_desc) ? 1 : (!legacy_has_fs_desc ? 2 : 3),
+								desc_sets.data(),
+								// don't want to set dyn offsets when only binding the fixed sampler set
+								discontiguous || encoder->legacy.dyn_offsets.empty() ? 0 : uint32_t(encoder->legacy.dyn_offsets.size()),
+								discontiguous || encoder->legacy.dyn_offsets.empty() ? nullptr : encoder->legacy.dyn_offsets.data());
+		
+		// bind fs set
+		if (discontiguous) {
+			vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
+									VK_PIPELINE_BIND_POINT_GRAPHICS,
+									encoder->pipeline_layout,
+									2,
+									1,
+									&desc_sets[2],
+									encoder->legacy.dyn_offsets.empty() ? 0 : (uint32_t)encoder->legacy.dyn_offsets.size(),
+									encoder->legacy.dyn_offsets.empty() ? nullptr : encoder->legacy.dyn_offsets.data());
+		}
 	}
 	
 	if (draw_entries != nullptr) {
@@ -226,20 +292,38 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	}
 	
 	// release acquired descriptor sets again after completion
-	if (has_vs_desc || has_fs_desc) {
-		auto acq_desc_sets_local = make_shared<decltype(encoder->acquired_descriptor_sets)>(move(encoder->acquired_descriptor_sets));
-		auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
-		vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local),
-													 acq_const_buffers = move(acq_const_buffers_local),
-													 kernel_entries = encoder->entries]() {
-			acq_desc_sets->clear();
-			for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {
-				auto& acq_const_buffer = (*acq_const_buffers)[entry_idx];
-				if (acq_const_buffer.first != nullptr) {
-					kernel_entries[entry_idx]->constant_buffers->release(acq_const_buffer);
+	if (vk_dev.descriptor_buffer_support) {
+		if (vs_has_descriptors || fs_has_descriptors) {
+			auto acq_desc_buffers_local = make_shared<decltype(encoder->acquired_descriptor_buffers)>(move(encoder->acquired_descriptor_buffers));
+			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
+			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_buffers = move(acq_desc_buffers_local),
+														 acq_const_buffers = move(acq_const_buffers_local),
+														 kernel_entries = encoder->entries]() {
+				acq_desc_buffers->clear();
+				for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {
+					auto& acq_const_buffer = (*acq_const_buffers)[entry_idx];
+					if (acq_const_buffer.first != nullptr) {
+						kernel_entries[entry_idx]->constant_buffers->release(acq_const_buffer);
+					}
 				}
-			}
-		});
+			});
+		}
+	} else {
+		if (legacy_has_vs_desc || legacy_has_fs_desc) {
+			auto acq_desc_sets_local = make_shared<decltype(encoder->legacy.acquired_descriptor_sets)>(move(encoder->legacy.acquired_descriptor_sets));
+			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
+			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local),
+														 acq_const_buffers = move(acq_const_buffers_local),
+														 kernel_entries = encoder->entries]() {
+				acq_desc_sets->clear();
+				for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {
+					auto& acq_const_buffer = (*acq_const_buffers)[entry_idx];
+					if (acq_const_buffer.first != nullptr) {
+						kernel_entries[entry_idx]->constant_buffers->release(acq_const_buffer);
+					}
+				}
+			});
+		}
 	}
 	
 #if defined(FLOOR_DEBUG)

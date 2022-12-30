@@ -160,6 +160,50 @@ public:
 	
 	void set_debug_label(const string& label) override;
 	
+	//! returns the descriptor data for this buffer (for use in descriptor buffers)
+	span<const uint8_t> get_vulkan_descriptor_data_sampled() const {
+		return { descriptor_data_sampled.get(), descriptor_sampled_size };
+	}
+	
+	//! returns the descriptor data for this buffer (for use in descriptor buffers)
+	span<const uint8_t> get_vulkan_descriptor_data_storage() const {
+		return { descriptor_data_storage.get(), descriptor_storage_size };
+	}
+	
+	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	vulkan_image* get_underlying_vulkan_image_safe() {
+		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			vulkan_image* ret = nullptr;
+			if (ret = get_shared_vulkan_image(); !ret) {
+				ret = this;
+			}
+#if defined(FLOOR_DEBUG)
+			if (auto test_cast_vk_image = dynamic_cast<vulkan_image*>(ret); !test_cast_vk_image) {
+				throw runtime_error("specified image is neither a Vulkan image nor a shared Vulkan image");
+			}
+#endif
+			return ret;
+		}
+		return this;
+	}
+	
+	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	const vulkan_image* get_underlying_vulkan_image_safe() const {
+		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			const vulkan_image* ret = nullptr;
+			if (ret = get_shared_vulkan_image(); !ret) {
+				ret = this;
+			}
+#if defined(FLOOR_DEBUG)
+			if (auto test_cast_vk_image = dynamic_cast<const vulkan_image*>(ret); !test_cast_vk_image) {
+				throw runtime_error("specified image is neither a Vulkan image nor a shared Vulkan image");
+			}
+#endif
+			return ret;
+		}
+		return this;
+	}
+	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
@@ -177,6 +221,11 @@ protected:
 	vector<VkImageView> mip_map_image_view;
 	vector<VkDescriptorImageInfo> mip_map_image_info;
 	void update_mip_map_info();
+	
+	//! when using descriptor buffers, this contains the descriptor data (sampled and storage descriptor)
+	size_t descriptor_sampled_size = 0, descriptor_storage_size = 0;
+	unique_ptr<uint8_t[]> descriptor_data_sampled;
+	unique_ptr<uint8_t[]> descriptor_data_storage;
 	
 	// shared memory handle when the image has been created with VULKAN_SHARING
 #if defined(__WINDOWS__)

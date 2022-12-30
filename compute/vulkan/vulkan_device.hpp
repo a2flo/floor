@@ -104,13 +104,30 @@ public:
 	//! min offset alignment in SSBOs
 	uint32_t min_storage_buffer_offset_alignment { 0u };
 	
+	//! feature support: can make full use of descriptor buffers
+	bool descriptor_buffer_support { false };
+	
+	//! device-specific descriptor sizes for use in descriptor buffers
+	struct desc_buffer_sizes_t {
+		//! size of a sampled image descriptor
+		uint32_t sampled_image { 0u };
+		//! size of a storage image descriptor
+		uint32_t storage_image { 0u };
+		//! size of a uniform buffer descriptor
+		uint32_t ubo { 0u };
+		//! size of a storage buffer descriptor
+		uint32_t ssbo { 0u };
+	} desc_buffer_sizes;
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set
 	//! NOTE: this is allocated once at context creation
 	VkDescriptorSetLayout fixed_sampler_desc_set_layout { nullptr };
-	VkDescriptorPool fixed_sampler_desc_pool { nullptr };
-	VkDescriptorSet fixed_sampler_desc_set { nullptr };
+	//! NOTE: not used when there is descriptor buffer support
+	VkDescriptorPool legacy_fixed_sampler_desc_pool { nullptr };
+	//! NOTE: not used when there is descriptor buffer support
+	VkDescriptorSet legacy_fixed_sampler_desc_set { nullptr };
 	
 	//! fixed sampler set
 	//! NOTE: this is allocated once at context creation

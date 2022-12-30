@@ -263,7 +263,10 @@ namespace universal_binary {
 			//! if set, enables tessellation support
 			uint64_t tessellation_support : 1;
 			
-			uint64_t _unused : 24;
+			//! if set, enables descriptor buffer support
+			uint64_t descriptor_buffer_support : 1;
+			
+			uint64_t _unused : 23;
 		} vulkan;
 
 		//! packed value

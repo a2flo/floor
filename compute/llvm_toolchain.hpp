@@ -33,7 +33,7 @@ namespace llvm_toolchain {
 		PTX,
 		//! Metal Apple-IR 2.0+
 		AIR,
-		//! Vulkan SPIR-V 1.5+
+		//! Vulkan SPIR-V 1.6+
 		SPIRV_VULKAN,
 		//! OpenCL SPIR-V 1.0+
 		SPIRV_OPENCL,
@@ -61,6 +61,8 @@ namespace llvm_toolchain {
 		NONE							= (0u),
 		//! function makes use of soft-printf
 		USES_SOFT_PRINTF				= (1u << 0u),
+		//! function makes use of Vulkan descriptor buffers
+		USES_VULKAN_DESCRIPTOR_BUFFER	= (1u << 1u),
 	};
 	floor_global_enum_no_hash_ext(FUNCTION_FLAGS)
 

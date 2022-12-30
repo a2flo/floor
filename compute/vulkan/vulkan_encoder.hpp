@@ -25,21 +25,25 @@ struct vulkan_encoder {
 	vulkan_command_buffer cmd_buffer;
 	const vulkan_queue& cqueue;
 	const vulkan_device& device;
-	vector<VkWriteDescriptorSet> write_descs;
-	vector<VkWriteDescriptorSetInlineUniformBlock> iub_descs;
 	vector<shared_ptr<compute_buffer>> constant_buffers;
-	vector<uint32_t> dyn_offsets;
-	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
 	const VkPipeline pipeline { nullptr };
 	const VkPipelineLayout pipeline_layout { nullptr };
 	const vector<const vulkan_kernel::vulkan_kernel_entry*> entries;
-	vector<descriptor_set_instance_t> acquired_descriptor_sets;
+	vector<descriptor_buffer_instance_t> acquired_descriptor_buffers;
 	vector<pair<compute_buffer*, uint32_t>> acquired_constant_buffers;
 	vector<void*> constant_buffer_mappings;
 	vector<unique_ptr<VkDescriptorBufferInfo>> constant_buffer_desc_info;
 	//! if set, won't transition kernel/shader image arguments to read or write optimal layout during argument encoding
 	//! NOTE: this is useful in cases we don't want to or can't have a pipeline barrier
 	bool allow_generic_layout { false };
+	
+	struct encoder_legacy_t {
+		vector<VkWriteDescriptorSet> write_descs;
+		vector<VkWriteDescriptorSetInlineUniformBlock> iub_descs;
+		vector<uint32_t> dyn_offsets;
+		vector<descriptor_set_instance_t> acquired_descriptor_sets;
+		vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
+	} legacy;
 };
 
 #endif

@@ -271,6 +271,39 @@ public:
 		}
 		(*vk_set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
 	}
+	
+	//! calls vkGetDescriptorSetLayoutBindingOffsetEXT
+	void vulkan_get_descriptor_set_layout_binding_offset(VkDevice device_, VkDescriptorSetLayout layout_,
+														 uint32_t binding_, VkDeviceSize* pOffset_) const {
+		(*get_descriptor_set_layout_binding_offset)(device_, layout_, binding_, pOffset_);
+	}
+	//! calls vkGetDescriptorSetLayoutSizeEXT
+	void vulkan_get_descriptor_set_layout_size(VkDevice device_, VkDescriptorSetLayout layout_,
+											   VkDeviceSize* pLayoutSizeInBytes_) const {
+		(*get_descriptor_set_layout_size)(device_, layout_, pLayoutSizeInBytes_);
+	}
+	//! calls vkGetDescriptorEXT
+	void vulkan_get_descriptor(VkDevice device_, const VkDescriptorGetInfoEXT* pDescriptorInfo_,
+							   size_t dataSize_, void* pDescriptor_) const {
+		(*get_descriptor)(device_, pDescriptorInfo_, dataSize_, pDescriptor_);
+	}
+	//! calls vkCmdBindDescriptorBuffersEXT
+	void vulkan_cmd_bind_descriptor_buffers(VkCommandBuffer commandBuffer_, uint32_t bufferCount_,
+											const VkDescriptorBufferBindingInfoEXT* pBindingInfos_) const {
+		(*cmd_bind_descriptor_buffers)(commandBuffer_, bufferCount_, pBindingInfos_);
+	}
+	//! calls vkCmdBindDescriptorBufferEmbeddedSamplersEXT
+	void vulkan_cmd_bind_descriptor_buffer_embedded_samplers(VkCommandBuffer commandBuffer_, VkPipelineBindPoint pipelineBindPoint_,
+														 VkPipelineLayout layout_, uint32_t set_) const {
+		(*cmd_bind_descriptor_buffer_embedded_samplers)(commandBuffer_, pipelineBindPoint_, layout_, set_);
+	}
+	//! calls vkCmdSetDescriptorBufferOffsetsEXT
+	void vulkan_cmd_set_descriptor_buffer_offsets(VkCommandBuffer commandBuffer_, VkPipelineBindPoint pipelineBindPoint_,
+												  VkPipelineLayout layout_, uint32_t firstSet_, uint32_t setCount_,
+												  const uint32_t* pBufferIndices_, const VkDeviceSize* pOffsets_) const {
+		(*cmd_set_descriptor_buffer_offsets)(commandBuffer_, pipelineBindPoint_, layout_, firstSet_,
+											 setCount_, pBufferIndices_, pOffsets_);
+	}
 
 	//! returns true if validation layer error printing is currently enabled
 	bool is_vulkan_validation_ignored() const {
@@ -388,6 +421,14 @@ protected:
 #endif
 
 	PFN_vkSetHdrMetadataEXT vk_set_hdr_metadata { nullptr };
+	
+	// VK_EXT_descriptor_buffer
+	PFN_vkGetDescriptorSetLayoutBindingOffsetEXT get_descriptor_set_layout_binding_offset { nullptr };
+	PFN_vkGetDescriptorSetLayoutSizeEXT get_descriptor_set_layout_size { nullptr };
+	PFN_vkGetDescriptorEXT get_descriptor { nullptr };
+	PFN_vkCmdBindDescriptorBuffersEXT cmd_bind_descriptor_buffers { nullptr };
+	PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT cmd_bind_descriptor_buffer_embedded_samplers { nullptr };
+	PFN_vkCmdSetDescriptorBufferOffsetsEXT cmd_set_descriptor_buffer_offsets { nullptr };
 	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;

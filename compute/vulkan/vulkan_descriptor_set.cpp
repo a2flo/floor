@@ -20,6 +20,8 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 
+#include <floor/compute/vulkan/vulkan_buffer.hpp>
+
 descriptor_set_instance_t vulkan_descriptor_set_container::acquire_descriptor_set() {
 	auto [desc_set, index] = descriptor_sets.acquire();
 	return { desc_set, index, *this };
@@ -30,9 +32,25 @@ void vulkan_descriptor_set_container::release_descriptor_set(descriptor_set_inst
 		return;
 	}
 	
-	descriptor_sets.release({ instance.desc_set, instance.index });
+	descriptor_sets.release(instance.index);
 	
 	instance.desc_set = nullptr;
+	instance.index = ~0u;
+}
+
+descriptor_buffer_instance_t vulkan_descriptor_buffer_container::acquire_descriptor_buffer() {
+	auto [res, index] = descriptor_buffers.acquire();
+	return { res.first.get(), res.second, index, *this };
+}
+
+void vulkan_descriptor_buffer_container::release_descriptor_buffer(descriptor_buffer_instance_t& instance) {
+	if (instance.desc_buffer == nullptr || instance.index == ~0u) {
+		return;
+	}
+	
+	descriptor_buffers.release(instance.index);
+	
+	instance.desc_buffer = nullptr;
 	instance.index = ~0u;
 }
 

@@ -54,7 +54,7 @@ rm -Rf build 2>/dev/null
 LLVM_REV=d93a85733e8107de8e90b250fc16183161ad2241
 LLVM_SPIRV_REV=f3a466783429402fb64917a098bb0ee726e7e834
 if [ ! -d llvm ]; then
-	git clone -b floor_toolchain_140 https://github.com/a2flo/floor_llvm.git llvm
+	git clone -b floor_toolchain_1406 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
 	git submodule init
 	git submodule update
@@ -72,7 +72,7 @@ else
 	cd llvm/projects/spirv
 	git clean -f -d
 	git reset --hard
-	git checkout floor_toolchain_140
+	git checkout floor_toolchain_1406
 	cd ../
 	git submodule update
 	cd spirv/

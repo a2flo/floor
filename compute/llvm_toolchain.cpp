@@ -508,6 +508,7 @@ program_data compile_input(const string& input,
 				" -Xclang -vulkan-iub-count=" + to_string(vk_device.max_inline_uniform_block_count) +
 				(soft_printf ? " -Xclang -vulkan-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
 				(options.vulkan.pre_structurization_pass ? " -Xclang -vulkan-llvm-pre-structurization-pass" : "") +
+				(vk_device.descriptor_buffer_support ? " -Xclang -vulkan-descriptor-buffer-support" : "") +
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE"

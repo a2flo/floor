@@ -185,6 +185,11 @@ public:
 	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
 	
 	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
+	vulkan_image* get_shared_vulkan_image() {
+		return shared_vk_image;
+	}
+	
+	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
 	const vulkan_image* get_shared_vulkan_image() const {
 		return shared_vk_image;
 	}

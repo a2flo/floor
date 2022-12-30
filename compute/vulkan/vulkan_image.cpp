@@ -391,6 +391,53 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	update_mip_map_info();
 	
+	// query descriptor data
+	if (device.descriptor_buffer_support) {
+		descriptor_sampled_size = device.desc_buffer_sizes.sampled_image;
+		descriptor_storage_size = device.desc_buffer_sizes.storage_image * mip_map_image_view.size();
+		descriptor_data_sampled = make_unique<uint8_t[]>(descriptor_sampled_size);
+		descriptor_data_storage = make_unique<uint8_t[]>(descriptor_storage_size);
+		
+		auto& vk_ctx = *(vulkan_compute*)cqueue.get_device().context;
+		{
+			const VkDescriptorImageInfo desc_img_info {
+				.sampler = VK_NULL_HANDLE,
+				.imageView = image_info.imageView,
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+			
+			const VkDescriptorGetInfoEXT desc_info_sampled {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+				.pNext = nullptr,
+				.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				.data = {
+					.pSampledImage = &desc_img_info,
+				},
+			};
+			vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_sampled, device.desc_buffer_sizes.sampled_image,
+										 descriptor_data_sampled.get());
+		}
+		
+		for (size_t mip_level = 0, mip_level_count = mip_map_image_view.size(); mip_level < mip_level_count; ++mip_level) {
+			const VkDescriptorImageInfo desc_img_info {
+				.sampler = VK_NULL_HANDLE,
+				.imageView = mip_map_image_view[mip_level],
+				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			};
+			
+			const VkDescriptorGetInfoEXT desc_info_storage {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+				.pNext = nullptr,
+				.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.data = {
+					.pStorageImage = &desc_img_info,
+				},
+			};
+			vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_storage, device.desc_buffer_sizes.storage_image,
+										 descriptor_data_storage.get() + mip_level * device.desc_buffer_sizes.storage_image);
+		}
+	}
+	
 	// buffer init from host data pointer
 	if(copy_host_data &&
 	   host_ptr != nullptr &&

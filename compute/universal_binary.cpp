@@ -535,6 +535,7 @@ namespace universal_binary {
 				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;
 				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
+				vlk_dev.descriptor_buffer_support = vlk_target.descriptor_buffer_support;
 				
 				// assume minimum required support for now
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
@@ -1398,6 +1399,11 @@ namespace universal_binary {
 					if (vlk_target.tessellation_support && (!dev.tessellation_support || dev.max_tessellation_factor < 64u)) {
 						continue;
 					}
+					if ((vlk_target.descriptor_buffer_support && !vlk_dev.descriptor_buffer_support) ||
+						(!vlk_target.descriptor_buffer_support && vlk_dev.descriptor_buffer_support)) {
+						// support is exclusive either way
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1439,14 +1445,16 @@ namespace universal_binary {
 											  vlk_target.basic_32_bit_float_atomics_support +
 											  vlk_target.primitive_id_support +
 											  vlk_target.barycentric_coord_support +
-											  vlk_target.tessellation_support);
+											  vlk_target.tessellation_support +
+											  vlk_target.descriptor_buffer_support);
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
 												   best_vlk.extended_64_bit_atomics_support +
 												   best_vlk.basic_32_bit_float_atomics_support +
 												   best_vlk.primitive_id_support +
 												   best_vlk.barycentric_coord_support +
-												   best_vlk.tessellation_support);
+												   best_vlk.tessellation_support +
+												   best_vlk.descriptor_buffer_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
