@@ -429,6 +429,17 @@ namespace device_info {
 		return FLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR;
 	}
 	
+	//! returns true if basic argument buffers are supported by the device
+	constexpr bool has_argument_buffer_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT != 0);
+	}
+	
+	//! returns true if images and image arrays are supported in argument buffers
+	//! NOTE: otherwise, only buffers and simple variables/fields are supported
+	constexpr bool has_argument_buffer_image_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT != 0);
+	}
+	
 }
 
 //! range attribute containing the global [min, max) id range

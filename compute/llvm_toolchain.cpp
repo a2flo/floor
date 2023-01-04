@@ -970,6 +970,14 @@ program_data compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_TESSELLATION_SUPPORT_"s + has_tessellation_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR="s + to_string(device.max_tessellation_factor) + "u";
 	
+	// argument buffer support
+	const auto has_arg_buffer_str = to_string(device.argument_buffer_support);
+	const auto has_arg_buffer_image_str = to_string(device.argument_buffer_image_support);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT="s + has_arg_buffer_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT_"s + has_arg_buffer_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT="s + has_arg_buffer_image_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT_"s + has_arg_buffer_image_str;
+	
 	// set param workaround define
 	if(device.param_workaround) {
 		clang_cmd += " -DFLOOR_COMPUTE_PARAM_WORKAROUND=1";

@@ -66,4 +66,6 @@ host_device::host_device() : compute_device() {
 	image_depth_compare_support = true;
 	image_gather_support = false; // for now
 	image_read_write_support = true;
+	
+	argument_buffer_support = true;
 }

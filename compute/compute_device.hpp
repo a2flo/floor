@@ -208,6 +208,12 @@ public:
 	//! if tessellation shaders are supported, this specifies the max supported tessellation factor
 	uint32_t max_tessellation_factor { 0u };
 	
+	//! true if the device has basic argument buffer support
+	bool argument_buffer_support { false };
+	//! true if the device supports images in argument buffers
+	//! NOTE: otherwise, only buffers and simple variables/fields are supported
+	bool argument_buffer_image_support { false };
+	
 	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
 	bool param_workaround { false };
 	

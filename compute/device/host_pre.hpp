@@ -297,6 +297,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 #define FLOOR_COMPUTE_INFO_MAX_TESSELLATION_FACTOR 0u
 
+// argument buffer info
+#define FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT 1
+#define FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT_1
+#define FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT 0
+#define FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT_0
+
 // other required c++ headers
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <vector>

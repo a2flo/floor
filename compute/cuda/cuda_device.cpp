@@ -35,6 +35,7 @@ cuda_device::cuda_device() : compute_device() {
 	basic_32_bit_float_atomics_support = true; // always true since fermi/sm_20
 	sub_group_support = true;
 	sub_group_shuffle_support = true; // since Kepler/sm_30
+	argument_buffer_support = true;
 	
 	image_support = true;
 	image_depth_support = true;

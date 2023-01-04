@@ -42,6 +42,9 @@ metal_device::metal_device() : compute_device() {
 	image_gather_support = true;
 	max_anisotropy = 16u;
 	
+	argument_buffer_support = true;
+	argument_buffer_image_support = true;
+	
 	// good default
 #if !defined(FLOOR_IOS)
 	max_total_local_size = 1024;
