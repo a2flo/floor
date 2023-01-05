@@ -147,12 +147,10 @@ public:
 #endif
 	
 	//! minimum required inline uniform block size that must be supported by a device
-	//! NOTE: supported by NVIDIA and Intel (AMD is higher)
 	static constexpr const uint32_t min_required_inline_uniform_block_size { 256 };
 	
 	//! minimum required inline uniform block count that must be supported by a device
-	//! NOTE: supported by Intel (AMD and NVIDIA are higher)
-	static constexpr const uint32_t min_required_inline_uniform_block_count { 4 };
+	static constexpr const uint32_t min_required_inline_uniform_block_count { 16 };
 	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const vulkan_device& dev) const {
