@@ -40,7 +40,7 @@ void vulkan_descriptor_set_container::release_descriptor_set(descriptor_set_inst
 
 descriptor_buffer_instance_t vulkan_descriptor_buffer_container::acquire_descriptor_buffer() {
 	auto [res, index] = descriptor_buffers.acquire();
-	return { res.first.get(), res.second, index, *this };
+	return { res.first.get(), res.second, index, this };
 }
 
 void vulkan_descriptor_buffer_container::release_descriptor_buffer(descriptor_buffer_instance_t& instance) {

@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_program.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/compute/vulkan/vulkan_descriptor_set.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
@@ -42,6 +43,15 @@ public:
 	typedef floor_core::flat_map<const vulkan_device&, vulkan_program_entry> program_map_type;
 	
 	vulkan_program(program_map_type&& programs);
+	
+	static optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout(const compute_device& dev,
+																				const string& func_name,
+																				const llvm_toolchain::function_info& info,
+																				const VkShaderStageFlagBits stage,
+																				const bool is_legacy);
+	
+	//! returns a static empty descriptor set layout for the specified device
+	static VkDescriptorSetLayout get_empty_descriptor_set(const compute_device& dev);
 	
 protected:
 	const program_map_type programs;

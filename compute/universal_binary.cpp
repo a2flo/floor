@@ -536,6 +536,10 @@ namespace universal_binary {
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;
 				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
 				vlk_dev.descriptor_buffer_support = vlk_target.descriptor_buffer_support;
+				if (vlk_dev.descriptor_buffer_support) {
+					vlk_dev.argument_buffer_support = true;
+					vlk_dev.argument_buffer_image_support = true;
+				}
 				
 				// assume minimum required support for now
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;

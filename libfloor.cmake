@@ -13,7 +13,7 @@ if (MSVC)
 else ()
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem ")
 	if (CMAKE_BUILD_TYPE MATCHES "DEBUG" OR CMAKE_BUILD_TYPE MATCHES "Debug")
-		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-2 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -fstandalone-debug)
+		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-4 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -fstandalone-debug)
 	endif ()
 endif (MSVC)
 

@@ -69,6 +69,13 @@ public:
 	//! returns the corresponding VkCompareOp for the specified DEPTH_COMPARE
 	static VkCompareOp vulkan_compare_op_from_depth_compare(const DEPTH_COMPARE& depth_compare);
 	
+	//! the descriptor set index where vertex shader argument buffers start at
+	static constexpr const uint32_t argument_buffer_vs_start_set { 5u };
+	//! the descriptor set index where fragment shader argument buffers start at
+	static constexpr const uint32_t argument_buffer_fs_start_set { 9u };
+	//! the descriptor set index where tessellation control shader argument buffers start at
+	static constexpr const uint32_t argument_buffer_tcs_start_set { 13u };
+	
 protected:
 	floor_core::flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;
 	unique_ptr<vulkan_pass> sv_vulkan_base_pass;

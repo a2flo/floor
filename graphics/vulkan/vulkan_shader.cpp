@@ -27,6 +27,7 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_encoder.hpp>
+#include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 
 using namespace llvm_toolchain;
 
@@ -159,9 +160,17 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	// set/write/update descriptors
 	bool legacy_has_vs_desc = false, legacy_has_fs_desc = false;
 	if (vk_dev.descriptor_buffer_support) {
-		if (!encoder->acquired_descriptor_buffers.empty()) {
+		// this always exists
+		vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
+																   VK_PIPELINE_BIND_POINT_GRAPHICS,
+																   encoder->pipeline_layout, 0 /* always set #0 */);
+		
+		if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 			// setup + bind descriptor buffers
+			const auto desc_buf_count = uint32_t(encoder->acquired_descriptor_buffers.size()) + uint32_t(encoder->argument_buffers.size());
 			vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
+			desc_buf_bindings.reserve(desc_buf_count);
+			
 			for (const auto& acq_desc_buffer : encoder->acquired_descriptor_buffers) {
 				const auto& desc_buffer = *(const vulkan_buffer*)acq_desc_buffer.desc_buffer;
 				desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
@@ -171,21 +180,25 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 					.usage = desc_buffer.get_vulkan_buffer_usage(),
 				});
 			}
-			if (!desc_buf_bindings.empty()) {
-				vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
-														  uint32_t(desc_buf_bindings.size()),
-														  desc_buf_bindings.data());
+			
+			for (const auto& arg_buffer : encoder->argument_buffers) {
+				desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
+					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+					.pNext = nullptr,
+					.address = arg_buffer.second->get_vulkan_buffer_device_address(),
+					.usage = arg_buffer.second->get_vulkan_buffer_usage(),
+				});
 			}
 			
-			vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
-																	   VK_PIPELINE_BIND_POINT_GRAPHICS,
-																	   encoder->pipeline_layout, 0 /* always set #0 */);
+			vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
+													  uint32_t(desc_buf_bindings.size()),
+													  desc_buf_bindings.data());
 			
+			// set fixed descriptor buffers (set #1 is the vertex shader, set #2 is the fragment shader)
+			// NOTE: these may be optional
 			static constexpr const uint32_t buffer_indices[2] { 0, 1 };
 			static constexpr const VkDeviceSize offsets [2] { 0, 0 };
-			// start at set #1 if there are vertex shader descriptors, otherwise set #2
 			const uint32_t start_set = (vertex_shader->desc_buffer.desc_buffer_container ? 1 : 2);
-			// number of sets
 			const uint32_t set_count = ((vertex_shader->desc_buffer.desc_buffer_container ? 1 : 0) +
 										(fragment_shader && fragment_shader->desc_buffer.desc_buffer_container ? 1 : 0));
 			if (set_count > 0) {
@@ -194,6 +207,38 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 																encoder->pipeline_layout,
 																start_set, set_count,
 																&buffer_indices[0], &offsets[0]);
+			}
+			
+			// bind argument buffers if there are any
+			// NOTE: descriptor set range is [5, 8] for vertex shaders and [9, 12] for fragment shaders
+			vector<uint32_t> arg_buf_vs_buf_indices;
+			vector<uint32_t> arg_buf_fs_buf_indices;
+			uint32_t arg_buf_vs_set_count = 0, arg_buf_fs_set_count = 0;
+			uint32_t desc_buf_index = set_count;
+			for (const auto& arg_buffer : encoder->argument_buffers) {
+				assert(arg_buffer.first <= 1u);
+				if (arg_buffer.first == 0) {
+					++arg_buf_vs_set_count;
+					arg_buf_vs_buf_indices.emplace_back(desc_buf_index++);
+				} else if (arg_buffer.first == 1) {
+					++arg_buf_fs_set_count;
+					arg_buf_fs_buf_indices.emplace_back(desc_buf_index++);
+				}
+			}
+			const vector<VkDeviceSize> arg_buf_offsets(std::max(arg_buf_vs_set_count, arg_buf_fs_set_count), 0); // always 0 for all
+			if (arg_buf_vs_set_count > 0) {
+				vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
+																VK_PIPELINE_BIND_POINT_GRAPHICS,
+																encoder->pipeline_layout,
+																vulkan_pipeline::argument_buffer_vs_start_set, arg_buf_vs_set_count,
+																arg_buf_vs_buf_indices.data(), arg_buf_offsets.data());
+			}
+			if (arg_buf_fs_set_count > 0) {
+				vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
+																VK_PIPELINE_BIND_POINT_GRAPHICS,
+																encoder->pipeline_layout,
+																vulkan_pipeline::argument_buffer_fs_start_set, arg_buf_fs_set_count,
+																arg_buf_fs_buf_indices.data(), arg_buf_offsets.data());
 			}
 		}
 	} else {

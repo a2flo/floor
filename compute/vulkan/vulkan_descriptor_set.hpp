@@ -23,6 +23,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/threading/safe_resource_container.hpp>
+#include <floor/core/flat_map.hpp>
 
 struct descriptor_set_instance_t;
 struct descriptor_buffer_instance_t;
@@ -120,13 +121,14 @@ protected:
 struct descriptor_buffer_instance_t {
 	friend vulkan_descriptor_buffer_container;
 	
-	compute_buffer* desc_buffer;
+	const compute_buffer* desc_buffer { nullptr };
 	span<uint8_t> mapped_host_memory;
 
 	constexpr descriptor_buffer_instance_t() noexcept {}
 	
-	descriptor_buffer_instance_t(compute_buffer* desc_buffer_, span<uint8_t> mapped_host_memory_, const uint32_t& index_, vulkan_descriptor_buffer_container& container_) :
-	desc_buffer(desc_buffer_), mapped_host_memory(mapped_host_memory_), index(index_), container(&container_) {}
+	descriptor_buffer_instance_t(const compute_buffer* desc_buffer_, span<uint8_t> mapped_host_memory_,
+								 const uint32_t& index_, vulkan_descriptor_buffer_container* container_) :
+	desc_buffer(desc_buffer_), mapped_host_memory(mapped_host_memory_), index(index_), container(container_) {}
 	
 	descriptor_buffer_instance_t(descriptor_buffer_instance_t&& instance) : desc_buffer(instance.desc_buffer), mapped_host_memory(instance.mapped_host_memory), index(instance.index), container(instance.container) {
 		instance.desc_buffer = nullptr;
@@ -144,8 +146,8 @@ struct descriptor_buffer_instance_t {
 	}
 	
 	~descriptor_buffer_instance_t() {
-		if (desc_buffer != nullptr) {
-			assert(container != nullptr);
+		if (desc_buffer != nullptr && container != nullptr) {
+			assert(index != ~0u);
 			container->release_descriptor_buffer(*this);
 		}
 	}
@@ -158,6 +160,32 @@ protected:
 	uint32_t index { ~0u };
 	//! pointer to the parent container (needed for auto-release)
 	vulkan_descriptor_buffer_container* container { nullptr };
+};
+
+//! used in descriptor sets for parameters that don't fit IUBs
+struct vulkan_constant_buffer_info_t {
+	uint32_t offset;
+	uint32_t size;
+};
+
+//! descriptor set layout definition
+struct vulkan_descriptor_set_layout_t {
+	VkDescriptorSetLayout desc_set_layout { nullptr };
+	
+	uint32_t ssbo_desc { 0u };
+	uint32_t iub_desc { 0u };
+	uint32_t read_image_desc { 0u };
+	uint32_t write_image_desc { 0u };
+	uint32_t max_iub_size { 0u };
+	uint32_t constant_arg_count { 0u };
+	uint32_t constant_buffer_size { 0u };
+	
+	vector<VkDescriptorSetLayoutBinding> bindings;
+	floor_core::flat_map<uint32_t, vulkan_constant_buffer_info_t> constant_buffer_info;
+	
+	struct legacy_t {
+		vector<VkDescriptorType> desc_types;
+	} legacy;
 };
 
 #endif

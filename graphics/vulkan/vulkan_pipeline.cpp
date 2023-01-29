@@ -61,6 +61,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 								   const vulkan_kernel::vulkan_kernel_entry* vk_vs_entry,
 								   const vulkan_kernel::vulkan_kernel_entry* vk_fs_entry,
 								   const bool is_multi_view) {
+	assert(vk_vs_entry != nullptr);
 	state.vs_entry = vk_vs_entry;
 	state.fs_entry = vk_fs_entry;
 
@@ -71,6 +72,23 @@ static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& sta
 	};
 	if (vk_fs_entry != nullptr) {
 		desc_set_layouts.emplace_back(vk_fs_entry->desc_set_layout);
+	}
+	// set argument buffer descriptor set layouts + fill unused sets with an empty descriptor set
+	// NOTE: Vulkan has no way of specifying explicit descriptor set offsets, so we must specify everything in range, even if unused
+	const auto has_arg_buffers_vs = !vk_vs_entry->argument_buffers.empty();
+	const auto has_arg_buffers_fs = (vk_fs_entry && !vk_fs_entry->argument_buffers.empty());
+	const auto empty_desc_set = (has_arg_buffers_vs || has_arg_buffers_fs ? vulkan_program::get_empty_descriptor_set(vk_dev) : nullptr);
+	if (has_arg_buffers_vs) {
+		desc_set_layouts.resize(vulkan_pipeline::argument_buffer_vs_start_set, empty_desc_set);
+		for (const auto& arg_buf : vk_vs_entry->argument_buffers) {
+			desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+		}
+	}
+	if (has_arg_buffers_fs) {
+		desc_set_layouts.resize(vulkan_pipeline::argument_buffer_fs_start_set, empty_desc_set);
+		for (const auto& arg_buf : vk_fs_entry->argument_buffers) {
+			desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+		}
 	}
 	const VkPipelineLayoutCreateInfo pipeline_layout_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,

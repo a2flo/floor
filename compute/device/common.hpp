@@ -417,8 +417,8 @@ template <typename T> using compute_arg_buffer = const T&;
 #elif defined(FLOOR_COMPUTE_METAL)
 template <typename T> using arg_buffer = const constant T& __restrict;
 #elif defined(FLOOR_COMPUTE_VULKAN)
-template <typename T> using compute_arg_buffer = const constant T&;
-#define arg_buffer __attribute__((floor_arg_buffer)) __restrict compute_arg_buffer
+template <typename T> using compute_arg_buffer = const T;
+#define arg_buffer __attribute__((floor_arg_buffer)) compute_arg_buffer
 #endif
 
 //! generic parameter object/buffer

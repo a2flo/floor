@@ -1205,7 +1205,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		if (desc_buf_features.descriptorBuffer && FLOOR_USE_VK_DESC_BUFFER) {
 			if (desc_buf_props.storageBufferDescriptorSize > vulkan_buffer::max_ssbo_descriptor_size) {
-				log_error("descriptor buffer: SSBO descriptor size is too large: $ (want $ bytes or less)",
+				log_error("failed argument/descriptor buffer support: SSBO descriptor size is too large: $ (want $ bytes or less)",
 						  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
 			} else {
 				device.descriptor_buffer_support = true;
@@ -1217,9 +1217,6 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 						device.desc_buffer_sizes.ubo, device.desc_buffer_sizes.ssbo,
 						device.desc_buffer_sizes.sampled_image, device.desc_buffer_sizes.storage_image);
 				
-				// this extension enables argument buffer support
-				device.argument_buffer_support = true;
-				
 				// init extension functions if we haven't done this yet
 				if (!get_descriptor_set_layout_binding_offset) {
 					get_descriptor_set_layout_binding_offset = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutBindingOffsetEXT");
@@ -1228,6 +1225,15 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 					cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
 					cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
 					cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
+				}
+				
+				// this extension enables argument buffer support, but we also need a minimum amount of bindable descriptor sets
+				if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
+					log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
+							  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
+				} else {
+					device.argument_buffer_support = true;
+					device.argument_buffer_image_support = true;
 				}
 			}
 		}

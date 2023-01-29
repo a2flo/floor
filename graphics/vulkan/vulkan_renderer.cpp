@@ -294,15 +294,17 @@ bool vulkan_renderer::commit(const bool wait_until_completion) {
 		is_presenting = false;
 	}
 	
+	// reset
+	did_begin_cmd_buffer = false;
+	
 	// call all user completion handlers
 	// NOTE/TODO: if submit_command_buffer() is no longer blocking, we need to actually add this to the vk_queue
-	for (const auto& compl_handler : completion_handlers) {
+	// NOTE: we need to store/move all completion handlers into a local variable,
+	//       because a completion handler may actually hold onto the vulkan_renderer object
+	auto exec_compl_handlers = std::move(completion_handlers);
+	for (const auto& compl_handler : exec_compl_handlers) {
 		compl_handler();
 	}
-	
-	// reset
-	completion_handlers.clear();
-	did_begin_cmd_buffer = false;
 	
 	return true;
 }

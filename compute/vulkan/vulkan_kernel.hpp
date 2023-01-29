@@ -60,11 +60,13 @@ public:
 		array<void*, vulkan_descriptor_set_container::descriptor_count> constant_buffer_mappings;
 		unique_ptr<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>> constant_buffers;
 		//! argument index -> constant buffer info
-		struct constant_buffer_info_t {
-			uint32_t offset;
-			uint32_t size;
+		floor_core::flat_map<uint32_t, vulkan_constant_buffer_info_t> constant_buffer_info;
+		
+		//! argument buffer data
+		struct argument_buffer_t {
+			vulkan_descriptor_set_layout_t layout;
 		};
-		floor_core::flat_map<uint32_t, constant_buffer_info_t> constant_buffer_info;
+		vector<argument_buffer_t> argument_buffers;
 		
 		struct spec_entry {
 			VkPipeline pipeline { nullptr };

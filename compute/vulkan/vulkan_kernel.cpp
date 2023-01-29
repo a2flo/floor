@@ -324,29 +324,53 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// set/write/update descriptors
 	if (vk_dev.descriptor_buffer_support) {
-		if (!encoder->acquired_descriptor_buffers.empty()) {
+		// this always exists
+		vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
+																   VK_PIPELINE_BIND_POINT_COMPUTE,
+																   entry.pipeline_layout, 0 /* always set #0 */);
+		
+		if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 			// setup + bind descriptor buffers
-			assert(encoder->acquired_descriptor_buffers.size() == 1);
-			const auto& desc_buffer = *(const vulkan_buffer*)encoder->acquired_descriptor_buffers[0].desc_buffer;
-			const VkDescriptorBufferBindingInfoEXT desc_buf_binding {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-				.pNext = nullptr,
-				.address = desc_buffer.get_vulkan_buffer_device_address(),
-				.usage = desc_buffer.get_vulkan_buffer_usage(),
-			};
-			vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer, 1, &desc_buf_binding);
+			const auto desc_buf_count = uint32_t(encoder->acquired_descriptor_buffers.size()) + uint32_t(encoder->argument_buffers.size());
+			vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
+			desc_buf_bindings.reserve(desc_buf_count);
 			
-			vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
-																	   VK_PIPELINE_BIND_POINT_COMPUTE,
-																	   entry.pipeline_layout, 0 /* always set #0 */);
+			if (!encoder->acquired_descriptor_buffers.empty()) {
+				assert(encoder->acquired_descriptor_buffers.size() == 1);
+				const auto& kernel_desc_buffer = *(const vulkan_buffer*)encoder->acquired_descriptor_buffers[0].desc_buffer;
+				desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
+					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+					.pNext = nullptr,
+					.address = kernel_desc_buffer.get_vulkan_buffer_device_address(),
+					.usage = kernel_desc_buffer.get_vulkan_buffer_usage(),
+				});
+			}
 			
-			const uint32_t buffer_index = 0;
-			const VkDeviceSize offset = 0;
+			for (const auto& arg_buffer : encoder->argument_buffers) {
+				assert(arg_buffer.first == 0);
+				desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
+					.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+					.pNext = nullptr,
+					.address = arg_buffer.second->get_vulkan_buffer_device_address(),
+					.usage = arg_buffer.second->get_vulkan_buffer_usage(),
+				});
+			}
+			
+			vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
+													  desc_buf_count, desc_buf_bindings.data());
+			
+			// kernel descriptor set + any argument buffers are stored in contiguous descriptor set indices
+			const vector<VkDeviceSize> offsets(desc_buf_count, 0); // always 0 for all
+			vector<uint32_t> buffer_indices(desc_buf_count, 0);
+			for (uint32_t i = 1; i < desc_buf_count; ++i) {
+				buffer_indices[i] = i;
+			}
+			const auto start_set = (encoder->acquired_descriptor_buffers.empty() ? 2u /* first arg buffer set */ : 1u /* kernel set */);
 			vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
 															VK_PIPELINE_BIND_POINT_COMPUTE,
 															entry.pipeline_layout,
-															1 /* always set #1 */, 1,
-															&buffer_index, &offset);
+															start_set, desc_buf_count,
+															buffer_indices.data(), offsets.data());
 		}
 	} else {
 		vkUpdateDescriptorSets(vk_dev.device,
@@ -486,8 +510,11 @@ static inline void arg_post_handler(const vulkan_kernel::vulkan_kernel_entry& en
 		++idx.implicit;
 	}
 	++idx.arg;
-	++idx.legacy.write_desc;
-	++idx.binding;
+	// argument buffer doesn't use a binding, it's a separate descriptor set
+	if (idx.is_implicit || (!idx.is_implicit && entry.info->args[idx.arg].special_type != SPECIAL_TYPE::ARGUMENT_BUFFER)) {
+		++idx.binding;
+		++idx.legacy.write_desc;
+	}
 }
 
 bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
@@ -535,8 +562,8 @@ bool vulkan_kernel::set_and_handle_arguments(vulkan_encoder& encoder,
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, host_desc_data[idx.entry], **vec_img_sptrs);
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-			const auto arg_storage_buf = (*arg_buf_ptr)->get_storage_buffer();
-			set_argument(encoder, *entry, idx, host_desc_data[idx.entry], arg_storage_buf);
+			// argument buffer will be set later (together with fixed descriptor buffers)
+			encoder.argument_buffers.emplace_back(idx.entry, (const vulkan_buffer*)(*arg_buf_ptr)->get_storage_buffer());
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			set_argument(encoder, *entry, idx, host_desc_data[idx.entry], *generic_arg_ptr, arg.size);
 		} else {
@@ -1004,8 +1031,15 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 																		   const uint32_t& user_arg_index,
 																		   const uint32_t& ll_arg_index,
 																		   const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
-	const auto& dev = cqueue.get_device();
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	const auto& vk_ctx = (const vulkan_compute&)*vk_dev.context;
 	const auto& vulkan_entry = (const vulkan_kernel_entry&)kern_entry;
+	
+	if (!has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_VULKAN_DESCRIPTOR_BUFFER>(vulkan_entry.info->flags)) {
+		log_error("can't use a function that has not been built with descriptor buffer support with descriptor/argument buffers: in function $",
+				  vulkan_entry.info->name);
+		return {};
+	}
 	
 	// check if info exists
 	const auto& arg_info = vulkan_entry.info->args[ll_arg_index].argument_buffer_info;
@@ -1014,16 +1048,89 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 		return {};
 	}
 	
-	const auto arg_buffer_size = vulkan_entry.info->args[ll_arg_index].size;
-	if (arg_buffer_size == 0) {
-		log_error("computed argument buffer size is 0");
+	const auto arg_buf_name = vulkan_entry.info->name + ".arg_buffer@" + to_string(user_arg_index);
+	
+	// argument buffers are implemented as individual descriptor sets inside the parent function/program, stored in descriptor buffers
+	// -> grab the descriptor set layout from the parent function that has already created this + allocate a descriptor buffer
+	if (vulkan_entry.argument_buffers.empty()) {
+		log_error("no argument buffer info in function entry (in $)", vulkan_entry.info->name);
 		return {};
 	}
 	
+	// find the argument buffer info index
+	uint32_t arg_buf_idx = 0;
+	for (uint32_t i = 0, count = uint32_t(vulkan_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
+		if (i == ll_arg_index) {
+			break;
+		}
+		if (vulkan_entry.info->args[i].special_type == SPECIAL_TYPE::ARGUMENT_BUFFER) {
+			++arg_buf_idx;
+		}
+	}
+	if (arg_buf_idx >= vulkan_entry.argument_buffers.size()) {
+		log_error("argument buffer info index is out-of-bounds for function entry (arg #$ in $)",
+				  user_arg_index, vulkan_entry.info->name);
+		return {};
+	}
+	const auto& arg_buf_info = vulkan_entry.argument_buffers[arg_buf_idx];
+	
+	// the argument buffer size is device/driver dependent (can't be statically known)
+	// -> query required buffer size + ensure good alignment
+	VkDeviceSize arg_buffer_size = 0;
+	vk_ctx.vulkan_get_descriptor_set_layout_size(vk_dev.device, arg_buf_info.layout.desc_set_layout, &arg_buffer_size);
+	arg_buffer_size = const_math::round_next_multiple(arg_buffer_size, uint64_t(256));
+	
+	// query offset for each binding/argument
+	vector<VkDeviceSize> argument_offsets;
+	argument_offsets.reserve(arg_buf_info.layout.bindings.size());
+	for (const auto& binding : arg_buf_info.layout.bindings) {
+		VkDeviceSize offset = 0;
+		vk_ctx.vulkan_get_descriptor_set_layout_binding_offset(vk_dev.device, arg_buf_info.layout.desc_set_layout, binding.binding, &offset);
+		argument_offsets.emplace_back(offset);
+	}
+	
+	// alloc with Vulkan flags: need host-visible/host-coherent and descriptor buffer usage flags
+	auto arg_buffer_storage = vk_ctx.create_buffer(cqueue, arg_buffer_size,
+												   // NOTE: read-only on the device side (until writable argument buffers are implemented)
+												   COMPUTE_MEMORY_FLAG::READ |
+												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+												   COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT |
+												   COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
+												   add_mem_flags);
+	arg_buffer_storage->set_debug_label(arg_buf_name);
+	auto mapped_host_ptr = arg_buffer_storage->map(cqueue, (COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE |
+															COMPUTE_MEMORY_MAP_FLAG::BLOCK));
+	span<uint8_t> mapped_host_memory { (uint8_t*)mapped_host_ptr, arg_buffer_size };
+	
+	// if this needs a constant buffer, also allocate it
+	// TODO: allocate together with arg buf storage + offset/align?
+	shared_ptr<compute_buffer> constant_buffer_storage;
+	span<uint8_t> constant_buffer_mapping;
+	if (arg_buf_info.layout.constant_buffer_size > 0) {
+		// align size to 16 bytes
+		const uint32_t alignment_pot = 4u, alignment = 1u << alignment_pot;
+		const auto constant_buffer_size = ((arg_buf_info.layout.constant_buffer_size + alignment - 1u) / alignment) * alignment;
+		const auto& ctx = *(const vulkan_compute*)vk_dev.context;
+		
+		// allocate in device-local/host-coherent memory
+		constant_buffer_storage = ctx.create_buffer(cqueue, constant_buffer_size,
+													COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE |
+													COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT);
+		constant_buffer_storage->set_debug_label(arg_buf_name + ":const_buf");
+		
+		auto constant_buffer_host_ptr = constant_buffer_storage->map(cqueue,
+																	 COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE |
+																	 COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (constant_buffer_host_ptr == nullptr) {
+			log_error("failed to memory map constant buffer for argument buffer @$ in function $", user_arg_index, vulkan_entry.info->name);
+			return {};
+		}
+		constant_buffer_mapping = { (uint8_t*)constant_buffer_host_ptr, constant_buffer_size };
+	}
+	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE | add_mem_flags);
-	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
-	return make_unique<vulkan_argument_buffer>(*this, buf, *arg_info);
+	return make_unique<vulkan_argument_buffer>(*this, arg_buffer_storage, *arg_info, arg_buf_info.layout, std::move(argument_offsets),
+											   mapped_host_memory, constant_buffer_storage, constant_buffer_mapping);
 }
 
 #endif

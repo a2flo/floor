@@ -152,6 +152,9 @@ public:
 	//! minimum required inline uniform block count that must be supported by a device
 	static constexpr const uint32_t min_required_inline_uniform_block_count { 16 };
 	
+	//! minimum required number of bindable descriptor sets for "argument_buffer_support"
+	static constexpr const uint32_t min_required_bound_descriptor_sets_for_argument_buffer_support { 16u };
+	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const vulkan_device& dev) const {
 		return (this == &dev);

@@ -33,6 +33,7 @@ struct vulkan_encoder {
 	vector<pair<compute_buffer*, uint32_t>> acquired_constant_buffers;
 	vector<void*> constant_buffer_mappings;
 	vector<unique_ptr<VkDescriptorBufferInfo>> constant_buffer_desc_info;
+	vector<pair<uint32_t /* entry idx */, const vulkan_buffer*>> argument_buffers;
 	//! if set, won't transition kernel/shader image arguments to read or write optimal layout during argument encoding
 	//! NOTE: this is useful in cases we don't want to or can't have a pipeline barrier
 	bool allow_generic_layout { false };
