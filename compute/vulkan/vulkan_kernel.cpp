@@ -626,20 +626,20 @@ void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 	}
 }
 
-void vulkan_kernel::set_argument(vulkan_encoder& encoder floor_unused,
+void vulkan_kernel::set_argument(vulkan_encoder& encoder,
 								 const vulkan_kernel_entry& entry,
 								 const idx_handler& idx,
 								 const span<uint8_t>& host_desc_data,
 								 const compute_buffer* arg) const {
 	const auto vk_buffer = ((const vulkan_buffer*)arg)->get_underlying_vulkan_buffer_safe();
-	const auto& desc_data = vk_buffer->get_vulkan_descriptor_data();
+	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], encoder.device.desc_buffer_sizes.ssbo };
 	const auto write_offset = entry.desc_buffer.argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
-	if (write_offset + desc_data.size() > host_desc_data.size_bytes()) {
+	if (write_offset + desc_data.size_bytes() > host_desc_data.size_bytes()) {
 		throw runtime_error("out-of-bounds descriptor buffer write");
 	}
 #endif
-	memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
+	memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size_bytes());
 }
 
 void vulkan_kernel::set_argument(vulkan_encoder& encoder,

@@ -109,16 +109,19 @@ namespace llvm_toolchain {
 		NONE							= (0u),
 		//! graphics-only: shader stage input
 		STAGE_INPUT						= (1u),
-		//! vulkan-only: constant parameter fast path
+		//! Vulkan-only: constant parameter fast path
 		PUSH_CONSTANT					= (2u),
-		//! vulkan-only: param is BufferBlock/storage (not Block/uniform)
+		//! Vulkan-only: param is a storage buffer (not uniform)
 		SSBO							= (3u),
 		//! array of images
 		IMAGE_ARRAY						= (4u),
-		//! vulkan-only: inline uniform block
+		//! Vulkan-only: inline uniform block
 		IUB								= (5u),
 		//! argument/indirect buffer
 		ARGUMENT_BUFFER					= (6u),
+		//! array of buffers
+		//! NOTE: practically Vulkan-only, Metal handles this differently
+		BUFFER_ARRAY					= (7u),
 	};
 
 	//! need forward decl for function_info

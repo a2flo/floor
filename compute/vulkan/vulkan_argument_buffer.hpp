@@ -61,6 +61,15 @@ protected:
 	void set_argument(const vulkan_device& vk_dev,
 					  const vulkan_kernel::idx_handler& idx,
 					  const span<uint8_t>& host_desc_data,
+					  const vector<shared_ptr<compute_buffer>>& arg) const;
+	void set_argument(const vulkan_device& vk_dev,
+					  const vulkan_kernel::idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
+					  const vector<compute_buffer*>& arg) const;
+	
+	void set_argument(const vulkan_device& vk_dev,
+					  const vulkan_kernel::idx_handler& idx,
+					  const span<uint8_t>& host_desc_data,
 					  const compute_image* arg) const;
 	
 	void set_argument(const vulkan_device& vk_dev,

@@ -125,6 +125,10 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 						layout.max_iub_size = max(arg_size_4, layout.max_iub_size);
 						binding.descriptorCount = arg_size_4;
 						++layout.iub_desc;
+					} else if (arg.special_type == SPECIAL_TYPE::BUFFER_ARRAY) {
+						binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+						binding.descriptorCount = arg.size;
+						layout.ssbo_desc += arg.size;
 					} else {
 						binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 						++layout.ssbo_desc;

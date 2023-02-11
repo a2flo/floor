@@ -96,11 +96,9 @@ void vulkan_argument_buffer::set_arguments(const compute_queue& dev_queue, const
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			set_argument(vk_dev, idx, host_desc_data, *buf_ptr);
 		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for Vulkan argument buffers");
-			return;
+			set_argument(vk_dev, idx, host_desc_data, **vec_buf_ptrs);
 		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for Vulkan argument buffers");
-			return;
+			set_argument(vk_dev, idx, host_desc_data, **vec_buf_sptrs);
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			set_argument(vk_dev, idx, host_desc_data, *img_ptr);
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
@@ -173,12 +171,12 @@ void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev,
 	}
 }
 
-void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev floor_unused,
+void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev,
 										  const vulkan_kernel::idx_handler& idx,
 										  const span<uint8_t>& host_desc_data,
 										  const compute_buffer* arg) const {
 	const auto vk_buffer = ((const vulkan_buffer*)arg)->get_underlying_vulkan_buffer_safe();
-	const auto& desc_data = vk_buffer->get_vulkan_descriptor_data();
+	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
 	if (write_offset + desc_data.size() > host_desc_data.size_bytes()) {
@@ -186,6 +184,50 @@ void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev floor_unus
 	}
 #endif
 	memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
+}
+
+template <typename T, typename F>
+floor_inline_always static void set_buffer_array_argument(const vulkan_device& vk_dev,
+														  const llvm_toolchain::function_info& arg_info,
+														  const vector<VkDeviceSize>& argument_offsets,
+														  const vulkan_kernel::idx_handler& idx,
+														  const span<uint8_t>& host_desc_data,
+														  const vector<T>& buffer_array, F&& buffer_accessor) {
+	const auto elem_count = arg_info.args[idx.arg].size;
+	const auto write_offset = argument_offsets[idx.binding];
+#if defined(FLOOR_DEBUG)
+	if (elem_count != buffer_array.size()) {
+		log_error("invalid buffer array: expected $ elements, got $ elements", elem_count, buffer_array.size());
+		return;
+	}
+	const auto desc_data_total_size = vk_dev.desc_buffer_sizes.ssbo * elem_count;
+	if (write_offset + desc_data_total_size > host_desc_data.size_bytes()) {
+		throw runtime_error("out-of-bounds descriptor/argument buffer write");
+	}
+#endif
+	
+	for (uint32_t i = 0; i < elem_count; ++i) {
+		const span<const uint8_t> desc_data { &buffer_accessor(buffer_array[i])->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
+		memcpy(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, desc_data.data(), vk_dev.desc_buffer_sizes.ssbo);
+	}
+}
+
+void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev,
+										  const vulkan_kernel::idx_handler& idx,
+										  const span<uint8_t>& host_desc_data,
+										  const vector<shared_ptr<compute_buffer>>& arg) const {
+	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const shared_ptr<compute_buffer>& buf) {
+		return (const vulkan_buffer*)buf.get();
+	});
+}
+
+void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev,
+										  const vulkan_kernel::idx_handler& idx,
+										  const span<uint8_t>& host_desc_data,
+										  const vector<compute_buffer*>& arg) const {
+	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const compute_buffer* buf) {
+		return (const vulkan_buffer*)buf;
+	});
 }
 
 void vulkan_argument_buffer::set_argument(const vulkan_device& vk_dev floor_unused,
