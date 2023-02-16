@@ -20,9 +20,10 @@
 #define __FLOOR_CPP_BITCAST_HPP__
 
 #include <bit>
+#include <version>
 
 // provide a simplistic std::bit_cast until a proper one is available everywhere with C++20
-#if !__has_feature(__cpp_lib_bit_cast) && __has_builtin(__builtin_bit_cast) && (!defined(_GLIBCXX_RELEASE) || _GLIBCXX_RELEASE < 11)
+#if !defined(__cpp_lib_bit_cast) && __has_builtin(__builtin_bit_cast) && (!defined(_GLIBCXX_RELEASE) || _GLIBCXX_RELEASE < 11)
 template <typename to_type, typename from_type>
 requires(sizeof(to_type) == sizeof(from_type) &&
 		 is_trivially_copyable_v<to_type> &&
