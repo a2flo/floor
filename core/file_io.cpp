@@ -156,7 +156,7 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 		return {};
 	}
 	
-	return { move(data), size };
+	return { std::move(data), size };
 }
 
 bool file_io::file_to_string(const string& filename, string& str) {

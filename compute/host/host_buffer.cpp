@@ -220,11 +220,11 @@ bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
 	}
 	
 	// store old buffer, size and host pointer for possible restore + cleanup later on
-	auto old_buffer = move(buffer);
+	auto old_buffer = std::move(buffer);
 	const auto old_size = size;
 	const auto old_host_ptr = host_ptr;
 	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
-		buffer = move(old_buffer);
+		buffer = std::move(old_buffer);
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};

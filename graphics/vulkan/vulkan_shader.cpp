@@ -31,7 +31,7 @@
 
 using namespace llvm_toolchain;
 
-vulkan_shader::vulkan_shader(kernel_map_type&& kernels_) : vulkan_kernel(move(kernels_)) {
+vulkan_shader::vulkan_shader(kernel_map_type&& kernels_) : vulkan_kernel(std::move(kernels_)) {
 }
 
 void vulkan_shader::execute(const compute_queue& cqueue floor_unused,
@@ -339,10 +339,10 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 	// release acquired descriptor sets again after completion
 	if (vk_dev.descriptor_buffer_support) {
 		if (vs_has_descriptors || fs_has_descriptors) {
-			auto acq_desc_buffers_local = make_shared<decltype(encoder->acquired_descriptor_buffers)>(move(encoder->acquired_descriptor_buffers));
-			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
-			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_buffers = move(acq_desc_buffers_local),
-														 acq_const_buffers = move(acq_const_buffers_local),
+			auto acq_desc_buffers_local = make_shared<decltype(encoder->acquired_descriptor_buffers)>(std::move(encoder->acquired_descriptor_buffers));
+			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(std::move(encoder->acquired_constant_buffers));
+			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_buffers = std::move(acq_desc_buffers_local),
+														 acq_const_buffers = std::move(acq_const_buffers_local),
 														 kernel_entries = encoder->entries]() {
 				acq_desc_buffers->clear();
 				for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {
@@ -355,10 +355,10 @@ void vulkan_shader::draw(const compute_queue& cqueue,
 		}
 	} else {
 		if (legacy_has_vs_desc || legacy_has_fs_desc) {
-			auto acq_desc_sets_local = make_shared<decltype(encoder->legacy.acquired_descriptor_sets)>(move(encoder->legacy.acquired_descriptor_sets));
-			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(move(encoder->acquired_constant_buffers));
-			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = move(acq_desc_sets_local),
-														 acq_const_buffers = move(acq_const_buffers_local),
+			auto acq_desc_sets_local = make_shared<decltype(encoder->legacy.acquired_descriptor_sets)>(std::move(encoder->legacy.acquired_descriptor_sets));
+			auto acq_const_buffers_local = make_shared<decltype(encoder->acquired_constant_buffers)>(std::move(encoder->acquired_constant_buffers));
+			vk_queue.add_completion_handler(cmd_buffer, [acq_desc_sets = std::move(acq_desc_sets_local),
+														 acq_const_buffers = std::move(acq_const_buffers_local),
 														 kernel_entries = encoder->entries]() {
 				acq_desc_sets->clear();
 				for (size_t entry_idx = 0, entry_count = kernel_entries.size(); entry_idx < entry_count; ++entry_idx) {

@@ -27,7 +27,7 @@
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/compute/soft_printf.hpp>
 
-metal_shader::metal_shader(kernel_map_type&& kernels_) : metal_kernel(move(kernels_)) {
+metal_shader::metal_shader(kernel_map_type&& kernels_) : metal_kernel(std::move(kernels_)) {
 }
 
 void metal_shader::execute(const compute_queue& cqueue floor_unused,
@@ -66,7 +66,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 			auto rsrc = ctx->acquire_soft_printf_buffer(*dev);
 			initialize_printf_buffer(cqueue, *rsrc.first);
 			implicit_args.emplace_back(rsrc.first);
-			printf_buffer_rsrcs.emplace_back(move(rsrc));
+			printf_buffer_rsrcs.emplace_back(std::move(rsrc));
 		}
 	}
 

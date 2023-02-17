@@ -158,7 +158,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 						return false;
 					}
 					
-					arg.argument_buffer_info = move(info);
+					arg.argument_buffer_info = std::move(info);
 					break;
 				}
 			}

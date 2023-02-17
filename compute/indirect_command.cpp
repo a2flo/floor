@@ -66,10 +66,11 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 					}
 					break;
 				case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
+				case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
 				case llvm_toolchain::SPECIAL_TYPE::IUB:
 				case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
 #if defined(FLOOR_DEBUG)
-					log_error("must not have image-array, IUB or push-constant parameters (in function \"$\") intended for indirect compute/render",
+					log_error("must not have image/buffer-array, IUB or push-constant parameters (in function \"$\") intended for indirect compute/render",
 							  entry->info->name);
 #endif
 					skip = true;

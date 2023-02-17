@@ -105,7 +105,7 @@ indirect_command_pipeline(desc_) {
 		entry.icb.label = (desc.debug_label.empty() ? @"metal_icb" :
 						   [NSString stringWithUTF8String:(desc.debug_label).c_str()]);
 		
-		pipelines.emplace_or_assign(*dev, move(entry));
+		pipelines.emplace_or_assign(*dev, std::move(entry));
 	}
 }
 
@@ -137,7 +137,7 @@ indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_com
 	
 	auto render_enc = make_unique<metal_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline);
 	auto render_enc_ptr = render_enc.get();
-	commands.emplace_back(move(render_enc));
+	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
 }
 
@@ -156,7 +156,7 @@ indirect_compute_command_encoder& metal_indirect_command_pipeline::add_compute_c
 	
 	auto compute_enc = make_unique<metal_indirect_compute_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, kernel_obj);
 	auto compute_enc_ptr = compute_enc.get();
-	commands.emplace_back(move(compute_enc));
+	commands.emplace_back(std::move(compute_enc));
 	return *compute_enc_ptr;
 }
 

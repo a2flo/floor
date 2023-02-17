@@ -58,7 +58,7 @@ static inline void spawn(std::function<void()> op, const string task_name = "tas
 		
 		//! moves the outside task allocation to the interior and starts the task execution
 		void set_alloc_and_start(unique_ptr<task>&& alloc) {
-			task_alloc = move(alloc);
+			task_alloc = std::move(alloc);
 			task_alloc->initialized = true;
 		}
 		
@@ -89,7 +89,7 @@ static inline void spawn(std::function<void()> op, const string task_name = "tas
 	};
 	auto task_obj = make_unique<task>(op, task_name);
 	auto task_ptr = task_obj.get();
-	task_ptr->set_alloc_and_start(move(task_obj));
+	task_ptr->set_alloc_and_start(std::move(task_obj));
 }
 
 } // namespace task

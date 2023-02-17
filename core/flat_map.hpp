@@ -81,14 +81,14 @@ public:
 	constexpr flat_map() noexcept = default;
 	
 	//! move construct from another flat_map
-	flat_map(flat_map&& fmap) : data(move(fmap.data)) {}
+	flat_map(flat_map&& fmap) : data(std::move(fmap.data)) {}
 	
 	//! copy construct from another flat_map
 	flat_map(const flat_map& fmap) : data(fmap.data) {}
 	
 	//! move assignment from another flat_map
 	flat_map& operator=(flat_map&& fmap) {
-		data = move(fmap.data);
+		data = std::move(fmap.data);
 		return *this;
 	}
 	
@@ -104,7 +104,7 @@ public:
 	}
 	
 	//! move construct through a vector, note that all entries will be uniqued
-	flat_map(vector<entry_type>&& vec) : data(move(vec)) {
+	flat_map(vector<entry_type>&& vec) : data(std::move(vec)) {
 		unique();
 	}
 	
@@ -193,7 +193,7 @@ public:
 		if(iter != end()) {
 			return { false, iter };
 		}
-		return { true, data.emplace(end(), move(key), move(value)) };
+		return { true, data.emplace(end(), std::move(key), std::move(value)) };
 	}
 	
 	//! inserts a new <key, value> pair if no entry for 'key' exists yet, or replaces the current <key, value> entry if it does,
@@ -201,10 +201,10 @@ public:
 	iterator emplace_or_assign(key_type&& key, value_type&& value) {
 		auto iter = find(key);
 		if(iter != end()) {
-			iter->second = move(value);
+			iter->second = std::move(value);
 			return iter;
 		}
-		return data.emplace(end(), forward<key_type>(key), forward<value_type>(value));
+		return data.emplace(end(), std::forward<key_type>(key), std::forward<value_type>(value));
 	}
 	
 	//! erases the <key, value> pair at 'iter',

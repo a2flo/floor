@@ -26,7 +26,7 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/threading/task.hpp>
 
-opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
 }
 
 typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue& queue) const {

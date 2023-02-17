@@ -578,7 +578,7 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
 				dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
 			}
-			soft_printf_buffers.emplace_or_assign(*dev, make_unique<soft_printf_buffer_rsrc_container_type>(move(dev_soft_printf_buffers)));
+			soft_printf_buffers.emplace_or_assign(*dev, make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
 		}
 	}
 	
@@ -721,7 +721,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 												   atomic_spin_lock& programs_lock) REQUIRES(!programs_lock) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
-	auto prog = make_shared<metal_program>(move(prog_map));
+	auto prog = make_shared<metal_program>(std::move(prog_map));
 	{
 		GUARD(programs_lock);
 		programs->push_back(prog);
@@ -767,7 +767,7 @@ shared_ptr<compute_program> metal_compute::add_universal_binary(const string& fi
 		prog_map.insert_or_assign(mtl_dev, entry);
 	}
 	
-	return add_metal_program(move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map), &programs, programs_lock);
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device& device floor_unused_on_ios,
@@ -783,7 +783,11 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
 	const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
-	ret.program = [device.device newLibraryWithFile:lib_file_name
+	if (!lib_file_name) {
+		log_error("invalid library file name: $", program.data_or_filename);
+		return ret;
+	}
+	ret.program = [device.device newLibraryWithFile:floor_force_nonnull(lib_file_name)
 											  error:&err];
 	if(!floor::get_toolchain_keep_temp()) {
 		// cleanup
@@ -822,7 +826,7 @@ shared_ptr<compute_program> metal_compute::add_program_file(const string& file_n
 								  create_metal_program((const metal_device&)*dev,
 													   llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
-	return add_metal_program(move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
@@ -841,7 +845,7 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 								  create_metal_program((const metal_device&)*dev,
 													   llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
-	return add_metal_program(move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
@@ -857,7 +861,11 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		
 		NSError* err { nil };
 		const auto lib_file_name = [NSString stringWithUTF8String:file_name.c_str()];
-		entry.program = [((const metal_device&)*dev).device newLibraryWithFile:lib_file_name
+		if (!lib_file_name) {
+			log_error("invalid library file name: $", file_name);
+			continue;
+		}
+		entry.program = [((const metal_device&)*dev).device newLibraryWithFile:floor_force_nonnull(lib_file_name)
 																		 error:&err];
 		if(!entry.program) {
 			log_error("failed to create metal program/library for device $: $",
@@ -868,7 +876,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		
 		prog_map.insert_or_assign((const metal_device&)*dev, entry);
 	}
-	return add_metal_program(move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(const compute_device& device,
@@ -896,7 +904,7 @@ shared_ptr<compute_program> metal_compute::create_metal_test_program(shared_ptr<
 	// create/return the program
 	metal_program::program_map_type prog_map;
 	prog_map.insert(*metal_dev, *metal_entry);
-	return make_shared<metal_program>(move(prog_map));
+	return make_shared<metal_program>(std::move(prog_map));
 }
 
 unique_ptr<indirect_command_pipeline> metal_compute::create_indirect_command_pipeline(const indirect_command_description& desc) const {
@@ -1102,7 +1110,11 @@ bool metal_compute::start_metal_capture(const compute_device& dev, const string&
 		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
 	capture_desc.captureObject = capture_manager.defaultCaptureScope;
 	auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
-	capture_desc.outputURL = [NSURL fileURLWithPath:file_name_nsstr];
+	if (!file_name_nsstr) {
+		log_error("invalid capture file name: $", file_name);
+		return false;
+	}
+	capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
 	capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
 	
 	NSError* err { nil };

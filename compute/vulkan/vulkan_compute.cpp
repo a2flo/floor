@@ -1243,9 +1243,9 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.device_mem_index = dev_mem_info.device_mem_index;
 		device.host_mem_cached_index = dev_mem_info.host_mem_cached_index;
 		device.device_mem_host_coherent_index = dev_mem_info.device_mem_host_coherent_index;
-		device.device_mem_indices = move(dev_mem_info.device_mem_indices);
-		device.host_mem_cached_indices = move(dev_mem_info.host_mem_cached_indices);
-		device.device_mem_host_coherent_indices = move(dev_mem_info.device_mem_host_coherent_indices);
+		device.device_mem_indices = std::move(dev_mem_info.device_mem_indices);
+		device.host_mem_cached_indices = std::move(dev_mem_info.host_mem_cached_indices);
+		device.device_mem_host_coherent_indices = std::move(dev_mem_info.device_mem_host_coherent_indices);
 		device.prefer_host_coherent_mem = dev_mem_info.prefer_host_coherent_mem;
 		
 		device.global_mem_size = device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.device_mem_index].heapIndex].size;
@@ -2103,13 +2103,13 @@ shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& f
 								  create_vulkan_program_internal(vlk_dev, container, func_info, file_name));
 	}
 	
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<vulkan_program> vulkan_compute::add_program(vulkan_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
-	auto prog = make_shared<vulkan_program>(move(prog_map));
+	auto prog = make_shared<vulkan_program>(std::move(prog_map));
 	{
 		GUARD(programs_lock);
 		programs.push_back(prog);
@@ -2133,7 +2133,7 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 		prog_map.insert_or_assign((const vulkan_device&)*dev,
 								  create_vulkan_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<compute_program> vulkan_compute::add_program_source(const string& source_code,
@@ -2152,7 +2152,7 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 		prog_map.insert_or_assign((const vulkan_device&)*dev,
 								  create_vulkan_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(const compute_device& device,
@@ -2239,7 +2239,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		
 		prog_map.insert_or_assign((const vulkan_device&)*dev, entry);
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(const compute_device& device,

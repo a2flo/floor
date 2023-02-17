@@ -93,7 +93,7 @@ device(device_), programs(programs_), has_device_binary(!programs.empty()) {
 			}
 		}
 		
-		kernels.emplace_back(make_shared<host_kernel>(move(kernel_map)));
+		kernels.emplace_back(make_shared<host_kernel>(std::move(kernel_map)));
 	}
 }
 
@@ -133,7 +133,7 @@ FLOOR_POP_WARNINGS()
 	entry.max_total_local_size = device.max_total_local_size;
 	entry.max_local_size = device.max_local_size;
 	
-	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name, move(entry));
+	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name, std::move(entry));
 	kernels.emplace_back(kernel);
 	kernel_names.emplace_back(func_name);
 	

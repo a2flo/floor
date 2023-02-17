@@ -26,7 +26,7 @@
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/core.hpp>
 
-metal_program::metal_program(program_map_type&& programs_) : programs(move(programs_)) {
+metal_program::metal_program(program_map_type&& programs_) : programs(std::move(programs_)) {
 	if(programs.empty()) return;
 	retrieve_unique_kernel_names(programs);
 	
@@ -51,7 +51,11 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					
 					//
 					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
-					id <MTLFunction> func = [prog.second.program newFunctionWithName:func_name];
+					if (!func_name) {
+						log_error("invalid function name: $", info.name);
+						continue;
+					}
+					id <MTLFunction> func = [prog.second.program newFunctionWithName:floor_force_nonnull(func_name)];
 					if(!func) {
 						log_error("failed to get function \"$\" for device \"$\"", info.name, prog.first.get().name);
 						continue;
@@ -114,7 +118,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 			}
 		}
 		
-		kernels.emplace_back(is_kernel ? make_shared<metal_kernel>(move(kernel_map)) : make_shared<metal_shader>(move(kernel_map)));
+		kernels.emplace_back(is_kernel ? make_shared<metal_kernel>(std::move(kernel_map)) : make_shared<metal_shader>(std::move(kernel_map)));
 	}
 }
 

@@ -183,10 +183,14 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 																			length:size
 																		   options:(host_mem_storage |
 																					MTLResourceCPUCacheModeWriteCombined)];
+					if (!buffer_with_host_mem) {
+						log_error("failed to allocate memory of size $'", size);
+						return false;
+					}
 					
 					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-					[blit_encoder copyFromBuffer:buffer_with_host_mem
+					[blit_encoder copyFromBuffer:floor_force_nonnull(buffer_with_host_mem)
 									sourceOffset:0
 										toBuffer:buffer
 							   destinationOffset:0
@@ -460,7 +464,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 		}
 		
 		// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-		mappings.emplace(host_buffer, metal_mapping { move(alloc_host_buffer), map_size, offset, flags_, write_only, read_only });
+		mappings.emplace(host_buffer, metal_mapping { std::move(alloc_host_buffer), map_size, offset, flags_, write_only, read_only });
 		
 		return host_buffer;
 	}

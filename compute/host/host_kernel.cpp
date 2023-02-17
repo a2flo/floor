@@ -658,10 +658,10 @@ static thread_local device_exec_context_t device_exec_context;
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
-kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(move(entry_)) {
+kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(std::move(entry_)) {
 }
 
-host_kernel::host_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+host_kernel::host_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
 }
 
 const host_kernel::kernel_entry* host_kernel::get_kernel_entry(const compute_device& dev) const {

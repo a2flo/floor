@@ -35,7 +35,7 @@ public:
 	//! amount of contained descriptor sets
 	static constexpr const uint32_t descriptor_count { 16u };
 	
-	vulkan_descriptor_set_container(array<VkDescriptorSet, descriptor_count>&& desc_sets_) : descriptor_sets(move(desc_sets_)) {}
+	vulkan_descriptor_set_container(array<VkDescriptorSet, descriptor_count>&& desc_sets_) : descriptor_sets(std::move(desc_sets_)) {}
 	
 	//! acquire a descriptor set instance
 	//! NOTE: the returned object is a RAII object that will automatically call release_descriptor_set on destruction
@@ -101,7 +101,7 @@ public:
 	//! { Vulkan buffer, mapped host memory }
 	using resource_type = pair<shared_ptr<compute_buffer>, span<uint8_t>>;
 	
-	vulkan_descriptor_buffer_container(array<resource_type, descriptor_count>&& desc_bufs_) : descriptor_buffers(move(desc_bufs_)) {}
+	vulkan_descriptor_buffer_container(array<resource_type, descriptor_count>&& desc_bufs_) : descriptor_buffers(std::move(desc_bufs_)) {}
 	
 	//! acquire a descriptor buffer instance
 	//! NOTE: the returned object is a RAII object that will automatically call release_descriptor_buffer on destruction

@@ -489,7 +489,7 @@ elf_binary::elf_binary(const string& file_name) {
 	if (!bin || bin_size == 0) {
 		return;
 	}
-	binary = move(bin);
+	binary = std::move(bin);
 	binary_size = bin_size;
 	
 	init_elf();
@@ -724,7 +724,7 @@ bool elf_binary::parse_elf() {
 						return false;
 					}
 					sym.name = string(sym_names_start.substr(0, sym_term_pos));
-					info->symbols.emplace_back(move(sym));
+					info->symbols.emplace_back(std::move(sym));
 				}
 			}
 		}
@@ -772,7 +772,7 @@ bool elf_binary::parse_elf() {
 					}
 					reloc.symbol_ptr = &info->symbols[reloc.reloc_ptr->symbol_index];
 					
-					relocations->emplace_back(move(reloc));
+					relocations->emplace_back(std::move(reloc));
 				}
 			} else if (section.header_ptr->type == ELF_SECTION_TYPE::RELOCATION_ENTRIES) {
 				log_error("relocations without addend are not supported by the ABI");

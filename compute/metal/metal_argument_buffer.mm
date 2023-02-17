@@ -26,8 +26,8 @@ metal_argument_buffer::metal_argument_buffer(const compute_kernel& func_, shared
 											 aligned_ptr<uint8_t>&& storage_buffer_backing_,
 											 id <MTLArgumentEncoder> encoder_, const llvm_toolchain::function_info& arg_info_,
 											 vector<uint32_t>&& arg_indices_) :
-argument_buffer(func_, storage_buffer_), metal_resource_tracking(), storage_buffer_backing(move(storage_buffer_backing_)), encoder(encoder_),
-arg_info(arg_info_), arg_indices(move(arg_indices_)) {}
+argument_buffer(func_, storage_buffer_), metal_resource_tracking(), storage_buffer_backing(std::move(storage_buffer_backing_)), encoder(encoder_),
+arg_info(arg_info_), arg_indices(std::move(arg_indices_)) {}
 
 void metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe_unused]], const vector<compute_kernel_arg>& args) {
 	auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();

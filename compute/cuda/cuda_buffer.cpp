@@ -479,7 +479,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
 	auto ret_ptr = host_buffer.get();
-	mappings.emplace(ret_ptr, cuda_mapping { move(host_buffer), map_size, offset, flags_ });
+	mappings.emplace(ret_ptr, cuda_mapping { std::move(host_buffer), map_size, offset, flags_ });
 	
 	return ret_ptr;
 }

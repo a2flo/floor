@@ -242,7 +242,7 @@ static bool allocate_constant_buffers(vulkan_kernel::vulkan_kernel_entry& entry,
 			}
 			constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
 		}
-		entry.constant_buffers = make_unique<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>>(move(constant_buffers));
+		entry.constant_buffers = make_unique<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>>(std::move(constant_buffers));
 	}
 	return true;
 }
@@ -346,7 +346,7 @@ static bool create_kernel_entry_legacy(vulkan_kernel::vulkan_kernel_entry& entry
 			
 		}
 #endif
-		entry.desc_legacy.desc_set_container = make_unique<vulkan_descriptor_set_container>(move(desc_sets));
+		entry.desc_legacy.desc_set_container = make_unique<vulkan_descriptor_set_container>(std::move(desc_sets));
 		
 		if (!allocate_constant_buffers(entry, dev, func_name, *layout)) {
 			return false;
@@ -408,7 +408,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 																				 COMPUTE_MEMORY_MAP_FLAG::BLOCK));
 			desc_buffers[buf_idx].second = { (uint8_t*)mapped_host_ptr, layout_size_in_bytes };
 		}
-		entry.desc_buffer.desc_buffer_container = make_unique<vulkan_descriptor_buffer_container>(move(desc_buffers));
+		entry.desc_buffer.desc_buffer_container = make_unique<vulkan_descriptor_buffer_container>(std::move(desc_buffers));
 		
 		if (!allocate_constant_buffers(entry, dev, func_name, *layout)) {
 			return false;
@@ -440,7 +440,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 	return true;
 }
 
-vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(programs_)) {
+vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::move(programs_)) {
 	if (programs.empty()) return;
 	retrieve_unique_kernel_names(programs);
 	
@@ -541,13 +541,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						}
 					}
 					
-					kernel_map.emplace_or_assign(move(prog.first), move(entry));
+					kernel_map.emplace_or_assign(std::move(prog.first), std::move(entry));
 					break;
 				}
 			}
 		}
 		
-		kernels.emplace_back(make_shared<vulkan_kernel>(move(kernel_map)));
+		kernels.emplace_back(make_shared<vulkan_kernel>(std::move(kernel_map)));
 	}
 }
 

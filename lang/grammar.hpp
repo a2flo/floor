@@ -68,7 +68,7 @@ struct parser_context {
 	parser_context(parser_context&& ctx) :
 	iter(ctx.iter), deepest_iter(iter),
 	begin(ctx.begin), end(ctx.end),
-	tu(ctx.tu), iter_stack(move(ctx.iter_stack)) {}
+	tu(ctx.tu), iter_stack(std::move(ctx.iter_stack)) {}
 	
 	parser_context& operator=(parser_context&& ctx) {
 		assert(begin == ctx.begin && end == ctx.end && &tu == &ctx.tu);
@@ -98,14 +98,14 @@ struct parser_context {
 		
 		match() noexcept {}
 		match(const token_iterator& token_) noexcept : type(MATCH_TYPE::TOKEN), token(token_) {}
-		match(unique_ptr<ast_node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(move(ast_node_)) {
+		match(unique_ptr<ast_node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(std::move(ast_node_)) {
 #if defined(FLOOR_DEBUG)
 			if(ast_node == nullptr) {
 				assert(ast_node != nullptr);
 			}
 #endif
 		}
-		match(match&& m) noexcept : type(m.type), token(m.token), ast_node(m.type == MATCH_TYPE::AST_NODE ? move(m.ast_node) : nullptr) {
+		match(match&& m) noexcept : type(m.type), token(m.token), ast_node(m.type == MATCH_TYPE::AST_NODE ? std::move(m.ast_node) : nullptr) {
 #if defined(FLOOR_DEBUG)
 			if(type == MATCH_TYPE::AST_NODE && ast_node == nullptr) {
 				assert(ast_node != nullptr);
@@ -115,7 +115,7 @@ struct parser_context {
 		match& operator=(match&& m) noexcept {
 			type = m.type;
 			token = m.token;
-			ast_node = (type == MATCH_TYPE::AST_NODE ? move(m.ast_node) : nullptr);
+			ast_node = (type == MATCH_TYPE::AST_NODE ? std::move(m.ast_node) : nullptr);
 			return *this;
 		}
 	};
@@ -124,13 +124,13 @@ struct parser_context {
 	struct match_list {
 		vector<match> list;
 		match_list() noexcept {}
-		match_list(vector<match>&& vec) noexcept : list(move(vec)) {}
-		match_list(match_list&& ml) noexcept : list(move(ml.list)) {}
+		match_list(vector<match>&& vec) noexcept : list(std::move(vec)) {}
+		match_list(match_list&& ml) noexcept : list(std::move(ml.list)) {}
 		match_list(match&& m) noexcept {
-			list.emplace_back(move(m));
+			list.emplace_back(std::move(m));
 		}
 		match_list(unique_ptr<ast_node_base> ast_node) noexcept {
-			list.emplace_back(move(ast_node));
+			list.emplace_back(std::move(ast_node));
 		}
 		size_t size() const { return list.size(); }
 		match& operator[](const size_t& idx) { return list[idx]; }
@@ -250,12 +250,12 @@ struct match_return_type {
 	
 	//! full constructor with a moved match_list
 	match_return_type(const bool successful_, const bool push_node_, parser_context::match_list&& matches_) noexcept :
-	successful(successful_), push_node(push_node_), matches(move(matches_)) {}
+	successful(successful_), push_node(push_node_), matches(std::move(matches_)) {}
 	
 	//! construct from a single match (this implies "successful" and "push_node")
 	match_return_type(parser_context::match&& match) noexcept :
 	successful(true), push_node(true) {
-		matches.list.emplace_back(move(match));
+		matches.list.emplace_back(std::move(match));
 	}
 };
 
@@ -594,7 +594,7 @@ grammar_rule_unary(match_none_or_more, *) {
 		if(ret.push_node) move_matches(matches, ret.matches);
 	}
 	ctx.pop();
-	return { true, true, move(matches) };
+	return { true, true, std::move(matches) };
 } grammar_rule_end;
 
 grammar_rule_unary(match_once_or_more, +) {
@@ -612,7 +612,7 @@ grammar_rule_unary(match_once_or_more, +) {
 		if(ret.push_node) move_matches(matches, ret.matches);
 	}
 	ctx.pop();
-	return { true, true, move(matches) };
+	return { true, true, std::move(matches) };
 } grammar_rule_end;
 
 grammar_rule_unary(match_optional, ~) {
@@ -627,7 +627,7 @@ grammar_rule_unary(match_optional, ~) {
 	ctx.pop();
 	// push matched node depending on if it is flagged as such
 	// NOTE: this can't be pushed onto the match list here, because it would screw up the ordering
-	if(ret_first.push_node) return { true, true, move(ret_first.matches) };
+	if(ret_first.push_node) return { true, true, std::move(ret_first.matches) };
 	return { true, false, {} };
 } grammar_rule_end;
 
@@ -642,7 +642,7 @@ grammar_rule_unary(match_except, !) {
 	ctx.pop();
 	// push matched node depending on if it is flagged as such
 	// NOTE: this can't be pushed onto the match list here, because it would screw up the ordering
-	if(ret.push_node) return { true, true, move(ret.matches) };
+	if(ret.push_node) return { true, true, std::move(ret.matches) };
 	return { true, false, {} };
 } grammar_rule_end;
 

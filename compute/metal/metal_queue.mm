@@ -153,7 +153,7 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	}
 	
 	if (completion_handler) {
-		auto local_completion_handler = move(completion_handler);
+		auto local_completion_handler = std::move(completion_handler);
 		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 			local_completion_handler();
 		}];

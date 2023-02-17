@@ -625,6 +625,10 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	
 	auto src_image = ((const metal_image&)src).get_metal_image();
+	if (!src_image) {
+		log_error("blit: source Metal image is null");
+		return false;
+	}
 	const auto dim_count = image_dim_count(image_type);
 	
 	apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,
@@ -637,7 +641,7 @@ bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
 			dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1u,
 		};
 		for (size_t slice = 0; slice < layer_count; ++slice) {
-			[blit_encoder copyFromTexture:src_image
+			[blit_encoder copyFromTexture:floor_force_nonnull(src_image)
 							  sourceSlice:slice
 							  sourceLevel:level
 							 sourceOrigin:{ 0, 0, 0 }
@@ -812,7 +816,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
 	auto ret_ptr = host_buffer.get();
-	mappings.emplace(ret_ptr, metal_mapping { move(host_buffer), flags_, write_only });
+	mappings.emplace(ret_ptr, metal_mapping { std::move(host_buffer), flags_, write_only });
 	
 	return ret_ptr;
 }

@@ -24,7 +24,7 @@
 #include <floor/compute/opencl/opencl_kernel.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
 
-opencl_program::opencl_program(program_map_type&& programs_) : programs(move(programs_)) {
+opencl_program::opencl_program(program_map_type&& programs_) : programs(std::move(programs_)) {
 	if(programs.empty()) return;
 	retrieve_unique_kernel_names(programs);
 	
@@ -74,7 +74,7 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 			}
 		}
 		
-		kernels.emplace_back(make_shared<opencl_kernel>(move(kernel_map)));
+		kernels.emplace_back(make_shared<opencl_kernel>(std::move(kernel_map)));
 	}
 }
 

@@ -391,13 +391,13 @@ shared_ptr<compute_program> host_compute::add_universal_binary(const string& fil
 															   false /* TODO: true? */));
 	}
 	
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<host_program> host_compute::add_program(host_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
-	auto prog = make_shared<host_program>(*fastest_cpu_device, move(prog_map));
+	auto prog = make_shared<host_program>(*fastest_cpu_device, std::move(prog_map));
 	{
 		GUARD(programs_lock);
 		programs.push_back(prog);
@@ -429,7 +429,7 @@ shared_ptr<compute_program> host_compute::add_program_file(const string& file_na
 		prog_map.insert_or_assign(host_dev,
 								  create_host_program(host_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
@@ -457,7 +457,7 @@ shared_ptr<compute_program> host_compute::add_program_source(const string& sourc
 		prog_map.insert_or_assign(host_dev,
 								  create_host_program(host_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 host_program::host_program_entry host_compute::create_host_program(const host_device& device,
@@ -491,7 +491,7 @@ host_program::host_program_entry host_compute::create_host_program_internal(cons
 		log_error("failed to load ELF binary");
 		return {};
 	}
-	ret.program = move(bin);
+	ret.program = std::move(bin);
 	
 	if (!silence_debug_output) {
 		log_debug("successfully created host program!");

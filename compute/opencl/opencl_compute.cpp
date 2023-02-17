@@ -930,13 +930,13 @@ shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& f
 																 false /* TODO: true? */));
 	}
 	
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<opencl_program> opencl_compute::add_program(opencl_program::program_map_type&& prog_map) {
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
 	// for all devices contained in the program map
-	auto prog = make_shared<opencl_program>(move(prog_map));
+	auto prog = make_shared<opencl_program>(std::move(prog_map));
 	{
 		GUARD(programs_lock);
 		programs.push_back(prog);
@@ -962,7 +962,7 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 								  create_opencl_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options),
 														options.target));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
@@ -983,7 +983,7 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 								  create_opencl_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options),
 														options.target));
 	}
-	return add_program(move(prog_map));
+	return add_program(std::move(prog_map));
 }
 
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(const compute_device& device,

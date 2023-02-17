@@ -376,7 +376,7 @@ void* __attribute__((aligned(128))) opencl_image::map(const compute_queue& cqueu
 		}
 	}
 	
-	mappings.emplace(ret_ptr, opencl_mapping { move(host_buffer), flags_, move(mapped_ptrs), move(level_sizes) });
+	mappings.emplace(ret_ptr, opencl_mapping { std::move(host_buffer), flags_, std::move(mapped_ptrs), std::move(level_sizes) });
 	return ret_ptr;
 }
 

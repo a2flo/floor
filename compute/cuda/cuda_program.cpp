@@ -45,7 +45,7 @@ static size_t compute_kernel_args_size(const llvm_toolchain::function_info& info
 	return ret;
 }
 
-cuda_program::cuda_program(program_map_type&& programs_) : programs(move(programs_)) {
+cuda_program::cuda_program(program_map_type&& programs_) : programs(std::move(programs_)) {
 	if(programs.empty()) return;
 	retrieve_unique_kernel_names(programs);
 	
@@ -101,7 +101,7 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 			}
 		}
 		
-		kernels.emplace_back(make_shared<cuda_kernel>(move(kernel_map)));
+		kernels.emplace_back(make_shared<cuda_kernel>(std::move(kernel_map)));
 	}
 }
 

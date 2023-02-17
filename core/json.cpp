@@ -51,7 +51,7 @@ json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
 	}
 }
 json_value::json_value(json_value&& val) {
-	*this = move(val);
+	*this = std::move(val);
 }
 json_value& json_value::operator=(json_value&& val) {
 	type = val.type;
@@ -68,13 +68,13 @@ json_value& json_value::operator=(json_value&& val) {
 			fp_number = val.fp_number;
 			break;
 		case VALUE_TYPE::OBJECT:
-			new (&this->object) json_object(move(val.object.members));
+			new (&this->object) json_object(std::move(val.object.members));
 			break;
 		case VALUE_TYPE::ARRAY:
-			new (&this->array) json_array(move(val.array.values));
+			new (&this->array) json_array(std::move(val.array.values));
 			break;
 		case VALUE_TYPE::STRING:
-			new (&this->str) string(move(val.str));
+			new (&this->str) string(std::move(val.str));
 			break;
 	}
 	return *this;
@@ -655,24 +655,24 @@ struct json_grammar {
 	};
 	struct value_node : json_node {
 		json_value value;
-		value_node(json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(move(value_)) {}
+		value_node(json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(std::move(value_)) {}
 		value_node(nullptr_t) : json_node(JSON_NODE_TYPE::VALUE), value(json_value::VALUE_TYPE::NULL_VALUE) {}
 	};
 	struct member_node : json_node {
 		string name;
 		unique_ptr<ast_node_base> value;
 		member_node(string&& name_, unique_ptr<ast_node_base>&& value_) :
-		json_node(JSON_NODE_TYPE::MEMBER), name(move(name_)), value(move(value_)) {}
+		json_node(JSON_NODE_TYPE::MEMBER), name(std::move(name_)), value(std::move(value_)) {}
 		member_node(nullptr_t) : json_node(JSON_NODE_TYPE::MEMBER), name("INVALID"), value(nullptr) {}
 	};
 	struct object_node : json_node {
 		vector<unique_ptr<ast_node_base>> objects;
-		object_node(vector<unique_ptr<ast_node_base>>&& objects_) : json_node(JSON_NODE_TYPE::OBJECT), objects(move(objects_)) {}
+		object_node(vector<unique_ptr<ast_node_base>>&& objects_) : json_node(JSON_NODE_TYPE::OBJECT), objects(std::move(objects_)) {}
 		object_node(nullptr_t) : json_node(JSON_NODE_TYPE::OBJECT), objects() {}
 	};
 	struct array_node : json_node {
 		vector<unique_ptr<ast_node_base>> values;
-		array_node(vector<unique_ptr<ast_node_base>>&& values_) : json_node(JSON_NODE_TYPE::ARRAY), values(move(values_)) {}
+		array_node(vector<unique_ptr<ast_node_base>>&& values_) : json_node(JSON_NODE_TYPE::ARRAY), values(std::move(values_)) {}
 		array_node(nullptr_t) : json_node(JSON_NODE_TYPE::ARRAY), values() {}
 	};
 	
@@ -713,9 +713,9 @@ struct json_grammar {
 		const auto push_to_parent_even = [](auto& matches) -> parser_context::match_list {
 			vector<parser_context::match> ret;
 			for(size_t i = 0, count = matches.size(); i < count; i += 2) {
-				ret.emplace_back(move(matches[i].ast_node));
+				ret.emplace_back(std::move(matches[i].ast_node));
 			}
-			return { move(ret) };
+			return { std::move(ret) };
 		};
 		
 		json_text.on_match([this](auto& matches) -> parser_context::match_list {
@@ -726,7 +726,7 @@ struct json_grammar {
 			}
 			
 			if(doc != nullptr) {
-				doc->root = move(((value_node*)matches[0].ast_node.get())->value);
+				doc->root = std::move(((value_node*)matches[0].ast_node.get())->value);
 			}
 			return {};
 		});
@@ -748,13 +748,13 @@ struct json_grammar {
 								// floating point value
 								json_value val { json_value::VALUE_TYPE::FP_NUMBER };
 								val.fp_number = stod(token_str);
-								return { make_unique<value_node>(move(val)) };
+								return { make_unique<value_node>(std::move(val)) };
 							}
 							else {
 								// integer value
 								json_value val { json_value::VALUE_TYPE::INT_NUMBER };
 								val.int_number = stoll(token_str);
-								return { make_unique<value_node>(move(val)) };
+								return { make_unique<value_node>(std::move(val)) };
 							}
 						}
 						case SOURCE_TOKEN_TYPE::IDENTIFIER: {
@@ -768,7 +768,7 @@ struct json_grammar {
 								return { make_unique<value_node>(nullptr) };
 							}
 							json_value val { type };
-							return { make_unique<value_node>(move(val)) };
+							return { make_unique<value_node>(std::move(val)) };
 						}
 						case SOURCE_TOKEN_TYPE::STRING_LITERAL: {
 							json_value val { json_value::VALUE_TYPE::STRING };
@@ -776,7 +776,7 @@ struct json_grammar {
 							// remove " from front and back
 							val.str.erase(val.str.begin());
 							val.str.pop_back();
-							return { make_unique<value_node>(move(val)) };
+							return { make_unique<value_node>(std::move(val)) };
 						}
 						default:
 							log_error("invalid token type: $X!", token_type);
@@ -790,20 +790,20 @@ struct json_grammar {
 							json_value val { json_value::VALUE_TYPE::OBJECT };
 							auto onode = (object_node*)jnode;
 							for(auto& obj : onode->objects) {
-								val.object.members.emplace(move(((member_node*)obj.get())->name),
-														   move(((value_node*)((member_node*)obj.get())->value.get())->value));
+								val.object.members.emplace(std::move(((member_node*)obj.get())->name),
+														   std::move(((value_node*)((member_node*)obj.get())->value.get())->value));
 							}
 							onode->objects.clear();
-							return { make_unique<value_node>(move(val)) };
+							return { make_unique<value_node>(std::move(val)) };
 						}
 						case json_node::JSON_NODE_TYPE::ARRAY: {
 							json_value val { json_value::VALUE_TYPE::ARRAY };
 							auto anode = (array_node*)jnode;
 							for(auto& elem : anode->values) {
-								val.array.values.emplace_back(move(((value_node*)elem.get())->value));
+								val.array.values.emplace_back(std::move(((value_node*)elem.get())->value));
 							}
 							anode->values.clear();
-							return { make_unique<value_node>(move(val)) };
+							return { make_unique<value_node>(std::move(val)) };
 						}
 						case json_node::JSON_NODE_TYPE::MEMBER:
 							log_error("value matched a MEMBER json node (not allowed)!");
@@ -824,9 +824,9 @@ struct json_grammar {
 				// non-empty
 				vector<unique_ptr<ast_node_base>> nodes;
 				for(size_t i = 1, count = matches.size() - 1; i < count; ++i) {
-					nodes.emplace_back(move(matches[i].ast_node));
+					nodes.emplace_back(std::move(matches[i].ast_node));
 				}
-				return { make_unique<object_node>(move(nodes)) };
+				return { make_unique<object_node>(std::move(nodes)) };
 			}
 			else if(matches.size() == 2) {
 				// empty
@@ -842,7 +842,7 @@ struct json_grammar {
 				auto key = matches[0].token->second.to_string();
 				key.erase(key.begin());
 				key.pop_back();
-				return { make_unique<member_node>(move(key), move(matches[2].ast_node)) };
+				return { make_unique<member_node>(std::move(key), std::move(matches[2].ast_node)) };
 			}
 			log_error("invalid member match size: $!", matches.size());
 			return { make_unique<member_node>(nullptr) };
@@ -852,9 +852,9 @@ struct json_grammar {
 				// non-empty
 				vector<unique_ptr<ast_node_base>> nodes;
 				for(size_t i = 1, count = matches.size() - 1; i < count; ++i) {
-					nodes.emplace_back(move(matches[i].ast_node));
+					nodes.emplace_back(std::move(matches[i].ast_node));
 				}
-				return { make_unique<array_node>(move(nodes)) };
+				return { make_unique<array_node>(std::move(nodes)) };
 			}
 			else if(matches.size() == 2) {
 				// empty

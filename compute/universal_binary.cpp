@@ -725,7 +725,7 @@ namespace universal_binary {
 							compilation_successful = false;
 							break;
 						}
-						compile_ret.prog_data.data_or_filename = move(bin_data);
+						compile_ret.prog_data.data_or_filename = std::move(bin_data);
 					}
 					
 					// compute binary hash
@@ -735,10 +735,10 @@ namespace universal_binary {
 					// add to program data array
 					{
 						auto prog_data = make_unique<llvm_toolchain::program_data>();
-						*prog_data = move(compile_ret.prog_data);
+						*prog_data = std::move(compile_ret.prog_data);
 						
 						GUARD(prog_data_lock);
-						targets_prog_data[build_target.first] = move(prog_data);
+						targets_prog_data[build_target.first] = std::move(prog_data);
 						targets_toolchain_version[build_target.first] = compile_ret.toolchain_version;
 						targets_hashes[build_target.first] = binary_hash;
 					}
@@ -769,8 +769,8 @@ namespace universal_binary {
 				.binary_count = uint32_t(targets_prog_data.size()),
 			},
 			.targets = targets,
-			.toolchain_versions = move(targets_toolchain_version),
-			.hashes = move(targets_hashes),
+			.toolchain_versions = std::move(targets_toolchain_version),
+			.hashes = std::move(targets_hashes),
 		};
 		// NOTE: proper offsets are written later on
 		header.offsets.resize(header.static_header.binary_count);
@@ -846,7 +846,7 @@ namespace universal_binary {
 				}
 				++bin_data.static_binary_header.function_count;
 				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v2::arg_info) * finfo.args.size();
-				bin_data.functions.emplace_back(move(finfo));
+				bin_data.functions.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
 				for (const auto& arg_buffer_info : arg_buffers) {
@@ -1535,7 +1535,7 @@ namespace universal_binary {
 							return {};
 						}
 						
-						arg.argument_buffer_info = move(entry);
+						arg.argument_buffer_info = std::move(entry);
 						break;
 					}
 				}
@@ -1568,7 +1568,7 @@ namespace universal_binary {
 			dev_binaries.emplace_back(best_bin);
 		}
 		
-		return { move(ar), dev_binaries };
+		return { std::move(ar), dev_binaries };
 	}
 	
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const compute_context& ctx) {

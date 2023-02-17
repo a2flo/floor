@@ -119,7 +119,7 @@ public:
 		return compare_exchange_strong(expected, desired);
 	}
 	floor_inline_always bool compare_exchange_weak(shared_ptr<T>& expected, shared_ptr<T>&& desired) noexcept {
-		return compare_exchange_strong(expected, forward(desired));
+		return compare_exchange_strong(expected, std::forward(desired));
 	}
 	
 	// modifiers:

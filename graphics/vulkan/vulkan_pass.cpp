@@ -215,7 +215,7 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 		if (!sv_render_pass_info) {
 			return;
 		}
-		sv_clear_values = move(sv_render_pass_info->clear_values);
+		sv_clear_values = std::move(sv_render_pass_info->clear_values);
 	}
 
 	unique_ptr<vulkan_render_pass_info> mv_render_pass_info;
@@ -224,7 +224,7 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 		if (!mv_render_pass_info) {
 			return;
 		}
-		mv_clear_values = move(mv_render_pass_info->clear_values);
+		mv_clear_values = std::move(mv_render_pass_info->clear_values);
 	}
 	
 	for (const auto& dev : devices) {

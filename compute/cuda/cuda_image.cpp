@@ -878,7 +878,7 @@ void* __attribute__((aligned(128))) cuda_image::map(const compute_queue& cqueue,
 	
 	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
 	auto ret_ptr = host_buffer.get();
-	mappings.emplace(ret_ptr, cuda_mapping { move(host_buffer), flags_ });
+	mappings.emplace(ret_ptr, cuda_mapping { std::move(host_buffer), flags_ });
 	
 	return ret_ptr;
 }

@@ -25,7 +25,7 @@
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/cuda/cuda_argument_buffer.hpp>
 
-cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
 }
 
 typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue& cqueue) const {
@@ -247,7 +247,7 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 	
 	if (completion_handler) {
 		auto compl_handler = make_shared<cuda_completion_handler>();
-		compl_handler->handler = move(completion_handler);
+		compl_handler->handler = std::move(completion_handler);
 		{
 			GUARD(completion_handlers_in_flight_lock);
 			completion_handlers_in_flight.emplace(compl_handler.get(), compl_handler);

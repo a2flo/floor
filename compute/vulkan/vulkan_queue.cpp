@@ -212,7 +212,7 @@ struct vulkan_command_pool_t {
 	void add_completion_handler(const vulkan_command_buffer& cmd_buffer,
 								vulkan_queue::vulkan_completion_handler_t&& completion_handler) REQUIRES(!cmd_buffers_lock) {
 		GUARD(cmd_buffers_lock);
-		cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(move(completion_handler));
+		cmd_buffer_internals[cmd_buffer.index].completion_handlers.emplace_back(std::move(completion_handler));
 	}
 };
 
@@ -359,7 +359,7 @@ void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer
 										 const uint32_t wait_sema_count,
 										 const VkPipelineStageFlags wait_stage_flags) const {
 	impl->create_thread_command_pool();
-	impl->thread_cmd_pool->submit_command_buffer(cmd_buffer, move(completion_handler), blocking, wait_semas, wait_sema_count, wait_stage_flags);
+	impl->thread_cmd_pool->submit_command_buffer(cmd_buffer, std::move(completion_handler), blocking, wait_semas, wait_sema_count, wait_stage_flags);
 }
 
 void vulkan_queue::add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
@@ -371,7 +371,7 @@ void vulkan_queue::add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
 void vulkan_queue::add_completion_handler(const vulkan_command_buffer& cmd_buffer,
 										  vulkan_completion_handler_t&& completion_handler) const {
 	impl->create_thread_command_pool();
-	impl->thread_cmd_pool->add_completion_handler(cmd_buffer, move(completion_handler));
+	impl->thread_cmd_pool->add_completion_handler(cmd_buffer, std::move(completion_handler));
 }
 
 void vulkan_queue::set_debug_label(const string& label) {

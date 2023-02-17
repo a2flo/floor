@@ -311,7 +311,7 @@ bool vulkan_renderer::commit(const bool wait_until_completion) {
 
 bool vulkan_renderer::commit(completion_handler_f&& compl_handler) {
 	if (compl_handler) {
-		(void)add_completion_handler(move(compl_handler));
+		(void)add_completion_handler(std::move(compl_handler));
 	}
 	return commit(false);
 }
@@ -324,7 +324,7 @@ bool vulkan_renderer::add_completion_handler(completion_handler_f&& compl_handle
 		log_error("no work has been started or enqueued yet");
 		return false;
 	}
-	completion_handlers.emplace_back(move(compl_handler));
+	completion_handlers.emplace_back(std::move(compl_handler));
 	return true;
 }
 

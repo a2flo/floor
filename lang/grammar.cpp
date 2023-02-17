@@ -21,7 +21,7 @@
 void move_matches(parser_context::match_list& dst_matches,
 				  parser_context::match_list& src_matches) {
 	for(auto& match : src_matches.list) {
-		dst_matches.list.emplace_back(move(match));
+		dst_matches.list.emplace_back(std::move(match));
 	}
 }
 

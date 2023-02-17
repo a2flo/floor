@@ -872,7 +872,7 @@ void compute_image::build_mip_map_minification_program() const {
 		
 		// done, set programs for this context and return
 		GUARD(minify_programs_mtx);
-		minify_programs[ctx] = move(prog);
+		minify_programs[ctx] = std::move(prog);
 		
 		// TODO: safely/cleanly hold up compute_context destruction if the program exits before this is built
 	}, "minify build");

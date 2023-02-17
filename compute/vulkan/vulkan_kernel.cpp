@@ -98,7 +98,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 	return &spec_iter.second->second;
 }
 
-vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
 }
 
 typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue& cqueue) const {
@@ -850,7 +850,7 @@ void vulkan_kernel::set_argument_legacy(vulkan_encoder& encoder,
 			.range = const_buffer_info.size,
 		});
 		auto buffer_info_override = buffer_info.get();
-		encoder.constant_buffer_desc_info.emplace_back(move(buffer_info));
+		encoder.constant_buffer_desc_info.emplace_back(std::move(buffer_info));
 		set_argument_legacy(encoder, entry, idx, const_buffer, buffer_info_override);
 	}
 }

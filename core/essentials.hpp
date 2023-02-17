@@ -77,11 +77,13 @@
 #define floor_null_unspecified _Null_unspecified
 #define floor_nullable _Nullable
 #define floor_returns_nonnull __attribute__((returns_nonnull))
+#define floor_force_nonnull(value) ([](auto param_) { return param_; }(value))
 #else
 #define floor_nonnull
 #define floor_null_unspecified
 #define floor_nullable
 #define floor_returns_nonnull
+#define floor_force_nonnull(value) (value)
 #endif
 
 // set compute defines if host-based compute is enabled

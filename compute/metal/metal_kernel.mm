@@ -54,7 +54,7 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
 	return ret;
 }
 
-metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
+metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
 }
 
 pair<uint3, uint3> metal_kernel::compute_grid_and_block_dim(const kernel_entry& entry,
@@ -148,7 +148,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	}
 	
 	if (completion_handler) {
-		auto local_completion_handler = move(completion_handler);
+		auto local_completion_handler = std::move(completion_handler);
 		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 			local_completion_handler();
 		}];
@@ -429,7 +429,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
 										  add_mem_flags);
 	buf->set_debug_label(entry.info->name + "_arg_buffer");
-	return make_unique<metal_argument_buffer>(*this, buf, move(storage_buffer_backing), arg_encoder, *arg_info, move(arg_indices));
+	return make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));
 }
 
 #endif

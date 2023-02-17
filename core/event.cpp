@@ -57,7 +57,7 @@ void event::handle_events() {
 	{
 		GUARD(queued_events_lock);
 		for (auto& queued_event : queued_events) {
-			handle_event(queued_event.first, move(queued_event.second));
+			handle_event(queued_event.first, std::move(queued_event.second));
 		}
 		queued_events.clear();
 	}
@@ -350,7 +350,7 @@ void event::add_event(const EVENT_TYPE type, shared_ptr<event_object> obj) {
 	// queue event, this will later be handled by handle_events()
 	// NOTE: this is required for multi-threaded correctness
 	GUARD(queued_events_lock);
-	queued_events.emplace_back(type, move(obj));
+	queued_events.emplace_back(type, std::move(obj));
 }
 
 void event::handle_event(const EVENT_TYPE& type, shared_ptr<event_object> obj) {
