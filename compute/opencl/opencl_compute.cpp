@@ -34,7 +34,7 @@
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp> // cleanup
 
-opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE,
+opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 							   const uint32_t platform_index_,
 							   const bool gl_sharing_,
 							   const vector<string> whitelist) : compute_context(ctx_flags) {
