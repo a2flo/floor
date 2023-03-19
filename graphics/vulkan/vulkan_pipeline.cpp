@@ -54,7 +54,7 @@ static unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pipelin
 	return vulkan_base_pass;
 }
 
-static bool create_vulkan_pipeline(vulkan_pipeline::vulkan_pipeline_state_t& state,
+static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 								   const vulkan_pass& vulkan_base_pass,
 								   const render_pipeline_description& pipeline_desc,
 								   const vulkan_device& vk_dev,
@@ -348,7 +348,7 @@ vulkan_pipeline::~vulkan_pipeline() {
 	// TODO: implement this
 }
 
-const vulkan_pipeline::vulkan_pipeline_state_t* vulkan_pipeline::get_vulkan_pipeline_state(const compute_device& dev, const bool get_multi_view) const {
+const vulkan_pipeline_state_t* vulkan_pipeline::get_vulkan_pipeline_state(const compute_device& dev, const bool get_multi_view) const {
 	const auto ret = pipelines.get(dev);
 	return !ret.first ? nullptr : (!get_multi_view ? &ret.second->second.single_view_pipeline : &ret.second->second.multi_view_pipeline);
 }

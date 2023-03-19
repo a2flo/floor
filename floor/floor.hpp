@@ -104,6 +104,9 @@ public:
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED
 		};
+		
+		//! compute/graphics backend context flags that are used/specified during construction
+		COMPUTE_CONTEXT_FLAGS context_flags { COMPUTE_CONTEXT_FLAGS::NONE };
 	};
 	static bool init(const init_state& state);
 	static void destroy();

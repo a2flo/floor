@@ -36,7 +36,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	host_compute();
+	host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE);
 	
 	~host_compute() override {}
 	

@@ -84,7 +84,9 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 #endif
 	}
 	
-	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
+		// "flags" may be specified externally -> also check context flag here
+		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	
@@ -118,7 +120,8 @@ compute_buffer(cqueue, [external_buffer length], host_ptr_, flags_, 0, 0), buffe
 	// copy existing options
 	options = [buffer cpuCacheMode];
 	
-	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
+		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	

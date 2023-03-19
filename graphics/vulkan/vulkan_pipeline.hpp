@@ -27,20 +27,20 @@
 #include <floor/graphics/graphics_pipeline.hpp>
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 
+//! all Vulkan pipeline state
+struct vulkan_pipeline_state_t {
+	VkPipeline pipeline { nullptr };
+	VkPipelineLayout layout { nullptr };
+	const compute_kernel::kernel_entry* vs_entry { nullptr };
+	const compute_kernel::kernel_entry* fs_entry { nullptr };
+};
+
 class vulkan_pipeline final : public graphics_pipeline {
 public:
 	vulkan_pipeline(const render_pipeline_description& pipeline_desc,
 					const vector<unique_ptr<compute_device>>& devices,
 					const bool with_multi_view_support = false);
 	~vulkan_pipeline() override;
-	
-	//! all Vulkan pipeline state
-	struct vulkan_pipeline_state_t {
-		VkPipeline pipeline { nullptr };
-		VkPipelineLayout layout { nullptr };
-		const compute_kernel::kernel_entry* vs_entry { nullptr };
-		const compute_kernel::kernel_entry* fs_entry { nullptr };
-	};
 
 	//! Vulkan pipeline entry with single-view and multi-view rendering support
 	struct vulkan_pipeline_entry_t {

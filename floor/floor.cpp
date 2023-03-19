@@ -1037,7 +1037,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_METAL)
 			else if (renderer == RENDERER::METAL) {
 				// create the metal context
-				metal_ctx = make_shared<metal_compute>(true, vr_ctx.get(), config.metal_whitelist);
+				metal_ctx = make_shared<metal_compute>(state.context_flags, true, vr_ctx.get(), config.metal_whitelist);
 				if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
 					log_error("failed to create the Metal renderer context");
 					metal_ctx = nullptr;
@@ -1050,7 +1050,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_VULKAN)
 			else if (renderer == RENDERER::VULKAN) {
 				// create the vulkan context
-				vulkan_ctx = make_shared<vulkan_compute>(true, vr_ctx.get(), config.vulkan_whitelist);
+				vulkan_ctx = make_shared<vulkan_compute>(state.context_flags, true, vr_ctx.get(), config.vulkan_whitelist);
 				if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
 					log_error("failed to create the Vulkan renderer context");
 					vulkan_ctx = nullptr;
@@ -1225,14 +1225,15 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_CUDA)
 					if(!config.cuda_toolchain_exists) break;
 					log_debug("initializing CUDA ...");
-					compute_ctx = make_shared<cuda_compute>(config.cuda_whitelist);
+					compute_ctx = make_shared<cuda_compute>(state.context_flags, config.cuda_whitelist);
 #endif
 					break;
 				case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
 					if(!config.opencl_toolchain_exists) break;
 					log_debug("initializing OpenCL ...");
-					compute_ctx = make_shared<opencl_compute>(config.opencl_platform,
+					compute_ctx = make_shared<opencl_compute>(state.context_flags,
+															  config.opencl_platform,
 															  config.gl_sharing & !console_only,
 															  config.opencl_whitelist);
 #endif
@@ -1244,14 +1245,14 @@ bool floor::init_internal(const init_state& state) {
 					} else {
 						if (!config.metal_toolchain_exists) break;
 						log_debug("initializing Metal ...");
-						compute_ctx = make_shared<metal_compute>(false, vr_ctx.get(), config.metal_whitelist);
+						compute_ctx = make_shared<metal_compute>(state.context_flags, false, vr_ctx.get(), config.metal_whitelist);
 					}
 #endif
 					break;
 				case COMPUTE_TYPE::HOST:
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 					log_debug("initializing Host Compute ...");
-					compute_ctx = make_shared<host_compute>();
+					compute_ctx = make_shared<host_compute>(state.context_flags);
 #endif
 					break;
 				case COMPUTE_TYPE::VULKAN:
@@ -1261,7 +1262,7 @@ bool floor::init_internal(const init_state& state) {
 					} else {
 						if (!config.vulkan_toolchain_exists) break;
 						log_debug("initializing Vulkan ...");
-						compute_ctx = make_shared<vulkan_compute>(false, vr_ctx.get(), config.vulkan_whitelist);
+						compute_ctx = make_shared<vulkan_compute>(state.context_flags, false, vr_ctx.get(), config.vulkan_whitelist);
 					}
 #endif
 					break;

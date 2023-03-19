@@ -29,7 +29,7 @@
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #endif
 
-cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
+cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<string> whitelist) : compute_context(ctx_flags) {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
 	// init cuda api functions

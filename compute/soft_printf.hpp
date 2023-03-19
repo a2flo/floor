@@ -262,7 +262,7 @@ static inline shared_ptr<compute_buffer> allocate_printf_buffer(const compute_qu
 	auto printf_buffer = dev_queue.get_device().context->create_buffer(dev_queue, printf_buffer_size,
 																	   COMPUTE_MEMORY_FLAG::READ_WRITE |
 																	   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
-																	   COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING);
+																	   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
 	printf_buffer->set_debug_label("printf_buffer");
 	return printf_buffer;
 }

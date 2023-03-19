@@ -56,7 +56,7 @@ typedef NSWindow* wnd_type_ptr;
 typedef UIWindow* wnd_type_ptr;
 #endif
 
-static constexpr const uint32_t max_drawables_in_flight { 4 };
+static constexpr const uint32_t max_drawables_in_flight { 6 };
 static atomic<bool> window_did_resize { true };
 
 // metal renderer NSView/UIView implementation
@@ -79,6 +79,7 @@ FLOOR_POP_WARNINGS()
 @property (unsafe_unretained, nonatomic) CAMetalLayer* metal_layer;
 @property (assign, nonatomic) bool is_hidpi;
 @property (assign, nonatomic) bool is_vsync;
+@property (assign, nonatomic) bool is_vsync_wait;
 @property (assign, nonatomic) bool is_wide_gamut;
 @property (assign, nonatomic) bool is_hdr;
 @property (assign, nonatomic) bool is_hdr_linear;
@@ -90,6 +91,7 @@ FLOOR_POP_WARNINGS()
 @synthesize metal_layer = _metal_layer;
 @synthesize is_hidpi = _is_hidpi;
 @synthesize is_vsync = _is_vsync;
+@synthesize is_vsync_wait = _is_vsync_wait;
 @synthesize is_wide_gamut = _is_wide_gamut;
 @synthesize is_hdr = _is_hdr;
 @synthesize is_hdr_linear = _is_hdr_linear;
@@ -255,6 +257,18 @@ FLOOR_POP_WARNINGS()
 	self.wnd = wnd;
 	self.is_hidpi = hidpi;
 	self.is_vsync = vsync;
+	self.is_vsync_wait = vsync;
+	if (darwin_helper::get_system_version() >=
+#if !defined(FLOOR_IOS)
+		130000
+#else
+		160000
+#endif
+		) {
+		// disable this on macOS 13.0+ / iOS 16.0+
+		// TODO: check if this can be disabled for older versions as well
+		self.is_vsync_wait = false;
+	}
 	self.is_hdr = hdr;
 	self.is_hdr_linear = hdr_linear;
 	// enable if directly set or implicitly if HDR is set
@@ -461,19 +475,18 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 		}
 	}
 	
-	// take away one frame/drawable + compute how many frames we're ahead
+	// take away one frame/drawable
 	--view->max_scheduled_frames;
-	//const auto frame_num = view->max_scheduled_frames--;
-	//const auto ahead = max_drawables_in_flight - frame_num;
 	
-	if ([view is_vsync]) {
-		for(;;) {
+	// on older macOS/iOS versions, if vsync is enabled: throttle if we're too fast, otherwise we may receive nil drawables
+	if ([view is_vsync_wait]) {
+		for (;;) {
 			static const double time_den { chrono::high_resolution_clock::time_point::duration::period::den };
 			const auto now = chrono::high_resolution_clock::now();
 			const auto delta = now - view->tp_prev_frame;
 			const auto delta_s = ((double)delta.count()) / time_den;
 			const auto time_per_frame = (1.0 / double([view refresh_rate])) * 0.95 /* 5% margin */;
-			if(delta_s >= time_per_frame) {
+			if (delta_s >= time_per_frame) {
 				view->tp_prev_frame = now;
 				break;
 			}

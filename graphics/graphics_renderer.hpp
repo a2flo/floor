@@ -182,7 +182,7 @@ public:
 	//! NOTE: resets all previously set attachments
 	template <typename... Args>
 	bool set_attachments(Args&&... attachments) {
-		vector<attachment_t> atts { forward<Args>(attachments)... };
+		vector<attachment_t> atts { std::forward<Args>(attachments)... };
 		return set_attachments(atts);
 	}
 	

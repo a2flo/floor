@@ -59,6 +59,16 @@ class graphics_renderer;
 
 class vr_context;
 
+//! global context flags that can be specified during context creation
+enum class COMPUTE_CONTEXT_FLAGS : uint32_t {
+	NONE = 0u,
+	
+	//! Metal-only (right now): disables any automatic resource tracking on the allocated Metal object
+	//! NOTE: this is achieved by automatically adding COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING for all buffers/images that are created
+	NO_RESOURCE_TRACKING = (1u << 0u),
+};
+floor_global_enum_ext(COMPUTE_CONTEXT_FLAGS)
+
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_context {
 public:
@@ -80,6 +90,11 @@ public:
 	
 	//! returns the underlying compute implementation type
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
+	
+	//! returns the context flags that were specified during context creation
+	COMPUTE_CONTEXT_FLAGS get_context_flags() const {
+		return context_flags;
+	}
 	
 	//////////////////////////////////////////
 	// device functions
@@ -349,8 +364,13 @@ public:
 	virtual vector<string> get_resource_registry_keys() const REQUIRES(!resource_registry_lock);
 	
 protected:
+	compute_context(const COMPUTE_CONTEXT_FLAGS context_flags_) : context_flags(context_flags_) {}
+	
 	//! platform vendor enum (set after initialization)
 	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };
+	
+	//! context flags that were specified during creation
+	const COMPUTE_CONTEXT_FLAGS context_flags { COMPUTE_CONTEXT_FLAGS::NONE };
 	
 	//! true if compute support (set after initialization)
 	bool supported { false };

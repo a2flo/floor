@@ -241,7 +241,7 @@ graphics_renderer::drawable_t* metal_renderer::get_next_drawable(const bool get_
 	cur_drawable->valid = true;
 	cur_drawable->metal_image = make_shared<metal_image>(cqueue, mtl_drawable.texture, nullptr,
 														 COMPUTE_MEMORY_FLAG::READ_WRITE |
-														 COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING);
+														 COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
 	cur_drawable->image = cur_drawable->metal_image.get();
 	return cur_drawable.get();
 }

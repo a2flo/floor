@@ -261,8 +261,8 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 	return ret;
 }
 
-vulkan_compute::vulkan_compute(const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
-compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
+vulkan_compute::vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
+compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(enable_renderer) {
 		screen.x11_forwarding = floor::is_x11_forwarding();
 
@@ -1227,13 +1227,20 @@ compute_context(), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 					cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
 				}
 				
-				// this extension enables argument buffer support, but we also need a minimum amount of bindable descriptor sets
+				// this extension enables argument buffer support as well as indirect command support,
+				// but we also need a minimum amount of bindable descriptor sets
 				if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
 					log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
 							  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
 				} else {
 					device.argument_buffer_support = true;
 					device.argument_buffer_image_support = true;
+					
+#if 0 // WIP
+					device.indirect_command_support = true;
+					device.indirect_render_command_support = true;
+					device.indirect_compute_command_support = true;
+#endif
 				}
 			}
 		}

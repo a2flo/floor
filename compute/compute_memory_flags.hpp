@@ -107,8 +107,9 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! Vulkan-only: allocate memory in device-local / host-coherent memory
 	VULKAN_HOST_COHERENT		= (1u << 15u),
 	
-	//! Metal/internal-only: disables any resource tracking on the allocated Metal object
-	__NO_RESOURCE_TRACKING		= (1u << 16u),
+	//! Metal-only: disables any automatic resource tracking on the allocated Metal object
+	//! NOTE: may be used for other backends as well in the future
+	NO_RESOURCE_TRACKING		= (1u << 16u),
 	
 	//! Vulkan-only: allocates a buffer with support for being used as a descriptor buffer
 	VULKAN_DESCRIPTOR_BUFFER	= (1u << 17u),

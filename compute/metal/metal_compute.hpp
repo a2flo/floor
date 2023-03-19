@@ -43,7 +43,8 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	metal_compute(const bool enable_renderer = false,
+	metal_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
+				  const bool enable_renderer = false,
 				  vr_context* vr_ctx_ = nullptr,
 				  const vector<string> whitelist = {});
 	

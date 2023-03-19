@@ -106,7 +106,8 @@ compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
 #endif
 	}
 	
-	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
+		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	
@@ -336,7 +337,8 @@ compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_ima
 	// copy existing options
 	options = [image cpuCacheMode];
 	
-	if (has_flag<COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING>(flags)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
+		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 
@@ -675,7 +677,7 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 	
 	auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::__NO_RESOURCE_TRACKING);
+																  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
 	zero_buffer->set_debug_label("zero_buffer");
 	auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 	

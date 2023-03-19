@@ -47,7 +47,8 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	explicit vulkan_compute(const bool enable_renderer = false,
+	explicit vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE,
+							const bool enable_renderer = false,
 							vr_context* vr_ctx_ = nullptr,
 							const vector<string> whitelist = {});
 	

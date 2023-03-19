@@ -36,7 +36,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	cuda_compute(const vector<string> whitelist = {});
+	cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE, const vector<string> whitelist = {});
 	
 	~cuda_compute() override {}
 	

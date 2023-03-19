@@ -53,7 +53,7 @@
 // provided by SDL2
 extern "C" DECLSPEC int SDLCALL SDL_GetSystemRAM();
 
-host_compute::host_compute() : compute_context() {
+host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_context(ctx_flags) {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//
