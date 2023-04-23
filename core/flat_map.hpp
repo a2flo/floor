@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <vector>
 #include <exception>
+#include <string>
 using namespace std;
 
 namespace floor_core {

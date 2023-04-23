@@ -17,3 +17,11 @@
  */
 
 #include <floor/compute/compute_fence.hpp>
+
+void compute_fence::set_debug_label(const std::string& label) {
+	debug_label = label;
+}
+
+const std::string& compute_fence::get_debug_label() const {
+	return debug_label;
+}

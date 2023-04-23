@@ -46,10 +46,14 @@ public:
 	struct vulkan_pipeline_entry_t {
 		vulkan_pipeline_state_t single_view_pipeline {};
 		vulkan_pipeline_state_t multi_view_pipeline {};
+		vulkan_pipeline_state_t indirect_single_view_pipeline {};
+		vulkan_pipeline_state_t indirect_multi_view_pipeline {};
 	};
 	
 	//! return the device specific Vulkan pipeline state for the specified device (or nullptr if it doesn't exist)
-	const vulkan_pipeline_state_t* get_vulkan_pipeline_state(const compute_device& dev, const bool get_multi_view) const;
+	const vulkan_pipeline_state_t* get_vulkan_pipeline_state(const compute_device& dev,
+															 const bool get_multi_view,
+															 const bool get_indirect) const;
 	
 	//! returns the corresponding VkPrimitiveTopology for the specified PRIMITIVE
 	static VkPrimitiveTopology vulkan_primitive_topology_from_primitive(const PRIMITIVE& primitive);
@@ -75,6 +79,10 @@ public:
 	static constexpr const uint32_t argument_buffer_fs_start_set { 9u };
 	//! the descriptor set index where tessellation control shader argument buffers start at
 	static constexpr const uint32_t argument_buffer_tcs_start_set { 13u };
+	
+	//! returns the underlying/associated vulkan_pass for this pipeline,
+	//! returns nullptr if there is none
+	const vulkan_pass* get_vulkan_pass(const bool get_multi_view) const;
 	
 protected:
 	floor_core::flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;

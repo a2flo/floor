@@ -168,7 +168,7 @@ protected:
 	const compute_queue& dev_queue;
 	
 	//! sets/encodes the specified arguments in this command
-	virtual void set_arguments_vector(const vector<compute_kernel_arg>& args) = 0;
+	virtual void set_arguments_vector(vector<compute_kernel_arg>&& args) = 0;
 	
 };
 

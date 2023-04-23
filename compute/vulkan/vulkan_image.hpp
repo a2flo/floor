@@ -44,7 +44,7 @@ public:
 		VkImage image { nullptr };
 		VkImageView image_view { nullptr };
 		VkFormat format { VK_FORMAT_UNDEFINED };
-		VkAccessFlags access_mask { 0 };
+		VkAccessFlags2 access_mask { 0 };
 		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
 		//! any of IMAGE_1D, IMAGE_2D, IMAGE_3D, ...
 		COMPUTE_IMAGE_TYPE image_base_type { COMPUTE_IMAGE_TYPE::IMAGE_2D };
@@ -71,27 +71,35 @@ public:
 	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! transitions this image into a new 'layout', with specified 'access', at src/dst stage
-	//! NOTE: if cmd_buffer is nullptr, a new one will be created and enqueued/submitted in the end
-	bool transition(const compute_queue& cqueue,
-					VkCommandBuffer cmd_buffer,
-					const VkAccessFlags dst_access,
-					const VkImageLayout new_layout,
-					const VkPipelineStageFlags src_stage_mask,
-					const VkPipelineStageFlags dst_stage_mask,
-					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
+	//! if "cmd_buffer" is nullptr, a new one will be created and enqueued/submitted in the end (unless "soft_transition" is also set)
+	//! if "soft_transition" is set, this won't encode a pipeline barrier in the specified cmd buffer (must manually use returned VkImageMemoryBarrier)
+	pair<bool, VkImageMemoryBarrier2> transition(const compute_queue* cqueue,
+												 VkCommandBuffer cmd_buffer,
+												 const VkAccessFlags2 dst_access,
+												 const VkImageLayout new_layout,
+												 const VkPipelineStageFlags2 src_stage_mask,
+												 const VkPipelineStageFlags2 dst_stage_mask,
+												 const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED,
+												 const bool soft_transition = false);
 	
-	//! transition for shader or attachment read (if not already in this mode)
+	//! transition for shader or attachment read (if not already in this mode),
+	//! returns true if a transition was performed, false if none was necessary
 	//! if "allow_general_layout" is set and the current layout is "general", the transition will be skipped
-	void transition_read(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
-						 const bool allow_general_layout = false);
+	//! if "soft_transition" is set, this won't encode a pipeline barrier in the specified cmd buffer (must manually use returned VkImageMemoryBarrier)
+	pair<bool, VkImageMemoryBarrier2> transition_read(const compute_queue* cqueue, VkCommandBuffer cmd_buffer,
+													  const bool allow_general_layout = false,
+													  const bool soft_transition = false);
 	//! transition for shader or attachment write (if not already in this mode)
+	//! returns true if a transition was performed, false if none was necessary
 	//! if "read_write" is set, will also make the image readable
 	//! if "is_rt_direct_write" is set and the image is a render-target, transition to "general" layout instead of "attachment" layout
 	//! if "allow_general_layout" is set and the current layout is "general", the transition will be skipped
-	void transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
-						  const bool read_write = false,
-						  const bool is_rt_direct_write = false,
-						  const bool allow_general_layout = false);
+	//! if "soft_transition" is set, this won't encode a pipeline barrier in the specified cmd buffer (must manually use returned VkImageMemoryBarrier)
+	pair<bool, VkImageMemoryBarrier2> transition_write(const compute_queue* cqueue, VkCommandBuffer cmd_buffer,
+													   const bool read_write = false,
+													   const bool is_rt_direct_write = false,
+													   const bool allow_general_layout = false,
+													   const bool soft_transition = false);
 	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
@@ -109,7 +117,7 @@ public:
 	}
 
 	//! returns the current vulkan specific access mask
-	const VkAccessFlags& get_vulkan_access_mask() const {
+	const VkAccessFlags2& get_vulkan_access_mask() const {
 		return cur_access_mask;
 	}
 	
@@ -152,7 +160,7 @@ public:
 
 	//! updates the Vulkan image layout and current access mask with the specified ones
 	//! NOTE: this is useful when the Vulkan image/state is changed externally and we want to keep this in sync
-	void update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags& access);
+	void update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags2& access);
 	
 	//! converts the specified sample count to the Vulkan sample count enum
 	//! NOTE: if "sample_count" doesn't exactly match a supported sample count, the next lower one is returned
@@ -208,7 +216,7 @@ protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
-	VkAccessFlags cur_access_mask { 0 };
+	VkAccessFlags2 cur_access_mask { 0 };
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
 	VkDeviceSize allocation_size { 0 };
 	bool is_external { false };

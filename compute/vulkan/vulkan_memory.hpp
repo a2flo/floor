@@ -39,9 +39,9 @@ public:
 				  const COMPUTE_MEMORY_FLAG memory_flags) noexcept;
 
 	vulkan_memory(const vulkan_device& device_,
-				  const VkBuffer* buffer,
+				  const VkBuffer* buffer_,
 				  const COMPUTE_MEMORY_FLAG memory_flags_) noexcept :
-	vulkan_memory(device_, (const uint64_t*)buffer, false, memory_flags_) {}
+	vulkan_memory(device_, (const uint64_t*)buffer_, false, memory_flags_) {}
 
 	vulkan_memory(const vulkan_device& device_,
 				  const VkImage* image,

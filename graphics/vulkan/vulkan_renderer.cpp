@@ -24,6 +24,8 @@
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
+#include <floor/compute/vulkan/vulkan_indirect_command.hpp>
+#include <floor/compute/vulkan/vulkan_fence.hpp>
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 #include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 #include <floor/graphics/vulkan/vulkan_shader.hpp>
@@ -102,7 +104,6 @@ bool vulkan_renderer::create_cmd_buffer() {
 	const VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
-		// TODO: different usage?
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		.pInheritanceInfo = nullptr,
 	};
@@ -116,53 +117,6 @@ bool vulkan_renderer::create_cmd_buffer() {
 		}
 		framebuffers.clear();
 	});
-	
-	// register completion callback to make all attachments readable once we're done (except for the drawable, which is dealt with differently)
-	vk_queue.add_completion_handler(render_cmd_buffer, [this]() {
-		if (attachments_map.empty() && !depth_attachment) {
-			return; // nop
-		}
-		
-		// figure out what the drawable compute_image is and if we actually need to transition anything
-		compute_image* cur_drawable_img = nullptr;
-		if (cur_drawable) {
-			cur_drawable_img = cur_drawable->image;
-		}
-		if (!depth_attachment) {
-			bool has_non_swapchain_iamge = false;
-			for (auto& att : attachments_map) {
-				if (att.second.image != cur_drawable_img) {
-					has_non_swapchain_iamge = true;
-					break;
-				}
-				if (att.second.resolve_image && att.second.resolve_image != cur_drawable_img) {
-					has_non_swapchain_iamge = true;
-					break;
-				}
-			}
-			if (!has_non_swapchain_iamge) {
-				return; // nothing to transition
-			}
-		}
-		
-		// transition all except "cur_drawable_img"
-		const auto& transition_vk_queue = (const vulkan_queue&)cqueue;
-		VK_CMD_BLOCK_RET(transition_vk_queue, "vk_renderer_transition_read_attachments_cmd_buffer", ({
-			for (auto& att : attachments_map) {
-				if (att.second.image != cur_drawable_img &&
-					!has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(att.second.image->get_image_type())) {
-					((vulkan_image*)att.second.image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
-				}
-				if (att.second.resolve_image && att.second.resolve_image != cur_drawable_img) {
-					((vulkan_image*)att.second.resolve_image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
-				}
-			}
-			if (depth_attachment &&
-				!has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(depth_attachment->image->get_image_type())) {
-				((vulkan_image*)depth_attachment->image)->transition_read(cqueue, cmd_buffer.cmd_buffer);
-			}
-		}), , true /* always blocking */);
-	});
 
 	// can now use this cmd buffer + reuse it for every begin/end until commit is called
 	did_begin_cmd_buffer = true;
@@ -170,6 +124,14 @@ bool vulkan_renderer::create_cmd_buffer() {
 }
 
 bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
+#if defined(FLOOR_DEBUG)
+	if (is_indirect) {
+		if (dynamic_render_state.viewport || dynamic_render_state.scissor) {
+			log_warn("dynamic viewport/scissor is not supported in indirect render pipelines");
+		}
+	}
+#endif
+	
 	const auto& vk_pass = (const vulkan_pass&)pass;
 	
 	// create framebuffer(s) for this pass
@@ -187,12 +149,27 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		}
 	}
 	
+	// transition attachments
+	if (!att_transition_barriers.empty()) {
+		const VkDependencyInfo dep_info {
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.pNext = nullptr,
+			.dependencyFlags = 0,
+			.memoryBarrierCount = 0,
+			.pMemoryBarriers = nullptr,
+			.bufferMemoryBarrierCount = 0,
+			.pBufferMemoryBarriers = nullptr,
+			.imageMemoryBarrierCount = uint32_t(att_transition_barriers.size()),
+			.pImageMemoryBarriers = &att_transition_barriers[0],
+		};
+		vkCmdPipelineBarrier2(render_cmd_buffer.cmd_buffer, &dep_info);
+	}
+	
 	// actually begin the render pass
 	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 	
-	VkViewport viewport;
 	if (!dynamic_render_state.viewport) {
-		viewport = {
+		cur_viewport = {
 			.x = 0.0f,
 			.y = 0.0f,
 			.width = (float)pipeline_desc.viewport.x,
@@ -201,7 +178,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.maxDepth = 1.0f,
 		};
 	} else {
-		viewport = {
+		cur_viewport = {
 			.x = 0.0f,
 			.y = 0.0f,
 			.width = (float)dynamic_render_state.viewport->x,
@@ -210,29 +187,29 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.maxDepth = 1.0f,
 		};
 	}
-	vkCmdSetViewport(render_cmd_buffer.cmd_buffer, 0, 1, &viewport);
+	vkCmdSetViewport(render_cmd_buffer.cmd_buffer, 0, 1, &cur_viewport);
 	
-	VkRect2D render_area;
 	if (!dynamic_render_state.scissor) {
-		render_area = {
+		cur_render_area = {
 			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
 			.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
 			.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
 		};
 	} else {
-		render_area = {
+		cur_render_area = {
 			.offset = { int(dynamic_render_state.scissor->offset.x), int(dynamic_render_state.scissor->offset.y) },
 			.extent = { dynamic_render_state.scissor->extent.x, dynamic_render_state.scissor->extent.y },
 		};
 	}
-	if (uint32_t(render_area.offset.x) + render_area.extent.width > (uint32_t)viewport.width ||
-		uint32_t(render_area.offset.y) + render_area.extent.height > (uint32_t)viewport.height) {
+	if (uint32_t(cur_render_area.offset.x) + cur_render_area.extent.width > (uint32_t)cur_viewport.width ||
+		uint32_t(cur_render_area.offset.y) + cur_render_area.extent.height > (uint32_t)cur_viewport.height) {
 		log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
-				  int2 { render_area.offset.x, render_area.offset.y }, uint2 { render_area.extent.width, render_area.extent.height },
-				  float2 { viewport.width, viewport.height });
+				  int2 { cur_render_area.offset.x, cur_render_area.offset.y },
+				  uint2 { cur_render_area.extent.width, cur_render_area.extent.height },
+				  float2 { cur_viewport.width, cur_viewport.height });
 		return false;
 	}
-	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &render_area);
+	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &cur_render_area);
 	
 	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);
 	vector<VkClearValue> clear_values;
@@ -266,11 +243,15 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		.pNext = nullptr,
 		.renderPass = vk_render_pass,
 		.framebuffer = cur_framebuffer,
-		.renderArea = render_area,
+		.renderArea = cur_render_area,
 		.clearValueCount = (uint32_t)clear_values.size(),
 		.pClearValues = clear_values.data(),
 	};
-	vkCmdBeginRenderPass(render_cmd_buffer.cmd_buffer, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	// NOTE: if indirect rendering is enabled, we need to perform all rendering within secondary cmd buffers (which may also be specified
+	//       by the user when calling execute_indirect()), otherwise always perform rendering in primary buffers (-> inline)
+	//       also: for any direct rendering when "indirect" is enabled, we will create and execute a sec cmd buffer on-the-fly
+	vkCmdBeginRenderPass(render_cmd_buffer.cmd_buffer, &pass_begin_info,
+						 !is_indirect ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 	
 	return true;
 }
@@ -282,11 +263,35 @@ bool vulkan_renderer::end() {
 
 bool vulkan_renderer::commit(const bool wait_until_completion) {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	
+	// if any image layout transitions are necessary, perform them now
+	if (!img_transition_barriers.empty()) {
+		VK_CMD_BLOCK_RET(vk_queue, "image layout transition", ({
+			const VkDependencyInfo dep_info {
+				.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+				.pNext = nullptr,
+				.dependencyFlags = 0,
+				.memoryBarrierCount = 0,
+				.pMemoryBarriers = nullptr,
+				.bufferMemoryBarrierCount = 0,
+				.pBufferMemoryBarriers = nullptr,
+				.imageMemoryBarrierCount = uint32_t(img_transition_barriers.size()),
+				.pImageMemoryBarriers = &img_transition_barriers[0],
+			};
+			vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
+		}), false, true /* always blocking */);
+	}
+	
+	if (is_presenting) {
+		// transition drawable image back to present mode (after render pass is complete)
+		cur_drawable->vk_image->transition(&cqueue, render_cmd_buffer.cmd_buffer, 0 /* as per doc */, cur_drawable->vk_drawable.present_layout,
+										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
+	}
 
 	// TODO: blocking or not? yes for now, until we can ensure that everything gets cleaned up properly + is synced properly
 	const auto is_blocking = wait_until_completion || true;
 	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)
-	vk_queue.submit_command_buffer(render_cmd_buffer, is_blocking);
+	vk_queue.submit_command_buffer(render_cmd_buffer, std::move(wait_fences), std::move(signal_fences), {}, is_blocking);
 	
 	// if present has been called earlier, we can now actually present the image to the screen
 	if (is_presenting) {
@@ -355,6 +360,9 @@ graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable(const bool get
 		.dim = { vk_drawable.image_size, vk_drawable.layer_count, 0 },
 	};
 	cur_drawable->vk_image = make_unique<vulkan_image>(cqueue, info);
+#if defined(FLOOR_DEBUG)
+	cur_drawable->vk_image->set_debug_label("swapchain_image#" + to_string(vk_drawable.index));
+#endif
 	cur_drawable->image = cur_drawable->vk_image.get();
 	
 	return cur_drawable.get();
@@ -365,62 +373,33 @@ void vulkan_renderer::present() {
 		log_error("current drawable is invalid");
 		return;
 	}
-	
-	// transition drawable image back to present mode
-	cur_drawable->vk_image->transition(cqueue, render_cmd_buffer.cmd_buffer, VK_ACCESS_MEMORY_READ_BIT, cur_drawable->vk_drawable.present_layout,
-									   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
 
 	// actual queue present must happen after the command buffer has been submitted and finished
 	is_presenting = true;
 }
 
 bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
-	// TODO: check if we actually need to transition any attachment in the specified container
-	// try to use a single cmd buffer for all attachment transitions
-	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	att_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_transition_attachments_cmd_buffer");
-	const VkCommandBufferBeginInfo begin_info{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(att_cmd_buffer->cmd_buffer, &begin_info),
-					 "failed to begin command buffer for attachments transition", return false;)
-	
+	// besides settings all attachments, this will gather all attachments that need to be transitioned and then transition them together later on
+	att_transition_barriers.clear();
 	if (!graphics_renderer::set_attachments(attachments)) {
 		return false;
 	}
-	
-	VK_CALL_RET(vkEndCommandBuffer(att_cmd_buffer->cmd_buffer), "failed to end command buffer for attachments transition", false)
-	((const vulkan_queue&)cqueue).submit_command_buffer(*att_cmd_buffer, true);
-	
-	att_cmd_buffer.reset();
-	
 	return true;
 }
 
-static inline bool attachment_transition(const compute_queue& cqueue, compute_image& img, optional<vulkan_command_buffer> transition_cmd_buffer,
+static inline bool attachment_transition(compute_image& img, vector<VkImageMemoryBarrier2>& att_transition_barriers,
 										 const bool is_read_only = false) {
 	if (!is_read_only) {
 		// make attachment writable
-		if (!transition_cmd_buffer) {
-			const auto& vk_queue = (const vulkan_queue&)cqueue;
-			VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_write_attachment_cmd_buffer", ({
-				((vulkan_image&)img).transition_write(cqueue, cmd_buffer.cmd_buffer);
-			}), true /* always blocking */);
-		} else {
-			((vulkan_image&)img).transition_write(cqueue, transition_cmd_buffer->cmd_buffer);
+		auto [needs_transition, barrier] = ((vulkan_image&)img).transition_write(nullptr, nullptr, false, false, false, true /* soft_transition */);
+		if (needs_transition) {
+			att_transition_barriers.emplace_back(std::move(barrier));
 		}
 	} else {
 		// make attachment readable
-		if (!transition_cmd_buffer) {
-			const auto& vk_queue = (const vulkan_queue&)cqueue;
-			VK_CMD_BLOCK(vk_queue, "vk_renderer_transition_read_attachment_cmd_buffer", ({
-				((vulkan_image&)img).transition_read(cqueue, cmd_buffer.cmd_buffer);
-			}), true /* always blocking */);
-		} else {
-			((vulkan_image&)img).transition_read(cqueue, transition_cmd_buffer->cmd_buffer);
+		auto [needs_transition, barrier] = ((vulkan_image&)img).transition_read(nullptr, nullptr, false, true /* soft_transition */);
+		if (needs_transition) {
+			att_transition_barriers.emplace_back(std::move(barrier));
 		}
 	}
 	return true;
@@ -431,9 +410,9 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 		return false;
 	}
 	const auto is_read_only_color = cur_pipeline->get_description(multi_view).color_attachments[index].blend.write_mask.none();
-	auto ret = attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_color);
+	auto ret = attachment_transition(*attachment.image, att_transition_barriers, is_read_only_color);
 	if (ret && attachment.resolve_image) {
-		ret |= attachment_transition(cqueue, *attachment.resolve_image, att_cmd_buffer, false);
+		ret |= attachment_transition(*attachment.resolve_image, att_transition_barriers, false);
 	}
 	return ret;
 }
@@ -443,14 +422,39 @@ bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 		return false;
 	}
 	const auto is_read_only_depth = !cur_pipeline->get_description(multi_view).depth.write;
-	return attachment_transition(cqueue, *attachment.image, att_cmd_buffer, is_read_only_depth);
+	return attachment_transition(*attachment.image, att_transition_barriers, is_read_only_depth);
 }
 
-void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
-									   const uint32_t command_offset floor_unused,
-									   const uint32_t command_count floor_unused) const {
-	// TODO: implement this!
-	log_error("execute_indirect() not implemented yet!");
+void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd,
+									   const uint32_t command_offset,
+									   const uint32_t command_count) {
+	if (command_count == 0) {
+		return;
+	}
+	
+	const auto& vk_indirect_cmd = (const vulkan_indirect_command_pipeline&)indirect_cmd;
+	const auto vk_indirect_pipeline_entry = vk_indirect_cmd.get_vulkan_pipeline_entry(cqueue.get_device());
+	if (!vk_indirect_pipeline_entry) {
+		log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
+				  cqueue.get_device().name, indirect_cmd.get_description().debug_label);
+		return;
+	}
+	
+	const auto range = vk_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
+	if (!range) {
+		return;
+	}
+	
+	if (vk_indirect_pipeline_entry->printf_buffer) {
+		vk_indirect_pipeline_entry->printf_init(cqueue);
+	}
+	
+	vkCmdExecuteCommands(render_cmd_buffer.cmd_buffer, range->count,
+						 &vk_indirect_pipeline_entry->cmd_buffers[range->offset]);
+	
+	if (vk_indirect_pipeline_entry->printf_buffer) {
+		vk_indirect_pipeline_entry->printf_completion(cqueue, render_cmd_buffer);
+	}
 }
 
 bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {
@@ -463,7 +467,7 @@ bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {
 bool vulkan_renderer::update_vulkan_pipeline() {
 	const auto& dev = cqueue.get_device();
 	const auto& vk_pipeline = (const vulkan_pipeline&)*cur_pipeline;
-	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_state(dev, multi_view);
+	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_state(dev, multi_view, false /* never indirect */);
 	if (vk_pipeline_state == nullptr) {
 		log_error("no pipeline entry for device $", dev.name);
 		return false;
@@ -473,34 +477,85 @@ bool vulkan_renderer::update_vulkan_pipeline() {
 
 void vulkan_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries,
 									const vector<multi_draw_indexed_entry>* draw_indexed_entries,
-									const vector<compute_kernel_arg>& args) const {
+									const vector<compute_kernel_arg>& args) {
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	vulkan_command_buffer* cmd_buffer = &render_cmd_buffer;
+	vulkan_command_buffer sec_cmd_buffer {};
+	if (is_indirect) {
+		// -> direct draw within an indirect renderer
+		// we need to create and execute a secondary cmd buffer for any direct rendering
+		sec_cmd_buffer = vk_queue.make_secondary_command_buffer("vk_renderer_sec_cmd_buffer");
+		cmd_buffer = &sec_cmd_buffer;
+		const VkCommandBufferInheritanceInfo inheritance_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+			.pNext = nullptr,
+			.renderPass = ((const vulkan_pass&)pass).get_vulkan_render_pass(cqueue.get_device(), multi_view),
+			.subpass = 0,
+			.framebuffer = nullptr,
+			.occlusionQueryEnable = false,
+			.queryFlags = 0,
+			.pipelineStatistics = 0,
+		};
+		const VkCommandBufferBeginInfo begin_info{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.pNext = nullptr,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+			.pInheritanceInfo = &inheritance_info,
+		};
+		VK_CALL_RET(vkBeginCommandBuffer(sec_cmd_buffer.cmd_buffer, &begin_info),
+					"failed to begin command buffer for direct rendering within an indirect renderer")
+		
+		// need to set viewport + scissor again for this cmd buffer
+		vkCmdSetViewport(sec_cmd_buffer.cmd_buffer, 0, 1, &cur_viewport);
+		vkCmdSetScissor(sec_cmd_buffer.cmd_buffer, 0, 1, &cur_render_area);
+	}
+	
 	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
-	vs->draw(cqueue,
-			 render_cmd_buffer,
-			 vk_pipeline_state->pipeline,
-			 vk_pipeline_state->layout,
-			 (const vulkan_kernel::vulkan_kernel_entry*)vk_pipeline_state->vs_entry,
-			 (const vulkan_kernel::vulkan_kernel_entry*)vk_pipeline_state->fs_entry,
-			 draw_entries,
-			 draw_indexed_entries,
-			 args);
+	img_transition_barriers = vs->draw(cqueue,
+									   *cmd_buffer,
+									   vk_pipeline_state->pipeline,
+									   vk_pipeline_state->layout,
+									   (const vulkan_kernel::vulkan_kernel_entry*)vk_pipeline_state->vs_entry,
+									   (const vulkan_kernel::vulkan_kernel_entry*)vk_pipeline_state->fs_entry,
+									   draw_entries,
+									   draw_indexed_entries,
+									   args);
+	
+	
+	if (is_indirect) {
+		// end + execute this secondary cmd buffer
+		VK_CALL_RET(vkEndCommandBuffer(sec_cmd_buffer.cmd_buffer), "failed to end secondary command buffer")
+		vk_queue.execute_secondary_command_buffer(render_cmd_buffer, sec_cmd_buffer);
+	}
 }
 
 void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry floor_unused,
 											const patch_draw_indexed_entry* draw_indexed_entry floor_unused,
-											const vector<compute_kernel_arg>& args floor_unused) const {
+											const vector<compute_kernel_arg>& args floor_unused) {
 	// TODO: implement this!
 	log_error("patch drawing not implemented yet!");
 }
 
-void vulkan_renderer::wait_for_fence(const compute_fence& fence floor_unused, const RENDER_STAGE before_stage floor_unused) {
-	// TODO: implement this!
-	log_error("wait_for_fence not implemented yet!");
+void vulkan_renderer::wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) {
+	const auto& vk_fence = (const vulkan_fence&)fence;
+	wait_fences.emplace_back(vulkan_queue::wait_fence_t {
+		.fence = &fence,
+		.signaled_value = vk_fence.get_signaled_value(),
+		.stage = before_stage,
+	});
 }
 
-void vulkan_renderer::signal_fence(const compute_fence& fence floor_unused, const RENDER_STAGE after_stage floor_unused) {
-	// TODO: implement this!
-	log_error("signal_fence not implemented yet!");
+void vulkan_renderer::signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) {
+	auto& vk_fence = (vulkan_fence&)fence;
+	if (!vk_fence.next_signal_value()) {
+		throw runtime_error("failed to set next signal value on fence");
+	}
+	signal_fences.emplace_back(vulkan_queue::signal_fence_t {
+		.fence = &fence,
+		.unsignaled_value = vk_fence.get_unsignaled_value(),
+		.signaled_value = vk_fence.get_signaled_value(),
+		.stage = after_stage,
+	});
 }
 
 #endif

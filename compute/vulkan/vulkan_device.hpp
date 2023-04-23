@@ -104,9 +104,6 @@ public:
 	//! min offset alignment in SSBOs
 	uint32_t min_storage_buffer_offset_alignment { 0u };
 	
-	//! feature support: can make full use of descriptor buffers
-	bool descriptor_buffer_support { false };
-	
 	//! device-specific descriptor sizes for use in descriptor buffers
 	struct desc_buffer_sizes_t {
 		//! size of a sampled image descriptor
@@ -117,17 +114,18 @@ public:
 		uint32_t ubo { 0u };
 		//! size of a storage buffer descriptor
 		uint32_t ssbo { 0u };
+		//! size of a sampler descriptor
+		uint32_t sampler { 0u };
 	} desc_buffer_sizes;
+	
+	//! alignment requirement when setting descriptor buffer offsets (i.e. per sub-set within a buffer)
+	uint32_t descriptor_buffer_offset_alignment { 0u };
 	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set
 	//! NOTE: this is allocated once at context creation
 	VkDescriptorSetLayout fixed_sampler_desc_set_layout { nullptr };
-	//! NOTE: not used when there is descriptor buffer support
-	VkDescriptorPool legacy_fixed_sampler_desc_pool { nullptr };
-	//! NOTE: not used when there is descriptor buffer support
-	VkDescriptorSet legacy_fixed_sampler_desc_set { nullptr };
 	
 	//! fixed sampler set
 	//! NOTE: this is allocated once at context creation
@@ -139,8 +137,6 @@ public:
 	vector<VkDescriptorImageInfo> fixed_sampler_image_info;
 #else
 	uint64_t _fixed_sampler_desc_set_layout;
-	uint64_t _fixed_sampler_desc_pool;
-	uint64_t _fixed_sampler_desc_set;
 	vector<uint64_t> _fixed_sampler_set;
 	struct _dummy_desc_img_info { void* _a; void* _b; uint32_t _c; };
 	vector<_dummy_desc_img_info> _fixed_sampler_image_info;

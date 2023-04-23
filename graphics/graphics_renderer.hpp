@@ -222,7 +222,7 @@ public:
 	
 	//! draw info with primitives created via indices into the vertex buffer
 	struct multi_draw_indexed_entry {
-		compute_buffer* floor_nonnull index_buffer;
+		const compute_buffer* floor_nonnull index_buffer;
 		uint32_t index_count;
 		uint32_t instance_count { 1u };
 		uint32_t first_index { 0u };
@@ -232,34 +232,34 @@ public:
 	
 	//! emit a simple draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void draw(const multi_draw_entry& draw_entry, const Args&... args) const {
+	template <typename... Args> void draw(const multi_draw_entry& draw_entry, const Args&... args) {
 		const vector<multi_draw_entry> draw_entries { draw_entry };
 		draw_internal(&draw_entries, nullptr, { args... });
 	}
 	
 	//! emit an indexed draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void draw_indexed(const multi_draw_indexed_entry& draw_entry, const Args&... args) const {
+	template <typename... Args> void draw_indexed(const multi_draw_indexed_entry& draw_entry, const Args&... args) {
 		const vector<multi_draw_indexed_entry> draw_entries { draw_entry };
 		draw_internal(nullptr, &draw_entries, { args... });
 	}
 	
 	//! emit simple draw calls with the per-draw-call information stored in "draw_entries"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void multi_draw(const vector<multi_draw_entry>& draw_entries, const Args&... args) const {
+	template <typename... Args> void multi_draw(const vector<multi_draw_entry>& draw_entries, const Args&... args) {
 		draw_internal(&draw_entries, nullptr, { args... });
 	}
 	
 	//! emit indexed draw calls with the per-draw-call information stored in "draw_entries"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void multi_draw_indexed(const vector<multi_draw_indexed_entry>& draw_entries, const Args&... args) const {
+	template <typename... Args> void multi_draw_indexed(const vector<multi_draw_indexed_entry>& draw_entries, const Args&... args) {
 		draw_internal(nullptr, &draw_entries, { args... });
 	}
 	
 	//! draw info with contiguous control points creating a new primitive every "patch_control_point_count" points
 	struct patch_draw_entry {
 		//! control point data for each vertex attribute
-		vector<compute_buffer* floor_nonnull> control_point_buffers;
+		vector<const compute_buffer* floor_nonnull> control_point_buffers;
 		uint32_t patch_control_point_count { 0u };
 		uint32_t patch_count { 0u };
 		uint32_t first_patch { 0u };
@@ -270,8 +270,8 @@ public:
 	//! draw info with primitives/control points created via indices into the control point buffer
 	struct patch_draw_indexed_entry {
 		//! control point data for each vertex attribute
-		vector<compute_buffer* floor_nonnull> control_point_buffers;
-		compute_buffer* floor_nonnull control_point_index_buffer;
+		vector<const compute_buffer* floor_nonnull> control_point_buffers;
+		const compute_buffer* floor_nonnull control_point_index_buffer;
 		uint32_t patch_control_point_count { 0u };
 		uint32_t first_index { 0u };
 		uint32_t patch_count { 0u };
@@ -282,13 +282,13 @@ public:
 	
 	//! emit a patch draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: post-tessellation vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void draw_patches(const patch_draw_entry& draw_entry, const Args&... args) const {
+	template <typename... Args> void draw_patches(const patch_draw_entry& draw_entry, const Args&... args) {
 		draw_patches_internal(&draw_entry, nullptr, { args... });
 	}
 	
 	//! emit an indexed patch draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: post-tessellation vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void draw_patches_indexed(const patch_draw_indexed_entry& draw_entry, const Args&... args) const {
+	template <typename... Args> void draw_patches_indexed(const patch_draw_indexed_entry& draw_entry, const Args&... args) {
 		draw_patches_internal(nullptr, &draw_entry, { args... });
 	}
 	
@@ -296,26 +296,18 @@ public:
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								  const uint32_t command_offset = 0u,
-								  const uint32_t command_count = ~0u) const = 0;
+								  const uint32_t command_count = ~0u) = 0;
 	
 	//////////////////////////////////////////
 	// synchronization
 	
-	//! render stage
-	//! NOTE: vertex and tessellation stages are handled in the same way
-	enum class RENDER_STAGE {
-		VERTEX = 1u,
-		TESSELLATION = VERTEX,
-		FRAGMENT = 2u,
-	};
-	
 	//! waits for the specified "fence" before starting the specified "before_stage" (defaulting to vertex)
 	//! NOTE: this must be called after a begin() call and before the corresponding end() call
-	virtual void wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage = RENDER_STAGE::VERTEX) = 0;
+	virtual void wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage = compute_fence::SYNC_STAGE::VERTEX) = 0;
 	
 	//! signals the specified "fence" after the specified "after_stage" has finished execution (defaulting to fragment)
 	//! NOTE: this must be called after a begin() call and before the corresponding end() call
-	virtual void signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage = RENDER_STAGE::FRAGMENT) = 0;
+	virtual void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage = compute_fence::SYNC_STAGE::FRAGMENT) = 0;
 	
 	//////////////////////////////////////////
 	// misc
@@ -334,16 +326,17 @@ protected:
 	optional<attachment_t> depth_attachment;
 	bool valid { false };
 	const bool multi_view { false };
+	const bool is_indirect { false };
 	
 	//! internal draw call dispatcher for the respective backend
 	virtual void draw_internal(const vector<multi_draw_entry>* floor_nullable draw_entries,
 							   const vector<multi_draw_indexed_entry>* floor_nullable draw_indexed_entries,
-							   const vector<compute_kernel_arg>& args) const = 0;
+							   const vector<compute_kernel_arg>& args) = 0;
 	
 	//! internal draw-patches call dispatcher for the respective backend
 	virtual void draw_patches_internal(const patch_draw_entry* floor_nullable draw_entry,
 									   const patch_draw_indexed_entry* floor_nullable draw_indexed_entry,
-									   const vector<compute_kernel_arg>& args) const = 0;
+									   const vector<compute_kernel_arg>& args) = 0;
 	
 	//! sets the depth attachment
 	virtual bool set_depth_attachment(attachment_t& attachment);

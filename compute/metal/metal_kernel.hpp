@@ -52,7 +52,7 @@ public:
 				 const uint3& local_work_size,
 				 const vector<compute_kernel_arg>& args,
 				 const vector<const compute_fence*>& wait_fences,
-				 const vector<const compute_fence*>& signal_fences,
+				 const vector<compute_fence*>& signal_fences,
 				 const char* debug_label,
 				 kernel_completion_handler_f&& completion_handler) const override;
 	

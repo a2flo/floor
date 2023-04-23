@@ -140,15 +140,14 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	VkImageLayout final_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
 	// TODO: handle render targets via additional image transfer?
-	VkAccessFlags dst_access_flags = 0;
-	if(is_render_target) {
+	VkAccessFlags2 dst_access_flags = 0;
+	if (is_render_target) {
 		if(!is_depth) {
 			final_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			dst_access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		}
-		else {
+			dst_access_flags = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+		} else {
 			final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			dst_access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			dst_access_flags = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
 	}
 
@@ -331,8 +330,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// transition to general layout or attachment layout (if render target)
 	cur_access_mask = 0; // TODO: ?
 	image_info.imageLayout = initial_layout;
-	const auto transition_stage = (is_render_target ? VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT : VK_PIPELINE_STAGE_HOST_BIT);
-	transition(cqueue, nullptr, dst_access_flags, final_layout, transition_stage, transition_stage);
+	const auto transition_stage = (is_render_target ? VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT : VK_PIPELINE_STAGE_2_HOST_BIT);
+	transition(&cqueue, nullptr, dst_access_flags, final_layout, transition_stage, transition_stage);
 	
 	// update image desc info
 	image_info.sampler = nullptr;
@@ -392,50 +391,48 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	update_mip_map_info();
 	
 	// query descriptor data
-	if (device.descriptor_buffer_support) {
-		descriptor_sampled_size = device.desc_buffer_sizes.sampled_image;
-		descriptor_storage_size = device.desc_buffer_sizes.storage_image * mip_map_image_view.size();
-		descriptor_data_sampled = make_unique<uint8_t[]>(descriptor_sampled_size);
-		descriptor_data_storage = make_unique<uint8_t[]>(descriptor_storage_size);
+	descriptor_sampled_size = device.desc_buffer_sizes.sampled_image;
+	descriptor_storage_size = device.desc_buffer_sizes.storage_image * mip_map_image_view.size();
+	descriptor_data_sampled = make_unique<uint8_t[]>(descriptor_sampled_size);
+	descriptor_data_storage = make_unique<uint8_t[]>(descriptor_storage_size);
+	
+	auto& vk_ctx = *(vulkan_compute*)cqueue.get_device().context;
+	{
+		const VkDescriptorImageInfo desc_img_info {
+			.sampler = VK_NULL_HANDLE,
+			.imageView = image_info.imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
 		
-		auto& vk_ctx = *(vulkan_compute*)cqueue.get_device().context;
-		{
-			const VkDescriptorImageInfo desc_img_info {
-				.sampler = VK_NULL_HANDLE,
-				.imageView = image_info.imageView,
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			};
-			
-			const VkDescriptorGetInfoEXT desc_info_sampled {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
-				.pNext = nullptr,
-				.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				.data = {
-					.pSampledImage = &desc_img_info,
-				},
-			};
-			vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_sampled, device.desc_buffer_sizes.sampled_image,
-										 descriptor_data_sampled.get());
-		}
+		const VkDescriptorGetInfoEXT desc_info_sampled {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+			.pNext = nullptr,
+			.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			.data = {
+				.pSampledImage = &desc_img_info,
+			},
+		};
+		vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_sampled, device.desc_buffer_sizes.sampled_image,
+									 descriptor_data_sampled.get());
+	}
+	
+	for (size_t mip_level = 0, mip_level_count = mip_map_image_view.size(); mip_level < mip_level_count; ++mip_level) {
+		const VkDescriptorImageInfo desc_img_info {
+			.sampler = VK_NULL_HANDLE,
+			.imageView = mip_map_image_view[mip_level],
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+		};
 		
-		for (size_t mip_level = 0, mip_level_count = mip_map_image_view.size(); mip_level < mip_level_count; ++mip_level) {
-			const VkDescriptorImageInfo desc_img_info {
-				.sampler = VK_NULL_HANDLE,
-				.imageView = mip_map_image_view[mip_level],
-				.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			};
-			
-			const VkDescriptorGetInfoEXT desc_info_storage {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
-				.pNext = nullptr,
-				.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				.data = {
-					.pStorageImage = &desc_img_info,
-				},
-			};
-			vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_storage, device.desc_buffer_sizes.storage_image,
-										 descriptor_data_storage.get() + mip_level * device.desc_buffer_sizes.storage_image);
-		}
+		const VkDescriptorGetInfoEXT desc_info_storage {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+			.pNext = nullptr,
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.data = {
+				.pStorageImage = &desc_img_info,
+			},
+		};
+		vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_storage, device.desc_buffer_sizes.storage_image,
+									 descriptor_data_storage.get() + mip_level * device.desc_buffer_sizes.storage_image);
 	}
 	
 	// buffer init from host data pointer
@@ -463,15 +460,14 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// transition image to its defined usage (render targets already have been transitioned)
 	if (!is_render_target) {
 		if (is_read_only) {
-			transition_read(cqueue, nullptr);
+			transition_read(&cqueue, nullptr);
 		} else {
-			transition_write(cqueue, nullptr);
+			transition_write(&cqueue, nullptr);
 		}
 	}
 	
 	// get shared memory handle (if sharing is enabled)
 	if (is_sharing) {
-		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
 #if defined(__WINDOWS__)
 		VkMemoryGetWin32HandleInfoKHR get_win32_handle {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
@@ -526,12 +522,12 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 	}
 	
 	// check if this is a render target
-	if ((info.access_mask & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT) != 0 ||
-		(info.access_mask & VK_ACCESS_COLOR_ATTACHMENT_READ_BIT) != 0 ||
-		(info.access_mask & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT) != 0 ||
-		(info.access_mask & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT) != 0 ||
-		(info.access_mask & VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) != 0 ||
-		(info.access_mask & VK_ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT) != 0) {
+	if ((info.access_mask & VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT) != 0 ||
+		(info.access_mask & VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT) != 0 ||
+		(info.access_mask & VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT) != 0 ||
+		(info.access_mask & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT) != 0 ||
+		(info.access_mask & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) != 0 ||
+		(info.access_mask & VK_ACCESS_2_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT) != 0) {
 		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
 	}
 	if (info.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ||
@@ -601,8 +597,8 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 		const auto restore_access_mask = cur_access_mask;
 		const auto restore_layout = image_info.imageLayout;
 		
-		transition(cqueue, cmd_buffer.cmd_buffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 		
 		VkImageSubresourceRange zero_range {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -621,16 +617,16 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 				.depth = 0.0f,
 				.stencil = 0u,
 			};
-			vkCmdClearDepthStencilImage(cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
+			vkCmdClearDepthStencilImage(block_cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
 		} else {
 			const VkClearColorValue clear_value {
 				.float32 = { 0.0f, 0.0f, 0.0f, 0.0f },
 			};
-			vkCmdClearColorImage(cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
+			vkCmdClearColorImage(block_cmd_buffer.cmd_buffer, image, image_info.imageLayout, &clear_value, 1, &zero_range);
 		}
 		
-		transition(cqueue, cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
+				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 	}), false /* return false on error */, true /* always blocking */);
 	
 	return true;
@@ -658,9 +654,9 @@ bool vulkan_image::unmap(const compute_queue& cqueue,
 	if (image_info.imageLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL ||
 		image_info.imageLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 		if (has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
-			transition_read(cqueue, nullptr);
+			transition_read(&cqueue, nullptr);
 		} else {
-			transition_write(cqueue, nullptr);
+			transition_write(&cqueue, nullptr);
 		}
 	}
 	
@@ -696,10 +692,10 @@ void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommand
 		},
 	};
 	// transition to src-optimal, b/c of perf
-	transition(cqueue, cmd_buffer,
-			   VK_ACCESS_TRANSFER_READ_BIT,
+	transition(&cqueue, cmd_buffer,
+			   VK_ACCESS_2_TRANSFER_READ_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+			   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
@@ -708,10 +704,10 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 	const auto dim_count = image_dim_count(image_type);
 	
 	// transition to dst-optimal, b/c of perf
-	transition(cqueue, cmd_buffer,
-			   VK_ACCESS_TRANSFER_WRITE_BIT,
+	transition(&cqueue, cmd_buffer,
+			   VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+			   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 	
 	// RGB -> RGBA data conversion if necessary
 	if(image_type != shim_image_type) {
@@ -761,38 +757,42 @@ bool vulkan_image::release_opengl_object(const compute_queue*) {
 	return false;
 }
 
-static VkPipelineStageFlags stage_mask_from_access(const VkAccessFlags& access_mask_in, const VkPipelineStageFlags& stage_mask_in) {
+static VkPipelineStageFlags2 stage_mask_from_access(const VkAccessFlags2& access_mask_in, const VkPipelineStageFlags2& stage_mask_in) {
 	switch (access_mask_in) {
-		case VK_PIPELINE_STAGE_TRANSFER_BIT:
-			return VK_PIPELINE_STAGE_TRANSFER_BIT;
+		case VK_PIPELINE_STAGE_2_TRANSFER_BIT:
+			return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 		default: break;
 	}
 	return stage_mask_in;
 }
 
-bool vulkan_image::transition(const compute_queue& cqueue,
-							  VkCommandBuffer cmd_buffer_,
-							  const VkAccessFlags dst_access,
-							  const VkImageLayout new_layout,
-							  const VkPipelineStageFlags src_stage_mask_in,
-							  const VkPipelineStageFlags dst_stage_mask_in,
-							  const uint32_t dst_queue_idx) {
+pair<bool, VkImageMemoryBarrier2> vulkan_image::transition(const compute_queue* cqueue,
+														   VkCommandBuffer cmd_buffer_,
+														   const VkAccessFlags2 dst_access,
+														   const VkImageLayout new_layout,
+														   const VkPipelineStageFlags2 src_stage_mask_in,
+														   const VkPipelineStageFlags2 dst_stage_mask_in,
+														   const uint32_t dst_queue_idx,
+														   const bool soft_transition) {
 	VkImageAspectFlags aspect_mask = 0;
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 		aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
 			aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 		}
+	} else {
+		aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
-	else aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	VkPipelineStageFlags src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in);
-	VkPipelineStageFlags dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in);
+	VkPipelineStageFlags2 src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in);
+	VkPipelineStageFlags2 dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in);
 	
-	const VkImageMemoryBarrier image_barrier {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+	const VkImageMemoryBarrier2 image_barrier {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		.pNext = nullptr,
+		.srcStageMask = src_stage_mask,
 		.srcAccessMask = cur_access_mask,
+		.dstStageMask = dst_stage_mask,
 		.dstAccessMask = dst_access,
 		.oldLayout = image_info.imageLayout,
 		.newLayout = new_layout,
@@ -808,104 +808,123 @@ bool vulkan_image::transition(const compute_queue& cqueue,
 		},
 	};
 	
-	if (cmd_buffer_ == nullptr) {
-		const auto& vk_queue = (const vulkan_queue&)cqueue;
-		VK_CMD_BLOCK(vk_queue, "image transition", ({
-			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, src_stage_mask, dst_stage_mask,
-								 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
-		}), true /* always blocking */);
-	} else {
-		vkCmdPipelineBarrier(cmd_buffer_, src_stage_mask, dst_stage_mask,
-							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+	if (!soft_transition) {
+		assert(cqueue);
+		const VkDependencyInfo dep_info {
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.pNext = nullptr,
+			.dependencyFlags = 0,
+			.memoryBarrierCount = 0,
+			.pMemoryBarriers = nullptr,
+			.bufferMemoryBarrierCount = 0,
+			.pBufferMemoryBarriers = nullptr,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &image_barrier,
+		};
+		if (cmd_buffer_ == nullptr) {
+			const auto& vk_queue = *(const vulkan_queue*)cqueue;
+			VK_CMD_BLOCK(vk_queue, "image transition", ({
+				vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
+			}), true /* always blocking */);
+		} else {
+			vkCmdPipelineBarrier2(cmd_buffer_, &dep_info);
+		}
 	}
+	// else: soft transition: don't actually encode a pipeline barrier (must be done manually by the caller)
 	
 	cur_access_mask = dst_access;
 	image_info.imageLayout = new_layout;
 	update_mip_map_info();
 	
-	return true;
+	return { true, image_barrier };
 }
 
-void vulkan_image::transition_read(const compute_queue& cqueue,
-								   VkCommandBuffer cmd_buffer,
-								   const bool allow_general_layout) {
+pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_read(const compute_queue* cqueue,
+																VkCommandBuffer cmd_buffer,
+																const bool allow_general_layout,
+																const bool soft_transition) {
 	// normal images
 	if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-		const VkAccessFlags access_flags = VK_ACCESS_SHADER_READ_BIT;
+		const VkAccessFlags2 access_flags = VK_ACCESS_2_SHADER_READ_BIT;
 		if ((cur_access_mask & access_flags) == access_flags) {
 			if (image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
 				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
-				return;
+				return { false, {} };
 			}
 		}
-		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		return transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
 	}
 	// attachments / render-targets
 	else {
 		VkImageLayout layout;
-		VkAccessFlags access_flags;
+		VkAccessFlags2 access_flags;
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			access_flags = VK_ACCESS_SHADER_READ_BIT;
+			access_flags = VK_ACCESS_2_SHADER_READ_BIT;
 		} else {
 			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			access_flags = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 		}
 		if ((cur_access_mask & access_flags) == access_flags) {
 			if (image_info.imageLayout == layout ||
 				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
-				return;
+				return { false, {} };
 			}
 		}
 		
-		transition(cqueue, cmd_buffer, access_flags, layout,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		return transition(cqueue, cmd_buffer, access_flags, layout,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
 	}
 }
 
-void vulkan_image::transition_write(const compute_queue& cqueue, VkCommandBuffer cmd_buffer,
-									const bool read_write, const bool is_rt_direct_write, const bool allow_general_layout) {
+pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_write(const compute_queue* cqueue, VkCommandBuffer cmd_buffer,
+																 const bool read_write, const bool is_rt_direct_write,
+																 const bool allow_general_layout, const bool soft_transition) {
 	// normal images
 	if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) || is_rt_direct_write) {
-		VkAccessFlags access_flags = VK_ACCESS_SHADER_WRITE_BIT;
+		VkAccessFlags2 access_flags = VK_ACCESS_2_SHADER_WRITE_BIT;
 		if (read_write) {
-			access_flags |= VK_ACCESS_SHADER_READ_BIT;
+			access_flags |= VK_ACCESS_2_SHADER_READ_BIT;
 		}
 		
 		if (image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL &&
 			(cur_access_mask & access_flags) == access_flags) {
-			return;
+			return { false, {} };
 		}
-		transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		return transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
 	}
 	// attachments / render-targets
 	else {
 #if defined(FLOOR_DEBUG)
-		if(read_write) {
+		if (read_write) {
 			log_error("attachment / render-target can't be read-write");
 		}
 #endif
 		
 		VkImageLayout layout;
-		VkAccessFlags access_flags;
+		VkAccessFlags2 access_flags;
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			access_flags = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 		} else {
 			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			access_flags = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
 		if ((cur_access_mask & access_flags) == access_flags) {
 			if (image_info.imageLayout == layout ||
 				(allow_general_layout && image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL)) {
-				return;
+				return { false, {} };
 			}
 		}
 		
-		transition(cqueue, cmd_buffer, access_flags, layout,
-				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+		return transition(cqueue, cmd_buffer, access_flags, layout,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
 	}
 }
 
@@ -1206,7 +1225,7 @@ optional<COMPUTE_IMAGE_TYPE> vulkan_image::image_type_from_vulkan_format(const V
 	return img_type->second;
 }
 
-void vulkan_image::update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags& access) {
+void vulkan_image::update_with_external_vulkan_state(const VkImageLayout& layout, const VkAccessFlags2& access) {
 	image_info.imageLayout = layout;
 	cur_access_mask = access;
 	update_mip_map_info();

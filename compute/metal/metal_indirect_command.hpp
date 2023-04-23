@@ -78,7 +78,7 @@ public:
 										  const compute_queue& dev_queue_, const graphics_pipeline& pipeline_);
 	~metal_indirect_render_command_encoder() override;
 	
-	void set_arguments_vector(const vector<compute_kernel_arg>& args) override;
+	void set_arguments_vector(vector<compute_kernel_arg>&& args) override;
 	
 	indirect_render_command_encoder& draw(const uint32_t vertex_count,
 										  const uint32_t instance_count = 1u,
@@ -127,14 +127,13 @@ public:
 										   const compute_queue& dev_queue_, const compute_kernel& kernel_obj_);
 	~metal_indirect_compute_command_encoder() override;
 	
-	void set_arguments_vector(const vector<compute_kernel_arg>& args) override;
+	void set_arguments_vector(vector<compute_kernel_arg>&& args) override;
 	
 	indirect_compute_command_encoder& barrier() override;
 	
 protected:
 	const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry;
 	const uint32_t command_idx { 0u };
-	const compute_kernel::kernel_entry* kernel_entry { nullptr };
 	
 	id <MTLIndirectComputeCommand> command;
 	

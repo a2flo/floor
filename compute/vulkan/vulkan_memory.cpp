@@ -176,27 +176,39 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 						.dstOffset = 0,
 						.size = mapping.size,
 					};
-					vkCmdCopyBuffer(cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
+					vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
 				} else {
-					image_copy_dev_to_host(cqueue, cmd_buffer.cmd_buffer, mapping.buffer);
+					image_copy_dev_to_host(cqueue, block_cmd_buffer.cmd_buffer, mapping.buffer);
 				}
 			}), blocking_map);
 		} else {
 			// TODO: make this actually work
 			VK_CMD_BLOCK(vk_queue, "dev -> host memory barrier", ({
-				const VkBufferMemoryBarrier buffer_barrier {
-					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				const VkBufferMemoryBarrier2 buffer_barrier {
+					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
 					.pNext = nullptr,
-					.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-					.dstAccessMask = VkAccessFlags(VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : VkAccessFlagBits(0u))),
+					.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+					.dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+					.dstAccessMask = VkAccessFlags2(VK_ACCESS_2_HOST_READ_BIT | (does_write ? VK_ACCESS_2_HOST_WRITE_BIT : VkAccessFlagBits2(0u))),
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.buffer = mapping.buffer,
 					.offset = mapping.offset,
 					.size = mapping.size,
 				};
-				vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-									 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+				const VkDependencyInfo dep_info {
+					.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+					.pNext = nullptr,
+					.dependencyFlags = 0,
+					.memoryBarrierCount = 0,
+					.pMemoryBarriers = nullptr,
+					.bufferMemoryBarrierCount = 1,
+					.pBufferMemoryBarriers = &buffer_barrier,
+					.imageMemoryBarrierCount = 0,
+					.pImageMemoryBarriers = nullptr,
+				};
+				vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
 			}), blocking_map);
 		}
 	}
@@ -243,9 +255,9 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 							.dstOffset = iter->second.offset,
 							.size = iter->second.size,
 						};
-						vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
+						vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
 					} else {
-						image_copy_host_to_dev(cqueue, cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
+						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
 					}
 				}), has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);
@@ -264,25 +276,36 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		if (is_host_coherent && !is_image) {
 			VK_CMD_BLOCK(vk_queue, "host -> dev memory barrier", ({
-				const VkBufferMemoryBarrier buffer_barrier {
-					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				const VkBufferMemoryBarrier2 buffer_barrier {
+					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
 					.pNext = nullptr,
-					.srcAccessMask = VkAccessFlags(VK_ACCESS_HOST_WRITE_BIT |
-												   (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ?
-													VK_ACCESS_HOST_READ_BIT : VkAccessFlagBits(0u))),
-					.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
-									  VK_ACCESS_MEMORY_WRITE_BIT |
-									  VK_ACCESS_SHADER_READ_BIT |
-									  VK_ACCESS_SHADER_WRITE_BIT),
+					.srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+					.srcAccessMask = VkAccessFlags2(VK_ACCESS_2_HOST_WRITE_BIT |
+													(has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ?
+													 VK_ACCESS_2_HOST_READ_BIT : VkAccessFlagBits2(0u))),
+					.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+					.dstAccessMask = (VK_ACCESS_2_MEMORY_READ_BIT |
+									  VK_ACCESS_2_MEMORY_WRITE_BIT |
+									  VK_ACCESS_2_SHADER_READ_BIT |
+									  VK_ACCESS_2_SHADER_WRITE_BIT),
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.buffer = iter->second.buffer,
 					.offset = iter->second.offset,
 					.size = iter->second.size,
 				};
-				
-				vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-									 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+				const VkDependencyInfo dep_info {
+					.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+					.pNext = nullptr,
+					.dependencyFlags = 0,
+					.memoryBarrierCount = 0,
+					.pMemoryBarriers = nullptr,
+					.bufferMemoryBarrierCount = 1,
+					.pBufferMemoryBarriers = &buffer_barrier,
+					.imageMemoryBarrierCount = 0,
+					.pImageMemoryBarriers = nullptr,
+				};
+				vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
 			}), has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 		}
 	}

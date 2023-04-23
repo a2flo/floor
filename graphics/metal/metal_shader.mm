@@ -38,7 +38,7 @@ void metal_shader::execute(const compute_queue& cqueue floor_unused,
 						   const uint3& local_work_size floor_unused,
 						   const vector<compute_kernel_arg>& args floor_unused,
 						   const vector<const compute_fence*>& wait_fences floor_unused,
-						   const vector<const compute_fence*>& signal_fences floor_unused,
+						   const vector<compute_fence*>& signal_fences floor_unused,
 						   const char* debug_label floor_unused,
 						   kernel_completion_handler_f&& completion_handler floor_unused) const {
 	log_error("executing a shader is not supported!");

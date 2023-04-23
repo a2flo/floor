@@ -44,34 +44,36 @@ public:
 				 const uint3& local_work_size,
 				 const vector<compute_kernel_arg>& args,
 				 const vector<const compute_fence*>& wait_fences,
-				 const vector<const compute_fence*>& signal_fences,
+				 const vector<compute_fence*>& signal_fences,
 				 const char* debug_label,
 				 kernel_completion_handler_f&& completion_handler) const override;
 	
 	
-	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s)
-	void draw(const compute_queue& cqueue,
-			  const vulkan_command_buffer& cmd_buffer,
-			  const VkPipeline pipeline,
-			  const VkPipelineLayout pipeline_layout,
-			  const vulkan_kernel_entry* vertex_shader,
-			  const vulkan_kernel_entry* fragment_shader,
-			  const vector<graphics_renderer::multi_draw_entry>* draw_entries,
-			  const vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
-			  const vector<compute_kernel_arg>& args) const;
+	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s),
+	//! returns all required image layout transition barriers
+	vector<VkImageMemoryBarrier2> draw(const compute_queue& cqueue,
+									   const vulkan_command_buffer& cmd_buffer,
+									   const VkPipeline pipeline,
+									   const VkPipelineLayout pipeline_layout,
+									   const vulkan_kernel_entry* vertex_shader,
+									   const vulkan_kernel_entry* fragment_shader,
+									   const vector<graphics_renderer::multi_draw_entry>* draw_entries,
+									   const vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+									   const vector<compute_kernel_arg>& args) const;
 	
-	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s)
+	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s),
+	//! returns all required image layout transition barriers
 	template <typename... Args>
-	void draw(const compute_queue& cqueue,
-			  const vulkan_command_buffer& cmd_buffer,
-			  const VkPipeline pipeline,
-			  const VkPipelineLayout pipeline_layout,
-			  const vulkan_kernel_entry* vertex_shader,
-			  const vulkan_kernel_entry* fragment_shader,
-			  const vector<graphics_renderer::multi_draw_entry>* draw_entries,
-			  const vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
-			  const Args&... args) const {
-		draw(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader, draw_entries, draw_indexed_entries, { args... });
+	vector<VkImageMemoryBarrier2> draw(const compute_queue& cqueue,
+									   const vulkan_command_buffer& cmd_buffer,
+									   const VkPipeline pipeline,
+									   const VkPipelineLayout pipeline_layout,
+									   const vulkan_kernel_entry* vertex_shader,
+									   const vulkan_kernel_entry* fragment_shader,
+									   const vector<graphics_renderer::multi_draw_entry>* draw_entries,
+									   const vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+									   const Args&... args) const {
+		return draw(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader, draw_entries, draw_indexed_entries, { args... });
 	}
 
 };

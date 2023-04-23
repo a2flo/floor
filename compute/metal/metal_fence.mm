@@ -26,4 +26,11 @@
 metal_fence::metal_fence(id <MTLFence> mtl_fence_) : compute_fence(), mtl_fence(mtl_fence_) {
 }
 
+void metal_fence::set_debug_label(const string& label) {
+	compute_fence::set_debug_label(label);
+	if (mtl_fence) {
+		mtl_fence.label = [NSString stringWithUTF8String:debug_label.c_str()];
+	}
+}
+
 #endif

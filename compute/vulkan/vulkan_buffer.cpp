@@ -177,24 +177,22 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	//log_debug("dev addr: $X", buffer_device_address);
 	
 	// query descriptor data
-	if (device.descriptor_buffer_support) {
-		const VkDescriptorAddressInfoEXT addr_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT,
-			.pNext = nullptr,
-			.address = buffer_device_address,
-			.range = size,
-			.format = VK_FORMAT_UNDEFINED,
-		};
-		const VkDescriptorGetInfoEXT desc_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
-			.pNext = nullptr,
-			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.data = {
-				.pStorageBuffer = &addr_info,
-			},
-		};
-		((vulkan_compute*)cqueue.get_device().context)->vulkan_get_descriptor(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
-	}
+	const VkDescriptorAddressInfoEXT addr_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT,
+		.pNext = nullptr,
+		.address = buffer_device_address,
+		.range = size,
+		.format = VK_FORMAT_UNDEFINED,
+	};
+	const VkDescriptorGetInfoEXT desc_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+		.pNext = nullptr,
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.data = {
+			.pStorageBuffer = &addr_info,
+		},
+	};
+	((vulkan_compute*)cqueue.get_device().context)->vulkan_get_descriptor(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
 	
 	// buffer init from host data pointer
 	if(copy_host_data &&
@@ -286,7 +284,7 @@ void vulkan_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 			.dstOffset = dst_offset,
 			.size = copy_size,
 		};
-		vkCmdCopyBuffer(cmd_buffer.cmd_buffer, ((const vulkan_buffer&)src).buffer, buffer, 1, &region);
+		vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, ((const vulkan_buffer&)src).buffer, buffer, 1, &region);
 	}), , true /* always blocking */);
 }
 
@@ -305,7 +303,7 @@ bool vulkan_buffer::zero(const compute_queue& cqueue) {
 	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	VK_CMD_BLOCK(vk_queue, "buffer zero", ({
-		vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
+		vkCmdFillBuffer(block_cmd_buffer.cmd_buffer, buffer, 0, size, 0);
 	}), true /* always blocking */);
 	return true;
 }

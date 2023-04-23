@@ -26,7 +26,7 @@ cuda_argument_buffer::cuda_argument_buffer(const compute_kernel& func_, shared_p
 										   const llvm_toolchain::function_info& arg_info_) :
 argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
 
-void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) {
+bool cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) {
 	auto cuda_storage_buffer = (cuda_buffer*)storage_buffer.get();
 	
 	// map the memory of the argument buffer so that we can fill it on the CPU side + set up auto unmap
@@ -63,7 +63,7 @@ void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 			copy_size += arg_size;
 			if (copy_size > buffer_size) {
 				log_error("out-of-bounds write for buffer pointer in argument buffer");
-				return;
+				return false;
 			}
 			const auto ptr = ((const cuda_buffer*)(*buf_ptr))->get_cuda_buffer();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
@@ -74,7 +74,7 @@ void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 				copy_size += arg_size;
 				if (copy_size > buffer_size) {
 					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
-					return;
+					return false;
 				}
 				
 				const auto ptr = (buf_entry ? ((const cuda_buffer*)buf_entry)->get_cuda_buffer() : cu_device_ptr(0u));
@@ -87,7 +87,7 @@ void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 				copy_size += arg_size;
 				if (copy_size > buffer_size) {
 					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
-					return;
+					return false;
 				}
 				
 				const auto ptr = (buf_entry ? ((const cuda_buffer*)buf_entry.get())->get_cuda_buffer() : cu_device_ptr(0u));
@@ -101,20 +101,20 @@ void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 			// sanity checks
 			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::NONE) {
 				log_error("no image access qualifier specified!");
-				return;
+				return false;
 			}
 			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ ||
 				entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
 				if (cu_img->get_cuda_textures()[0] == 0) {
 					log_error("image is set to be readable, but texture objects don't exist!");
-					return;
+					return false;
 				}
 			}
 			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::WRITE ||
 				entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
 				if (cu_img->get_cuda_surfaces()[0] == 0) {
 					log_error("image is set to be writable, but surface object doesn't exist!");
-					return;
+					return false;
 				}
 			}
 #endif
@@ -146,30 +146,32 @@ void cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 			copy_buffer_ptr += 4 /* padding */;
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
-			return;
+			return false;
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
-			return;
+			return false;
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			log_error("nested argument buffers are not supported for CUDA");
-			return;
+			return false;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			if (arg.size == 0) {
 				log_error("generic argument of size 0 can't be set in argument buffer");
-				return;
+				return false;
 			}
 			copy_size += arg.size;
 			if (copy_size > buffer_size) {
 				log_error("out-of-bounds write for generic argument in argument buffer");
-				return;
+				return false;
 			}
 			memcpy(copy_buffer_ptr, *generic_arg_ptr, arg.size);
 			copy_buffer_ptr += arg.size;
 		} else {
 			log_error("encountered invalid arg");
-			return;
+			return false;
 		}
 	}
+	
+	return true;
 }
 
 #endif

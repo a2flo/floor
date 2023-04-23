@@ -19,6 +19,8 @@
 #include <floor/compute/indirect_command.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_context.hpp>
+#include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
 
 indirect_command_pipeline::indirect_command_pipeline(const indirect_command_description& desc_) : desc(desc_) {
@@ -40,6 +42,37 @@ indirect_command_pipeline::indirect_command_pipeline(const indirect_command_desc
 }
 
 void indirect_command_description::compute_buffer_counts_from_functions(const compute_device& dev, const vector<const compute_kernel*>& functions) {
+	// for Vulkan, we can directly derive a "buffer count" from the descriptor buffer/layout size and the SSBO descriptor size
+	const auto is_vulkan = (dev.context->get_compute_type() == COMPUTE_TYPE::VULKAN);
+	if (is_vulkan) {
+		const auto ssbo_size = ((const vulkan_device&)dev).desc_buffer_sizes.ssbo;
+		for (const auto& func : functions) {
+			const auto entry = func->get_kernel_entry(dev);
+			if (!entry || !entry->info) {
+				continue;
+			}
+			const auto vk_entry = (const vulkan_kernel::vulkan_kernel_entry*)entry;
+			const auto buf_count = uint32_t((vk_entry->desc_buffer.layout_size_in_bytes + ssbo_size - 1u) / ssbo_size);
+			switch (entry->info->type) {
+				case llvm_toolchain::FUNCTION_TYPE::KERNEL:
+					max_kernel_buffer_count = max(max_kernel_buffer_count, buf_count);
+					break;
+				case llvm_toolchain::FUNCTION_TYPE::VERTEX:
+				case llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION:
+					max_vertex_buffer_count = max(max_vertex_buffer_count, buf_count);
+					break;
+				case llvm_toolchain::FUNCTION_TYPE::FRAGMENT:
+					max_fragment_buffer_count = max(max_fragment_buffer_count, buf_count);
+					break;
+				case llvm_toolchain::FUNCTION_TYPE::NONE:
+				case llvm_toolchain::FUNCTION_TYPE::TESSELLATION_CONTROL:
+				case llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT:
+					throw runtime_error("unhandled function type");
+			}
+		}
+		// NOTE: still continue and perform the "normal" buffer count computation (as a validity check)
+	}
+	
 	for (const auto& func : functions) {
 		const auto entry = func->get_kernel_entry(dev);
 		if (!entry || !entry->info) {
@@ -53,11 +86,16 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 				continue;
 			}
 #endif
-			bool skip = false;
 			switch (arg.special_type) {
 				case llvm_toolchain::SPECIAL_TYPE::NONE:
-				case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
 				case llvm_toolchain::SPECIAL_TYPE::SSBO:
+					++buf_count;
+					break;
+				case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
+					// for Vulkan, argument buffers are separately stored descriptor buffers (-> don't need to account for them here)
+					if (!is_vulkan) {
+						++buf_count;
+					}
 					break;
 				case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
 					// only tessellation evaluation shaders may contain buffers in stage_input
@@ -73,13 +111,8 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 					log_error("must not have image/buffer-array, IUB or push-constant parameters (in function \"$\") intended for indirect compute/render",
 							  entry->info->name);
 #endif
-					skip = true;
 					break;
 			}
-			if (skip) {
-				continue;
-			}
-			++buf_count;
 		}
 		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
 			++buf_count;

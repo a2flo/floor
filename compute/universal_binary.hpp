@@ -264,6 +264,7 @@ namespace universal_binary {
 			uint64_t tessellation_support : 1;
 			
 			//! if set, enables descriptor buffer support
+			//! NOTE: this is required now
 			uint64_t descriptor_buffer_support : 1;
 			
 			uint64_t _unused : 23;

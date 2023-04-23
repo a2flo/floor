@@ -27,7 +27,7 @@ host_argument_buffer::host_argument_buffer(const compute_kernel& func_, shared_p
 										   const llvm_toolchain::function_info& arg_info_) :
 argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
 
-void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_unused, const vector<compute_kernel_arg>& args) {
+bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_unused, const vector<compute_kernel_arg>& args) {
 	auto host_storage_buffer = (host_buffer*)storage_buffer.get();
 	
 	auto copy_buffer_ptr = host_storage_buffer->get_host_buffer_ptr();
@@ -39,7 +39,7 @@ void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 			copy_size += arg_size;
 			if (copy_size > buffer_size) {
 				log_error("out-of-bounds write for buffer pointer in argument buffer");
-				return;
+				return false;
 			}
 			const auto ptr = ((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
@@ -50,7 +50,7 @@ void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 				copy_size += arg_size;
 				if (copy_size > buffer_size) {
 					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
-					return;
+					return false;
 				}
 				
 				const auto ptr = (entry ? ((const host_buffer*)entry)->get_host_buffer_ptr() : nullptr);
@@ -63,7 +63,7 @@ void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 				copy_size += arg_size;
 				if (copy_size > buffer_size) {
 					log_error("out-of-bounds write for a buffer pointer in an buffer array in argument buffer");
-					return;
+					return false;
 				}
 				
 				const auto ptr = (entry ? ((const host_buffer*)entry.get())->get_host_buffer_ptr() : nullptr);
@@ -75,38 +75,40 @@ void host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 			copy_size += arg_size;
 			if (copy_size > buffer_size) {
 				log_error("out-of-bounds write for image pointer in argument buffer");
-				return;
+				return false;
 			}
 			const auto ptr = ((const host_image*)(*img_ptr))->get_host_image_program_info();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
-			return;
+			return false;
 		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
-			return;
+			return false;
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			log_error("nested argument buffers are not supported for Host-Compute");
-			return;
+			return false;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
 			// NOTE: contrary to param<> arguments in kernels, these are copied as objects, not pointers
 			if (arg.size == 0) {
 				log_error("generic argument of size 0 can't be set in argument buffer");
-				return;
+				return false;
 			}
 			copy_size += arg.size;
 			if (copy_size > buffer_size) {
 				log_error("out-of-bounds write for generic argument in argument buffer");
-				return;
+				return false;
 			}
 			memcpy(copy_buffer_ptr, *generic_arg_ptr, arg.size);
 			copy_buffer_ptr += arg.size;
 		} else {
 			log_error("encountered invalid arg");
-			return;
+			return false;
 		}
 	}
+	
+	return true;
 }
 
 #endif

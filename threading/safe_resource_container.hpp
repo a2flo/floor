@@ -74,7 +74,7 @@ public:
 	
 	//! acquires a resource, returns { resource, index }
 	pair<resource_access_type, uint32_t> acquire() REQUIRES(!resource_lock) {
-		for (uint32_t counter = 0;; ++counter) {
+		for ([[maybe_unused]] uint32_t counter = 0;; ++counter) {
 			{
 				GUARD(resource_lock);
 				if (!resources_in_use.all()) {

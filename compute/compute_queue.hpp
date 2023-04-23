@@ -185,7 +185,7 @@ public:
 		//! all fences the kernel execution will wait on before execution
 		vector<const compute_fence*> wait_fences;
 		//! all fences the kernel will signal once execution has completed
-		vector<const compute_fence*> signal_fences;
+		vector<compute_fence*> signal_fences;
 		//! flag whether this is a cooperative kernel launch
 		bool is_cooperative { false };
 		//! after enqueueing the kernel, wait until the kernel has finished execution -> execute_with_parameters() becomes blocking
@@ -204,7 +204,7 @@ public:
 		//! all fences the indirect compute pipeline execution will wait on before execution
 		vector<const compute_fence*> wait_fences;
 		//! all fences the indirect compute pipeline will signal once execution has completed
-		vector<const compute_fence*> signal_fences;
+		vector<compute_fence*> signal_fences;
 		//! after enqueueing the indirect compute pipeline, wait until it has finished execution -> execute_indirect() becomes blocking
 		//! NOTE: since multiple kernel/pipeline executions might be in-flight in this queue, this is generally more efficient than calling finish()
 		bool wait_until_completion { false };

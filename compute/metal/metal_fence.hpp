@@ -24,9 +24,6 @@
 #if !defined(FLOOR_NO_METAL)
 #include <Metal/MTLFence.h>
 
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(weak-vtables)
-
 class metal_fence final : public compute_fence {
 public:
 	metal_fence(id <MTLFence> mtl_fence_);
@@ -37,12 +34,12 @@ public:
 		return mtl_fence;
 	}
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	id <MTLFence> mtl_fence { nil };
 	
 };
-
-FLOOR_POP_WARNINGS()
 
 #endif
 

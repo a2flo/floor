@@ -37,7 +37,7 @@ public:
 						   shared_ptr<compute_buffer> constant_buffer_storage_,
 						   span<uint8_t> constant_buffer_mapping_);
 	
-	void set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
+	bool set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
 	
 protected:
 	const llvm_toolchain::function_info& arg_info;
@@ -46,40 +46,6 @@ protected:
 	const span<uint8_t> mapped_host_memory {};
 	shared_ptr<compute_buffer> constant_buffer_storage;
 	const span<uint8_t> constant_buffer_mapping {};
-	
-	// argument setters
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const void* ptr, const size_t& size) const;
-	
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const compute_buffer* arg) const;
-	
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const vector<shared_ptr<compute_buffer>>& arg) const;
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const vector<compute_buffer*>& arg) const;
-	
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const compute_image* arg) const;
-	
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const vector<shared_ptr<compute_image>>& arg) const;
-	void set_argument(const vulkan_device& vk_dev,
-					  const vulkan_kernel::idx_handler& idx,
-					  const span<uint8_t>& host_desc_data,
-					  const vector<compute_image*>& arg) const;
 	
 };
 

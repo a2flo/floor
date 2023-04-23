@@ -45,9 +45,6 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 #error "Vulkan header version must at least be 235"
 #endif
 
-// set this define to 0 to disable experimental VK_EXT_descriptor_buffer support
-#define FLOOR_USE_VK_DESC_BUFFER 1
-
 // for Vulkan resource sharing on Windows
 #if defined(__WINDOWS__)
 #if !defined(DXGI_SHARED_RESOURCE_READ)

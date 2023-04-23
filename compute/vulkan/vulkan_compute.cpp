@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/platform.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_indirect_command.hpp>
 #include <floor/compute/spirv_handler.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
@@ -30,6 +31,7 @@
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 #include <floor/compute/device/sampler.hpp>
+#include <floor/compute/vulkan/vulkan_fence.hpp>
 #include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 #include <floor/graphics/vulkan/vulkan_renderer.hpp>
@@ -864,6 +866,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!vulkan13_features.synchronization2) {
+			log_error("synchronization2 is not supported by $", props.deviceName);
+			continue;
+		}
+		
 		// NOTE: only require "load, store and exchange atomic operations" support on SSBOs and local memory
 		if (!shader_atomic_float_features.shaderBufferFloat32Atomics ||
 			!shader_atomic_float_features.shaderSharedFloat32Atomics) {
@@ -895,6 +902,22 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		// check descriptor/argument buffer requirements
+		if (!desc_buf_features.descriptorBuffer) {
+			log_error("descriptor buffers are not supported by $", props.deviceName);
+			continue;
+		}
+		if (desc_buf_props.storageBufferDescriptorSize > vulkan_buffer::max_ssbo_descriptor_size) {
+			log_error("failed argument/descriptor buffer support: SSBO descriptor size is too large: $ (want $ bytes or less)",
+					  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
+			continue;
+		}
+		if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
+			log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
+					  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
+			continue;
+		}
+		
 		// handle/retrieve/check device memory properties / heaps / types and select appropriate ones
 		auto dev_mem_info = handle_and_select_device_memory(phys_dev, props.deviceName);
 		if (!dev_mem_info.valid) {
@@ -903,12 +926,6 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// create device
-		const vector<const char*> device_layers {
-#if defined(FLOOR_DEBUG)
-			"VK_LAYER_LUNARG_standard_validation",
-#endif
-		};
-
 		uint32_t dev_ext_count = 0;
 		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, nullptr);
 		vector<VkExtensionProperties> supported_dev_exts(dev_ext_count);
@@ -1032,12 +1049,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			dev_exts_str += ext;
 			dev_exts_str += " ";
 		}
-		for(const auto& layer : device_layers) {
-			dev_layers_str += layer;
-			dev_layers_str += " ";
-		}
 		log_debug("using device extensions: $", dev_exts_str);
-		log_debug("using device layers: $", dev_layers_str);
 		
 		vector<const char*> device_extensions_ptrs;
 		for(const auto& ext : device_extensions) {
@@ -1055,8 +1067,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
-			.enabledLayerCount = (uint32_t)size(device_layers),
-			.ppEnabledLayerNames = size(device_layers) > 0 ? device_layers.data() : nullptr,
+			.enabledLayerCount = 0,
+			.ppEnabledLayerNames = nullptr,
 			.enabledExtensionCount = (uint32_t)size(device_extensions_ptrs),
 			.ppEnabledExtensionNames = size(device_extensions_ptrs) > 0 ? device_extensions_ptrs.data() : nullptr,
 			// NOTE: must be nullptr when using .pNext with VkPhysicalDeviceFeatures2
@@ -1203,47 +1215,34 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		device.barycentric_coord_support = barycentric_features.fragmentShaderBarycentric;
 		
-		if (desc_buf_features.descriptorBuffer && FLOOR_USE_VK_DESC_BUFFER) {
-			if (desc_buf_props.storageBufferDescriptorSize > vulkan_buffer::max_ssbo_descriptor_size) {
-				log_error("failed argument/descriptor buffer support: SSBO descriptor size is too large: $ (want $ bytes or less)",
-						  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
-			} else {
-				device.descriptor_buffer_support = true;
-				device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);
-				device.desc_buffer_sizes.storage_image = uint32_t(desc_buf_props.storageImageDescriptorSize);
-				device.desc_buffer_sizes.ubo = uint32_t(desc_buf_props.uniformBufferDescriptorSize);
-				device.desc_buffer_sizes.ssbo = uint32_t(desc_buf_props.storageBufferDescriptorSize);
-				log_msg("descriptor buffer: UBO $, SSBO $, image: $ / $",
-						device.desc_buffer_sizes.ubo, device.desc_buffer_sizes.ssbo,
-						device.desc_buffer_sizes.sampled_image, device.desc_buffer_sizes.storage_image);
-				
-				// init extension functions if we haven't done this yet
-				if (!get_descriptor_set_layout_binding_offset) {
-					get_descriptor_set_layout_binding_offset = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutBindingOffsetEXT");
-					get_descriptor_set_layout_size = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutSizeEXT");
-					get_descriptor = (PFN_vkGetDescriptorEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorEXT");
-					cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
-					cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
-					cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
-				}
-				
-				// this extension enables argument buffer support as well as indirect command support,
-				// but we also need a minimum amount of bindable descriptor sets
-				if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
-					log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
-							  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
-				} else {
-					device.argument_buffer_support = true;
-					device.argument_buffer_image_support = true;
-					
-#if 0 // WIP
-					device.indirect_command_support = true;
-					device.indirect_render_command_support = true;
-					device.indirect_compute_command_support = true;
-#endif
-				}
-			}
+		// descriptor buffer support handling
+		device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);
+		device.desc_buffer_sizes.storage_image = uint32_t(desc_buf_props.storageImageDescriptorSize);
+		device.desc_buffer_sizes.ubo = uint32_t(desc_buf_props.uniformBufferDescriptorSize);
+		device.desc_buffer_sizes.ssbo = uint32_t(desc_buf_props.storageBufferDescriptorSize);
+		device.desc_buffer_sizes.sampler = uint32_t(desc_buf_props.samplerDescriptorSize);
+		device.descriptor_buffer_offset_alignment = uint32_t(desc_buf_props.descriptorBufferOffsetAlignment);
+		log_msg("descriptor buffer: UBO $, SSBO $, image: $ / $, sampler: $, alignment: $",
+				device.desc_buffer_sizes.ubo, device.desc_buffer_sizes.ssbo,
+				device.desc_buffer_sizes.sampled_image, device.desc_buffer_sizes.storage_image,
+				device.desc_buffer_sizes.sampler, device.descriptor_buffer_offset_alignment);
+		
+		// init extension functions if we haven't done this yet
+		if (!get_descriptor_set_layout_binding_offset) {
+			get_descriptor_set_layout_binding_offset = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutBindingOffsetEXT");
+			get_descriptor_set_layout_size = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutSizeEXT");
+			get_descriptor = (PFN_vkGetDescriptorEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorEXT");
+			cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
+			cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
+			cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
 		}
+		
+		// descriptor buffer support also enables argument buffer support as well as indirect command support
+		device.argument_buffer_support = true;
+		device.argument_buffer_image_support = true;
+		device.indirect_command_support = true;
+		device.indirect_render_command_support = true;
+		device.indirect_compute_command_support = true;
 		
 		// set memory info
 		device.mem_props = dev_mem_info.mem_props;
@@ -1264,7 +1263,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("using memory type #$ for device allocations", device.device_mem_index);
 		log_msg("using memory type #$ for device host-coherent/host-visible allocations", device.device_mem_host_coherent_index);
 		log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
-		log_msg("prefer device-local/host-coherent over host-cached: $", device.prefer_host_coherent_mem);
+		log_msg("prefer device-local/host-coherent over host-cached (ReBAR/SAM): $", device.prefer_host_coherent_mem);
 		
 		log_msg("max mem alloc: $ bytes / $ MB",
 				device.max_mem_alloc,
@@ -1695,7 +1694,13 @@ bool vulkan_compute::init_renderer() {
 				"failed to query swapchain image count", false)
 	screen.swapchain_images.resize(screen.image_count);
 	screen.swapchain_image_views.resize(screen.image_count);
-	screen.render_semas.resize(screen.image_count);
+	screen.render_fences.resize(screen.image_count * 2u /* conservative estimate */);
+	for (uint32_t i = 0, fence_count = uint32_t(screen.render_fences.size()); i < fence_count; ++i) {
+		screen.render_fences[i] = make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
+#if defined(FLOOR_DEBUG)
+		screen.render_fences[i]->set_debug_label("render_fence#" + to_string(i));
+#endif
+	}
 	VK_CALL_RET(vkGetSwapchainImagesKHR(screen.render_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
 				"failed to retrieve swapchain images", false)
 	
@@ -1775,6 +1780,9 @@ bool vulkan_compute::init_vr_renderer() {
 pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const bool get_multi_view_drawable) NO_THREAD_SAFETY_ANALYSIS {
 	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
+	
+	// none of this is thread-safe -> ensure only one thread is actively executing this
+	GUARD(acquisition_lock);
 
 	if (get_multi_view_drawable && vr_ctx) {
 		// manual index advance
@@ -1785,7 +1793,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 		auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
 
 		// transition / make the render target writable
-		vr_image->transition_write(dev_queue, nullptr);
+		vr_image->transition_write(&dev_queue, nullptr);
 
 		return {
 			true,
@@ -1805,9 +1813,9 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	}
 	
 	if (screen.x11_forwarding) {
-		screen.x11_screen->transition(dev_queue, nullptr /* create a cmd buffer */,
-									  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-									  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+		screen.x11_screen->transition(&dev_queue, nullptr /* create a cmd buffer */,
+									  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+									  VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
 		return {
 			true,
 			{
@@ -1821,32 +1829,40 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	
 	const drawable_image_info dummy_ret {};
 	
-	// create new sema and acquire image
-	const VkSemaphoreCreateInfo sema_create_info {
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-	};
-	VkSemaphore sema { nullptr };
-	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
-				"failed to create semaphore", { false, dummy_ret })
-	
-	const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
+	// acquire image + fence
+	// NOTE: this is a bit of a chicken/egg problem: since we don't know the image_index yet, we can't associate a fixed render fence with it
+	//       -> use a separate fence index (and allocate a conservative amount of render fences)
+	const auto fence_index = screen.next_fence_index++;
+	if (screen.next_fence_index >= screen.render_fences.size()) {
+		screen.next_fence_index = 0;
+	}
+	const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX,
+												  ((const vulkan_fence&)*screen.render_fences[fence_index]).get_vulkan_fence(),
 												  nullptr, &screen.image_index);
 	if (acq_result != VK_SUCCESS && acq_result != VK_SUBOPTIMAL_KHR) {
 		log_error("failed to acquire next presentable image: $: $", acq_result, vulkan_error_to_string(acq_result));
 		return { false, dummy_ret };
 	}
-	screen.render_semas[screen.image_index] = sema;
+#if defined(FLOOR_DEBUG)
+	set_vulkan_debug_label(*screen.render_device, VK_OBJECT_TYPE_IMAGE, uint64_t(screen.swapchain_images[screen.image_index]),
+						   "swapchain_image#" + to_string(screen.image_index));
+#endif
 	
 	// transition image
-	const auto dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	const auto dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 	const auto dst_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	vector<vulkan_queue::wait_fence_t> wait_fence { vulkan_queue::wait_fence_t {
+		.fence = screen.render_fences[fence_index].get(),
+		.signaled_value = 1,
+		.stage = compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT,
+	}};
 	VK_CMD_BLOCK_RET(vk_queue, "image drawable transition", ({
-		const VkImageMemoryBarrier image_barrier {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		const VkImageMemoryBarrier2 image_barrier {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.pNext = nullptr,
+			.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
 			.srcAccessMask = 0,
+			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.dstAccessMask = dst_access_mask,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.newLayout = dst_layout,
@@ -1861,9 +1877,19 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 				.layerCount = 1,
 			},
 		};
-		vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
-	}), (pair { false, dummy_ret }), true /* always blocking */, &screen.render_semas[screen.image_index], 1, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		const VkDependencyInfo dep_info {
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.pNext = nullptr,
+			.dependencyFlags = 0,
+			.memoryBarrierCount = 0,
+			.pMemoryBarriers = nullptr,
+			.bufferMemoryBarrierCount = 0,
+			.pBufferMemoryBarriers = nullptr,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &image_barrier,
+		};
+		vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
+	}), (pair { false, dummy_ret }), true /* always blocking */, std::move(wait_fence));
 	
 	return {
 		true,
@@ -1887,10 +1913,10 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
 	if(screen.x11_forwarding) {
-		screen.x11_screen->transition(dev_queue, nullptr /* create a cmd buffer */,
-									  VK_ACCESS_TRANSFER_READ_BIT,
+		screen.x11_screen->transition(&dev_queue, nullptr /* create a cmd buffer */,
+									  VK_ACCESS_2_TRANSFER_READ_BIT,
 									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-									  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+									  VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 		
 		// grab the current image buffer data (read-only + blocking) ...
 		auto img_data = (uchar4*)screen.x11_screen->map(dev_queue,
@@ -1918,11 +1944,13 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	
 	// transition to present mode
 	VK_CMD_BLOCK(vk_queue, "image present transition", ({
-		const VkImageMemoryBarrier present_image_barrier {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		const VkImageMemoryBarrier2 present_image_barrier {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.pNext = nullptr,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+			.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -1936,8 +1964,18 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 				.layerCount = 1,
 			},
 		};
-		vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-							 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
+		const VkDependencyInfo dep_info {
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.pNext = nullptr,
+			.dependencyFlags = 0,
+			.memoryBarrierCount = 0,
+			.pMemoryBarriers = nullptr,
+			.bufferMemoryBarrierCount = 0,
+			.pBufferMemoryBarriers = nullptr,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &present_image_barrier,
+		};
+		vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
 	}), true /* always blocking */);
 	
 	return queue_present(drawable);
@@ -1950,7 +1988,7 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 		auto& present_image = (vulkan_image&)*vr_screen.images[drawable.index];
 
 		// keep image state in sync
-		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_MEMORY_READ_BIT);
+		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_2_MEMORY_READ_BIT);
 
 		// present both eyes (+temporarily disable validation, because this will throw errors)
 		ignore_validation = true;
@@ -1981,10 +2019,6 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 			log_error("failed to present: $: $", present_result, vulkan_error_to_string(present_result));
 			return false;
 		}
-
-		// cleanup
-		vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
-		screen.render_semas[drawable.index] = nullptr;
 	}
 	
 	return true;
@@ -2027,9 +2061,8 @@ const compute_queue* vulkan_compute::get_device_default_queue(const compute_devi
 	return nullptr;
 }
 
-unique_ptr<compute_fence> vulkan_compute::create_fence(const compute_queue&) const {
-	log_error("fence creation not yet supported by vulkan_compute!");
-	return {};
+unique_ptr<compute_fence> vulkan_compute::create_fence(const compute_queue& cqueue) const {
+	return make_unique<vulkan_fence>(cqueue.get_device());
 }
 
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
@@ -2281,18 +2314,15 @@ void vulkan_compute::create_fixed_sampler_set() const {
 				  uint32_t(VK_COMPARE_OP_ALWAYS) == uint32_t(COMPARE_FUNCTION::ALWAYS),
 				  "failed depth compare function sanity check");
 	
-	// 5 bits -> 32 combinations
-	static constexpr const uint32_t max_combinations { 32 };
-	
 	for (auto& dev : devices) {
 		auto& vk_dev = (vulkan_device&)*dev;
-		vk_dev.fixed_sampler_set.resize(max_combinations, nullptr);
-		vk_dev.fixed_sampler_image_info.resize(max_combinations,
+		vk_dev.fixed_sampler_set.resize(max_sampler_combinations, nullptr);
+		vk_dev.fixed_sampler_image_info.resize(max_sampler_combinations,
 											   VkDescriptorImageInfo { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED });
 	}
 
 	// create the samplers for all devices
-	for (uint32_t combination = 0; combination < max_combinations; ++combination) {
+	for (uint32_t combination = 0; combination < max_sampler_combinations; ++combination) {
 		const vulkan_fixed_sampler smplr { .value = combination };
 		const VkFilter filter = (smplr.filter == 0 ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
 		const VkSamplerMipmapMode mipmap_filter = (smplr.filter == 0 ?
@@ -2341,89 +2371,33 @@ void vulkan_compute::create_fixed_sampler_set() const {
 	// create the descriptor set for all devices
 	for (auto& dev : devices) {
 		auto& vk_dev = (vulkan_device&)*dev;
-		if (!vk_dev.descriptor_buffer_support) {
-			// -> legacy descriptor set
-			const VkDescriptorSetLayoutBinding fixed_samplers_desc_set_layout {
-				.binding = 0,
+		
+		// -> for descriptor buffer usage
+		// NOTE: sampler arrays are not supported -> must create #max_combinations individual bindings/samplers
+		vector<VkDescriptorSetLayoutBinding> fixed_sampler_bindings(max_sampler_combinations);
+		for (uint32_t i = 0; i < max_sampler_combinations; ++i) {
+			fixed_sampler_bindings[i] = {
+				.binding = i,
 				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-				.descriptorCount = max_combinations,
+				.descriptorCount = 1,
 				.stageFlags = VK_SHADER_STAGE_ALL,
-				.pImmutableSamplers = vk_dev.fixed_sampler_set.data(),
+				.pImmutableSamplers = &vk_dev.fixed_sampler_set[i],
 			};
-			const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.bindingCount = 1,
-				.pBindings = &fixed_samplers_desc_set_layout,
-			};
-			
-			VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
-													 &vk_dev.fixed_sampler_desc_set_layout),
-						 "failed to create fixed sampler set descriptor set layout")
-			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
-								   "immutable_sampler_descriptor_set_layout");
-			
-			// TODO: use device global desc pool allocation once this is in place
-			const VkDescriptorPoolSize desc_pool_size {
-				.type = VK_DESCRIPTOR_TYPE_SAMPLER,
-				.descriptorCount = max_combinations,
-			};
-			const VkDescriptorPoolCreateInfo desc_pool_info {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.maxSets = 1,
-				.poolSizeCount = 1,
-				.pPoolSizes = &desc_pool_size,
-			};
-			VK_CALL_CONT(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &vk_dev.legacy_fixed_sampler_desc_pool),
-						 "failed to create fixed sampler set descriptor pool")
-			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_POOL, uint64_t(vk_dev.legacy_fixed_sampler_desc_pool),
-								   "immutable_sampler_descriptor_pool");
-			
-			// allocate descriptor set
-			const VkDescriptorSetAllocateInfo desc_set_alloc_info {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-				.pNext = nullptr,
-				.descriptorPool = vk_dev.legacy_fixed_sampler_desc_pool,
-				.descriptorSetCount = 1,
-				.pSetLayouts = &vk_dev.fixed_sampler_desc_set_layout,
-			};
-			VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &vk_dev.legacy_fixed_sampler_desc_set),
-						 "failed to allocate fixed sampler set descriptor set")
-			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET, uint64_t(vk_dev.legacy_fixed_sampler_desc_set),
-								   "immutable_sampler_descriptor_set");
-			
-			// TODO: cleanup!
-		} else {
-			// -> for descriptor buffer usage
-			// NOTE: sampler arrays are not supported -> must create #max_combinations individual bindings/samplers
-			vector<VkDescriptorSetLayoutBinding> fixed_sampler_bindings(max_combinations);
-			for (uint32_t i = 0; i < max_combinations; ++i) {
-				fixed_sampler_bindings[i] = {
-					.binding = i,
-					.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-					.descriptorCount = 1,
-					.stageFlags = VK_SHADER_STAGE_ALL,
-					.pImmutableSamplers = &vk_dev.fixed_sampler_set[i],
-				};
-			}
-			const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = (VK_DESCRIPTOR_SET_LAYOUT_CREATE_EMBEDDED_IMMUTABLE_SAMPLERS_BIT_EXT |
-						  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT),
-				.bindingCount = max_combinations,
-				.pBindings = fixed_sampler_bindings.data(),
-			};
-			
-			VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
-													 &vk_dev.fixed_sampler_desc_set_layout),
-						 "failed to create fixed sampler set descriptor set layout")
-			set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
-								   "immutable_sampler_descriptor_set_layout");
 		}
+		const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = (VK_DESCRIPTOR_SET_LAYOUT_CREATE_EMBEDDED_IMMUTABLE_SAMPLERS_BIT_EXT |
+					  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT),
+				.bindingCount = max_sampler_combinations,
+				.pBindings = fixed_sampler_bindings.data(),
+		};
+		
+		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
+												 &vk_dev.fixed_sampler_desc_set_layout),
+					 "failed to create fixed sampler set descriptor set layout")
+		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, uint64_t(vk_dev.fixed_sampler_desc_set_layout),
+							   "immutable_sampler_descriptor_set_layout");
 	}
 }
 
@@ -2548,10 +2522,12 @@ void vulkan_compute::vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffe
 }
 #endif
 
-unique_ptr<indirect_command_pipeline> vulkan_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
-	// TODO: !
-	log_error("not yet supported by vulkan_compute!");
-	return {};
+unique_ptr<indirect_command_pipeline> vulkan_compute::create_indirect_command_pipeline(const indirect_command_description& desc) const {
+	auto pipeline = make_unique<vulkan_indirect_command_pipeline>(desc, devices);
+	if (!pipeline || !pipeline->is_valid()) {
+		return {};
+	}
+	return pipeline;
 }
 
 #endif

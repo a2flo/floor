@@ -315,7 +315,7 @@ metal_indirect_render_command_encoder::~metal_indirect_render_command_encoder() 
 	// nop
 }
 
-void metal_indirect_render_command_encoder::set_arguments_vector(const vector<compute_kernel_arg>& args) {
+void metal_indirect_render_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {
 	vector<compute_kernel_arg> implicit_args;
 	const auto vs_has_soft_printf = (vs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
 	const auto fs_has_soft_printf = (fs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
@@ -443,8 +443,7 @@ metal_indirect_compute_command_encoder::metal_indirect_compute_command_encoder(c
 																			   const uint32_t command_idx_,
 																			   const compute_queue& dev_queue_, const compute_kernel& kernel_obj_) :
 indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
-	const auto& mtl_kernel = (const metal_kernel&)kernel_obj_;
-	const auto mtl_kernel_entry = (const metal_kernel::metal_kernel_entry*)mtl_kernel.get_kernel_entry(dev_queue.get_device());
+	const auto mtl_kernel_entry = (const metal_kernel::metal_kernel_entry*)entry;
 	if (!mtl_kernel_entry || !mtl_kernel_entry->kernel_state || !mtl_kernel_entry->info) {
 		throw runtime_error("state is invalid or no compute pipeline entry exists for device " + dev_queue.get_device().name);
 	}
@@ -454,7 +453,6 @@ indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeli
 		return;
 	}
 #endif
-	kernel_entry = mtl_kernel_entry;
 	command = [pipeline_entry.icb indirectComputeCommandAtIndex:command_idx];
 	[command setComputePipelineState:(__bridge id <MTLComputePipelineState>)mtl_kernel_entry->kernel_state];
 	
@@ -469,14 +467,14 @@ metal_indirect_compute_command_encoder::~metal_indirect_compute_command_encoder(
 	// nop
 }
 
-void metal_indirect_compute_command_encoder::set_arguments_vector(const vector<compute_kernel_arg>& args) {
+void metal_indirect_compute_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {
 	vector<compute_kernel_arg> implicit_args;
-	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_entry->info->flags)) {
+	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
 		// NOTE: this is automatically added to the used resources
 		implicit_args.emplace_back(pipeline_entry.printf_buffer);
 	}
 	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev_queue.get_device(), command,
-																					 { kernel_entry->info },
+																					 { entry->info },
 																					 args, implicit_args,
 																					 nullptr,
 																					 &resources);
@@ -487,7 +485,7 @@ indirect_compute_command_encoder& metal_indirect_compute_command_encoder::execut
 																				  const uint3& global_work_size,
 																				  const uint3& local_work_size) {
 	// compute sizes
-	auto [grid_dim, block_dim] = ((const metal_kernel&)kernel_obj).compute_grid_and_block_dim(*kernel_entry, dim, global_work_size, local_work_size);
+	auto [grid_dim, block_dim] = ((const metal_kernel&)kernel_obj).compute_grid_and_block_dim(*entry, dim, global_work_size, local_work_size);
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
 	

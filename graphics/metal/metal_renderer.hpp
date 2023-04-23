@@ -61,14 +61,14 @@ public:
 	
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) const override;
+						  const uint32_t command_count = ~0u) override;
 	
 	bool set_tessellation_factors(const compute_buffer& tess_factors_buffer) override;
 	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 	
-	void wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage) override;
-	void signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage) override;
+	void wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) override;
+	void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) override;
 	
 protected:
 	id <MTLCommandBuffer> cmd_buffer;
@@ -77,11 +77,11 @@ protected:
 	
 	void draw_internal(const vector<multi_draw_entry>* draw_entries,
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
-					   const vector<compute_kernel_arg>& args) const override;
+					   const vector<compute_kernel_arg>& args) override;
 	
 	void draw_patches_internal(const patch_draw_entry* draw_entry,
 							   const patch_draw_indexed_entry* draw_indexed_entry,
-							   const vector<compute_kernel_arg>& args) const override;
+							   const vector<compute_kernel_arg>& args) override;
 	
 	const metal_pipeline::metal_pipeline_entry* mtl_pipeline_state { nullptr };
 	bool update_metal_pipeline();

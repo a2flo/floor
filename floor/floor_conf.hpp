@@ -57,7 +57,7 @@
 //#define FLOOR_NO_OPENAL 1
 
 // if defined, this disables VR support
-//#define FLOOR_NO_VR 1
+#define FLOOR_NO_VR 1
 
 // if defined, this disables network support
 //#define FLOOR_NO_NET 1

@@ -47,8 +47,7 @@ public:
 	static optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout(const compute_device& dev,
 																				const string& func_name,
 																				const llvm_toolchain::function_info& info,
-																				const VkShaderStageFlagBits stage,
-																				const bool is_legacy);
+																				const VkShaderStageFlagBits stage);
 	
 	//! returns a static empty descriptor set layout for the specified device
 	static VkDescriptorSetLayout get_empty_descriptor_set(const compute_device& dev);

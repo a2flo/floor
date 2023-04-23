@@ -228,7 +228,7 @@ public:
 		VkImage image { nullptr };
 		VkImageView image_view { nullptr };
 		VkFormat format { VK_FORMAT_UNDEFINED };
-		VkAccessFlags access_mask { 0 };
+		VkAccessFlags2 access_mask { 0 };
 		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
 		VkImageLayout present_layout { VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
 		COMPUTE_IMAGE_TYPE base_type { COMPUTE_IMAGE_TYPE::NONE };
@@ -344,6 +344,9 @@ public:
 	{}
 #endif
 	
+	//! amount of fixed/embedded samplers: 5 bits -> 32 combinations
+	static constexpr const uint32_t max_sampler_combinations { 32 };
+	
 protected:
 	VkInstance ctx { nullptr };
 	vr_context* vr_ctx { nullptr };
@@ -361,7 +364,8 @@ protected:
 		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 		vector<VkImage> swapchain_images;
 		vector<VkImageView> swapchain_image_views;
-		vector<VkSemaphore> render_semas;
+		uint32_t next_fence_index { 0 };
+		vector<unique_ptr<compute_fence>> render_fences;
 		const vulkan_device* render_device { nullptr };
 		bool x11_forwarding { false };
 		shared_ptr<vulkan_image> x11_screen;
@@ -381,6 +385,7 @@ protected:
 		const vulkan_device* render_device { nullptr };
 		bool has_wide_gamut { false };
 	} vr_screen;
+	safe_mutex acquisition_lock;
 	bool init_renderer();
 	bool init_vr_renderer();
 	

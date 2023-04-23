@@ -60,20 +60,27 @@ public:
 	
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) const override;
+						  const uint32_t command_count = ~0u) override;
 	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 	
-	void wait_for_fence(const compute_fence& fence, const RENDER_STAGE before_stage) override;
-	void signal_fence(const compute_fence& fence, const RENDER_STAGE after_stage) override;
+	void wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) override;
+	void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) override;
 
 protected:
 	vulkan_command_buffer render_cmd_buffer;
 	unique_ptr<vulkan_drawable_t> cur_drawable;
 	VkFramebuffer cur_framebuffer { nullptr };
 	vector<VkFramebuffer> framebuffers;
+	VkViewport cur_viewport {};
+	VkRect2D cur_render_area {};
 	bool is_presenting { false };
-	optional<vulkan_command_buffer> att_cmd_buffer;
+	vector<VkImageMemoryBarrier2> att_transition_barriers;
+	vector<VkImageMemoryBarrier2> img_transition_barriers;
+	
+	// fence handling
+	vector<vulkan_queue::wait_fence_t> wait_fences;
+	vector<vulkan_queue::signal_fence_t> signal_fences;
 
 	// cmd buffer begin must be delayed until we actually start drawing,
 	// otherwise we'll run into trouble with the drawable cmd buffer and dependencies
@@ -83,11 +90,11 @@ protected:
 	
 	void draw_internal(const vector<multi_draw_entry>* draw_entries,
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
-					   const vector<compute_kernel_arg>& args) const override;
+					   const vector<compute_kernel_arg>& args) override;
 	
 	void draw_patches_internal(const patch_draw_entry* draw_entry,
 							   const patch_draw_indexed_entry* draw_indexed_entry,
-							   const vector<compute_kernel_arg>& args) const override;
+							   const vector<compute_kernel_arg>& args) override;
 	
 	bool update_vulkan_pipeline();
 	

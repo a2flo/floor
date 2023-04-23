@@ -29,8 +29,7 @@ using namespace llvm_toolchain;
 optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_layout(const compute_device& dev,
 																					 const string& func_name,
 																					 const llvm_toolchain::function_info& info,
-																					 const VkShaderStageFlagBits stage,
-																					 const bool is_legacy) {
+																					 const VkShaderStageFlagBits stage) {
 	const auto& vk_dev = (const vulkan_device&)dev;
 	
 	// handle implicit args which add to the total #args
@@ -42,7 +41,6 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 	// create function + device specific descriptor set layout
 	vulkan_descriptor_set_layout_t layout {};
 	layout.bindings.reserve(total_arg_count);
-	layout.legacy.desc_types.reserve(total_arg_count);
 	bool valid_desc = true;
 	for (uint32_t i = 0, binding_idx = 0; i < (uint32_t)total_arg_count; ++i) {
 		// fully ignore argument buffer args, these are encoded as separate descriptor sets
@@ -93,7 +91,6 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 							
 							// need to add both a sampled one and a storage one
 							binding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-							layout.legacy.desc_types.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 							++binding_idx;
 							layout.bindings.emplace_back(VkDescriptorSetLayoutBinding {
 								.binding = binding_idx,
@@ -121,7 +118,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 					if (arg.special_type == SPECIAL_TYPE::IUB) {
 						binding.descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK;
 						// descriptor count == size, which must be a multiple of 4
-						const uint32_t arg_size_4 = ((arg.size + 3u) / 4u) * 4u;
+						const uint32_t arg_size_4 = const_math::round_next_multiple(arg.size, 4u);
 						layout.max_iub_size = max(arg_size_4, layout.max_iub_size);
 						binding.descriptorCount = arg_size_4;
 						++layout.iub_desc;
@@ -183,7 +180,6 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 			break;
 		}
 		
-		layout.legacy.desc_types.emplace_back(binding.descriptorType);
 		++binding_idx;
 	}
 	if (!valid_desc) {
@@ -195,7 +191,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 	const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = (!is_legacy ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
+		.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
 		.bindingCount = (uint32_t)layout.bindings.size(),
 		.pBindings = (!layout.bindings.empty() ? layout.bindings.data() : nullptr),
 	};
@@ -221,11 +217,11 @@ static bool allocate_constant_buffers(vulkan_kernel::vulkan_kernel_entry& entry,
 		assert(dev_queue != nullptr);
 		
 		// we need to allocate as many buffers as we have descriptor sets
-		array<compute_buffer*, vulkan_descriptor_set_container::descriptor_count> constant_buffers;
+		array<compute_buffer*, vulkan_descriptor_buffer_container::descriptor_count> constant_buffers;
 #if defined(FLOOR_DEBUG)
 		string const_buffer_label_stem = "const_buf:" + func_name + "#";
 #endif
-		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_set_container::descriptor_count; ++buf_idx) {
+		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
 			// allocate in device-local/host-coherent memory
 			entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
 																		COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE |
@@ -242,118 +238,8 @@ static bool allocate_constant_buffers(vulkan_kernel::vulkan_kernel_entry& entry,
 			}
 			constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
 		}
-		entry.constant_buffers = make_unique<safe_resource_container<compute_buffer*, vulkan_descriptor_set_container::descriptor_count>>(std::move(constant_buffers));
+		entry.constant_buffers = make_unique<safe_resource_container<compute_buffer*, vulkan_descriptor_buffer_container::descriptor_count>>(std::move(constant_buffers));
 	}
-	return true;
-}
-
-static bool create_kernel_entry_legacy(vulkan_kernel::vulkan_kernel_entry& entry,
-									   const compute_device& dev,
-									   const VkShaderStageFlagBits stage,
-									   const string& func_name,
-									   const llvm_toolchain::function_info& info) {
-	const auto& vk_dev = (const vulkan_device&)dev;
-	
-	if (has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_VULKAN_DESCRIPTOR_BUFFER>(info.flags)) {
-		log_error("can't use a function that has been built for descriptor buffer use with legacy descriptor sets: in function $", func_name);
-		return false;
-	}
-	
-	auto layout = vulkan_program::build_descriptor_set_layout(dev, func_name, info, stage, true);
-	if (!layout) {
-		return false;
-	}
-	entry.desc_set_layout = layout->desc_set_layout;
-	entry.constant_buffer_info = std::move(layout->constant_buffer_info);
-	entry.desc_legacy.desc_types = std::move(layout->legacy.desc_types);
-	
-	if (!layout->bindings.empty()) {
-		// create descriptor pool + descriptors
-		// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
-		//       -> create a descriptor allocation handler, start with a large vkCreateDescriptorPool,
-		//          then create new ones if allocation fails (due to fragmentation)
-		//          DO NOT use VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
-		const uint32_t pool_count = ((layout->ssbo_desc > 0 ? 1 : 0) +
-									 (layout->iub_desc > 0 ? 1 : 0) +
-									 (layout->read_image_desc > 0 ? 1 : 0) +
-									 (layout->write_image_desc > 0 ? 1 : 0));
-		vector<VkDescriptorPoolSize> pool_sizes(max(pool_count, 1u));
-		uint32_t pool_index = 0;
-		if (layout->ssbo_desc > 0 || pool_count == 0) {
-			pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			pool_sizes[pool_index].descriptorCount = (layout->ssbo_desc > 0 ? layout->ssbo_desc : 1) * vulkan_descriptor_set_container::descriptor_count;
-			++pool_index;
-		}
-		if (layout->iub_desc > 0) {
-			pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK;
-			// amount of bytes to allocate for descriptors of this type
-			// -> use max arg size here
-			// TODO/NOTE: no idea where the size requirement comes from -> just round to multiples of 128 for now
-			pool_sizes[pool_index].descriptorCount = (const_math::round_next_multiple(layout->max_iub_size + 128u, 128u) *
-													  vulkan_descriptor_set_container::descriptor_count);
-			++pool_index;
-		}
-		if (layout->read_image_desc > 0) {
-			pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-			pool_sizes[pool_index].descriptorCount = layout->read_image_desc * vulkan_descriptor_set_container::descriptor_count;
-			++pool_index;
-		}
-		if (layout->write_image_desc > 0) {
-			pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			pool_sizes[pool_index].descriptorCount = layout->write_image_desc * vulkan_descriptor_set_container::descriptor_count;
-			++pool_index;
-		}
-		VkDescriptorPoolCreateInfo desc_pool_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = 0,
-			// we only need a fixed number of sets for now
-			.maxSets = vulkan_descriptor_set_container::descriptor_count,
-			.poolSizeCount = pool_count,
-			.pPoolSizes = pool_sizes.data(),
-		};
-		VkDescriptorPoolInlineUniformBlockCreateInfo iub_pool_info;
-		if (layout->iub_desc > 0) {
-			desc_pool_info.pNext = &iub_pool_info;
-			iub_pool_info = {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO,
-				.pNext = nullptr,
-				.maxInlineUniformBlockBindings = layout->iub_desc,
-			};
-		}
-		VK_CALL_RET(vkCreateDescriptorPool(vk_dev.device, &desc_pool_info, nullptr, &entry.desc_legacy.desc_pool),
-					"failed to create descriptor pool (" + func_name + ")", false)
-		
-		// allocate fixed number of descriptor sets
-		array<VkDescriptorSet, vulkan_descriptor_set_container::descriptor_count> desc_sets;
-		array<VkDescriptorSetLayout, vulkan_descriptor_set_container::descriptor_count> desc_set_layouts;
-		desc_set_layouts.fill(entry.desc_set_layout);
-		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
-			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			.pNext = nullptr,
-			.descriptorPool = entry.desc_legacy.desc_pool,
-			.descriptorSetCount = vulkan_descriptor_set_container::descriptor_count,
-			.pSetLayouts = &desc_set_layouts[0],
-		};
-		VK_CALL_RET(vkAllocateDescriptorSets(vk_dev.device, &desc_set_alloc_info, &desc_sets[0]),
-					"failed to allocate descriptor sets (" + func_name + ")", false)
-#if defined(FLOOR_DEBUG)
-		string desc_set_label_stem = "desc_set:" + func_name + "#";
-		for (uint32_t desc_set_idx = 0; desc_set_idx < vulkan_descriptor_set_container::descriptor_count; ++desc_set_idx) {
-			((const vulkan_compute*)dev.context)->set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_DESCRIPTOR_SET,
-																		 uint64_t(desc_sets[desc_set_idx]),
-																		 desc_set_label_stem + to_string(desc_set_idx));
-			
-		}
-#endif
-		entry.desc_legacy.desc_set_container = make_unique<vulkan_descriptor_set_container>(std::move(desc_sets));
-		
-		if (!allocate_constant_buffers(entry, dev, func_name, *layout)) {
-			return false;
-		}
-	}
-	// else: no descriptors entry.desc_* already nullptr
-	
 	return true;
 }
 
@@ -372,7 +258,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 		return false;
 	}
 	
-	auto layout = vulkan_program::build_descriptor_set_layout(dev, func_name, info, stage, false);
+	auto layout = vulkan_program::build_descriptor_set_layout(dev, func_name, info, stage);
 	if (!layout) {
 		return false;
 	}
@@ -381,9 +267,10 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 	
 	if (!layout->bindings.empty()) {
 		// query required buffer size + ensure good alignment
-		VkDeviceSize layout_size_in_bytes = 0;
-		vk_ctx.vulkan_get_descriptor_set_layout_size(vk_dev.device, entry.desc_set_layout, &layout_size_in_bytes);
-		layout_size_in_bytes = const_math::round_next_multiple(layout_size_in_bytes, uint64_t(256));
+		entry.desc_buffer.layout_size_in_bytes = 0;
+		vk_ctx.vulkan_get_descriptor_set_layout_size(vk_dev.device, entry.desc_set_layout, &entry.desc_buffer.layout_size_in_bytes);
+		entry.desc_buffer.layout_size_in_bytes = const_math::round_next_multiple(entry.desc_buffer.layout_size_in_bytes,
+																				 uint64_t(max(256u, vk_dev.descriptor_buffer_offset_alignment)));
 		
 		// query offset for each binding/argument
 		entry.desc_buffer.argument_offsets.reserve(layout->bindings.size());
@@ -397,7 +284,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 		array<vulkan_descriptor_buffer_container::resource_type, vulkan_descriptor_buffer_container::descriptor_count> desc_buffers;
 		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
 			// alloc with Vulkan flags: need host-visible/host-coherent and descriptor buffer usage flags
-			desc_buffers[buf_idx].first = vk_ctx.create_buffer(*dev_queue, layout_size_in_bytes,
+			desc_buffers[buf_idx].first = vk_ctx.create_buffer(*dev_queue, entry.desc_buffer.layout_size_in_bytes,
 															   // NOTE: read-only on the device side (until writable argument buffers are implemented)
 															   COMPUTE_MEMORY_FLAG::READ |
 															   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
@@ -406,7 +293,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 			desc_buffers[buf_idx].first->set_debug_label("desc_buf:" + func_name + "#" + to_string(buf_idx));
 			auto mapped_host_ptr = desc_buffers[buf_idx].first->map(*dev_queue, (COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 																				 COMPUTE_MEMORY_MAP_FLAG::BLOCK));
-			desc_buffers[buf_idx].second = { (uint8_t*)mapped_host_ptr, layout_size_in_bytes };
+			desc_buffers[buf_idx].second = { (uint8_t*)mapped_host_ptr, entry.desc_buffer.layout_size_in_bytes };
 		}
 		entry.desc_buffer.desc_buffer_container = make_unique<vulkan_descriptor_buffer_container>(std::move(desc_buffers));
 		
@@ -425,7 +312,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 					return false;
 				}
 				auto arg_buf_layout = vulkan_program::build_descriptor_set_layout(dev, func_name + ".arg_buffer@" + to_string(i),
-																				  *info.args[i].argument_buffer_info, stage, false);
+																				  *info.args[i].argument_buffer_info, stage);
 				if (!arg_buf_layout) {
 					log_error("failed to create argument buffer descriptor set layout at index $ in function $", i, func_name);
 					return false;
@@ -480,14 +367,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 					}
 					
 					// TODO: make sure that _all_ of this is synchronized
-					if (dev.descriptor_buffer_support) {
-						if (!create_kernel_entry_descriptor_buffer(entry, dev, stage, func_name, info)) {
-							continue;
-						}
-					} else {
-						if (!create_kernel_entry_legacy(entry, dev, stage, func_name, info)) {
-							continue;
-						}
+					if (!create_kernel_entry_descriptor_buffer(entry, dev, stage, func_name, info)) {
+						continue;
 					}
 					
 					// find SPIR-V module index for this function
@@ -566,11 +447,10 @@ VkDescriptorSetLayout vulkan_program::get_empty_descriptor_set(const compute_dev
 	}
 	
 	// first call for this device: create it
-	const auto is_legacy = !vk_dev.descriptor_buffer_support;
 	const VkDescriptorSetLayoutCreateInfo empty_desc_set_layout_info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = (!is_legacy ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
+		.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
 		.bindingCount = 0,
 		.pBindings = nullptr,
 	};

@@ -42,6 +42,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/compute_context.hpp
 	compute/compute_device.cpp
 	compute/compute_device.hpp
+	compute/compute_fence.cpp
+	compute/compute_fence.hpp
 	compute/compute_image.cpp
 	compute/compute_image.hpp
 	compute/compute_kernel.cpp
@@ -54,6 +56,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/compute_program.hpp
 	compute/compute_queue.cpp
 	compute/compute_queue.hpp
+	compute/indirect_command.cpp
+	compute/indirect_command.hpp
 	compute/llvm_toolchain.cpp
 	compute/llvm_toolchain.hpp
 	compute/soft_printf.hpp
@@ -185,8 +189,12 @@ add_library(${PROJECT_NAME} SHARED
 	compute/vulkan/vulkan_device.cpp
 	compute/vulkan/vulkan_device.hpp
 	compute/vulkan/vulkan_encoder.hpp
+	compute/vulkan/vulkan_fence.cpp
+	compute/vulkan/vulkan_fence.hpp
 	compute/vulkan/vulkan_image.cpp
 	compute/vulkan/vulkan_image.hpp
+	compute/vulkan/vulkan_indirect_command.cpp
+	compute/vulkan/vulkan_indirect_command.hpp
 	compute/vulkan/vulkan_kernel.cpp
 	compute/vulkan/vulkan_kernel.hpp
 	compute/vulkan/vulkan_memory.cpp

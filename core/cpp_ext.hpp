@@ -20,32 +20,35 @@
 #define __FLOOR_CPP_EXT_HPP__
 
 #include <floor/core/cpp_bitcast.hpp>
+#include <cstdint>
 
 // NOTE: this header adds misc base c++ functionality that either will be part of a future c++ standard, or should be part of it
 // NOTE: also don't include this header on its own, this is either included through core/cpp_headers.hpp or device/common.hpp
 
 // string is not supported on compute
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
+#include <string>
+#include <limits>
 
 // for whatever reason there is no "string to 32-bit uint" conversion function in the standard
 #if !defined(FLOOR_NO_STOU)
-floor_inline_always static uint32_t stou(const string& str, size_t* pos = nullptr, int base = 10) {
-	const auto ret = stoull(str, pos, base);
+floor_inline_always static uint32_t stou(const std::string& str, std::size_t* pos = nullptr, int base = 10) {
+	const auto ret = std::stoull(str, pos, base);
 	if(ret > 0xFFFFFFFFull) {
-		return numeric_limits<uint32_t>::max();
+		return std::numeric_limits<uint32_t>::max();
 	}
 	return (uint32_t)ret;
 }
 #endif
 // same for size_t
 #if !defined(FLOOR_NO_STOSIZE)
-floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
-	return (size_t)stoull(str, pos, base);
+floor_inline_always static std::size_t stosize(const std::string& str, std::size_t* pos = nullptr, int base = 10) {
+	return (std::size_t)std::stoull(str, pos, base);
 }
 #endif
 // and for bool
 #if !defined(FLOOR_NO_STOB)
-floor_inline_always static bool stob(const string& str) {
+floor_inline_always static bool stob(const std::string& str) {
 	return (str == "1" || str == "true" || str == "TRUE" || str == "YES");
 }
 #endif

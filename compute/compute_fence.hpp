@@ -20,9 +20,7 @@
 #define __FLOOR_FENCE_HPP__
 
 #include <floor/core/essentials.hpp>
-
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(weak-vtables)
+#include <string>
 
 //! a lightweight synchronization primitive
 //! NOTE: this only supports synchronization within the same compute_queue
@@ -31,8 +29,25 @@ public:
 	compute_fence() = default;
 	virtual ~compute_fence() = default;
 	
-};
+	//! synchronization stage for fences
+	enum class SYNC_STAGE {
+		NONE = 0u,
+		VERTEX = 1u,
+		TESSELLATION = 2u,
+		FRAGMENT = 3u,
+		
+		//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
+		COLOR_ATTACHMENT_OUTPUT = 10u,
+	};
+	
+	//! sets the debug label for this fence object (e.g. for display in a debugger)
+	virtual void set_debug_label(const std::string& label);
+	//! returns the current debug label
+	virtual const std::string& get_debug_label() const;
 
-FLOOR_POP_WARNINGS()
+protected:
+	std::string debug_label;
+	
+};
 
 #endif

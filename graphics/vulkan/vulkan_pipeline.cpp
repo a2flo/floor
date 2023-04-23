@@ -60,7 +60,8 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 								   const vulkan_device& vk_dev,
 								   const vulkan_kernel::vulkan_kernel_entry* vk_vs_entry,
 								   const vulkan_kernel::vulkan_kernel_entry* vk_fs_entry,
-								   const bool is_multi_view) {
+								   const bool is_multi_view,
+								   const bool is_indirect) {
 	assert(vk_vs_entry != nullptr);
 	state.vs_entry = vk_vs_entry;
 	state.fs_entry = vk_fs_entry;
@@ -272,7 +273,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 	const VkGraphicsPipelineCreateInfo gfx_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = (vk_dev.descriptor_buffer_support ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
+		.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
 		.stageCount = (vk_fs_entry != nullptr ? 2 : 1),
 		.pStages = &stages[0],
 		.pVertexInputState = &vertex_input_state,
@@ -283,7 +284,8 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		.pMultisampleState = &multisample_state,
 		.pDepthStencilState = (has_depth_attachment ? &depth_stencil_state : nullptr),
 		.pColorBlendState = &color_blend_state,
-		.pDynamicState = &dyn_state,
+		// for indirect pipelines (-> secondary command buffers later on), we can't use dynamic state
+		.pDynamicState = (!is_indirect ? &dyn_state : nullptr),
 		.layout = state.layout,
 		.renderPass = render_pass,
 		.subpass = 0,
@@ -324,15 +326,28 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		const auto vk_fs_entry = (vk_fs != nullptr ? (const vulkan_kernel::vulkan_kernel_entry*)vk_fs->get_kernel_entry(*dev) : nullptr);
 
 		vulkan_pipeline_entry_t entry {};
+		// TODO/NOTE: use/support VK_NV_inherited_viewport_scissor to avoid needing separate indirect pipelines
 		if (create_sv_pipeline) {
 			if (!create_vulkan_pipeline(entry.single_view_pipeline, *sv_vulkan_base_pass, pipeline_desc,
-										vk_dev, vk_vs_entry, vk_fs_entry, false)) {
+										vk_dev, vk_vs_entry, vk_fs_entry, false, false)) {
+				return;
+			}
+			if (pipeline_desc.support_indirect_rendering &&
+				!create_vulkan_pipeline(entry.indirect_single_view_pipeline, *sv_vulkan_base_pass, pipeline_desc,
+										vk_dev, vk_vs_entry, vk_fs_entry, false, true)) {
 				return;
 			}
 		}
 		if (create_mv_pipeline) {
 			if (!create_vulkan_pipeline(entry.multi_view_pipeline, *mv_vulkan_base_pass,
-										(multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc), vk_dev, vk_vs_entry, vk_fs_entry, true)) {
+										(multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc),
+										vk_dev, vk_vs_entry, vk_fs_entry, true, false)) {
+				return;
+			}
+			if (pipeline_desc.support_indirect_rendering &&
+				!create_vulkan_pipeline(entry.indirect_multi_view_pipeline, *mv_vulkan_base_pass,
+										(multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc),
+										vk_dev, vk_vs_entry, vk_fs_entry, true, true)) {
 				return;
 			}
 		}
@@ -348,9 +363,18 @@ vulkan_pipeline::~vulkan_pipeline() {
 	// TODO: implement this
 }
 
-const vulkan_pipeline_state_t* vulkan_pipeline::get_vulkan_pipeline_state(const compute_device& dev, const bool get_multi_view) const {
+const vulkan_pipeline_state_t* vulkan_pipeline::get_vulkan_pipeline_state(const compute_device& dev,
+																		  const bool get_multi_view,
+																		  const bool get_indirect) const {
 	const auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : (!get_multi_view ? &ret.second->second.single_view_pipeline : &ret.second->second.multi_view_pipeline);
+	if (!ret.first) {
+		return nullptr;
+	}
+	if (!get_multi_view) {
+		return (!get_indirect ? &ret.second->second.single_view_pipeline : &ret.second->second.indirect_single_view_pipeline);
+	} else {
+		return (!get_indirect ? &ret.second->second.multi_view_pipeline : &ret.second->second.indirect_multi_view_pipeline);
+	}
 }
 
 VkPrimitiveTopology vulkan_pipeline::vulkan_primitive_topology_from_primitive(const PRIMITIVE& primitive) {
@@ -457,6 +481,14 @@ VkCompareOp vulkan_pipeline::vulkan_compare_op_from_depth_compare(const DEPTH_CO
 			return VK_COMPARE_OP_GREATER_OR_EQUAL;
 		case DEPTH_COMPARE::ALWAYS:
 			return VK_COMPARE_OP_ALWAYS;
+	}
+}
+
+const vulkan_pass* vulkan_pipeline::get_vulkan_pass(const bool get_multi_view) const {
+	if (!get_multi_view) {
+		return (sv_vulkan_base_pass ? sv_vulkan_base_pass.get() : nullptr);
+	} else {
+		return (mv_vulkan_base_pass ? mv_vulkan_base_pass.get() : nullptr);
 	}
 }
 
