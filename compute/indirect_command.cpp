@@ -73,6 +73,8 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 		}
 		// NOTE: still continue and perform the "normal" buffer count computation (as a validity check)
 	}
+#else
+	constexpr const auto is_vulkan = false;
 #endif
 	
 	for (const auto& func : functions) {
