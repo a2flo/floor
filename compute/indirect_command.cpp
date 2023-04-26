@@ -42,6 +42,7 @@ indirect_command_pipeline::indirect_command_pipeline(const indirect_command_desc
 }
 
 void indirect_command_description::compute_buffer_counts_from_functions(const compute_device& dev, const vector<const compute_kernel*>& functions) {
+#if !defined(FLOOR_NO_VULKAN)
 	// for Vulkan, we can directly derive a "buffer count" from the descriptor buffer/layout size and the SSBO descriptor size
 	const auto is_vulkan = (dev.context->get_compute_type() == COMPUTE_TYPE::VULKAN);
 	if (is_vulkan) {
@@ -72,6 +73,7 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 		}
 		// NOTE: still continue and perform the "normal" buffer count computation (as a validity check)
 	}
+#endif
 	
 	for (const auto& func : functions) {
 		const auto entry = func->get_kernel_entry(dev);

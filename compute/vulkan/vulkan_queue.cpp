@@ -35,7 +35,7 @@ static inline const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffe
 static inline VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const compute_fence::SYNC_STAGE stage) {
 	switch (stage) {
 		case compute_fence::SYNC_STAGE::NONE:
-			throw runtime_error("invalid sync stage");
+			return 0;
 		case compute_fence::SYNC_STAGE::VERTEX:
 			return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 		case compute_fence::SYNC_STAGE::TESSELLATION:
@@ -447,12 +447,6 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
 				"failed to begin command buffer")
 	
-#if 0
-	for (const auto& fence : params.wait_fences) {
-		// TODO: implement waiting for "wait_fences"
-	}
-#endif
-	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
 		vk_indirect_pipeline_entry->printf_init(*this);
 	}
@@ -477,13 +471,36 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	((const vulkan_compute*)device.context)->vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
 #endif
 	
-#if 0
-	for (const auto& fence : params.signal_fences) {
-		// TODO: implement signaling "signal_fences"
+	vector<wait_fence_t> wait_fences;
+	vector<signal_fence_t> signal_fences;
+	for (const auto& fence : params.wait_fences) {
+		if (!fence) {
+			continue;
+		}
+		const auto& vk_fence = (const vulkan_fence&)*fence;
+		wait_fences.emplace_back(wait_fence_t {
+			.fence = fence,
+			.signaled_value = vk_fence.get_signaled_value(),
+			.stage = compute_fence::SYNC_STAGE::VERTEX,
+		});
 	}
-#endif
+	for (auto& fence : params.signal_fences) {
+		if (!fence) {
+			continue;
+		}
+		auto& vk_fence = (vulkan_fence&)*fence;
+		if (!vk_fence.next_signal_value()) {
+			throw runtime_error("failed to set next signal value on fence");
+		}
+		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
+			.fence = fence,
+			.unsignaled_value = vk_fence.get_unsignaled_value(),
+			.signaled_value = vk_fence.get_signaled_value(),
+			.stage = compute_fence::SYNC_STAGE::FRAGMENT,
+		});
+	}
 	
-	submit_command_buffer(cmd_buffer, {}, {}, [](const vulkan_command_buffer&) {
+	submit_command_buffer(cmd_buffer, std::move(wait_fences), std::move(signal_fences), [](const vulkan_command_buffer&) {
 		// -> completion handler
 	}, true /*|| params.wait_until_completion*/ /* TODO: don't always block, but do block if soft-printf is enabled */);
 }

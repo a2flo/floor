@@ -27,6 +27,7 @@
 #include <floor/compute/vulkan/vulkan_args.hpp>
 #include <floor/compute/vulkan/vulkan_encoder.hpp>
 #include <floor/compute/vulkan/vulkan_argument_buffer.hpp>
+#include <floor/compute/vulkan/vulkan_fence.hpp>
 #include <floor/compute/soft_printf.hpp>
 
 using namespace llvm_toolchain;
@@ -197,8 +198,8 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 							const uint3& global_work_size,
 							const uint3& local_work_size_,
 							const vector<compute_kernel_arg>& args,
-							const vector<const compute_fence*>& wait_fences floor_unused,
-							const vector<compute_fence*>& signal_fences floor_unused,
+							const vector<const compute_fence*>& wait_fences_,
+							const vector<compute_fence*>& signal_fences_,
 							const char* debug_label,
 							kernel_completion_handler_f&& completion_handler) const {
 	// no cooperative support yet
@@ -290,9 +291,6 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		vkCmdPipelineBarrier2(encoder->cmd_buffer.cmd_buffer, &dep_info);
 	}
 	
-	// run
-	// TODO: implement waiting for "wait_fences"
-	
 	// set/write/update descriptors
 	vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
 															   VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -357,10 +355,39 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 #if defined(FLOOR_DEBUG)
 	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
 #endif
-	// TODO: implement signaling for "signal_fences"
+	
+	vector<vulkan_queue::wait_fence_t> wait_fences;
+	vector<vulkan_queue::signal_fence_t> signal_fences;
+	for (const auto& fence : wait_fences_) {
+		if (!fence) {
+			continue;
+		}
+		const auto& vk_fence = (const vulkan_fence&)*fence;
+		wait_fences.emplace_back(vulkan_queue::wait_fence_t {
+			.fence = fence,
+			.signaled_value = vk_fence.get_signaled_value(),
+			.stage = compute_fence::SYNC_STAGE::NONE,
+		});
+	}
+	for (auto& fence : signal_fences_) {
+		if (!fence) {
+			continue;
+		}
+		auto& vk_fence = (vulkan_fence&)*fence;
+		if (!vk_fence.next_signal_value()) {
+			throw runtime_error("failed to set next signal value on fence");
+		}
+		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
+			.fence = fence,
+			.unsignaled_value = vk_fence.get_unsignaled_value(),
+			.signaled_value = vk_fence.get_signaled_value(),
+			.stage = compute_fence::SYNC_STAGE::NONE,
+		});
+	}
+	
 	(void)wait_until_completion;
 	vk_queue.submit_command_buffer(encoder->cmd_buffer,
-								   {}, {}, // TODO: fences!
+								   std::move(wait_fences), std::move(signal_fences),
 								   [encoder](const vulkan_command_buffer&) {
 		// -> completion handler
 		
