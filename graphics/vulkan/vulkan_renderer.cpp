@@ -432,6 +432,14 @@ void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect
 		return;
 	}
 	
+#if defined(FLOOR_DEBUG)
+	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
+				  indirect_cmd.get_description().debug_label);
+		return;
+	}
+#endif
+	
 	const auto& vk_indirect_cmd = (const vulkan_indirect_command_pipeline&)indirect_cmd;
 	const auto vk_indirect_pipeline_entry = vk_indirect_cmd.get_vulkan_pipeline_entry(cqueue.get_device());
 	if (!vk_indirect_pipeline_entry) {

@@ -78,6 +78,14 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 		return;
 	}
 	
+#if defined(FLOOR_DEBUG)
+	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {
+		log_error("specified indirect command pipeline \"$\" must be a compute pipeline",
+				  indirect_cmd.get_description().debug_label);
+		return;
+	}
+#endif
+	
 	const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
 	const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(device);
 	if (!mtl_indirect_pipeline_entry) {

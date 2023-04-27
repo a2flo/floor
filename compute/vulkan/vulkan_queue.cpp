@@ -420,6 +420,14 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		return;
 	}
 	
+#if defined(FLOOR_DEBUG)
+	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {
+		log_error("specified indirect command pipeline \"$\" must be a compute pipeline",
+				  indirect_cmd.get_description().debug_label);
+		return;
+	}
+#endif
+	
 	const auto& vk_indirect_cmd = (const vulkan_indirect_command_pipeline&)indirect_cmd;
 	const auto vk_indirect_pipeline_entry = vk_indirect_cmd.get_vulkan_pipeline_entry(device);
 	if (!vk_indirect_pipeline_entry) {
@@ -434,7 +442,8 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	}
 	
 	// create and setup the compute encoder (primary command buffer)
-	auto cmd_buffer = make_command_buffer(params.debug_label ? params.debug_label : "indirect_encoder");
+	const auto encoder_label = params.debug_label ? params.debug_label : "indirect_encoder";
+	auto cmd_buffer = make_command_buffer(encoder_label);
 	if (!cmd_buffer.cmd_buffer) {
 		return;
 	}
@@ -446,6 +455,10 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	};
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
 				"failed to begin command buffer")
+	
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)device.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
+#endif
 	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
 		vk_indirect_pipeline_entry->printf_init(*this);
@@ -481,7 +494,7 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		wait_fences.emplace_back(wait_fence_t {
 			.fence = fence,
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::VERTEX,
+			.stage = compute_fence::SYNC_STAGE::NONE,
 		});
 	}
 	for (auto& fence : params.signal_fences) {
@@ -496,7 +509,7 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 			.fence = fence,
 			.unsignaled_value = vk_fence.get_unsignaled_value(),
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::FRAGMENT,
+			.stage = compute_fence::SYNC_STAGE::NONE,
 		});
 	}
 	

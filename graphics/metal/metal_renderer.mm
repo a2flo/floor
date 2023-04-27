@@ -280,6 +280,14 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 		return;
 	}
 	
+#if defined(FLOOR_DEBUG)
+	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
+				  indirect_cmd.get_description().debug_label);
+		return;
+	}
+#endif
+	
 	const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
 	const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(cqueue.get_device());
 	if (!mtl_indirect_pipeline_entry) {
