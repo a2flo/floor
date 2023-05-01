@@ -69,7 +69,8 @@ public:
 	const vulkan_pipeline_entry* get_vulkan_pipeline_entry(const compute_device& dev) const;
 	vulkan_pipeline_entry* get_vulkan_pipeline_entry(const compute_device& dev);
 	
-	indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline) override;
+	indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+														const bool is_multi_view) override;
 	indirect_compute_command_encoder& add_compute_command(const compute_queue& dev_queue, const compute_kernel& kernel_obj) override;
 	void complete(const compute_device& dev) override;
 	void complete() override;
@@ -96,7 +97,8 @@ class vulkan_indirect_render_command_encoder final : public indirect_render_comm
 public:
 	vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 										   const uint32_t command_idx_,
-										   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_);
+										   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+										   const bool is_multi_view_);
 	~vulkan_indirect_render_command_encoder() override;
 	
 	void set_arguments_vector(vector<compute_kernel_arg>&& args) override;

@@ -148,11 +148,16 @@ void indirect_command_pipeline::reset() {
 	commands.clear();
 }
 
-indirect_render_command_encoder::indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_) :
-indirect_command_encoder(dev_queue_), pipeline(pipeline_) {
+indirect_render_command_encoder::indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+																 const bool is_multi_view_) :
+indirect_command_encoder(dev_queue_), pipeline(pipeline_), is_multi_view(is_multi_view_) {
 	if (!pipeline.is_valid()) {
 		throw runtime_error("invalid graphics_pipeline ('" + pipeline.get_description(false).debug_label +
 							"') specified in indirect render command encoder");
+	}
+	if (is_multi_view && !pipeline.is_multi_view_capable()) {
+		throw runtime_error("invalid graphics_pipeline ('" + pipeline.get_description(false).debug_label +
+							"') configuration: multi-view was requested, but is not supported by the pipeline");
 	}
 }
 

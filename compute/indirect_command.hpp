@@ -90,7 +90,8 @@ public:
 	
 	//! adds a new render command this indirect command pipeline,
 	//! returning a reference to the non-owning encoder object that can be used to encode the render command
-	virtual indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline) = 0;
+	virtual indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+																const bool is_multi_view = false) = 0;
 	
 	//! adds a new compute command this indirect command pipeline,
 	//! returning a reference to the non-owning encoder object that can be used to encode the compute command
@@ -176,7 +177,7 @@ protected:
 class indirect_render_command_encoder : public indirect_command_encoder {
 public:
 	//! NOTE: compute_queue and graphics_pipeline must be valid for the lifetime of the parent indirect_command_pipeline
-	indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_);
+	indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_, const bool is_multi_view_);
 	~indirect_render_command_encoder() override = default;
 	
 	//! encode a simple draw call using the specified parameters
@@ -235,6 +236,7 @@ public:
 	
 protected:
 	const graphics_pipeline& pipeline;
+	const bool is_multi_view { false };
 };
 
 //! encoder for encoding compute commands in an indirect command pipeline

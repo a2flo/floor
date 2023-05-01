@@ -122,7 +122,8 @@ metal_indirect_command_pipeline::metal_pipeline_entry* metal_indirect_command_pi
 	return !ret.first ? nullptr : &ret.second->second;
 }
 
-indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline) {
+indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+																					 const bool is_multi_view_) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
 		throw runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
@@ -135,7 +136,7 @@ indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_com
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = make_unique<metal_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline);
+	auto render_enc = make_unique<metal_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline, is_multi_view_);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
@@ -277,15 +278,16 @@ void metal_indirect_command_pipeline::metal_pipeline_entry::printf_completion(co
 
 metal_indirect_render_command_encoder::metal_indirect_render_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			 const uint32_t command_idx_,
-																			 const compute_queue& dev_queue_, const graphics_pipeline& pipeline_) :
-indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+																			 const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+																			 const bool is_multi_view_) :
+indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& mtl_render_pipeline = (const metal_pipeline&)pipeline;
 	const auto mtl_render_pipeline_entry = mtl_render_pipeline.get_metal_pipeline_entry(dev_queue.get_device());
 	if (!mtl_render_pipeline_entry || !mtl_render_pipeline_entry->pipeline_state) {
 		throw runtime_error("no render pipeline entry exists for device " + dev_queue.get_device().name);
 	}
 #if defined(FLOOR_DEBUG)
-	const auto& desc = mtl_render_pipeline.get_description(false);
+	const auto& desc = mtl_render_pipeline.get_description(is_multi_view);
 	if (!desc.support_indirect_rendering) {
 		log_error("graphics pipeline \"$\" specified for indirect render command does not support indirect rendering",
 				  desc.debug_label);
@@ -341,7 +343,7 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw(con
 																			 const uint32_t instance_count,
 																			 const uint32_t first_vertex,
 																			 const uint32_t first_instance) {
-	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(false).primitive);
+	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
 	[command drawPrimitives:mtl_primitve
 				vertexStart:first_vertex
 				vertexCount:vertex_count
@@ -356,7 +358,7 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_ind
 																					 const uint32_t first_index,
 																					 const int32_t vertex_offset,
 																					 const uint32_t first_instance) {
-	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(false).primitive);
+	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
 	auto idx_buffer = ((const metal_buffer&)index_buffer).get_metal_buffer();
 	[command drawIndexedPrimitives:mtl_primitve
 						indexCount:index_count

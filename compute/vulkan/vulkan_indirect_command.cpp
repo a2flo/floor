@@ -165,7 +165,8 @@ vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command
 	return !ret.first ? nullptr : &ret.second->second;
 }
 
-indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline) {
+indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+																					  const bool is_multi_view_) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
 		throw runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
@@ -178,7 +179,7 @@ indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_co
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline);
+	auto render_enc = make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline, is_multi_view_);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
@@ -338,21 +339,23 @@ void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(
 
 vulkan_indirect_render_command_encoder::vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
-																			   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_) :
-indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+																			   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+																			   const bool is_multi_view_) :
+indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& vk_render_pipeline = (const vulkan_pipeline&)pipeline;
-	const auto& dev = dev_queue.get_device();
-	pipeline_state = vk_render_pipeline.get_vulkan_pipeline_state(dev, false, true /* always indirect */); // TODO: need multi-view flag!
+	const auto& vk_dev = (const vulkan_device&)dev_queue.get_device();
+	pipeline_state = vk_render_pipeline.get_vulkan_pipeline_state(vk_dev, is_multi_view,
+																  !vk_dev.inherited_viewport_scissor_support /* indirect if !inheriting viewport/scissor */);
 	if (!pipeline_state || !pipeline_state->pipeline) {
-		throw runtime_error("no render pipeline entry exists for device " + dev.name);
+		throw runtime_error("no render pipeline entry exists for device " + vk_dev.name);
 	}
-	pass = vk_render_pipeline.get_vulkan_pass(false /* TODO: multi-view */);
+	pass = vk_render_pipeline.get_vulkan_pass(is_multi_view);
 	if (!pass) {
-		throw runtime_error("no render pass object exists for device " + dev.name);
+		throw runtime_error("no render pass object exists for device " + vk_dev.name);
 	}
-	render_pass = pass->get_vulkan_render_pass(dev, false /* TODO: multi-view */);
+	render_pass = pass->get_vulkan_render_pass(vk_dev, is_multi_view);
 	if (!render_pass) {
-		throw runtime_error("no Vulkan render pass exists for device " + dev.name);
+		throw runtime_error("no Vulkan render pass exists for device " + vk_dev.name);
 	}
 #if defined(FLOOR_DEBUG)
 	const auto& desc = vk_render_pipeline.get_description(false);
@@ -373,9 +376,26 @@ indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_
 	}
 	
 	cmd_buffer = pipeline_entry.cmd_buffers.at(command_idx);
+	
+	const auto& pipeline_desc = pipeline.get_description(is_multi_view);
+	const VkViewport cur_viewport {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = (float)pipeline_desc.viewport.x,
+		.height = (float)pipeline_desc.viewport.y,
+		.minDepth = pipeline_desc.depth.range.x,
+		.maxDepth = pipeline_desc.depth.range.y,
+	};
+	const VkCommandBufferInheritanceViewportScissorInfoNV inherit_viewport_scissor {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_VIEWPORT_SCISSOR_INFO_NV,
+		.pNext = nullptr,
+		.viewportScissor2D = true,
+		.viewportDepthCount = 1,
+		.pViewportDepths = &cur_viewport,
+	};
 	const VkCommandBufferInheritanceInfo inheritance_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
-		.pNext = nullptr,
+		.pNext = (vk_dev.inherited_viewport_scissor_support ? &inherit_viewport_scissor : nullptr),
 		.renderPass = render_pass,
 		.subpass = 0,
 		.framebuffer = nullptr,
@@ -394,24 +414,17 @@ indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_
 					 "failed to begin command buffer for indirect render command",
 					 throw runtime_error("failed to begin command buffer for indirect render command");)
 	
-	// need to set viewport + scissor in here already
-	const auto& pipeline_desc = pipeline.get_description(false /* TODO: multi-view */);
-	const VkViewport cur_viewport {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = (float)pipeline_desc.viewport.x,
-		.height = (float)pipeline_desc.viewport.y,
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
-	};
-	vkCmdSetViewport(cmd_buffer, 0, 1, &cur_viewport);
-	
-	const VkRect2D cur_render_area {
-		// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
-		.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
-		.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
-	};
-	vkCmdSetScissor(cmd_buffer, 0, 1, &cur_render_area);
+	if (!vk_dev.inherited_viewport_scissor_support) {
+		// need to set viewport + scissor in here already (if inheriting viewport/scissor is not supported)
+		vkCmdSetViewport(cmd_buffer, 0, 1, &cur_viewport);
+		
+		const VkRect2D cur_render_area {
+			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+			.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
+			.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
+		};
+		vkCmdSetScissor(cmd_buffer, 0, 1, &cur_render_area);
+	}
 	
 	if (has_soft_printf) {
 		if (!pipeline_entry.printf_buffer) {

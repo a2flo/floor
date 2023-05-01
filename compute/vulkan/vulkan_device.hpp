@@ -121,6 +121,9 @@ public:
 	//! alignment requirement when setting descriptor buffer offsets (i.e. per sub-set within a buffer)
 	uint32_t descriptor_buffer_offset_alignment { 0u };
 	
+	//! feature support: VK_NV_inherited_viewport_scissor
+	bool inherited_viewport_scissor_support { false };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set

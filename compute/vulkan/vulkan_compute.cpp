@@ -541,6 +541,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.descriptorBufferImageLayoutIgnored = false,
 			.descriptorBufferPushDescriptors = false,
 		};
+		// set this to the "pNext" of the last device features struct in the chain
+		void** feature_chain_end = &desc_buf_features.pNext;
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
 			.pNext = &desc_buf_features,
@@ -1098,6 +1100,19 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		if (desc_buf_features.descriptorBuffer) {
 			device_extensions_set.emplace(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 		}
+		
+		// add/use VK_NV_inherited_viewport_scissor if supported
+		VkPhysicalDeviceInheritedViewportScissorFeaturesNV inherited_viewport_scissor {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INHERITED_VIEWPORT_SCISSOR_FEATURES_NV,
+			.pNext = nullptr,
+			.inheritedViewportScissor2D = false,
+		};
+		if (device_supported_extensions_set.contains(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME)) {
+			device_extensions_set.emplace(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME);
+			inherited_viewport_scissor.inheritedViewportScissor2D = true;
+			*feature_chain_end = &inherited_viewport_scissor;
+			feature_chain_end = &inherited_viewport_scissor.pNext;
+		}
 
 		// deal with swapchain ext
 		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -1288,6 +1303,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.min_storage_buffer_offset_alignment = (uint32_t)limits.minStorageBufferOffsetAlignment;
 		
 		device.barycentric_coord_support = barycentric_features.fragmentShaderBarycentric;
+		
+		if (inherited_viewport_scissor.inheritedViewportScissor2D) {
+			device.inherited_viewport_scissor_support = true;
+		}
 		
 		// descriptor buffer support handling
 		device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);

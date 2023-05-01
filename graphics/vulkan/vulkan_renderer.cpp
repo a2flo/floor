@@ -181,8 +181,8 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.y = 0.0f,
 			.width = (float)pipeline_desc.viewport.x,
 			.height = (float)pipeline_desc.viewport.y,
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f,
+			.minDepth = pipeline_desc.depth.range.x,
+			.maxDepth = pipeline_desc.depth.range.y,
 		};
 	} else {
 		cur_viewport = {
@@ -190,8 +190,8 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.y = 0.0f,
 			.width = (float)dynamic_render_state.viewport->x,
 			.height = (float)dynamic_render_state.viewport->y,
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f,
+			.minDepth = pipeline_desc.depth.range.x,
+			.maxDepth = pipeline_desc.depth.range.y,
 		};
 	}
 	vkCmdSetViewport(render_cmd_buffer.cmd_buffer, 0, 1, &cur_viewport);
