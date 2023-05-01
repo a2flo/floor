@@ -570,6 +570,8 @@ uint32_t get_physical_core_count() {
 	}
 	core_count = stou(cpuinfo_output.substr(rspace + 1));
 #elif defined(__WINDOWS__)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align)
 	uint32_t len = 0;
 	GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, (PDWORD)&len);
 	auto info_data = make_unique<uint8_t[]>(len);
@@ -579,11 +581,12 @@ uint32_t get_physical_core_count() {
 	
 	core_count = 0;
 	auto info_ptr = (const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)info_data.get();
-	for (uint64_t cur_len = 0; cur_len < len; ++cpu_count) {
+	for (uint64_t cur_len = 0; cur_len < len; ++core_count) {
 		assert(info_ptr->Relationship == RelationProcessorCore);
 		cur_len += info_ptr->Size;
 		info_ptr = (const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(((const uint8_t*)info_ptr) + info_ptr->Size);
 	}
+FLOOR_POP_WARNINGS()
 #else // other platforms?
 #endif
 	return core_count;
