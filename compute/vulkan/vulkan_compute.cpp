@@ -309,12 +309,14 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
 	set<string> instance_extensions {
-#if defined(FLOOR_DEBUG)
-		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-		VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME,
-#endif
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
+#if defined(FLOOR_DEBUG)
+	if (floor::get_vulkan_validation()) {
+		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		instance_extensions.emplace(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+	}
+#endif
 	if(enable_renderer && !screen.x11_forwarding) {
 		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
@@ -342,11 +344,12 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	}
 #endif
 	
-	const vector<const char*> instance_layers {
+	vector<const char*> instance_layers;
 #if defined(FLOOR_DEBUG)
-		"VK_LAYER_KHRONOS_validation",
+	if (floor::get_vulkan_validation()) {
+		instance_layers.emplace_back("VK_LAYER_KHRONOS_validation");
+	}
 #endif
-	};
 
 	vector<const char*> instance_extensions_ptrs;
 	string inst_exts_str, inst_layers_str;
@@ -382,7 +385,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 #if defined(FLOOR_DEBUG)
-		.pNext = &val_features,
+		.pNext = (floor::get_vulkan_validation() ? &val_features : nullptr),
 #else
 		.pNext = nullptr,
 #endif
@@ -396,33 +399,37 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance")
 	
 #if defined(FLOOR_DEBUG)
-	// create and register debug messenger
-	create_debug_utils_messenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugUtilsMessengerEXT");
-	if (create_debug_utils_messenger == nullptr) {
-		log_error("failed to retrieve vkCreateDebugUtilsMessengerEXT function pointer");
-		return;
-	}
-	destroy_debug_utils_messenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugUtilsMessengerEXT");
+	// debug label handling
 	set_debug_utils_object_name = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(ctx, "vkSetDebugUtilsObjectNameEXT");
 	cmd_begin_debug_utils_label = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdBeginDebugUtilsLabelEXT");
 	cmd_end_debug_utils_label = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdEndDebugUtilsLabelEXT");
-	const VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-		.pNext = nullptr,
-		.flags = 0,
-		.messageSeverity = (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-							VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-							// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-							// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-							),
-		.messageType = (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-						VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-						VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT),
-		.pfnUserCallback = &vulkan_debug_callback,
-		.pUserData = this,
-	};
-	VK_CALL_RET(create_debug_utils_messenger(ctx, &debug_messenger_info, nullptr, &debug_utils_messenger),
-				"failed to create debug messenger")
+	
+	if (floor::get_vulkan_validation()) {
+		// create and register debug messenger
+		create_debug_utils_messenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugUtilsMessengerEXT");
+		if (create_debug_utils_messenger == nullptr) {
+			log_error("failed to retrieve vkCreateDebugUtilsMessengerEXT function pointer");
+			return;
+		}
+		destroy_debug_utils_messenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugUtilsMessengerEXT");
+		const VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.pNext = nullptr,
+			.flags = 0,
+			.messageSeverity = (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+								// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+								// | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+								),
+				.messageType = (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+								VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT),
+				.pfnUserCallback = &vulkan_debug_callback,
+				.pUserData = this,
+		};
+		VK_CALL_RET(create_debug_utils_messenger(ctx, &debug_messenger_info, nullptr, &debug_utils_messenger),
+					"failed to create debug messenger")
+	}
 #endif
 	
 	// get external memory functions

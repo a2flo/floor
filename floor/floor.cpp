@@ -432,6 +432,7 @@ bool floor::init(const init_state& state) {
 		config.metal_soft_printf = config_doc.get<bool>("toolchain.metal.soft_printf", false);
 		
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
+		config.vulkan_validation = config_doc.get<bool>("toolchain.vulkan.validation", true);
 		config.vulkan_validate_spirv = config_doc.get<bool>("toolchain.vulkan.validate_spirv", false);
 		extract_whitelist(config.vulkan_whitelist, "toolchain.vulkan.whitelist");
 		config.vulkan_compiler = config_doc.get<string>("toolchain.vulkan.compiler", config.default_compiler);
@@ -1984,6 +1985,9 @@ const uint32_t& floor::get_vulkan_toolchain_version() {
 }
 const vector<string>& floor::get_vulkan_whitelist() {
 	return config.vulkan_whitelist;
+}
+bool floor::get_vulkan_validation() {
+	return config.vulkan_validation;
 }
 bool floor::get_vulkan_validate_spirv() {
 	return config.vulkan_validate_spirv;

@@ -301,6 +301,7 @@ public:
 	static const string& get_vulkan_base_path();
 	static const uint32_t& get_vulkan_toolchain_version();
 	static const vector<string>& get_vulkan_whitelist();
+	static bool get_vulkan_validation();
 	static bool get_vulkan_validate_spirv();
 	static const string& get_vulkan_compiler();
 	static const string& get_vulkan_as();
@@ -456,6 +457,7 @@ protected:
 		bool vulkan_toolchain_exists = false;
 		uint32_t vulkan_toolchain_version = 0;
 		string vulkan_base_path;
+		bool vulkan_validation = false;
 		bool vulkan_validate_spirv = false;
 		vector<string> vulkan_whitelist;
 		string vulkan_compiler = default_compiler;
