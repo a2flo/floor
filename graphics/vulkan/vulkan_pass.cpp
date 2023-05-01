@@ -208,6 +208,13 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 						 const bool with_multi_view_support) : graphics_pass(pass_desc_, with_multi_view_support) {
 	const bool create_sv_pass = is_single_view_capable();
 	const bool create_mv_pass = is_multi_view_capable();
+	
+	for (const auto& att : pass_desc.attachments) {
+		if (att.load_op == LOAD_OP::CLEAR) {
+			has_any_clear_load_op = true;
+			break;
+		}
+	}
 
 	unique_ptr<vulkan_render_pass_info> sv_render_pass_info;
 	if (create_sv_pass) {

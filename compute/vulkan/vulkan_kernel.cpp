@@ -385,15 +385,14 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		});
 	}
 	
-	(void)wait_until_completion;
-	vk_queue.submit_command_buffer(encoder->cmd_buffer,
+	vk_queue.submit_command_buffer(std::move(encoder->cmd_buffer),
 								   std::move(wait_fences), std::move(signal_fences),
 								   [encoder](const vulkan_command_buffer&) {
 		// -> completion handler
 		
 		// kill constant buffers after the kernel has finished execution
 		encoder->constant_buffers.clear();
-	}, true /*|| wait_until_completion*/ /* TODO: don't always block, but do block if soft-printf is enabled */);
+	}, wait_until_completion || is_soft_printf /* must block when soft-print is used */);
 	
 	// release all acquired descriptor sets/buffers and constant buffers again
 	for (auto& desc_buf_instance : encoder->acquired_descriptor_buffers) {

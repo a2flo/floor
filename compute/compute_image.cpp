@@ -935,8 +935,16 @@ void compute_image::generate_mip_map_chain(const compute_queue& cqueue) {
 			for(uint32_t level = 0; level < mip_level_count;
 				++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
 				if(level == 0) continue;
-				cqueue.execute(*minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
-							   (compute_image*)this, level_size, inv_prev_level_size, level, layer);
+				compute_queue::execution_parameters_t exec_params {
+					.execution_dim = dim_count,
+					.global_work_size = level_size.rounded_next_multiple(lsize),
+					.local_work_size = lsize,
+					.args = { (compute_image*)this, level_size, inv_prev_level_size, level, layer },
+					// NOTE: must be blocking, because each level depends on the previous level
+					.wait_until_completion = true,
+					.debug_label = "mip_map_minify",
+				};
+				cqueue.execute_with_parameters(*minify_kernel, exec_params);
 			}
 		}
 		

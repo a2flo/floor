@@ -63,6 +63,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	
 	string debug_message;
 	if (cb_data != nullptr) {
+		static const unordered_set<int32_t> ignore_msg_ids {
+			-602362517, // UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation
+			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
+			-2027362524, // UNASSIGNED-BestPractices-vkCreateCommandPool-command-buffer-reset
+			1218486124, // UNASSIGNED-BestPractices-pipeline-stage-flags
+			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
+			-394667308, // UNASSIGNED-BestPractices-vkBeginCommandBuffer-simultaneous-use
+			-1993010233, // UNASSIGNED-Descriptor uninitialized (NOTE/TODO: not updated for descriptor buffer use?)
+		};
+		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
+			// ignore and don't abort
+			return VK_FALSE;
+		}
+		
 		debug_message += "\n\t";
 		if (cb_data->pMessageIdName) {
 			debug_message += cb_data->pMessageIdName + " ("s + to_string(cb_data->messageIdNumber) + ")\n";
@@ -297,6 +311,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	set<string> instance_extensions {
 #if defined(FLOOR_DEBUG)
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+		VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME,
 #endif
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
@@ -346,10 +361,31 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	}
 	log_debug("using instance extensions: $", inst_exts_str);
 	log_debug("using instance layers: $", inst_layers_str);
+	
+#if defined(FLOOR_DEBUG)
+	static const array val_features_enable {
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+		//VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+	};
+	const VkValidationFeaturesEXT val_features {
+		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+		.pNext = nullptr,
+		.enabledValidationFeatureCount = val_features_enable.size(),
+		.pEnabledValidationFeatures = &val_features_enable[0],
+		.disabledValidationFeatureCount = 0,
+		.pDisabledValidationFeatures = nullptr,
+	};
+#endif
 
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#if defined(FLOOR_DEBUG)
+		.pNext = &val_features,
+#else
 		.pNext = nullptr,
+#endif
 		.flags = 0,
 		.pApplicationInfo = &app_info,
 		.enabledLayerCount = (uint32_t)size(instance_layers),
@@ -933,6 +969,44 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		set<string> device_supported_extensions_set;
 		set<string> device_extensions_set;
 		static constexpr const array filtered_exts{
+			// deprecated, now in core
+			"VK_KHR_16bit_storage",
+			"VK_KHR_8bit_storage",
+			"VK_KHR_bind_memory2",
+			"VK_KHR_copy_commands2",
+			"VK_KHR_create_renderpass2",
+			"VK_KHR_dedicated_allocation",
+			"VK_KHR_depth_stencil_resolve",
+			"VK_KHR_descriptor_update_template",
+			"VK_KHR_draw_indirect_count",
+			"VK_KHR_driver_properties",
+			"VK_KHR_dynamic_rendering",
+			"VK_KHR_format_feature_flags2",
+			"VK_KHR_get_memory_requirements2",
+			"VK_KHR_image_format_list",
+			"VK_KHR_imageless_framebuffer",
+			"VK_KHR_maintenance1",
+			"VK_KHR_maintenance2",
+			"VK_KHR_maintenance3",
+			"VK_KHR_maintenance4",
+			"VK_KHR_multiview",
+			"VK_KHR_relaxed_block_layout",
+			"VK_KHR_sampler_mirror_clamp_to_edge",
+			"VK_KHR_sampler_ycbcr_conversion",
+			"VK_KHR_shader_atomic_int64",
+			"VK_KHR_shader_draw_parameters",
+			"VK_KHR_shader_float16_int8",
+			"VK_KHR_shader_float_controls",
+			"VK_KHR_shader_integer_dot_product",
+			"VK_KHR_shader_non_semantic_info",
+			"VK_KHR_shader_terminate_invocation",
+			"VK_KHR_storage_buffer_storage_class",
+			"VK_KHR_synchronization2",
+			"VK_KHR_uniform_buffer_standard_layout",
+			"VK_KHR_variable_pointers",
+			"VK_KHR_vulkan_memory_model",
+			"VK_KHR_zero_initialize_workgroup_memory",
+			// extensions we don't need/want
 			"VK_KHR_external_",
 			"VK_KHR_device_group",
 			"VK_KHR_win32_keyed_mutex",
@@ -956,6 +1030,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_incremental_present",
 			"VK_KHR_video_decode_h264",
 			"VK_KHR_video_decode_h265",
+			"VK_KHR_map_memory2",
+			"VK_KHR_ray_tracing_position_fetch",
+			"VK_KHR_pipeline_executable_properties",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -998,10 +1075,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 
 		// add other required or optional extensions
-		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
-		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
-		device_extensions_set.emplace(VK_KHR_MAINTENANCE_4_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -1299,6 +1373,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		return;
 	}
 	
+	// init internal vulkan_queue structures
+	vulkan_queue::init();
+	
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
 	for(auto& dev : devices) {
@@ -1328,6 +1405,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 }
 
 vulkan_compute::~vulkan_compute() {
+	// destroy internal vulkan_queue structures
+	vulkan_queue::destroy();
+	
 #if defined(FLOOR_DEBUG)
 	if (destroy_debug_utils_messenger != nullptr && debug_utils_messenger != nullptr) {
 		destroy_debug_utils_messenger(ctx, debug_utils_messenger, nullptr);
@@ -1636,10 +1716,11 @@ bool vulkan_compute::init_renderer() {
 		surface_size.height = screen.size.y;
 	}
 	
-	// try using triple buffering
-	if(surface_caps.minImageCount < 3) {
-		surface_caps.minImageCount = 3;
-	}
+	// try using "maxImageCount" (if non-zero) or 8 images at most
+	static constexpr const uint32_t max_swapchain_image_count = 8u;
+	auto swapchain_image_count = (surface_caps.maxImageCount > 0 ?
+								  min(surface_caps.maxImageCount, max_swapchain_image_count) :
+								  max_swapchain_image_count);
 	
 	// choose present mode (vsync is always supported)
 	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
@@ -1661,7 +1742,7 @@ bool vulkan_compute::init_renderer() {
 		.pNext = nullptr,
 		.flags = 0,
 		.surface = screen.surface,
-		.minImageCount = surface_caps.minImageCount,
+		.minImageCount = swapchain_image_count,
 		.imageFormat = screen.format,
 		.imageColorSpace = screen.color_space,
 		.imageExtent = surface_size,
@@ -1815,7 +1896,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	if (screen.x11_forwarding) {
 		screen.x11_screen->transition(&dev_queue, nullptr /* create a cmd buffer */,
 									  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-									  VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT);
+									  VK_PIPELINE_STAGE_2_NONE, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
 		return {
 			true,
 			{
@@ -1836,13 +1917,21 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	if (screen.next_fence_index >= screen.render_fences.size()) {
 		screen.next_fence_index = 0;
 	}
-	const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX,
-												  ((const vulkan_fence&)*screen.render_fences[fence_index]).get_vulkan_fence(),
-												  nullptr, &screen.image_index);
-	if (acq_result != VK_SUCCESS && acq_result != VK_SUBOPTIMAL_KHR) {
-		log_error("failed to acquire next presentable image: $: $", acq_result, vulkan_error_to_string(acq_result));
-		return { false, dummy_ret };
-	}
+	do {
+		// we may not use UINT64_MAX if we want to actually wait for the next image -> use 10s instead
+		static constexpr const uint64_t acq_wait_time_ns = 10'000'000'000 /* 10s */;
+		const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, acq_wait_time_ns,
+													  ((const vulkan_fence&)*screen.render_fences[fence_index]).get_vulkan_fence(),
+													  nullptr, &screen.image_index);
+		if (acq_result != VK_SUCCESS && acq_result != VK_SUBOPTIMAL_KHR && acq_result != VK_TIMEOUT) {
+			log_error("failed to acquire next presentable image: $: $", acq_result, vulkan_error_to_string(acq_result));
+			return { false, dummy_ret };
+		}
+		if (acq_result == VK_TIMEOUT) {
+			continue;
+		}
+		break;
+	} while (true);
 #if defined(FLOOR_DEBUG)
 	set_vulkan_debug_label(*screen.render_device, VK_OBJECT_TYPE_IMAGE, uint64_t(screen.swapchain_images[screen.image_index]),
 						   "swapchain_image#" + to_string(screen.image_index));
@@ -1860,8 +1949,8 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 		const VkImageMemoryBarrier2 image_barrier {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.pNext = nullptr,
-			.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-			.srcAccessMask = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+			.srcAccessMask = VK_ACCESS_2_NONE,
 			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.dstAccessMask = dst_access_mask,
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1890,6 +1979,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 		};
 		vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
 	}), (pair { false, dummy_ret }), true /* always blocking */, std::move(wait_fence));
+	// TODO: non-blocking/async/signal-fence option
 	
 	return {
 		true,
@@ -1916,7 +2006,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 		screen.x11_screen->transition(&dev_queue, nullptr /* create a cmd buffer */,
 									  VK_ACCESS_2_TRANSFER_READ_BIT,
 									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-									  VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+									  VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_NONE);
 		
 		// grab the current image buffer data (read-only + blocking) ...
 		auto img_data = (uchar4*)screen.x11_screen->map(dev_queue,
@@ -1943,6 +2033,9 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 	}
 	
 	// transition to present mode
+	// NOTE: this is always blocking, because:
+	//       a) if called from a blocking vulkan_renderer, this needs to be blocking as well
+	//       b) if called from a non-blocking vulkan_renderer, this will already be called from a separate completion thread
 	VK_CMD_BLOCK(vk_queue, "image present transition", ({
 		const VkImageMemoryBarrier2 present_image_barrier {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,

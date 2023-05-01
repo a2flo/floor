@@ -50,6 +50,11 @@ public:
 		return (!get_multi_view ? sv_clear_values : mv_clear_values);
 	}
 	
+	//! returns true if this pass needs a clear / clear values, i.e. at least one load op is "clear"
+	bool needs_clear() const {
+		return has_any_clear_load_op;
+	}
+	
 protected:
 	struct vulkan_pass_t {
 		VkRenderPass single_view_pass;
@@ -58,6 +63,7 @@ protected:
 	floor_core::flat_map<const compute_device&, vulkan_pass_t> render_passes;
 	vector<VkClearValue> sv_clear_values;
 	vector<VkClearValue> mv_clear_values;
+	bool has_any_clear_load_op { false };
 	
 };
 

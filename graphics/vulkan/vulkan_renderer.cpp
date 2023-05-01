@@ -100,7 +100,14 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 
 bool vulkan_renderer::create_cmd_buffer() {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	render_cmd_buffer = vk_queue.make_command_buffer("vk_renderer_cmd_buffer");
+#if defined(FLOOR_DEBUG)
+	const char* cmd_buffer_label = (!cur_pipeline->get_description(multi_view).debug_label.empty() ?
+									cur_pipeline->get_description(multi_view).debug_label.c_str() :
+									"vk_renderer_cmd_buffer");
+#else
+	static constexpr const char* cmd_buffer_label = "vk_renderer_cmd_buffer";
+#endif
+	render_cmd_buffer = vk_queue.make_command_buffer(cmd_buffer_label);
 	const VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -212,31 +219,34 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &cur_render_area);
 	
 	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);
+	const auto needs_clear = vk_pass.needs_clear();
 	vector<VkClearValue> clear_values;
-	if (dynamic_render_state.clear_values) {
-		if (dynamic_render_state.clear_values->size() != pass_clear_values.size()) {
-			log_error("invalid clear values size: $", dynamic_render_state.clear_values->size());
-			return false;
-		}
-		
-		clear_values.reserve(dynamic_render_state.clear_values->size());
-		const bool has_depth = depth_attachment.has_value();
-		const auto depth_cv_idx = (dynamic_render_state.clear_values->size() - 1u);
-		for (uint32_t attachment_idx = 0, attachment_count = uint32_t(dynamic_render_state.clear_values->size());
-			 attachment_idx < attachment_count; ++attachment_idx) {
-			const auto& clear_value = (*dynamic_render_state.clear_values)[attachment_idx];
-			if (!has_depth || attachment_idx != depth_cv_idx) {
-				clear_values.emplace_back(VkClearValue {
-					.color = { .float32 = { clear_value.color.x, clear_value.color.y, clear_value.color.z, clear_value.color.w }, }
-				});
-			} else {
-				clear_values.emplace_back(VkClearValue {
-					.depthStencil = { .depth = clear_value.depth, .stencil = 0 }
-				});
+	if (needs_clear) {
+		if (dynamic_render_state.clear_values) {
+			if (dynamic_render_state.clear_values->size() != pass_clear_values.size()) {
+				log_error("invalid clear values size: $", dynamic_render_state.clear_values->size());
+				return false;
 			}
+			
+			clear_values.reserve(dynamic_render_state.clear_values->size());
+			const bool has_depth = depth_attachment.has_value();
+			const auto depth_cv_idx = (dynamic_render_state.clear_values->size() - 1u);
+			for (uint32_t attachment_idx = 0, attachment_count = uint32_t(dynamic_render_state.clear_values->size());
+				 attachment_idx < attachment_count; ++attachment_idx) {
+				const auto& clear_value = (*dynamic_render_state.clear_values)[attachment_idx];
+				if (!has_depth || attachment_idx != depth_cv_idx) {
+					clear_values.emplace_back(VkClearValue {
+						.color = { .float32 = { clear_value.color.x, clear_value.color.y, clear_value.color.z, clear_value.color.w }, }
+					});
+				} else {
+					clear_values.emplace_back(VkClearValue {
+						.depthStencil = { .depth = clear_value.depth, .stencil = 0 }
+					});
+				}
+			}
+		} else {
+			clear_values = pass_clear_values;
 		}
-	} else {
-		clear_values = pass_clear_values;
 	}
 	const VkRenderPassBeginInfo pass_begin_info {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -244,8 +254,8 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		.renderPass = vk_render_pass,
 		.framebuffer = cur_framebuffer,
 		.renderArea = cur_render_area,
-		.clearValueCount = (uint32_t)clear_values.size(),
-		.pClearValues = clear_values.data(),
+		.clearValueCount = (needs_clear ? (uint32_t)clear_values.size() : 0),
+		.pClearValues = (needs_clear ? clear_values.data() : nullptr),
 	};
 	// NOTE: if indirect rendering is enabled, we need to perform all rendering within secondary cmd buffers (which may also be specified
 	//       by the user when calling execute_indirect()), otherwise always perform rendering in primary buffers (-> inline)
@@ -261,8 +271,58 @@ bool vulkan_renderer::end() {
 	return true;
 }
 
-bool vulkan_renderer::commit(const bool wait_until_completion) {
+bool vulkan_renderer::commit_and_finish() {
+	return commit_internal(true, true, {});
+}
+
+struct vulkan_renderer_internal {
+	template <template <typename...> class smart_ptr_type, typename renderer_type>
+	static bool commit_and_release_internal(smart_ptr_type<renderer_type>&& renderer, graphics_renderer::completion_handler_f&& compl_handler) {
+		auto renderer_ptr = (vulkan_renderer*)renderer.get();
+		// NOTE: since a std::function must be copyable, we can't use a unique_ptr here (TODO: move_only_function with C++23)
+		auto queue_submission_compl_handler = [retained_renderer = shared_ptr<renderer_type>(std::move(renderer))](const vulkan_command_buffer&) {
+			// call all user completion handlers
+			auto vk_renderer = (vulkan_renderer*)retained_renderer.get();
+			auto exec_compl_handlers = std::move(vk_renderer->completion_handlers);
+			for (const auto& exec_compl_handler : exec_compl_handlers) {
+				exec_compl_handler();
+			}
+		};
+		return renderer_ptr->commit_internal(false, true, std::move(compl_handler), std::move(queue_submission_compl_handler));
+	}
+};
+
+bool vulkan_renderer::commit_and_release(unique_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) {
+	return vulkan_renderer_internal::commit_and_release_internal(std::move(renderer), std::move(compl_handler));
+}
+
+bool vulkan_renderer::commit_and_release(shared_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) {
+	return vulkan_renderer_internal::commit_and_release_internal(std::move(renderer), std::move(compl_handler));
+}
+
+bool vulkan_renderer::commit_and_continue() {
+	return commit_internal(true, false, {});
+}
+
+bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_finishing,
+									  completion_handler_f&& user_compl_handler,
+									  function<void(const vulkan_command_buffer&)>&& renderer_compl_handler) {
+	assert(((!is_blocking && is_finishing) || is_blocking) && "non-blocking commit must always finish");
+	assert(((!is_blocking && renderer_compl_handler) || is_blocking) && "non-blocking commit must have a renderer completion handler");
+	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	
+	// add the completion handler for later (must do this before submission)
+	if (user_compl_handler) {
+		(void)add_completion_handler(std::move(user_compl_handler));
+	}
+	
+	// non-blocking: add present completion handler at the end
+	if (!is_blocking && is_presenting) {
+		(void)add_completion_handler([this]() {
+			((vulkan_compute*)cqueue.get_device().context)->queue_present(cur_drawable->vk_drawable);
+		});
+	}
 	
 	// if any image layout transitions are necessary, perform them now
 	if (!img_transition_barriers.empty()) {
@@ -279,7 +339,7 @@ bool vulkan_renderer::commit(const bool wait_until_completion) {
 				.pImageMemoryBarriers = &img_transition_barriers[0],
 			};
 			vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
-		}), false, true /* always blocking */);
+		}), false, is_blocking);
 	}
 	
 	if (is_presenting) {
@@ -287,38 +347,34 @@ bool vulkan_renderer::commit(const bool wait_until_completion) {
 		cur_drawable->vk_image->transition(&cqueue, render_cmd_buffer.cmd_buffer, 0 /* as per doc */, cur_drawable->vk_drawable.present_layout,
 										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
 	}
-
-	// TODO: blocking or not? yes for now, until we can ensure that everything gets cleaned up properly + is synced properly
-	const auto is_blocking = wait_until_completion || true;
+	
 	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)
-	vk_queue.submit_command_buffer(render_cmd_buffer, std::move(wait_fences), std::move(signal_fences), {}, is_blocking);
+	vk_queue.submit_command_buffer(std::move(render_cmd_buffer), std::move(wait_fences), std::move(signal_fences),
+								   std::move(renderer_compl_handler), is_blocking);
 	
-	// if present has been called earlier, we can now actually present the image to the screen
-	if (is_presenting) {
-		((vulkan_compute*)cqueue.get_device().context)->queue_present(cur_drawable->vk_drawable);
-		is_presenting = false;
-	}
+	// NOTE: all of this can only be called when doing a blocking commit(), for non-blocking commits, ownership
+	if (is_blocking) {
+		// if present has been called earlier, we can now actually present the image to the screen
+		if (is_presenting) {
+			((vulkan_compute*)cqueue.get_device().context)->queue_present(cur_drawable->vk_drawable);
+			is_presenting = false;
+		}
+		
+		if (!is_finishing) {
+			// reset
+			did_begin_cmd_buffer = false;
+		}
 	
-	// reset
-	did_begin_cmd_buffer = false;
-	
-	// call all user completion handlers
-	// NOTE/TODO: if submit_command_buffer() is no longer blocking, we need to actually add this to the vk_queue
-	// NOTE: we need to store/move all completion handlers into a local variable,
-	//       because a completion handler may actually hold onto the vulkan_renderer object
-	auto exec_compl_handlers = std::move(completion_handlers);
-	for (const auto& compl_handler : exec_compl_handlers) {
-		compl_handler();
+		// call all user completion handlers
+		// NOTE: we need to store/move all completion handlers into a local variable,
+		//       because a completion handler may actually hold onto the vulkan_renderer object
+		auto exec_compl_handlers = std::move(completion_handlers);
+		for (const auto& exec_compl_handler : exec_compl_handlers) {
+			exec_compl_handler();
+		}
 	}
 	
 	return true;
-}
-
-bool vulkan_renderer::commit(completion_handler_f&& compl_handler) {
-	if (compl_handler) {
-		(void)add_completion_handler(std::move(compl_handler));
-	}
-	return commit(false);
 }
 
 bool vulkan_renderer::add_completion_handler(completion_handler_f&& compl_handler) {

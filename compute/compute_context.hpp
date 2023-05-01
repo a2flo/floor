@@ -66,6 +66,9 @@ enum class COMPUTE_CONTEXT_FLAGS : uint32_t {
 	//! Metal-only (right now): disables any automatic resource tracking on the allocated Metal object
 	//! NOTE: this is achieved by automatically adding COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING for all buffers/images that are created
 	NO_RESOURCE_TRACKING = (1u << 0u),
+	
+	//! Vulkan-only: flag that disables blocking queue submission
+	VULKAN_NO_BLOCKING = (1u << 1u),
 };
 floor_global_enum_ext(COMPUTE_CONTEXT_FLAGS)
 

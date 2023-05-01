@@ -195,6 +195,9 @@ namespace core {
 	//! returns the number of hardware threads ("logical CPU cores")
 	uint32_t get_hw_thread_count();
 
+	//! returns the number of physical CPU cores
+	uint32_t get_physical_core_count();
+
 	//! sets the current threads affinity to the specified "affinity"
 	//! NOTE: 0 represents no affinity, 1 is CPU core #0, ...
 	void set_thread_affinity(const uint32_t affinity);

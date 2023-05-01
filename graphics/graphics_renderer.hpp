@@ -63,15 +63,28 @@ public:
 		return true;
 	}
 	
-	//! commits all currently queued work to the queue,
-	//! if "wait_until_completion" is true, this is a blocking call that waits until the rendering has completed
+	//! commits all currently queued work to the queue, then waits until completion (blocking)
+	//! NOTE: this is deprecated, explicitly use commit_and_finish() or commit_and_release() instead
+	[[deprecated("use commit_and_finish() or commit_and_release() instead")]]
 	virtual bool commit(const bool wait_until_completion [[maybe_unused]] = false) {
-		return true;
+		return commit_and_finish();
 	}
 	
+	//! commits all currently queued work to the queue, then finishes this renderer and waits until completion (blocking)
+	//! NOTE: no other renderer commands are allowed after this
+	virtual bool commit_and_finish() = 0;
+	
 	//! commits all currently queued work to the queue,
-	//! calling the specified completion handler once the work has been executed
-	virtual bool commit(completion_handler_f&&) = 0;
+	//! then releases *this* renderer (must be a unique_ptr or shared_ptr) to the internal handling,
+	//! finishing/completing the rendering asynchronously (non-blocking),
+	//! with the specified completion handler is called once all work has been executed
+	//! NOTE: no other renderer commands are allowed after this
+	virtual bool commit_and_release(unique_ptr<graphics_renderer>&& renderer, completion_handler_f&& = {}) = 0;
+	virtual bool commit_and_release(shared_ptr<graphics_renderer>&& renderer, completion_handler_f&& = {}) = 0;
+	
+	//! commits all currently queued work to the queue, then continue rendering in this *same* renderer (non-blocking)
+	//! NOTE: do not use this to finish/complete the renderer, use commit_and_finish() or commit_and_release() for that
+	virtual bool commit_and_continue() = 0;
 
 	//! returns true if this is a multi-view/VR renderer
 	bool is_multi_view() const {

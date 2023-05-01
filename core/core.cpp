@@ -551,6 +551,44 @@ uint32_t get_hw_thread_count() {
 	return hw_thread_count;
 }
 
+uint32_t get_physical_core_count() {
+	uint32_t core_count = 1; // default to 1
+#if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
+	size_t size = sizeof(core_count);
+#if !defined(__OpenBSD__)
+	sysctlbyname("hw.physicalcpu", &core_count, &size, nullptr, 0);
+#else
+	static const int sysctl_cmd[2] { CTL_HW, HW_NCPU }; // TODO: is there a way to get the physical count?
+	sysctl(sysctl_cmd, 2, &core_count, &size, nullptr, 0);
+#endif
+#elif defined(__linux__)
+	string cpuinfo_output;
+	system("grep \"cpu cores\" /proc/cpuinfo -m 1", cpuinfo_output);
+	const auto rspace = cpuinfo_output.rfind(' ');
+	if (rspace == string::npos) {
+		return get_hw_thread_count();
+	}
+	core_count = stou(cpuinfo_output.substr(rspace + 1));
+#elif defined(__WINDOWS__)
+	uint32_t len = 0;
+	GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, (PDWORD)&len);
+	auto info_data = make_unique<uint8_t[]>(len);
+	if (!GetLogicalProcessorInformationEx(RelationProcessorCore, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)info_data.get(), (PDWORD)&len)) {
+		return get_hw_thread_count();
+	}
+	
+	core_count = 0;
+	auto info_ptr = (const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)info_data.get();
+	for (uint64_t cur_len = 0; cur_len < len; ++cpu_count) {
+		assert(info_ptr->Relationship == RelationProcessorCore);
+		cur_len += info_ptr->Size;
+		info_ptr = (const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(((const uint8_t*)info_ptr) + info_ptr->Size);
+	}
+#else // other platforms?
+#endif
+	return core_count;
+}
+
 void set_thread_affinity(const uint32_t affinity) {
 #if defined(__APPLE__)
 	thread_port_t thread_port = pthread_mach_thread_np(pthread_self());

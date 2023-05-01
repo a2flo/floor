@@ -181,19 +181,53 @@ bool metal_renderer::end() {
 	return true;
 }
 
-bool metal_renderer::commit(const bool wait_until_completion) {
+bool metal_renderer::commit_and_finish() {
+	return commit_internal(true, true, {});
+}
+
+struct metal_renderer_internal {
+	template <template <typename...> class smart_ptr_type, typename renderer_type>
+	static bool commit_and_release_internal(smart_ptr_type<renderer_type>&& renderer, graphics_renderer::completion_handler_f&& compl_handler) {
+		auto renderer_ptr = (metal_renderer*)renderer.get();
+		// NOTE: since a std::function must be copyable, we can't use a unique_ptr here (TODO: move_only_function with C++23)
+		auto queue_submission_compl_handler = [retained_renderer = shared_ptr<renderer_type>(std::move(renderer))]() {
+			// nop
+		};
+		return renderer_ptr->commit_internal(false, true, std::move(compl_handler), std::move(queue_submission_compl_handler));
+	}
+};
+
+bool metal_renderer::commit_and_release(unique_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) {
+	return metal_renderer_internal::commit_and_release_internal(std::move(renderer), std::move(compl_handler));
+}
+
+bool metal_renderer::commit_and_release(shared_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) {
+	return metal_renderer_internal::commit_and_release_internal(std::move(renderer), std::move(compl_handler));
+}
+
+bool metal_renderer::commit_and_continue() {
+	return commit_internal(true, false, {});
+}
+
+bool metal_renderer::commit_internal(const bool is_blocking, const bool is_finishing,
+									 completion_handler_f&& user_compl_handler,
+									 completion_handler_f&& renderer_compl_handler) {
+	(void)is_finishing; // not needed in Metal
+	
+	if (user_compl_handler) {
+		(void)add_completion_handler(std::move(user_compl_handler));
+	}
+	
+	if (renderer_compl_handler) {
+		// NOTE: must be added at the very end, because it retains the renderer
+		(void)add_completion_handler(std::move(renderer_compl_handler));
+	}
+	
 	[cmd_buffer commit];
-	if (wait_until_completion) {
+	if (is_blocking) {
 		[cmd_buffer waitUntilCompleted];
 	}
 	return true;
-}
-
-bool metal_renderer::commit(completion_handler_f&& compl_handler) {
-	if (compl_handler) {
-		(void)add_completion_handler(std::move(compl_handler));
-	}
-	return commit(false);
 }
 
 bool metal_renderer::add_completion_handler(completion_handler_f&& compl_handler) {

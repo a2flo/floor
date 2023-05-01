@@ -26,6 +26,8 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
+#include <floor/threading/thread_base.hpp>
+#include <condition_variable>
 
 //! returns the debug name of the specified buffer or "unknown"
 static inline const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffer) {
@@ -47,6 +49,148 @@ static inline VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const
 	}
 }
 
+//! completes the specified cmd buffer (blocking) + performs all the completion handling and clean up
+static inline void vulkan_complete_cmd_buffer(vulkan_command_pool_t& pool,
+											  const vulkan_device& vk_dev,
+											  vulkan_command_buffer&& cmd_buffer,
+											  pair<VkFence, uint32_t> fence,
+											  function<void(const vulkan_command_buffer&)>&& completion_handler);
+
+class vulkan_cmd_completion_thread;
+
+//! asynchronous command completion handler (runs command completion in separate threads)
+class vulkan_cmd_completion_handler {
+public:
+	vulkan_cmd_completion_handler();
+	~vulkan_cmd_completion_handler();
+	
+	struct cmd_t {
+		vulkan_command_pool_t* pool { nullptr };
+		const vulkan_device* vk_dev { nullptr };
+		vulkan_command_buffer cmd_buffer;
+		pair<VkFence, uint32_t> fence;
+		function<void(const vulkan_command_buffer&)> completion_handler;
+	};
+	
+	void add_cmd_completion(cmd_t&& cmd) {
+		{
+			unique_lock<mutex> work_lock_guard(work_cv_lock);
+			work_queue.emplace(std::move(cmd));
+		}
+		work_cv.notify_one();
+	}
+	
+protected:
+	friend vulkan_cmd_completion_thread;
+	
+	//! max amount of completion threads that are created / will be running at most
+	static constexpr const uint32_t completion_thread_count { 8 };
+	
+	//! access to "cmd_completion_threads" must be thread-safe
+	safe_mutex cmd_completion_threads_lock;
+	//! command completion threads
+	vector<unique_ptr<vulkan_cmd_completion_thread>> cmd_completion_threads GUARDED_BY(cmd_completion_threads_lock);
+	
+	//! required lock for "work_cv"
+	mutex work_cv_lock;
+	//! will be signaled once there is new work
+	condition_variable work_cv;
+	//! currently queued command completion work
+	queue<cmd_t> work_queue;
+	
+	//! returns true if there is any work that needs to be handled
+	//! NOTE: requires holding "work_cv_lock"
+	bool has_work() {
+		return !work_queue.empty();
+	}
+	
+	//! returns and removes the cmd from the front of the work queue
+	//! NOTE: requires holding "work_cv_lock"
+	inline cmd_t get_work() {
+		cmd_t cmd = std::move(work_queue.front());
+		work_queue.pop();
+		return cmd;
+	}
+};
+static unique_ptr<vulkan_cmd_completion_handler> vk_cmd_completion_handler;
+
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
+
+//! single command completion thread (run/owned by vulkan_cmd_completion_handler)
+class vulkan_cmd_completion_thread final : public thread_base {
+public:
+	vulkan_cmd_completion_thread(vulkan_cmd_completion_handler& handler_, const string name) : thread_base(name), handler(handler_) {
+		// never sleep or yield, will wait on "work_cv" in run()
+		set_thread_delay(0u);
+		set_yield_after_run(false);
+	}
+	~vulkan_cmd_completion_thread() override {
+		// nop
+	}
+	
+	void run() override {
+		try {
+			vulkan_cmd_completion_handler::cmd_t cmd {};
+			for (uint32_t run = 0; ; ++run) {
+				{
+					// wait until we have new work,
+					// time out after 500ms in case everything is being shut down or halted
+					unique_lock<mutex> work_lock_guard(handler.work_cv_lock);
+					if (run == 0) {
+						// if this is the first run/iteration, we haven't completed any work/cmd yet
+						if (handler.work_cv.wait_for(work_lock_guard, 500ms) == cv_status::timeout) {
+							return; // -> return to thread_base and (potentially) run again
+						}
+					}
+					// else: run 1+: just completed work, immediately retry to get new work w/o waiting on the CV
+					
+					// get work/cmd if there is any, otherwise return and retry
+					if (!handler.has_work()) {
+						return;
+					}
+					cmd = handler.get_work();
+				}
+				
+				// wait on cmd
+				vulkan_complete_cmd_buffer(*cmd.pool, *cmd.vk_dev, std::move(cmd.cmd_buffer), cmd.fence, std::move(cmd.completion_handler));
+			}
+		} catch (exception& exc) {
+			log_error("exception during $ work execution: $", thread_name, exc.what());
+		}
+	}
+	
+	void start() {
+		thread_base::start();
+	}
+	
+protected:
+	//! ref to the completion handler itself
+	vulkan_cmd_completion_handler& handler;
+};
+
+FLOOR_POP_WARNINGS()
+
+vulkan_cmd_completion_handler::vulkan_cmd_completion_handler() {
+	cmd_completion_threads.resize(completion_thread_count);
+	for (uint32_t i = 0; i < completion_thread_count; ++i) {
+		cmd_completion_threads[i] = make_unique<vulkan_cmd_completion_thread>(*this, "vk_cmpl_hnd_" + to_string(i));
+		cmd_completion_threads[i]->start();
+	}
+}
+
+vulkan_cmd_completion_handler::~vulkan_cmd_completion_handler() {
+	GUARD(cmd_completion_threads_lock);
+	for (auto& th : cmd_completion_threads) {
+		th->set_thread_should_finish();
+	}
+	work_cv.notify_all();
+	for (auto& th : cmd_completion_threads) {
+		th->finish();
+	}
+	cmd_completion_threads.clear();
+}
+
 //! per-thread Vulkan command pool and command buffer management
 //! NOTE: since Vulkan is *not* thread-safe, we need to manage this on our own
 struct vulkan_command_pool_t {
@@ -54,26 +198,32 @@ struct vulkan_command_pool_t {
 	const vulkan_device& dev;
 	const vulkan_queue& queue;
 	const bool is_secondary { false };
+	const bool experimental_no_blocking { false };
 	
 	vulkan_command_pool_t(const vulkan_device& dev_, const vulkan_queue& queue_, const bool is_secondary_) :
-	dev(dev_), queue(queue_), is_secondary(is_secondary_) {}
-	// TODO: destructor (manually + on thread exit)
+	dev(dev_), queue(queue_), is_secondary(is_secondary_),
+	experimental_no_blocking(has_flag<COMPUTE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())) {}
 	
-	struct command_buffer_internal {
+	~vulkan_command_pool_t() {
+		// TODO: destructor (manually + on thread exit)
+		// -> global thread exit and per-thread exit
+	}
+	
+	struct command_buffer_internal_t {
 		vector<shared_ptr<compute_buffer>> retained_buffers;
 		vector<vulkan_queue::vulkan_completion_handler_t> completion_handlers;
 	};
+	
+	//! per-thread command buffer and fence count
+	//! NOTE: since these are *per-thread* we probably never going to need more than this
+	static constexpr const uint32_t cmd_buffer_count { 64 /* make use of optimized bitset */ };
+	static constexpr const uint32_t fence_count { cmd_buffer_count };
 
 	safe_mutex cmd_buffers_lock;
-	static constexpr const uint32_t cmd_buffer_count {
-		// make use of optimized bitset
-		64
-	};
 	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock) {};
-	array<command_buffer_internal, cmd_buffer_count> cmd_buffer_internals GUARDED_BY(cmd_buffers_lock) {};
+	array<command_buffer_internal_t, cmd_buffer_count> cmd_buffer_internals GUARDED_BY(cmd_buffers_lock) {};
 	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock) {};
 	
-	static constexpr const uint32_t fence_count { 32 };
 	safe_mutex fence_lock;
 	array<VkFence, fence_count> fences GUARDED_BY(fence_lock) {};
 	bitset<fence_count> fences_in_use GUARDED_BY(fence_lock) {};
@@ -113,7 +263,6 @@ struct vulkan_command_pool_t {
 		if (!cmd_buffers_in_use.all()) {
 			for (uint32_t i = 0; i < cmd_buffer_count; ++i) {
 				if (!cmd_buffers_in_use[i]) {
-					// TODO: don't block
 					VK_CALL_RET(vkResetCommandBuffer(cmd_buffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT),
 								"failed to reset command buffer ("s + (name != nullptr ? name : "unknown") + ")",
 								{ nullptr, ~0u, nullptr })
@@ -142,133 +291,90 @@ struct vulkan_command_pool_t {
 	}
 	
 	//! submits a command buffer to the device queue
-	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
+	void submit_command_buffer(vulkan_command_buffer&& cmd_buffer,
 							   function<void(const vulkan_command_buffer&)>&& completion_handler,
 							   const bool blocking,
-							   vector<vulkan_queue::wait_fence_t>&& wait_fences_,
-							   vector<vulkan_queue::signal_fence_t>&& signal_fences_) REQUIRES(!cmd_buffers_lock) {
-		const auto submit_func = [this, cmd_buffer, completion_handler,
-								  wait_fences = std::move(wait_fences_), signal_fences = std::move(signal_fences_)]() {
-			// must sync/lock queue
-			auto fence = acquire_fence();
-			if (fence.first == nullptr) {
-				return;
-			}
-			
-			vector<VkSemaphoreSubmitInfo> wait_sema_info;
-			const auto wait_fences_count = uint32_t(wait_fences.size());
-			if (wait_fences_count > 0) {
-				wait_sema_info.reserve(wait_fences_count);
-				for (const auto& wait_fence : wait_fences) {
-					wait_sema_info.emplace_back(VkSemaphoreSubmitInfo {
-						.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-						.pNext = nullptr,
-						.semaphore = ((const vulkan_fence*)wait_fence.fence)->get_vulkan_fence(),
-						.value = wait_fence.signaled_value,
-						.stageMask = sync_stage_to_vulkan_pipeline_stage(wait_fence.stage),
-						.deviceIndex = 0,
-					});
-				}
-			}
-			
-			vector<VkSemaphoreSubmitInfo> signal_sema_info;
-			const auto signal_fences_count = uint32_t(signal_fences.size());
-			if (signal_fences_count > 0) {
-				signal_sema_info.reserve(signal_fences_count);
-				for (const auto& signal_fence : signal_fences) {
-					signal_sema_info.emplace_back(VkSemaphoreSubmitInfo {
-						.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-						.pNext = nullptr,
-						.semaphore = ((const vulkan_fence*)signal_fence.fence)->get_vulkan_fence(),
-						.value = signal_fence.signaled_value,
-						.stageMask = sync_stage_to_vulkan_pipeline_stage(signal_fence.stage),
-						.deviceIndex = 0,
-					});
-				}
-			}
-			
-			const VkCommandBufferSubmitInfo cmd_buf_info {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-				.pNext = nullptr,
-				.commandBuffer = cmd_buffer.cmd_buffer,
-				.deviceMask = 0,
-			};
-			
-			const VkSubmitInfo2 submit_info {
-				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-				.pNext = nullptr,
-				.flags = 0,
-				.waitSemaphoreInfoCount = wait_fences_count,
-				.pWaitSemaphoreInfos = (wait_fences_count > 0 ? &wait_sema_info[0] : nullptr),
-				.commandBufferInfoCount = 1,
-				.pCommandBufferInfos = &cmd_buf_info,
-				.signalSemaphoreInfoCount = signal_fences_count,
-				.pSignalSemaphoreInfos = (signal_fences_count > 0 ? &signal_sema_info[0] : nullptr),
-			};
-			const auto submit_err = queue.queue_submit(submit_info, fence.first);
-			if (submit_err != VK_SUCCESS) {
-				log_error("failed to submit queue ($): $: $",
-						  cmd_buffer_name(cmd_buffer), submit_err, vulkan_error_to_string(submit_err));
-				// still continue here to free the cmd buffer
-			}
-			
-			// TODO: connect a fence to a cmd buffer allocation, this way they don't need to be created + destroyed every time
-			// TODO: instead of creating a completion handler thread every time, it's probably better to have just one (or two) threads to handle this (+vkGetFenceStatus)
-			
-			// NOTE: vkWaitForFences is faster + more efficient than a vkGetFenceStatus loop
-			const auto wait_ret = vkWaitForFences(dev.device, 1, &fence.first, true, ~0ull);
-			if (wait_ret != VK_SUCCESS) {
-				if (wait_ret == VK_TIMEOUT) {
-					log_error("waiting for fence timed out");
-				} else if (wait_ret == VK_ERROR_DEVICE_LOST) {
-					log_error("device lost during command buffer execution/wait (probably program error)$!",
-							  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
-					logger::flush();
-					throw runtime_error("Vulkan device lost");
-				} else {
-					log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
-				}
-			}
-			
-			// reset + release fence
-			release_fence(fence);
-			
-			// call user-specified handler
-			if (completion_handler) {
-				completion_handler(cmd_buffer);
-			}
-			
-			// call internal completion handlers and free retained buffers
-			vector<shared_ptr<compute_buffer>> retained_buffers;
-			vector<vulkan_queue::vulkan_completion_handler_t> completion_handlers;
-			{
-				GUARD(cmd_buffers_lock);
-				auto& internal_cmd_buffer = cmd_buffer_internals[cmd_buffer.index];
-				retained_buffers.swap(internal_cmd_buffer.retained_buffers);
-				completion_handlers.swap(internal_cmd_buffer.completion_handlers);
-			}
-			for (const auto& compl_handler : completion_handlers) {
-				if (compl_handler) {
-					compl_handler();
-				}
-			}
-			retained_buffers.clear();
-			
-			// mark cmd buffer as free again
-			{
-				GUARD(cmd_buffers_lock);
-				cmd_buffers_in_use.reset(cmd_buffer.index);
-			}
-		};
-		
-		// TODO/NOTE: we currently can't handle non-blocking submits (this would mean moving this to a different handler thread,
-		// while various things in the command pool/buffers are in use by this thread, which is not supported by Vulkan)
-		if (!blocking) {
-			log_warn("non-blocking submit is currently not supported");
+							   vector<vulkan_queue::wait_fence_t>&& wait_fences,
+							   vector<vulkan_queue::signal_fence_t>&& signal_fences)
+	REQUIRES(!cmd_buffers_lock, !fence_lock) {
+		// must sync/lock queue
+		auto fence = acquire_fence();
+		if (fence.first == nullptr) {
+			return;
 		}
 		
-		// block until done or timeout
-		submit_func();
+		vector<VkSemaphoreSubmitInfo> wait_sema_info;
+		const auto wait_fences_count = uint32_t(wait_fences.size());
+		if (wait_fences_count > 0) {
+			wait_sema_info.reserve(wait_fences_count);
+			for (const auto& wait_fence : wait_fences) {
+				wait_sema_info.emplace_back(VkSemaphoreSubmitInfo {
+					.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+					.pNext = nullptr,
+					.semaphore = ((const vulkan_fence*)wait_fence.fence)->get_vulkan_fence(),
+					.value = wait_fence.signaled_value,
+					.stageMask = sync_stage_to_vulkan_pipeline_stage(wait_fence.stage),
+					.deviceIndex = 0,
+				});
+			}
+		}
+		
+		vector<VkSemaphoreSubmitInfo> signal_sema_info;
+		const auto signal_fences_count = uint32_t(signal_fences.size());
+		if (signal_fences_count > 0) {
+			signal_sema_info.reserve(signal_fences_count);
+			for (const auto& signal_fence : signal_fences) {
+				signal_sema_info.emplace_back(VkSemaphoreSubmitInfo {
+					.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+					.pNext = nullptr,
+					.semaphore = ((const vulkan_fence*)signal_fence.fence)->get_vulkan_fence(),
+					.value = signal_fence.signaled_value,
+					.stageMask = sync_stage_to_vulkan_pipeline_stage(signal_fence.stage),
+					.deviceIndex = 0,
+				});
+			}
+		}
+		
+		const VkCommandBufferSubmitInfo cmd_buf_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+			.pNext = nullptr,
+			.commandBuffer = cmd_buffer.cmd_buffer,
+			.deviceMask = 0,
+		};
+		
+		const VkSubmitInfo2 submit_info {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+			.pNext = nullptr,
+			.flags = 0,
+			.waitSemaphoreInfoCount = wait_fences_count,
+			.pWaitSemaphoreInfos = (wait_fences_count > 0 ? &wait_sema_info[0] : nullptr),
+			.commandBufferInfoCount = 1,
+			.pCommandBufferInfos = &cmd_buf_info,
+			.signalSemaphoreInfoCount = signal_fences_count,
+			.pSignalSemaphoreInfos = (signal_fences_count > 0 ? &signal_sema_info[0] : nullptr),
+		};
+		const auto submit_err = queue.queue_submit(submit_info, fence.first);
+		if (submit_err != VK_SUCCESS) {
+			log_error("failed to submit queue ($): $: $",
+					  cmd_buffer_name(cmd_buffer), submit_err, vulkan_error_to_string(submit_err));
+			// still continue here to free the cmd buffer
+		}
+		
+		// if blocking: wait until completion in here (in this thread),
+		// otherwise offload to a completion handler thread
+		if (blocking || !experimental_no_blocking) {
+			vulkan_complete_cmd_buffer(*this, dev, std::move(cmd_buffer), fence, std::move(completion_handler));
+		} else {
+			// -> offload
+			vulkan_cmd_completion_handler::cmd_t cmd {
+				.pool = this,
+				.vk_dev = &dev,
+				.cmd_buffer = std::move(cmd_buffer),
+				.fence = fence,
+				.completion_handler = std::move(completion_handler),
+			};
+			vk_cmd_completion_handler->add_cmd_completion(std::move(cmd));
+		}
 	}
 	
 	//! attach the specified buffer(s) to the specified command buffer (keep them alive while the command buffer is in use)
@@ -287,15 +393,86 @@ struct vulkan_command_pool_t {
 	}
 };
 
+void vulkan_complete_cmd_buffer(vulkan_command_pool_t& pool,
+								const vulkan_device& vk_dev,
+								vulkan_command_buffer&& cmd_buffer,
+								pair<VkFence, uint32_t> fence,
+								function<void(const vulkan_command_buffer&)>&& completion_handler)
+REQUIRES(!pool.fence_lock, !pool.cmd_buffers_lock) {
+	// NOTE: vkWaitForFences is faster + more efficient than a vkGetFenceStatus loop
+	const auto wait_ret = vkWaitForFences(vk_dev.device, 1, &fence.first, true, ~0ull);
+	if (wait_ret != VK_SUCCESS) {
+		if (wait_ret == VK_TIMEOUT) {
+			log_error("waiting for fence timed out");
+		} else if (wait_ret == VK_ERROR_DEVICE_LOST) {
+			log_error("device lost during command buffer execution/wait (probably program error)$!",
+					  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
+			logger::flush();
+			throw runtime_error("Vulkan device lost");
+		} else {
+			log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
+		}
+	}
+	
+	// reset + release fence
+	pool.release_fence(fence);
+	
+	// call user-specified handler
+	if (completion_handler) {
+		completion_handler(cmd_buffer);
+	}
+	
+	// call internal completion handlers and free retained buffers
+	vector<shared_ptr<compute_buffer>> retained_buffers;
+	vector<vulkan_queue::vulkan_completion_handler_t> completion_handlers;
+	{
+		GUARD(pool.cmd_buffers_lock);
+		auto& internal_cmd_buffer = pool.cmd_buffer_internals[cmd_buffer.index];
+		retained_buffers.swap(internal_cmd_buffer.retained_buffers);
+		completion_handlers.swap(internal_cmd_buffer.completion_handlers);
+	}
+	for (const auto& compl_handler : completion_handlers) {
+		if (compl_handler) {
+			compl_handler();
+		}
+	}
+	retained_buffers.clear();
+	
+	// mark cmd buffer as free again
+	{
+		GUARD(pool.cmd_buffers_lock);
+		pool.cmd_buffers_in_use.reset(cmd_buffer.index);
+	}
+}
+
+//! stores all Vulkan command pool instances
+struct vulkan_command_pool_storage {
+	//! access to "cmd_pools" must be thread-safe
+	static inline safe_mutex cmd_pools_lock;
+	//! contains all currently active/allocated command pools
+	static inline list<unique_ptr<vulkan_command_pool_t>> cmd_pools GUARDED_BY(cmd_pools_lock);
+	
+	//! creates a new command pool, returning a *non-owning* reference to it
+	static vulkan_command_pool_t* create_cmd_pool(const vulkan_device& dev, const vulkan_queue& queue, const bool is_secondary) {
+		auto cmd_pool = make_unique<vulkan_command_pool_t>(dev, queue, is_secondary);
+		auto cmd_pool_ret = cmd_pool.get();
+		{
+			GUARD(cmd_pools_lock);
+			cmd_pools.emplace_back(std::move(cmd_pool));
+		}
+		return cmd_pool_ret;
+	}
+};
+
 //! internal Vulkan device queue implementation
 struct vulkan_queue_impl {
 	const vulkan_device& dev;
 	const vulkan_queue& queue;
 	const uint32_t family_index;
 	//! per-thread/thread-local Vulkan command pool/buffers
-	static inline thread_local unique_ptr<vulkan_command_pool_t> thread_primary_cmd_pool;
+	static inline thread_local vulkan_command_pool_t* thread_primary_cmd_pool { nullptr };
 	//! per-thread/thread-local Vulkan secondary command pool/buffers
-	static inline thread_local unique_ptr<vulkan_command_pool_t> thread_secondary_cmd_pool;
+	static inline thread_local vulkan_command_pool_t* thread_secondary_cmd_pool { nullptr };
 
 	vulkan_queue_impl(const vulkan_queue& queue_, const vulkan_device& dev_, const uint32_t& family_index_) :
 	dev(dev_), queue(queue_), family_index(family_index_) {}
@@ -315,7 +492,7 @@ struct vulkan_queue_impl {
 		if (cmd_pool) {
 			return true;
 		}
-		cmd_pool = make_unique<vulkan_command_pool_t>(dev, queue, is_secondary);
+		cmd_pool = vulkan_command_pool_storage::create_cmd_pool(dev, queue, is_secondary);
 		MULTI_GUARD(cmd_pool->cmd_buffers_lock, cmd_pool->fence_lock);
 		
 		// create command pool for this queue + device
@@ -342,7 +519,6 @@ struct vulkan_queue_impl {
 #endif
 		
 		// allocate initial command buffers
-		// TODO: manage this dynamically (for now: 64 must be enough)
 		const VkCommandBufferAllocateInfo cmd_buffer_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.pNext = nullptr,
@@ -389,6 +565,19 @@ struct vulkan_queue_impl {
 		return (!is_secondary ? *thread_primary_cmd_pool : *thread_secondary_cmd_pool);
 	}
 };
+
+static bool did_init_vulkan_queue { false };
+void vulkan_queue::init() {
+	if (!did_init_vulkan_queue) {
+		did_init_vulkan_queue = true;
+		vk_cmd_completion_handler = make_unique<vulkan_cmd_completion_handler>();
+	}
+}
+void vulkan_queue::destroy() {
+	if (did_init_vulkan_queue) {
+		vk_cmd_completion_handler = nullptr;
+	}
+}
 
 vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_) :
 compute_queue(device_), vk_queue(queue_), family_index(family_index_) {
@@ -513,9 +702,9 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		});
 	}
 	
-	submit_command_buffer(cmd_buffer, std::move(wait_fences), std::move(signal_fences), [](const vulkan_command_buffer&) {
+	submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), [](const vulkan_command_buffer&) {
 		// -> completion handler
-	}, true /*|| params.wait_until_completion*/ /* TODO: don't always block, but do block if soft-printf is enabled */);
+	}, params.wait_until_completion || vk_indirect_pipeline_entry->printf_buffer /* must block when soft-print is used */);
 }
 
 vulkan_command_buffer vulkan_queue::make_command_buffer(const char* name) const {
@@ -533,15 +722,16 @@ VkResult vulkan_queue::queue_submit(const VkSubmitInfo2& submit_info, VkFence& f
 	return vkQueueSubmit2(vk_queue, 1, &submit_info, fence);
 }
 
-void vulkan_queue::submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
+void vulkan_queue::submit_command_buffer(vulkan_command_buffer&& cmd_buffer,
 										 vector<wait_fence_t>&& wait_fences,
 										 vector<signal_fence_t>&& signal_fences,
 										 function<void(const vulkan_command_buffer&)>&& completion_handler,
 										 const bool blocking) const {
 	impl->create_thread_command_pool(cmd_buffer.is_secondary);
-	impl->get_thread_command_pool(cmd_buffer.is_secondary).submit_command_buffer(cmd_buffer, std::move(completion_handler),
-																				 blocking, std::move(wait_fences),
-																				 std::move(signal_fences));
+	vulkan_command_pool_t& pool = impl->get_thread_command_pool(cmd_buffer.is_secondary);
+	pool.submit_command_buffer(std::move(cmd_buffer), std::move(completion_handler),
+							   blocking, std::move(wait_fences),
+							   std::move(signal_fences));
 }
 
 bool vulkan_queue::execute_secondary_command_buffer(const vulkan_command_buffer& primary_cmd_buffer,
@@ -628,7 +818,7 @@ vulkan_command_block::~vulkan_command_block() {
 	((const vulkan_compute*)vk_queue.get_device().context)->vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
 #endif
 	
-	vk_queue.submit_command_buffer(cmd_buffer, std::move(wait_fences), std::move(signal_fences), {}, is_blocking);
+	vk_queue.submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), {}, is_blocking);
 }
 
 #endif

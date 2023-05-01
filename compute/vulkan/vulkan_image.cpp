@@ -330,7 +330,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// transition to general layout or attachment layout (if render target)
 	cur_access_mask = 0; // TODO: ?
 	image_info.imageLayout = initial_layout;
-	const auto transition_stage = (is_render_target ? VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT : VK_PIPELINE_STAGE_2_HOST_BIT);
+	const auto transition_stage = (is_render_target ? VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_2_HOST_BIT);
 	transition(&cqueue, nullptr, dst_access_flags, final_layout, transition_stage, transition_stage);
 	
 	// update image desc info

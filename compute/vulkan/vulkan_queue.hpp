@@ -46,6 +46,9 @@ public:
 	explicit vulkan_queue(const compute_device& device, VkQueue queue, const uint32_t family_index);
 	~vulkan_queue() override;
 	
+	static void init();
+	static void destroy();
+	
 	void finish() const override REQUIRES(!queue_lock);
 	void flush() const override;
 	
@@ -88,7 +91,14 @@ public:
 	
 	vulkan_command_buffer make_command_buffer(const char* name = nullptr) const;
 	
-	void submit_command_buffer(const vulkan_command_buffer& cmd_buffer,
+	//! submits the specified "cmd_buffer" to this queue,
+	//! execution will wait until all "wait_fences" requirements are fulfilled,
+	//! "signal_fences" will be signaled once their requirements are fulfilled (the cmd buffer has completed execution up to sync stage),
+	//! "completion_handler" will be called once the cmd buffer fully completed execution,
+	//! "blocking" signals if the function should not return until the cmd buffer has fully completed execution
+	//! NOTE: ownership of "cmd_buffer", "wait_fences", "signal_fences" and "completion_handler" are transferred to this function
+	//! NOTE: do not rely on the address of the cmd buffer parameter in "completion_handler", this may not be the same as the initial one
+	void submit_command_buffer(vulkan_command_buffer&& cmd_buffer,
 							   vector<wait_fence_t>&& wait_fences,
 							   vector<signal_fence_t>&& signal_fences,
 							   function<void(const vulkan_command_buffer&)>&& completion_handler,

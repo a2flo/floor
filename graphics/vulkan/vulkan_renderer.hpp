@@ -28,6 +28,7 @@
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/graphics/vulkan/vulkan_pipeline.hpp>
 
+struct vulkan_renderer_internal;
 class vulkan_renderer final : public graphics_renderer {
 public:
 	vulkan_renderer(const compute_queue& cqueue_,
@@ -38,8 +39,10 @@ public:
 	
 	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
-	bool commit(const bool wait_until_completion) override;
-	bool commit(completion_handler_f&& compl_handler) override;
+	bool commit_and_finish() override;
+	bool commit_and_release(unique_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) override;
+	bool commit_and_release(shared_ptr<graphics_renderer>&& renderer, completion_handler_f&& compl_handler) override;
+	bool commit_and_continue() override;
 	bool add_completion_handler(completion_handler_f&& compl_handler) override;
 	
 	struct vulkan_drawable_t final : public drawable_t {
@@ -68,6 +71,8 @@ public:
 	void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) override;
 
 protected:
+	friend vulkan_renderer_internal;
+	
 	vulkan_command_buffer render_cmd_buffer;
 	unique_ptr<vulkan_drawable_t> cur_drawable;
 	VkFramebuffer cur_framebuffer { nullptr };
@@ -102,6 +107,10 @@ protected:
 	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label);
 	
 	bool set_depth_attachment(attachment_t& attachment) override;
+	
+	bool commit_internal(const bool is_blocking, const bool is_finishing,
+						 completion_handler_f&& user_compl_handler,
+						 function<void(const vulkan_command_buffer&)>&& renderer_compl_handler = {});
 	
 };
 

@@ -387,7 +387,7 @@ indirect_render_command_encoder(dev_queue_, pipeline_), pipeline_entry(pipeline_
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
 		.flags = (VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* we need to be able to use this simultaneously */ |
-				  VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT /* all commands are standalone render passes */),
+				  VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT /* all commands are within the same render pass */),
 		.pInheritanceInfo = &inheritance_info,
 	};
 	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffer, &begin_info),
@@ -822,10 +822,10 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::barri
 	const VkMemoryBarrier2 mem_bar {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
 		.pNext = nullptr,
-		.srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-		.srcAccessMask = 0,
-		.dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-		.dstAccessMask = 0,
+		.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+		.srcAccessMask = VK_ACCESS_2_NONE,
+		.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+		.dstAccessMask = VK_ACCESS_2_NONE,
 	};
 	const VkDependencyInfo dep_info {
 		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
