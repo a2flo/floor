@@ -281,7 +281,7 @@ struct soft_f16 {
 	};
 	
 	//! static function to convert a half precision value (stored as uint16_t) to a single precision float
-	static inline float half_to_float(const uint16_t& val) {
+	static inline constexpr float half_to_float(const uint16_t& val) {
 		const uint16_t shift_value = val >> 10u;
 		const uint16_t offset = (shift_value == 0u || shift_value == 32u ? 0u : 1024u);
 		const uint16_t mantissa_index = offset + (val & 0x3FF);
@@ -292,7 +292,7 @@ struct soft_f16 {
 	}
 	
 	//! static function to convert a single precision float value to a half precision (stored as uint16_t)
-	static inline uint16_t float_to_half(const float& val) {
+	static inline constexpr uint16_t float_to_half(const float& val) {
 		const auto u32_value = bit_cast<uint32_t>(val);
 		return (ftoh_base_table[(u32_value >> 23) & 0x1FF] +
 				uint16_t((u32_value & 0x007FFFFF) >> ftoh_shift_table[(u32_value >> 23) & 0x1FF]));

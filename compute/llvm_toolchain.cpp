@@ -1240,7 +1240,7 @@ program_data compile_input(const string& input,
 			if (validate) {
 				const string spirv_validator_cmd {
 					"\"" + validator + "\" " +
-					(options.target == TARGET::SPIRV_VULKAN ? "--uniform-buffer-standard-layout --scalar-block-layout " : "") +
+					(options.target == TARGET::SPIRV_VULKAN ? "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout " : "") +
 					compiled_file_or_code
 #if !defined(_MSC_VER)
 					+ " 2>&1"

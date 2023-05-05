@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 ## compile flags
 add_compile_definitions(FLOOR_DLL_EXPORT)
+add_compile_options(-march=corei7-avx -mf16c)
 
 ## build output
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

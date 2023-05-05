@@ -448,7 +448,7 @@ public:
 #if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
-		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
+		apply(printf, tuple_cat(tie(format), tupled_arg(std::forward<Args>(args))...));
 	}
 #elif defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF)
 	// need a slightly different approach for cuda and soft-printf, because printf type can't be infered,
