@@ -177,9 +177,9 @@ struct device_mem_info_t {
 	uint32_t device_mem_index { ~0u };
 	uint32_t host_mem_cached_index { ~0u };
 	uint32_t device_mem_host_coherent_index { ~0u };
-	unordered_set<uint32_t> device_mem_indices;
-	unordered_set<uint32_t> host_mem_cached_indices;
-	unordered_set<uint32_t> device_mem_host_coherent_indices;
+	vector<uint32_t> device_mem_indices;
+	vector<uint32_t> host_mem_cached_indices;
+	vector<uint32_t> device_mem_host_coherent_indices;
 	bool prefer_host_coherent_mem { false };
 };
 static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice& dev, const decltype(VkPhysicalDeviceProperties::deviceName)& dev_name) {
@@ -219,49 +219,50 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 		return largest_mem;
 	};
 	
+	static constexpr const auto prop_flags_device_local = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	static constexpr const auto prop_flags_host_cached = (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+														  VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+	static constexpr const auto prop_flags_device_host_coherent = (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+																   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+																   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	
 	// find largest device-local memory
-	const auto largest_device_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	const auto largest_device_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, prop_flags_device_local);
 	if (largest_device_mem.heap_idx == ~0u) {
 		log_error("no valid device-local memory found for device $", dev_name);
 		return { .valid = false };
 	}
 	ret.device_mem_index = largest_device_mem.type_idx;
 	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
-		if (props.memoryTypes[type_idx].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-			ret.device_mem_indices.emplace(type_idx);
+		if ((props.memoryTypes[type_idx].propertyFlags & prop_flags_device_local) == prop_flags_device_local) {
+			ret.device_mem_indices.emplace_back(type_idx);
 		}
 	}
 	
 	// find largest host-cached memory
-	const auto largest_host_cached_mem = find_largest_memory(VkMemoryHeapFlagBits(0u),
-															 VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-																					  VK_MEMORY_PROPERTY_HOST_CACHED_BIT));
+	const auto largest_host_cached_mem = find_largest_memory(VkMemoryHeapFlagBits(0u), VkMemoryPropertyFlagBits(prop_flags_host_cached));
 	if (largest_host_cached_mem.heap_idx == ~0u) {
 		log_error("no valid host-cached memory found for device $", dev_name);
 		return { .valid = false };
 	}
 	ret.host_mem_cached_index = largest_host_cached_mem.type_idx;
 	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
-		if (props.memoryTypes[type_idx].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT)) {
-			ret.host_mem_cached_indices.emplace(type_idx);
+		if ((props.memoryTypes[type_idx].propertyFlags & prop_flags_host_cached) == prop_flags_host_cached) {
+			ret.host_mem_cached_indices.emplace_back(type_idx);
 		}
 	}
 	
 	// find largest device-local / host-coherent memory
 	const auto largest_device_host_coherent_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
-																	  VkMemoryPropertyFlagBits(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-																							   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-																							   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+																	  VkMemoryPropertyFlagBits(prop_flags_device_host_coherent));
 	if (largest_device_host_coherent_mem.heap_idx == ~0u) {
 		log_error("no valid device-local / host-coherent memory found for device $", dev_name);
 		return { .valid = false };
 	}
 	ret.device_mem_host_coherent_index = largest_device_host_coherent_mem.type_idx;
 	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
-		if (props.memoryTypes[type_idx].propertyFlags & (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-														 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-														 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
-			ret.device_mem_host_coherent_indices.emplace(type_idx);
+		if ((props.memoryTypes[type_idx].propertyFlags & prop_flags_device_host_coherent) == prop_flags_device_host_coherent) {
+			ret.device_mem_host_coherent_indices.emplace_back(type_idx);
 		}
 	}
 	

@@ -77,13 +77,13 @@ public:
 	uint32_t device_mem_host_coherent_index { ~0u };
 	
 	//! all available memory type indices for device memory allocation
-	unordered_set<uint32_t> device_mem_indices;
+	vector<uint32_t> device_mem_indices;
 	
 	//! all available memory type indices for cached host + device-visible memory allocation
-	unordered_set<uint32_t> host_mem_cached_indices;
+	vector<uint32_t> host_mem_cached_indices;
 	
 	//! all available memory type indices for coherent host + device-local memory allocation
-	unordered_set<uint32_t> device_mem_host_coherent_indices;
+	vector<uint32_t> device_mem_host_coherent_indices;
 	
 	//! if set, prefer host coherent memory over host cached memory,
 	//! i.e. this is the case on systems all device memory is host coherent ("Resizable BAR"/"SAM")

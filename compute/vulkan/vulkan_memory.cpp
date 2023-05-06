@@ -330,7 +330,7 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 											   const bool want_device_memory,
 											   const bool requires_device_memory,
 											   const bool requires_host_coherent) const {
-	const auto find_index = [](const unordered_set<uint32_t>& indices,
+	const auto find_index = [](const vector<uint32_t>& indices,
 							   const uint32_t& preferred_index,
 							   const uint32_t& type_bits) -> pair<bool, uint32_t> {
 		// check if preferred index is possible
