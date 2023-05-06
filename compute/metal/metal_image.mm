@@ -590,47 +590,21 @@ metal_image::~metal_image() {
 	}
 }
 
-bool metal_image::blit(const compute_queue& cqueue, const compute_image& src) {
-	if(image == nil) return false;
+bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
+	if (image == nil) return false;
 	
-	const auto src_image_dim = src.get_image_dim();
-	if ((src_image_dim != image_dim).any()) {
-		log_error("blit: dim mismatch: src $ != dst $", src_image_dim, image_dim);
+	if (!blit_check(cqueue, src)) {
 		return false;
 	}
-	
-	const auto src_layer_count = src.get_layer_count();
-	if (src_layer_count != layer_count) {
-		log_error("blit: layer count mismatch: src $ != dst $", src_layer_count, layer_count);
-		return false;
-	}
-	
-	const auto src_data_size = src.get_image_data_size();
-	if (src_data_size != image_data_size) {
-		log_error("blit: size mismatch: src $ != dst $", src_data_size, image_data_size);
-		return false;
-	}
-	
-	const auto src_format = image_format(src.get_image_type());
-	const auto dst_format = image_format(image_type);
-	if (src_format != dst_format) {
-		log_error("blit: format mismatch ($ != $)", src_format, dst_format);
-		return false;
-	}
-	
-	if (image_compressed(image_type) || image_compressed(src.get_image_type())) {
-		log_error("blit: blitting of compressed formats is not supported");
-		return false;
-	}
-	
-	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	
 	auto src_image = ((const metal_image&)src).get_metal_image();
 	if (!src_image) {
 		log_error("blit: source Metal image is null");
 		return false;
 	}
+	
+	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	const auto dim_count = image_dim_count(image_type);
 	
 	apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,

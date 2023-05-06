@@ -134,7 +134,7 @@ public:
 	//! blits the "src" image onto this image, returns true on success
 	//! NOTE: dim must be identical, format must be compatible
 	//! TODO: implement this everywhere
-	virtual bool blit(const compute_queue& cqueue floor_unused, const compute_image& src floor_unused) { return false; }
+	virtual bool blit(const compute_queue& cqueue floor_unused, compute_image& src floor_unused) { return false; }
 	
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
@@ -470,6 +470,9 @@ protected:
 	//! builds the mip-map minification program for this context and its devices
 	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
 	void build_mip_map_minification_program() const;
+	
+	//! returns true if "src" can be blitted onto this image, false if not (prints errors)
+	bool blit_check(const compute_queue& cqueue, const compute_image& src);
 	
 };
 

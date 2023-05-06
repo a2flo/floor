@@ -632,6 +632,101 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 	return true;
 }
 
+bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
+	if (image == nullptr) return false;
+	
+	if (!blit_check(cqueue, src)) {
+		return false;
+	}
+	
+	auto& vk_src = (vulkan_image&)src;
+	auto src_image = vk_src.get_vulkan_image();
+	if (!src_image) {
+		log_error("blit: source Vulkan image is null");
+		return false;
+	}
+	
+	const auto dim_count = image_dim_count(image_type);
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	VK_CMD_BLOCK_RET(vk_queue, "image blit", ({
+		// transition to optimal layout, then back to our current one at the end
+
+		const auto restore_access_mask = cur_access_mask;
+		const auto restore_layout = image_info.imageLayout;
+
+		const auto src_restore_access_mask = vk_src.cur_access_mask;
+		const auto src_restore_layout = vk_src.image_info.imageLayout;
+		
+		vk_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		
+		VkImageAspectFlags aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+				aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			}
+		}
+		
+		vector<VkImageBlit2> regions;
+		regions.reserve(mip_level_count);
+		apply_on_levels<true /* blit all levels */>([this, &regions, &dim_count, &aspect_mask](const uint32_t& level,
+																							   const uint4& mip_image_dim,
+																							   const uint32_t&,
+																							   const uint32_t&) {
+			const auto imip_image_dim = mip_image_dim.cast<int>();
+			const VkOffset3D extent {
+				max(imip_image_dim.x, 1),
+				dim_count >= 2 ? max(imip_image_dim.y, 1) : 1,
+				dim_count >= 3 ? max(imip_image_dim.z, 1) : 1,
+			};
+			regions.emplace_back(VkImageBlit2 {
+				.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+				.pNext = nullptr,
+				.srcSubresource = {
+					.aspectMask = aspect_mask,
+					.mipLevel = level,
+					.baseArrayLayer = 0,
+					.layerCount = layer_count,
+				},
+				.srcOffsets = { { 0, 0, 0 }, extent },
+				.dstSubresource = {
+					.aspectMask = aspect_mask,
+					.mipLevel = level,
+					.baseArrayLayer = 0,
+					.layerCount = layer_count,
+				},
+				.dstOffsets = { { 0, 0, 0 }, extent },
+			});
+			return true;
+		}, shim_image_type);
+		
+		assert(!regions.empty());
+		const VkBlitImageInfo2 blit_info {
+			.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
+			.pNext = nullptr,
+			.srcImage = src_image,
+			.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.dstImage = image,
+			.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.regionCount = uint32_t(regions.size()),
+			.pRegions = &regions[0],
+			.filter = VK_FILTER_NEAREST,
+		};
+		vkCmdBlitImage2(block_cmd_buffer.cmd_buffer, &blit_info);
+		
+		transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
+				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		
+		vk_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
+						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+	}), false /* return false on error */, true /* always blocking */);
+	
+	return true;
+}
+
 void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	return vulkan_memory::map(cqueue, flags_, (image_type == shim_image_type ?
