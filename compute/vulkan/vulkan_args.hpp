@@ -278,7 +278,11 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 			const auto img_access = arg_info.args[idx.arg].image_access;
 			if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 				for (auto& img : image_array) {
-					auto vk_img_mut = const_cast<vulkan_image*>(image_accessor(img))->get_underlying_vulkan_image_safe();
+					auto img_ptr = image_accessor(img);
+					if (!img_ptr) {
+						continue;
+					}
+					auto vk_img_mut = const_cast<vulkan_image*>(img_ptr)->get_underlying_vulkan_image_safe();
 					auto [needs_transition, barrier] = vk_img_mut->transition_write(nullptr, nullptr,
 																					// also readable?
 																					img_access == ARG_IMAGE_ACCESS::READ_WRITE,
@@ -294,7 +298,11 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 				}
 			} else { // READ
 				for (auto& img : image_array) {
-					auto vk_img_mut = const_cast<vulkan_image*>(image_accessor(img))->get_underlying_vulkan_image_safe();
+					auto img_ptr = image_accessor(img);
+					if (!img_ptr) {
+						continue;
+					}
+					auto vk_img_mut = const_cast<vulkan_image*>(img_ptr)->get_underlying_vulkan_image_safe();
 					auto [needs_transition, barrier] = vk_img_mut->transition_read(nullptr, nullptr,
 																				   // allow general layout?
 																				   transition_info->allow_generic_layout,
@@ -323,7 +331,12 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 #endif
 	
 	for (uint32_t i = 0; i < elem_count; ++i) {
-		const auto& desc_data = image_accessor(image_array[i])->get_vulkan_descriptor_data_sampled();
+		auto img_ptr = image_accessor(image_array[i]);
+		if (!img_ptr) {
+			memset(host_desc_data.data() + write_offset + desc_data_size * i, 0, desc_data_size);
+			continue;
+		}
+		const auto& desc_data = img_ptr->get_vulkan_descriptor_data_sampled();
 		memcpy(host_desc_data.data() + write_offset + desc_data_size * i, desc_data.data(), desc_data_size);
 	}
 }

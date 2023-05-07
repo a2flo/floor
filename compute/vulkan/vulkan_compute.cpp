@@ -551,9 +551,16 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		};
 		// set this to the "pNext" of the last device features struct in the chain
 		void** feature_chain_end = &desc_buf_features.pNext;
+		VkPhysicalDeviceRobustness2FeaturesEXT robustness_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
+			.pNext = &desc_buf_features,
+			.robustBufferAccess2 = false,
+			.robustImageAccess2 = false,
+			.nullDescriptor = false,
+		};
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
-			.pNext = &desc_buf_features,
+			.pNext = &robustness_features,
 			.fragmentShaderBarycentric = false,
 		};
 		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features {
@@ -917,6 +924,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!robustness_features.nullDescriptor) {
+			log_error("null descriptor is not supported by $", props.deviceName);
+			continue;
+		}
+		
 		// NOTE: only require "load, store and exchange atomic operations" support on SSBOs and local memory
 		if (!shader_atomic_float_features.shaderBufferFloat32Atomics ||
 			!shader_atomic_float_features.shaderSharedFloat32Atomics) {
@@ -1086,6 +1098,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 
 		// add other required or optional extensions
 		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+		device_extensions_set.emplace(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -1156,7 +1169,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// ext feature enablement
 		vulkan13_features.inlineUniformBlock = true;
 		vulkan13_features.maintenance4 = true;
-		// NOTE: shaderFloat16 and shaderInt8 are optional
+		// NOTE: shaderFloat16 is optional
+		
+		// we only want the "null descriptor" feature from the robustness extension
+		robustness_features.robustBufferAccess2 = false;
+		robustness_features.robustImageAccess2 = false;
 		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
