@@ -87,10 +87,10 @@ cd ../
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
-git clone -b libfloor_202212 https://github.com/a2flo/SPIRV-Tools.git
-git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
+git clone -b libfloor_202305 https://github.com/a2flo/SPIRV-Tools.git
+git clone -b main https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
 cd SPIRV-Tools/external/spirv-headers
-git reset --hard 34d04647d384e0aed037e7a2662a655fc39841bb
+git reset --hard 268a061764ee69f09a477a695bf6a11ffe311b8d
 cd ../../../
 
 # handle platform
