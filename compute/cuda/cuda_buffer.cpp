@@ -37,12 +37,12 @@
 
 cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
-						 void* host_ptr_,
+						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
 						 compute_buffer* shared_buffer_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
+compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -100,9 +100,9 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		CU_CALL_RET(cu_mem_host_register(host_ptr, size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
+		CU_CALL_RET(cu_mem_host_register(host_data.data(), size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
 					"failed to register host pointer", false)
-		CU_CALL_RET(cu_mem_host_get_device_pointer(&buffer, host_ptr, 0),
+		CU_CALL_RET(cu_mem_host_get_device_pointer(&buffer, host_data.data(), 0),
 					"failed to get device pointer for mapped host memory", false)
 	}
 	// -> alloc and use device memory
@@ -114,10 +114,10 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 						"failed to allocate device memory", false)
 			
 			// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-			if(copy_host_data &&
-			   host_ptr != nullptr &&
-			   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-				CU_CALL_RET(cu_memcpy_htod(buffer, host_ptr, size),
+			if (copy_host_data &&
+				host_data.data() != nullptr &&
+				!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+				CU_CALL_RET(cu_memcpy_htod(buffer, host_data.data(), size),
 							"failed to copy initial host data to device", false)
 			}
 		}
@@ -202,7 +202,7 @@ cuda_buffer::~cuda_buffer() {
 	
 	// -> host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		CU_CALL_RET(cu_mem_host_unregister(host_ptr),
+		CU_CALL_RET(cu_mem_host_unregister(host_data.data()),
 					"failed to unregister mapped host memory")
 	}
 	// -> device memory
@@ -250,7 +250,7 @@ cuda_buffer::~cuda_buffer() {
 }
 
 void cuda_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	read(cqueue, host_ptr, size_, offset);
+	read(cqueue, host_data.data(), size_, offset);
 }
 
 void cuda_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
@@ -265,7 +265,7 @@ void cuda_buffer::read(const compute_queue& cqueue, void* dst, const size_t size
 }
 
 void cuda_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	write(cqueue, host_ptr, size_, offset);
+	write(cqueue, host_data.data(), size_, offset);
 }
 
 void cuda_buffer::write(const compute_queue& cqueue, const void* src, const size_t size_, const size_t offset) {
@@ -338,94 +338,6 @@ bool cuda_buffer::zero(const compute_queue& cqueue) {
 	if(buffer == 0) return false;
 	static constexpr const uint32_t zero_pattern { 0u };
 	return fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
-}
-
-bool cuda_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
-						 const bool copy_old_data, const bool copy_host_data,
-						 void* new_host_ptr) {
-	if(buffer == 0) return false;
-	if(new_size_ == 0) {
-		log_error("can't allocate a buffer of size 0!");
-		return false;
-	}
-	if(copy_old_data && copy_host_data) {
-		log_error("can't copy data both from the old buffer and the host pointer!");
-		// still continue though, but assume just copy_old_data!
-	}
-	
-	const size_t new_size = align_size(new_size_);
-	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
-				  min_multiple(), new_size, new_size_);
-	}
-	
-	// store old buffer, size and host pointer for possible restore + cleanup later on
-	const auto old_buffer = buffer;
-	const auto old_size = size;
-	const auto old_host_ptr = host_ptr;
-	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
-		buffer = old_buffer;
-		size = old_size;
-		host_ptr = old_host_ptr;
-	};
-	const bool is_host_buffer = has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags);
-	
-	// unregister old host pointer if host memory is being used
-	if(is_host_buffer) {
-		CU_CALL_ERROR_EXEC(cu_mem_host_unregister(host_ptr),
-						   "failed to unregister mapped host memory",
-						   restore_old_buffer();
-						   return false;)
-	}
-	
-	// create the new buffer
-	buffer = 0;
-	size = new_size;
-	host_ptr = new_host_ptr;
-	if(!create_internal(copy_host_data, cqueue)) {
-		// much fail, restore old buffer
-		log_error("failed to create resized buffer");
-		
-		// restore old buffer and re-register when using host memory
-		restore_old_buffer();
-		if(is_host_buffer) {
-			// note that this can fail, leaving this buffer in a completely broken state
-			CU_CALL_RET(cu_mem_host_register(host_ptr, size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
-						"failed to register host pointer", false)
-			CU_CALL_RET(cu_mem_host_get_device_pointer(&buffer, host_ptr, 0),
-						"failed to get device pointer for mapped host memory", false)
-		}
-		return false;
-	}
-	
-	// copy old data if specified
-	if(copy_old_data) {
-		// can only copy as many bytes as there are bytes
-		const size_t copy_size = std::min(size, new_size); // >= 4, established above
-		
-		// must be blocking, because we're going to delete the old buffer in here
-		CU_CALL_NO_ACTION(cu_memcpy_dtod(buffer, old_buffer, copy_size),
-						  "failed to copy old data to new buffer while resizing buffer")
-		// hard to decide what to do here, use new buffer with invalid data, or continue using the old one?
-		// -> continue with new buffer as it has the correct/expected size
-	}
-	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
-		// can be done async, because the new host pointer continues to exist
-		CU_CALL_RET(cu_memcpy_htod_async(buffer, host_ptr, size, (const_cu_stream)cqueue.get_queue_ptr()),
-					"failed to copy host data to new buffer while resizing buffer", false)
-	}
-	
-	// kill the old buffer
-	if(old_buffer != 0) {
-		// -> device memory
-		if(!is_host_buffer) {
-			CU_CALL_RET(cu_mem_free(old_buffer),
-						"failed to free device memory", false) // can't do much if this fails
-		}
-		// else: -> host memory: nop, already unregistered earlier
-	}
-	
-	return true;
 }
 
 void* __attribute__((aligned(128))) cuda_buffer::map(const compute_queue& cqueue,
@@ -587,7 +499,10 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 		if (!copy_host_data) {
 			shared_vk_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
-		cuda_vk_buffer = vk_render_ctx->create_buffer(*default_queue, size, host_ptr, shared_vk_buffer_flags);
+		assert(size == host_data.size_bytes());
+		cuda_vk_buffer = (host_data.data() != nullptr ?
+						  vk_render_ctx->create_buffer(*default_queue, size, shared_vk_buffer_flags) :
+						  vk_render_ctx->create_buffer(*default_queue, host_data, shared_vk_buffer_flags));
 		if (!cuda_vk_buffer) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
 			return false;

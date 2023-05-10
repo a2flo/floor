@@ -71,6 +71,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
 			-394667308, // UNASSIGNED-BestPractices-vkBeginCommandBuffer-simultaneous-use
 			-1993010233, // UNASSIGNED-Descriptor uninitialized (NOTE/TODO: not updated for descriptor buffer use?)
+			67123586, // UNASSIGNED-BestPractices-vkCreateRenderPass-image-requires-memory
 		};
 		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
 			// ignore and don't abort
@@ -2209,10 +2210,10 @@ shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cq
 }
 
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
-														 const size_t& size, void* data,
+														 std::span<uint8_t> data,
 														 const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_buffer>(cqueue, size, data, flags, opengl_type));
+	return add_resource(make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags, opengl_type));
 }
 
 shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(const compute_queue&, const uint32_t, const uint32_t,
@@ -2232,13 +2233,13 @@ shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cque
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, nullptr, flags, opengl_type));
+	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, opengl_type));
 }
 
 shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   void* data,
+													   std::span<uint8_t> data,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) const {
 	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags, opengl_type));

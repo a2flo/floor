@@ -72,9 +72,9 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	glTexParameteri(opengl_type, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 	
 	// init texture data
-	void* pixel_ptr = (copy_host_data && host_ptr != nullptr &&
+	void* pixel_ptr = (copy_host_data && host_data.data() != nullptr &&
 					   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags) ?
-					   host_ptr : nullptr);
+					   host_data.data() : nullptr);
 	
 	GLint internal_format = 0;
 	GLenum format = 0;
@@ -732,69 +732,79 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 
 #endif
 
-unique_ptr<uint8_t[]> compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
-												 const COMPUTE_IMAGE_TYPE& rgba_type,
-												 const uint8_t* rgb_data,
-												 const bool ignore_mip_levels) {
+pair<unique_ptr<uint8_t[]>, size_t> compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+															   const COMPUTE_IMAGE_TYPE& rgba_type,
+															   const std::span<const uint8_t> rgb_data,
+															   const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
 	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
+	const auto pixel_count = rgba_size / rgba_bytes_per_pixel;
+	assert(rgb_data.size_bytes() >= pixel_count * rgb_bytes_per_pixel);
 	
 	auto rgba_data_ptr = make_unique<uint8_t[]>(rgba_size);
 	memset(rgba_data_ptr.get(), 0xFF, rgba_size); // opaque
-	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
+	for (size_t i = 0; i < pixel_count; ++i) {
 		memcpy(&rgba_data_ptr[i * rgba_bytes_per_pixel],
-			   &((const uint8_t*)rgb_data)[i * rgb_bytes_per_pixel],
+			   &rgb_data[i * rgb_bytes_per_pixel],
 			   rgb_bytes_per_pixel);
 	}
-	return rgba_data_ptr;
+	return { std::move(rgba_data_ptr), rgba_size };
 }
 
 void compute_image::rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
 										const COMPUTE_IMAGE_TYPE& rgba_type,
-										uint8_t* rgb_to_rgba_data,
+										std::span<uint8_t> rgb_to_rgba_data,
 										const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
 	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	const auto alpha_size = rgba_bytes_per_pixel / 4;
+	const auto pixel_count = rgba_size / rgba_bytes_per_pixel;
+	assert(rgb_to_rgba_data.size_bytes() >= pixel_count * rgba_bytes_per_pixel);
 	
 	// this needs to happen in reverse, otherwise we'd be overwriting the following RGB data
-	for(size_t count = rgba_size / rgba_bytes_per_pixel, i = count - 1; ; --i) {
-		for(size_t j = 0; j < rgb_bytes_per_pixel; ++j) {
+	for (size_t i = pixel_count - 1; ; --i) {
+		for (size_t j = 0; j < rgb_bytes_per_pixel; ++j) {
 			rgb_to_rgba_data[i * rgba_bytes_per_pixel + j] = rgb_to_rgba_data[i * rgb_bytes_per_pixel + j];
 		}
 		memset(&rgb_to_rgba_data[(i + 1) * rgba_bytes_per_pixel] - alpha_size, 0xFF, alpha_size); // opaque
 		
-		if(i == 0) break;
+		if (i == 0) {
+			break;
+		}
 	}
 }
 
-unique_ptr<uint8_t[]> compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
-												 const COMPUTE_IMAGE_TYPE& rgb_type,
-												 const uint8_t* rgba_data,
-												 uint8_t* dst_rgb_data,
-												 const bool ignore_mip_levels) {
+pair<unique_ptr<uint8_t[]>, size_t> compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+															   const COMPUTE_IMAGE_TYPE& rgb_type,
+															   const std::span<const uint8_t> rgba_data,
+															   std::span<uint8_t> dst_rgb_data,
+															   const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
 	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, ignore_mip_levels);
 	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
+	const auto pixel_count = rgba_size / rgba_bytes_per_pixel;
+	assert(rgb_size == pixel_count * rgb_bytes_per_pixel);
+	assert(dst_rgb_data.data() == nullptr ||
+		   dst_rgb_data.size_bytes() >= pixel_count * rgb_bytes_per_pixel);
 	
-	uint8_t* rgb_data_ptr = dst_rgb_data;
+	uint8_t* rgb_data_ptr = dst_rgb_data.data();
 	unique_ptr<uint8_t[]> alloc_data_ptr;
-	if (dst_rgb_data == nullptr) {
+	if (dst_rgb_data.data() == nullptr) {
 		alloc_data_ptr = make_unique<uint8_t[]>(rgb_size);
 		rgb_data_ptr = alloc_data_ptr.get();
 	}
-	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
+	for (size_t i = 0; i < pixel_count; ++i) {
 		memcpy(&rgb_data_ptr[i * rgb_bytes_per_pixel],
-			   &((const uint8_t*)rgba_data)[i * rgba_bytes_per_pixel],
+			   &rgba_data[i * rgba_bytes_per_pixel],
 			   rgb_bytes_per_pixel);
 	}
-	return alloc_data_ptr;
+	return { std::move(alloc_data_ptr), rgb_size };
 }
 
 // something about dog food
@@ -1069,18 +1079,6 @@ string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
 	return ret.str();
 }
 
-void compute_image::set_shim_type_info() {
-	// set shim format to the corresponding 4-channel format
-	// compressed images will always be used in their original state, even if they are RGB
-	if(image_channel_count(image_type) == 3 && !image_compressed(image_type)) {
-		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
-		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, generate_mip_maps);
-		shim_image_data_size_mip_maps = image_data_size_from_types(image_dim, shim_image_type, false);
-	}
-	// == original type if not 3-channel -> 4-channel emulation
-	else shim_image_type = image_type;
-}
-
 shared_ptr<compute_image> compute_image::clone(const compute_queue& cqueue, const bool copy_contents,
 											   const COMPUTE_MEMORY_FLAG flags_override,
 											   const COMPUTE_IMAGE_TYPE image_type_override) {
@@ -1090,13 +1088,13 @@ shared_ptr<compute_image> compute_image::clone(const compute_queue& cqueue, cons
 	}
 	
 	auto clone_flags = (flags_override != COMPUTE_MEMORY_FLAG::NONE ? flags_override : flags);
-	if (host_ptr != nullptr) {
+	if (host_data.data() != nullptr) {
 		// never copy host data on the newly created image
 		clone_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 	}
 	
 	auto ret = dev.context->create_image(cqueue, image_dim, (image_type_override == COMPUTE_IMAGE_TYPE::NONE ? image_type : image_type_override),
-										 host_ptr, clone_flags, opengl_type);
+										 host_data, clone_flags, opengl_type);
 	if (ret == nullptr) {
 		return {};
 	}

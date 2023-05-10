@@ -149,7 +149,7 @@ void opencl_kernel::set_const_kernel_argument(uint32_t& total_idx, uint32_t& arg
 	
 	// if it is needed, create a tmp buffer, copy the arg data into it and set it as the kernel argument
 	// TODO: alignment?
-	auto param_buf = make_shared<opencl_buffer>(*handler->cqueue, arg_size, arg,
+	auto param_buf = make_shared<opencl_buffer>(*handler->cqueue, arg_size, std::span<uint8_t> { (uint8_t*)arg, arg_size },
 												COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 	handler->args.emplace_back(param_buf);
 	

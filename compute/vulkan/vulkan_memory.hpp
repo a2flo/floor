@@ -32,6 +32,9 @@ class compute_queue;
 //! helper class for common code between vulkan_buffer and vulkan_image
 class vulkan_memory {
 public:
+	virtual ~vulkan_memory() noexcept;
+	
+protected:
 	vulkan_memory(const vulkan_device& device,
 				  const uint64_t* object,
 				  // if false: is buffer
@@ -47,10 +50,7 @@ public:
 				  const VkImage* image,
 				  const COMPUTE_MEMORY_FLAG memory_flags_) noexcept :
 	vulkan_memory(device_, (const uint64_t*)image, true, memory_flags_) {}
-
-	virtual ~vulkan_memory() noexcept;
 	
-protected:
 	const vulkan_device& device;
 	const uint64_t* object { nullptr };
 	VkDeviceMemory mem { nullptr };
@@ -69,13 +69,13 @@ protected:
 	
 	//! overwrites memory data with the host data pointed to by data, with the specified size/offset
 	bool write_memory_data(const compute_queue& cqueue,
-						   const void* data, const size_t& size, const size_t& offset,
-						   const size_t non_shim_input_size = 0,
+						   const std::span<const uint8_t> data, const size_t& offset,
+						   const size_t shim_input_size = 0,
 						   const char* error_msg_on_failure = nullptr);
 	//! reads memory from the device with the specified size/offset and writes it to the specified host pointer
 	bool read_memory_data(const compute_queue& cqueue,
-						  void* data, const size_t& size, const size_t& offset,
-						  const size_t non_shim_input_size = 0,
+						  std::span<uint8_t> data, const size_t& offset,
+						  const size_t shim_input_size = 0,
 						  const char* error_msg_on_failure = nullptr);
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
@@ -85,7 +85,7 @@ protected:
 	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr);
 	
 	virtual void image_copy_dev_to_host(const compute_queue&, VkCommandBuffer, VkBuffer) {}
-	virtual void image_copy_host_to_dev(const compute_queue&, VkCommandBuffer, VkBuffer, void*) {}
+	virtual void image_copy_host_to_dev(const compute_queue&, VkCommandBuffer, VkBuffer, std::span<uint8_t>) {}
 	
 	//! based on the specified/supported memory type bits and "wants device memory" flag,
 	//! this tries to find the best matching memory type index (heap / location)

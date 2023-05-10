@@ -31,11 +31,11 @@
 metal_buffer::metal_buffer(const bool is_staging_buffer_,
 						   const compute_queue& cqueue,
 						   const size_t& size_,
-						   void* host_ptr_,
+						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
+compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
@@ -65,7 +65,7 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 				// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
 				// that we'll use to copy memory to and from the private storage buffer
 				options |= MTLResourceStorageModePrivate;
-				staging_buffer = make_unique<metal_buffer>(true, cqueue, size, nullptr,
+				staging_buffer = make_unique<metal_buffer>(true, cqueue, size, std::span<uint8_t> {},
 														   COMPUTE_MEMORY_FLAG::READ_WRITE |
 														   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0);
 				staging_buffer->set_debug_label(debug_label + "_staging_buffer");
@@ -100,9 +100,9 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 
 metal_buffer::metal_buffer(const compute_queue& cqueue,
 						   id <MTLBuffer> external_buffer,
-						   void* host_ptr_,
+						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_buffer(cqueue, [external_buffer length], host_ptr_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
+compute_buffer(cqueue, [external_buffer length], host_data_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
 	// size _has_ to match and be valid/compatible (compute_buffer will try to fix the size, but it's obviously an external object)
 	// -> detect size mismatch and bail out
 	if(size != [external_buffer length]) {
@@ -160,18 +160,18 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// -> use host memory
-	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_ptr length:size options:options
+	if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+		buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_data.data() length:host_data.size_bytes() options:options
 											  deallocator:^(void*, NSUInteger) { /* nop */ }];
 	}
 	// -> alloc and use device memory
 	else {
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-		if(copy_host_data &&
-		   host_ptr != nullptr &&
-		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		if (copy_host_data &&
+			host_data.data() != nullptr &&
+			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			// can't use "newBufferWithBytes" with private storage memory
-			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+			if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
 				// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
 				//    if available), then blit from the host memory buffer
 				buffer = [mtl_dev.device newBufferWithLength:size options:options];
@@ -182,8 +182,8 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 						host_mem_storage = MTLResourceStorageModeManaged;
 					}
 #endif
-					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_ptr
-																			length:size
+					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_data.data()
+																			length:host_data.size_bytes()
 																		   options:(host_mem_storage |
 																					MTLResourceCPUCacheModeWriteCombined)];
 					if (!buffer_with_host_mem) {
@@ -205,12 +205,12 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 					[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
 					buffer_with_host_mem = nil;
 				} else {
-					staging_buffer->write(cqueue, host_ptr, size);
+					staging_buffer->write(cqueue, host_data.data(), size);
 					copy(cqueue, *staging_buffer);
 				}
 			} else {
 				// all other storage modes can just use it
-				buffer = [mtl_dev.device newBufferWithBytes:host_ptr length:size options:options];
+				buffer = [mtl_dev.device newBufferWithBytes:host_data.data() length:host_data.size_bytes() options:options];
 			}
 		}
 		// else: just create a buffer of the specified size
@@ -231,7 +231,7 @@ metal_buffer::~metal_buffer() {
 }
 
 void metal_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	read(cqueue, host_ptr, size_, offset);
+	read(cqueue, host_data.data(), size_, offset);
 }
 
 void metal_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
@@ -257,7 +257,7 @@ void metal_buffer::read(const compute_queue& cqueue, void* dst, const size_t siz
 }
 
 void metal_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	write(cqueue, host_ptr, size_, offset);
+	write(cqueue, host_data.data(), size_, offset);
 }
 
 void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const void* src,
@@ -399,15 +399,6 @@ bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 bool metal_buffer::zero(const compute_queue& cqueue) {
 	const uint8_t zero_pattern = 0u;
 	return fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
-}
-
-bool metal_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
-						  const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
-						  void* new_host_ptr floor_unused) {
-	if(buffer == nil) return false;
-	
-	// TODO: !
-	return false;
 }
 
 void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueue,

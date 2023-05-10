@@ -30,13 +30,13 @@
 opencl_image::opencl_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
-						   void* host_ptr_,
+						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_,
 						   const opengl_image_info* gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info),
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info, nullptr, false),
 mip_origin_idx(!is_mip_mapped ? 0 :
 			   (image_dim_count(image_type) + (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? 1 : 0))) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -71,7 +71,7 @@ mip_origin_idx(!is_mip_mapped ? 0 :
 	}
 	
 	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags) && !is_mip_mapped) {
+	if (host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags) && !is_mip_mapped) {
 		cl_flags |= CL_MEM_COPY_HOST_PTR;
 	}
 	
@@ -175,7 +175,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 	// -> normal opencl image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		image = clCreateImage(cl_dev.ctx, cl_flags, &cl_img_format, &cl_img_desc,
-							  (copy_host_data && !is_mip_mapped ? host_ptr : nullptr), &create_err);
+							  (copy_host_data && !is_mip_mapped ? host_data.data() : nullptr), &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create image: $", cl_error_to_string(create_err));
 			image = nullptr;
@@ -184,20 +184,21 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 		
 		// host_ptr must be nullptr in clCreateImage when using mip-mapping
 		// -> must copy/write this afterwards
-		if(is_mip_mapped && copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			auto cpy_host_ptr = (uint8_t*)host_ptr;
-			apply_on_levels([this, &cpy_host_ptr, &cqueue](const uint32_t& level,
-														   const uint4& mip_image_dim,
-														   const uint32_t&,
-														   const uint32_t& level_data_size) {
+		if (is_mip_mapped && copy_host_data && host_data.data() != nullptr &&
+			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			auto cpy_host_data = host_data;
+			apply_on_levels([this, &cpy_host_data, &cqueue](const uint32_t& level,
+															const uint4& mip_image_dim,
+															const uint32_t&,
+															const uint32_t& level_data_size) {
 				const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
 				size4 level_origin;
 				level_origin[mip_origin_idx] = level;
 				CL_CALL_RET(clEnqueueWriteImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, false,
-												level_origin.data(), level_region.data(), 0, 0, cpy_host_ptr,
+												level_origin.data(), level_region.data(), 0, 0, cpy_host_data.data(),
 												0, nullptr, nullptr),
 							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false)
-				cpy_host_ptr += level_data_size;
+				cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
 				return true;
 			});
 			cqueue.finish();

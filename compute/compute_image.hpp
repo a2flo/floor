@@ -63,69 +63,6 @@ public:
 		return ret;
 	}
 	
-	compute_image(const compute_queue& cqueue,
-				  const uint4 image_dim_,
-				  const COMPUTE_IMAGE_TYPE image_type_,
-				  void* host_ptr_ = nullptr,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0,
-				  const uint32_t external_gl_object_ = 0,
-				  const opengl_image_info* gl_image_info = nullptr,
-				  compute_image* shared_image_ = nullptr) :
-	compute_memory(cqueue, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
-	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
-	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
-	generate_mip_maps(is_mip_mapped &&
-					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
-	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps)),
-	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
-	layer_count(image_layer_count(image_dim, image_type)),
-	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
-	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
-	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
-	shared_image(shared_image_),
-	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, false)) {
-		// can't be both mip-mapped and a render target
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
-		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-			log_error("image can't be both mip-mapped and a render target!");
-			return;
-		}
-		// can't be both mip-mapped and a multi-sampled image
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
-		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-			log_error("image can't be both mip-mapped and a multi-sampled image!");
-			return;
-		}
-		// writing to compressed formats is not supported anywhere
-		if(image_compressed(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
-			log_error("image can not be compressed and writable!");
-			return;
-		}
-		// TODO: make sure format is supported, fail early if not
-		if(!image_format_valid(image_type)) {
-			log_error("invalid image format: $X", image_type);
-			return;
-		}
-		// can't generate compressed mip-levels right now
-		if(image_compressed(image_type) && generate_mip_maps) {
-			log_error("generating mip-maps for compressed image data is not supported!");
-			return;
-		}
-		// can't generate mip-levels for transient images
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type) && generate_mip_maps) {
-			log_error("generating mip-maps for a transient image is not supported!");
-			return;
-		}
-		// warn about missing sharing flag if shared image is set
-		if (shared_image != nullptr) {
-			if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
-				log_warn("provided a shared image, but no sharing flag is set");
-			}
-		}
-		// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
-	}
-	
 	~compute_image() override = default;
 	
 	// TODO: read, write, copy, fill
@@ -327,7 +264,7 @@ public:
 	}
 	
 	//! returns the amount of mip-map levels used by this image
-	//! NOTE: #mip-levels from image dim to 1px if uncompressed, or 8px if compressed
+	//! NOTE: #mip-levels from image dim to 1px
 	uint32_t get_mip_level_count() const {
 		return image_mip_level_count(image_dim, image_type);
 	}
@@ -369,6 +306,80 @@ public:
 	}
 	
 protected:
+	compute_image(const compute_queue& cqueue,
+				  const uint4 image_dim_,
+				  const COMPUTE_IMAGE_TYPE image_type_,
+				  std::span<uint8_t> host_data_,
+				  const COMPUTE_MEMORY_FLAG flags_,
+				  const uint32_t opengl_type_,
+				  const uint32_t external_gl_object_,
+				  const opengl_image_info* gl_image_info,
+				  compute_image* shared_image_,
+				  const bool backend_may_need_shim_type) :
+	compute_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
+	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
+	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
+	generate_mip_maps(is_mip_mapped &&
+					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
+	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps)),
+	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
+	layer_count(image_layer_count(image_dim, image_type)),
+	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
+	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
+	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
+	shared_image(shared_image_),
+	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, false)) {
+		if (backend_may_need_shim_type) {
+			// set shim format to the corresponding 4-channel format
+			// compressed images will always be used in their original state, even if they are RGB
+			if (image_channel_count(image_type) == 3 && !image_compressed(image_type)) {
+				shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
+				shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, generate_mip_maps);
+				shim_image_data_size_mip_maps = image_data_size_from_types(image_dim, shim_image_type, false);
+			}
+			// == original type if not 3-channel -> 4-channel emulation
+			else shim_image_type = image_type;
+		}
+		
+		// can't be both mip-mapped and a render target
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+			throw std::runtime_error("image can't be both mip-mapped and a render target!");
+		}
+		// can't be both mip-mapped and a multi-sampled image
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+			has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+			throw std::runtime_error("image can't be both mip-mapped and a multi-sampled image!");
+		}
+		// writing to compressed formats is not supported anywhere
+		if (image_compressed(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
+			throw std::runtime_error("image can not be compressed and writable!");
+		}
+		// TODO: make sure format is supported, fail early if not
+		if (!image_format_valid(image_type)) {
+			throw std::runtime_error("invalid image format: " + std::to_string(std::underlying_type_t<COMPUTE_IMAGE_TYPE>(image_type)));
+		}
+		// can't generate compressed mip-levels right now
+		if (image_compressed(image_type) && generate_mip_maps) {
+			throw std::runtime_error("generating mip-maps for compressed image data is not supported!");
+		}
+		// can't generate mip-levels for transient images
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type) && generate_mip_maps) {
+			throw std::runtime_error("generating mip-maps for a transient image is not supported!");
+		}
+		// warn about missing sharing flag if shared image is set
+		if (shared_image != nullptr) {
+			if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+				log_warn("provided a shared image, but no sharing flag is set");
+			}
+		}
+		// if there is host data, it must have at least the same size as the image
+		if (host_data.data() != nullptr && host_data.size_bytes() < image_data_size) {
+			throw std::runtime_error("image host data size " + std::to_string(host_data.size_bytes()) +
+									 " is smaller than the expected image size " + std::to_string(image_data_size));
+		}
+	}
+	
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
 	const bool is_mip_mapped;
@@ -402,7 +413,6 @@ protected:
 	};
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
-	void set_shim_type_info();
 	COMPUTE_IMAGE_TYPE shim_image_type;
 	size_t shim_image_data_size { 0 };
 	
@@ -412,25 +422,25 @@ protected:
 	size_t shim_image_data_size_mip_maps { 0 };
 	
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
-	unique_ptr<uint8_t[]> rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
-									  const COMPUTE_IMAGE_TYPE& rgba_type,
-									  const uint8_t* rgb_data,
-									  const bool ignore_mip_levels = false);
+	pair<unique_ptr<uint8_t[]>, size_t> rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+													const COMPUTE_IMAGE_TYPE& rgba_type,
+													const std::span<const uint8_t> rgb_data,
+													const bool ignore_mip_levels = false);
 	
 	//! in-place converts RGB data to RGBA data
 	//! NOTE: 'rgb_to_rgba_data' must point to sufficient enough memory that can hold the RGBA data
 	void rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
 							 const COMPUTE_IMAGE_TYPE& rgba_type,
-							 uint8_t* rgb_to_rgba_data,
+							 std::span<uint8_t> rgb_to_rgba_data,
 							 const bool ignore_mip_levels = false);
 	
 	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
 	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
-	unique_ptr<uint8_t[]> rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
-									  const COMPUTE_IMAGE_TYPE& rgb_type,
-									  const uint8_t* rgba_data,
-									  uint8_t* dst_rgb_data = nullptr,
-									  const bool ignore_mip_levels = false);
+	pair<unique_ptr<uint8_t[]>, size_t> rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+													const COMPUTE_IMAGE_TYPE& rgb_type,
+													const std::span<const uint8_t> rgba_data,
+													std::span<uint8_t> dst_rgb_data = {},
+													const bool ignore_mip_levels = false);
 	
 	// calls function "F" with (level, mip image dim, slice data size, mip-level size, args...) for each level of
 	// the mip-map chain or only the single level of a non-mip-mapped image.

@@ -31,7 +31,7 @@ class host_buffer final : public compute_buffer {
 public:
 	host_buffer(const compute_queue& cqueue,
 				const size_t& size_,
-				void* host_ptr,
+				std::span<uint8_t> host_data_,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
@@ -44,26 +44,8 @@ public:
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				const uint32_t opengl_type_ = 0,
 				compute_buffer* shared_buffer_ = nullptr) :
-	host_buffer(cqueue, size_, nullptr, flags_, opengl_type_, 0, shared_buffer_) {}
+	host_buffer(cqueue, size_, {}, flags_, opengl_type_, 0, shared_buffer_) {}
 	
-	template <typename data_type>
-	host_buffer(const compute_queue& cqueue,
-				const vector<data_type>& data,
-				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0,
-				compute_buffer* shared_buffer_ = nullptr) :
-	host_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
-	
-	template <typename data_type, size_t n>
-	host_buffer(const compute_queue& cqueue,
-				const array<data_type, n>& data,
-				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type_ = 0,
-				compute_buffer* shared_buffer_ = nullptr) :
-	host_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
-
 	~host_buffer() override;
 
 	void read(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
@@ -80,12 +62,6 @@ public:
 			  const size_t size = 0, const size_t offset = 0) override;
 
 	bool zero(const compute_queue& cqueue) override;
-
-	bool resize(const compute_queue& cqueue,
-				const size_t& size,
-				const bool copy_old_data = false,
-				const bool copy_host_data = false,
-				void* new_host_ptr = nullptr) override;
 
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),

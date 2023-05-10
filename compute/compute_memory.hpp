@@ -37,22 +37,6 @@ public:
 	// TODO: flag handling
 	// TODO: memory migration: copy / move
 	
-	//! constructs an incomplete memory object
-	compute_memory(const compute_queue& cqueue,
-				   void* host_ptr,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   const uint32_t external_gl_object_ = 0);
-	
-	//! constructs an incomplete memory object
-	compute_memory(const compute_queue& cqueue,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   const uint32_t external_gl_object_ = 0) :
-	compute_memory(cqueue, nullptr, flags_, opengl_type_, external_gl_object_) {}
-	
 	virtual ~compute_memory();
 	
 	//! memory size must always be a multiple of this
@@ -64,7 +48,13 @@ public:
 	}
 	
 	//! returns the associated host memory pointer
-	void* get_host_ptr() const { return host_ptr; }
+	[[deprecated("use get_host_data() instead")]]
+	void* get_host_ptr() const { return host_data.data(); }
+	
+	//! returns the associated host memory span/range
+	std::span<uint8_t> get_host_data() const {
+		return host_data;
+	}
 	
 	//! returns the flags that were used to create this memory object
 	const COMPUTE_MEMORY_FLAG& get_flags() const { return flags; }
@@ -107,8 +97,24 @@ public:
 	void _unlock() const RELEASE(lock);
 	
 protected:
+	//! constructs an incomplete memory object
+	compute_memory(const compute_queue& cqueue,
+				   std::span<uint8_t> host_data_,
+				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				   const uint32_t opengl_type_ = 0,
+				   const uint32_t external_gl_object_ = 0);
+	
+	//! constructs an incomplete memory object
+	compute_memory(const compute_queue& cqueue,
+				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				   const uint32_t opengl_type_ = 0,
+				   const uint32_t external_gl_object_ = 0) :
+	compute_memory(cqueue, {}, flags_, opengl_type_, external_gl_object_) {}
+	
 	const compute_device& dev;
-	void* host_ptr { nullptr };
+	std::span<uint8_t> host_data {};
 	const COMPUTE_MEMORY_FLAG flags { COMPUTE_MEMORY_FLAG::NONE };
 	
 	const bool has_external_gl_object { false };

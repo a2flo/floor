@@ -39,14 +39,14 @@ static constexpr const size_t protection_size { 0u };
 host_image::host_image(const compute_queue& cqueue,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
-					   void* host_ptr_,
+					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info,
 					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, shared_image_) {
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info, shared_image_, false) {
 	// check Metal image sharing validity
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 #if defined(FLOOR_NO_METAL)
@@ -104,10 +104,10 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
 		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
-		if(copy_host_data &&
-		   host_ptr != nullptr &&
-		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			memcpy(image.get(), host_ptr,
+		if (copy_host_data &&
+			host_data.data() != nullptr &&
+			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			memcpy(image.get(), host_data.data(),
 				   // if mip-maps have to be created on the libfloor side (i.e. not provided by the user),
 				   // only copy the data that is actually provided by the user
 				   generate_mip_maps ? image_data_size : image_data_size_mip_maps);
@@ -422,7 +422,7 @@ bool host_image::create_shared_metal_image(const bool copy_host_data) {
 		if (!copy_host_data) {
 			shared_mtl_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
-		host_mtl_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_mtl_image_flags);
+		host_mtl_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_mtl_image_flags);
 		host_mtl_image->set_debug_label("host_mtl_image");
 		if (!host_mtl_image) {
 			log_error("Host/Metal image sharing failed: failed to create the underlying shared Metal image");

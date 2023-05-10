@@ -31,46 +31,18 @@ class vulkan_buffer final : public compute_buffer, vulkan_memory {
 public:
 	vulkan_buffer(const compute_queue& cqueue,
 				  const size_t& size_,
-				  void* host_ptr,
+				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0);
 	
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(cast-qual) // ignored for safe "const void*" -> "void*" cast here
-	vulkan_buffer(const compute_queue& cqueue,
-				  const size_t& size_,
-				  const void* host_ptr_,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0,
-				  const uint32_t external_gl_object_ = 0) :
-	vulkan_buffer(cqueue, size_, (void*)host_ptr_, flags_, opengl_type_, external_gl_object_) {}
-FLOOR_POP_WARNINGS()
-	
 	vulkan_buffer(const compute_queue& cqueue,
 				  const size_t& size_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(cqueue, size_, (void*)nullptr, flags_, opengl_type_) {}
-	
-	template <typename data_type>
-	vulkan_buffer(const compute_queue& cqueue,
-				  const vector<data_type>& data,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(cqueue, sizeof(data_type) * data.size(), (const void*)&data[0], flags_, opengl_type_) {}
-	
-	template <typename data_type, size_t n>
-	vulkan_buffer(const compute_queue& cqueue,
-				  const array<data_type, n>& data,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(cqueue, sizeof(data_type) * n, (const void*)&data[0], flags_, opengl_type_) {}
+	vulkan_buffer(cqueue, size_, {}, flags_, opengl_type_) {}
 	
 	~vulkan_buffer() override;
 
@@ -88,12 +60,6 @@ FLOOR_POP_WARNINGS()
 			  const size_t size = 0, const size_t offset = 0) override;
 	
 	bool zero(const compute_queue& cqueue) override;
-	
-	bool resize(const compute_queue& cqueue,
-				const size_t& size,
-				const bool copy_old_data = false,
-				const bool copy_host_data = false,
-				void* new_host_ptr = nullptr) override;
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),

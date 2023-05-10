@@ -423,7 +423,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
 	auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
 	memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size_page, storage_buffer_backing.get(),
+	auto buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),
 										  COMPUTE_MEMORY_FLAG::READ |
 										  COMPUTE_MEMORY_FLAG::HOST_WRITE |
 										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |

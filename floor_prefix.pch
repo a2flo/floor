@@ -13,6 +13,7 @@
 #if defined(__cplusplus) && !defined(__OBJC__)
 #include <random>
 #include <thread>
+#include <span>
 #include <floor/core/platform.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/gl_support.hpp>

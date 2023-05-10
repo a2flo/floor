@@ -31,12 +31,12 @@
 
 host_buffer::host_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
-						 void* host_ptr_,
+						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
 						 compute_buffer* shared_buffer_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
+compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
 	if(size < min_multiple()) return;
 		
 	// check Metal buffer sharing validity
@@ -64,9 +64,9 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data &&
-			host_ptr != nullptr &&
+			host_data.data() != nullptr &&
 			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			memcpy(buffer.get(), host_ptr, size);
+			memcpy(buffer.get(), host_data.data(), size);
 		}
 	}
 #if !defined(FLOOR_NO_METAL)
@@ -106,7 +106,7 @@ host_buffer::~host_buffer() {
 }
 
 void host_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	read(cqueue, host_ptr, size_, offset);
+	read(cqueue, host_data.data(), size_, offset);
 }
 
 void host_buffer::read(const compute_queue& cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
@@ -120,7 +120,7 @@ void host_buffer::read(const compute_queue& cqueue floor_unused, void* dst, cons
 }
 
 void host_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	write(cqueue, host_ptr, size_, offset);
+	write(cqueue, host_data.data(), size_, offset);
 }
 
 void host_buffer::write(const compute_queue& cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
@@ -197,62 +197,6 @@ bool host_buffer::zero(const compute_queue& cqueue floor_unused) {
 
 	GUARD(lock);
 	memset(buffer.get(), 0, size);
-	return true;
-}
-
-bool host_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
-						 const bool copy_old_data, const bool copy_host_data,
-						 void* new_host_ptr) {
-	if (!buffer) return false;
-	if(new_size_ == 0) {
-		log_error("can't allocate a buffer of size 0!");
-		return false;
-	}
-	if(copy_old_data && copy_host_data) {
-		log_error("can't copy data both from the old buffer and the host pointer!");
-		// still continue though, but assume just copy_old_data!
-	}
-
-	const size_t new_size = align_size(new_size_);
-	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
-				  min_multiple(), new_size, new_size_);
-	}
-	
-	// store old buffer, size and host pointer for possible restore + cleanup later on
-	auto old_buffer = std::move(buffer);
-	const auto old_size = size;
-	const auto old_host_ptr = host_ptr;
-	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
-		buffer = std::move(old_buffer);
-		size = old_size;
-		host_ptr = old_host_ptr;
-	};
-	const bool is_host_buffer = has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags);
-	
-	// create the new buffer
-	buffer = nullptr;
-	size = new_size;
-	host_ptr = new_host_ptr;
-	if (!create_internal(copy_host_data, cqueue)) {
-		// much fail, restore old buffer
-		log_error("failed to create resized buffer");
-		
-		// restore old buffer and re-register when using host memory
-		restore_old_buffer();
-		
-		return false;
-	}
-	
-	// copy old data if specified
-	if (copy_old_data) {
-		// can only copy as many bytes as there are bytes
-		const size_t copy_size = std::min(size, new_size); // >= 4, established above
-		memcpy(buffer.get(), old_buffer.get(), copy_size);
-	} else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
-		memcpy(buffer.get(), host_ptr, size);
-	}
-	
 	return true;
 }
 
@@ -470,7 +414,9 @@ bool host_buffer::create_shared_metal_buffer(const bool copy_host_data) {
 		if (!copy_host_data) {
 			shared_mtl_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
-		host_mtl_buffer = render_ctx->create_buffer(*default_queue, size, host_ptr, shared_mtl_buffer_flags);
+		host_mtl_buffer = (host_data.data() != nullptr ?
+						   render_ctx->create_buffer(*default_queue, host_data, shared_mtl_buffer_flags) :
+						   render_ctx->create_buffer(*default_queue, size, shared_mtl_buffer_flags));
 		if (!host_mtl_buffer) {
 			log_error("Host/Metal buffer sharing failed: failed to create the underlying shared Metal buffer");
 			return false;

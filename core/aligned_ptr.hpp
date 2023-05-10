@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <tuple>
+#include <span>
 #if defined(__WINDOWS__)
 #include <malloc.h>
 #else
@@ -217,6 +218,16 @@ public:
 		(void)protection;
 		return false;
 #endif
+	}
+	
+	//! returns a span covering this aligned_ptr allocation
+	std::span<T> to_span() {
+		return { ptr, size / sizeof(T) };
+	}
+	
+	//! returns a span covering this aligned_ptr allocation
+	std::span<const T> to_span() const {
+		return { (const pointer)ptr, size / sizeof(T) };
 	}
 	
 protected:

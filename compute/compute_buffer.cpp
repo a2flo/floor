@@ -23,20 +23,26 @@
 
 compute_buffer::compute_buffer(const compute_queue& cqueue,
 							   const size_t& size_,
-							   void* host_ptr_,
+							   std::span<uint8_t> host_data_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
 							   const uint32_t external_gl_object_,
 							   compute_buffer* shared_buffer_) :
-compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)), shared_buffer(shared_buffer_) {
-	if(size == 0) {
-		log_error("can't allocate a buffer of size 0!");
+compute_memory(cqueue, host_data_, flags_, opengl_type_, external_gl_object_), size(align_size(size_)), shared_buffer(shared_buffer_) {
+	if (size == 0) {
+		throw std::runtime_error("can't allocate a buffer of size 0!");
 	}
-	else if(size_ != size) {
+	
+	if (host_data.data() != nullptr && host_data.size_bytes() != size) {
+		throw std::runtime_error("host data size " + std::to_string(host_data.size_bytes()) + " does not match buffer size " + std::to_string(size));
+	}
+	
+	if (size_ != size) {
 		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
 				  min_multiple(), size, size_);
 	}
-	else if(size > 0xFFFFFFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+	
+	if (size > 0xFFFF'FFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		log_error("using a buffer larger than 4GiB is not supported when using OpenGL sharing!");
 		size = 0xFFFFFFFFu;
 	}
@@ -45,6 +51,12 @@ compute_memory(cqueue, host_ptr_, flags_, opengl_type_, external_gl_object_), si
 		if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 			log_warn("provided a shared buffer, but no sharing flag is set");
 		}
+	}
+	
+	// if there is host data, it must have at least the same size as the buffer
+	if (host_data.data() != nullptr && host_data.size_bytes() < size) {
+		throw std::runtime_error("image host data size " + std::to_string(host_data.size_bytes()) +
+								 " is smaller than the expected buffer size " + std::to_string(size));
 	}
 }
 
@@ -70,9 +82,9 @@ bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
 	}
 	
 	if(copy_host_data &&
-	   host_ptr != nullptr &&
+	   host_data.data() != nullptr &&
 	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		glBufferData(opengl_type, (GLsizeiptr)size, host_ptr, GL_DYNAMIC_DRAW);
+		glBufferData(opengl_type, (GLsizeiptr)size, host_data.data(), GL_DYNAMIC_DRAW);
 	}
 	else {
 		glBufferData(opengl_type, (GLsizeiptr)size, nullptr, GL_DYNAMIC_DRAW);
@@ -214,12 +226,15 @@ shared_ptr<compute_buffer> compute_buffer::clone(const compute_queue& cqueue, co
 	}
 	
 	auto clone_flags = (flags_override != COMPUTE_MEMORY_FLAG::NONE ? flags_override : flags);
-	if (host_ptr != nullptr) {
+	shared_ptr<compute_buffer> ret;
+	if (host_data.data() != nullptr) {
 		// never copy host data on the newly created buffer
 		clone_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+		assert(size == host_data.size_bytes());
+		ret = dev.context->create_buffer(cqueue, host_data, clone_flags, opengl_type);
+	} else {
+		ret = dev.context->create_buffer(cqueue, size, clone_flags, opengl_type);
 	}
-	
-	auto ret = dev.context->create_buffer(cqueue, size, host_ptr, clone_flags, opengl_type);
 	if (ret == nullptr) {
 		return {};
 	}

@@ -68,8 +68,7 @@ public:
 											 const uint32_t opengl_type = 0) const override;
 	
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
-											 const size_t& size,
-											 void* data,
+											 std::span<uint8_t> data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) const override;
@@ -99,7 +98,7 @@ public:
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
-										   void* data,
+										   std::span<uint8_t> data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const override;
 	

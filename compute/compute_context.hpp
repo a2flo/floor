@@ -134,11 +134,31 @@ public:
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	virtual shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
-													 const size_t& size,
-													 void* data,
+													 std::span<uint8_t> data,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 													 const uint32_t opengl_type = 0) const = 0;
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
+	template <typename data_type>
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
+											 std::span<data_type> data,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) const {
+		return create_buffer(cqueue, { (uint8_t*)data.data(), data.size_bytes() }, flags, opengl_type);
+	}
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
+	[[deprecated("use the std::span create_buffer() variant instead")]]
+	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
+											 const size_t& size,
+											 void* data,
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) const {
+		return create_buffer(cqueue, { (uint8_t*)data, size }, flags, opengl_type);
+	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
@@ -147,7 +167,7 @@ public:
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags, opengl_type);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
@@ -157,7 +177,7 @@ public:
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags, opengl_type);
 	}
 	
 	//! wraps an already existing opengl buffer, with the specified flags
@@ -201,13 +221,39 @@ public:
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) const = 0;
 	
-	//! constructs an image of the specified dimensions, types and channel count on the specified device
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	virtual shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
-												   void* data,
+												   std::span<uint8_t> data,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) const = 0;
+	
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
+	template <typename data_type>
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   std::span<data_type> data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) const {
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data.data(), data.size_bytes() }, flags, opengl_type);
+	}
+	
+	//! constructs an image of the specified dimensions, types and channel count on the specified device
+	[[deprecated("use the std::span create_image() variant instead")]]
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   void* data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) const {
+		const auto actual_img_type = compute_image::handle_image_type(image_dim, image_type);
+		const auto img_size = image_data_size_from_types(image_dim, actual_img_type,
+														 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
+														 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data, img_size }, flags, opengl_type);
+	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
@@ -217,7 +263,8 @@ public:
 										   const vector<data_type>& data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, (void*)&data[0], flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) },
+							flags, opengl_type);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -228,7 +275,7 @@ public:
 										   const array<data_type, n>& data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, (void*)&data[0], flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) }, flags, opengl_type);
 	}
 	
 	//! wraps an already existing opengl image, with the specified flags

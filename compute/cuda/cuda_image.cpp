@@ -179,14 +179,14 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 cuda_image::cuda_image(const compute_queue& cqueue,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
-					   void* host_ptr_,
+					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
 					   const uint32_t opengl_type_,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info,
 					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, shared_image_),
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info, shared_image_, false),
 is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 	// TODO: handle the remaining flags + host ptr
 	
@@ -391,22 +391,22 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		}
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-		if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		if(copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			log_debug("copying $ bytes from $X to array $X",
-					  image_data_size, host_ptr, image);
-			auto cpy_host_ptr = (uint8_t*)host_ptr;
-			apply_on_levels([this, &cpy_host_ptr](const uint32_t& level,
-												  const uint4& mip_image_dim,
-												  const uint32_t& slice_data_size,
-												  const uint32_t& level_data_size) {
-				if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
-																			 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
-																			 slice_data_size / max(mip_image_dim.y, 1u),
-																			 mip_image_dim.y, mip_image_dim.z * layer_count)) {
+					  image_data_size, host_data.data(), image);
+			auto cpy_host_data = host_data;
+			apply_on_levels([this, &cpy_host_data](const uint32_t& level,
+												   const uint4& mip_image_dim,
+												   const uint32_t& slice_data_size,
+												   const uint32_t& level_data_size) {
+				if (!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_data.data(),
+																			  (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
+																			  slice_data_size / max(mip_image_dim.y, 1u),
+																			  mip_image_dim.y, mip_image_dim.z * layer_count)) {
 					log_error("failed to copy initial host data to device");
 					return false;
 				}
-				cpy_host_ptr += level_data_size;
+				cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
 				return true;
 			});
 		}
@@ -697,8 +697,9 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		
 		// since we don't want to carry around 64-bit values for all possible mip-levels for all images (15 * 8 == 120 bytes per image!),
 		// store all mip-map level surface "objects"/ids in a separate buffer, which we will access if lod write is actually being used
-		if(is_mip_mapped_or_vulkan) {
-			surfaces_lod_buffer = make_shared<cuda_buffer>(cqueue, surfaces,
+		if (is_mip_mapped_or_vulkan) {
+			std::span<uint8_t> surfaces_data { (uint8_t*)&surfaces[0], surfaces.size() * sizeof(typename decltype(surfaces)::value_type) };
+			surfaces_lod_buffer = make_shared<cuda_buffer>(cqueue, surfaces_data.size_bytes(), surfaces_data,
 														   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 		}
 	}
@@ -1086,7 +1087,7 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 		if (!copy_host_data) {
 			shared_vk_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
 		}
-		cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_ptr, shared_vk_image_flags);
+		cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_vk_image_flags);
 		cuda_vk_image->set_debug_label("cuda_vk_image");
 		if (!cuda_vk_image) {
 			log_error("CUDA/Vulkan image sharing failed: failed to create the underlying shared Vulkan image");

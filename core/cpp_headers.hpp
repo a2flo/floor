@@ -55,6 +55,7 @@
 #include <cmath>
 #include <cassert>
 #include <optional>
+#include <span>
 
 #if defined(CYGWIN)
 #include <sys/wait.h>

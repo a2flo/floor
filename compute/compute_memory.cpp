@@ -71,11 +71,11 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 }
 
 compute_memory::compute_memory(const compute_queue& cqueue,
-							   void* host_ptr_,
+							   std::span<uint8_t> host_data_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,
 							   const uint32_t external_gl_object_) :
-dev(cqueue.get_device()), host_ptr(host_ptr_), flags(handle_memory_flags(flags_, opengl_type_)),
+dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_, opengl_type_)),
 has_external_gl_object(external_gl_object_ != 0), opengl_type(opengl_type_),
 gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {

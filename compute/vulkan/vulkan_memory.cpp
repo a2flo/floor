@@ -36,40 +36,44 @@ vulkan_memory::~vulkan_memory() noexcept {
 	}
 }
 
-bool vulkan_memory::write_memory_data(const compute_queue& cqueue, const void* data, const size_t& size, const size_t& offset,
-									  const size_t non_shim_input_size, const char* error_msg_on_failure) {
+bool vulkan_memory::write_memory_data(const compute_queue& cqueue, const std::span<const uint8_t> data, const size_t& offset,
+									  const size_t shim_input_size, const char* error_msg_on_failure) {
 	// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
-	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
-	if(mapped_ptr != nullptr) {
-		memcpy(mapped_ptr, data, (non_shim_input_size == 0 ? size : non_shim_input_size));
+	const auto mapping_size = (shim_input_size != 0 ? shim_input_size : data.size_bytes());
+	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
+	if (mapped_ptr != nullptr) {
+		assert(mapping_size >= data.size_bytes());
+		memcpy(mapped_ptr, data.data(), data.size_bytes());
 		if (!unmap(cqueue, mapped_ptr)) {
 			return false;
 		}
-	}
-	else {
-		if(error_msg_on_failure == nullptr) {
+	} else {
+		if (error_msg_on_failure == nullptr) {
 			log_error("failed to write vulkan memory data (map failed)");
+		} else {
+			log_error("$", error_msg_on_failure);
 		}
-		else log_error("$", error_msg_on_failure);
 		return false;
 	}
 	return true;
 }
 
-bool vulkan_memory::read_memory_data(const compute_queue& cqueue, void* data, const size_t& size, const size_t& offset,
-									 const size_t non_shim_input_size, const char* error_msg_on_failure) {
-	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
-	if(mapped_ptr != nullptr) {
-		memcpy(data, mapped_ptr, (non_shim_input_size == 0 ? size : non_shim_input_size));
+bool vulkan_memory::read_memory_data(const compute_queue& cqueue, std::span<uint8_t> data, const size_t& offset,
+									 const size_t shim_input_size, const char* error_msg_on_failure) {
+	const auto mapping_size = (shim_input_size != 0 ? shim_input_size : data.size_bytes());
+	auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
+	if (mapped_ptr != nullptr) {
+		assert(mapping_size >= data.size_bytes());
+		memcpy(data.data(), mapped_ptr, data.size_bytes());
 		if (!unmap(cqueue, mapped_ptr)) {
 			return false;
 		}
-	}
-	else {
-		if(error_msg_on_failure == nullptr) {
+	} else {
+		if (error_msg_on_failure == nullptr) {
 			log_error("failed to read vulkan memory data (map failed)");
+		} else {
+			log_error("$", error_msg_on_failure);
 		}
-		else log_error("$", error_msg_on_failure);
 		return false;
 	}
 	return true;
@@ -242,8 +246,8 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	const auto is_host_coherent = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(memory_flags);
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		if (!is_host_coherent || is_image) {
 			do {
 				// host -> device copy
@@ -257,7 +261,8 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 						};
 						vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
 					} else {
-						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
+						span<uint8_t> host_buffer { (uint8_t*)mapped_ptr, iter->second.size };
+						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, iter->second.buffer, host_buffer);
 					}
 				}), has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);

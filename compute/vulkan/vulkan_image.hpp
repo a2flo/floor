@@ -32,7 +32,7 @@ public:
 	vulkan_image(const compute_queue& cqueue,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
-				 void* host_ptr = nullptr,
+				 std::span<uint8_t> host_data_ = {},
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type = 0,
 				 const uint32_t external_gl_object_ = 0,
@@ -54,7 +54,7 @@ public:
 	//! wraps an already existing Vulkan image, with the specified flags and backed by the specified host pointer
 	vulkan_image(const compute_queue& cqueue,
 				 const external_vulkan_image_info& external_image,
-				 void* host_ptr = nullptr,
+				 std::span<uint8_t> host_data_ = {},
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
@@ -250,7 +250,7 @@ protected:
 	void image_copy_dev_to_host(const compute_queue& cqueue,
 								VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
 	void image_copy_host_to_dev(const compute_queue& cqueue,
-								VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) override;
+								VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) override;
 	
 };
 

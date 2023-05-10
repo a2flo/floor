@@ -29,11 +29,11 @@
 
 opencl_buffer::opencl_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
-							 void* host_ptr_,
+							 std::span<uint8_t> host_data_,
 							 const COMPUTE_MEMORY_FLAG flags_,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
+compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -68,7 +68,7 @@ compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 	
 	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+	if (host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		cl_flags |= CL_MEM_COPY_HOST_PTR;
 	}
 	
@@ -85,7 +85,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, const compute_que
 	
 	// -> normal opencl buffer
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_ptr, &create_err);
+		buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_data.data(), &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create buffer: $: $", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
@@ -127,7 +127,7 @@ opencl_buffer::~opencl_buffer() {
 }
 
 void opencl_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	read(cqueue, host_ptr, size_, offset);
+	read(cqueue, host_data.data(), size_, offset);
 }
 
 void opencl_buffer::read(const compute_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
@@ -142,7 +142,7 @@ void opencl_buffer::read(const compute_queue& cqueue, void* dst, const size_t si
 }
 
 void opencl_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	write(cqueue, host_ptr, size_, offset);
+	write(cqueue, host_data.data(), size_, offset);
 }
 
 void opencl_buffer::write(const compute_queue& cqueue, const void* src, const size_t size_, const size_t offset) {
@@ -191,72 +191,6 @@ bool opencl_buffer::zero(const compute_queue& cqueue) {
 	static constexpr const uint32_t zero_pattern { 0u };
 	return (clEnqueueFillBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, &zero_pattern, sizeof(zero_pattern),
 								0, size, 0, nullptr, nullptr) == CL_SUCCESS);
-}
-
-bool opencl_buffer::resize(const compute_queue& cqueue, const size_t& new_size_,
-						   const bool copy_old_data, const bool copy_host_data,
-						   void* new_host_ptr) {
-	if(buffer == nullptr) return false;
-	if(new_size_ == 0) {
-		log_error("can't allocate a buffer of size 0!");
-		return false;
-	}
-	if(copy_old_data && copy_host_data) {
-		log_error("can't copy data both from the old buffer and the host pointer!");
-		// still continue though, but assume just copy_old_data!
-	}
-	
-	const size_t new_size = align_size(new_size_);
-	if(new_size_ != new_size) {
-		log_error("buffer size must always be a multiple of $! - using size of $ instead of $ now",
-				  min_multiple(), new_size, new_size_);
-	}
-	
-	// store old buffer, size and host pointer for possible restore + cleanup later on
-	const auto old_buffer = buffer;
-	const auto old_size = size;
-	const auto old_host_ptr = host_ptr;
-	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
-		buffer = old_buffer;
-		size = old_size;
-		host_ptr = old_host_ptr;
-	};
-	const bool is_host_buffer = has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags);
-	
-	
-	// create the new buffer
-	buffer = nullptr;
-	size = new_size;
-	host_ptr = new_host_ptr;
-	if(!create_internal(copy_host_data, cqueue)) {
-		// much fail, restore old buffer
-		log_error("failed to create resized buffer");
-		
-		// restore old buffer
-		restore_old_buffer();
-		return false;
-	}
-	
-	// copy old data if specified
-	if(copy_old_data) {
-		// can only copy as many bytes as there are bytes
-		const size_t copy_size = std::min(size, new_size); // >= 4, established above
-		
-		clEnqueueCopyBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), old_buffer, buffer, 0, 0, copy_size,
-							0, nullptr, nullptr);
-	}
-	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
-		// TODO: blocking flag
-		clEnqueueWriteBuffer((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, true, 0, size, host_ptr,
-							 0, nullptr, nullptr);
-	}
-	
-	// kill the old buffer
-	if(old_buffer != nullptr) {
-		clReleaseMemObject(old_buffer);
-	}
-	
-	return true;
 }
 
 void* __attribute__((aligned(128))) opencl_buffer::map(const compute_queue& cqueue,

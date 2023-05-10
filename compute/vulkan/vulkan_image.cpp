@@ -37,13 +37,13 @@
 vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
-						   void* host_ptr_,
+						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_,
 						   const uint32_t opengl_type_,
 						   const uint32_t external_gl_object_,
 						   const opengl_image_info* gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info),
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info, nullptr, true /* may need shim type */),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
@@ -116,9 +116,6 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		return false;
 	}
 	vk_format = *vk_format_opt;
-	
-	// set shim format info if necessary
-	set_shim_type_info();
 	
 	// dim handling
 	const VkImageType vk_image_type = (dim_count == 1 ? VK_IMAGE_TYPE_1D :
@@ -328,7 +325,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 				"image view creation failed", false)
 	
 	// transition to general layout or attachment layout (if render target)
-	cur_access_mask = 0; // TODO: ?
+	cur_access_mask = 0;
 	image_info.imageLayout = initial_layout;
 	const auto transition_stage = (is_render_target ? VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_2_HOST_BIT);
 	transition(&cqueue, nullptr, dst_access_flags, final_layout, transition_stage, transition_stage);
@@ -336,7 +333,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	// update image desc info
 	image_info.sampler = nullptr;
 	image_info.imageView = image_view;
-	image_info.imageLayout = final_layout; // TODO: need to keep track of this
+	image_info.imageLayout = final_layout;
 	
 	// if mip-mapping is enabled and the image is writable or mip-maps should be generated,
 	// we need to create a per-level image view, so that kernels/shaders can actually write to each mip-map level
@@ -348,7 +345,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		for(uint32_t i = 0; i < device.max_mip_levels; ++i) {
 			mip_map_image_info[i].sampler = nullptr;
 			
-			// fill unused views with the last (1x1 level) view
+			// fill unused views with the last level view
 			if(i > last_level) {
 				mip_map_image_view[i] = mip_map_image_view[last_level];
 				mip_map_image_info[i].imageView = mip_map_image_view[last_level];
@@ -416,7 +413,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 									 descriptor_data_sampled.get());
 	}
 	
-	for (size_t mip_level = 0, mip_level_count = mip_map_image_view.size(); mip_level < mip_level_count; ++mip_level) {
+	for (size_t mip_level = 0, level_count = mip_map_image_view.size(); mip_level < level_count; ++mip_level) {
 		const VkDescriptorImageInfo desc_img_info {
 			.sampler = VK_NULL_HANDLE,
 			.imageView = mip_map_image_view[mip_level],
@@ -436,17 +433,15 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// buffer init from host data pointer
-	if(copy_host_data &&
-	   host_ptr != nullptr &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		if(is_render_target) {
+	if (copy_host_data &&
+		host_data.data() != nullptr &&
+		!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		if (is_render_target) {
 			log_error("can't initialize a render target with host data!");
-		}
-		else {
-			if(!write_memory_data(cqueue, host_ptr,
-								  (shim_image_type != image_type ? shim_image_data_size : image_data_size), 0,
-								  (shim_image_type != image_type ? image_data_size : 0),
-								  "failed to initialize image with host data (map failed)")) {
+		} else {
+			if (!write_memory_data(cqueue, host_data, 0,
+								   (shim_image_type != image_type ? shim_image_data_size : 0),
+								   "failed to initialize image with host data (map failed)")) {
 				return false;
 			}
 		}
@@ -544,8 +539,9 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 	return type;
 }
 
-vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, void* host_ptr_, const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_ptr_, flags_, 0, 0, nullptr),
+vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, std::span<uint8_t> host_data_, const COMPUTE_MEMORY_FLAG flags_) :
+compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_, 0, 0, nullptr,
+			  nullptr, false /* no shim type here */),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
 	image_view = external_image.image_view;
@@ -794,9 +790,10 @@ void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommand
 	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
-void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) {
+void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) {
 	// TODO: depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
+	const bool is_compressed = image_compressed(image_type);
 	
 	// transition to dst-optimal, b/c of perf
 	transition(&cqueue, cmd_buffer,
@@ -805,17 +802,25 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 			   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 	
 	// RGB -> RGBA data conversion if necessary
-	if(image_type != shim_image_type) {
-		rgb_to_rgba_inplace(image_type, shim_image_type, (uint8_t*)data, generate_mip_maps);
+	if (image_type != shim_image_type) {
+		rgb_to_rgba_inplace(image_type, shim_image_type, data, generate_mip_maps);
 	}
 	
 	vector<VkBufferImageCopy> regions;
 	regions.reserve(mip_level_count);
 	uint64_t buffer_offset = 0;
-	apply_on_levels([this, &regions, &buffer_offset, &dim_count](const uint32_t& level,
-																 const uint4& mip_image_dim,
-																 const uint32_t&,
-																 const uint32_t& level_data_size) {
+	apply_on_levels([this, &regions, &buffer_offset, &dim_count, &is_compressed](const uint32_t& level,
+																				 const uint4& mip_image_dim,
+																				 const uint32_t&,
+																				 const uint32_t& level_data_size) {
+		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
+		uint2 buffer_dim;
+		if (is_compressed) {
+			// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
+			buffer_dim = image_compression_block_size(shim_image_type);
+			buffer_dim.max(mip_image_dim.xy);
+		}
+		
 		const VkImageSubresourceLayers img_sub_rsrc_layers {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.mipLevel = level,
@@ -824,8 +829,8 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 		};
 		regions.emplace_back(VkBufferImageCopy {
 			.bufferOffset = buffer_offset,
-			.bufferRowLength = 0, // tightly packed
-			.bufferImageHeight = 0, // tightly packed
+			.bufferRowLength = (is_compressed ? buffer_dim.x : 0 /* tightly packed */),
+			.bufferImageHeight = (is_compressed ? buffer_dim.y : 0 /* tightly packed */),
 			.imageSubresource = img_sub_rsrc_layers,
 			.imageOffset = { 0, 0, 0 },
 			.imageExtent = {

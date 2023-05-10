@@ -663,10 +663,10 @@ shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqu
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,
-														const size_t& size, void* data,
+														std::span<uint8_t> data,
 														const COMPUTE_MEMORY_FLAG flags,
 														const uint32_t opengl_type) const {
-	return add_resource(make_shared<metal_buffer>(cqueue, size, data,
+	return add_resource(make_shared<metal_buffer>(cqueue, data.size_bytes(), data,
 												  flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
 														   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
 												  opengl_type));
@@ -694,7 +694,7 @@ shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueu
 													  const COMPUTE_IMAGE_TYPE image_type,
 													  const COMPUTE_MEMORY_FLAG flags,
 													  const uint32_t opengl_type) const {
-	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, nullptr,
+	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, std::span<uint8_t> {},
 												 flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
 														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
 												 opengl_type));
@@ -703,7 +703,7 @@ shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueu
 shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
 													  const uint4 image_dim,
 													  const COMPUTE_IMAGE_TYPE image_type,
-													  void* data,
+													  std::span<uint8_t> data,
 													  const COMPUTE_MEMORY_FLAG flags,
 													  const uint32_t opengl_type) const {
 	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, data,

@@ -674,8 +674,9 @@ static constexpr uint2 image_compression_block_size(const COMPUTE_IMAGE_TYPE& im
 static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
 														 const COMPUTE_IMAGE_TYPE& image_type) {
 	const auto dim_count = image_dim_count(image_type);
-	size_t size = size_t(image_dim.x);
-	if (dim_count >= 2) size *= size_t(image_dim.y);
+	const auto min_block_size = image_compression_block_size(image_type);
+	size_t size = size_t(max(image_dim.x, min_block_size.x));
+	if (dim_count >= 2) size *= size_t(max(image_dim.y, min_block_size.y));
 	if (dim_count == 3) size *= size_t(image_dim.z);
 	
 	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
@@ -696,8 +697,7 @@ static constexpr uint32_t image_mip_level_count_from_max_dim(const uint32_t& max
 	return uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
 }
 
-//! returns the amount of mip-map levels required by the specified image dim and type
-//! NOTE: #mip-levels from image dim to 1px if uncompressed, or 8px if compressed
+//! returns the amount of mip-map levels required by the specified image dim and type, down to 1px
 static constexpr uint32_t image_mip_level_count(const uint4& image_dim, const COMPUTE_IMAGE_TYPE image_type) {
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
 		return 1;
@@ -726,7 +726,7 @@ static constexpr uint32_t image_layer_count(const uint4& image_dim, const COMPUT
 
 //! returns the total amount of bytes needed to store the image of the specified dimensions, types and mip-levels
 //! "max_mip_level" can be set to the max mip level that should be considered for the size computation (all by default)
-//! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px for uncompressed images, or 8px for uncompressed ones
+//! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px
 static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 												   const COMPUTE_IMAGE_TYPE& image_type,
 												   const bool ignore_mip_levels = false,
@@ -737,6 +737,9 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 	// array count after: width (, height (, depth))
 	const size_t array_dim = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	
+	// if this is a compressed format, consider the minimum 2D block (-> image) dim
+	const auto min_block_size = image_compression_block_size(image_type);
+	
 	size_t size = 0;
 	uint4 mip_image_dim {
 		image_dim.x,
@@ -744,7 +747,7 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 		dim_count >= 3 ? image_dim.z : 0u,
 		0u
 	};
-	for(size_t level = 0; level < mip_levels; ++level) {
+	for (size_t level = 0; level < mip_levels; ++level) {
 		size_t slice_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
@@ -757,7 +760,8 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 		}
 		
 		size += slice_size;
-		mip_image_dim >>= 1;
+		mip_image_dim >>= 1u;
+		mip_image_dim.xy.max(min_block_size);
 	}
 	
 	return size;
@@ -780,9 +784,12 @@ static constexpr size_t image_mip_level_data_size_from_types(const uint4& image_
 		return 0u;
 	}
 	
+	// if this is a compressed format, consider the minimum 2D block (-> image) dim
+	const auto min_block_size = image_compression_block_size(image_type);
+	
 	const uint4 mip_image_dim {
-		image_dim.x >> mip_level,
-		dim_count >= 2 ? image_dim.y >> mip_level : 0u,
+		max(image_dim.x >> mip_level, min_block_size.x),
+		dim_count >= 2 ? max(image_dim.y >> mip_level, min_block_size.y) : 0u,
 		dim_count >= 3 ? image_dim.z >> mip_level : 0u,
 		0u
 	};

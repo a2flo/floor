@@ -30,45 +30,6 @@ class metal_queue;
 
 class compute_buffer : public compute_memory {
 public:
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
-	compute_buffer(const compute_queue& cqueue,
-				   const size_t& size_,
-				   void* host_ptr,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0,
-				   const uint32_t external_gl_object_ = 0,
-				   compute_buffer* shared_buffer_ = nullptr);
-	
-	//! constructs an uninitialized buffer of the specified size
-	compute_buffer(const compute_queue& cqueue,
-				   const size_t& size_,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   compute_buffer* shared_buffer_ = nullptr) :
-	compute_buffer(cqueue, size_, nullptr, flags_, opengl_type_, 0, shared_buffer_) {}
-	
-	//! constructs a buffer of the specified data (under consideration of the specified flags)
-	template <typename data_type>
-	compute_buffer(const compute_queue& cqueue,
-				   const vector<data_type>& data,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   compute_buffer* shared_buffer_ = nullptr) :
-	compute_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
-	
-	//! constructs a buffer of the specified data (under consideration of the specified flags)
-	template <typename data_type, size_t n>
-	compute_buffer(const compute_queue& cqueue,
-				   const array<data_type, n>& data,
-				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   compute_buffer* shared_buffer_ = nullptr) :
-	compute_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_, 0, shared_buffer_) {}
-	
 	~compute_buffer() override = default;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
@@ -120,15 +81,6 @@ public:
 	virtual bool fill(const compute_queue& cqueue,
 					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
-	
-	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
-	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
-	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
-	virtual bool resize(const compute_queue& cqueue,
-						const size_t& size,
-						const bool copy_old_data = false,
-						const bool copy_host_data = false,
-						void* new_host_ptr = nullptr) = 0;
 	
 	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset"
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
@@ -228,6 +180,35 @@ public:
 	}
 	
 protected:
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
+	compute_buffer(const compute_queue& cqueue,
+				   const size_t& size_,
+				   std::span<uint8_t> host_data_,
+				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				   const uint32_t opengl_type = 0,
+				   const uint32_t external_gl_object_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr);
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
+	compute_buffer(const compute_queue& cqueue,
+				   std::span<uint8_t> host_data_,
+				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				   const uint32_t opengl_type_ = 0,
+				   const uint32_t external_gl_object_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr) :
+	compute_buffer(cqueue, host_data_.size_bytes(), host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {}
+	
+	//! constructs an uninitialized buffer of the specified size
+	compute_buffer(const compute_queue& cqueue,
+				   const size_t& size_,
+				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				   const uint32_t opengl_type_ = 0,
+				   compute_buffer* shared_buffer_ = nullptr) :
+	compute_buffer(cqueue, size_, {}, flags_, opengl_type_, 0, shared_buffer_) {}
+	
 	size_t size { 0u };
 	
 	// internal function to create/delete an opengl buffer if compute/opengl sharing is used

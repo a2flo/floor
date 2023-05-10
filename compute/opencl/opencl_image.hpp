@@ -32,7 +32,7 @@ public:
 	opencl_image(const compute_queue& cqueue,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
-				 void* host_ptr = nullptr,
+				 std::span<uint8_t> host_data_ = {},
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type = 0,
 				 const uint32_t external_gl_object_ = 0,

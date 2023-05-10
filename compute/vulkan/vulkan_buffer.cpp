@@ -36,16 +36,16 @@
 
 vulkan_buffer::vulkan_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
-							 void* host_ptr_,
+							 std::span<uint8_t> host_data_,
 							 const COMPUTE_MEMORY_FLAG flags_,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
+compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	if(size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+	if (host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// TODO: flag?
 	}
 	
@@ -195,11 +195,11 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	((vulkan_compute*)cqueue.get_device().context)->vulkan_get_descriptor(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
 	
 	// buffer init from host data pointer
-	if(copy_host_data &&
-	   host_ptr != nullptr &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		if(!write_memory_data(cqueue, host_ptr, size, 0, 0,
-							  "failed to initialize buffer with host data (map failed)")) {
+	if (copy_host_data &&
+		host_data.data() != nullptr &&
+		!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		if (!write_memory_data(cqueue, host_data, 0, 0,
+							   "failed to initialize buffer with host data (map failed)")) {
 			return false;
 		}
 	}
@@ -240,7 +240,7 @@ vulkan_buffer::~vulkan_buffer() {
 }
 
 void vulkan_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	read(cqueue, host_ptr, size_, offset);
+	read(cqueue, host_data.data(), size_, offset);
 }
 
 void vulkan_buffer::read(const compute_queue& cqueue, void* dst,
@@ -251,11 +251,11 @@ void vulkan_buffer::read(const compute_queue& cqueue, void* dst,
 	if(!read_check(size, read_size, offset, flags)) return;
 	
 	GUARD(lock);
-	read_memory_data(cqueue, dst, read_size, offset, 0, "failed to read buffer");
+	read_memory_data(cqueue, { (uint8_t*)dst, read_size }, offset, 0, "failed to read buffer");
 }
 
 void vulkan_buffer::write(const compute_queue& cqueue, const size_t size_, const size_t offset) {
-	write(cqueue, host_ptr, size_, offset);
+	write(cqueue, host_data.data(), size_, offset);
 }
 
 void vulkan_buffer::write(const compute_queue& cqueue, const void* src,
@@ -266,7 +266,7 @@ void vulkan_buffer::write(const compute_queue& cqueue, const void* src,
 	if(!write_check(size, write_size, offset, flags)) return;
 	
 	GUARD(lock);
-	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");
+	write_memory_data(cqueue, { (const uint8_t*)src, write_size }, offset, 0, "failed to write buffer");
 }
 
 void vulkan_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
@@ -306,13 +306,6 @@ bool vulkan_buffer::zero(const compute_queue& cqueue) {
 		vkCmdFillBuffer(block_cmd_buffer.cmd_buffer, buffer, 0, size, 0);
 	}), true /* always blocking */);
 	return true;
-}
-
-bool vulkan_buffer::resize(const compute_queue& cqueue floor_unused, const size_t& new_size_ floor_unused,
-						   const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
-						   void* new_host_ptr floor_unused) {
-	// TODO: implement this
-	return false;
 }
 
 void* __attribute__((aligned(128))) vulkan_buffer::map(const compute_queue& cqueue,

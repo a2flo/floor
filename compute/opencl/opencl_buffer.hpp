@@ -30,7 +30,7 @@ class opencl_buffer final : public compute_buffer {
 public:
 	opencl_buffer(const compute_queue& cqueue,
 				  const size_t& size_,
-				  void* host_ptr,
+				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0,
@@ -41,23 +41,7 @@ public:
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0) :
-	opencl_buffer(cqueue, size_, nullptr, flags_, opengl_type_) {}
-	
-	template <typename data_type>
-	opencl_buffer(const compute_queue& cqueue,
-				  const vector<data_type>& data,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	opencl_buffer(cqueue, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
-	
-	template <typename data_type, size_t n>
-	opencl_buffer(const compute_queue& cqueue,
-				  const array<data_type, n>& data,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	opencl_buffer(cqueue, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+	opencl_buffer(cqueue, size_, {}, flags_, opengl_type_) {}
 	
 	~opencl_buffer() override;
 
@@ -75,12 +59,6 @@ public:
 			  const size_t size = 0, const size_t offset = 0) override;
 	
 	bool zero(const compute_queue& cqueue) override;
-	
-	bool resize(const compute_queue& cqueue,
-				const size_t& size,
-				const bool copy_old_data = false,
-				const bool copy_host_data = false,
-				void* new_host_ptr = nullptr) override;
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),

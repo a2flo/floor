@@ -32,13 +32,13 @@
 metal_image::metal_image(const compute_queue& cqueue,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
-						 void* floor_nullable host_ptr_,
+						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_,
 						 const uint32_t opengl_type_,
 						 const uint32_t external_gl_object_,
 						 const opengl_image_info* floor_nullable gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info) {
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info, nullptr, true /* may need shim type */) {
 	// introduced with os x 10.11 / ios 9.0, kernel/shader access flags can actually be set
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
@@ -324,10 +324,10 @@ FLOOR_POP_WARNINGS()
 
 metal_image::metal_image(const compute_queue& cqueue,
 						 id <MTLTexture> floor_nonnull external_image,
-						 void* floor_nullable host_ptr_,
+						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
-			  host_ptr_, flags_, 0, 0, nullptr), image(external_image), is_external(true) {
+			  host_data_, flags_, 0, 0, nullptr, nullptr, false /* no shim type here */), image(external_image), is_external(true) {
 	// device must match
 	if(((const metal_device&)dev).device != [external_image device]) {
 		log_error("specified metal device does not match the device set in the external image");
@@ -487,9 +487,6 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	}
 	[desc setPixelFormat:*metal_format];
 	
-	// set shim format info if necessary
-	set_shim_type_info();
-	
 	// misc options
 	[desc setMipmapLevelCount:mip_level_count];
 	[desc setSampleCount:image_sample_count(image_type)];
@@ -503,7 +500,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 	image = [mtl_device newTextureWithDescriptor:desc];
 	
 	// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-	if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+	if(copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// copy to device memory must go through a blit command
 		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -511,8 +508,8 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
 		const size_t slice_count = layer_count;
 		
-		const uint8_t* cpy_host_ptr = (const uint8_t*)host_ptr;
-		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+		auto cpy_host_data = host_data;
+		apply_on_levels([this, &cpy_host_data, &slice_count,
 						 &is_compressed, &dim_count](const uint32_t& level,
 													 const uint4& mip_image_dim,
 													 const uint32_t& slice_data_size,
@@ -531,12 +528,15 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 				bytes_per_row *= image_bytes_per_pixel(shim_image_type);
 			}
 			
-			const uint8_t* data_ptr = cpy_host_ptr;
-			unique_ptr<uint8_t[]> conv_data_ptr;
+			auto data = cpy_host_data;
+			unique_ptr<uint8_t[]> conv_data;
 			if (image_type != shim_image_type) {
 				// need to copy/convert the RGB host data to RGBA
-				conv_data_ptr = rgb_to_rgba(image_type, shim_image_type, cpy_host_ptr, true /* ignore mip levels as we do this manually */);
-				data_ptr = conv_data_ptr.get();
+				size_t conv_data_size = 0;
+				std::tie(conv_data, conv_data_size) = rgb_to_rgba(image_type, shim_image_type, cpy_host_data, true /* ignore mip levels as we do this manually */);
+				data = { conv_data.get(), conv_data_size };
+			} else {
+				assert(cpy_host_data.size_bytes() >= level_data_size);
 			}
 			
 			const MTLRegion mipmap_region {
@@ -547,18 +547,19 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 				}
 			};
-			for(size_t slice = 0; slice < slice_count; ++slice) {
+			for (size_t slice = 0; slice < slice_count; ++slice) {
+				auto slice_data = data.subspan(slice * slice_data_size, slice_data_size);
 				[image replaceRegion:mipmap_region
 						 mipmapLevel:level
 							   slice:slice
-						   withBytes:(data_ptr + slice * slice_data_size)
+						   withBytes:slice_data.data()
 						 bytesPerRow:bytes_per_row
 					   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
 			}
 			
 			// mip-level image data provided by user, advance pointer
 			if (!generate_mip_maps) {
-				cpy_host_ptr += level_data_size;
+				cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
 			}
 			
 			return true;
@@ -732,6 +733,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 	
 	// alloc host memory
 	auto host_buffer = make_aligned_ptr<uint8_t>(image_data_size);
+	span<uint8_t> host_buffer_span { host_buffer.get(), host_buffer.allocation_size() };
 	
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
@@ -749,8 +751,10 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		const bool is_compressed = image_compressed(image_type);
 		
 		aligned_ptr<uint8_t> host_shim_buffer;
-		if(image_type != shim_image_type) {
+		span<uint8_t> host_shim_buffer_span;
+		if (image_type != shim_image_type) {
 			host_shim_buffer = make_aligned_ptr<uint8_t>(shim_image_data_size);
+			host_shim_buffer_span = { host_shim_buffer.get(), host_shim_buffer.allocation_size() };
 		}
 		
 		uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer.get() : host_buffer.get());
@@ -785,8 +789,8 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		[cmd_buffer waitUntilCompleted];
 		
 		// convert to RGB + cleanup
-		if(image_type != shim_image_type) {
-			rgba_to_rgb(shim_image_type, image_type, host_shim_buffer.get(), host_buffer.get());
+		if (image_type != shim_image_type) {
+			rgba_to_rgb(shim_image_type, image_type, host_shim_buffer_span, host_buffer_span);
 		}
 	}
 	
@@ -819,18 +823,22 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 		const auto dim_count = image_dim_count(image_type);
 		
 		// again, need to convert RGB to RGBA if necessary
-		const uint8_t* host_buffer = (const uint8_t*)mapped_ptr;
+		assert(iter->second.ptr.allocation_size() == image_data_size);
+		span<const uint8_t> host_buffer { (const uint8_t*)mapped_ptr, image_data_size };
 		unique_ptr<uint8_t[]> host_shim_buffer;
+		size_t host_shim_buffer_size = 0;
 		if (image_type != shim_image_type) {
-			host_shim_buffer = rgb_to_rgba(image_type, shim_image_type, host_buffer);
+			std::tie(host_shim_buffer, host_shim_buffer_size) = rgb_to_rgba(image_type, shim_image_type, host_buffer);
 		}
 		
-		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer.get() : host_buffer);
-		success = apply_on_levels([this, &cpy_host_ptr,
-						 &dim_count, &is_compressed](const uint32_t& level,
-													 const uint4& mip_image_dim,
-													 const uint32_t& slice_data_size,
-													 const uint32_t&) {
+		auto cpy_host_data = (image_type != shim_image_type ?
+							  span<const uint8_t> { host_shim_buffer.get(), host_shim_buffer_size } :
+							  host_buffer);
+		success = apply_on_levels([this, &cpy_host_data,
+								   &dim_count, &is_compressed](const uint32_t& level,
+															   const uint4& mip_image_dim,
+															   const uint32_t& slice_data_size,
+															   const uint32_t&) {
 			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
 			const MTLRegion mipmap_region {
 				.origin = { 0, 0, 0 },
@@ -840,14 +848,15 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 				}
 			};
-			for(size_t slice = 0; slice < layer_count; ++slice) {
+			for (size_t slice = 0; slice < layer_count; ++slice) {
+				assert(cpy_host_data.size_bytes() >= slice_data_size);
 				[image replaceRegion:mipmap_region
 						 mipmapLevel:level
 							   slice:slice
-						   withBytes:cpy_host_ptr
+						   withBytes:cpy_host_data.data()
 						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
 					   bytesPerImage:slice_data_size];
-				cpy_host_ptr += slice_data_size;
+				cpy_host_data = cpy_host_data.subspan(slice_data_size, cpy_host_data.size_bytes() - slice_data_size);
 			}
 			return true;
 		}, shim_image_type);
