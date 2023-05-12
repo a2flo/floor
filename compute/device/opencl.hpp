@@ -356,10 +356,10 @@ static void printf(constant const char (&format)[format_N], const Args&... args)
 
 // barrier and mem_fence functionality
 // NOTE: local = 1, global = 2, image = 4
-void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("_Z7barrierj");
-void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z9mem_fencej");
-void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
-void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
+void cl_barrier(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z7barrierj");
+void cl_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z9mem_fencej");
+void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z14read_mem_fencej");
+void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z14read_mem_fencej");
 
 floor_inline_always static void global_barrier() {
 	cl_barrier(2u);

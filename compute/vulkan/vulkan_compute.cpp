@@ -94,10 +94,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 				
 				// if this is a threading error, extract the thread ids
 				if (token.find("THREADING") != string::npos) {
-					static const regex rx_thread_id("thread 0x([0-9a-fA-F]+)");
+					static const regex rx_thread_id("thread ((0x)?[0-9a-fA-F]+)");
 					smatch regex_result;
 					while (regex_search(token, regex_result, rx_thread_id)) {
-						thread_ids.emplace_back(strtoull(regex_result[1].str().c_str(), nullptr, 16));
+						const auto is_hex = regex_result[1].str().starts_with("0x");
+						thread_ids.emplace_back(strtoull(regex_result[1].str().c_str(), nullptr, is_hex ? 16 : 10));
 						token = regex_result.suffix();
 					}
 				}

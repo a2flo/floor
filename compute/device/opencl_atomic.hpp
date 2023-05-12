@@ -342,6 +342,7 @@ floor_inline_always float atom_inc(local float* p) { return atom_add(p, 1.0f); }
 floor_inline_always float atom_dec(global float* p) { return atom_sub(p, 1.0f); }
 floor_inline_always float atom_dec(local float* p) { return atom_sub(p, 1.0f); }
 #endif
+// NOTE: the trouble with these is that pointer bitcasts are problematic in Vulkan
 floor_inline_always float atom_cmpxchg(global float* p, float cmp, float val) {
 	const auto ret = atom_cmpxchg((global uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
 	return *(float*)ret;
@@ -350,6 +351,7 @@ floor_inline_always float atom_cmpxchg(local float* p, float cmp, float val) {
 	const auto ret = atom_cmpxchg((local uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
 	return *(float*)ret;
 }
+#if !defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atom_min(global float* p, float val) {
 	if(val < 0.0f) {
 		return atom_max((global uint32_t*)p, *(uint32_t*)&val);
@@ -374,6 +376,48 @@ floor_inline_always float atom_max(local float* p, float val) {
 	}
 	return atom_max((local int32_t*)p, *(int32_t*)&val);
 }
+#else // even with float32 atomic support, we can't actually use atom_cmpxchg -> use atomic_xchg loop instead
+floor_inline_always float atom_min(global float* p, float val) {
+	auto cur_min = min(*p, val);
+	for (;;) {
+		auto old_min = atomic_xchg(p, cur_min);
+		if (old_min >= cur_min) {
+			return;
+		}
+		cur_min = old_min;
+	}
+}
+floor_inline_always float atom_min(local float* p, float val) {
+	auto cur_min = min(*p, val);
+	for (;;) {
+		auto old_min = atomic_xchg(p, cur_min);
+		if (old_min >= cur_min) {
+			return;
+		}
+		cur_min = old_min;
+	}
+}
+floor_inline_always float atom_max(global float* p, float val) {
+	auto cur_max = max(*p, val);
+	for (;;) {
+		auto old_max = atomic_xchg(p, cur_max);
+		if (old_max <= cur_max) {
+			return;
+		}
+		cur_max = old_max;
+	}
+}
+floor_inline_always float atom_max(local float* p, float val) {
+	auto cur_max = max(*p, val);
+	for (;;) {
+		auto old_max = atomic_xchg(p, cur_max);
+		if (old_max <= cur_max) {
+			return;
+		}
+		cur_max = old_max;
+	}
+}
+#endif
 
 #endif
 

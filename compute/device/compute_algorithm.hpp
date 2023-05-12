@@ -379,7 +379,7 @@ namespace compute_algorithm {
 			local_barrier();
 			
 			uint32_t side_idx = 0u;
-#pragma unroll
+#pragma nounroll
 			for (uint32_t offset = 1u; offset < work_group_size; offset <<= 1u) {
 				if (lid >= offset) {
 					value = op(lmem[side_idx + lid - offset], value);
