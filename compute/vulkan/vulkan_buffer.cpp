@@ -288,14 +288,65 @@ void vulkan_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 	}), , true /* always blocking */);
 }
 
-bool vulkan_buffer::fill(const compute_queue& cqueue floor_unused,
-						 const void* pattern floor_unused, const size_t& pattern_size floor_unused,
-						 const size_t size_ floor_unused, const size_t offset floor_unused) {
-	if(buffer == nullptr) return false;
+bool vulkan_buffer::fill(const compute_queue& cqueue,
+						 const void* pattern, const size_t& pattern_size,
+						 const size_t size_, const size_t offset) {
+	if (buffer == nullptr) return false;
 	
-	// TODO: implement this
-	log_error("vulkan_buffer::fill not implemented yet");
-	return false;
+	const size_t fill_size = (size_ == 0 ? size : size_);
+	if (!fill_check(size, fill_size, pattern_size, offset)) return false;
+	
+	// we can only fill the buffer with 32-bit values in Vulkan
+	// -> fill size (in bytes) must be evenly divisble by 4 or must cover the whole buffer size
+	if ((pattern_size == 1 || pattern_size == 2 || pattern_size == 4) &&
+		(fill_size % 4u == 0u || fill_size == size)) {
+		uint32_t u32_pattern = 0;
+		if (pattern_size == 1) {
+			const uint32_t u8_pattern = *(const uint8_t*)pattern;
+			u32_pattern = (u8_pattern | (u8_pattern << 8u) | (u8_pattern << 16) | (u8_pattern << 24u));
+		} else if (pattern_size == 2) {
+			const uint32_t u16_pattern = *(const uint16_t*)pattern;
+			u32_pattern = (u16_pattern | (u16_pattern << 16));
+		} else {
+			u32_pattern = *(const uint32_t*)pattern;
+		}
+		
+		const auto& vk_queue = (const vulkan_queue&)cqueue;
+		VK_CMD_BLOCK_RET(vk_queue, "buffer fill", ({
+			vkCmdFillBuffer(block_cmd_buffer.cmd_buffer, buffer, offset, fill_size, u32_pattern);
+		}), false /* false on error */, true /* always blocking */);
+		
+		return true;
+	}
+	
+	// not a pattern size that allows a fast memset
+	const size_t pattern_count = fill_size / pattern_size;
+	const size_t pattern_fill_size = pattern_size * pattern_count;
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags)) {
+		// -> host-coherent, map and write directly
+		auto mapped_ptr = (uint8_t*)map(cqueue, COMPUTE_MEMORY_MAP_FLAG::WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (!mapped_ptr) {
+			return false;
+		}
+		
+		uint8_t* write_ptr = mapped_ptr;
+		for (size_t i = 0; i < pattern_count; i++) {
+			memcpy(write_ptr, pattern, pattern_size);
+			write_ptr += pattern_size;
+		}
+		
+		unmap(cqueue, mapped_ptr);
+		return true;
+	}
+	// -> create a host buffer with the pattern and upload it
+	auto pattern_buffer = make_unique<uint8_t[]>(pattern_fill_size);
+	uint8_t* write_ptr = pattern_buffer.get();
+	for (size_t i = 0; i < pattern_count; i++) {
+		memcpy(write_ptr, pattern, pattern_size);
+		write_ptr += pattern_size;
+	}
+	write(cqueue, pattern_buffer.get(), pattern_fill_size, offset);
+	return true;
 }
 
 bool vulkan_buffer::zero(const compute_queue& cqueue) {

@@ -483,7 +483,7 @@ static int printf(const char* format, Args&&... args) {
 
 // barrier and mem_fence functionality
 floor_inline_always static void global_barrier() {
-	__syncthreads();
+	__nvvm_barrier_sync(0);
 }
 floor_inline_always static void global_mem_fence() {
 	__nvvm_membar_cta();
@@ -496,7 +496,7 @@ floor_inline_always static void global_write_mem_fence() {
 }
 
 floor_inline_always static void local_barrier() {
-	__syncthreads();
+	__nvvm_barrier_sync(0);
 }
 floor_inline_always static void local_mem_fence() {
 	__nvvm_membar_cta();
@@ -509,11 +509,11 @@ floor_inline_always static void local_write_mem_fence() {
 }
 
 floor_inline_always static void barrier() {
-	__syncthreads();
+	__nvvm_barrier_sync(0);
 }
 
 floor_inline_always static void image_barrier() {
-	__syncthreads();
+	__nvvm_barrier_sync(0);
 }
 floor_inline_always static void image_mem_fence() {
 	__nvvm_membar_cta();
@@ -526,79 +526,79 @@ floor_inline_always static void image_write_mem_fence() {
 }
 
 // shuffle functionality
-floor_inline_always static float simd_shuffle(const float lane_var, const uint16_t lane_id) {
+floor_inline_always static float simd_shuffle(const float lane_var, const uint32_t lane_id) {
 	float ret;
 	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static uint32_t simd_shuffle(const uint32_t lane_var, const uint16_t lane_id) {
+floor_inline_always static uint32_t simd_shuffle(const uint32_t lane_var, const uint32_t lane_id) {
 	uint32_t ret;
 	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static int32_t simd_shuffle(const int32_t lane_var, const uint16_t lane_id) {
+floor_inline_always static int32_t simd_shuffle(const int32_t lane_var, const uint32_t lane_id) {
 	int32_t ret;
 	asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(lane_id), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 
-floor_inline_always static float simd_shuffle_down(const float lane_var, const uint16_t delta) {
+floor_inline_always static float simd_shuffle_down(const float lane_var, const uint32_t delta) {
 	float ret;
 	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static uint32_t simd_shuffle_down(const uint32_t lane_var, const uint16_t delta) {
+floor_inline_always static uint32_t simd_shuffle_down(const uint32_t lane_var, const uint32_t delta) {
 	uint32_t ret;
 	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static int32_t simd_shuffle_down(const int32_t lane_var, const uint16_t delta) {
+floor_inline_always static int32_t simd_shuffle_down(const int32_t lane_var, const uint32_t delta) {
 	int32_t ret;
 	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(delta), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 
-floor_inline_always static float simd_shuffle_up(const float lane_var, const uint16_t delta) {
+floor_inline_always static float simd_shuffle_up(const float lane_var, const uint32_t delta) {
 	float ret;
 	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(delta));
 	return ret;
 }
-floor_inline_always static uint32_t simd_shuffle_up(const uint32_t lane_var, const uint16_t delta) {
+floor_inline_always static uint32_t simd_shuffle_up(const uint32_t lane_var, const uint32_t delta) {
 	uint32_t ret;
 	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta));
+				 : "=r"(ret) : "r"(lane_var), "r"(delta));
 	return ret;
 }
-floor_inline_always static int32_t simd_shuffle_up(const int32_t lane_var, const uint16_t delta) {
+floor_inline_always static int32_t simd_shuffle_up(const int32_t lane_var, const uint32_t delta) {
 	int32_t ret;
 	asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(delta));
+				 : "=r"(ret) : "r"(lane_var), "r"(delta));
 	return ret;
 }
 
-floor_inline_always static float simd_shuffle_xor(const float lane_var, const uint16_t mask) {
+floor_inline_always static float simd_shuffle_xor(const float lane_var, const uint32_t mask) {
 	float ret;
 	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static uint32_t simd_shuffle_xor(const uint32_t lane_var, const uint16_t mask) {
+floor_inline_always static uint32_t simd_shuffle_xor(const uint32_t lane_var, const uint32_t mask) {
 	uint32_t ret;
 	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
-floor_inline_always static int32_t simd_shuffle_xor(const int32_t lane_var, const uint16_t mask) {
+floor_inline_always static int32_t simd_shuffle_xor(const int32_t lane_var, const uint32_t mask) {
 	int32_t ret;
 	asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-				 : "=f"(ret) : "f"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
+				 : "=r"(ret) : "r"(lane_var), "r"(mask), "i"(device_info::simd_width() - 1));
 	return ret;
 }
 

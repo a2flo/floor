@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+## build options
+set(WITH_ASAN false CACHE BOOL "build with address sanitizer")
+
 ## compile flags
 add_compile_definitions(FLOOR_DLL_EXPORT)
 add_compile_options(-march=corei7-avx -mf16c)

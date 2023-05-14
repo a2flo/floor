@@ -1097,6 +1097,13 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			}
 		}
 #endif
+		
+		// for additional query later on (based on supported extensions)
+		VkPhysicalDeviceProperties2 additional_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+			.pNext = nullptr,
+		};
+		void** add_props_chain_end = &additional_props.pNext;
 
 		// add other required or optional extensions
 		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
@@ -1128,13 +1135,58 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		VkPhysicalDeviceInheritedViewportScissorFeaturesNV inherited_viewport_scissor {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INHERITED_VIEWPORT_SCISSOR_FEATURES_NV,
 			.pNext = nullptr,
-			.inheritedViewportScissor2D = false,
+			.inheritedViewportScissor2D = true,
 		};
 		if (device_supported_extensions_set.contains(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME)) {
 			device_extensions_set.emplace(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME);
-			inherited_viewport_scissor.inheritedViewportScissor2D = true;
 			*feature_chain_end = &inherited_viewport_scissor;
 			feature_chain_end = &inherited_viewport_scissor.pNext;
+		}
+		
+		// add VK_NV_shader_sm_builtins if supported
+		VkPhysicalDeviceShaderSMBuiltinsFeaturesNV nv_shader_sm_builtins {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV,
+			.pNext = nullptr,
+			.shaderSMBuiltins = true,
+		};
+		VkPhysicalDeviceShaderSMBuiltinsPropertiesNV nv_sm_builtins_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV,
+			.pNext = nullptr,
+			.shaderSMCount = 0,
+			.shaderWarpsPerSM = 0,
+		};
+		if (device_supported_extensions_set.contains(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME)) {
+			device_extensions_set.emplace(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME);
+			*feature_chain_end = &nv_shader_sm_builtins;
+			feature_chain_end = &nv_shader_sm_builtins.pNext;
+			*add_props_chain_end = &nv_sm_builtins_props;
+			add_props_chain_end = &nv_sm_builtins_props.pNext;
+		}
+		
+		// add VK_AMD_shader_core_properties if supported
+		VkPhysicalDeviceShaderCorePropertiesAMD amd_shader_core_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_AMD,
+			.pNext = nullptr,
+			.shaderEngineCount = 0,
+			.shaderArraysPerEngineCount = 0,
+			.computeUnitsPerShaderArray = 0,
+			.simdPerComputeUnit = 0,
+			.wavefrontsPerSimd = 0,
+			.wavefrontSize = 0,
+			.sgprsPerSimd = 0,
+			.minSgprAllocation = 0,
+			.maxSgprAllocation = 0,
+			.sgprAllocationGranularity = 0,
+			.vgprsPerSimd = 0,
+			.minVgprAllocation = 0,
+			.maxVgprAllocation = 0,
+			.vgprAllocationGranularity = 0,
+		};
+		if (device_supported_extensions_set.contains(VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME)) {
+			device_extensions_set.emplace(VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME);
+			// don't need feature enablement for this, only need props
+			*add_props_chain_end = &amd_shader_core_props;
+			add_props_chain_end = &amd_shader_core_props.pNext;
 		}
 
 		// deal with swapchain ext
@@ -1193,6 +1245,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		VkDevice dev;
 		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"")
+		
+		// post device creation properties query
+		if (additional_props.pNext != nullptr) {
+			vkGetPhysicalDeviceProperties2(phys_dev, &additional_props);
+		}
 		
 		// add device
 		devices.emplace_back(make_unique<vulkan_device>());
@@ -1291,6 +1348,17 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device.max_global_size = device.max_local_size * device.max_group_size;
 		device.max_push_constants_size = limits.maxPushConstantsSize;
+		if (device_supported_extensions_set.contains(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME)) {
+			device.units = nv_sm_builtins_props.shaderSMCount;
+			device.max_coop_total_local_size = nv_sm_builtins_props.shaderWarpsPerSM * 32u;
+		}
+		if (device_supported_extensions_set.contains(VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME)) {
+			device.units = (amd_shader_core_props.computeUnitsPerShaderArray * amd_shader_core_props.shaderArraysPerEngineCount *
+							amd_shader_core_props.shaderEngineCount);
+		}
+		if (device.units > 0) {
+			log_msg("device units: $", device.units);
+		}
 		
 		device.max_image_1d_dim = limits.maxImageDimension1D;
 		device.max_image_1d_buffer_dim = limits.maxTexelBufferElements;
@@ -1299,9 +1367,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					  device.max_image_3d_dim.max_element()),
 																			 device.max_image_1d_dim));
-		log_debug("max img / mip: $, $, $ -> $",
-				  device.max_image_1d_dim, device.max_image_2d_dim, device.max_image_3d_dim,
-				  device.max_mip_levels);
+		log_msg("max img / mip: $, $, $ -> $",
+				device.max_image_1d_dim, device.max_image_2d_dim, device.max_image_3d_dim,
+				device.max_mip_levels);
 		
 		device.image_msaa_array_support = features_2.features.shaderStorageImageMultisample;
 		device.image_msaa_array_write_support = device.image_msaa_array_support;

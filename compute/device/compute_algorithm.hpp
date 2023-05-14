@@ -181,21 +181,22 @@ namespace compute_algorithm {
 		auto value = lmem[lid];
 		// butterfly reduce to [0]
 #pragma unroll
-		for(uint32_t i = linear_work_group_size / 2; i > 0; i >>= 1) {
+		for (uint32_t i = linear_work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
+#if defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE)
 			if(i >= device_info::simd_width())
 #endif
 			{
 				local_barrier();
 			}
-			if(lid < i) {
+			if (lid < i) {
 				value = op(value, lmem[lid + i]);
-				if(i > 1) {
+				if (i > 1) {
 					lmem[lid] = value;
 				}
 			}
 		}
+		return value;
 #else // -> host-compute
 		// make sure everyone has written to local memory
 		local_barrier();
@@ -210,8 +211,8 @@ namespace compute_algorithm {
 				arr[0] = op(arr[0], arr[i]);
 			}
 		}
-#endif
 		return lmem[0];
+#endif
 	}
 	
 	//! generic work-group reduce function
@@ -247,15 +248,15 @@ namespace compute_algorithm {
 #pragma unroll
 		for(uint32_t i = linear_work_group_size / 2; i > 0; i >>= 1) {
 			// sync local mem + work-item barrier
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) || defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
-			if(i >= device_info::simd_width())
+#if defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE)
+			if (i >= device_info::simd_width())
 #endif
 			{
 				local_barrier();
 			}
-			if(lid < i) {
+			if (lid < i) {
 				value = op(value, lmem[lid + i]);
-				if(i > 1) {
+				if (i > 1) {
 					lmem[lid] = value;
 				}
 			}

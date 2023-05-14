@@ -42,6 +42,16 @@ if (MSVC)
 	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:/fp:fast>")
 endif (MSVC)
 
+if (WITH_ASAN)
+	# enable asan
+	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize=address -fsanitize-address-use-after-scope)
+	target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+	# enable full backtraces everywhere
+	target_compile_options(${PROJECT_NAME} PUBLIC -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+	# enable sanitizer recovery
+	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize-recover=all)
+endif (WITH_ASAN)
+
 ## warnings
 # let's start with everything
 target_compile_options(${PROJECT_NAME} PUBLIC -Weverything)
