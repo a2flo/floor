@@ -1332,11 +1332,50 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				break;
 		}
 		
-		// queue count info
+		// queue info
 		device.queue_counts.resize(queue_family_count);
-		for(uint32_t i = 0; i < queue_family_count; ++i) {
+		for (uint32_t i = 0; i < queue_family_count; ++i) {
 			device.queue_counts[i] = dev_queue_family_props[i].queueCount;
+			
+			// choose the queue family that has the most queues and supports the resp. bits
+			static constexpr const VkQueueFlags all_queue_flags { VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT };
+			static constexpr const VkQueueFlags compute_queue_flags { VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT };
+			
+			if ((dev_queue_family_props[i].queueFlags & all_queue_flags) == all_queue_flags) {
+				if (device.all_queue_family_index == ~0u) {
+					device.all_queue_family_index = i;
+				} else {
+					if (device.queue_counts[i] > device.queue_counts[device.all_queue_family_index]) {
+						device.all_queue_family_index = i;
+					}
+				}
+			}
+			
+			if (((dev_queue_family_props[i].queueFlags & compute_queue_flags) == compute_queue_flags) &&
+				((dev_queue_family_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0u)) {
+				if (device.compute_queue_family_index == ~0u) {
+					device.compute_queue_family_index = i;
+				} else {
+					if (device.queue_counts[i] > device.queue_counts[device.compute_queue_family_index]) {
+						device.compute_queue_family_index = i;
+					}
+				}
+			}
 		}
+		if (device.all_queue_family_index == ~0u) {
+			log_warn("no queue found that supports graphics/compute/transfer - falling back to queue family #0");
+			device.all_queue_family_index = 0u;
+		}
+		if (device.compute_queue_family_index == ~0u) {
+			log_warn("no queue found that supports compute/transfer only - falling back to queue family #$",
+					 device.all_queue_family_index);
+			device.compute_queue_family_index = device.all_queue_family_index;
+		}
+		device.queue_families = { device.all_queue_family_index, device.compute_queue_family_index };
+		log_msg("graphics/compute/transfer queue family: $ ($ queues)", device.all_queue_family_index,
+				device.queue_counts[device.all_queue_family_index]);
+		log_msg("compute/transfer-only queue family: $ ($ queues)", device.compute_queue_family_index,
+				device.queue_counts[device.compute_queue_family_index]);
 		
 		// limits
 		const auto& limits = props.limits;
@@ -1399,7 +1438,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		device.barycentric_coord_support = barycentric_features.fragmentShaderBarycentric;
 		
-		if (inherited_viewport_scissor.inheritedViewportScissor2D) {
+		if (device_supported_extensions_set.contains(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME) &&
+			inherited_viewport_scissor.inheritedViewportScissor2D) {
 			device.inherited_viewport_scissor_support = true;
 		}
 		
@@ -1466,9 +1506,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("max global size: $", device.max_global_size);
 		log_msg("max group size: $", device.max_group_size);
 		log_msg("queue families: $", queue_family_count);
-		log_msg("max queues (family #0): $", device.queue_counts[0]);
 		
-		// TODO: other device flags
 		// TODO: fastest device selection, tricky to do without a unit count
 		
 		// done
@@ -1492,13 +1530,23 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
-	for(auto& dev : devices) {
+	for (auto& dev : devices) {
 		auto default_queue = create_queue(*dev);
 		default_queue->set_debug_label("default_queue");
 		default_queues.insert(*dev, default_queue);
 		
+		auto& vk_dev = (vulkan_device&)*dev;
+		
+		// create a default compute-only queue as well if there is a separate compute-only family
+		if (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index) {
+			auto default_compute_queue = create_compute_queue(*dev);
+			default_compute_queue->set_debug_label("default_compute_queue");
+			default_compute_queues.insert(*dev, default_compute_queue);
+		}
+		
 		// reset idx to 0 so that the first user request gets the same queue
-		((vulkan_device&)*dev).cur_queue_idx = 0;
+		vk_dev.cur_queue_idx = 0;
+		vk_dev.cur_compute_queue_idx = 0;
 	}
 	
 	// create fixed sampler sets for all devices
@@ -1851,6 +1899,7 @@ bool vulkan_compute::init_renderer() {
 	}
 	
 	// swap chain creation
+	const auto is_concurrent_sharing = (screen.render_device->all_queue_family_index != screen.render_device->compute_queue_family_index);
 	const VkSwapchainCreateInfoKHR swapchain_create_info {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.pNext = nullptr,
@@ -1863,9 +1912,9 @@ bool vulkan_compute::init_renderer() {
 		.imageArrayLayers = 1,
 		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		// TODO: handle separate present queue (must be VK_SHARING_MODE_CONCURRENT then + specify queues)
-		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.queueFamilyIndexCount = 0,
-		.pQueueFamilyIndices = nullptr,
+		.imageSharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
+		.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(screen.render_device->queue_families.size()) : 0),
+		.pQueueFamilyIndices = (is_concurrent_sharing ? screen.render_device->queue_families.data() : nullptr),
 		// TODO: VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR?
 		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		// TODO: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR?
@@ -2231,40 +2280,73 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 	return true;
 }
 
-shared_ptr<compute_queue> vulkan_compute::create_queue(const compute_device& dev) const {
+shared_ptr<compute_queue> vulkan_compute::create_queue_internal(const compute_device& dev, const uint32_t family_index,
+																const compute_queue::QUEUE_TYPE queue_type,
+																uint32_t& queue_index) const {
 	const auto& vulkan_dev = (const vulkan_device&)dev;
 	
-	// can only create a certain amount of queues per device with vulkan, so handle this + handle the queue index
-	if(vulkan_dev.cur_queue_idx >= vulkan_dev.queue_counts[0]) {
-		log_warn("too many queues were created (max: $), wrapping around to #0 again", vulkan_dev.queue_counts[0]);
-		vulkan_dev.cur_queue_idx = 0;
+	// can only create a certain amount of queues per device with Vulkan, so handle this + handle the queue index
+	if (queue_index >= vulkan_dev.queue_counts[family_index]) {
+		log_warn("too many queues were created for family $ (max: $), wrapping around to #0 again",
+				 family_index, vulkan_dev.queue_counts[family_index]);
+		queue_index = 0;
 	}
-	const auto next_queue_index = vulkan_dev.cur_queue_idx++;
+	const auto next_queue_index = queue_index++;
 	
 	VkQueue queue_obj;
-	const uint32_t family_index = 0; // always family #0 for now
 	vkGetDeviceQueue(vulkan_dev.device, family_index, next_queue_index, &queue_obj);
-	if(queue_obj == nullptr) {
-		log_error("failed to retrieve vulkan device queue");
+	if (queue_obj == nullptr) {
+		log_error("failed to retrieve Vulkan device queue");
 		return {};
 	}
 	
-	const string queue_name = "queue:" + (next_queue_index == 0 ? "default" : to_string(next_queue_index));
+	const string queue_name = (family_index == vulkan_dev.all_queue_family_index ?
+							   "queue:" + (next_queue_index == 0 ? "default" : to_string(next_queue_index)) :
+							   "compute_queue:" + (next_queue_index == 0 ? "default" : to_string(next_queue_index)));
 	set_vulkan_debug_label(vulkan_dev, VK_OBJECT_TYPE_QUEUE, uint64_t(queue_obj), queue_name);
 	
-	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index);
+	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index, queue_type);
 	queues.push_back(ret);
 	return ret;
 }
 
+shared_ptr<compute_queue> vulkan_compute::create_queue(const compute_device& dev) const {
+	const auto& vulkan_dev = (const vulkan_device&)dev;
+	return create_queue_internal(dev, vulkan_dev.all_queue_family_index, compute_queue::QUEUE_TYPE::ALL, vulkan_dev.cur_queue_idx);
+}
+
+shared_ptr<compute_queue> vulkan_compute::create_compute_queue(const compute_device& dev) const {
+	const auto& vulkan_dev = (const vulkan_device&)dev;
+	return create_queue_internal(dev, vulkan_dev.compute_queue_family_index, compute_queue::QUEUE_TYPE::COMPUTE,
+								 (vulkan_dev.compute_queue_family_index != vulkan_dev.all_queue_family_index ?
+								  vulkan_dev.cur_compute_queue_idx : vulkan_dev.cur_queue_idx));
+}
+
 const compute_queue* vulkan_compute::get_device_default_queue(const compute_device& dev) const {
-	for(const auto& default_queue : default_queues) {
-		if(default_queue.first.get() == dev) {
+	for (const auto& default_queue : default_queues) {
+		if (default_queue.first.get() == dev) {
 			return default_queue.second.get();
 		}
 	}
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
+	return nullptr;
+}
+
+const compute_queue* vulkan_compute::get_device_default_compute_queue(const compute_device& dev) const {
+	// if there is no separate compute-only queue family, use the default queue family
+	const auto& vk_dev = (const vulkan_device&)dev;
+	if (vk_dev.all_queue_family_index == vk_dev.compute_queue_family_index) {
+		return get_device_default_queue(dev);
+	}
+	
+	for (const auto& default_queue : default_compute_queues) {
+		if (default_queue.first.get() == dev) {
+			return default_queue.second.get();
+		}
+	}
+	// only happens if the context is invalid (the default compute queues haven't been created)
+	log_error("no default compute-only queue for this device exists yet!");
 	return nullptr;
 }
 

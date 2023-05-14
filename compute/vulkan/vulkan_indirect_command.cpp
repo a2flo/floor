@@ -75,45 +75,59 @@ indirect_command_pipeline(desc_) {
 		const auto& vk_ctx = (const vulkan_compute&)*dev->context;
 		const auto& vk_dev = (const vulkan_device&)*dev;
 		const auto& vk_dev_ptr = vk_dev.device;
-		// NOTE/TODO: right now, we only ever use one queue family, but if this ever changes, this needs to handle all possible queue families
-		const auto& default_queue = (const vulkan_queue*)dev->context->get_device_default_queue(*dev);
-		const auto err_str = " for device \"" + dev->name + "\" in indirect command pipeline \"" + desc.debug_label + "\"";
 		
 		vulkan_pipeline_entry entry;
 		entry.vk_dev = vk_dev_ptr;
 		
-		// create pool
-		const VkCommandPoolCreateInfo cmd_pool_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			.pNext = nullptr,
-			// not transient/short-lived, but need individual reset
-			.flags = (VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT),
-			.queueFamilyIndex = default_queue->get_family_index(),
-		};
-		VK_CALL_RET(vkCreateCommandPool(vk_dev_ptr, &cmd_pool_info, nullptr, &entry.cmd_pool),
-					"failed to create command pool" + err_str)
-#if defined(FLOOR_DEBUG)
-		vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_POOL, uint64_t(entry.cmd_pool), "icp_cmd_pool");
-#endif
-		
-		// create cmd buffers
-		entry.cmd_buffers.resize(desc.max_command_count);
-		const VkCommandBufferAllocateInfo sec_cmd_buffer_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.pNext = nullptr,
-			.commandPool = entry.cmd_pool,
-			// always create secondary
-			.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
-			.commandBufferCount = desc.max_command_count,
-		};
-		VK_CALL_RET(vkAllocateCommandBuffers(vk_dev_ptr, &sec_cmd_buffer_info, &entry.cmd_buffers[0]),
-					"failed to create secondary command buffers" + err_str)
-#if defined(FLOOR_DEBUG)
-		uint32_t sec_cmd_buffer_counter = 0;
-		for (const auto& cb : entry.cmd_buffers) {
-			vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_BUFFER, uint64_t(cb), "icp_cmd_buf_" + to_string(sec_cmd_buffer_counter++));
+		// when this is a compute pipeline and the device supports a separate compute-only queue family: create for both ALL and COMPUTE queues
+		const auto needs_compute_only = (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE &&
+										 vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
+		entry.per_queue_data.resize(needs_compute_only ? 2 : 1);
+		entry.per_queue_data[0].queue_family_index = vk_dev.all_queue_family_index;
+		if (needs_compute_only) {
+			entry.per_queue_data[1].queue_family_index = vk_dev.compute_queue_family_index;
 		}
+		
+		const auto err_str = " for device \"" + dev->name + "\" in indirect command pipeline \"" + desc.debug_label + "\"";
+		
+		for (auto& per_queue_data : entry.per_queue_data) {
+			const auto default_queue = (const vulkan_queue*)(per_queue_data.queue_family_index == vk_dev.all_queue_family_index ?
+															 dev->context->get_device_default_queue(*dev) :
+															 dev->context->get_device_default_compute_queue(*dev));
+			
+			// create pool
+			const VkCommandPoolCreateInfo cmd_pool_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+				.pNext = nullptr,
+				// not transient/short-lived, but need individual reset
+				.flags = (VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT),
+				.queueFamilyIndex = default_queue->get_family_index(),
+			};
+			VK_CALL_RET(vkCreateCommandPool(vk_dev_ptr, &cmd_pool_info, nullptr, &per_queue_data.cmd_pool),
+						"failed to create command pool" + err_str)
+#if defined(FLOOR_DEBUG)
+			vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_POOL, uint64_t(per_queue_data.cmd_pool), "icp_cmd_pool");
 #endif
+			
+			// create cmd buffers
+			per_queue_data.cmd_buffers.resize(desc.max_command_count);
+			const VkCommandBufferAllocateInfo sec_cmd_buffer_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+				.pNext = nullptr,
+				.commandPool = per_queue_data.cmd_pool,
+				// always create secondary
+				.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+				.commandBufferCount = desc.max_command_count,
+			};
+			VK_CALL_RET(vkAllocateCommandBuffers(vk_dev_ptr, &sec_cmd_buffer_info, &per_queue_data.cmd_buffers[0]),
+						"failed to create secondary command buffers" + err_str)
+#if defined(FLOOR_DEBUG)
+			uint32_t sec_cmd_buffer_counter = 0;
+			for (const auto& cb : per_queue_data.cmd_buffers) {
+				vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_BUFFER, uint64_t(cb), "icp_cmd_buf_" + to_string(sec_cmd_buffer_counter++));
+			}
+#endif
+		}
 		
 		// allocate memory for per-command parameters
 		// NOTE: we assume we only use SSBOs or that compute_buffer_counts_from_functions() was used to compute the buffer count
@@ -133,16 +147,18 @@ indirect_command_pipeline(desc_) {
 		assert(cmd_params_size > 0);
 		
 		// need host-visible/host-coherent and descriptor buffer usage flags
+		const auto default_queue = (const vulkan_queue*)dev->context->get_device_default_queue(*dev);
 		entry.cmd_parameters = vk_ctx.create_buffer(*default_queue, cmd_params_size,
-													// NOTE: read-only on the device side (until writable argument buffers are implemented)
-													COMPUTE_MEMORY_FLAG::READ |
-													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
-													COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT |
-													COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
+															 // NOTE: read-only on the device side (until writable argument buffers are implemented)
+															 COMPUTE_MEMORY_FLAG::READ |
+															 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+															 COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT |
+															 COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
 #if defined(FLOOR_DEBUG)
 		entry.cmd_parameters->set_debug_label("icp_cmd_params_buf");
 #endif
-		entry.mapped_cmd_parameters = entry.cmd_parameters->map(*default_queue, (COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE |
+		// note that this doesn't have any direct dependency on the queue (type) itself (-> will work for both ALL and COMPUTE queues later on)
+		entry.mapped_cmd_parameters = entry.cmd_parameters->map(*default_queue, (COMPUTE_MEMORY_MAP_FLAG::WRITE |
 																				 COMPUTE_MEMORY_MAP_FLAG::BLOCK));
 		if (!entry.mapped_cmd_parameters) {
 			throw runtime_error("failed to map cmd parameters buffer" + err_str);
@@ -165,40 +181,42 @@ vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command
 	return !ret.first ? nullptr : &ret.second->second;
 }
 
-indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const compute_device& dev,
+																					  const graphics_pipeline& pipeline,
 																					  const bool is_multi_view_) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
 		throw runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
 	
-	const auto pipeline_entry = get_vulkan_pipeline_entry(dev_queue.get_device());
+	const auto pipeline_entry = get_vulkan_pipeline_entry(dev);
 	if (!pipeline_entry) {
-		throw runtime_error("no pipeline entry for device " + dev_queue.get_device().name);
+		throw runtime_error("no pipeline entry for device " + dev.name);
 	}
 	if (commands.size() >= desc.max_command_count) {
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline, is_multi_view_);
+	auto render_enc = make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline, is_multi_view_);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
 }
 
-indirect_compute_command_encoder& vulkan_indirect_command_pipeline::add_compute_command(const compute_queue& dev_queue, const compute_kernel& kernel_obj) {
+indirect_compute_command_encoder& vulkan_indirect_command_pipeline::add_compute_command(const compute_device& dev,
+																						const compute_kernel& kernel_obj) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {
 		throw runtime_error("adding compute commands to a render indirect command pipeline is not allowed");
 	}
 	
-	const auto pipeline_entry = get_vulkan_pipeline_entry(dev_queue.get_device());
+	const auto pipeline_entry = get_vulkan_pipeline_entry(dev);
 	if (!pipeline_entry) {
-		throw runtime_error("no pipeline entry for device " + dev_queue.get_device().name);
+		throw runtime_error("no pipeline entry for device " + dev.name);
 	}
 	if (commands.size() >= desc.max_command_count) {
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto compute_enc = make_unique<vulkan_indirect_compute_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, kernel_obj);
+	auto compute_enc = make_unique<vulkan_indirect_compute_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, kernel_obj);
 	auto compute_enc_ptr = compute_enc.get();
 	commands.emplace_back(std::move(compute_enc));
 	return *compute_enc_ptr;
@@ -225,9 +243,11 @@ void vulkan_indirect_command_pipeline::complete_pipeline(const compute_device& d
 		if (!cmd || &cmd->get_device() != &dev) {
 			continue;
 		}
-		auto cmd_buffer = entry.cmd_buffers[cmd_idx];
-		VK_CALL_RET(vkEndCommandBuffer(cmd_buffer),
-					"failed to end command buffer #" + to_string(cmd_idx) + " for device " + dev.name)
+		for (auto& per_queue_data : entry.per_queue_data) {
+			auto cmd_buffer = per_queue_data.cmd_buffers[cmd_idx];
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer),
+						"failed to end command buffer #" + to_string(cmd_idx) + " for device " + dev.name)
+		}
 	}
 }
 
@@ -288,10 +308,9 @@ vulkan_indirect_command_pipeline::compute_and_validate_command_range(const uint3
 }
 
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry::vulkan_pipeline_entry(vulkan_pipeline_entry&& entry) :
-vk_dev(entry.vk_dev), cmd_pool(entry.cmd_pool), cmd_buffers(std::move(entry.cmd_buffers)),
+vk_dev(entry.vk_dev), per_queue_data(std::move(entry.per_queue_data)),
 cmd_parameters(entry.cmd_parameters), mapped_cmd_parameters(entry.mapped_cmd_parameters), per_cmd_size(entry.per_cmd_size), printf_buffer(entry.printf_buffer) {
-	entry.cmd_pool = nullptr;
-	entry.cmd_buffers = {};
+	entry.per_queue_data.clear();
 	entry.cmd_parameters = nullptr;
 	entry.mapped_cmd_parameters = nullptr;
 	entry.per_cmd_size = 0;
@@ -300,14 +319,12 @@ cmd_parameters(entry.cmd_parameters), mapped_cmd_parameters(entry.mapped_cmd_par
 
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry& vulkan_indirect_command_pipeline::vulkan_pipeline_entry::operator=(vulkan_pipeline_entry&& entry) {
 	vk_dev = entry.vk_dev;
-	cmd_pool = entry.cmd_pool;
-	cmd_buffers = std::move(entry.cmd_buffers);
+	per_queue_data = std::move(entry.per_queue_data);
 	cmd_parameters = entry.cmd_parameters;
 	mapped_cmd_parameters = entry.mapped_cmd_parameters;
 	per_cmd_size = entry.per_cmd_size;
 	printf_buffer = entry.printf_buffer;
-	entry.cmd_pool = nullptr;
-	entry.cmd_buffers = {};
+	entry.per_queue_data.clear();
 	entry.cmd_parameters = nullptr;
 	entry.mapped_cmd_parameters = nullptr;
 	entry.per_cmd_size = 0;
@@ -318,8 +335,10 @@ vulkan_indirect_command_pipeline::vulkan_pipeline_entry& vulkan_indirect_command
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry::~vulkan_pipeline_entry() {
 	if (vk_dev) {
 		// NOTE: this will implicitly kill all command buffers as well
-		if (cmd_pool) {
-			vkDestroyCommandPool(vk_dev, cmd_pool, nullptr);
+		for (auto& per_queue_data_ : per_queue_data) {
+			if (per_queue_data_.cmd_pool) {
+				vkDestroyCommandPool(vk_dev, per_queue_data_.cmd_pool, nullptr);
+			}
 		}
 	}
 }
@@ -339,11 +358,11 @@ void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(
 
 vulkan_indirect_render_command_encoder::vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
-																			   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+																			   const compute_device& dev_, const graphics_pipeline& pipeline_,
 																			   const bool is_multi_view_) :
-indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& vk_render_pipeline = (const vulkan_pipeline&)pipeline;
-	const auto& vk_dev = (const vulkan_device&)dev_queue.get_device();
+	const auto& vk_dev = (const vulkan_device&)dev;
 	pipeline_state = vk_render_pipeline.get_vulkan_pipeline_state(vk_dev, is_multi_view,
 																  !vk_dev.inherited_viewport_scissor_support /* indirect if !inheriting viewport/scissor */);
 	if (!pipeline_state || !pipeline_state->pipeline) {
@@ -375,7 +394,8 @@ indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline
 		has_soft_printf |= has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs->info->flags);
 	}
 	
-	cmd_buffer = pipeline_entry.cmd_buffers.at(command_idx);
+	// NOTE: for render commands/pipelines, this will always be the first per-queuy data entry
+	cmd_buffer = pipeline_entry.per_queue_data[0].cmd_buffers.at(command_idx);
 	
 	const auto& pipeline_desc = pipeline.get_description(is_multi_view);
 	const VkViewport cur_viewport {
@@ -428,7 +448,8 @@ indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline
 	
 	if (has_soft_printf) {
 		if (!pipeline_entry.printf_buffer) {
-			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+			const auto default_queue = (const vulkan_queue*)dev.context->get_device_default_queue(dev);
+			pipeline_entry.printf_buffer = allocate_printf_buffer(*default_queue);
 		}
 	}
 }
@@ -490,7 +511,7 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_in
 void vulkan_indirect_render_command_encoder::draw_internal(const graphics_renderer::multi_draw_entry* draw_entry,
 														   const graphics_renderer::multi_draw_indexed_entry* draw_index_entry) {
 	assert(pipeline_state);
-	const auto& vk_dev = (const vulkan_device&)dev_queue.get_device();
+	const auto& vk_dev = (const vulkan_device&)dev;
 	const auto& vk_ctx = (const vulkan_compute&)*vk_dev.context;
 	const auto vk_vs = (const vulkan_kernel::vulkan_kernel_entry*)vs;
 	const auto vk_fs = (const vulkan_kernel::vulkan_kernel_entry*)fs;
@@ -538,7 +559,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		vk_vs ? &vk_vs->desc_buffer.argument_offsets : nullptr,
 		vk_fs ? &vk_fs->desc_buffer.argument_offsets : nullptr,
 	};
-	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_SHADER>((const vulkan_device&)dev_queue.get_device(),
+	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_SHADER>((const vulkan_device&)dev,
 																											  cmd_params,
 																											  entries,
 																											  argument_offsets,
@@ -677,49 +698,55 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_pa
 
 vulkan_indirect_compute_command_encoder::vulkan_indirect_compute_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 																				 const uint32_t command_idx_,
-																				 const compute_queue& dev_queue_, const compute_kernel& kernel_obj_) :
-indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+																				 const compute_device& dev_, const compute_kernel& kernel_obj_) :
+indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto vk_kernel_entry = (const vulkan_kernel::vulkan_kernel_entry*)entry;
 	if (!vk_kernel_entry || !vk_kernel_entry->pipeline_layout || !vk_kernel_entry->info) {
-		throw runtime_error("state is invalid or no compute pipeline entry exists for device " + dev_queue.get_device().name);
+		throw runtime_error("state is invalid or no compute pipeline entry exists for device " + dev.name);
 	}
 	
 #if defined(FLOOR_DEBUG)
 	// verify that the layout size is <= our pre-computed max per command size
 	VkDeviceSize layout_size_in_bytes = 0;
-	((const vulkan_compute*)dev_queue.get_device().context)->vulkan_get_descriptor_set_layout_size(pipeline_entry.vk_dev,
-																								   vk_kernel_entry->desc_set_layout,
-																								   &layout_size_in_bytes);
+	((const vulkan_compute*)dev.context)->vulkan_get_descriptor_set_layout_size(pipeline_entry.vk_dev,
+																				vk_kernel_entry->desc_set_layout,
+																				&layout_size_in_bytes);
 	if (pipeline_entry.per_cmd_size < layout_size_in_bytes) {
 		throw runtime_error("miscalculated per command size: " + to_string(pipeline_entry.per_cmd_size)
 							+ " < actual layout size " + to_string(layout_size_in_bytes));
 	}
 #endif
 	
-	cmd_buffer = pipeline_entry.cmd_buffers.at(command_idx);
-	const VkCommandBufferInheritanceInfo inheritance_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
-		.pNext = nullptr,
-		.renderPass = nullptr,
-		.subpass = 0,
-		.framebuffer = nullptr,
-		.occlusionQueryEnable = false,
-		.queryFlags = 0,
-		.pipelineStatistics = 0,
-	};
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = (VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* we need to be able to use this simultaneously */),
-		.pInheritanceInfo = &inheritance_info,
-	};
-	VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffer, &begin_info),
-					 "failed to begin command buffer for indirect compute command",
-					 throw runtime_error("failed to begin command buffer for indirect compute command");)
+	uint32_t per_queue_data_idx = 0;
+	for (auto& per_queue_data : pipeline_entry.per_queue_data) {
+		cmd_buffers[per_queue_data_idx] = per_queue_data.cmd_buffers.at(command_idx);
+		const VkCommandBufferInheritanceInfo inheritance_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+			.pNext = nullptr,
+			.renderPass = nullptr,
+			.subpass = 0,
+			.framebuffer = nullptr,
+			.occlusionQueryEnable = false,
+			.queryFlags = 0,
+			.pipelineStatistics = 0,
+		};
+		const VkCommandBufferBeginInfo begin_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.pNext = nullptr,
+			.flags = (VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* we need to be able to use this simultaneously */),
+			.pInheritanceInfo = &inheritance_info,
+		};
+		VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffers[per_queue_data_idx], &begin_info),
+						 "failed to begin command buffer for indirect compute command",
+						 throw runtime_error("failed to begin command buffer for indirect compute command");)
+		
+		++per_queue_data_idx;
+	}
 	
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vk_kernel_entry->info->flags)) {
 		if (!pipeline_entry.printf_buffer) {
-			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+			const auto default_queue = (const vulkan_queue*)dev.context->get_device_default_queue(dev);
+			pipeline_entry.printf_buffer = allocate_printf_buffer(*default_queue);
 		}
 	}
 }
@@ -741,7 +768,7 @@ void vulkan_indirect_compute_command_encoder::set_arguments_vector(vector<comput
 indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execute(const uint32_t dim floor_unused,
 																				   const uint3& global_work_size,
 																				   const uint3& local_work_size) {
-	const auto& vk_dev = (const vulkan_device&)dev_queue.get_device();
+	const auto& vk_dev = (const vulkan_device&)dev;
 	const auto& vk_kernel = (const vulkan_kernel&)kernel_obj;
 	const auto& vk_ctx = (const vulkan_compute&)*vk_dev.context;
 	const auto& vk_kernel_entry = (const vulkan_kernel::vulkan_kernel_entry&)*entry;
@@ -756,20 +783,14 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 	grid_dim.max(1u);
 	
-	// set up pipeline
-	auto vk_pipeline = vk_kernel.get_pipeline_spec(vk_dev,
-												   // unfortunate, but we know this is modifiable
-												   const_cast<vulkan_kernel::vulkan_kernel_entry&>(vk_kernel_entry),
-												   block_dim);
-	vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
-	
+	// encode args
 	// offset into "cmd_parameters" buffer where we'll write all parameters to for this command
 	const auto cmd_params_offset = command_idx * pipeline_entry.per_cmd_size;
 	span<uint8_t> cmd_params { (uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset, pipeline_entry.per_cmd_size };
 	
 	// set/handle arguments
 	const auto has_non_arg_buffer_arguments = (vk_kernel_entry.desc_buffer.desc_buffer_container != nullptr);
-	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_COMPUTE>((const vulkan_device&)dev_queue.get_device(),
+	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_COMPUTE>((const vulkan_device&)dev,
 																											   { cmd_params },
 																											   { entry->info },
 																											   { &vk_kernel_entry.desc_buffer.argument_offsets },
@@ -780,9 +801,11 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 		throw runtime_error("failed to set arguments for indirect compute command");
 	}
 	
-	// bind all the things (embedded + internal and external (arg-buffer) desc buffers + handle desc buf offsets)
-	vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-															   vk_kernel_entry.pipeline_layout, 0 /* always set #0 */);
+	// encode per-queue data
+	auto vk_pipeline = vk_kernel.get_pipeline_spec(vk_dev,
+												   // unfortunate, but we know this is modifiable
+												   const_cast<vulkan_kernel::vulkan_kernel_entry&>(vk_kernel_entry),
+												   block_dim);
 	
 	const auto desc_buf_count = ((has_non_arg_buffer_arguments ? 1u : 0u) /* our cmd params desc buf */ +
 								 uint32_t(arg_buffers.size()) /* user-specified argument buffers */);
@@ -809,23 +832,35 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 		});
 	}
 	
-	vk_ctx.vulkan_cmd_bind_descriptor_buffers(cmd_buffer, desc_buf_count, desc_buf_bindings.data());
-	
-	// kernel descriptor set + any argument buffers are stored in contiguous descriptor set indices
 	const vector<VkDeviceSize> offsets(desc_buf_count, 0); // always 0 for all
 	vector<uint32_t> buffer_indices(desc_buf_count, 0);
 	for (uint32_t i = 1; i < desc_buf_count; ++i) {
 		buffer_indices[i] = i;
 	}
 	const auto start_set = (!has_non_arg_buffer_arguments ? 2u /* first arg buffer set */ : 1u /* kernel set */);
-	vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(cmd_buffer,
-													VK_PIPELINE_BIND_POINT_COMPUTE,
-													vk_kernel_entry.pipeline_layout,
-													start_set, desc_buf_count,
-													buffer_indices.data(), offsets.data());
 	
-	// finally: dispatch
-	vkCmdDispatch(cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
+	for (uint32_t per_queue_data_idx = 0; per_queue_data_idx < uint32_t(pipeline_entry.per_queue_data.size()); ++per_queue_data_idx) {
+		auto cmd_buffer = cmd_buffers[per_queue_data_idx];
+		
+		// set up pipeline
+		vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+		
+		// bind all the things (embedded + internal and external (arg-buffer) desc buffers + handle desc buf offsets)
+		vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+																   vk_kernel_entry.pipeline_layout, 0 /* always set #0 */);
+		
+		vk_ctx.vulkan_cmd_bind_descriptor_buffers(cmd_buffer, desc_buf_count, desc_buf_bindings.data());
+		
+		// kernel descriptor set + any argument buffers are stored in contiguous descriptor set indices
+		vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(cmd_buffer,
+														VK_PIPELINE_BIND_POINT_COMPUTE,
+														vk_kernel_entry.pipeline_layout,
+														start_set, desc_buf_count,
+														buffer_indices.data(), offsets.data());
+		
+		// finally: dispatch
+		vkCmdDispatch(cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
+	}
 	
 	return *this;
 }
@@ -851,7 +886,9 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::barri
 		.imageMemoryBarrierCount = 0,
 		.pImageMemoryBarriers = nullptr,
 	};
-	vkCmdPipelineBarrier2(cmd_buffer, &dep_info);
+	for (uint32_t per_queue_data_idx = 0; per_queue_data_idx < uint32_t(pipeline_entry.per_queue_data.size()); ++per_queue_data_idx) {
+		vkCmdPipelineBarrier2(cmd_buffers[per_queue_data_idx], &dep_info);
+	}
 	return *this;
 }
 

@@ -22,7 +22,7 @@
 #include <floor/core/essentials.hpp>
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
-#include <floor/compute/compute_queue.hpp>
+#include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 
@@ -90,12 +90,14 @@ public:
 	
 	//! adds a new render command this indirect command pipeline,
 	//! returning a reference to the non-owning encoder object that can be used to encode the render command
-	virtual indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+	virtual indirect_render_command_encoder& add_render_command(const compute_device& dev,
+																const graphics_pipeline& pipeline,
 																const bool is_multi_view = false) = 0;
 	
 	//! adds a new compute command this indirect command pipeline,
 	//! returning a reference to the non-owning encoder object that can be used to encode the compute command
-	virtual indirect_compute_command_encoder& add_compute_command(const compute_queue& dev_queue, const compute_kernel& kernel_obj) = 0;
+	virtual indirect_compute_command_encoder& add_compute_command(const compute_device& dev,
+																  const compute_kernel& kernel_obj) = 0;
 	
 	//! completes this indirect command pipeline for the specified device
 	virtual void complete(const compute_device& dev) = 0;
@@ -156,17 +158,17 @@ protected:
 	}
 	
 public:
-	explicit indirect_command_encoder(const compute_queue& dev_queue_) : dev_queue(dev_queue_) {}
+	explicit indirect_command_encoder(const compute_device& dev_) : dev(dev_) {}
 	virtual ~indirect_command_encoder() = default;
 	
 	//! returns the associated device for this indirect_command_encoder
 	const compute_device& get_device() const {
-		return dev_queue.get_device();
+		return dev;
 	}
 	
 protected:
-	//! { device, queue } pair needed for encoding and execution purposes
-	const compute_queue& dev_queue;
+	//! device needed for encoding
+	const compute_device& dev;
 	
 	//! sets/encodes the specified arguments in this command
 	virtual void set_arguments_vector(vector<compute_kernel_arg>&& args) = 0;
@@ -176,8 +178,8 @@ protected:
 //! encoder for encoding render commands in an indirect command pipeline
 class indirect_render_command_encoder : public indirect_command_encoder {
 public:
-	//! NOTE: compute_queue and graphics_pipeline must be valid for the lifetime of the parent indirect_command_pipeline
-	indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_, const bool is_multi_view_);
+	//! NOTE: compute_device and graphics_pipeline must be valid for the lifetime of the parent indirect_command_pipeline
+	indirect_render_command_encoder(const compute_device& dev_, const graphics_pipeline& pipeline_, const bool is_multi_view_);
 	~indirect_render_command_encoder() override = default;
 	
 	//! encode a simple draw call using the specified parameters
@@ -242,8 +244,8 @@ protected:
 //! encoder for encoding compute commands in an indirect command pipeline
 class indirect_compute_command_encoder : public indirect_command_encoder {
 public:
-	//! NOTE: compute_queue and compute_kernel must be valid for the lifetime of the parent indirect_command_pipeline
-	indirect_compute_command_encoder(const compute_queue& dev_queue_, const compute_kernel& kernel_obj_);
+	//! NOTE: compute_device and compute_kernel must be valid for the lifetime of the parent indirect_command_pipeline
+	indirect_compute_command_encoder(const compute_device& dev_, const compute_kernel& kernel_obj_);
 	~indirect_compute_command_encoder() override = default;
 	
 	//! encode a 1D kernel execution using the specified parameters

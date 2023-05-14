@@ -133,6 +133,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		host_buffer_offset = 0;
 		
 		// create the host-visible buffer
+		const auto& vk_dev = (const vulkan_device&)device;
+		const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
 		const VkBufferCreateInfo buffer_create_info {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.pNext = nullptr,
@@ -140,9 +142,9 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 			.size = size,
 			.usage = VkBufferUsageFlags((does_write ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : VkBufferUsageFlagBits(0u)) |
 										(does_read ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : VkBufferUsageFlagBits(0u))),
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-			.queueFamilyIndexCount = 0,
-			.pQueueFamilyIndices = nullptr,
+			.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
+			.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
+			.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 		};
 		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 	

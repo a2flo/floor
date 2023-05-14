@@ -122,40 +122,42 @@ metal_indirect_command_pipeline::metal_pipeline_entry* metal_indirect_command_pi
 	return !ret.first ? nullptr : &ret.second->second;
 }
 
-indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_command(const compute_device& dev,
+																					 const graphics_pipeline& pipeline,
 																					 const bool is_multi_view_) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
 		throw runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
 	
-	const auto pipeline_entry = get_metal_pipeline_entry(dev_queue.get_device());
+	const auto pipeline_entry = get_metal_pipeline_entry(dev);
 	if (!pipeline_entry) {
-		throw runtime_error("no pipeline entry for device " + dev_queue.get_device().name);
+		throw runtime_error("no pipeline entry for device " + dev.name);
 	}
 	if (commands.size() >= desc.max_command_count) {
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = make_unique<metal_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, pipeline, is_multi_view_);
+	auto render_enc = make_unique<metal_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline, is_multi_view_);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
 }
 
-indirect_compute_command_encoder& metal_indirect_command_pipeline::add_compute_command(const compute_queue& dev_queue, const compute_kernel& kernel_obj) {
+indirect_compute_command_encoder& metal_indirect_command_pipeline::add_compute_command(const compute_device& dev,
+																					   const compute_kernel& kernel_obj) {
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {
 		throw runtime_error("adding compute commands to a render indirect command pipeline is not allowed");
 	}
 	
-	const auto pipeline_entry = get_metal_pipeline_entry(dev_queue.get_device());
+	const auto pipeline_entry = get_metal_pipeline_entry(dev);
 	if (!pipeline_entry) {
-		throw runtime_error("no pipeline entry for device " + dev_queue.get_device().name);
+		throw runtime_error("no pipeline entry for device " + dev.name);
 	}
 	if (commands.size() >= desc.max_command_count) {
 		throw runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto compute_enc = make_unique<metal_indirect_compute_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev_queue, kernel_obj);
+	auto compute_enc = make_unique<metal_indirect_compute_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, kernel_obj);
 	auto compute_enc_ptr = compute_enc.get();
 	commands.emplace_back(std::move(compute_enc));
 	return *compute_enc_ptr;
@@ -278,13 +280,13 @@ void metal_indirect_command_pipeline::metal_pipeline_entry::printf_completion(co
 
 metal_indirect_render_command_encoder::metal_indirect_render_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			 const uint32_t command_idx_,
-																			 const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+																			 const compute_device& dev_, const graphics_pipeline& pipeline_,
 																			 const bool is_multi_view_) :
-indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& mtl_render_pipeline = (const metal_pipeline&)pipeline;
-	const auto mtl_render_pipeline_entry = mtl_render_pipeline.get_metal_pipeline_entry(dev_queue.get_device());
+	const auto mtl_render_pipeline_entry = mtl_render_pipeline.get_metal_pipeline_entry(dev);
 	if (!mtl_render_pipeline_entry || !mtl_render_pipeline_entry->pipeline_state) {
-		throw runtime_error("no render pipeline entry exists for device " + dev_queue.get_device().name);
+		throw runtime_error("no render pipeline entry exists for device " + dev.name);
 	}
 #if defined(FLOOR_DEBUG)
 	const auto& desc = mtl_render_pipeline.get_description(is_multi_view);
@@ -308,7 +310,8 @@ indirect_render_command_encoder(dev_queue_, pipeline_, is_multi_view_), pipeline
 	
 	if (has_soft_printf) {
 		if (!pipeline_entry.printf_buffer) {
-			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+			auto internal_dev_queue = ((const metal_compute*)dev.context)->get_device_default_queue(dev);
+			pipeline_entry.printf_buffer = allocate_printf_buffer(*internal_dev_queue);
 		}
 	}
 }
@@ -331,7 +334,7 @@ void metal_indirect_render_command_encoder::set_arguments_vector(vector<compute_
 			implicit_args.emplace_back(pipeline_entry.printf_buffer);
 		}
 	}
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_SHADER>(dev_queue.get_device(), command,
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command,
 																					{ vs_info, fs_info },
 																					args, implicit_args,
 																					nullptr,
@@ -443,11 +446,11 @@ tessellationFactorBufferInstanceStride:0u];
 
 metal_indirect_compute_command_encoder::metal_indirect_compute_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
-																			   const compute_queue& dev_queue_, const compute_kernel& kernel_obj_) :
-indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+																			   const compute_device& dev_, const compute_kernel& kernel_obj_) :
+indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto mtl_kernel_entry = (const metal_kernel::metal_kernel_entry*)entry;
 	if (!mtl_kernel_entry || !mtl_kernel_entry->kernel_state || !mtl_kernel_entry->info) {
-		throw runtime_error("state is invalid or no compute pipeline entry exists for device " + dev_queue.get_device().name);
+		throw runtime_error("state is invalid or no compute pipeline entry exists for device " + dev.name);
 	}
 #if defined(FLOOR_DEBUG)
 	if (!mtl_kernel_entry->supports_indirect_compute) {
@@ -460,7 +463,8 @@ indirect_compute_command_encoder(dev_queue_, kernel_obj_), pipeline_entry(pipeli
 	
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(mtl_kernel_entry->info->flags)) {
 		if (!pipeline_entry.printf_buffer) {
-			pipeline_entry.printf_buffer = allocate_printf_buffer(dev_queue);
+			auto internal_dev_queue = ((const metal_compute*)dev.context)->get_device_default_queue(dev);
+			pipeline_entry.printf_buffer = allocate_printf_buffer(*internal_dev_queue);
 		}
 	}
 }
@@ -475,7 +479,7 @@ void metal_indirect_compute_command_encoder::set_arguments_vector(vector<compute
 		// NOTE: this is automatically added to the used resources
 		implicit_args.emplace_back(pipeline_entry.printf_buffer);
 	}
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev_queue.get_device(), command,
+	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev, command,
 																					 { entry->info },
 																					 args, implicit_args,
 																					 nullptr,

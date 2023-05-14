@@ -69,6 +69,10 @@ public:
 	
 	const compute_queue* get_device_default_queue(const compute_device& dev) const override;
 	
+	shared_ptr<compute_queue> create_compute_queue(const compute_device& dev) const override;
+	
+	const compute_queue* get_device_default_compute_queue(const compute_device& dev) const override;
+	
 	unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const override;
 	
 	//////////////////////////////////////////
@@ -396,6 +400,7 @@ protected:
 	vector<VkDevice> logical_devices;
 	
 	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
+	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_compute_queues;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_3 };
 	
@@ -440,6 +445,11 @@ protected:
 
 	// if true, won't log/print validation layer messages
 	atomic<bool> ignore_validation { false };
+	
+	//! internal device queue creation handler
+	shared_ptr<compute_queue> create_queue_internal(const compute_device& dev, const uint32_t family_index,
+													const compute_queue::QUEUE_TYPE queue_type,
+													uint32_t& queue_index) const;
 	
 };
 

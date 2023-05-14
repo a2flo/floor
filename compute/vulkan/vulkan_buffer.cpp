@@ -56,7 +56,8 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 }
 
 bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
-	const auto& vulkan_dev = ((const vulkan_device&)cqueue.get_device()).device;
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	const auto& vulkan_dev = vk_dev.device;
 
 	// create the buffer
 	const auto is_sharing = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags);
@@ -87,16 +88,16 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	if (is_desc_buffer) {
 		buffer_usage |= VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 	}
+	const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
 		.flags = 0,
 		.size = size,
 		.usage = buffer_usage,
-		// NOTE: for performance reasons, we always want exclusive sharing
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.queueFamilyIndexCount = 0,
-		.pQueueFamilyIndices = nullptr,
+		.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
+		.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
+		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 	};
 	VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
 				"buffer creation failed", false)

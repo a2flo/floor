@@ -119,6 +119,17 @@ public:
 	//! returns the internal default compute_queue for the specified device
 	virtual const compute_queue* get_device_default_queue(const compute_device& dev) const = 0;
 	
+	//! create a compute-only queue for the specified device
+	//! NOTE: this is only relevant on backends that a) offer graphics supports and b) offer compute-only queues
+	virtual shared_ptr<compute_queue> create_compute_queue(const compute_device& dev) const {
+		return create_queue(dev);
+	}
+	
+	//! returns the internal default compute-only compute_queue for the specified device
+	virtual const compute_queue* get_device_default_compute_queue(const compute_device& dev) const {
+		return get_device_default_queue(dev);
+	}
+	
 	//! creates and returns a fence for the specified queue
 	virtual unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const = 0;
 	

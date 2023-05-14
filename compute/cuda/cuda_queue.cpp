@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-cuda_queue::cuda_queue(const compute_device& device_, const cu_stream queue_) : compute_queue(device_), queue(queue_) {
+cuda_queue::cuda_queue(const compute_device& device_, const cu_stream queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {
 	CU_CALL_NO_ACTION(cu_event_create(&prof_start, CU_EVENT_FLAGS::BLOCKING_SYNC), "failed to create profiling event")
 	CU_CALL_NO_ACTION(cu_event_create(&prof_stop, CU_EVENT_FLAGS::BLOCKING_SYNC), "failed to create profiling event")
 }

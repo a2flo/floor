@@ -46,10 +46,18 @@ public:
 		
 		friend vulkan_indirect_command_pipeline;
 		VkDevice vk_dev { nullptr };
-		//! command pool for all commands in this pipeline
-		VkCommandPool cmd_pool { nullptr };
-		//! secondary command buffers: each will contain one "command"
-		vector<VkCommandBuffer> cmd_buffers;
+		
+		struct per_queue_data_t {
+			//! Vulkan queue family index this was created for
+			uint32_t queue_family_index { 0u };
+			//! command pool for all commands in this pipeline
+			VkCommandPool cmd_pool { nullptr };
+			//! secondary command buffers: each will contain one "command"
+			vector<VkCommandBuffer> cmd_buffers;
+		};
+		//! per queue family data
+		//! currently: [all, compute-only] when there is a separate compute-only family and this is a COMPUTE pipeline, or [all] otherwise
+		vector<per_queue_data_t> per_queue_data;
 		
 		//! single buffer that acts as the descriptor buffer for all commands
 		//! NOTE: allocated based on max commands and max parameters (+implementation specific sizes/offsets)
@@ -69,9 +77,11 @@ public:
 	const vulkan_pipeline_entry* get_vulkan_pipeline_entry(const compute_device& dev) const;
 	vulkan_pipeline_entry* get_vulkan_pipeline_entry(const compute_device& dev);
 	
-	indirect_render_command_encoder& add_render_command(const compute_queue& dev_queue, const graphics_pipeline& pipeline,
+	indirect_render_command_encoder& add_render_command(const compute_device& dev,
+														const graphics_pipeline& pipeline,
 														const bool is_multi_view) override;
-	indirect_compute_command_encoder& add_compute_command(const compute_queue& dev_queue, const compute_kernel& kernel_obj) override;
+	indirect_compute_command_encoder& add_compute_command(const compute_device& dev,
+														  const compute_kernel& kernel_obj) override;
 	void complete(const compute_device& dev) override;
 	void complete() override;
 	void reset() override;
@@ -97,7 +107,7 @@ class vulkan_indirect_render_command_encoder final : public indirect_render_comm
 public:
 	vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 										   const uint32_t command_idx_,
-										   const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+										   const compute_device& dev_, const graphics_pipeline& pipeline_,
 										   const bool is_multi_view_);
 	~vulkan_indirect_render_command_encoder() override;
 	
@@ -161,7 +171,7 @@ class vulkan_indirect_compute_command_encoder final : public indirect_compute_co
 public:
 	vulkan_indirect_compute_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 											const uint32_t command_idx_,
-											const compute_queue& dev_queue_, const compute_kernel& kernel_obj_);
+											const compute_device& dev_, const compute_kernel& kernel_obj_);
 	~vulkan_indirect_compute_command_encoder() override;
 	
 	void set_arguments_vector(vector<compute_kernel_arg>&& args) override;
@@ -172,8 +182,8 @@ protected:
 	const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry;
 	const uint32_t command_idx { 0u };
 	
-	//! cmd buffer in "secondary_cmd_buffers"
-	VkCommandBuffer cmd_buffer;
+	//! cmd buffer in "secondary_cmd_buffers" in each resp. per_queue_data
+	VkCommandBuffer cmd_buffers[2] { nullptr, nullptr };
 	
 	//! set via set_arguments_vector
 	vector<compute_kernel_arg> args;

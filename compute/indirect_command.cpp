@@ -148,9 +148,10 @@ void indirect_command_pipeline::reset() {
 	commands.clear();
 }
 
-indirect_render_command_encoder::indirect_render_command_encoder(const compute_queue& dev_queue_, const graphics_pipeline& pipeline_,
+indirect_render_command_encoder::indirect_render_command_encoder(const compute_device& dev_,
+																 const graphics_pipeline& pipeline_,
 																 const bool is_multi_view_) :
-indirect_command_encoder(dev_queue_), pipeline(pipeline_), is_multi_view(is_multi_view_) {
+indirect_command_encoder(dev_), pipeline(pipeline_), is_multi_view(is_multi_view_) {
 	if (!pipeline.is_valid()) {
 		throw runtime_error("invalid graphics_pipeline ('" + pipeline.get_description(false).debug_label +
 							"') specified in indirect render command encoder");
@@ -161,9 +162,10 @@ indirect_command_encoder(dev_queue_), pipeline(pipeline_), is_multi_view(is_mult
 	}
 }
 
-indirect_compute_command_encoder::indirect_compute_command_encoder(const compute_queue& dev_queue_, const compute_kernel& kernel_obj_) :
-indirect_command_encoder(dev_queue_), kernel_obj(kernel_obj_) {
-	entry = kernel_obj.get_kernel_entry(dev_queue.get_device());
+indirect_compute_command_encoder::indirect_compute_command_encoder(const compute_device& dev_,
+																   const compute_kernel& kernel_obj_) :
+indirect_command_encoder(dev_), kernel_obj(kernel_obj_) {
+	entry = kernel_obj.get_kernel_entry(dev);
 	if (!entry) {
 		throw runtime_error("invalid compute_kernel specified in indirect compute command encoder");
 	}

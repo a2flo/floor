@@ -64,6 +64,19 @@ public:
 	//! for internal purposes, do not change this
 	mutable uint32_t cur_queue_idx { 0 };
 	
+	//! for internal purposes, do not change this
+	mutable uint32_t cur_compute_queue_idx { 0u };
+	
+	//! queue family index for queues that support everything (graphics/compute/transfer)
+	uint32_t all_queue_family_index { ~0u };
+	
+	//! queue family index for queues that support compute-only
+	//! NOTE: for devices that don't have this, this falls back to the same value as "all_queue_family_index"
+	uint32_t compute_queue_family_index { ~0u };
+	
+	//! queue families for concurrent resource creation
+	array<uint32_t, 2> queue_families {{ 0, 0 }};
+	
 	//! max push constants size
 	uint32_t max_push_constants_size { 0u };
 	

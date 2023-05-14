@@ -30,7 +30,7 @@
 @property(readonly) double GPUStartTime;
 @end
 
-metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_), queue(queue_) {
+metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {
 	// check if we can do profiling
 	id <MTLCommandBuffer> buffer = [queue commandBufferWithUnretainedReferences];
 	__unsafe_unretained id <MTLCommandBufferProfiling> prof_buffer = (id <MTLCommandBufferProfiling>)buffer;

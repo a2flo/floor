@@ -74,7 +74,17 @@ public:
 	}
 	
 public:
-	explicit compute_queue(const compute_device& device_) : device(device_) {}
+	enum class QUEUE_TYPE {
+		//! default queue type
+		//! CUDA/OpenCL/Host: compute-only
+		//! Metal/Vulkan: graphics + compute support
+		ALL,
+		//! CUDA/OpenCL/Host/Metal: same as ALL
+		//! Vulkan: compute-only
+		COMPUTE,
+	};
+	
+	explicit compute_queue(const compute_device& device_, const QUEUE_TYPE queue_type_) : device(device_), queue_type(queue_type_) {}
 	virtual ~compute_queue() = default;
 	
 	//! blocks until all currently scheduled work in this queue has been executed
@@ -245,12 +255,18 @@ public:
 	//! stops the previously started profiling and returns the elapsed time in microseconds
 	virtual uint64_t stop_profiling() const;
 	
+	//! returns the type of this queue
+	QUEUE_TYPE get_queue_type() const {
+		return queue_type;
+	}
+	
 	//! sets the debug label of this compute queue
 	virtual void set_debug_label(const string& label [[maybe_unused]]) {}
 	
 protected:
 	const compute_device& device;
 	mutable uint64_t us_prof_start { 0 };
+	const QUEUE_TYPE queue_type { QUEUE_TYPE::ALL };
 	
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(const compute_kernel& kernel,

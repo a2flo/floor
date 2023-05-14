@@ -43,7 +43,8 @@ struct vulkan_command_pool_t;
 
 class vulkan_queue final : public compute_queue {
 public:
-	explicit vulkan_queue(const compute_device& device, VkQueue queue, const uint32_t family_index);
+	explicit vulkan_queue(const compute_device& device, VkQueue queue,
+						  const uint32_t family_index, const QUEUE_TYPE queue_type_);
 	~vulkan_queue() override;
 	
 	static void init();

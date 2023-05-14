@@ -98,7 +98,8 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 }
 
 bool vulkan_image::create_internal(const bool copy_host_data, const compute_queue& cqueue, const VkImageUsageFlags& usage) {
-	auto vulkan_dev = ((const vulkan_device&)dev).device;
+	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
+	auto vulkan_dev = vk_dev.device;
 	const auto dim_count = image_dim_count(image_type);
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
@@ -173,6 +174,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 #endif
 		};
 	}
+	const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
 	const VkImageCreateInfo image_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
@@ -185,10 +187,9 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.samples = is_msaa ? sample_count_to_vulkan_sample_count(image_sample_count(image_type)) : VK_SAMPLE_COUNT_1_BIT,
 		.tiling = VK_IMAGE_TILING_OPTIMAL, // TODO: might want linear as well later on?
 		.usage = usage,
-		// NOTE: for performance reasons, we always want exclusive sharing
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.queueFamilyIndexCount = 0,
-		.pQueueFamilyIndices = nullptr,
+		.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
+		.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
+		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 		.initialLayout = initial_layout,
 	};
 	VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
@@ -872,7 +873,6 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition(const compute_queue* 
 														   const VkImageLayout new_layout,
 														   const VkPipelineStageFlags2 src_stage_mask_in,
 														   const VkPipelineStageFlags2 dst_stage_mask_in,
-														   const uint32_t dst_queue_idx,
 														   const bool soft_transition) {
 	VkImageAspectFlags aspect_mask = 0;
 	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
@@ -896,8 +896,8 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition(const compute_queue* 
 		.dstAccessMask = dst_access,
 		.oldLayout = image_info.imageLayout,
 		.newLayout = new_layout,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // TODO: use something appropriate here
-		.dstQueueFamilyIndex = dst_queue_idx,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.image = image,
 		.subresourceRange = {
 			.aspectMask = aspect_mask,
@@ -954,7 +954,7 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_read(const compute_qu
 		}
 		return transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
+						  soft_transition);
 	}
 	// attachments / render-targets
 	else {
@@ -976,7 +976,7 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_read(const compute_qu
 		
 		return transition(cqueue, cmd_buffer, access_flags, layout,
 						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
+						  soft_transition);
 	}
 }
 
@@ -996,7 +996,7 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_write(const compute_q
 		}
 		return transition(cqueue, cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
 						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
+						  soft_transition);
 	}
 	// attachments / render-targets
 	else {
@@ -1024,7 +1024,7 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition_write(const compute_q
 		
 		return transition(cqueue, cmd_buffer, access_flags, layout,
 						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-						  VK_QUEUE_FAMILY_IGNORED, soft_transition);
+						  soft_transition);
 	}
 }
 

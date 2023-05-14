@@ -345,7 +345,7 @@ bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_fini
 	if (is_presenting) {
 		// transition drawable image back to present mode (after render pass is complete)
 		cur_drawable->vk_image->transition(&cqueue, render_cmd_buffer.cmd_buffer, 0 /* as per doc */, cur_drawable->vk_drawable.present_layout,
-										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_QUEUE_FAMILY_IGNORED);
+										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 	}
 	
 	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)
@@ -513,8 +513,9 @@ void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect
 		vk_indirect_pipeline_entry->printf_init(cqueue);
 	}
 	
+	// NOTE: for render pipelines, this is always per_queue_data[0]
 	vkCmdExecuteCommands(render_cmd_buffer.cmd_buffer, range->count,
-						 &vk_indirect_pipeline_entry->cmd_buffers[range->offset]);
+						 &vk_indirect_pipeline_entry->per_queue_data[0].cmd_buffers[range->offset]);
 	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
 		vk_indirect_pipeline_entry->printf_completion(cqueue, render_cmd_buffer);

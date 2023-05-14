@@ -81,7 +81,6 @@ public:
 												 const VkImageLayout new_layout,
 												 const VkPipelineStageFlags2 src_stage_mask,
 												 const VkPipelineStageFlags2 dst_stage_mask,
-												 const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED,
 												 const bool soft_transition = false);
 	
 	//! transition for shader or attachment read (if not already in this mode),

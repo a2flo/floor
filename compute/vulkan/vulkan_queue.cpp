@@ -579,8 +579,8 @@ void vulkan_queue::destroy() {
 	}
 }
 
-vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_) :
-compute_queue(device_), vk_queue(queue_), family_index(family_index_) {
+vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_, const QUEUE_TYPE queue_type_) :
+compute_queue(device_, queue_type_), vk_queue(queue_), family_index(family_index_) {
 	// create impl
 	impl = make_unique<vulkan_queue_impl>(*this, (const vulkan_device&)device_, family_index);
 }
@@ -653,8 +653,9 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		vk_indirect_pipeline_entry->printf_init(*this);
 	}
 	
+	const auto queue_data_index = (queue_type == QUEUE_TYPE::ALL ? 0u : 1u);
 	vkCmdExecuteCommands(cmd_buffer.cmd_buffer, range->count,
-						 &vk_indirect_pipeline_entry->cmd_buffers[range->offset]);
+						 &vk_indirect_pipeline_entry->per_queue_data[queue_data_index].cmd_buffers[range->offset]);
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
