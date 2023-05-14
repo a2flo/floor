@@ -332,7 +332,7 @@ void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 #endif
 }
 
-bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
+bool metal_buffer::fill(const compute_queue& cqueue,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
 	if(buffer == nil) return false;
@@ -344,11 +344,10 @@ bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 	
 	id <MTLBuffer> fill_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
 	const size_t pattern_count = fill_size / pattern_size;
-	switch(pattern_size) {
-		case 1: {
-#if !defined(FLOOR_IOS)
-			// can use fillBuffer directly on the private storage buffer
-			if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+		switch (pattern_size) {
+			case 1: {
+				// can use fillBuffer directly on the private storage buffer
 				id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 				id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 				[blit_encoder fillBuffer:buffer
@@ -359,25 +358,39 @@ bool metal_buffer::fill(const compute_queue& cqueue floor_unused_on_ios,
 				[cmd_buffer waitUntilCompleted];
 				return true;
 			}
-#endif
-			fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
-			break;
-		}
-		// TODO: implement 2/4/any for MTLResourceStorageModePrivate
-		case 2:
-			fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
-			break;
-		case 4:
-			fill_n((uint32_t*)[fill_buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
-			break;
-		default:
-			// not a pattern size that allows a fast memset
-			uint8_t* write_ptr = ((uint8_t*)[fill_buffer contents]) + offset;
-			for(size_t i = 0; i < pattern_count; i++) {
-				memcpy(write_ptr, pattern, pattern_size);
-				write_ptr += pattern_size;
+			default: {
+				// there is no fast path -> create a host buffer with the pattern and upload it
+				const size_t pattern_fill_size = pattern_size * pattern_count;
+				auto pattern_buffer = make_unique<uint8_t[]>(pattern_fill_size);
+				uint8_t* write_ptr = pattern_buffer.get();
+				for (size_t i = 0; i < pattern_count; i++) {
+					memcpy(write_ptr, pattern, pattern_size);
+					write_ptr += pattern_size;
+				}
+				write(cqueue, pattern_buffer.get(), pattern_fill_size, offset);
+				return true;
 			}
-			break;
+		}
+	} else {
+		switch(pattern_size) {
+			case 1:
+				fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
+				break;
+			case 2:
+				fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
+				break;
+			case 4:
+				fill_n((uint32_t*)[fill_buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
+				break;
+			default:
+				// not a pattern size that allows a fast memset
+				uint8_t* write_ptr = ((uint8_t*)[fill_buffer contents]) + offset;
+				for(size_t i = 0; i < pattern_count; i++) {
+					memcpy(write_ptr, pattern, pattern_size);
+					write_ptr += pattern_size;
+				}
+				break;
+		}
 	}
 	
 #if !defined(FLOOR_IOS)
