@@ -370,19 +370,25 @@ bool floor::init(const init_state& state) {
 		config.internal_claim_toolchain_version = config_doc.get<uint32_t>("toolchain._claim_toolchain_version", 0u);
 		
 		//
-		const auto extract_whitelist = [](vector<string>& ret, const string& config_entry_name) {
-			unordered_set<string> whitelist;
-			const auto whitelist_elems = config_doc.get<json::json_array>(config_entry_name);
-			for(const auto& elem : whitelist_elems) {
-				if(elem.type != json::json_value::VALUE_TYPE::STRING) {
-					log_error("whitelist element must be a string!");
+		const auto extract_string_array_set = []<bool convert_to_lower = true>(vector<string>& ret, const string& config_entry_name) {
+			unordered_set<string> str_set;
+			const auto elems = config_doc.get<json::json_array>(config_entry_name);
+			for (const auto& elem : elems) {
+				if (elem.type != json::json_value::VALUE_TYPE::STRING) {
+					log_error("array element must be a string!");
 					continue;
 				}
-				if(elem.str == "") continue;
-				whitelist.emplace(core::str_to_lower(elem.str));
+				if (elem.str == "") {
+					continue;
+				}
+				if constexpr (convert_to_lower) {
+					str_set.emplace(core::str_to_lower(elem.str));
+				} else {
+					str_set.emplace(elem.str);
+				}
 			}
 			
-			for(const auto& elem : whitelist) {
+			for (const auto& elem : str_set) {
 				ret.push_back(elem);
 			}
 		};
@@ -401,7 +407,7 @@ bool floor::init(const init_state& state) {
 		config.opencl_force_spirv_check = config_doc.get<bool>("toolchain.opencl.force_spirv", false);
 		config.opencl_disable_spirv = config_doc.get<bool>("toolchain.opencl.disable_spirv", false);
 		config.opencl_spirv_param_workaround = config_doc.get<bool>("toolchain.opencl.spirv_param_workaround", false);
-		extract_whitelist(config.opencl_whitelist, "toolchain.opencl.whitelist");
+		extract_string_array_set(config.opencl_whitelist, "toolchain.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("toolchain.opencl.compiler", config.default_compiler);
 		config.opencl_as = config_doc.get<string>("toolchain.opencl.as", config.default_as);
 		config.opencl_dis = config_doc.get<string>("toolchain.opencl.dis", config.default_dis);
@@ -418,13 +424,13 @@ bool floor::init(const init_state& state) {
 		config.cuda_jit_verbose = config_doc.get<bool>("toolchain.cuda.jit_verbose", false);
 		config.cuda_jit_opt_level = config_doc.get<uint32_t>("toolchain.cuda.jit_opt_level", 4);
 		config.cuda_use_internal_api = config_doc.get<bool>("toolchain.cuda.use_internal_api", true);
-		extract_whitelist(config.cuda_whitelist, "toolchain.cuda.whitelist");
+		extract_string_array_set(config.cuda_whitelist, "toolchain.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("toolchain.cuda.compiler", config.default_compiler);
 		config.cuda_as = config_doc.get<string>("toolchain.cuda.as", config.default_as);
 		config.cuda_dis = config_doc.get<string>("toolchain.cuda.dis", config.default_dis);
 		
 		metal_toolchain_paths = config_doc.get<json::json_array>("toolchain.metal.paths", default_toolchain_paths);
-		extract_whitelist(config.metal_whitelist, "toolchain.metal.whitelist");
+		extract_string_array_set(config.metal_whitelist, "toolchain.metal.whitelist");
 		config.metal_compiler = config_doc.get<string>("toolchain.metal.compiler", config.default_compiler);
 		config.metal_as = config_doc.get<string>("toolchain.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
@@ -434,7 +440,7 @@ bool floor::init(const init_state& state) {
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
 		config.vulkan_validation = config_doc.get<bool>("toolchain.vulkan.validation", true);
 		config.vulkan_validate_spirv = config_doc.get<bool>("toolchain.vulkan.validate_spirv", false);
-		extract_whitelist(config.vulkan_whitelist, "toolchain.vulkan.whitelist");
+		extract_string_array_set(config.vulkan_whitelist, "toolchain.vulkan.whitelist");
 		config.vulkan_compiler = config_doc.get<string>("toolchain.vulkan.compiler", config.default_compiler);
 		config.vulkan_as = config_doc.get<string>("toolchain.vulkan.as", config.default_as);
 		config.vulkan_dis = config_doc.get<string>("toolchain.vulkan.dis", config.default_dis);
@@ -443,6 +449,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_dis = config_doc.get<string>("toolchain.vulkan.spirv-dis", config.vulkan_spirv_dis);
 		config.vulkan_spirv_validator = config_doc.get<string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
 		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
+		extract_string_array_set.operator()<false>(config.vulkan_log_binary_filter, "toolchain.vulkan.log_binary_filter");
 		
 		host_toolchain_paths = config_doc.get<json::json_array>("toolchain.host.paths", default_toolchain_paths);
 		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
@@ -2015,6 +2022,9 @@ const string& floor::get_vulkan_spirv_validator() {
 }
 const bool& floor::get_vulkan_soft_printf() {
 	return config.vulkan_soft_printf;
+}
+const vector<string>& floor::get_vulkan_log_binary_filter() {
+	return config.vulkan_log_binary_filter;
 }
 
 

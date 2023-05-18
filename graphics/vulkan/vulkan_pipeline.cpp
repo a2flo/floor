@@ -22,6 +22,7 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_disassembly.hpp>
 
 static unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pipeline_description& pipeline_desc,
 															const vector<unique_ptr<compute_device>>& devices,
@@ -257,6 +258,26 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		log_error("no base render pass for device $", vk_dev.name);
 		return false;
 	}
+	
+	VkPipelineCreateFlags pipeline_flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+	
+	// if binaries should be logged/dumped, create a pipeline cache from which we'll extract the binary
+	VkPipelineCache cache { nullptr };
+	const bool log_binary = (vulkan_kernel::should_log_vulkan_binary(vk_vs_entry->info->name) ||
+							 (vk_fs_entry ? vulkan_kernel::should_log_vulkan_binary(vk_fs_entry->info->name) : false));
+	if (log_binary) {
+		const VkPipelineCacheCreateInfo cache_create_info {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT,
+			.initialDataSize = 0,
+			.pInitialData = nullptr,
+		};
+		vkCreatePipelineCache(vk_dev.device, &cache_create_info, nullptr, &cache);
+		
+		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR;
+		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
+	}
 
 	// allow dynamic change of viewport and scissor
 	const array dyn_state_arr {
@@ -273,7 +294,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 	const VkGraphicsPipelineCreateInfo gfx_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+		.flags = pipeline_flags,
 		.stageCount = (vk_fs_entry != nullptr ? 2 : 1),
 		.pStages = &stages[0],
 		.pVertexInputState = &vertex_input_state,
@@ -292,7 +313,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
-	VK_CALL_RET(vkCreateGraphicsPipelines(vk_dev.device, nullptr, 1, &gfx_pipeline_info, nullptr, &state.pipeline),
+	VK_CALL_RET(vkCreateGraphicsPipelines(vk_dev.device, cache, 1, &gfx_pipeline_info, nullptr, &state.pipeline),
 				"failed to create pipeline", false)
 #if defined(FLOOR_DEBUG)
 	if (!pipeline_desc.debug_label.empty()) {
@@ -300,6 +321,12 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 																		pipeline_desc.debug_label);
 	}
 #endif
+	
+	if (cache && log_binary) {
+		vulkan_disassembly::disassemble(vk_dev, vk_vs_entry->info->name +
+										(vk_fs_entry ? "_" + vk_fs_entry->info->name : ""), state.pipeline, &cache);
+		vkDestroyPipelineCache(vk_dev.device, cache, nullptr);
+	}
 
 	return true;
 }

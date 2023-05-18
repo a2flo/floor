@@ -127,6 +127,9 @@ public:
 								 vulkan_kernel_entry& entry,
 								 const uint3& work_group_size) const REQUIRES(!entry.specializations_lock);
 	
+	//! returns true if the Vulkan function with the specified name should be logged/dumped
+	static bool should_log_vulkan_binary(const string& function_name);
+	
 protected:
 	mutable kernel_map_type kernels;
 	

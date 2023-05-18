@@ -172,6 +172,35 @@ public:
 		return (this == &dev);
 	}
 	
+#if !defined(FLOOR_NO_VULKAN)
+	// VK_KHR_pipeline_executable_properties
+	PFN_vkGetPipelineExecutablePropertiesKHR get_pipeline_executable_properties { nullptr };
+	PFN_vkGetPipelineExecutableInternalRepresentationsKHR get_pipeline_executable_internal_representation { nullptr };
+	PFN_vkGetPipelineExecutableStatisticsKHR get_pipeline_executable_statistics { nullptr };
+	
+	//! calls vkGetPipelineExecutablePropertiesKHR
+	void vulkan_get_pipeline_executable_properties(VkDevice device_, const VkPipelineInfoKHR* pPipelineInfo_,
+												   uint32_t* pExecutableCount, VkPipelineExecutablePropertiesKHR* pProperties) const {
+		(*get_pipeline_executable_properties)(device_, pPipelineInfo_, pExecutableCount, pProperties);
+	}
+	
+	//! calls vkGetPipelineExecutableInternalRepresentationsKHR
+	void vulkan_get_pipeline_executable_internal_representation(VkDevice device_, const VkPipelineExecutableInfoKHR* pExecutableInfo_,
+																uint32_t* pInternalRepresentationCount_,
+																VkPipelineExecutableInternalRepresentationKHR* pInternalRepresentations_) const {
+		(*get_pipeline_executable_internal_representation)(device_, pExecutableInfo_, pInternalRepresentationCount_, pInternalRepresentations_);
+	}
+	
+	//! calls vkGetPipelineExecutableStatisticsKHR
+	void vulkan_get_pipeline_executable_statistics(VkDevice device_, const VkPipelineExecutableInfoKHR* pExecutableInfo_,
+												   uint32_t* pStatisticCount_, VkPipelineExecutableStatisticKHR* pStatistics_) const {
+		(*get_pipeline_executable_statistics)(device_, pExecutableInfo_, pStatisticCount_, pStatistics_);
+	}
+#else
+	void* _get_pipeline_executable_properties { nullptr };
+	void* _get_pipeline_executable_internal_representation { nullptr };
+	void* _get_pipeline_executable_statistics { nullptr };
+#endif
 };
 
 FLOOR_POP_WARNINGS()

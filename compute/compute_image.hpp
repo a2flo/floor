@@ -162,31 +162,6 @@ public:
 		return false;
 	}
 	
-	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
-	//! NOTE: each value will printed in one line (terminated by \n)
-	template <typename value_type>
-	bool dump_to_file(const compute_queue& cqueue, const string& file_name) {
-		ofstream dump_file(file_name, ios::out);
-		if (!dump_file.is_open()) {
-			return false;
-		}
-		
-		auto mapped_ptr = map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
-		if (mapped_ptr == nullptr) {
-			return false;
-		}
-		
-		auto typed_ptr = (const value_type*)mapped_ptr;
-		const auto value_count = image_data_size / sizeof(value_type);
-		for (size_t value_idx = 0; value_idx < value_count; ++value_idx) {
-			dump_file << *typed_ptr++ << '\n';
-		}
-		
-		unmap(cqueue, mapped_ptr);
-		
-		return true;
-	}
-	
 	//! returns the compute image type of this image
 	const COMPUTE_IMAGE_TYPE& get_image_type() const {
 		return image_type;
@@ -303,6 +278,18 @@ public:
 	//! returns true if the image layout is ARGB
 	bool is_layout_argb() const {
 		return image_layout_argb(image_type);
+	}
+	
+	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
+	//! NOTE: each value will printed in one line (terminated by \n)
+	template <typename value_type>
+	bool dump_to_file(const compute_queue& cqueue, const string& file_name) {
+		return compute_memory::dump_to_file<value_type>(*this, image_data_size, cqueue, file_name);
+	}
+	
+	//! for debugging purposes: dumps the binary content of this image into a file
+	bool dump_binary_to_file(const compute_queue& cqueue, const string& file_name) {
+		return compute_memory::dump_binary_to_file(*this, image_data_size, cqueue, file_name);
 	}
 	
 protected:

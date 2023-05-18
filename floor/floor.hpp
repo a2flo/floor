@@ -311,6 +311,7 @@ public:
 	static const string& get_vulkan_spirv_dis();
 	static const string& get_vulkan_spirv_validator();
 	static const bool& get_vulkan_soft_printf();
+	static const vector<string>& get_vulkan_log_binary_filter();
 	
 	// host
 	static const string& get_host_base_path();
@@ -468,6 +469,7 @@ protected:
 		string vulkan_spirv_dis = "spirv-dis";
 		string vulkan_spirv_validator = "spirv-val";
 		bool vulkan_soft_printf = false;
+		vector<string> vulkan_log_binary_filter;
 
 		// sdl
 		uint32_t flags = 0;

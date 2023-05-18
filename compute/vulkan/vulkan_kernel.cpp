@@ -28,6 +28,8 @@
 #include <floor/compute/vulkan/vulkan_encoder.hpp>
 #include <floor/compute/vulkan/vulkan_argument_buffer.hpp>
 #include <floor/compute/vulkan/vulkan_fence.hpp>
+#include <floor/compute/vulkan/vulkan_disassembly.hpp>
+#include <floor/floor/floor.hpp>
 #include <floor/compute/soft_printf.hpp>
 
 using namespace llvm_toolchain;
@@ -42,6 +44,20 @@ uint64_t vulkan_kernel::vulkan_kernel_entry::make_spec_key(const uint3& work_gro
 	return (uint64_t(work_group_size.x) << 32ull |
 			uint64_t(work_group_size.y) << 16ull |
 			uint64_t(work_group_size.z));
+}
+
+bool vulkan_kernel::should_log_vulkan_binary(const string& function_name) {
+	static const auto log_binaries = floor::get_toolchain_log_binaries();
+	if (!log_binaries) {
+		return false;
+	}
+	static const auto& log_binary_filter = floor::get_vulkan_log_binary_filter();
+	if (log_binary_filter.empty()) {
+		return true;
+	}
+	return (find_if(log_binary_filter.begin(), log_binary_filter.end(), [&function_name](const string& filter_name) {
+		return (function_name.find(filter_name) != string::npos);
+	}) != log_binary_filter.end());
 }
 
 vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(const vulkan_device& device,
@@ -76,24 +92,48 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 	};
 	stage_info.pSpecializationInfo = &spec_entry.info;
 	stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	
+	VkPipelineCreateFlags pipeline_flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+	
+	// if binaries should be logged/dumped, create a pipeline cache from which we'll extract the binary
+	VkPipelineCache cache { nullptr };
+	const bool log_binary = should_log_vulkan_binary(info->name);
+	if (log_binary) {
+		const VkPipelineCacheCreateInfo cache_create_info {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT,
+			.initialDataSize = 0,
+			.pInitialData = nullptr,
+		};
+		vkCreatePipelineCache(device.device, &cache_create_info, nullptr, &cache);
+		
+		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_INTERNAL_REPRESENTATIONS_BIT_KHR;
+		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
+	}
 
 	// create the compute pipeline for this kernel + device + work-group size
 	const VkComputePipelineCreateInfo pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
-		.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+		.flags = pipeline_flags,
 		.stage = stage_info,
 		.layout = pipeline_layout,
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
 	log_debug("specializing $ for $ ...", info->name, work_group_size); logger::flush();
-	VK_CALL_RET(vkCreateComputePipelines(device.device, nullptr, 1, &pipeline_info, nullptr,
-										 &spec_entry.pipeline),
+	VK_CALL_RET(vkCreateComputePipelines(device.device, cache, 1, &pipeline_info, nullptr, &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
 				nullptr)
 	((const vulkan_compute*)device.context)->set_vulkan_debug_label(device, VK_OBJECT_TYPE_PIPELINE, uint64_t(spec_entry.pipeline),
 																	"pipeline:" + info->name + ":spec:" + work_group_size.to_string());
+	
+	if (cache && log_binary) {
+		vulkan_disassembly::disassemble(device, info->name + "_" + std::to_string(work_group_size.x) + "_" + std::to_string(work_group_size.y) +
+										"_" + std::to_string(work_group_size.z), spec_entry.pipeline, &cache);
+		vkDestroyPipelineCache(device.device, cache, nullptr);
+	}
 	
 	auto spec_iter = specializations.insert(spec_key, spec_entry);
 	if(!spec_iter.first) return nullptr;

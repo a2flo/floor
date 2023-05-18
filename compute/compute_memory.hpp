@@ -96,6 +96,69 @@ public:
 	void _lock() const ACQUIRE(lock) REQUIRES(!lock);
 	void _unlock() const RELEASE(lock);
 	
+	//! for debugging purposes: dumps the content of the specified memory object into a file using the specified "value_type" operator<<
+	//! NOTE: each value will printed in one line (terminated by \n)
+	template <typename value_type, typename memory_object_type>
+	static bool dump_to_file(memory_object_type& mem, const size_t size, const compute_queue& cqueue, const string& file_name) {
+		ofstream dump_file(file_name, ios::out);
+		if (!dump_file.is_open()) {
+			return false;
+		}
+		
+		auto dump_mem = &mem;
+		
+		// clone if we can't read this buffer directly
+		shared_ptr<memory_object_type> tmp_mem;
+		if (!has_flag<COMPUTE_MEMORY_FLAG::HOST_READ>(mem.get_flags())) {
+			tmp_mem = mem.clone(cqueue, true, mem.get_flags() | COMPUTE_MEMORY_FLAG::HOST_READ);
+			dump_mem = tmp_mem.get();
+		}
+		
+		auto mapped_ptr = dump_mem->map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (mapped_ptr == nullptr) {
+			return false;
+		}
+		
+		auto typed_ptr = (const value_type*)mapped_ptr;
+		const auto value_count = size / sizeof(value_type);
+		for (size_t value_idx = 0; value_idx < value_count; ++value_idx) {
+			dump_file << *typed_ptr++ << '\n';
+		}
+		
+		dump_mem->unmap(cqueue, mapped_ptr);
+		
+		return true;
+	}
+	
+	//! for debugging purposes: dumps the binary content of the specified memory object into a file
+	template <typename memory_object_type>
+	static bool dump_binary_to_file(memory_object_type& mem, const size_t size, const compute_queue& cqueue, const string& file_name) {
+		ofstream dump_file(file_name, ios::out | ios::binary);
+		if (!dump_file.is_open()) {
+			return false;
+		}
+		
+		auto dump_mem = &mem;
+		
+		// clone if we can't read this buffer directly
+		shared_ptr<memory_object_type> tmp_mem;
+		if (!has_flag<COMPUTE_MEMORY_FLAG::HOST_READ>(mem.get_flags())) {
+			tmp_mem = mem.clone(cqueue, true, mem.get_flags() | COMPUTE_MEMORY_FLAG::HOST_READ);
+			dump_mem = tmp_mem.get();
+		}
+		
+		auto mapped_ptr = dump_mem->map(cqueue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		if (mapped_ptr == nullptr) {
+			return false;
+		}
+		
+		dump_file.write((char*)mapped_ptr, (std::streamsize)size);
+		
+		dump_mem->unmap(cqueue, mapped_ptr);
+		
+		return true;
+	}
+	
 protected:
 	//! constructs an incomplete memory object
 	compute_memory(const compute_queue& cqueue,

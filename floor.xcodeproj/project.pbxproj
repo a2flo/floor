@@ -268,6 +268,9 @@
 		5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C9C1377209E3C34005C516C /* universal_binary.hpp */; };
 		5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
 		5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
+		5CA1C0532A15A60C00F0032A /* vulkan_disassembly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CA1C0512A15A60B00F0032A /* vulkan_disassembly.cpp */; };
+		5CA1C0542A15A60C00F0032A /* vulkan_disassembly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CA1C0512A15A60B00F0032A /* vulkan_disassembly.cpp */; };
+		5CA1C0552A15A60C00F0032A /* vulkan_disassembly.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA1C0522A15A60C00F0032A /* vulkan_disassembly.hpp */; };
 		5CA2ADDE27B011F50061D07E /* tessellation.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA2ADDD27B011F50061D07E /* tessellation.hpp */; };
 		5CA2ADE027B192310061D07E /* graphics_vertex_format.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
@@ -631,6 +634,8 @@
 		5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_fence.cpp; sourceTree = "<group>"; };
 		5C9C1377209E3C34005C516C /* universal_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = universal_binary.hpp; sourceTree = "<group>"; };
 		5C9C1378209E3C35005C516C /* universal_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = universal_binary.cpp; sourceTree = "<group>"; };
+		5CA1C0512A15A60B00F0032A /* vulkan_disassembly.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_disassembly.cpp; path = vulkan/vulkan_disassembly.cpp; sourceTree = "<group>"; };
+		5CA1C0522A15A60C00F0032A /* vulkan_disassembly.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_disassembly.hpp; path = vulkan/vulkan_disassembly.hpp; sourceTree = "<group>"; };
 		5CA2ADDD27B011F50061D07E /* tessellation.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = tessellation.hpp; path = device/tessellation.hpp; sourceTree = "<group>"; };
 		5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_vertex_format.hpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
@@ -964,6 +969,8 @@
 				5C2B87C81C73893E00F11EA5 /* vulkan_buffer.hpp */,
 				5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */,
 				5C2B87C51C73893E00F11EA5 /* vulkan_device.hpp */,
+				5CA1C0512A15A60B00F0032A /* vulkan_disassembly.cpp */,
+				5CA1C0522A15A60C00F0032A /* vulkan_disassembly.hpp */,
 				5CC3992F29E785C00015DBBB /* vulkan_fence.cpp */,
 				5CC3993029E785C00015DBBB /* vulkan_fence.hpp */,
 				5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */,
@@ -1428,6 +1435,7 @@
 				5C2B87DA1C73893E00F11EA5 /* vulkan_program.hpp in Headers */,
 				5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */,
 				5C2B87DD1C73893E00F11EA5 /* vulkan_queue.hpp in Headers */,
+				5CA1C0552A15A60C00F0032A /* vulkan_disassembly.hpp in Headers */,
 				5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */,
 				5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */,
 				5C5FF22C22515775007457AF /* soft_printf.hpp in Headers */,
@@ -1710,6 +1718,7 @@
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CC59810201E724600D8D19F /* vector_4d.cpp in Sources */,
+				5CA1C0532A15A60C00F0032A /* vulkan_disassembly.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
@@ -1806,6 +1815,7 @@
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
 				5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
+				5CA1C0542A15A60C00F0032A /* vulkan_disassembly.cpp in Sources */,
 				5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,

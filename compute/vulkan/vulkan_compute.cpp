@@ -78,6 +78,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 			return VK_FALSE;
 		}
 		
+		static const auto log_binaries = floor::get_toolchain_log_binaries();
+		if (log_binaries && cb_data->messageIdNumber == 358835246) {
+			// ignore UNASSIGNED-BestPractices-vkCreateDevice-specialuse-extension-devtools
+			return VK_FALSE;
+		}
+		
 		debug_message += "\n\t";
 		if (cb_data->pMessageIdName) {
 			debug_message += cb_data->pMessageIdName + " ("s + to_string(cb_data->messageIdNumber) + ")\n";
@@ -1131,6 +1137,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device_extensions_set.emplace(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 		}
 		
+		if (floor::get_toolchain_log_binaries()) {
+			device_extensions_set.emplace(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
+		}
+		
 		// add/use VK_NV_inherited_viewport_scissor if supported
 		VkPhysicalDeviceInheritedViewportScissorFeaturesNV inherited_viewport_scissor {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INHERITED_VIEWPORT_SCISSOR_FEATURES_NV,
@@ -1187,6 +1197,17 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			// don't need feature enablement for this, only need props
 			*add_props_chain_end = &amd_shader_core_props;
 			add_props_chain_end = &amd_shader_core_props.pNext;
+		}
+		
+		// add VK_KHR_pipeline_executable_properties if supported
+		VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR pipeline_exec_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR,
+			.pNext = nullptr,
+			.pipelineExecutableInfo = true,
+		};
+		if (floor::get_toolchain_log_binaries()) {
+			*feature_chain_end = &pipeline_exec_props;
+			feature_chain_end = &pipeline_exec_props.pNext;
 		}
 
 		// deal with swapchain ext
@@ -1463,6 +1484,12 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
 			cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
 			cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
+		}
+		
+		if (floor::get_toolchain_log_binaries()) {
+			device.get_pipeline_executable_properties = (PFN_vkGetPipelineExecutablePropertiesKHR)vkGetDeviceProcAddr(dev, "vkGetPipelineExecutablePropertiesKHR");
+			device.get_pipeline_executable_internal_representation = (PFN_vkGetPipelineExecutableInternalRepresentationsKHR)vkGetDeviceProcAddr(dev, "vkGetPipelineExecutableInternalRepresentationsKHR");
+			device.get_pipeline_executable_statistics = (PFN_vkGetPipelineExecutableStatisticsKHR)vkGetDeviceProcAddr(dev, "vkGetPipelineExecutableStatisticsKHR");
 		}
 		
 		// descriptor buffer support also enables argument buffer support as well as indirect command support
