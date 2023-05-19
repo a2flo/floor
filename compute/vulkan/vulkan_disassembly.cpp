@@ -23,12 +23,103 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/compute/host/elf_binary.hpp>
 #include <regex>
 #include <filesystem>
 
 namespace vulkan_disassembly {
 
-static void disassemble_nvidia(const std::string& identifier, std::span<const uint8_t> nv_pipeline_data) {
+struct file_source_mapping_t {
+	//! verbatim source code
+	string source;
+	//! end position of each line in "source"
+	vector<uint32_t> lines;
+};
+
+static safe_mutex source_file_mappings_lock;
+static unordered_map<string, unique_ptr<file_source_mapping_t>> source_file_mappings GUARDED_BY(source_file_mappings_lock);
+
+static string get_code_line(const file_source_mapping_t& mapping, const uint32_t line) {
+	if (line == 0 || line >= mapping.lines.size()) {
+		return {};
+	}
+	
+	const auto line_start = mapping.lines[line - 1] + 1, line_end = mapping.lines[line];
+	const auto line_length = line_end - line_start;
+	return mapping.source.substr(line_start, line_length);
+}
+
+static const file_source_mapping_t* load_and_map_source(const string& file_name) REQUIRES(!source_file_mappings_lock) {
+	{
+		GUARD(source_file_mappings_lock);
+		const auto mapping_iter = source_file_mappings.find(file_name);
+		if (mapping_iter != source_file_mappings.end()) {
+			return mapping_iter->second.get();
+		}
+		// else: need to load it
+	}
+	
+	// load file
+	file_source_mapping_t ret {};
+	do {
+		if (!file_io::file_to_string(file_name, ret.source)) {
+			break;
+		}
+		if (ret.source.empty()) {
+			break;
+		}
+		
+		// map source
+		// -> we will only need to remove \r characters here (replace \r\n by \n and replace single \r chars by \n)
+		ret.lines.emplace_back(0); // line #1 start
+		for (auto begin_iter = ret.source.begin(), end_iter = ret.source.end(), iter = begin_iter; iter != end_iter; ++iter) {
+			if (*iter == '\n' || *iter == '\r') {
+				if (*iter == '\r') {
+					auto next_iter = iter + 1;
+					if (next_iter != end_iter && *next_iter == '\n') {
+						// replace \r\n with single \n (erase \r)
+						iter = ret.source.erase(iter); // iter now at '\n'
+						// we now have a new end and begin iter
+						end_iter = ret.source.end();
+						begin_iter = ret.source.begin();
+					} else {
+						// single \r -> \n replace
+						*iter = '\n';
+					}
+				}
+				// else: \n
+				
+				// add newline position
+				ret.lines.emplace_back(std::distance(begin_iter, iter));
+			}
+		}
+		// also insert the "<eof> newline"
+		ret.lines.emplace_back(ret.source.size());
+	} while (false);
+	
+	{
+		GUARD(source_file_mappings_lock);
+		
+		// check if some one before us already added this file now
+		const auto mapping_iter = source_file_mappings.find(file_name);
+		if (mapping_iter != source_file_mappings.end()) {
+			return mapping_iter->second.get();
+		}
+		
+		// else: add to map
+		if (ret.lines.empty()) {
+			source_file_mappings.emplace(file_name, nullptr);
+			return nullptr;
+		} else {
+			auto mapping_obj = make_unique<file_source_mapping_t>(std::move(ret));
+			auto ret_ptr = mapping_obj.get();
+			source_file_mappings.emplace(file_name, std::move(mapping_obj));
+			return ret_ptr;
+		}
+	}
+}
+
+static void disassemble_nvidia(const std::string& identifier, std::span<const uint8_t> nv_pipeline_data) REQUIRES(!source_file_mappings_lock) {
 	/// format
 	// header:
 	// [entry count - uint32_t]
@@ -141,7 +232,12 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 			return;
 		}
 		
-		// we should now have a "NVDANVVM" binary, consisting of the actual GPU binary (NVuc) and LLVM/NVVM bitcode (BC)
+		// we should now have a "NVDANVVM" binary, consisting of
+		//  * the actual GPU code (NVuc)
+		//    * note that if debug info is enabled, this also contains line info, but nvdisasm won't print it?
+		//  * some unknown junk data? maybe compilation binary info? -> can't determine its size
+		//  * LLVM/NVVM bitcode (BC)
+		//  * when debug info is available: the full GPU binary (ELF) that contains actual debug info that nvdisasm can print
 		auto [nvvm_binary_data, nvvm_binary_size] = file_io::file_to_buffer(identifier_with_suffix + ".nvbin");
 #if !defined(__APPLE__)
 		{
@@ -161,32 +257,37 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 			// probably more, but this is sufficient ...
 		};
 		
-		if (!nvvm_binary_data || nvvm_binary_size < (8u + sizeof(nvuc_header_t))) {
+		static constexpr const string_view nvda_nvvm_magic { "NVDANVVM" };
+		static constexpr const auto nvda_nvvm_magic_length = nvda_nvvm_magic.size();
+		static_assert(nvda_nvvm_magic_length == 8u);
+		
+		if (!nvvm_binary_data || nvvm_binary_size < (nvda_nvvm_magic_length + sizeof(nvuc_header_t))) {
 			log_error("failed to load/create NVVM binary or created binary is too small, in $", identifier_with_suffix);
 			return;
 		}
-		if (strncmp((const char*)nvvm_binary_data.get(), "NVDANVVM", 8) != 0) {
+		if (strncmp((const char*)nvvm_binary_data.get(), nvda_nvvm_magic.data(), nvda_nvvm_magic_length) != 0) {
 			log_error("invalid NVDA NVVM binary/header in $", identifier_with_suffix);
 			return;
 		}
-		const auto& nvuc_header = *(const nvuc_header_t*)(nvvm_binary_data.get() + 8u);
+		const auto& nvuc_header = *(const nvuc_header_t*)(nvvm_binary_data.get() + nvda_nvvm_magic_length);
 		if (nvuc_header.nvuc_magic != 0x6375564Eu) {
 			log_error("invalid NVuc magic in $", identifier_with_suffix);
 			return;
 		}
-		if (nvuc_header.nvuc_size > nvvm_binary_size - 8u) {
+		if (nvuc_header.nvuc_size > nvvm_binary_size - nvda_nvvm_magic_length) {
 			log_error("NVuc size is smaller than expected (have $' bytes, but header says size is $') in $",
-					  nvvm_binary_size - 8u, nvuc_header.nvuc_size, identifier_with_suffix);
+					  nvvm_binary_size - nvda_nvvm_magic_length, nvuc_header.nvuc_size, identifier_with_suffix);
 			return;
 		}
 		
 		// dump and disassemble NVuc
-		if (!file_io::buffer_to_file(identifier_with_suffix + ".nvuc", (const char*)(nvvm_binary_data.get() + 8u), nvuc_header.nvuc_size)) {
+		if (!file_io::buffer_to_file(identifier_with_suffix + ".nvuc", (const char*)(nvvm_binary_data.get() + nvda_nvvm_magic_length),
+									 nvuc_header.nvuc_size)) {
 			log_error("failed to dump zstd pipeline payload in $", identifier_with_suffix);
 			return;
 		}
 		string nvdisasm_output;
-		core::system("nvdisasm -g '" + identifier_with_suffix + ".nvuc'", nvdisasm_output);
+		core::system("nvdisasm '" + identifier_with_suffix + ".nvuc'", nvdisasm_output);
 		if (!file_io::string_to_file(identifier_with_suffix + ".nvucdis", nvdisasm_output)) {
 			log_error("failed to write disassembled NVuc data in $", identifier_with_suffix);
 			return;
@@ -194,7 +295,7 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 		
 		// dump and disassemble LLVM/NVVM bitcode
 		// NOTE: I currently don't see a direct way to get at the BC offset, so we need to find it
-		const auto post_nvuc_start_ptr = (nvvm_binary_data.get() + 8u + nvuc_header.nvuc_size);
+		const auto post_nvuc_start_ptr = (nvvm_binary_data.get() + nvda_nvvm_magic_length + nvuc_header.nvuc_size);
 		const auto post_nvuc_end_ptr = (nvvm_binary_data.get() + nvvm_binary_size);
 		static constexpr const uint8_t bc_magic[4] { 'B', 'C', 0xC0, 0xDE };
 		const auto bc_start_ptr = search(post_nvuc_start_ptr, post_nvuc_end_ptr, &bc_magic[0], &bc_magic[3] + 1);
@@ -203,17 +304,23 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 			return;
 		}
 		
-		// BC must be aligned to 4 bytes and end on a 4-byte zero value
-		string_view bc((const char*)bc_start_ptr, (size_t)std::distance(bc_start_ptr, post_nvuc_end_ptr));
-		const auto spirv_str_pos = bc.rfind("SPIR-V");
-		if (spirv_str_pos == string::npos) {
-			log_error("failed to find end of NVVM bitcode in $", identifier_with_suffix);
+		// similarly, there is no good way to determine the end of the BC data without parsing/reading it,
+		// we do know however:
+		//  * BC must be aligned to 4 bytes and end on a 4-byte zero value
+		//  * it always ends on "nvsass-nvidia-spirvSPIR-V"
+		static constexpr const string_view bc_end_marker { "nvsass-nvidia-spirvSPIR-V" };
+		auto bc_end_ptr = search(bc_start_ptr, post_nvuc_end_ptr, bc_end_marker.begin(), bc_end_marker.end());
+		if (bc_end_ptr == post_nvuc_end_ptr) {
+			log_error("failed to find NVVM bitcode end in $", identifier_with_suffix);
 			return;
 		}
-		auto bc_size = spirv_str_pos + 7 /* SPIR-V with \0 */;
+		bc_end_ptr += bc_end_marker.size() + 1 /* implicit \0 */;
+		assert(bc_start_ptr < bc_end_ptr);
+		auto bc_size = std::distance(bc_start_ptr, bc_end_ptr);
 		bc_size += (bc_size % 4u != 0u ? (4u - (bc_size % 4u)) : 0u) + 4u; // alignment + zero val
+		const span<const char> bitcode((const char*)bc_start_ptr, (size_t)bc_size);
 		
-		if (!file_io::buffer_to_file(identifier_with_suffix + ".bc", (const char*)bc_start_ptr, (uint64_t)bc_size)) {
+		if (!file_io::buffer_to_file(identifier_with_suffix + ".bc", bitcode.data(), bitcode.size_bytes())) {
 			log_error("failed to dump NVVM bitcode in $", identifier_with_suffix);
 			return;
 		}
@@ -226,10 +333,87 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 			filesystem::remove(identifier_with_suffix + ".bc", ec);
 		}
 #endif
+		
+		// check if there is an ELF file at the end (this is the case when we have debug info)
+		static constexpr const string_view elf_magic { "\177ELF" };
+		auto elf_start_ptr = search(bc_end_ptr, post_nvuc_end_ptr, elf_magic.begin(), elf_magic.end());
+		if (elf_start_ptr == post_nvuc_end_ptr) {
+			// ignore, there is no ELF
+			return;
+		}
+		assert(elf_start_ptr < post_nvuc_end_ptr);
+		const auto max_elf_size = size_t(std::distance(elf_start_ptr, post_nvuc_end_ptr));
+		if (max_elf_size < sizeof(elf64_header_t)) {
+			log_error("found ELF header, but remaing binary size is too small in $", identifier_with_suffix);
+			return;
+		}
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align)
+		const auto& elf_header = *(const elf64_header_t*)elf_start_ptr;
+FLOOR_POP_WARNINGS()
+		if (elf_header.header_size != sizeof(elf64_header_t)) {
+			log_error("invalid ELF header in $", identifier_with_suffix);
+			return;
+		}
+		const auto min_elf_size = (elf_header.program_header_offset > elf_header.section_header_table_offset ?
+								   elf_header.program_header_offset +
+								   elf_header.program_header_table_entry_count * elf_header.program_header_table_entry_size :
+								   elf_header.section_header_table_offset +
+								   elf_header.section_header_table_entry_count * elf_header.section_header_table_entry_size);
+		if (min_elf_size > max_elf_size) {
+			log_error("NVIDIA ELF GPU binary data is smaller than expected @ entry #$ (require at least $' bytes, got $') in $",
+					  entry_idx, min_elf_size, max_elf_size, identifier_with_suffix);
+			return;
+		}
+		
+		const span<const char> elf((const char*)elf_start_ptr, max_elf_size);
+		if (!file_io::buffer_to_file(identifier_with_suffix + ".elf", elf.data(), elf.size_bytes())) {
+			log_error("failed to dump ELF GPU binary in $", identifier_with_suffix);
+			return;
+		}
+		
+		// disassemble, now with debug info
+		string elf_nvdisasm_output;
+		core::system("nvdisasm -c -gi '" + identifier_with_suffix + ".elf'", elf_nvdisasm_output);
+		
+		// even with -gi/--print-line-info-inline, nvdisasm won't print the actual source code into the file
+		// -> fix this manually
+		
+		// search for: //## File "/abs/file/path.cpp", line 69
+		auto disasm_lines = core::tokenize(elf_nvdisasm_output, '\n');
+		for (auto line_iter = disasm_lines.begin(); line_iter != disasm_lines.end(); ++line_iter) {
+			static const regex line_info_rx("//## File \"([^\"]+)\", line ([0-9]+)");
+			
+			smatch line_info_result;
+			if (!regex_search(*line_iter, line_info_result, line_info_rx) || line_info_result.size() < 3) {
+				continue;
+			}
+			
+			const auto file_name = line_info_result[1];
+			const auto line_number = stou(line_info_result[2]);
+			const auto mapping = load_and_map_source(file_name);
+			if (mapping == nullptr) {
+				continue;
+			}
+			
+			auto code_line = get_code_line(*mapping, line_number);
+			line_iter = disasm_lines.insert(++line_iter, std::move(code_line));
+		}
+		
+		string disasm_output_with_code_lines;
+		for (auto line_iter = disasm_lines.begin(); line_iter != disasm_lines.end(); ++line_iter) {
+			disasm_output_with_code_lines += *line_iter + '\n';
+		}
+		
+		if (!file_io::string_to_file(identifier_with_suffix + ".elfdis", disasm_output_with_code_lines)) {
+			log_error("failed to write disassembled ELF data in $", identifier_with_suffix);
+			return;
+		}
 	}
 }
 
-void disassemble(const vulkan_device& dev, const std::string& identifier, const VkPipeline& pipeline, const VkPipelineCache* cache) {
+void disassemble(const vulkan_device& dev, const std::string& identifier, const VkPipeline& pipeline,
+				 const VkPipelineCache* cache) REQUIRES(!source_file_mappings_lock) {
 	// query initial props
 	const VkPipelineInfoKHR exec_props_query_info {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR,

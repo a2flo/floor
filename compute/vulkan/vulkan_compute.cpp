@@ -49,6 +49,18 @@
 #include <vulkan/vulkan_xlib.h>
 #endif
 
+#if !defined(__WINDOWS__)
+#include <dlfcn.h>
+#define open_dynamic_library(file_name) dlopen(file_name, RTLD_NOW)
+#define load_symbol(lib_handle, symbol_name) dlsym(lib_handle, symbol_name)
+typedef void* lib_handle_type;
+#else
+#include <floor/core/platform_windows.hpp>
+#define open_dynamic_library(file_name) LoadLibrary(file_name)
+#define load_symbol(lib_handle, symbol_name) (void*)GetProcAddress(lib_handle, symbol_name)
+typedef HMODULE lib_handle_type;
+#endif
+
 #include <floor/core/essentials.hpp> // cleanup
 
 #if defined(FLOOR_DEBUG)
@@ -176,6 +188,55 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	return VK_FALSE; // don't abort
 }
 #endif
+
+using aftermath_gpu_crash_dump_cb = uint32_t (*)(const void* gpu_crash_dump, const uint32_t gpu_crash_dump_size, void* user_data);
+using aftermath_shader_debug_info_cb = uint32_t (*)(const void* shader_debug_info, const uint32_t shader_debug_info_size, void* user_data);
+using aftermath_add_gpu_crash_dump_description_cb = uint32_t (*)(uint32_t key, const char* value);
+using aftermath_gpu_crash_dump_description_cb = uint32_t (*)(aftermath_add_gpu_crash_dump_description_cb add_value, void* user_data);
+using aftermath_resolve_marker_cb = uint32_t (*)(const void* marker, void* user_data, void** resolved_marker_data, uint32_t* marker_size);
+using aftermath_enable_gpu_crash_dumps_f = uint32_t (*)(uint32_t version, uint32_t watched_apis, uint32_t flags,
+														aftermath_gpu_crash_dump_cb aftermath_gpu_crash_dump,
+														aftermath_shader_debug_info_cb aftermath_shader_debug_info,
+														aftermath_gpu_crash_dump_description_cb aftermath_gpu_crash_dump_description,
+														aftermath_resolve_marker_cb aftermath_resolve_marker,
+														void* user_data);
+
+static uint32_t aftermath_gpu_crash_dump(const void*, const uint32_t, void*) {
+	return 0;
+}
+static uint32_t aftermath_shader_debug_info(const void*, const uint32_t, void*) {
+	return 0;
+}
+static bool setup_nvidia_aftermath(vulkan_compute* ctx) {
+	static atomic<bool> aftermath_init_successful { false };
+	static once_flag did_setup;
+	call_once(did_setup, [&ctx]() {
+#if defined(__WINDOWS__)
+		static constexpr const auto aftermath_lib_name = "GFSDK_Aftermath_Lib.x64.dll";
+#else
+		static constexpr const auto aftermath_lib_name = "libGFSDK_Aftermath_Lib.x64.so";
+#endif
+		static auto aftermath_lib = open_dynamic_library(aftermath_lib_name);
+		if (!aftermath_lib) {
+			log_error("failed to load Aftermath library");
+			return;
+		}
+		
+		static auto enable_gpu_crash_dumps_fptr = load_symbol(aftermath_lib, "GFSDK_Aftermath_EnableGpuCrashDumps");
+		if (!enable_gpu_crash_dumps_fptr) {
+			log_error("failed to find 'GFSDK_Aftermath_EnableGpuCrashDumps' in Aftermath library");
+			return;
+		}
+		
+		// setup/enable Aftermath and register our function callbacks (this is the minimum to enable shader debug info)
+		static auto aftermath_enable_gpu_crash_dumps = (aftermath_enable_gpu_crash_dumps_f)enable_gpu_crash_dumps_fptr;
+		aftermath_enable_gpu_crash_dumps(0x212 /* 2022.2 / 2.18 -> compat with R515+ */, 2 /* Vulkan */, 0 /* we want immediate shader debug info */,
+										 &aftermath_gpu_crash_dump, &aftermath_shader_debug_info, nullptr, nullptr, ctx);
+		
+		aftermath_init_successful = true;
+	});
+	return aftermath_init_successful;
+}
 
 struct device_mem_info_t {
 	bool valid { false };
@@ -1208,6 +1269,30 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		if (floor::get_toolchain_log_binaries()) {
 			*feature_chain_end = &pipeline_exec_props;
 			feature_chain_end = &pipeline_exec_props.pNext;
+		}
+		
+		// add VK_NV_device_diagnostics_config/VK_NV_device_diagnostic_checkpoints if supported and wanted
+		VkDeviceDiagnosticsConfigCreateInfoNV nv_device_diagnostics {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
+			.pNext = nullptr,
+			.flags = (VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
+					  VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV),
+		};
+		VkPhysicalDeviceDiagnosticsConfigFeaturesNV nv_device_diagnostics_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DIAGNOSTICS_CONFIG_FEATURES_NV,
+			.pNext = nullptr,
+			.diagnosticsConfig = true,
+		};
+		if (floor::get_vulkan_nvidia_device_diagnostics() &&
+			device_supported_extensions_set.contains(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME) &&
+			device_supported_extensions_set.contains(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME) &&
+			setup_nvidia_aftermath(this)) {
+			device_extensions_set.emplace(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
+			device_extensions_set.emplace(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+			*feature_chain_end = &nv_device_diagnostics_features;
+			feature_chain_end = &nv_device_diagnostics_features.pNext;
+			*feature_chain_end = &nv_device_diagnostics;
+			feature_chain_end = const_cast<void**>(&nv_device_diagnostics.pNext);
 		}
 
 		// deal with swapchain ext

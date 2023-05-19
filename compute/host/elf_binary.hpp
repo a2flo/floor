@@ -21,6 +21,32 @@
 
 #include <floor/compute/host/host_common.hpp>
 
+//! the 64-bit ELF header
+struct elf64_header_t {
+	char magic[4];
+	uint8_t bitness;
+	uint8_t endianness;
+	uint8_t ident_version;
+	uint8_t os_abi;
+	uint8_t os_abi_version;
+	uint8_t _padding_0[7];
+	
+	uint16_t type;
+	uint16_t machine;
+	uint32_t elf_version;
+	uint64_t entry_point;
+	uint64_t program_header_offset;
+	uint64_t section_header_table_offset;
+	uint32_t flags;
+	uint16_t header_size;
+	uint16_t program_header_table_entry_size;
+	uint16_t program_header_table_entry_count;
+	uint16_t section_header_table_entry_size;
+	uint16_t section_header_table_entry_count;
+	uint16_t section_names_index;
+};
+static_assert(sizeof(elf64_header_t) == 64u, "invalid ELF64 header size");
+
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/core/aligned_ptr.hpp>
 #include <floor/math/vector_lib.hpp>

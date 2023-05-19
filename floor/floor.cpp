@@ -450,6 +450,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_validator = config_doc.get<string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
 		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
 		extract_string_array_set.operator()<false>(config.vulkan_log_binary_filter, "toolchain.vulkan.log_binary_filter");
+		config.vulkan_nvidia_device_diagnostics = config_doc.get<bool>("toolchain.vulkan.nvidia_device_diagnostics", false);
 		
 		host_toolchain_paths = config_doc.get<json::json_array>("toolchain.host.paths", default_toolchain_paths);
 		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
@@ -2025,6 +2026,9 @@ const bool& floor::get_vulkan_soft_printf() {
 }
 const vector<string>& floor::get_vulkan_log_binary_filter() {
 	return config.vulkan_log_binary_filter;
+}
+const bool& floor::get_vulkan_nvidia_device_diagnostics() {
+	return config.vulkan_nvidia_device_diagnostics;
 }
 
 

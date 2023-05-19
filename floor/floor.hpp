@@ -312,6 +312,7 @@ public:
 	static const string& get_vulkan_spirv_validator();
 	static const bool& get_vulkan_soft_printf();
 	static const vector<string>& get_vulkan_log_binary_filter();
+	static const bool& get_vulkan_nvidia_device_diagnostics();
 	
 	// host
 	static const string& get_host_base_path();
@@ -470,6 +471,7 @@ protected:
 		string vulkan_spirv_validator = "spirv-val";
 		bool vulkan_soft_printf = false;
 		vector<string> vulkan_log_binary_filter;
+		bool vulkan_nvidia_device_diagnostics = false;
 
 		// sdl
 		uint32_t flags = 0;
