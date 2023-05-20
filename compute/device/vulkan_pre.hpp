@@ -24,14 +24,11 @@
 // still need to include opencl stuff
 #include <floor/compute/device/opencl_pre.hpp>
 
-// enable optional capabilities
-#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
+// 16-bit and 64-bit support is required
 #pragma OPENCL EXTENSION vk_capability_int16 : enable
-#endif
-
-// 64-bit support is required
 #pragma OPENCL EXTENSION vk_capability_int64 : enable
 
+// enable optional capabilities
 #if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT_1)
 #pragma OPENCL EXTENSION vk_capability_float16 : enable
 #endif

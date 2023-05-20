@@ -190,8 +190,10 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda.hpp>
-#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#elif defined(FLOOR_COMPUTE_OPENCL)
 #include <floor/compute/device/opencl.hpp>
+#elif defined(FLOOR_COMPUTE_VULKAN)
+#include <floor/compute/device/vulkan.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal.hpp>
 #elif defined(FLOOR_COMPUTE_HOST)

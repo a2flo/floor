@@ -1524,7 +1524,6 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.anisotropic_support = features_2.features.samplerAnisotropy;
 		device.max_anisotropy = (device.anisotropic_support ? uint32_t(limits.maxSamplerAnisotropy) : 1u);
 		
-		device.int16_support = features_2.features.shaderInt16;
 		device.float16_support = vulkan12_features.shaderFloat16;
 		device.double_support = features_2.features.shaderFloat64;
 		

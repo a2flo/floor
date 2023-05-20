@@ -999,10 +999,7 @@ program_data compile_input(const string& input,
 			break;
 		case TARGET::SPIRV_VULKAN: {
 			const auto& vk_device = (const vulkan_device&)device;
-			const auto has_int16_support = to_string(vk_device.int16_support);
 			const auto has_float16_support = to_string(vk_device.float16_support);
-			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT="s + has_int16_support;
-			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_"s + has_int16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT="s + has_float16_support;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT_"s + has_float16_support;
 			break;

@@ -102,9 +102,6 @@ public:
 	//! i.e. this is the case on systems all device memory is host coherent ("Resizable BAR"/"SAM")
 	bool prefer_host_coherent_mem { false };
 	
-	//! feature support: can use 16-bit int types in SPIR-V
-	bool int16_support { false };
-	
 	//! feature support: can use 16-bit float types in SPIR-V
 	bool float16_support { false };
 	
