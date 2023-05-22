@@ -204,7 +204,11 @@ namespace universal_binary {
 			//! NOTE: this requires an Apple7+ or Mac2+ GPU, as well as Metal 3.0
 			uint64_t basic_32_bit_float_atomics_support : 1;
 			
-			uint64_t _unused : 27;
+			//! if set, enables SIMD reduction operation support
+			//! NOTE: this requires an Apple7+ with Metal 2.3+ or Mac2+ GPU with Metal 2.1+
+			uint64_t simd_reduction : 1;
+			
+			uint64_t _unused : 26;
 		} metal;
 		
 		struct __attribute__((packed)) {
@@ -267,7 +271,11 @@ namespace universal_binary {
 			//! NOTE: this is required now
 			uint64_t descriptor_buffer_support : 1;
 			
-			uint64_t _unused : 23;
+			//! required device SIMD width
+			//! if 0, no width is assumed
+			uint64_t simd_width : 8;
+			
+			uint64_t _unused : 15;
 		} vulkan;
 
 		//! packed value

@@ -236,6 +236,7 @@
 		5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8B4A6A1BE603C000987CAD /* flat_map.hpp */; };
 		5C8EDFCD2A192C1500DB1EEF /* vulkan.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8EDFCC2A192C1400DB1EEF /* vulkan.hpp */; };
 		5C8EDFCF2A192D9D00DB1EEF /* opencl_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8EDFCE2A192D9D00DB1EEF /* opencl_common.hpp */; };
+		5C8EDFD12A193D7C00DB1EEF /* group.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8EDFD02A193D7B00DB1EEF /* group.hpp */; };
 		5C8F323526347403008144CF /* metal_device_query.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8F323326347402008144CF /* metal_device_query.hpp */; };
 		5C8F323626347403008144CF /* metal_device_query.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F323426347403008144CF /* metal_device_query.mm */; };
 		5C8F323726347403008144CF /* metal_device_query.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F323426347403008144CF /* metal_device_query.mm */; };
@@ -610,6 +611,7 @@
 		5C8B4A6A1BE603C000987CAD /* flat_map.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = flat_map.hpp; sourceTree = "<group>"; };
 		5C8EDFCC2A192C1400DB1EEF /* vulkan.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan.hpp; path = device/vulkan.hpp; sourceTree = "<group>"; };
 		5C8EDFCE2A192D9D00DB1EEF /* opencl_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_common.hpp; path = device/opencl_common.hpp; sourceTree = "<group>"; };
+		5C8EDFD02A193D7B00DB1EEF /* group.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = group.hpp; path = device/group.hpp; sourceTree = "<group>"; };
 		5C8F323326347402008144CF /* metal_device_query.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_device_query.hpp; path = metal/metal_device_query.hpp; sourceTree = "<group>"; };
 		5C8F323426347403008144CF /* metal_device_query.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_device_query.mm; path = metal/metal_device_query.mm; sourceTree = "<group>"; };
 		5C8F32382635BA88008144CF /* vulkan_argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_argument_buffer.cpp; path = vulkan/vulkan_argument_buffer.cpp; sourceTree = "<group>"; };
@@ -1058,6 +1060,7 @@
 				5CFC8A8F26B74F24009028A5 /* atomic_compat_post.hpp */,
 				5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */,
 				5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */,
+				5C8EDFD02A193D7B00DB1EEF /* group.hpp */,
 				5CBBFF571BC2B786001813E0 /* image.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 				5CAF42921B15C04D00316FBB /* logger.hpp */,
@@ -1391,6 +1394,7 @@
 				5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */,
 				5C84530A22B1A6C90014AECF /* metal_pipeline.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
+				5C8EDFD12A193D7C00DB1EEF /* group.hpp in Headers */,
 				5C8FD0D31AD3947200215230 /* compute_memory.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */,

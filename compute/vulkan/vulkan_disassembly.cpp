@@ -125,11 +125,13 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 	// [entry count - uint32_t]
 	//
 	// entry:
-	// [UUID? - 16 bytes]
+	// [shader-hash - 8 bytes]
+	// [unknown hash? - 8 bytes]
 	// [payload size - uint32_t]
 	// [CPKV magic - char[4]]
 	// [unknown - uint32_t]
-	// [same UUID? - 16 bytes]
+	// [same shader-hash - 8 bytes]
+	// [unknown hash? - 8 bytes]
 	// [unknown - uint32_t]
 	// [unknown - uint32_t]
 	// [payload size - uint32_t]
@@ -153,11 +155,13 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 	const auto entry_count = ((const nv_pipeline_header_t*)nv_pipeline_data.data())->entry_count;
 	
 	struct __attribute__((packed)) nv_entry_header_t {
-		uint8_t uuid_0[16];
+		uint8_t shader_hash_0[8];
+		uint8_t unknown_hash_0[8];
 		uint32_t payload_size_0;
 		uint32_t cpkv_magic;
 		uint32_t unknown_0;
-		uint8_t uuid_1[16];
+		uint8_t shader_hash_1[8];
+		uint8_t unknown_hash_1[8];
 		uint32_t unknown_1;
 		uint32_t unknown_2;
 		uint32_t payload_size_1;

@@ -61,6 +61,9 @@ public:
 	
 	// device family tier
 	uint32_t family_tier { 1u };
+
+	//! true if the device has support for SIMD reduction operations
+	bool simd_reduction { false };
 	
 	// compute queue used for internal purposes (try not to use this ...)
 	compute_queue* internal_queue { nullptr };

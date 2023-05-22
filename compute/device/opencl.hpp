@@ -83,50 +83,50 @@ void cl_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("
 void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z14read_mem_fencej");
 void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z14read_mem_fencej");
 
-floor_inline_always static void global_barrier() {
+floor_inline_always static void global_barrier() __attribute__((noduplicate, convergent)) {
 	cl_barrier(2u);
 }
-floor_inline_always static void global_mem_fence() {
+floor_inline_always static void global_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_mem_fence(2u);
 }
-floor_inline_always static void global_read_mem_fence() {
+floor_inline_always static void global_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_read_mem_fence(2u);
 }
-floor_inline_always static void global_write_mem_fence() {
+floor_inline_always static void global_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_write_mem_fence(2u);
 }
 
-floor_inline_always static void local_barrier() {
+floor_inline_always static void local_barrier() __attribute__((noduplicate, convergent)) {
 	cl_barrier(1u);
 }
-floor_inline_always static void local_mem_fence() {
+floor_inline_always static void local_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_mem_fence(1u);
 }
-floor_inline_always static void local_read_mem_fence() {
+floor_inline_always static void local_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_read_mem_fence(1u);
 }
-floor_inline_always static void local_write_mem_fence() {
+floor_inline_always static void local_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_write_mem_fence(1u);
 }
 
-floor_inline_always static void barrier() {
+floor_inline_always static void barrier() __attribute__((noduplicate, convergent)) {
 	cl_barrier(3u);
 }
 
 //! NOTE: not guaranteed to be available everywhere
-floor_inline_always static void image_barrier() {
+floor_inline_always static void image_barrier() __attribute__((noduplicate, convergent)) {
 	cl_barrier(4u);
 }
 //! NOTE: not guaranteed to be available everywhere
-floor_inline_always static void image_mem_fence() {
+floor_inline_always static void image_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_mem_fence(4u);
 }
 //! NOTE: not guaranteed to be available everywhere
-floor_inline_always static void image_read_mem_fence() {
+floor_inline_always static void image_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_read_mem_fence(4u);
 }
 //! NOTE: not guaranteed to be available everywhere
-floor_inline_always static void image_write_mem_fence() {
+floor_inline_always static void image_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	cl_write_mem_fence(4u);
 }
 

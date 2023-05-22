@@ -187,6 +187,9 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
 
+// parallel group ops
+#include <floor/compute/device/group.hpp>
+
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda.hpp>

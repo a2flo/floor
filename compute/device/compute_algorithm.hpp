@@ -22,129 +22,21 @@
 //! misc compute algorithms, specialized for each backend/hardware
 namespace compute_algorithm {
 	// TODO: broadcast, radix/bitonic sort, histogram
-	
-	//////////////////////////////////////////
-	// sub-group reduce functions
-	
-#if defined(FLOOR_COMPUTE_CUDA)
-	//! performs a butterfly reduction inside the sub-group using the specific operation/function
-	template <typename T, typename F> requires (sizeof(T) == 4)
-	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
-		T shfled_var;
-#pragma unroll
-		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-			if constexpr(is_floating_point_v<T>) {
-				asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-							 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
-			}
-			else {
-				asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-							 : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
-			}
-			lane_var = op(lane_var, shfled_var);
-		}
-		return lane_var;
-	}
-	template <typename T, typename F> requires(sizeof(T) == 8)
-	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
-		T shfled_var;
-#pragma unroll
-		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-			uint32_t shfled_hi, shfled_lo, hi, lo;
-			if constexpr(is_floating_point_v<T>) {
-				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "d"(lane_var));
-			}
-			else {
-				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "l"(lane_var));
-			}
-			asm volatile("shfl.sync.bfly.b32 %0, %2, %4, %5, 0xFFFFFFFF;\n"
-						 "\tshfl.sync.bfly.b32 %1, %3, %4, %5, 0xFFFFFFFF;"
-						 : "=r"(shfled_lo), "=r"(shfled_hi)
-						 : "r"(lo), "r"(hi), "i"(lane), "i"(device_info::simd_width() - 1));
-			if constexpr(is_floating_point_v<T>) {
-				asm volatile("mov.b64 %0, { %1, %2 };" : "=d"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
-			}
-			else {
-				asm volatile("mov.b64 %0, { %1, %2 };" : "=l"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
-			}
-			lane_var = op(lane_var, shfled_var);
-		}
-		return lane_var;
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
-		return sub_group_reduce(lane_var, plus<> {});
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
-		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
-		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
-	}
-	
-#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
-#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
-	// just forward to global functions for opencl
-	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
-		return ::sub_group_reduce_add(lane_var);
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
-		return ::sub_group_reduce_min(lane_var);
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
-		return ::sub_group_reduce_max(lane_var);
-	}
-#endif
-	
-#elif defined(FLOOR_COMPUTE_METAL)
-#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
-	//! performs a butterfly reduction inside the sub-group using the specific operation/function
-	template <typename T, typename F> requires(is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
-	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
-		// on Metal we only have a fixed+known SIMD-width at compile-time when we're specifically compiling for a device
-		if constexpr (device_info::has_fixed_known_simd_width()) {
-			T shfled_var;
-#pragma unroll
-			for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-				shfled_var = simd_shuffle_xor(lane_var, lane);
-				lane_var = op(lane_var, shfled_var);
-			}
-			return lane_var;
-		} else {
-			// dynamic version
-			T shfled_var;
-			for(uint32_t lane = sub_group_size / 2; lane > 0; lane >>= 1) {
-				shfled_var = simd_shuffle_xor(lane_var, lane);
-				lane_var = op(lane_var, shfled_var);
-			}
-			return lane_var;
-		}
-	}
-	
-	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
-		return sub_group_reduce(lane_var, plus<> {});
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
-		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
-	}
-	template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
-		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
-	}
-#endif
-#endif
-	
-	//////////////////////////////////////////
-	// work-group reduce functions
-	// TODO: add specialized reduce (sub-group/warp, shuffle, spir/spir-v built-in)
+
+	//! enforce correct work-group size types
+	#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
+	template <auto work_group_size>
+	concept supported_work_group_size_type = is_same_v<decltype(work_group_size), uint32_t>;
+	#else
+	template <auto work_group_size>
+	concept supported_work_group_size_type = (is_same_v<decltype(work_group_size), uint32_t> ||
+											  is_same_v<decltype(work_group_size), uint2> ||
+											  is_same_v<decltype(work_group_size), uint3>);
+	#endif
 
 	//! computes the linear/1D work group size from the specified 1D, 2D or 3D work group size
 	template <auto work_group_size>
-#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
-	requires(is_same_v<decltype(work_group_size), uint32_t>)
-#else
-	requires(is_same_v<decltype(work_group_size), uint32_t> ||
-			 is_same_v<decltype(work_group_size), uint2> ||
-			 is_same_v<decltype(work_group_size), uint3>)
-#endif
+	requires(supported_work_group_size_type<work_group_size>)
 	static inline constexpr uint32_t compute_linear_work_group_size() {
 		if constexpr (is_same_v<decltype(work_group_size), uint32_t>) {
 			return work_group_size;
@@ -157,14 +49,34 @@ namespace compute_algorithm {
 		}
 	}
 	
+	//////////////////////////////////////////
+	// sub-group reduce functions
+	
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::ADD, data_type>)
+	floor_inline_always static data_type sub_group_reduce_add(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::ADD>(lane_var);
+	}
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MIN, data_type>)
+	floor_inline_always static data_type sub_group_reduce_min(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::MIN>(lane_var);
+	}
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, data_type>)
+	floor_inline_always static data_type sub_group_reduce_max(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::MAX>(lane_var);
+	}
+	
+	//////////////////////////////////////////
+	// work-group reduce functions
+	
 	//! generic work-group reduce function, without initializing local memory with a work-item specific value
 	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: the reduce function/op must be a binary function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type, typename F>
-	requires(is_same_v<decltype(work_group_size), uint32_t> ||
-			 is_same_v<decltype(work_group_size), uint2> ||
-			 is_same_v<decltype(work_group_size), uint3>)
+	requires(supported_work_group_size_type<work_group_size>)
 	floor_inline_always static reduced_type reduce_no_init(local_memory_type& lmem,
 														   F&& op) {
 		constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
@@ -220,13 +132,7 @@ namespace compute_algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: the reduce function/op must be a binary function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type, typename F>
-#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
-	requires(is_same_v<decltype(work_group_size), uint32_t>)
-#else
-	requires(is_same_v<decltype(work_group_size), uint32_t> ||
-			 is_same_v<decltype(work_group_size), uint2> ||
-			 is_same_v<decltype(work_group_size), uint3>)
-#endif
+	requires(supported_work_group_size_type<work_group_size>)
 	floor_inline_always static reduced_type reduce(const reduced_type& work_item_value,
 												   local_memory_type& lmem,
 												   F&& op) {
@@ -280,15 +186,57 @@ namespace compute_algorithm {
 #endif
 	}
 	
+	//! work-group add/sum reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_add(const reduced_type& work_item_value,
+													   local_memory_type& lmem) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
+			return group::work_group_reduce<group::OP::ADD>(work_item_value, lmem);
+		}
+		// TODO: sub-group algo fallback
+		return reduce<work_group_size>(work_item_value, lmem, plus<reduced_type> {});
+	}
+	
+	//! work-group min reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_min(const reduced_type& work_item_value,
+													   local_memory_type& lmem) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
+			return group::work_group_reduce<group::OP::MIN>(work_item_value, lmem);
+		}
+		// TODO: sub-group algo fallback
+		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return min(lhs, rhs); });
+	}
+	
+	//! work-group max reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_max(const reduced_type& work_item_value,
+													   local_memory_type& lmem) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
+			return group::work_group_reduce<group::OP::MAX>(work_item_value, lmem);
+		}
+		// TODO: sub-group algo fallback
+		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return max(lhs, rhs); });
+	}
+	
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size>
 	static constexpr uint32_t reduce_local_memory_elements() {
+		// TODO: update requirements when there is sub-group support
 		return work_group_size;
 	}
 	
 	//////////////////////////////////////////
 	// work-group scan functions
-	// TODO: add specialized scans (spir/spir-v built-in)
 
 	//! returns true if the inclusive/exclusive scan implementation uses the sub-group path
 	static constexpr bool has_sub_group_scan() {
@@ -356,11 +304,7 @@ namespace compute_algorithm {
 				
 				lmem[lane] = group_scan_value;
 			}
-#if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_APPLE) // work around weird sync issue on Apple GPUs
-			air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
-#else
 			local_barrier();
-#endif
 			
 			// broadcast final per-sub-group offsets to all sub-groups
 			const auto group_offset = (group > 0u ? lmem[group - 1u] : data_type(0));
@@ -438,6 +382,18 @@ namespace compute_algorithm {
 												   const data_type zero_val = (data_type)0) {
 		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
+
+	//! work-group inclusive-scan-add/sum function (aka prefix sum)
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto inclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			return group::work_group_inclusive_scan<group::OP::ADD>(work_item_value, lmem);
+		}
+		// TODO: sub-group algo fallback
+		return scan<work_group_size, true>(work_item_value, plus<data_type> {}, lmem, data_type(0));
+	}
 	
 	//! generic work-group exclusive-scan function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
@@ -451,9 +407,50 @@ namespace compute_algorithm {
 		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	
+	//! work-group exclusive-scan-add/sum function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto exclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			return group::work_group_exclusive_scan<group::OP::ADD>(work_item_value, lmem);
+		}
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
+			// last sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == sub_group_size - 1u) {
+				lmem[sub_group_id_1d] = sub_block_val;
+			}
+			local_barrier();
+			
+			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
+			if (sub_group_id_1d == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < sub_group_size ? lmem[sub_group_local_id] : data_type(0));
+				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
+				lmem[sub_group_local_id] = wg_offset;
+			}
+			local_barrier();
+			
+			// finally: broadcast final per-sub-group/block offsets to all sub-groups
+			const auto sub_block_offset = (sub_group_id_1d == 0u ? data_type(0) : lmem[sub_group_id_1d - 1u]);
+			// shift one up, #0 in each group returns the offset of the previous group (+ 0)
+			const auto excl_sub_block_val = simd_shuffle_up(sub_block_val, 1u);
+			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
+			local_barrier();
+			return sub_block_offset + (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val);
+		}
+#endif
+		return scan<work_group_size, false>(work_item_value, plus<data_type> {}, lmem, data_type(0));
+	}
+	
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size>
 	static constexpr uint32_t scan_local_memory_elements() {
+		// TODO: update requirements when there is sub-group algo support
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		if constexpr (has_sub_group_scan()) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,

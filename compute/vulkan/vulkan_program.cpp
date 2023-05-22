@@ -379,6 +379,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 					}
 					
 					// stage info, can be used here or at a later point
+					entry.stage_sub_group_info = VkPipelineShaderStageRequiredSubgroupSizeCreateInfo {
+						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,
+						.pNext = nullptr,
+						// TODO: sub-group size / SIMD-width must really be stored in function info,
+						// this may not work if the device supports a SIMD-width range and the program has not been compiled for the default width
+						.requiredSubgroupSize = dev.simd_width,
+					};
 					entry.stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = nullptr,
@@ -416,6 +423,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 						const uint3 work_group_size = (info.has_valid_local_size() ?
 													   info.local_size :
 													   uint3 { entry.max_total_local_size, 1, 1 });
+						if ((work_group_size.x % entry.stage_sub_group_info.requiredSubgroupSize) != 0) {
+							log_error("work-group size X ($) must be a multiple of the sub-group size ($) in function \"$\"",
+									  work_group_size.x, entry.stage_sub_group_info.requiredSubgroupSize, func_name);
+							continue;
+						}
 						if (entry.specialize(vk_dev, work_group_size) == nullptr) {
 							// NOTE: if specialization failed, this will have already printed an error
 							continue;

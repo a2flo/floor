@@ -602,6 +602,185 @@ floor_inline_always static int32_t simd_shuffle_xor(const int32_t lane_var, cons
 	return ret;
 }
 
+//! CUDA parallel group operation implementations / support
+namespace compute_algorithm::group {
+
+//! performs a butterfly reduction inside the sub-group using the specific operation/function
+template <typename T, typename F> requires (sizeof(T) == 4)
+floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
+	T shfled_var;
+#pragma unroll
+	for (uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+		if constexpr(is_floating_point_v<T>) {
+			asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
+						 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
+		} else {
+			asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
+						 : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
+		}
+		lane_var = op(lane_var, shfled_var);
+	}
+	return lane_var;
+}
+
+template <typename T, typename F> requires(sizeof(T) == 8)
+floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
+	T shfled_var;
+#pragma unroll
+	for (uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+		uint32_t shfled_hi, shfled_lo, hi, lo;
+		if constexpr(is_floating_point_v<T>) {
+			asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "d"(lane_var));
+		} else {
+			asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "l"(lane_var));
+		}
+		asm volatile("shfl.sync.bfly.b32 %0, %2, %4, %5, 0xFFFFFFFF;\n"
+					 "\tshfl.sync.bfly.b32 %1, %3, %4, %5, 0xFFFFFFFF;"
+					 : "=r"(shfled_lo), "=r"(shfled_hi)
+					 : "r"(lo), "r"(hi), "i"(lane), "i"(device_info::simd_width() - 1));
+		if constexpr(is_floating_point_v<T>) {
+			asm volatile("mov.b64 %0, { %1, %2 };" : "=d"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
+		} else {
+			asm volatile("mov.b64 %0, { %1, %2 };" : "=l"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
+		}
+		lane_var = op(lane_var, shfled_var);
+	}
+	return lane_var;
+}
+
+template <bool is_exclusive, typename T, typename F> requires (sizeof(T) == 4)
+floor_inline_always static T cuda_sub_group_inclusive_scan(T lane_var, F&& op) {
+	// NOTE: can't use builtin lane index -> mask local id X instead
+	const auto lane_idx = __nvvm_read_ptx_sreg_tid_x() & (device_info::simd_width() - 1u);
+	
+	T shfled_var;
+#pragma unroll
+	for (uint32_t delta = 1u; delta <= (device_info::simd_width() / 2u); delta <<= 1u) {
+		if constexpr(is_floating_point_v<T>) {
+			asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
+						 : "=f"(shfled_var) : "f"(lane_var), "i"(delta));
+		} else {
+			asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
+						 : "=r"(shfled_var) : "r"(lane_var), "i"(delta));
+		}
+		if (lane_idx >= delta) {
+			lane_var = op(lane_var, shfled_var);
+		}
+	}
+	
+	if constexpr (is_exclusive) {
+		// if this is an exclusive scan: shift one up
+		const auto incl_result = lane_var;
+		asm volatile("shfl.sync.up.b32 %0, %1, 1, 0, 0xFFFFFFFF;"
+					 : "=r"(lane_var) : "r"(incl_result));
+		return (lane_idx == 0 ? T(0) : lane_var);
+	} else {
+		return lane_var;
+	}
+}
+
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 80
+//! use redux.sync with sm_80+
+template <OP op, typename T>
+requires ((is_same_v<T, uint32_t> || is_same_v<T, int32_t>) &&
+		  (op == OP::ADD || op == OP::MIN || op == OP::MAX))
+floor_inline_always static T cuda_sub_group_redux(T lane_var) {
+	T ret;
+	if constexpr (op == OP::ADD) {
+		if constexpr (is_same_v<T, uint32_t>) {
+			asm volatile("redux.sync.add.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		} else {
+			asm volatile("redux.sync.add.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		}
+	} else if constexpr (op == OP::MIN) {
+		if constexpr (is_same_v<T, uint32_t>) {
+			asm volatile("redux.sync.min.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		} else {
+			asm volatile("redux.sync.min.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		}
+	} else if constexpr (op == OP::MAX) {
+		if constexpr (is_same_v<T, uint32_t>) {
+			asm volatile("redux.sync.max.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		} else {
+			asm volatile("redux.sync.max.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		}
+	}
+	return ret;
+}
+#endif
+
+// specialize for all supported operations
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, float> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, int64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, double> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_reduce(const data_type& input_value) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 80
+	if constexpr (is_same_v<data_type, uint32_t> || is_same_v<data_type, int32_t>) {
+		return cuda_sub_group_redux<OP::ADD>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, plus<data_type> {});
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, float> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, uint64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, int64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, double> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MIN)
+static auto sub_group_reduce(const data_type& input_value) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 80
+	if constexpr (is_same_v<data_type, uint32_t> || is_same_v<data_type, int32_t>) {
+		return cuda_sub_group_redux<OP::MIN>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, float> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, uint64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, int64_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, double> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MAX)
+static auto sub_group_reduce(const data_type& input_value) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 80
+	if constexpr (is_same_v<data_type, uint32_t> || is_same_v<data_type, int32_t>) {
+		return cuda_sub_group_redux<OP::MAX>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_inclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_inclusive_scan<false>(input_value, plus<data_type> {});
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_exclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_inclusive_scan<true>(input_value, plus<data_type> {});
+}
+
+} // namespace compute_algorithm::group
+
 // done
 #undef FLOOR_CUDA_DIM0
 #undef FLOOR_CUDA_DIM1

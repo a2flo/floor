@@ -410,6 +410,7 @@ namespace universal_binary {
 				mtl_dev.tessellation_support = mtl_target.tessellation_support;
 				mtl_dev.max_tessellation_factor = (mtl_target.tessellation_max_factor_tier == 0 ? 16u : 64u);
 				mtl_dev.basic_32_bit_float_atomics_support = mtl_target.basic_32_bit_float_atomics_support;
+				mtl_dev.simd_reduction = mtl_target.simd_reduction;
 				
 				// overwrite compute_device/metal_device defaults
 				if (mtl_target.is_ios) {
@@ -549,19 +550,36 @@ namespace universal_binary {
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;
 				vlk_dev.max_inline_uniform_block_count = vulkan_device::min_required_inline_uniform_block_count;
 				
-				// special vendor workarounds/settings
+				// special vendor workarounds/settings + SIMD handling
 				switch (vlk_target.device_target) {
-					default: break;
+					default:
+						vlk_dev.simd_width = vlk_target.simd_width;
+						break;
 					case decltype(vlk_target.device_target)::NVIDIA:
 						vlk_dev.vendor = COMPUTE_VENDOR::NVIDIA;
+						vlk_dev.simd_width = 32;
 						break;
 					case decltype(vlk_target.device_target)::AMD:
 						vlk_dev.vendor = COMPUTE_VENDOR::AMD;
+						if (vlk_target.simd_width != 32 && vlk_target.simd_width != 64) {
+							log_error("SIMD width must be 32 or 64 when targeting AMD");
+							return {};
+						}
 						break;
 					case decltype(vlk_target.device_target)::INTEL:
 						vlk_dev.vendor = COMPUTE_VENDOR::INTEL;
+						vlk_dev.simd_width = 32;
 						break;
 				}
+				if (vlk_target.device_target != decltype(vlk_target.device_target)::GENERIC) {
+					// fixed SIMD width must match requested one
+					if (vlk_dev.simd_width != vlk_target.simd_width &&
+						vlk_target.simd_width > 0) {
+						log_error("invalid required SIMD width: $", vlk_target.simd_width);
+						return {};
+					}
+				}
+				vlk_dev.simd_range = { vlk_dev.simd_width, vlk_dev.simd_width };
 				break;
 			}
 			case COMPUTE_TYPE::NONE:
@@ -1248,6 +1266,9 @@ namespace universal_binary {
 					if (mtl_target.basic_32_bit_float_atomics_support && !dev.basic_32_bit_float_atomics_support) {
 						continue;
 					}
+					if (mtl_target.simd_reduction && !mtl_dev.simd_reduction) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1288,12 +1309,14 @@ namespace universal_binary {
 											  mtl_target.barycentric_coord_support +
 											  mtl_target.tessellation_support +
 											  (mtl_target.tessellation_support && mtl_target.tessellation_max_factor_tier > 0 ? 1u : 0u) +
-											  mtl_target.basic_32_bit_float_atomics_support);
+											  mtl_target.basic_32_bit_float_atomics_support +
+											  mtl_target.simd_reduction);
 						const auto best_cap_sum = (best_mtl.primitive_id_support +
 												   best_mtl.barycentric_coord_support +
 												   best_mtl.tessellation_support +
 												   (best_mtl.tessellation_support && best_mtl.tessellation_max_factor_tier > 0 ? 1u : 0u) +
-												   best_mtl.basic_32_bit_float_atomics_support);
+												   best_mtl.basic_32_bit_float_atomics_support +
+												   best_mtl.simd_reduction);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
@@ -1388,6 +1411,12 @@ namespace universal_binary {
 							break;
 					}
 					
+					// check SIMD width
+					if (vlk_target.simd_width > 0 && (vlk_target.simd_width < dev.simd_range.x ||
+													  vlk_target.simd_width > dev.simd_range.y)) {
+						continue;
+					}
+					
 					// check caps
 					if (vlk_target.double_support && !dev.double_support) {
 						continue;
@@ -1430,6 +1459,16 @@ namespace universal_binary {
 							continue;
 						}
 						if (spirv_version < best_spirv_version) {
+							continue; // ignore lower target
+						}
+						
+						// higher SIMD width beats lower
+						// NOTE: only relevant for dynamic SIMD width devices
+						if (vlk_target.simd_width > best_vlk.simd_width) {
+							best_target_idx = i;
+							continue;
+						}
+						if (vlk_target.simd_width < best_vlk.simd_width) {
 							continue; // ignore lower target
 						}
 						

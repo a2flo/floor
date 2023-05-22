@@ -409,6 +409,11 @@ program_data compile_input(const string& input,
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
 			floor_path += floor::get_metal_base_path() + "floor";
+			
+			// base SIMD reduction support on device support flag
+			const auto has_simd_reduction_str = to_string(mtl_dev.simd_reduction);
+			clang_cmd += " -DFLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION="s + has_simd_reduction_str;
+			clang_cmd += " -DFLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION_"s + has_simd_reduction_str;
 		} break;
 		case TARGET::PTX: {
 			// handle sm version

@@ -201,10 +201,20 @@ using aftermath_enable_gpu_crash_dumps_f = uint32_t (*)(uint32_t version, uint32
 														aftermath_resolve_marker_cb aftermath_resolve_marker,
 														void* user_data);
 
-static uint32_t aftermath_gpu_crash_dump(const void*, const uint32_t, void*) {
+static uint32_t aftermath_gpu_crash_dump(const void* gpu_crash_dump, const uint32_t gpu_crash_dump_size, void*) {
+	if (gpu_crash_dump && gpu_crash_dump_size > 0) {
+		static atomic<uint32_t> counter = 0;
+		file_io::buffer_to_file("aftermath_gpu_crash_dump_" + floor::get_app_name() + "_" + to_string(counter++) + ".nv-gpudmp",
+								(const char*)gpu_crash_dump, gpu_crash_dump_size);
+	}
 	return 0;
 }
-static uint32_t aftermath_shader_debug_info(const void*, const uint32_t, void*) {
+static uint32_t aftermath_shader_debug_info(const void* shader_debug_info, const uint32_t shader_debug_info_size, void*) {
+	if (shader_debug_info && shader_debug_info_size > 0) {
+		static atomic<uint32_t> counter = 0;
+		file_io::buffer_to_file("aftermath_shader_debug_info_" + floor::get_app_name() + "_" + to_string(counter++) + ".nvdbg",
+								(const char*)shader_debug_info, shader_debug_info_size);
+	}
 	return 0;
 }
 static bool setup_nvidia_aftermath(vulkan_compute* ctx) {
@@ -228,7 +238,7 @@ static bool setup_nvidia_aftermath(vulkan_compute* ctx) {
 			return;
 		}
 		
-		// setup/enable Aftermath and register our function callbacks (this is the minimum to enable shader debug info)
+		// setup/enable Aftermath and register our function callbacks (this is the minimum to enable shader debug info and crash dumps)
 		static auto aftermath_enable_gpu_crash_dumps = (aftermath_enable_gpu_crash_dumps_f)enable_gpu_crash_dumps_fptr;
 		aftermath_enable_gpu_crash_dumps(0x212 /* 2022.2 / 2.18 -> compat with R515+ */, 2 /* Vulkan */, 0 /* we want immediate shader debug info */,
 										 &aftermath_gpu_crash_dump, &aftermath_shader_debug_info, nullptr, nullptr, ctx);
@@ -993,6 +1003,18 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		const auto sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
+		const auto sq_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
+									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT);
+		if (!vulkan13_features.subgroupSizeControl ||
+			!vulkan13_features.computeFullSubgroups ||
+			vulkan11_props.subgroupSize < 2 ||
+			(vulkan11_props.subgroupSupportedStages & sg_required_stages) != sg_required_stages ||
+			(vulkan11_props.subgroupSupportedOperations & sq_required_ops) != sq_required_ops) {
+			log_error("sub-group requirements are not fulfilled by $", props.deviceName);
+			continue;
+		}
+		
 		if (!robustness_features.nullDescriptor) {
 			log_error("null descriptor is not supported by $", props.deviceName);
 			continue;
@@ -1493,6 +1515,12 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device.max_global_size = device.max_local_size * device.max_group_size;
 		device.max_push_constants_size = limits.maxPushConstantsSize;
+		device.simd_range = { vulkan13_props.minSubgroupSize, vulkan13_props.maxSubgroupSize };
+		if (32u >= device.simd_range.x && 32u <= device.simd_range.y) {
+			device.simd_width = 32; // prefer 32 if we can
+		} else {
+			device.simd_width = vulkan11_props.subgroupSize;
+		}
 		if (device_supported_extensions_set.contains(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME)) {
 			device.units = nv_sm_builtins_props.shaderSMCount;
 			device.max_coop_total_local_size = nv_sm_builtins_props.shaderWarpsPerSM * 32u;
@@ -1616,6 +1644,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		log_msg("max local size: $", device.max_local_size);
 		log_msg("max global size: $", device.max_global_size);
 		log_msg("max group size: $", device.max_group_size);
+		log_msg("SIMD width: $ ($ - $)", device.simd_width, device.simd_range.x, device.simd_range.y);
 		log_msg("queue families: $", queue_family_count);
 		
 		// TODO: fastest device selection, tricky to do without a unit count

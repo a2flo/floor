@@ -359,6 +359,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// Apple7+ with Metal 3.0+ supports 32-bit float atomics
 		device.basic_32_bit_float_atomics_support = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
 		
+		// Apple7+ with Metal 2.3+ supports SIMD reduction
+		device.simd_reduction = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_2_3);
+		
 		// Metal 3.0+ supports/requires sub-group/SIMD support
 		if (device.metal_language_version >= METAL_VERSION::METAL_3_0) {
 			device.sub_group_support = true;
@@ -486,6 +489,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		// Mac2 with Metal 3.0+ supports 32-bit float atomics
 		device.basic_32_bit_float_atomics_support = (device.family_tier >= 2 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
+		// Mac2 with Metal 2.1+ supports SIMD reduction
+		device.simd_reduction = (device.family_tier >= 2 && device.metal_language_version >= METAL_VERSION::METAL_2_1);
 #endif
 		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
 		if ([dev respondsToSelector:@selector(maxBufferLength)]) {

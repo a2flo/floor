@@ -45,6 +45,7 @@ class vulkan_kernel : public compute_kernel {
 public:
 	struct vulkan_kernel_entry : kernel_entry {
 		VkPipelineLayout pipeline_layout { nullptr };
+		VkPipelineShaderStageRequiredSubgroupSizeCreateInfo stage_sub_group_info;
 		VkPipelineShaderStageCreateInfo stage_info;
 		VkDescriptorSetLayout desc_set_layout { nullptr };
 		

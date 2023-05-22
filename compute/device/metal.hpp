@@ -195,14 +195,12 @@ FLOOR_GROUP_ID_RANGE_ATTR const_func uint32_t get_group_id(uint32_t dim) asm("fl
 FLOOR_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
 [[range(1u, 3u)]] const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 
-// Metal 2.0+ (macOS-only)
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 FLOOR_SUB_GROUP_ID_RANGE_ATTR const_func uint32_t get_sub_group_id() asm("floor.get_sub_group_id.i32");
 FLOOR_SUB_GROUP_LOCAL_ID_RANGE_ATTR const_func uint32_t get_sub_group_local_id() asm("floor.get_sub_group_local_id.i32");
 FLOOR_SUB_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_sub_group_size() asm("floor.get_sub_group_size.i32");
 FLOOR_NUM_SUB_GROUPS_RANGE_ATTR const_func uint32_t get_num_sub_groups() asm("floor.get_num_sub_groups.i32");
 
-// TODO: sub_group_reduce_*/sub_group_scan_exclusive_*/sub_group_scan_inclusive_*
 #define SUB_GROUP_TYPES(F, P) F(int32_t, "s.i32", P) F(uint32_t, "u.i32", P) F(float, "f32", P)
 #define SUB_GROUP_FUNC(type, type_str, func) type func(type, uint16_t lane_idx_delta_or_mask) __attribute__((noduplicate, convergent)) asm("air." #func "." type_str);
 SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle)
@@ -218,46 +216,46 @@ SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle_xor)
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)
 void air_wg_barrier(uint32_t mem_scope, int32_t sync_scope) __attribute__((noduplicate, convergent)) asm("air.wg.barrier");
 
-floor_inline_always static void global_barrier() {
+floor_inline_always static void global_barrier() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void global_mem_fence() {
+floor_inline_always static void global_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void global_read_mem_fence() {
+floor_inline_always static void global_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void global_write_mem_fence() {
+floor_inline_always static void global_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
-floor_inline_always static void local_barrier() {
+floor_inline_always static void local_barrier() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void local_mem_fence() {
+floor_inline_always static void local_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void local_read_mem_fence() {
+floor_inline_always static void local_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void local_write_mem_fence() {
+floor_inline_always static void local_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
-floor_inline_always static void barrier() {
+floor_inline_always static void barrier() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
-floor_inline_always static void image_barrier() {
+floor_inline_always static void image_barrier() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void image_mem_fence() {
+floor_inline_always static void image_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void image_read_mem_fence() {
+floor_inline_always static void image_read_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always static void image_write_mem_fence() {
+floor_inline_always static void image_write_mem_fence() __attribute__((noduplicate, convergent)) {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
@@ -277,7 +275,6 @@ static void printf(constant const char (&format)[format_N], const Args&... args)
 #endif
 
 // tessellation
-
 const_func metal_func uint16_t metal_get_num_patch_control_points() asm("air.get_num_patch_control_points");
 
 template <typename point_data_t>
@@ -296,6 +293,115 @@ protected:
 	__patch_control_point_t p;
 	
 };
+
+#if FLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION != 0 || FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+//! Metal parallel group operation implementations / support
+namespace compute_algorithm::group {
+
+#if FLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION != 0 // -> AIR backend functions
+int32_t sub_group_reduce_add(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.s.i32");
+uint32_t sub_group_reduce_add(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.u.i32");
+float sub_group_reduce_add(float value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.f32");
+
+int32_t sub_group_reduce_min(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_min.s.i32");
+uint32_t sub_group_reduce_min(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_min.u.i32");
+float sub_group_reduce_min(float value) __attribute__((noduplicate, convergent)) asm("air.simd_min.f32");
+
+int32_t sub_group_reduce_max(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_max.s.i32");
+uint32_t sub_group_reduce_max(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_max.u.i32");
+float sub_group_reduce_max(float value) __attribute__((noduplicate, convergent)) asm("air.simd_max.f32");
+
+int32_t sub_group_inclusive_scan_add(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_inclusive_sum.s.i32");
+uint32_t sub_group_inclusive_scan_add(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_inclusive_sum.u.i32");
+float sub_group_inclusive_scan_add(float value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_inclusive_sum.f32");
+
+int32_t sub_group_exclusive_scan_add(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.s.i32");
+uint32_t sub_group_exclusive_scan_add(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.u.i32");
+float sub_group_exclusive_scan_add(float value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.f32");
+
+#elif FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0 // -> fallback to manual sub-group implementation
+//! performs a butterfly reduction inside the sub-group using the specific operation/function
+template <typename T, typename F> requires(is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
+floor_inline_always static T metal_sub_group_reduce(T lane_var, F&& op) {
+	// on Metal we only have a fixed+known SIMD-width at compile-time when we're specifically compiling for a device
+	if constexpr (device_info::has_fixed_known_simd_width()) {
+		T shfled_var;
+#pragma unroll
+		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+			shfled_var = simd_shuffle_xor(lane_var, lane);
+			lane_var = op(lane_var, shfled_var);
+		}
+		return lane_var;
+	} else {
+		// dynamic version
+		T shfled_var;
+		for(uint32_t lane = sub_group_size / 2; lane > 0; lane >>= 1) {
+			shfled_var = simd_shuffle_xor(lane_var, lane);
+			lane_var = op(lane_var, shfled_var);
+		}
+		return lane_var;
+	}
+}
+
+template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
+	return metal_sub_group_reduce(lane_var, plus<T> {});
+}
+template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
+	return metal_sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
+}
+template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
+	return metal_sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
+}
+#endif
+
+// specialize for all supported operations
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_reduce(const data_type& input_value) {
+	return sub_group_reduce_add(input_value);
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MIN)
+static auto sub_group_reduce(const data_type& input_value) {
+	return sub_group_reduce_min(input_value);
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MAX)
+static auto sub_group_reduce(const data_type& input_value) {
+	return sub_group_reduce_max(input_value);
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_inclusive_scan(const data_type& input_value) {
+	return sub_group_inclusive_scan_add(input_value);
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::ADD)
+static auto sub_group_exclusive_scan(const data_type& input_value) {
+	return sub_group_exclusive_scan_add(input_value);
+}
+
+} // namespace compute_algorithm::group
+#endif
 
 #endif
 
