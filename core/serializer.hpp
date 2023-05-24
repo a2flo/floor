@@ -71,7 +71,7 @@ protected:
 	storage_type storage;
 	
 public:
-	explicit serializer(storage_type&& storage_) : storage(forward<storage_type&&>(storage_)) {}
+	explicit serializer(storage_type&& storage_) : storage(std::forward<storage_type&&>(storage_)) {}
 	
 	//! returns the raw data storage of this serializer
 	storage_type& get_storage() { return storage; }

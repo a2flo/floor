@@ -75,13 +75,6 @@ typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 #endif
 
-// sets a required local size/dim
-#if defined(FLOOR_COMPUTE) && (!defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_HOST_DEVICE))
-#define kernel_local_size(x, y, z) __attribute__((reqd_work_group_size(x, y, z)))
-#else // can't set this on the host
-#define kernel_local_size(x, y, z)
-#endif
-
 // misc device information
 #include <floor/compute/device/device_info.hpp>
 

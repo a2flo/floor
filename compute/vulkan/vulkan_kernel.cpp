@@ -62,6 +62,12 @@ bool vulkan_kernel::should_log_vulkan_binary(const string& function_name) {
 
 vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(const vulkan_device& device,
 																							   const uint3& work_group_size) {
+	if (info->has_valid_local_size() && (info->local_size != work_group_size).any()) {
+		log_error("kernel $ has fixed compiled local size of $, it may not be specialized to a different local size of $",
+				  info->name, info->local_size, work_group_size);
+		return nullptr;
+	}
+	
 	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
 	const auto iter = specializations.find(spec_key);
 	if(iter != specializations.end()) {
@@ -261,6 +267,11 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// check work size
 	const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
+	if (kernel_iter->second.info->has_valid_local_size() && (kernel_iter->second.info->local_size != local_work_size_.maxed(1u)).any()) {
+		log_error("kernel $ has fixed compiled local size of $, it may not be executed with a different local size of $",
+				  kernel_iter->second.info->name, kernel_iter->second.info->local_size, local_work_size_);
+		return;
+	}
 	
 	const uint3 grid_dim_overflow {
 		global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,

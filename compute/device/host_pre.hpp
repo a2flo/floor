@@ -47,10 +47,13 @@ typedef __SIZE_TYPE__ size_t;
 // visibility default: function name is publicly visible and can be retrieved at runtime
 // dllexport (windows only): necessary, so that the function can be retrieved via GetProcAddress
 #if defined(FLOOR_COMPUTE_HOST_DEVICE) // device toolchain
-#define kernel extern "C" __attribute__((compute_kernel, used, visibility("default")))
+#define kernel_1d(... /* x */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_2d(... /* x, y */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_3d(... /* x, y, z */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define kernel kernel_1d()
 #define vertex extern "C" __attribute__((vertex_shader, used, visibility("default")))
 #define fragment extern "C" __attribute__((fragment_shader, used, visibility("default")))
-#define tessellation_control extern "C" __attribute__((tessellation_control_shader, used, visibility("default")))
+#define tessellation_control extern "C" __attribute__((tessellation_control_shader, used, visibility("default"), kernel_dim(1)))
 #define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader, used, visibility("default")))
 #else // host toolchain
 #if !defined(__WINDOWS__)
@@ -63,6 +66,9 @@ typedef __SIZE_TYPE__ size_t;
 // NOTE: kernel always returns void -> can use extern "C"
 //       shaders can return complex return types -> must use C++ mangling
 #define kernel FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_1d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_2d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_3d(...) FLOOR_ENTRY_POINT_SPEC_C
 #define vertex FLOOR_ENTRY_POINT_SPEC
 #define fragment FLOOR_ENTRY_POINT_SPEC
 #define tessellation_control FLOOR_ENTRY_POINT_SPEC

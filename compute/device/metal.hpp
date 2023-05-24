@@ -327,7 +327,7 @@ floor_inline_always static T metal_sub_group_reduce(T lane_var, F&& op) {
 	if constexpr (device_info::has_fixed_known_simd_width()) {
 		T shfled_var;
 #pragma unroll
-		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+		for (uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
 			shfled_var = simd_shuffle_xor(lane_var, lane);
 			lane_var = op(lane_var, shfled_var);
 		}
@@ -335,7 +335,7 @@ floor_inline_always static T metal_sub_group_reduce(T lane_var, F&& op) {
 	} else {
 		// dynamic version
 		T shfled_var;
-		for(uint32_t lane = sub_group_size / 2; lane > 0; lane >>= 1) {
+		for (uint32_t lane = get_sub_group_size() / 2; lane > 0; lane >>= 1) {
 			shfled_var = simd_shuffle_xor(lane_var, lane);
 			lane_var = op(lane_var, shfled_var);
 		}

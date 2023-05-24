@@ -63,6 +63,10 @@ namespace llvm_toolchain {
 		USES_SOFT_PRINTF				= (1u << 0u),
 		//! function makes use of Vulkan descriptor buffers
 		USES_VULKAN_DESCRIPTOR_BUFFER	= (1u << 1u),
+		//! kernel dimensionality
+		KERNEL_1D						= (1u << 2u),
+		KERNEL_2D						= (1u << 3u),
+		KERNEL_3D						= (1u << 4u),
 	};
 	floor_global_enum_no_hash_ext(FUNCTION_FLAGS)
 

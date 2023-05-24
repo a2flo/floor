@@ -24,8 +24,8 @@ Let's take this fairly simple C++ kernel below that computes the body/body-inter
 static constexpr constant const uint32_t NBODY_TILE_SIZE { 256u };
 static constexpr constant const float NBODY_DAMPING { 0.999f };
 static constexpr constant const float NBODY_SOFTENING { 0.01f };
-// define a kernel with a required local size of (NBODY_TILE_SIZE = 256, 1, 1)
-kernel kernel_local_size(NBODY_TILE_SIZE, 1, 1)
+// define a 1D kernel with a required local size of (NBODY_TILE_SIZE = 256, 1, 1)
+kernel_1d(NBODY_TILE_SIZE)
 void simplified_nbody(buffer<const float4> in_positions, // read-only global memory buffer
                       buffer<float4> out_positions, // read-write global memory buffer
                       buffer<float3> inout_velocities, // read-write global memory buffer

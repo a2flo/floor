@@ -22,7 +22,10 @@
 #if defined(FLOOR_COMPUTE_CUDA)
 
 //
-#define kernel extern "C" __attribute__((compute_kernel))
+#define kernel_1d(... /* x */) extern "C" __attribute__((compute_kernel, kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_2d(... /* x, y */) extern "C" __attribute__((compute_kernel, kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_3d(... /* x, y, z */) extern "C" __attribute__((compute_kernel, kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define kernel kernel_1d()
 
 // map address space keywords
 #define global

@@ -853,7 +853,7 @@ void compute_image::build_mip_map_minification_program() const {
 		
 		// build/get all minification kernels
 		unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> minify_kernels {
-#define FLOOR_MINIFY_ENTRY(image_type, sample_type) \
+#define FLOOR_MINIFY_ENTRY(kernel_type, image_type, sample_type) \
 			{ \
 				COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type, \
 				{ "libfloor_mip_map_minify_" #image_type "_" #sample_type , {} } \

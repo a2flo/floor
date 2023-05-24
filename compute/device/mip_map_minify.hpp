@@ -24,29 +24,29 @@
 	defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT_1) && \
 	!defined(FLOOR_COMPUTE_VULKAN) // TODO: vulkan support
 #define FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F) \
-F(IMAGE_DEPTH, FLOAT) \
-F(IMAGE_DEPTH_ARRAY, FLOAT)
+F(kernel_2d, IMAGE_DEPTH, FLOAT) \
+F(kernel_2d, IMAGE_DEPTH_ARRAY, FLOAT)
 #else
 #define FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F)
 #endif
 
 // list of all supported minification image types (base + sample type)
 #define FLOOR_MINIFY_IMAGE_TYPES(F) \
-F(IMAGE_1D, FLOAT) \
-F(IMAGE_1D, INT) \
-F(IMAGE_1D, UINT) \
-F(IMAGE_1D_ARRAY, FLOAT) \
-F(IMAGE_1D_ARRAY, INT) \
-F(IMAGE_1D_ARRAY, UINT) \
-F(IMAGE_2D, FLOAT) \
-F(IMAGE_2D, INT) \
-F(IMAGE_2D, UINT) \
-F(IMAGE_2D_ARRAY, FLOAT) \
-F(IMAGE_2D_ARRAY, INT) \
-F(IMAGE_2D_ARRAY, UINT) \
-F(IMAGE_3D, FLOAT) \
-F(IMAGE_3D, INT) \
-F(IMAGE_3D, UINT) \
+F(kernel_1d, IMAGE_1D, FLOAT) \
+F(kernel_1d, IMAGE_1D, INT) \
+F(kernel_1d, IMAGE_1D, UINT) \
+F(kernel_1d, IMAGE_1D_ARRAY, FLOAT) \
+F(kernel_1d, IMAGE_1D_ARRAY, INT) \
+F(kernel_1d, IMAGE_1D_ARRAY, UINT) \
+F(kernel_2d, IMAGE_2D, FLOAT) \
+F(kernel_2d, IMAGE_2D, INT) \
+F(kernel_2d, IMAGE_2D, UINT) \
+F(kernel_2d, IMAGE_2D_ARRAY, FLOAT) \
+F(kernel_2d, IMAGE_2D_ARRAY, INT) \
+F(kernel_2d, IMAGE_2D_ARRAY, UINT) \
+F(kernel_3d, IMAGE_3D, FLOAT) \
+F(kernel_3d, IMAGE_3D, INT) \
+F(kernel_3d, IMAGE_3D, UINT) \
 FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F)
 
 floor_inline_always static constexpr COMPUTE_IMAGE_TYPE minify_image_base_type(COMPUTE_IMAGE_TYPE image_type) {
@@ -102,14 +102,14 @@ floor_inline_always void image_mip_map_minify(image<image_type> img,
 	image_mip_level_read_write<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)>(img, level, layer, coord, trimmed_global_id);
 }
 
-#define FLOOR_MINIFY_KERNEL(image_type, sample_type) \
-kernel void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (image<(COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type | \
+#define FLOOR_MINIFY_KERNEL(kernel_type, image_type, sample_type) \
+kernel_type() void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (image<(COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type | \
 																			   (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(COMPUTE_IMAGE_TYPE::image_type) ? \
 																				COMPUTE_IMAGE_TYPE::CHANNELS_4 : COMPUTE_IMAGE_TYPE::NONE))> img, \
-																		param<uint3> level_size, \
-																		param<float3> inv_prev_level_size, \
-																		param<uint32_t> level, \
-																		param<uint32_t> layer) { \
+																			   param<uint3> level_size, \
+																			   param<float3> inv_prev_level_size, \
+																			   param<uint32_t> level, \
+																			   param<uint32_t> layer) { \
 	image_mip_map_minify<(COMPUTE_IMAGE_TYPE::image_type | \
 						  COMPUTE_IMAGE_TYPE::sample_type | \
 						  (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(COMPUTE_IMAGE_TYPE::image_type) ? \
