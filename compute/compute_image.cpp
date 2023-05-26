@@ -1139,3 +1139,8 @@ bool compute_image::blit_check(const compute_queue&, const compute_image& src) {
 	
 	return true;
 }
+
+void compute_image::destroy_minify_programs() {
+	GUARD(minify_programs_mtx);
+	minify_programs.clear();
+}

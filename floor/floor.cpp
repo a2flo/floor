@@ -817,6 +817,8 @@ void floor::destroy() {
 	}
 #endif
 	
+	compute_image::destroy_minify_programs();
+	
 	metal_ctx = nullptr;
 	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;

@@ -25,6 +25,8 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class floor;
+
 class compute_context;
 class compute_program;
 class compute_kernel;
@@ -293,6 +295,8 @@ public:
 	}
 	
 protected:
+	friend class floor;
+	
 	compute_image(const compute_queue& cqueue,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
@@ -463,6 +467,7 @@ protected:
 	};
 	static safe_mutex minify_programs_mtx;
 	static unordered_map<compute_context*, unique_ptr<minify_program>> minify_programs GUARDED_BY(minify_programs_mtx);
+	static void destroy_minify_programs();
 	
 	//! builds the mip-map minification program for this context and its devices
 	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
