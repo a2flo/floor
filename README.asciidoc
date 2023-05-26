@@ -1784,10 +1784,16 @@ function void simplified_nbody ( %void() ) {
 ** `export SDL_VIDEO_X11_NODIRECTCOLOR=yes`
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
 * Host-Compute device execution requires locked/pinned memory, which may be very limited in default Linux configurations (usually 64KiB)
-** to increase the limit, link:https://man.archlinux.org/man/limits.conf.5[/etc/security/limits.conf] must be modified
-** as a simple workaround, add the following lines to it (replace user_name with your user name) and relog:
-*** `user_name soft memlock unlimited`
+** libfloor will try to increase the limit to 32MiB per logical CPU core, but this may fail if the max limit is too low
+** to increase the max limit, link:https://man.archlinux.org/man/limits.conf.5[/etc/security/limits.conf] must be modified
+** as a simple workaround, add the following line to it (replace user_name with your user name) and relog:
 *** `user_name hard memlock unlimited`
+** NOTE: when using ssh, PAM must be enabled for this to apply
+* depending on your Vulkan implementation, you may also need to increase the max amount of open files (usual default is 1024 files)
+** libfloor will try to increase the limit to 256 files per logical CPU core, but this may fail if the max limit is too low
+** to increase the max limit, link:https://man.archlinux.org/man/limits.conf.5[/etc/security/limits.conf] must be modified
+** as a simple workaround, add the following line to it (replace user_name with your user name) and relog:
+*** `user_name hard nofile unlimited`
 ** NOTE: when using ssh, PAM must be enabled for this to apply
 
 == Projects and Examples using libfloor ==

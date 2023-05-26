@@ -46,6 +46,10 @@
 #include <SDL2/SDL_syswm.h>
 #endif
 
+#if defined(__linux__)
+#include <sys/resource.h>
+#endif
+
 //// init statics
 struct floor::floor_config floor::config;
 json::document floor::config_doc;
@@ -663,6 +667,41 @@ bool floor::init(const init_state& state) {
 				 config.log_use_time, config.log_use_color,
 				 config.log_filename, config.msg_filename);
 	log_debug("$", (FLOOR_VERSION_STRING).c_str());
+	
+	// change max open files and max locked memory to a reasonable limit on Linux
+#if defined(__linux__)
+	struct rlimit nofile_limit;
+	memset(&nofile_limit, 0, sizeof(rlimit));
+	if (getrlimit(RLIMIT_NOFILE, &nofile_limit) == 0) {
+		const auto wanted_nofile = (decltype(nofile_limit.rlim_cur))core::get_hw_thread_count() * 256u;
+		if (nofile_limit.rlim_cur < wanted_nofile) {
+			nofile_limit.rlim_cur = wanted_nofile;
+			if (nofile_limit.rlim_cur > nofile_limit.rlim_max) {
+				log_warn("wanted to set NOFILE limit to $', but can only set it to $'", wanted_nofile, nofile_limit.rlim_max);
+				nofile_limit.rlim_cur = nofile_limit.rlim_max;
+			}
+			setrlimit(RLIMIT_NOFILE, &nofile_limit);
+		}
+	} else {
+		log_error("failed to query NOFILE limit: $", errno);
+	}
+	
+	struct rlimit memlock_limit;
+	memset(&memlock_limit, 0, sizeof(rlimit));
+	if (getrlimit(RLIMIT_MEMLOCK, &memlock_limit) == 0) {
+		const auto wanted_memlock = (decltype(memlock_limit.rlim_cur))core::get_hw_thread_count() * 32u * 1024u * 1024u;
+		if (memlock_limit.rlim_cur < wanted_memlock) {
+			memlock_limit.rlim_cur = wanted_memlock;
+			if (memlock_limit.rlim_cur > memlock_limit.rlim_max) {
+				log_warn("wanted to set MEMLOCK limit to $', but can only set it to $'", wanted_memlock, memlock_limit.rlim_max);
+				memlock_limit.rlim_cur = memlock_limit.rlim_max;
+			}
+			setrlimit(RLIMIT_MEMLOCK, &memlock_limit);
+		}
+	} else {
+		log_error("failed to query MEMLOCK limit: $", errno);
+	}
+#endif
 	
 	// choose the renderer
 	if(state.renderer == RENDERER::DEFAULT) {

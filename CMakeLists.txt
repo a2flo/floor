@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 ## build options
 set(WITH_ASAN false CACHE BOOL "build with address sanitizer")
+set(WITH_LIBCXX false CACHE BOOL "build with libc++")
 
 ## compile flags
 add_compile_definitions(FLOOR_DLL_EXPORT)

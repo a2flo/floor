@@ -54,7 +54,8 @@ vulkan_renderer::~vulkan_renderer() {
 	// TODO: implement this
 }
 
-VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label [[maybe_unused]]) {
+VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label [[maybe_unused]],
+														 const optional<decltype(render_pipeline_description::viewport)>& dyn_viewport) {
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	vector<VkImageView> vk_attachments;
@@ -75,8 +76,8 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 		.renderPass = vk_render_pass,
 		.attachmentCount = uint32_t(vk_attachments.size()),
 		.pAttachments = vk_attachments.data(),
-		.width = cur_pipeline->get_description(multi_view).viewport.x,
-		.height = cur_pipeline->get_description(multi_view).viewport.y,
+		.width = (dyn_viewport ? dyn_viewport->x : cur_pipeline->get_description(multi_view).viewport.x),
+		.height = (dyn_viewport ? dyn_viewport->y : cur_pipeline->get_description(multi_view).viewport.y),
 		.layers = 1,
 	};
 	VkFramebuffer framebuffer { nullptr };
@@ -143,7 +144,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	// create framebuffer(s) for this pass
 	const auto vk_render_pass = vk_pass.get_vulkan_render_pass(cqueue.get_device(), multi_view);
-	cur_framebuffer = create_vulkan_framebuffer(vk_render_pass, vk_pass.get_description(multi_view).debug_label);
+	cur_framebuffer = create_vulkan_framebuffer(vk_render_pass, vk_pass.get_description(multi_view).debug_label, dynamic_render_state.viewport);
 	if (cur_framebuffer == nullptr) {
 		return false;
 	}
@@ -208,13 +209,19 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			.extent = { dynamic_render_state.scissor->extent.x, dynamic_render_state.scissor->extent.y },
 		};
 	}
-	if (uint32_t(cur_render_area.offset.x) + cur_render_area.extent.width > (uint32_t)cur_viewport.width ||
-		uint32_t(cur_render_area.offset.y) + cur_render_area.extent.height > (uint32_t)cur_viewport.height) {
-		log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
+	if (uint32_t(cur_render_area.offset.x) >= (uint32_t)cur_viewport.width ||
+		uint32_t(cur_render_area.offset.y) >= (uint32_t)cur_viewport.height) {
+		log_error("scissor offset is out-of-bounds: $ >= $",
 				  int2 { cur_render_area.offset.x, cur_render_area.offset.y },
-				  uint2 { cur_render_area.extent.width, cur_render_area.extent.height },
 				  float2 { cur_viewport.width, cur_viewport.height });
 		return false;
+	}
+	if (dynamic_render_state.viewport) {
+		// clamp scissor rect and render area if we have a dynamic viewport
+		const auto clamped_width = min(uint32_t(cur_render_area.offset.x) + cur_render_area.extent.width, (uint32_t)cur_viewport.width);
+		const auto clamped_height = min(uint32_t(cur_render_area.offset.y) + cur_render_area.extent.height, (uint32_t)cur_viewport.height);
+		cur_render_area.extent.width = clamped_width - uint32_t(cur_render_area.offset.x);
+		cur_render_area.extent.height = clamped_height - uint32_t(cur_render_area.offset.y);
 	}
 	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &cur_render_area);
 	

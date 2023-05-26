@@ -870,10 +870,10 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::barri
 	const VkMemoryBarrier2 mem_bar {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
 		.pNext = nullptr,
-		.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-		.srcAccessMask = VK_ACCESS_2_NONE,
-		.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-		.dstAccessMask = VK_ACCESS_2_NONE,
+		.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+		.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+		.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+		.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
 	};
 	const VkDependencyInfo dep_info {
 		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,

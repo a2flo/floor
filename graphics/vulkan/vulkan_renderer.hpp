@@ -104,7 +104,8 @@ protected:
 	bool update_vulkan_pipeline();
 	
 	const vulkan_pipeline_state_t* vk_pipeline_state { nullptr };
-	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label);
+	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const string& pass_debug_label,
+											const optional<decltype(render_pipeline_description::viewport)>& dyn_viewport);
 	
 	bool set_depth_attachment(attachment_t& attachment) override;
 	

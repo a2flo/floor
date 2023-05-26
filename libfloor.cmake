@@ -52,6 +52,13 @@ if (WITH_ASAN)
 	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize-recover=all)
 endif (WITH_ASAN)
 
+if (WITH_LIBCXX)
+	# use libc++ as the STL
+	target_compile_options(${PROJECT_NAME} PUBLIC -stdlib=libc++)
+	target_link_options(${PROJECT_NAME} PUBLIC -stdlib=libc++)
+	target_link_libraries(${PROJECT_NAME} PUBLIC c++abi pthread)
+endif (WITH_LIBCXX)
+
 ## warnings
 # let's start with everything
 target_compile_options(${PROJECT_NAME} PUBLIC -Weverything)
