@@ -38,6 +38,7 @@ enum class ALGORITHM {
 
 //! group operation
 enum class OP {
+	NONE,
 	ADD,
 	MIN,
 	MAX,

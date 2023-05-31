@@ -649,7 +649,7 @@ floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
 }
 
 template <bool is_exclusive, typename T, typename F> requires (sizeof(T) == 4)
-floor_inline_always static T cuda_sub_group_inclusive_scan(T lane_var, F&& op) {
+floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 	// NOTE: can't use builtin lane index -> mask local id X instead
 	const auto lane_idx = __nvvm_read_ptx_sreg_tid_x() & (device_info::simd_width() - 1u);
 	
@@ -767,7 +767,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, float>
 template <OP op, typename data_type>
 requires(op == OP::ADD)
 static auto sub_group_inclusive_scan(const data_type& input_value) {
-	return cuda_sub_group_inclusive_scan<false>(input_value, plus<data_type> {});
+	return cuda_sub_group_scan<false>(input_value, plus<data_type> {});
 }
 
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
@@ -776,7 +776,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, float>
 template <OP op, typename data_type>
 requires(op == OP::ADD)
 static auto sub_group_exclusive_scan(const data_type& input_value) {
-	return cuda_sub_group_inclusive_scan<true>(input_value, plus<data_type> {});
+	return cuda_sub_group_scan<true>(input_value, plus<data_type> {});
 }
 
 } // namespace compute_algorithm::group

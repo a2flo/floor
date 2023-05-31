@@ -352,6 +352,37 @@ template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_v
 template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
 	return metal_sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
 }
+
+template <bool is_exclusive, typename T, typename F> requires (is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
+floor_inline_always static T metal_sub_group_scan(T lane_var, F&& op) {
+	const auto lane_idx = get_sub_group_local_id();
+	
+	T shfled_var;
+#pragma unroll
+	for (uint32_t delta = 1u; delta <= (device_info::simd_width() / 2u); delta <<= 1u) {
+		shfled_var = simd_shuffle_up(lane_var, delta);
+		if (lane_idx >= delta) {
+			lane_var = op(lane_var, shfled_var);
+		}
+	}
+	
+	if constexpr (is_exclusive) {
+		// if this is an exclusive scan: shift one up
+		const auto incl_result = lane_var;
+		lane_var = simd_shuffle_up(incl_result, 1u);
+		return (lane_idx == 0 ? T(0) : lane_var);
+	} else {
+		return lane_var;
+	}
+}
+
+template <typename T> floor_inline_always static T sub_group_inclusive_scan_add(T lane_var) {
+	return metal_sub_group_scan<false>(lane_var, plus<T> {});
+}
+
+template <typename T> floor_inline_always static T sub_group_exclusive_scan_add(T lane_var) {
+	return metal_sub_group_scan<true>(lane_var, plus<T> {});
+}
 #endif
 
 // specialize for all supported operations

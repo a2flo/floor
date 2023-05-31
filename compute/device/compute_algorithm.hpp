@@ -196,7 +196,30 @@ namespace compute_algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
 			return group::work_group_reduce<group::OP::ADD>(work_item_value, lmem);
 		}
-		// TODO: sub-group algo fallback
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
+			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+			
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_red_val = group::sub_group_reduce<group::OP::ADD>(work_item_value);
+			// first sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == 0u) {
+				lmem[sub_group_id_1d] = sub_block_red_val;
+			}
+			local_barrier();
+			
+			// second pass: reduction of the partial sums in each sub-group to compute the total sum, executed in the first sub-group
+			reduced_type total_sum {};
+			if (sub_group_id_1d == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				total_sum = group::sub_group_reduce<group::OP::ADD>(sg_in_val);
+			}
+			local_barrier();
+			return total_sum;
+		}
+#endif
 		return reduce<work_group_size>(work_item_value, lmem, plus<reduced_type> {});
 	}
 	
@@ -210,7 +233,30 @@ namespace compute_algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
 			return group::work_group_reduce<group::OP::MIN>(work_item_value, lmem);
 		}
-		// TODO: sub-group algo fallback
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
+			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+			
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MIN>(work_item_value);
+			// first sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == 0u) {
+				lmem[sub_group_id_1d] = sub_block_red_val;
+			}
+			local_barrier();
+			
+			// second pass: reduction of the partial minima in each sub-group to compute the total min, executed in the first sub-group
+			reduced_type total_min {};
+			if (sub_group_id_1d == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				total_min = group::sub_group_reduce<group::OP::MIN>(sg_in_val);
+			}
+			local_barrier();
+			return total_min;
+		}
+#endif
 		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return min(lhs, rhs); });
 	}
 	
@@ -224,14 +270,42 @@ namespace compute_algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
 			return group::work_group_reduce<group::OP::MAX>(work_item_value, lmem);
 		}
-		// TODO: sub-group algo fallback
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
+			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+			
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MAX>(work_item_value);
+			// first sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == 0u) {
+				lmem[sub_group_id_1d] = sub_block_red_val;
+			}
+			local_barrier();
+			
+			// second pass: reduction of the partial maxima in each sub-group to compute the total max, executed in the first sub-group
+			reduced_type total_max {};
+			if (sub_group_id_1d == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				total_max = group::sub_group_reduce<group::OP::MAX>(sg_in_val);
+			}
+			local_barrier();
+			return total_max;
+		}
+#endif
 		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return max(lhs, rhs); });
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
-	template <uint32_t work_group_size>
+	template <uint32_t work_group_size, group::OP op = group::OP::NONE>
 	static constexpr uint32_t reduce_local_memory_elements() {
-		// TODO: update requirements when there is sub-group support
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, op, float>) {
+			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_REDUCE, op, float>::count;
+		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, op, float> &&
+							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
+			return work_group_size / device_info::simd_width_min();
+		}
 		return work_group_size;
 	}
 	
@@ -391,7 +465,33 @@ namespace compute_algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
 			return group::work_group_inclusive_scan<group::OP::ADD>(work_item_value, lmem);
 		}
-		// TODO: sub-group algo fallback
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
+			// last sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == sub_group_size - 1u) {
+				lmem[sub_group_id_1d] = sub_block_val;
+			}
+			local_barrier();
+			
+			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
+			if (sub_group_id_1d == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
+				lmem[sub_group_local_id] = wg_offset;
+			}
+			local_barrier();
+			
+			// finally: broadcast final per-sub-group/block offsets to all sub-groups
+			const auto sub_block_offset = (sub_group_id_1d == 0u ? data_type(0) : lmem[sub_group_id_1d - 1u]);
+			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
+			local_barrier();
+			return sub_block_offset + sub_block_val;
+		}
+#endif
 		return scan<work_group_size, true>(work_item_value, plus<data_type> {}, lmem, data_type(0));
 	}
 	
@@ -429,7 +529,7 @@ namespace compute_algorithm {
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < sub_group_size ? lmem[sub_group_local_id] : data_type(0));
+				const auto sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
 				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
 				lmem[sub_group_local_id] = wg_offset;
 			}
@@ -448,11 +548,16 @@ namespace compute_algorithm {
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
-	template <uint32_t work_group_size>
+	template <uint32_t work_group_size, group::OP op = group::OP::NONE>
 	static constexpr uint32_t scan_local_memory_elements() {
-		// TODO: update requirements when there is sub-group algo support
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, uint32_t>) {
+			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, uint32_t>::count;
+		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, op, uint32_t> &&
+							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
+			return work_group_size / device_info::simd_width_min();
+		}
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
-		if constexpr (has_sub_group_scan()) {
+		else if constexpr (has_sub_group_scan()) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)

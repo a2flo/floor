@@ -666,7 +666,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.storagePushConstant16 = false,
 			.storageInputOutput16 = false,
 			.multiview = true,
-			.multiviewGeometryShader = true,
+			.multiviewGeometryShader = false,
 			.multiviewTessellationShader = true,
 			.variablePointersStorageBuffer = true,
 			.variablePointers = true,
@@ -929,7 +929,6 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #if !defined(FLOOR_NO_VR)
 		if (vr_ctx) {
 			if (!vulkan11_features.multiview ||
-				!vulkan11_features.multiviewGeometryShader ||
 				!vulkan11_features.multiviewTessellationShader) {
 				log_error("VR requirements not met: multi-view features are not supported by $", props.deviceName);
 				continue;
