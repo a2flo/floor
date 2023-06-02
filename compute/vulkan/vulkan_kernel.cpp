@@ -98,6 +98,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 	};
 	stage_info.pSpecializationInfo = &spec_entry.info;
 	stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stage_info.pNext = &stage_sub_group_info;
 	
 	VkPipelineCreateFlags pipeline_flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 	
