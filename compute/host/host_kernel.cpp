@@ -680,6 +680,9 @@ typename host_kernel::kernel_map_type::const_iterator host_kernel::get_kernel(co
 // needed to cast variadic kernel function type to a function type with the correct amount of parameters
 template <typename... Args> using kernel_func_type_t = void (*)(Args...);
 
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-function-type-strict)
+
 static function<void()> make_callable_kernel_function(const host_kernel::kernel_func_type kernel_ptr, const vector<const void*>& vptr_args) {
 	function<void()> kernel_func;
 	switch (vptr_args.size()) {
@@ -754,6 +757,8 @@ static function<void()> make_callable_kernel_function(const host_kernel::kernel_
 #undef EXPAND_PTR_6
 #undef EXPAND_PTR_7
 #undef EXPAND_PTR_8
+
+FLOOR_POP_WARNINGS()
 		
 		default:
 			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");

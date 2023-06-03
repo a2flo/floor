@@ -357,6 +357,9 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 	return ret;
 }
 
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-function-type-strict)
+
 vulkan_compute::vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
 compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(enable_renderer) {
@@ -1704,6 +1707,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	// successfully initialized everything and we have at least one device
 	supported = true;
 }
+
+FLOOR_POP_WARNINGS()
 
 vulkan_compute::~vulkan_compute() {
 	// destroy internal vulkan_queue structures

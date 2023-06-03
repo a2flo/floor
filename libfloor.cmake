@@ -92,6 +92,8 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 	-Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose)
 # ignore "explicit move to avoid copying on older compilers" warning
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-return-std-move-in-c++11)
+# ignore unsafe pointer/buffer access warnings
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unsafe-buffer-usage)
 # diagnostics
 target_compile_options(${PROJECT_NAME} PUBLIC -fmacro-backtrace-limit=0)
 
@@ -113,11 +115,15 @@ if (MINGW)
 	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--export-all-symbols)
 endif (MINGW)
 
-## use console subsystem (MSVC)
+## use console subsystem (MSVC/MINGW)
 if (MSVC)
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
-	target_compile_definitions(_CONSOLE)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE _CONSOLE)
 endif (MSVC)
+if (MINGW)
+	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--subsystem,console)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE _CONSOLE)
+endif (MINGW)
 
 ## dependencies/libraries/packages
 find_package(SDL2 CONFIG REQUIRED)

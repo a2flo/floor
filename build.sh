@@ -834,6 +834,8 @@ WARNINGS="${WARNINGS} -Wno-partial-availability"
 WARNINGS="${WARNINGS} -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
 # ignore "explicit move to avoid copying on older compilers" warning
 WARNINGS="${WARNINGS} -Wno-return-std-move-in-c++11"
+# ignore unsafe pointer/buffer access warnings
+WARNINGS="${WARNINGS} -Wno-unsafe-buffer-usage"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
 # diagnostics

@@ -557,7 +557,7 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_buffer::acquire_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
+bool cuda_buffer::acquire_vulkan_buffer(const compute_queue& cqueue floor_unused_if_release, const vulkan_queue& vk_queue) {
 	if (!vk_object_state) {
 #if defined(FLOOR_DEBUG)
 		log_warn("Vulkan buffer has already been acquired for use with CUDA!");

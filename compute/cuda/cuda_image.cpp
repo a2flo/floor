@@ -1142,7 +1142,7 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
+bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue floor_unused_if_release, const vulkan_queue& vk_queue) {
 	if (!vk_object_state) {
 #if defined(FLOOR_DEBUG)
 		log_warn("Vulkan image has already been acquired for use with CUDA!");
