@@ -32,6 +32,7 @@ class compute_program;
 class compute_kernel;
 
 class vulkan_image;
+class vulkan_queue;
 class metal_image;
 class metal_queue;
 
@@ -123,25 +124,6 @@ public:
 	//! for debugging purposes: dump COMPUTE_IMAGE_TYPE information into a human-readable string
 	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
 	
-	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
-	vulkan_image* get_shared_vulkan_image() {
-		return shared_vk_image;
-	}
-	
-	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
-	const vulkan_image* get_shared_vulkan_image() const {
-		return shared_vk_image;
-	}
-	
-	//! acquires the associated Vulkan image for use with compute (-> release from Vulkan use)
-	virtual bool acquire_vulkan_image(const compute_queue&) {
-		return false;
-	}
-	//! releases the associated Vulkan image from use with compute (-> acquire for Vulkan use)
-	virtual bool release_vulkan_image(const compute_queue&) {
-		return false;
-	}
-	
 	//! returns the internal shared Metal image if there is one, returns nullptr otherwise
 	const metal_image* get_shared_metal_image() const {
 		return shared_mtl_image;
@@ -163,6 +145,39 @@ public:
 								  const metal_queue* mtl_queue floor_unused = nullptr) const {
 		return false;
 	}
+	
+	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
+	vulkan_image* get_shared_vulkan_image() {
+		return shared_vk_image;
+	}
+	
+	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
+	const vulkan_image* get_shared_vulkan_image() const {
+		return shared_vk_image;
+	}
+	
+	//! acquires the associated Vulkan image for use with compute (-> release from Vulkan use)
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
+	virtual bool acquire_vulkan_image(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+		return false;
+	}
+	//! releases the associated Vulkan image from use with compute (-> acquire for Vulkan use)
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
+	virtual bool release_vulkan_image(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+		return false;
+	}
+	//! synchronizes the contents of this image with the shared Vulkan image
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
+	virtual bool sync_vulkan_image(const compute_queue* cqueue floor_unused = nullptr,
+								  const vulkan_queue* vk_queue floor_unused = nullptr) const {
+		return false;
+	}
+	
+	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	vulkan_image* get_underlying_vulkan_image_safe();
+	
+	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	const vulkan_image* get_underlying_vulkan_image_safe() const;
 	
 	//! returns the compute image type of this image
 	const COMPUTE_IMAGE_TYPE& get_image_type() const {

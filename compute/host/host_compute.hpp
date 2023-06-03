@@ -88,6 +88,10 @@ public:
 										   metal_buffer& mtl_buffer,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
+										   vulkan_buffer& vk_buffer,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation
@@ -120,6 +124,11 @@ public:
 	
 	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
 										 metal_image& mtl_image,
+										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+	
+	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
+										 vulkan_image& vk_image,
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	

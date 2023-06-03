@@ -82,6 +82,11 @@ public:
 		return mtl_object_state;
 	}
 	
+	//! returns true if the shared Vulkan buffer/image is currently acquired for use with compute
+	bool is_shared_vulkan_object_acquired() const {
+		return vk_object_state;
+	}
+	
 	//! zeros/clears the complete memory object, returns true on success
 	virtual bool zero(const compute_queue& cqueue) = 0;
 	//! zeros/clears the complete memory object, returns true on success
@@ -188,6 +193,9 @@ protected:
 	
 	//! false: compute use, true: Metal use
 	bool mtl_object_state { true };
+	
+	//! false: compute use, true: Vulkan use
+	bool vk_object_state { true };
 	
 	//! returns the default compute_queue of the device backing the specified memory object
 	const compute_queue* get_default_queue_for_memory(const compute_memory& mem) const;

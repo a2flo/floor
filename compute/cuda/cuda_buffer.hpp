@@ -74,8 +74,12 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	bool acquire_vulkan_buffer(const compute_queue& cqueue) override;
-	bool release_vulkan_buffer(const compute_queue& cqueue) override;
+	bool acquire_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool release_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool sync_vulkan_buffer(const compute_queue* = nullptr, const vulkan_queue* = nullptr) const override {
+		// nop, since it's backed by the same memory
+		return true;
+	}
 	
 	//! returns the cuda specific buffer pointer (device pointer)
 	const cu_device_ptr& get_cuda_buffer() const {

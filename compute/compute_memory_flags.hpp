@@ -90,9 +90,9 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! automatically synchronizes the contents of the memory of the memory object with the shared Vulkan memory,
 	//! i.e. when using the memory in a Vulkan kernel/shader execution with the memory currently being acquired for compute use,
 	//! automatically copy the current contents of the memory object to the shared Vulkan memory object
-	//! NOTE/TODO: not yet implemented!
+	//! NOTE: only functional for Host-Compute <-> Vulkan interop, this is not needed for CUDA <-> Vulkan interop (backed by the same memory)
 	//! NOTE: this is only intended for reading data on the Vulkan side (no write-back will happen)
-	//! VULKAN_SHARING_SYNC_SHARED	= (1u << 12u),
+	VULKAN_SHARING_SYNC_SHARED	= (1u << 12u),
 	
 	//! automatically synchronizes the contents of the memory of the memory object with the shared Metal memory,
 	//! i.e. when using the memory in a Metal kernel/shader execution with the memory currently being acquired for compute use,

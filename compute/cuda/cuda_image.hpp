@@ -49,8 +49,12 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	bool acquire_vulkan_image(const compute_queue& cqueue) override;
-	bool release_vulkan_image(const compute_queue& cqueue) override;
+	bool acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool release_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool sync_vulkan_image(const compute_queue* = nullptr, const vulkan_queue* = nullptr) const override {
+		// nop, since it's backed by the same memory
+		return true;
+	}
 	
 	bool zero(const compute_queue& cqueue) override;
 	

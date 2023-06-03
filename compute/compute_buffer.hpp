@@ -26,6 +26,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class vulkan_buffer;
 class metal_buffer;
+class vulkan_queue;
 class metal_queue;
 
 class compute_buffer : public compute_memory {
@@ -118,20 +119,6 @@ public:
 													 const uint32_t& opengl_type,
 													 const COMPUTE_MEMORY_FLAG& flags);
 	
-	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
-	const vulkan_buffer* get_shared_vulkan_buffer() const {
-		return shared_vk_buffer;
-	}
-	
-	//! acquires the associated Vulkan buffer for use with compute (-> release from Vulkan use)
-	virtual bool acquire_vulkan_buffer(const compute_queue&) {
-		return false;
-	}
-	//! releases the associated Vulkan buffer from use with compute (-> acquire for Vulkan use)
-	virtual bool release_vulkan_buffer(const compute_queue&) {
-		return false;
-	}
-	
 	//! returns the internal shared Metal buffer if there is one, returns nullptr otherwise
 	const metal_buffer* get_shared_metal_buffer() const {
 		return shared_mtl_buffer;
@@ -153,6 +140,31 @@ public:
 								   const metal_queue* mtl_queue floor_unused = nullptr) const {
 		return false;
 	}
+	
+	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
+	const vulkan_buffer* get_shared_vulkan_buffer() const {
+		return shared_vk_buffer;
+	}
+	
+	//! acquires the associated Vulkan buffer for use with compute (-> release from Vulkan use)
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
+	virtual bool acquire_vulkan_buffer(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+		return false;
+	}
+	//! releases the associated Vulkan buffer from use with compute (-> acquire for Vulkan use)
+	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
+	virtual bool release_vulkan_buffer(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+		return false;
+	}
+	//! synchronizes the contents of this buffer with the shared Vulkan buffer
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
+	virtual bool sync_vulkan_buffer(const compute_queue* cqueue floor_unused = nullptr,
+									const vulkan_queue* vk_queue floor_unused = nullptr) const {
+		return false;
+	}
+	
+	//! returns the underlying Vulkan buffer that should be used on the device (i.e. this or a shared buffer)
+	const vulkan_buffer* get_underlying_vulkan_buffer_safe() const;
 	
 	//! for debugging purposes: dumps the content of this buffer into a file using the specified "value_type" operator<<
 	//! NOTE: each value will printed in one line (terminated by \n)

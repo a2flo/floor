@@ -67,6 +67,11 @@ public:
 	bool sync_metal_image(const compute_queue* cqueue = nullptr,
 						  const metal_queue* mtl_queue = nullptr) const override;
 	
+	bool acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool release_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool sync_vulkan_image(const compute_queue* cqueue = nullptr,
+						   const vulkan_queue* vk_queue = nullptr) const override;
+	
 protected:
 	aligned_ptr<uint8_t> image;
 	
@@ -87,12 +92,10 @@ protected:
 	//! separate create image function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
-#if !defined(FLOOR_NO_METAL)
-	// internal Metal image when using Metal memory sharing (and not wrapping an existing image)
-	shared_ptr<compute_image> host_mtl_image;
-	// creates the internal Metal image, or deals with the wrapped external one
-	bool create_shared_metal_image(const bool copy_host_data);
-#endif
+	// internal Metal/Vulkan image when using Metal/Vulkan memory sharing (and not wrapping an existing image)
+	shared_ptr<compute_image> host_shared_image;
+	// creates the internal Metal/Vulkan image, or deals with the wrapped external one
+	bool create_shared_image(const bool copy_host_data);
 	
 };
 

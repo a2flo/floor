@@ -77,6 +77,11 @@ public:
 	bool sync_metal_buffer(const compute_queue* cqueue = nullptr,
 						   const metal_queue* mtl_queue = nullptr) const override;
 	
+	bool acquire_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool release_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
+	bool sync_vulkan_buffer(const compute_queue* cqueue = nullptr,
+							const vulkan_queue* vk_queue = nullptr) const override;
+	
 	//! returns a direct pointer to the internal host buffer
 	auto get_host_buffer_ptr() const {
 		return buffer.get();
@@ -88,12 +93,10 @@ protected:
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
-#if !defined(FLOOR_NO_METAL)
-	// internal Metal buffer when using Metal memory sharing (and not wrapping an existing buffer)
-	shared_ptr<compute_buffer> host_mtl_buffer;
-	// creates the internal Metal buffer, or deals with the wrapped external one
-	bool create_shared_metal_buffer(const bool copy_host_data);
-#endif
+	// internal Metal/Vulkan buffer when using Metal/Vulkan memory sharing (and not wrapping an existing buffer)
+	shared_ptr<compute_buffer> host_shared_buffer;
+	// creates the internal Metal/Vulkan buffer, or deals with the wrapped external one
+	bool create_shared_buffer(const bool copy_host_data);
 
 };
 

@@ -179,40 +179,6 @@ public:
 		return { descriptor_data_storage.get(), descriptor_storage_size };
 	}
 	
-	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
-	vulkan_image* get_underlying_vulkan_image_safe() {
-		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-			vulkan_image* ret = nullptr;
-			if (ret = get_shared_vulkan_image(); !ret) {
-				ret = this;
-			}
-#if defined(FLOOR_DEBUG)
-			if (auto test_cast_vk_image = dynamic_cast<vulkan_image*>(ret); !test_cast_vk_image) {
-				throw runtime_error("specified image is neither a Vulkan image nor a shared Vulkan image");
-			}
-#endif
-			return ret;
-		}
-		return this;
-	}
-	
-	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
-	const vulkan_image* get_underlying_vulkan_image_safe() const {
-		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-			const vulkan_image* ret = nullptr;
-			if (ret = get_shared_vulkan_image(); !ret) {
-				ret = this;
-			}
-#if defined(FLOOR_DEBUG)
-			if (auto test_cast_vk_image = dynamic_cast<const vulkan_image*>(ret); !test_cast_vk_image) {
-				throw runtime_error("specified image is neither a Vulkan image nor a shared Vulkan image");
-			}
-#endif
-			return ret;
-		}
-		return this;
-	}
-	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };

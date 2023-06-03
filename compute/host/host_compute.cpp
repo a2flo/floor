@@ -316,6 +316,17 @@ shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue
 #endif
 }
 
+shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
+													 vulkan_buffer& vk_buffer,
+													 const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_VULKAN)
+	return add_resource(make_shared<host_buffer>(cqueue, ((const compute_buffer&)vk_buffer).get_size(), std::span<uint8_t> {},
+												 flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, (compute_buffer*)&vk_buffer));
+#else
+	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
+#endif
+}
+
 shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
@@ -370,6 +381,18 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 												flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, 0, 0, nullptr, (compute_image*)&mtl_image));
 #else
 	return compute_context::wrap_image(cqueue, mtl_image, flags);
+#endif
+}
+
+shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
+												   vulkan_image& vk_image,
+												   const COMPUTE_MEMORY_FLAG flags) const {
+#if !defined(FLOOR_NO_VULKAN)
+	return add_resource(make_shared<host_image>(cqueue, ((const compute_image&)vk_image).get_image_dim(),
+												((const compute_image&)vk_image).get_image_type(), std::span<uint8_t> {},
+												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image));
+#else
+	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif
 }
 

@@ -101,23 +101,6 @@ public:
 		return buffer_usage;
 	}
 	
-	//! returns the underlying Vulkan buffer that should be used on the device (i.e. this or a shared buffer)
-	const vulkan_buffer* get_underlying_vulkan_buffer_safe() const {
-		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-			const vulkan_buffer* ret = nullptr;
-			if (ret = get_shared_vulkan_buffer(); !ret) {
-				ret = this;
-			}
-#if defined(FLOOR_DEBUG)
-			if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(ret); !test_cast_vk_buffer) {
-				throw runtime_error("specified buffer is neither a Vulkan buffer nor a shared Vulkan buffer");
-			}
-#endif
-			return ret;
-		}
-		return this;
-	}
-	
 protected:
 	VkBuffer buffer { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };

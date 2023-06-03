@@ -913,7 +913,11 @@ static bool map_memory(aligned_ptr<uint8_t>& mem,
 	for (auto& section : alloc_sections) {
 		const auto& sec = *section.first->header_ptr;
 		const auto& offset = section.second;
-		memcpy(mem.get() + offset, &binary[sec.offset], sec.size);
+		if (sec.type == ELF_SECTION_TYPE::BSS) {
+			memset(mem.get() + offset, 0, sec.size);
+		} else {
+			memcpy(mem.get() + offset, &binary[sec.offset], sec.size);
+		}
 		section_map.emplace(section.first, mem.get() + offset);
 	}
 	if (!mem.pin()) {

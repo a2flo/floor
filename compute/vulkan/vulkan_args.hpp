@@ -133,7 +133,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const vector<VkDeviceSize>& argument_offsets,
 								const span<uint8_t>& host_desc_data,
 								const compute_buffer* arg) {
-	const auto vk_buffer = ((const vulkan_buffer*)arg)->get_underlying_vulkan_buffer_safe();
+	const auto vk_buffer = arg->get_underlying_vulkan_buffer_safe();
 	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
@@ -200,13 +200,13 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 								const span<uint8_t>& host_desc_data,
 								const compute_image* arg,
 								transition_info_t* transition_info) {
-	const auto vk_img = ((const vulkan_image*)arg)->get_underlying_vulkan_image_safe();
+	const auto vk_img = arg->get_underlying_vulkan_image_safe();
 	const auto img_access = arg_info.args[idx.arg].image_access;
 	
 	// soft-transition image if request + gather transition info
 	if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) {
 		if (transition_info) {
-			auto vk_img_mut = static_cast<vulkan_image*>(const_cast<compute_image*>(arg))->get_underlying_vulkan_image_safe();
+			auto vk_img_mut = const_cast<compute_image*>(arg)->get_underlying_vulkan_image_safe();
 			if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
 				auto [needs_transition, barrier] = vk_img_mut->transition_write(nullptr, nullptr,
 																				// also readable?

@@ -24,10 +24,7 @@
 #include <floor/compute/host/host_queue.hpp>
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
-
-#if !defined(FLOOR_NO_METAL)
 #include <floor/floor/floor.hpp>
-#endif
 
 #if defined(FLOOR_DEBUG)
 static constexpr const size_t protection_size { 1024u };
@@ -47,12 +44,19 @@ host_image::host_image(const compute_queue& cqueue,
 					   compute_image* shared_image_) :
 compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info, shared_image_, false) {
-	// check Metal image sharing validity
-	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+	// check Metal/Vulkan buffer sharing validity
 #if defined(FLOOR_NO_METAL)
-		log_error("Metal support is not enabled");
-		return;
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		throw runtime_error("Metal support is not enabled");
+	}
 #endif
+#if defined(FLOOR_NO_VULKAN)
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		throw runtime_error("Vulkan support is not enabled");
+	}
+#endif
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) && has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		throw runtime_error("can now have both Metal and Vulkan sharing enabled");
 	}
 	
 	// actually create the image
@@ -102,7 +106,8 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 	
 	// -> normal host image
 	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data &&
 			host_data.data() != nullptr &&
@@ -121,13 +126,25 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 #if !defined(FLOOR_NO_METAL)
 	// -> shared host/Metal image
 	else if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
-		if (!create_shared_metal_image(copy_host_data)) {
+		if (!create_shared_image(copy_host_data)) {
 			return false;
 		}
 		
 		// acquire for use with the host
 		const compute_queue* comp_mtl_queue = get_default_queue_for_memory(*shared_image);
 		acquire_metal_image(cqueue, (const metal_queue&)*comp_mtl_queue);
+	}
+#endif
+#if !defined(FLOOR_NO_VULKAN)
+	// -> shared host/Vulkan image
+	else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (!create_shared_image(copy_host_data)) {
+			return false;
+		}
+		
+		// acquire for use with the host
+		const compute_queue* comp_vk_queue = get_default_queue_for_memory(*shared_image);
+		acquire_vulkan_image(cqueue, (const vulkan_queue&)*comp_vk_queue);
 	}
 #endif
 	// -> shared host/OpenGL image
@@ -397,43 +414,166 @@ bool host_image::sync_metal_image(const compute_queue*, const metal_queue*) cons
 }
 #endif
 
-#if !defined(FLOOR_NO_METAL)
-bool host_image::create_shared_metal_image(const bool copy_host_data) {
-	const compute_device* render_dev = nullptr;
-	if (shared_mtl_image == nullptr || host_mtl_image != nullptr /* !nullptr if resize */) {
-		// get the render/graphics context so that we can create an image (TODO: allow specifying a different context?)
-		auto render_ctx = floor::get_render_context();
+#if !defined(FLOOR_NO_VULKAN)
+bool host_image::acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
+	if (shared_vk_image == nullptr) return false;
+	if (!vk_object_state) {
+#if defined(FLOOR_DEBUG)
+		log_warn("Vulkan image has already been acquired for use with the host!");
+#endif
+		return true;
+	}
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+	
+	const auto& comp_vk_queue = (const compute_queue&)vk_queue;
+	
+	// full sync
+	cqueue.finish();
+	comp_vk_queue.finish();
+	
+	// read/copy Vulkan image data to host memory
+	auto img_data = shared_image->map(comp_vk_queue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(image.get(), img_data, image_data_size);
+	shared_image->unmap(comp_vk_queue, img_data);
+	
+	// finish read
+	comp_vk_queue.finish();
+	
+	vk_object_state = false;
+	return true;
+}
+
+bool host_image::release_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
+	if (shared_vk_image == nullptr) return false;
+	if (!image) return false;
+	if (vk_object_state) {
+#if defined(FLOOR_DEBUG)
+		log_warn("Vulkan image has already been released for Vulkan use!");
+#endif
+		return true;
+	}
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+
+	const auto& comp_vk_queue = (const compute_queue&)vk_queue;
+	
+	// full sync
+	cqueue.finish();
+	comp_vk_queue.finish();
+	
+	// write/copy the host data to the Vulkan image
+	auto img_data = shared_image->map(comp_vk_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(img_data, image.get(), image_data_size);
+	shared_image->unmap(comp_vk_queue, img_data);
+	
+	// finish write
+	comp_vk_queue.finish();
+	
+	vk_object_state = true;
+	return true;
+}
+
+bool host_image::sync_vulkan_image(const compute_queue* cqueue_, const vulkan_queue* vk_queue_) const {
+	if (shared_vk_image == nullptr) return false;
+	if (!image) return false;
+	if (vk_object_state) {
+		// no need, already acquired for Vulkan use
+		return true;
+	}
+	
+	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	const auto comp_vk_queue = (vk_queue_ != nullptr ? (const compute_queue*)vk_queue_ : get_default_queue_for_memory(*shared_image));
+	
+	// validate host queue
+#if defined(FLOOR_DEBUG)
+	if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
+		log_error("specified queue is not a host-compute queue");
+		return false;
+	}
+#endif
+
+	// full sync
+	cqueue->finish();
+	comp_vk_queue->finish();
+	
+	// write/copy the host data to the Vulkan image
+	auto img_data = shared_image->map(*comp_vk_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+	memcpy(img_data, image.get(), image_data_size);
+	shared_image->unmap(*comp_vk_queue, img_data);
+	
+	// finish write
+	comp_vk_queue->finish();
+	
+	return true;
+}
+#else
+bool host_image::acquire_vulkan_image(const compute_queue&, const vulkan_queue&) {
+	return false;
+}
+bool host_image::release_vulkan_image(const compute_queue&, const vulkan_queue&) {
+	return false;
+}
+bool host_image::sync_vulkan_image(const compute_queue*, const vulkan_queue*) const {
+	return false;
+}
+#endif
+
+bool host_image::create_shared_image(const bool copy_host_data) {
+	if (shared_image != nullptr && host_shared_image == nullptr) {
+		// wrapping an existing Metal/Vulkan image
+		return true;
+	}
+	
+	// get the render/graphics context so that we can create an image (TODO: allow specifying a different context?)
+	auto render_ctx = floor::get_render_context();
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
 		if (render_ctx->get_compute_type() != COMPUTE_TYPE::METAL) {
 			log_error("Host/Metal image sharing failed: render context is not Metal");
 			return false;
 		}
-		
-		// get the device and its default queue where we want to create the image on/in
-		// NOTE: we never have a corresponding device here, so simply use the fastest device
-		render_dev = render_ctx->get_device(compute_device::TYPE::FASTEST);
-		if (render_dev == nullptr) {
-			log_error("Host/Metal image sharing failed: failed to find a Metal device");
+	} else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
+			log_error("Host/Vulkan image sharing failed: render context is not Vulkan");
 			return false;
 		}
-		
-		// create the underlying Metal image
-		auto default_queue = render_ctx->get_device_default_queue(*render_dev);
-		auto shared_mtl_image_flags = flags | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
-		if (!copy_host_data) {
-			shared_mtl_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
-		}
-		host_mtl_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_mtl_image_flags);
-		host_mtl_image->set_debug_label("host_mtl_image");
-		if (!host_mtl_image) {
-			log_error("Host/Metal image sharing failed: failed to create the underlying shared Metal image");
-			return false;
-		}
-		shared_image = host_mtl_image.get();
 	}
-	// else: wrapping an existing Metal image
+	
+	// get the device and its default queue where we want to create the image on/in
+	// NOTE: we never have a corresponding device here, so simply use the fastest device
+	const compute_device* render_dev = render_ctx->get_device(compute_device::TYPE::FASTEST);
+	if (render_dev == nullptr) {
+		log_error("Host <-> Metal/Vulkan image sharing failed: failed to find a Metal/Vulkan device");
+		return false;
+	}
+	
+	// create the underlying Metal/Vulkan image
+	auto default_queue = render_ctx->get_device_default_queue(*render_dev);
+	auto shared_image_flags = flags | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+	if (!copy_host_data) {
+		shared_image_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+	}
+	host_shared_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_image_flags);
+	host_shared_image->set_debug_label("host_shared_image");
+	if (!host_shared_image) {
+		log_error("Host <-> Metal/Vulkan image sharing failed: failed to create the underlying shared Metal/Vulkan image");
+		return false;
+	}
+	shared_image = host_shared_image.get();
 	
 	return true;
 }
-#endif
 
 #endif

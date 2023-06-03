@@ -707,17 +707,16 @@ bool floor::init(const init_state& state) {
 	if(state.renderer == RENDERER::DEFAULT) {
 #if !defined(__APPLE__)
 		// try to use Vulkan if the backend is Vulkan and the toolchain exists
-		if(config.backend == "vulkan") {
-			if(!config.vulkan_toolchain_exists) {
+		if (config.backend == "vulkan") {
+			if (!config.vulkan_toolchain_exists) {
 				log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
 				renderer = RENDERER::OPENGL;
-			}
-			else {
+			} else {
 				renderer = RENDERER::VULKAN;
 			}
 		}
-		// also try to use Vulkan if the backend is CUDA and a Vulkan toolchain exists
-		else if(config.backend == "cuda") {
+		// also try to use Vulkan if the backend is CUDA/Host-Compute and a Vulkan toolchain exists
+		else if (config.backend == "cuda" || config.backend == "host") {
 			renderer = (config.vulkan_toolchain_exists ? RENDERER::VULKAN : RENDERER::OPENGL);
 		} else {
 			renderer = RENDERER::OPENGL;

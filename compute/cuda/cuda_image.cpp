@@ -1142,34 +1142,54 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue) {
-	// finish Vulkan queue
+bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
+	if (!vk_object_state) {
 #if defined(FLOOR_DEBUG)
-	if (const auto vk_queue = dynamic_cast<const vulkan_queue*>(&cqueue); vk_queue == nullptr) {
-		log_error("specified queue is not a Vulkan queue");
-		return false;
-	}
+		log_warn("Vulkan image has already been acquired for use with CUDA!");
 #endif
-	cqueue.finish();
-	return true;
-}
-
-bool cuda_image::release_vulkan_image(const compute_queue& cqueue) {
-	// finish CUDA queue
+		return true;
+	}
+	
+	// validate CUDA queue
 #if defined(FLOOR_DEBUG)
-	if (const auto cu_queue = dynamic_cast<const cuda_queue*>(&cqueue); cu_queue == nullptr) {
+	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(&cqueue); cuda_queue_ == nullptr) {
 		log_error("specified queue is not a CUDA queue");
 		return false;
 	}
 #endif
+	
+	// finish Vulkan queue
+	vk_queue.finish();
+	vk_object_state = false;
+	return true;
+}
+
+bool cuda_image::release_vulkan_image(const compute_queue& cqueue, const vulkan_queue&) {
+	if (vk_object_state) {
+#if defined(FLOOR_DEBUG)
+		log_warn("Vulkan image has already been released for Vulkan use!");
+#endif
+		return true;
+	}
+	
+	// validate CUDA queue
+#if defined(FLOOR_DEBUG)
+	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(&cqueue); cuda_queue_ == nullptr) {
+		log_error("specified queue is not a CUDA queue");
+		return false;
+	}
+#endif
+	
+	// finish CUDA queue
 	cqueue.finish();
+	vk_object_state = true;
 	return true;
 }
 #else
-bool cuda_image::acquire_vulkan_image(const compute_queue&) {
+bool cuda_image::acquire_vulkan_image(const compute_queue&, const vulkan_queue&) {
 	return false;
 }
-bool cuda_image::release_vulkan_image(const compute_queue&) {
+bool cuda_image::release_vulkan_image(const compute_queue&, const vulkan_queue&) {
 	return false;
 }
 #endif

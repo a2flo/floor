@@ -21,6 +21,10 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
+#if !defined(FLOOR_NO_VULKAN)
+#include <floor/compute/vulkan/vulkan_buffer.hpp>
+#endif
+
 compute_buffer::compute_buffer(const compute_queue& cqueue,
 							   const size_t& size_,
 							   std::span<uint8_t> host_data_,
@@ -244,4 +248,24 @@ shared_ptr<compute_buffer> compute_buffer::clone(const compute_queue& cqueue, co
 	}
 	
 	return ret;
+}
+
+const vulkan_buffer* compute_buffer::get_underlying_vulkan_buffer_safe() const {
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		const vulkan_buffer* ret = nullptr;
+		if (ret = get_shared_vulkan_buffer(); !ret) {
+			ret = (const vulkan_buffer*)this;
+		} else {
+			if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
+				sync_vulkan_buffer();
+			}
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_VULKAN)
+		if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(ret); !test_cast_vk_buffer) {
+			throw runtime_error("specified buffer is neither a Vulkan buffer nor a shared Vulkan buffer");
+		}
+#endif
+		return ret;
+	}
+	return (const vulkan_buffer*)this;
 }
