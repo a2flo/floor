@@ -1183,6 +1183,16 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				const string vr_dev_exts_str(vr_dev_exts.get());
 				const auto vr_dev_ext_strs = core::tokenize(vr_dev_exts_str, ' ');
 				for (const auto& ext_str : vr_dev_ext_strs) {
+					bool is_filtered = false;
+					for (const auto& filtered_ext : filtered_exts) {
+						if (ext_str.find(filtered_ext) != string::npos) {
+							is_filtered = true;
+							break;
+						}
+					}
+					if (is_filtered) {
+						continue;
+					}
 					device_extensions_set.emplace(ext_str);
 				}
 			}
@@ -2388,7 +2398,7 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 		auto& present_image = (vulkan_image&)*vr_screen.images[drawable.index];
 
 		// keep image state in sync
-		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_2_MEMORY_READ_BIT);
+		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_2_TRANSFER_READ_BIT);
 
 		// present both eyes (+temporarily disable validation, because this will throw errors)
 		ignore_validation = true;
