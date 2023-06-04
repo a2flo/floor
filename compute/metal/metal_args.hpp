@@ -155,14 +155,14 @@ namespace metal_args {
 		}
 	}
 	
-	template <ENCODER_TYPE enc_type>
-	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<enc_type> encoder,
-							 const function_info& entry floor_unused,
-							 const vector<shared_ptr<compute_buffer>>& arg,
-							 const compute_device& dev,
-							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_resource_tracking::resource_info_t* res_info) {
+	template <ENCODER_TYPE enc_type> requires(enc_type == ENCODER_TYPE::ARGUMENT)
+	static inline void set_argument(const idx_handler& idx,
+									encoder_selector_t<enc_type> encoder,
+									const function_info& entry floor_unused,
+									const vector<shared_ptr<compute_buffer>>& arg,
+									const compute_device& dev,
+									const vector<uint32_t>* arg_buffer_indices,
+									metal_resource_tracking::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -178,25 +178,20 @@ namespace metal_args {
 			}
 		}
 		
-		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setBuffers:mtl_buf_array.data()
-						offsets:offsets.data()
-					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
-			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
-		} else {
-			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
-			log_error("buffer arrays are only supported for argument buffers");
-		}
+		[encoder setBuffers:mtl_buf_array.data()
+					offsets:offsets.data()
+				  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+		res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 	}
 	
-	template <ENCODER_TYPE enc_type>
-	static void set_argument(const idx_handler& idx,
-							 encoder_selector_t<enc_type> encoder,
-							 const function_info& entry floor_unused,
-							 const vector<compute_buffer*>& arg,
-							 const compute_device& dev,
-							 const vector<uint32_t>* arg_buffer_indices,
-							 metal_resource_tracking::resource_info_t* res_info) {
+	template <ENCODER_TYPE enc_type> requires(enc_type == ENCODER_TYPE::ARGUMENT)
+	static inline void set_argument(const idx_handler& idx,
+									encoder_selector_t<enc_type> encoder,
+									const function_info& entry floor_unused,
+									const vector<compute_buffer*>& arg,
+									const compute_device& dev,
+									const vector<uint32_t>* arg_buffer_indices,
+									metal_resource_tracking::resource_info_t* res_info) {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
@@ -212,15 +207,10 @@ namespace metal_args {
 			}
 		}
 		
-		if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setBuffers:mtl_buf_array.data()
-						offsets:offsets.data()
-					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
-			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
-		} else {
-			static_assert([]() constexpr { return false; }, "only supported for argument buffers");
-			log_error("buffer arrays are only supported for argument buffers");
-		}
+		[encoder setBuffers:mtl_buf_array.data()
+					offsets:offsets.data()
+				  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+		res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 	}
 	
 	template <ENCODER_TYPE enc_type>
@@ -556,9 +546,19 @@ namespace metal_args {
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices, res_info);
 			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices, res_info);
+				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+					set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices, res_info);
+				} else {
+					log_error("buffer arrays are only supported for argument buffers");
+					return false;
+				}
 			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices, res_info);
+				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+					set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices, res_info);
+				} else {
+					log_error("buffer arrays are only supported for argument buffers");
+					return false;
+				}
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices, res_info);
 			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {

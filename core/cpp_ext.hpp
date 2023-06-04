@@ -55,7 +55,18 @@ floor_inline_always static bool stob(const std::string& str) {
 
 #endif // !FLOOR_COMPUTE || FLOOR_COMPUTE_HOST
 
+#if __clang_major__ < 17
 //! static_assert that only triggers on instantiation, e.g. for use in "if constexpr" branches that may not be taken / should trigger an error
-#define instantiation_trap(msg) static_assert([]() { return false; }(), msg)
+#define instantiation_trap(msg) static_assert([]() constexpr { return false; }(), msg)
+//! similar to instantiation_trap, but in some cases we need it to be dependent so it doesn't always trigger
+template <typename> constexpr bool instantiation_trap_dependent_type_helper = false;
+#define instantiation_trap_dependent_type(dep_type, msg) static_assert(instantiation_trap_dependent_type_helper<dep_type>, msg)
+template <auto> constexpr bool instantiation_trap_dependent_value_helper = false;
+#define instantiation_trap_dependent_value(dep_value, msg) static_assert(instantiation_trap_dependent_value_helper<dep_value>, msg)
+#else // as per CWG 2518 / P2593, it is now possible to directly fail the static_assert
+#define instantiation_trap(msg) static_assert(false, msg)
+#define instantiation_trap_dependent_type(dep_type, msg) static_assert(false, msg)
+#define instantiation_trap_dependent_value(dep_value, msg) static_assert(false, msg)
+#endif
 
 #endif

@@ -68,8 +68,7 @@ static property_type get_vr_property(vr::IVRSystem& system,
 	} else if constexpr (is_same_v<property_type, uint64_t>) {
 		return system.GetUint64TrackedDeviceProperty(idx, prop, nullptr);
 	} else {
-		static constexpr const auto ce_eval_false = []() constexpr { return false; };
-		static_assert(ce_eval_false(), "not implemented yet or invalid type");
+		instantiation_trap_dependent_type(property_type, "not implemented yet or invalid type");
 	}
 }
 
