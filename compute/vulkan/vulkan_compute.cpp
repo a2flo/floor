@@ -417,9 +417,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #if !defined(FLOOR_NO_VR)
 	if (vr_ctx) {
 		const auto vr_instance_exts = vr_ctx->get_vulkan_instance_extensions();
-		if (vr_instance_exts) {
-			const string vr_instance_exts_str(vr_instance_exts.get());
-			const auto vr_instance_ext_strs = core::tokenize(vr_instance_exts_str, ' ');
+		if (!vr_instance_exts.empty()) {
+			const auto vr_instance_ext_strs = core::tokenize(vr_instance_exts, ' ');
 			for (const auto& ext : vr_instance_ext_strs) {
 				instance_extensions.emplace(ext);
 			}
@@ -1179,9 +1178,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		// handle VR extensions
 		if (vr_ctx) {
 			const auto vr_dev_exts = vr_ctx->get_vulkan_device_extensions(phys_dev);
-			if (vr_dev_exts) {
-				const string vr_dev_exts_str(vr_dev_exts.get());
-				const auto vr_dev_ext_strs = core::tokenize(vr_dev_exts_str, ' ');
+			if (!vr_dev_exts.empty()) {
+				const auto vr_dev_ext_strs = core::tokenize(vr_dev_exts, ' ');
 				for (const auto& ext_str : vr_dev_ext_strs) {
 					bool is_filtered = false;
 					for (const auto& filtered_ext : filtered_exts) {

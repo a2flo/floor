@@ -395,6 +395,9 @@
 		5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
+		5CF497172A2D136300F78B03 /* openvr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF497152A2D136200F78B03 /* openvr_context.hpp */; };
+		5CF497182A2D136300F78B03 /* openvr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF497162A2D136200F78B03 /* openvr_context.cpp */; };
+		5CF497192A2D136300F78B03 /* openvr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF497162A2D136200F78B03 /* openvr_context.cpp */; };
 		5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */; };
 		5CF974C624E87F6600014CDC /* elf_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF974C424E87F6500014CDC /* elf_binary.cpp */; };
 		5CF974C724E87F6600014CDC /* elf_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF974C424E87F6500014CDC /* elf_binary.cpp */; };
@@ -736,6 +739,8 @@
 		5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_program.hpp; sourceTree = "<group>"; };
 		5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_queue.cpp; sourceTree = "<group>"; };
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
+		5CF497152A2D136200F78B03 /* openvr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = openvr_context.hpp; path = vr/openvr_context.hpp; sourceTree = "<group>"; };
+		5CF497162A2D136200F78B03 /* openvr_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = openvr_context.cpp; path = vr/openvr_context.cpp; sourceTree = "<group>"; };
 		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
 		5CF974C424E87F6500014CDC /* elf_binary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = elf_binary.cpp; path = host/elf_binary.cpp; sourceTree = "<group>"; };
 		5CF974C524E87F6600014CDC /* elf_binary.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = elf_binary.hpp; path = host/elf_binary.hpp; sourceTree = "<group>"; };
@@ -1031,6 +1036,8 @@
 		5C3D13B523B6778E000BB608 /* vr */ = {
 			isa = PBXGroup;
 			children = (
+				5CF497162A2D136200F78B03 /* openvr_context.cpp */,
+				5CF497152A2D136200F78B03 /* openvr_context.hpp */,
 				5C3D13B123B67784000BB608 /* vr_context.cpp */,
 				5C3D13B023B67784000BB608 /* vr_context.hpp */,
 			);
@@ -1488,6 +1495,7 @@
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
 				5C1E6FC225EF21800030786F /* safe_resource_container.hpp in Headers */,
 				5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */,
+				5CF497172A2D136300F78B03 /* openvr_context.hpp in Headers */,
 				5C20C8C71B4139260005F5EA /* host_compute.hpp in Headers */,
 				5C84531922B1A6D80014AECF /* vulkan_pass.hpp in Headers */,
 				5C8FEF5F1AFE3BF4001D47BF /* opencl_image.hpp in Headers */,
@@ -1697,6 +1705,7 @@
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
 				5CF974C624E87F6600014CDC /* elf_binary.cpp in Sources */,
 				5C2B87D21C73893E00F11EA5 /* vulkan_compute.cpp in Sources */,
+				5CF497182A2D136300F78B03 /* openvr_context.cpp in Sources */,
 				5CD4E87322B444CA00AE0385 /* vulkan_renderer.cpp in Sources */,
 				5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */,
 				5C5383EA1A641B1E007AEDD7 /* cuda_kernel.cpp in Sources */,
@@ -1758,6 +1767,7 @@
 				5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */,
 				5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */,
 				5C4331CE214DAA0F004F0CD0 /* vulkan_device.cpp in Sources */,
+				5CF497192A2D136300F78B03 /* openvr_context.cpp in Sources */,
 				5C8F323726347403008144CF /* metal_device_query.mm in Sources */,
 				5C4331CF214DAA0F004F0CD0 /* vulkan_image.cpp in Sources */,
 				5C84531722B1A6D80014AECF /* vulkan_pipeline.cpp in Sources */,

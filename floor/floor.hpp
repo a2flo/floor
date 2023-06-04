@@ -214,6 +214,7 @@ public:
 	static uint32_t get_vr_physical_width();
 	static uint32_t get_vr_physical_height();
 	static uint2 get_vr_physical_screen_size();
+	static const string& get_vr_backend();
 	
 	// audio
 	static void set_audio_disabled(const bool& state);
@@ -356,6 +357,7 @@ protected:
 		bool vr_companion = true;
 		uint32_t vr_width = 0;
 		uint32_t vr_height = 0;
+		string vr_backend;
 		
 		// audio
 		bool audio_disabled = true;

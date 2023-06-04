@@ -321,6 +321,8 @@ add_library(${PROJECT_NAME} SHARED
 	threading/thread_base.cpp
 	threading/thread_base.hpp
 	threading/thread_safety.hpp
+	vr/openvr_context.cpp
+	vr/openvr_context.hpp
 	vr/vr_context.cpp
 	vr/vr_context.hpp)
 

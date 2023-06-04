@@ -29,6 +29,7 @@
 #include <floor/compute/host/host_compute.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/vr/vr_context.hpp>
+#include <floor/vr/openvr_context.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -337,6 +338,7 @@ bool floor::init(const init_state& state) {
 		config.vr_companion = config_doc.get<bool>("screen.vr.companion", true);
 		config.vr_width = config_doc.get<uint32_t>("screen.vr.width", 0);
 		config.vr_height = config_doc.get<uint32_t>("screen.vr.height", 0);
+		config.vr_backend = config_doc.get<string>("toolchain.vr.backend", "");
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -1033,19 +1035,27 @@ bool floor::init_internal(const init_state& state) {
 		// create a VR context if this is enabled and we want to create a supported renderer
 		if (config.vr && (renderer == RENDERER::VULKAN || renderer == RENDERER::METAL)) {
 			log_debug("initializing VR");
-			vr_ctx = make_unique<vr_context>();
-			if (!vr_ctx->is_valid()) {
-				vr_ctx = nullptr;
+			if (config.vr_backend == "openvr" || config.vr_backend.empty()) {
+				vr_ctx = make_unique<openvr_context>();
 			} else {
-				if (config.vr_width == 0) {
-					config.vr_width = vr_ctx->get_recommended_render_size().x;
+				log_error("unknown VR backend: $", config.vr_backend);
+			}
+			
+			if (vr_ctx) {
+				log_msg("VR backend: $", vr_backend_to_string(vr_ctx->get_backend()));
+				if (!vr_ctx->is_valid()) {
+					vr_ctx = nullptr;
+				} else {
+					if (config.vr_width == 0) {
+						config.vr_width = vr_ctx->get_recommended_render_size().x;
+					}
+					if (config.vr_height == 0) {
+						config.vr_height = vr_ctx->get_recommended_render_size().y;
+					}
+					log_debug("VR per-eye render size: w$ h$", config.vr_width, config.vr_height);
+					
+					evt->set_vr_context(vr_ctx.get());
 				}
-				if (config.vr_height == 0) {
-					config.vr_height = vr_ctx->get_recommended_render_size().y;
-				}
-				log_debug("VR per-eye render size: w$ h$", config.vr_width, config.vr_height);
-
-				evt->set_vr_context(vr_ctx.get());
 			}
 		}
 #endif
@@ -1752,6 +1762,10 @@ uint32_t floor::get_vr_physical_height() {
 
 uint2 floor::get_vr_physical_screen_size() {
 	return { config.vr_width, config.vr_height };
+}
+
+const string& floor::get_vr_backend() {
+	return config.vr_backend;
 }
 
 json::document& floor::get_config_doc() {
