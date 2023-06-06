@@ -251,8 +251,7 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeRenderPipeline: return "RenderPipeline";
 		case MTLDataTypeComputePipeline: return "ComputePipeline";
 		case MTLDataTypeIndirectCommandBuffer: return "IndirectCommandBuffer";
-#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 120000) || \
-	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000)
+#if defined(__MAC_12_0) || defined(__IPHONE_15_0)
 		case MTLDataTypeLong: return "Long";
 		case MTLDataTypeLong2: return "Long2";
 		case MTLDataTypeLong3: return "Long3";
@@ -266,6 +265,12 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
 		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";
 		case MTLDataTypeInstanceAccelerationStructure: return "InstanceAccelerationStructure";
+#if defined(__MAC_14_0) || defined(__IPHONE_17_0)
+		case MTLDataTypeBFloat: return "BFloat";
+		case MTLDataTypeBFloat2: return "BFloat2";
+		case MTLDataTypeBFloat3: return "BFloat3";
+		case MTLDataTypeBFloat4: return "BFloat4";
+#endif
 	}
 	return "<unknown>";
 }

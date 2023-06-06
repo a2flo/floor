@@ -48,7 +48,7 @@ namespace floor_net {
 		bool handle_post_server_connect() { return true; }
 	};
 	
-	// ignore ssl deprecation warnings on os x
+	// ignore ssl deprecation warnings on macOS
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 	

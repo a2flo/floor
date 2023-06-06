@@ -65,7 +65,7 @@
 
 #define FLOOR_OS_DIR_SLASH "\\"
 
-// Mac OS X
+// macOS/iOS
 #elif defined(__APPLE__)
 #define FLOOR_OS_DIR_SLASH "/"
 

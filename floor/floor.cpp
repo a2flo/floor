@@ -138,7 +138,7 @@ bool floor::init(const init_state& state) {
 	// sanity check
 #if defined(__APPLE__)
 	if(state.renderer == RENDERER::VULKAN) {
-		cerr << "Vulkan is not supported on OS X / iOS" << endl;
+		cerr << "Vulkan is not supported on macOS / iOS" << endl;
 		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
@@ -258,7 +258,7 @@ bool floor::init(const init_state& state) {
 	
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
-	// check if datapath contains a 'MacOS' string (indicates that the binary is called from within an OS X .app or via complete path from the shell)
+	// check if datapath contains a 'MacOS' string (indicates that the binary is called from within an macOS .app or via complete path from the shell)
 	if(datapath.find("MacOS") != string::npos) {
 		// if so, add "../../../" to the datapath, since we have to relocate the datapath if the binary is inside an .app
 		datapath.insert(datapath.find("MacOS") + 6, "../../../");
@@ -751,8 +751,8 @@ bool floor::init(const init_state& state) {
 			renderer = RENDERER::VULKAN;
 		}
 #else
-		// obviously can't use Vulkan on OS X / iOS
-		log_error("Vulkan renderer is not available on OS X / iOS - using OpenGL now");
+		// obviously can't use Vulkan on macOS / iOS
+		log_error("Vulkan renderer is not available on macOS / iOS - using OpenGL now");
 		renderer = RENDERER::OPENGL;
 #endif
 	}
@@ -957,7 +957,7 @@ bool floor::init_internal(const init_state& state) {
 			if(state.use_opengl_33) {
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-#if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms
+#if defined(__APPLE__) // must request a core context on macOS, doesn't matter on other platforms
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #endif
 			}
@@ -1078,7 +1078,7 @@ bool floor::init_internal(const init_state& state) {
 					SDL_ClearError();
 				}
 				
-				// enable multi-threaded opengl context when on os x
+				// enable multi-threaded opengl context when on macOS
 				// TODO: did this ever actually work?
 #if defined(__APPLE__) && 0
 				CGLContextObj cgl_ctx = CGLGetCurrentContext();
@@ -1257,7 +1257,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// default compute backends (will try these in order, using the first working one)
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS) // osx
+#if !defined(FLOOR_IOS) // macOS
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL, COMPUTE_TYPE::CUDA };
 #else // ios
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
@@ -1598,7 +1598,7 @@ uint2 floor::get_screen_size() {
 
 uint32_t floor::get_physical_width() {
 	uint32_t ret = config.width;
-#if defined(__APPLE__) // only supported on osx and ios right now
+#if defined(__APPLE__) // only supported on macOS and iOS right now
 	ret = uint32_t(double(ret) *
 				   (config.hidpi ?
 					double(darwin_helper::get_scale_factor(window)) : 1.0));
@@ -1608,7 +1608,7 @@ uint32_t floor::get_physical_width() {
 
 uint32_t floor::get_physical_height() {
 	uint32_t ret = config.height;
-#if defined(__APPLE__) // only supported on osx and ios right now
+#if defined(__APPLE__) // only supported on macOS and iOS right now
 	ret = uint32_t(double(ret) *
 				   (config.hidpi ?
 					double(darwin_helper::get_scale_factor(window)) : 1.0));
@@ -1618,7 +1618,7 @@ uint32_t floor::get_physical_height() {
 
 uint2 floor::get_physical_screen_size() {
 	uint2 ret { config.width, config.height };
-#if defined(__APPLE__) // only supported on osx and ios right now
+#if defined(__APPLE__) // only supported on macOS and iOS right now
 	ret = uint2(double2(ret) *
 				(config.hidpi ?
 				 double(darwin_helper::get_scale_factor(window)) : 1.0));

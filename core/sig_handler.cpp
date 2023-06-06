@@ -48,7 +48,7 @@ static void sighandler(int, siginfo_t*, void*) {
 	log_error("segfault/trap/abort in thread/process \"$\":", thread_name);
 	
 	// converts a stack and load address of a specified binary into a line number,
-	// using atos (on OS X) or addr2line (everywhere else)
+	// using atos (on macOS) or addr2line (everywhere else)
 	static const auto addr_to_source_info = [](const char* binary_name,
 #if defined(__APPLE__)
 											   void* load_addr,

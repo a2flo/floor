@@ -101,7 +101,7 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_cont
 #endif
 	
 	// now onto getting the cpu clock speed:
-#if (defined(__APPLE__) && !defined(FLOOR_IOS)) || defined(__FreeBSD__) // can simply use sysctl on os x (and freebsd)
+#if (defined(__APPLE__) && !defined(FLOOR_IOS)) || defined(__FreeBSD__) // can simply use sysctl on macOS (and freebsd)
 	size_t cpu_freq_size = sizeof(uint64_t);
 	sysctlbyname(
 #if defined(__APPLE__)

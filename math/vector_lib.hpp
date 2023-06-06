@@ -37,7 +37,7 @@ template <typename scalar_type> class vector4;
 
 // pod type -> typedef name prefix
 #if defined(__APPLE__) && (!defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)))
-// all types when compiling on osx/ios
+// all types when compiling on macOS/iOS
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -82,7 +82,7 @@ F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #endif
 #else
-// remove size_t and ssize_t when not compiling on osx/ios
+// remove size_t and ssize_t when not compiling on macOS/iOS
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -115,7 +115,7 @@ FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 3)
 FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 4)
 #endif
 
-// necessary non-osx/ios aliases
+// necessary non-macOS/iOS aliases
 #if !defined(__APPLE__) || (defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST))
 typedef ulong1 size1;
 typedef ulong2 size2;

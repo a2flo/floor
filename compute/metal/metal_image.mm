@@ -39,7 +39,6 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 const opengl_image_info* floor_nullable gl_image_info) :
 compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info, nullptr, true /* may need shim type */) {
-	// introduced with os x 10.11 / ios 9.0, kernel/shader access flags can actually be set
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			usage_options = MTLTextureUsageShaderRead;
@@ -149,11 +148,10 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull
 		case MTLTextureType3D: type = COMPUTE_IMAGE_TYPE::IMAGE_3D; break;
 		case MTLTextureTypeCube: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE; break;
 		case MTLTextureTypeCubeArray: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY; break;
-#if defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400
+#if defined(__MAC_10_14) || defined(__IPHONE_14_0)
 		case MTLTextureType2DMultisampleArray: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY; break;
 #endif
-#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
-	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
+#if defined(__MAC_10_14) || defined(__IPHONE_12_0)
 		case MTLTextureTypeTextureBuffer: type = COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER; break;
 #endif
 		
@@ -229,7 +227,7 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
-#if !defined(FLOOR_IOS) || (__IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
+#if !defined(FLOOR_IOS) || defined(__IPHONE_13_0)
 		{ MTLPixelFormatDepth16Unorm, (COMPUTE_IMAGE_TYPE::UINT |
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_16 |
@@ -425,13 +423,14 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			} else if (is_array && !is_buffer) {
 				tex_type = MTLTextureType1DArray;
 			} else if (!is_array && is_buffer) {
-#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
-	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
-				tex_type = MTLTextureTypeTextureBuffer;
-#else
+#if defined(__MAC_10_14) || defined(__IPHONE_12_0)
+				if (@available(macOS 10.14, iOS 12.0, *)) {
+					tex_type = MTLTextureTypeTextureBuffer;
+					break;
+				}
+#endif
 				log_error("1D buffer image is not supported");
 				return false;
-#endif
 			} else if (is_array && is_buffer) {
 				log_error("1D array buffer image is not supported");
 				return false;
@@ -447,12 +446,14 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 				if (!is_msaa && !is_array) {
 					tex_type = MTLTextureType2D;
 				} else if (is_msaa && is_array) {
-#if defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400
-					tex_type = MTLTextureType2DMultisampleArray;
-#else
+#if defined(__MAC_10_14) || defined(__IPHONE_14_0)
+					if (@available(macOS 10.14, iOS 14.0, *)) {
+						tex_type = MTLTextureType2DMultisampleArray;
+						break;
+					}
+#endif
 					log_error("2D MSAA array image is not supported");
 					return false;
-#endif
 				} else if (is_msaa) {
 					tex_type = MTLTextureType2DMultisample;
 				} else if (is_array) {
@@ -993,7 +994,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
-#if !defined(FLOOR_IOS) || (__IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
+#if !defined(FLOOR_IOS) || defined(__IPHONE_13_0)
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_16 |

@@ -19,8 +19,8 @@
 #ifndef __FLOOR_CONF_HPP__
 #define __FLOOR_CONF_HPP__
 
-// when building on osx/ios, always disable opencl
-// for vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
+// when building on macOS/iOS, always disable opencl
+// for Vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
 // highlighting/completion when vulkan headers are installed (will build, but won't link though)
 #if defined(__APPLE__)
 #if !__has_include(<floor/floor/vulkan_testing.hpp>)

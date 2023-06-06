@@ -79,7 +79,7 @@ public:
 		RENDERER renderer { RENDERER::DEFAULT };
 		
 		//! if true and using the OpenGL renderer, this will try to create a OpenGL 3.3+ context
-		//! NOTE: will create a 3.3+ *core* context on OS X
+		//! NOTE: will create a 3.3+ *core* context on macOS
 		bool use_opengl_33 { true };
 		
 		//! min Vulkan API version that should be used

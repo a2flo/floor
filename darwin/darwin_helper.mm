@@ -133,116 +133,118 @@ FLOOR_POP_WARNINGS()
 }
 
 - (void)set_hdr_metadata:(const hdr_metadata_t&)hdr_metadata {
-#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
-	if (!self.is_hdr) {
-		return;
-	}
-	
-	// set HDR metadata (thanks for making this complicated Apple ...)
-	
-	// SEI mastering display colour volume
-	struct __attribute__((packed)) SEI_MDCV_message_t {
-		struct __attribute__((packed)) {
-			uint16_t display_primaries_x;
-			uint16_t display_primaries_y;
-		} display_primaries[3];
-		uint16_t white_point_x;
-		uint16_t white_point_y;
-		uint32_t max_display_mastering_luminance;
-		uint32_t min_display_mastering_luminance;
-	};
-	static_assert(sizeof(SEI_MDCV_message_t) == 24);
-	
-	// SEI content light level information
-	struct __attribute__((packed)) SEI_CLLI_message_t {
-		uint16_t max_content_light_level;
-		uint16_t max_pic_average_light_level;
-	};
-	static_assert(sizeof(SEI_CLLI_message_t) == 4);
-	
-	// color conversion for display_primaries and white_point_*
-	static constexpr const uint2 color_x_range { 5u, 37'000u };
-	static constexpr const uint2 color_y_range { 5u, 42'000u };
-	const auto convert_color = [](const float& color, const uint2& range) {
-		// as defined by CIE 1931 / ISO 11664-1
-		// 1 unit == 0.00002
-		auto conv = uint32_t(color * 50000.0f);
-		if (conv < range.x || conv > range.y) {
-			log_error("invalid color $, must be in [$, $]", conv, range.x, range.y);
-			conv = math::clamp(conv, range.x, range.y);
+#if !defined(FLOOR_IOS) && defined(__MAC_10_15)
+	if (@available(macOS 10.15, *)) {
+		if (!self.is_hdr) {
+			return;
 		}
-		return SDL_Swap16(uint16_t(conv));
-	};
-	
-	// luminance conversion for *_display_mastering_luminance
-	static constexpr const uint2 lum_max_range { 50'000u, 100'000'000u };
-	static constexpr const uint2 lum_min_range { 1u, 50'000u };
-	static constexpr const uint32_t lum_max_req_multiple { 10'000u };
-	static constexpr const uint32_t lum_min_req_multiple { 1u };
-	const auto convert_luminance = [](const float& cd, const uint2& range, const uint32_t& req_multiple) {
-		// 1 unit == 0.0001 cd
-		auto conv = uint32_t(cd * 10000.0f);
-		if (conv < range.x || conv > range.y) {
-			log_error("invalid luminance $, must be in [$, $]", conv, range.x, range.y);
-			conv = math::clamp(conv, range.x, range.y);
-		}
-		// SMPTE ST 2086 requires that luminance is a certain multiple
-		const auto multiple_mod = conv % req_multiple;
-		if (multiple_mod != 0u) {
-			if (multiple_mod < req_multiple / 2u) {
-				// round down
-				conv -= multiple_mod;
-			} else {
-				// round up
-				conv += req_multiple - multiple_mod;
+		
+		// set HDR metadata (thanks for making this complicated Apple ...)
+		
+		// SEI mastering display colour volume
+		struct __attribute__((packed)) SEI_MDCV_message_t {
+			struct __attribute__((packed)) {
+				uint16_t display_primaries_x;
+				uint16_t display_primaries_y;
+			} display_primaries[3];
+			uint16_t white_point_x;
+			uint16_t white_point_y;
+			uint32_t max_display_mastering_luminance;
+			uint32_t min_display_mastering_luminance;
+		};
+		static_assert(sizeof(SEI_MDCV_message_t) == 24);
+		
+		// SEI content light level information
+		struct __attribute__((packed)) SEI_CLLI_message_t {
+			uint16_t max_content_light_level;
+			uint16_t max_pic_average_light_level;
+		};
+		static_assert(sizeof(SEI_CLLI_message_t) == 4);
+		
+		// color conversion for display_primaries and white_point_*
+		static constexpr const uint2 color_x_range { 5u, 37'000u };
+		static constexpr const uint2 color_y_range { 5u, 42'000u };
+		const auto convert_color = [](const float& color, const uint2& range) {
+			// as defined by CIE 1931 / ISO 11664-1
+			// 1 unit == 0.00002
+			auto conv = uint32_t(color * 50000.0f);
+			if (conv < range.x || conv > range.y) {
+				log_error("invalid color $, must be in [$, $]", conv, range.x, range.y);
+				conv = math::clamp(conv, range.x, range.y);
 			}
-		}
-		return SDL_Swap32(conv);
-	};
-	
-	// init structs (note that all uints are big endian)
-	const SEI_MDCV_message_t mdvc {
-		.display_primaries = {
-			// NOTE: order is GBR
-			// green
-			{
-				convert_color(hdr_metadata.primaries[1].x, color_x_range),
-				convert_color(hdr_metadata.primaries[1].y, color_y_range)
+			return SDL_Swap16(uint16_t(conv));
+		};
+		
+		// luminance conversion for *_display_mastering_luminance
+		static constexpr const uint2 lum_max_range { 50'000u, 100'000'000u };
+		static constexpr const uint2 lum_min_range { 1u, 50'000u };
+		static constexpr const uint32_t lum_max_req_multiple { 10'000u };
+		static constexpr const uint32_t lum_min_req_multiple { 1u };
+		const auto convert_luminance = [](const float& cd, const uint2& range, const uint32_t& req_multiple) {
+			// 1 unit == 0.0001 cd
+			auto conv = uint32_t(cd * 10000.0f);
+			if (conv < range.x || conv > range.y) {
+				log_error("invalid luminance $, must be in [$, $]", conv, range.x, range.y);
+				conv = math::clamp(conv, range.x, range.y);
+			}
+			// SMPTE ST 2086 requires that luminance is a certain multiple
+			const auto multiple_mod = conv % req_multiple;
+			if (multiple_mod != 0u) {
+				if (multiple_mod < req_multiple / 2u) {
+					// round down
+					conv -= multiple_mod;
+				} else {
+					// round up
+					conv += req_multiple - multiple_mod;
+				}
+			}
+			return SDL_Swap32(conv);
+		};
+		
+		// init structs (note that all uints are big endian)
+		const SEI_MDCV_message_t mdvc {
+			.display_primaries = {
+				// NOTE: order is GBR
+				// green
+				{
+					convert_color(hdr_metadata.primaries[1].x, color_x_range),
+					convert_color(hdr_metadata.primaries[1].y, color_y_range)
+				},
+				// blue
+				{
+					convert_color(hdr_metadata.primaries[2].x, color_x_range),
+					convert_color(hdr_metadata.primaries[2].y, color_y_range)
+				},
+				// red
+				{
+					convert_color(hdr_metadata.primaries[0].x, color_x_range),
+					convert_color(hdr_metadata.primaries[0].y, color_y_range)
+				},
 			},
-			// blue
-			{
-				convert_color(hdr_metadata.primaries[2].x, color_x_range),
-				convert_color(hdr_metadata.primaries[2].y, color_y_range)
-			},
-			// red
-			{
-				convert_color(hdr_metadata.primaries[0].x, color_x_range),
-				convert_color(hdr_metadata.primaries[0].y, color_y_range)
-			},
-		},
-		.white_point_x = convert_color(hdr_metadata.white_point.x, color_x_range),
-		.white_point_y = convert_color(hdr_metadata.white_point.y, color_y_range),
-		.max_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.y, lum_max_range, lum_max_req_multiple),
-		.min_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.x, lum_min_range, lum_min_req_multiple)
-	};
-	const SEI_CLLI_message_t clli {
-		// NOTE: luminance here is actually in cd
-		.max_content_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_content_light_level)),
-		.max_pic_average_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_average_light_level))
-	};
-	// normalize to max nominal luminance so that 1.0 signals max luminance (still can go higher than this)
-	const float optical_output_scale = hdr_metadata.luminance.y;
-	
-	// set metadata
-	auto mdvc_data = [NSData dataWithBytesNoCopy:(void*)&mdvc
-										  length:sizeof(SEI_MDCV_message_t)
-									freeWhenDone:false];
-	auto clli_data = [NSData dataWithBytesNoCopy:(void*)&clli
-										  length:sizeof(SEI_CLLI_message_t)
-									freeWhenDone:false];
-	self.metal_layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithDisplayInfo:mdvc_data
-																   contentInfo:clli_data
-															opticalOutputScale:optical_output_scale];
+				.white_point_x = convert_color(hdr_metadata.white_point.x, color_x_range),
+				.white_point_y = convert_color(hdr_metadata.white_point.y, color_y_range),
+				.max_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.y, lum_max_range, lum_max_req_multiple),
+				.min_display_mastering_luminance = convert_luminance(hdr_metadata.luminance.x, lum_min_range, lum_min_req_multiple)
+		};
+		const SEI_CLLI_message_t clli {
+			// NOTE: luminance here is actually in cd
+			.max_content_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_content_light_level)),
+			.max_pic_average_light_level = SDL_Swap16(uint16_t(hdr_metadata.max_average_light_level))
+		};
+		// normalize to max nominal luminance so that 1.0 signals max luminance (still can go higher than this)
+		const float optical_output_scale = hdr_metadata.luminance.y;
+		
+		// set metadata
+		auto mdvc_data = [NSData dataWithBytesNoCopy:(void*)&mdvc
+											  length:sizeof(SEI_MDCV_message_t)
+										freeWhenDone:false];
+		auto clli_data = [NSData dataWithBytesNoCopy:(void*)&clli
+											  length:sizeof(SEI_CLLI_message_t)
+										freeWhenDone:false];
+		self.metal_layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithDisplayInfo:mdvc_data
+																	   contentInfo:clli_data
+																opticalOutputScale:optical_output_scale];
+	}
 #endif
 }
 
@@ -295,7 +297,7 @@ FLOOR_POP_WARNINGS()
 			self.metal_layer.pixelFormat = MTLPixelFormatRGBA16Float;
 			self.metal_layer.wantsExtendedDynamicRangeContent = true;
 			if (self.is_hdr) {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+#if defined(__MAC_10_15)
 				if (!self.is_hdr_linear) {
 					// use BT.2020/2100 colorspace with PQ transfer function
 					// NOTE: same as Vulkan "HDR10 (BT2020 color) space to be displayed using the SMPTE ST2084 Perceptual Quantizer (PQ) EOTF"
@@ -339,13 +341,13 @@ FLOOR_POP_WARNINGS()
 		tp_prev_frame = chrono::high_resolution_clock::now();
 		
 #if !defined(FLOOR_IOS)
-		// need to listen for window resize events on os x (won't happen for ios)
+		// need to listen for window resize events on macOS (won't happen for iOS)
 		[[NSNotificationCenter defaultCenter] addObserver:self
 												 selector:@selector(windowDidResize:)
 													 name:NSWindowDidResizeNotification
 												   object:self.wnd];
 #else
-		// need to listen for device orientation change events on ios (won't happen for os x)
+		// need to listen for device orientation change events on ios (won't happen for macOS)
 		[[NSNotificationCenter defaultCenter] addObserver:self
 												 selector:@selector(orientationChanged:)
 													 name:UIDeviceOrientationDidChangeNotification
@@ -372,7 +374,7 @@ FLOOR_POP_WARNINGS()
 - (void)windowDidResize:(NSNotification*) floor_unused notification {
 	[self reshape];
 }
-#else // not applicable to osx
+#else // not applicable to macOS
 - (void)orientationChanged:(NSNotification*) floor_unused notification {
 	[self reshape];
 }
@@ -429,7 +431,7 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 	}
 
 #if !defined(FLOOR_IOS)
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+#if defined(__MAC_10_15)
 	const bool can_do_hdr = ([[info.info.cocoa.window screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
 #else
 	const bool can_do_hdr = false;
@@ -521,40 +523,42 @@ void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_meta
 }
 
 float darwin_helper::get_metal_view_edr_max(metal_view* view floor_unused_on_ios) {
-#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
-	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
-#else
-	return 1.0f;
+#if !defined(FLOOR_IOS) && defined(__MAC_10_15)
+	if (@available(macOS 10.15, *)) {
+		return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
+	}
 #endif
+	return 1.0f;
 }
 
 float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view floor_unused_on_ios) {
-#if !defined(FLOOR_IOS) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
-	using get_nominal_pixel_nits_func_type = float (*)(int32_t);
-	static const auto get_nominal_pixel_nits = []() -> get_nominal_pixel_nits_func_type {
-		static const auto core_display_lib = dlopen("/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay", RTLD_NOW);
-		if (!core_display_lib) {
-			log_error("failed to get CoreDisplay lib");
-			return nullptr;
-		}
+#if !defined(FLOOR_IOS) && defined(__MAC_10_15)
+	if (@available(macOS 10.15, *)) {
+		using get_nominal_pixel_nits_func_type = float (*)(int32_t);
+		static const auto get_nominal_pixel_nits = []() -> get_nominal_pixel_nits_func_type {
+			static const auto core_display_lib = dlopen("/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay", RTLD_NOW);
+			if (!core_display_lib) {
+				log_error("failed to get CoreDisplay lib");
+				return nullptr;
+			}
+			
+			static const auto get_nominal_pixel_nits_ = (get_nominal_pixel_nits_func_type)dlsym(core_display_lib, "CoreDisplay_Display_GetNominalPixelNits");
+			if (!get_nominal_pixel_nits_) {
+				log_error("failed to get CoreDisplay_Display_GetNominalPixelNits");
+				return nullptr;
+			}
+			return get_nominal_pixel_nits_;
+		}();
 		
-		static const auto get_nominal_pixel_nits_ = (get_nominal_pixel_nits_func_type)dlsym(core_display_lib, "CoreDisplay_Display_GetNominalPixelNits");
-		if (!get_nominal_pixel_nits_) {
-			log_error("failed to get CoreDisplay_Display_GetNominalPixelNits");
-			return nullptr;
+		const auto edr_max = get_metal_view_edr_max(view);
+		if (!get_nominal_pixel_nits) {
+			return 100.0f * edr_max;
 		}
-		return get_nominal_pixel_nits_;
-	}();
-	
-	const auto edr_max = get_metal_view_edr_max(view);
-	if (!get_nominal_pixel_nits) {
-		return 100.0f * edr_max;
+		const NSNumber* screen_idx = [[[[view window] screen] deviceDescription] objectForKey:@"NSScreenNumber"];
+		return get_nominal_pixel_nits([screen_idx intValue]) * edr_max;
 	}
-	const NSNumber* screen_idx = [[[[view window] screen] deviceDescription] objectForKey:@"NSScreenNumber"];
-	return get_nominal_pixel_nits([screen_idx intValue]) * edr_max;
-#else
-	return 1.0f;
 #endif
+	return 1.0f;
 }
 
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd
@@ -562,7 +566,7 @@ uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 							  floor_unused
 #endif
 							  ) {
-#if !defined(FLOOR_IOS) // on OS X this can be done properly through querying CoreGraphics
+#if !defined(FLOOR_IOS) // on macOS this can be done properly through querying CoreGraphics
 	float2 display_res(float2(CGDisplayPixelsWide(CGMainDisplayID()),
 							  CGDisplayPixelsHigh(CGMainDisplayID())) * get_scale_factor(wnd));
 	const CGSize display_phys_size(CGDisplayScreenSize(CGMainDisplayID()));
@@ -625,7 +629,7 @@ float darwin_helper::get_menu_bar_height() {
 #endif
 
 size_t darwin_helper::get_system_version() {
-	// add a define for the run time os x version
+	// add a define for the run time macOS version
 	string osrelease(16, 0);
 	size_t size = osrelease.size() - 1;
 	sysctlbyname("kern.osrelease", &osrelease[0], &size, nullptr, 0);
@@ -638,7 +642,7 @@ size_t darwin_helper::get_system_version() {
 		
 #if !defined(FLOOR_IOS)
 		// osrelease = kernel version
-		// * <= 10.15: not os x version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
+		// * <= 10.15: not macOS version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
 		// * >= 11.0: 110000 + x * 10000
 		const size_t os_major_version = (major_version >= 20 ? 110000 + 10000 * (major_version - 20) : major_version - 4);
 #else
@@ -661,9 +665,9 @@ size_t darwin_helper::get_system_version() {
 #endif
 		
 		// mimic the compiled version string:
-		// OS X >= 10.10 and <= 10.15:  10xxyy, x = major, y = minor
-		// OS X >= 11.00             :  1xxyyy, x = major, y = minor
-		// iOS                       :  xxyy00, x = major, y = minor
+		// macOS >= 10.10 and <= 10.15:  10xxyy, x = major, y = minor
+		// macOS >= 11.00             :  1xxyyy, x = major, y = minor
+		// iOS                        :  xxyy00, x = major, y = minor
 		size_t condensed_version;
 #if !defined(FLOOR_IOS)
 		if (major_version < 20) { // 101000+
@@ -683,7 +687,7 @@ size_t darwin_helper::get_system_version() {
 	
 	// just return lowest supported version
 #if !defined(FLOOR_IOS)
-	log_error("unable to retrieve OS X version!");
+	log_error("unable to retrieve macOS version!");
 	return 101300;
 #else
 	log_error("unable to retrieve iOS version!");

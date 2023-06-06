@@ -286,12 +286,15 @@ program_data compile_input(const string& input,
 					case 30:
 						metal_version = METAL_VERSION::METAL_3_0;
 						break;
+					case 31:
+						metal_version = METAL_VERSION::METAL_3_1;
+						break;
 					default:
 						log_error("invalid force_version: $", metal_force_version);
 						break;
 				}
 			}
-			if (metal_version > METAL_VERSION::METAL_3_0) {
+			if (metal_version > METAL_VERSION::METAL_3_1) {
 				log_error("unsupported Metal language version: $", metal_version_to_string(metal_version));
 				return {};
 			}
@@ -319,9 +322,12 @@ program_data compile_input(const string& input,
 					case METAL_VERSION::METAL_3_0:
 						os_target = "ios16.0.0";
 						break;
+					case METAL_VERSION::METAL_3_1:
+						os_target = "ios17.0.0";
+						break;
 				}
 			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC) {
-				// -> OS X 10.13+
+				// -> macOS 10.13+
 				switch (metal_version) {
 					default:
 					case METAL_VERSION::METAL_2_0:
@@ -341,6 +347,9 @@ program_data compile_input(const string& input,
 						break;
 					case METAL_VERSION::METAL_3_0:
 						os_target = "macosx13.0.0";
+						break;
+					case METAL_VERSION::METAL_3_1:
+						os_target = "macosx14.0.0";
 						break;
 				}
 			} else {
@@ -364,6 +373,9 @@ program_data compile_input(const string& input,
 					break;
 				case METAL_VERSION::METAL_3_0:
 					metal_std = "metal3.0";
+					break;
+				case METAL_VERSION::METAL_3_1:
+					metal_std = "metal3.1";
 					break;
 				default: break;
 			}
@@ -697,9 +709,9 @@ program_data compile_input(const string& input,
 	os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
 #if defined(__APPLE__) // TODO: do this on linux as well? if so, how/what?
 	if (!options.ignore_runtime_info) {
-		const auto osx_version_str = to_string(darwin_helper::get_system_version());
-		os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + osx_version_str;
-		os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + osx_version_str;
+		const auto os_version = to_string(darwin_helper::get_system_version());
+		os_version_str = " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + os_version;
+		os_version_str += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + os_version;
 	}
 #elif defined(__WINDOWS__)
 	if (!options.ignore_runtime_info) {

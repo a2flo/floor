@@ -32,6 +32,7 @@ enum class METAL_VERSION : uint32_t {
 	METAL_2_3,
 	METAL_2_4,
 	METAL_3_0,
+	METAL_3_1,
 };
 
 constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
@@ -43,6 +44,7 @@ constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
 		case METAL_VERSION::METAL_2_3: return "2.3";
 		case METAL_VERSION::METAL_2_4: return "2.4";
 		case METAL_VERSION::METAL_3_0: return "3.0";
+		case METAL_VERSION::METAL_3_1: return "3.1";
 	}
 }
 constexpr const char* metal_major_version_to_string(const METAL_VERSION& version) {
@@ -53,7 +55,8 @@ constexpr const char* metal_major_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_2_2:
 		case METAL_VERSION::METAL_2_3:
 		case METAL_VERSION::METAL_2_4: return "2";
-		case METAL_VERSION::METAL_3_0: return "3";
+		case METAL_VERSION::METAL_3_0:
+		case METAL_VERSION::METAL_3_1: return "3";
 	}
 }
 constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version) {
@@ -65,6 +68,7 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_2_3: return "3";
 		case METAL_VERSION::METAL_2_4: return "4";
 		case METAL_VERSION::METAL_3_0: return "0";
+		case METAL_VERSION::METAL_3_1: return "1";
 	}
 }
 constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint32_t minor) {
@@ -81,6 +85,7 @@ constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint
 	} else if (major == 3) {
 		switch (minor) {
 			case 0: return METAL_VERSION::METAL_3_0;
+			case 1: return METAL_VERSION::METAL_3_1;
 			default: return METAL_VERSION::NONE;
 		}
 	}

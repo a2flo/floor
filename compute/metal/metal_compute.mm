@@ -52,7 +52,7 @@
 // include again to clean up macro mess
 #include <floor/core/essentials.hpp>
 
-// only need this on os x right now
+// only need this on macOS right now
 #if !defined(FLOOR_IOS)
 
 @protocol MTLDeviceSPI <MTLDevice>
@@ -223,7 +223,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		}
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 160000) {
+		if (darwin_helper::get_system_version() >= 170000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_1;
+			device.metal_language_version = (device.family_tier >= 6 ? METAL_VERSION::METAL_3_1 : METAL_VERSION::METAL_2_4);
+		} else if (darwin_helper::get_system_version() >= 160000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
 			device.metal_language_version = (device.family_tier >= 6 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
 		} else if (darwin_helper::get_system_version() >= 150000) {
@@ -370,7 +373,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
-		// on os x, we can get to the device properties through MTLDeviceSPI
+		// on macOS, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev_spi vendorName] UTF8String];
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if (lc_vendor_name.find("nvidia") != string::npos) {
@@ -449,7 +452,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 130000) {
+		if (darwin_helper::get_system_version() >= 140000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_1;
+			device.metal_language_version = (device.family_tier >= 2 ? METAL_VERSION::METAL_3_1 : METAL_VERSION::METAL_2_4);
+		} else if (darwin_helper::get_system_version() >= 130000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
 			device.metal_language_version = (device.family_tier >= 2 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
 		} else if (darwin_helper::get_system_version() >= 120000) {
@@ -545,7 +551,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	fastest_gpu_device = devices[0].get();
 	fastest_device = fastest_gpu_device;
 #else
-	// on os x, this is tricky, because we don't get the compute units count and clock speed
+	// on macOS, this is tricky, because we don't get the compute units count and clock speed
 	// -> assume devices are returned in order of their speed
 	// -> assume that nvidia and amd cards are faster than intel cards
 	fastest_gpu_device = devices[0].get(); // start off with the first device
@@ -797,7 +803,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 		return ret;
 	}
 	
-#if !defined(FLOOR_IOS) // can only do this on os x
+#if !defined(FLOOR_IOS) // can only do this on macOS
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
 	const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
@@ -1115,52 +1121,52 @@ float metal_compute::get_hdr_display_max_nits() const {
 }
 
 bool metal_compute::start_metal_capture(const compute_device& dev, const string& file_name) const {
-#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500) || \
-	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
-	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-	if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
-		log_error("can't capture GPU trace to file");
-		return false;
-	}
-	
-	MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
-	capture_manager.defaultCaptureScope =
+#if defined(__MAC_10_15) || defined(__IPHONE_13_0)
+	if (@available(macOS 10.15, iOS 13.0, *)) {
+		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+		if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
+			log_error("can't capture GPU trace to file");
+			return false;
+		}
+		
+		MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
+		capture_manager.defaultCaptureScope =
 		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
-	capture_desc.captureObject = capture_manager.defaultCaptureScope;
-	auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
-	if (!file_name_nsstr) {
-		log_error("invalid capture file name: $", file_name);
-		return false;
+		capture_desc.captureObject = capture_manager.defaultCaptureScope;
+		auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
+		if (!file_name_nsstr) {
+			log_error("invalid capture file name: $", file_name);
+			return false;
+		}
+		capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
+		capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
+		
+		NSError* err { nil };
+		if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
+			log_error("failed to start GPU trace capture: $",
+					  (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+			return false;
+		}
+		
+		[capture_manager.defaultCaptureScope beginScope];
+		
+		return true;
 	}
-	capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
-	capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
-	
-	NSError* err { nil };
-	if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
-		log_error("failed to start GPU trace capture: $",
-				   (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-		return false;
-	}
-	
-	[capture_manager.defaultCaptureScope beginScope];
-	
-	return true;
-#else
-	return false;
 #endif
+	return false;
 }
 
 bool metal_compute::stop_metal_capture() const {
-#if (defined(MAC_OS_X_VERSION_MAX_ALLOWED) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101500) || \
-	(defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000)
-	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-	[capture_manager.defaultCaptureScope endScope];
-	[capture_manager stopCapture];
-	capture_manager.defaultCaptureScope = nil;
-	return true;
-#else
-	return false;
+#if defined(__MAC_10_15) || defined(__IPHONE_13_0)
+	if (@available(macOS 10.15, iOS 13.0, *)) {
+		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+		[capture_manager.defaultCaptureScope endScope];
+		[capture_manager stopCapture];
+		capture_manager.defaultCaptureScope = nil;
+		return true;
+	}
 #endif
+	return false;
 }
 
 #endif

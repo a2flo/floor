@@ -159,7 +159,7 @@ namespace universal_binary {
 			uint64_t minor : 4;
 			
 			//! if true, this target iOS
-			//! if false, this target macOS/OS X
+			//! if false, this target macOS
 			uint64_t is_ios : 1;
 			
 			//! special device target to enable special workarounds/features

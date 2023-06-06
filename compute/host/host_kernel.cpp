@@ -44,7 +44,7 @@
 #endif
 
 #if !defined(_WIN32)
-// sanity check (mostly necessary on os x where some fool had the idea to make the size of ucontext_t define dependent)
+// sanity check (mostly necessary on macOS where some fool had the idea to make the size of ucontext_t define dependent)
 static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
 #endif
 

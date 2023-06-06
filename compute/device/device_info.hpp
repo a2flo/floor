@@ -77,8 +77,8 @@ namespace device_info {
 	}
 	
 	//! returns the operating system version
-	//! NOTE: only returns a valid value on OS X and iOS
-	//! OS X: identical to MAC_OS_X_VERSION_10_* macro
+	//! NOTE: only returns a valid value on macOS and iOS
+	//! macOS: identical to MAC_OS_X_VERSION_* macro
 	//! iOS: identical to __IPHONE_*_* macro
 	constexpr size_t os_version() {
 		return FLOOR_COMPUTE_INFO_OS_VERSION;
@@ -273,7 +273,7 @@ namespace device_info {
 #endif
 	}
 	
-	//! returns true if the device supports sub-group shuffle/swizzle (opencl with extension; cuda with sm_30+; metal 2.0+ on osx)
+	//! returns true if the device supports sub-group shuffle/swizzle (opencl with extension; cuda with sm_30+; metal 2.0+ on macOS)
 	constexpr bool has_sub_group_shuffle() {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE != 0
 		return true;

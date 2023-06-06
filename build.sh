@@ -265,7 +265,7 @@ case ${BUILD_PLATFORM} in
 		if expr `uname -p` : "arm.*" >/dev/null; then
 			BUILD_OS="ios"
 		else
-			BUILD_OS="osx"
+			BUILD_OS="macos"
 		fi
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
 		STAT_IS_BSD=1
@@ -342,8 +342,8 @@ fi
 TARGET_STATIC_BIN_NAME=${TARGET_BIN_NAME}_static.a
 
 # file ending, depending on the platform we're building on
-# osx/ios -> .dylib
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+# macOS/iOS -> .dylib
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}.dylib
 # windows/mingw/cygwin -> .dll
 elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
@@ -355,12 +355,12 @@ else
 fi
 
 # disable metal support on non-iOS/macOS targets
-if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
+if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 	BUILD_CONF_METAL=0
 fi
 
 # disable VR support on macOS/iOS targets
-if [ $BUILD_OS == "osx" -o $BUILD_OS != "ios" ]; then
+if [ $BUILD_OS == "macos" -o $BUILD_OS != "ios" ]; then
 	BUILD_CONF_VR=0
 fi
 
@@ -390,7 +390,7 @@ SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
 SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan graphics graphics/metal graphics/vulkan constexpr core floor lang math net threading vr"
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
 
@@ -461,8 +461,8 @@ if [ ${BUILD_CONF_SANITIZERS} -gt 0 ]; then
 	fi
 fi
 
-# use pkg-config (and some manual libs/includes) on all platforms except osx/ios
-if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
+# use pkg-config (and some manual libs/includes) on all platforms except macOS/iOS
+if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 	# build a shared library + need to make kernel symbols visible for dlsym
 	LDFLAGS="${LDFLAGS} -shared"
 	if [ $BUILD_OS != "mingw" ]; then
@@ -594,7 +594,7 @@ else
 	# aligned allocation is only available with macOS 10.14+, so disable it while we're still targeting 10.13+
 	COMMON_FLAGS="${COMMON_FLAGS} -fno-aligned-allocation"
 
-	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
+	# on macOS/iOS: assume everything is installed, pkg-config doesn't really exist
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	fi
@@ -722,7 +722,7 @@ fi
 CFLAGS="${CFLAGS} -std=gnu11"
 
 OBJCFLAGS="${OBJCFLAGS} -fno-objc-exceptions"
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	OBJCFLAGS="${OBJCFLAGS} -fobjc-arc"
 fi
 
@@ -731,8 +731,8 @@ if [ $BUILD_OS == "mingw" ]; then
 	CXXFLAGS="${CXXFLAGS} -pthread"
 fi
 
-# arch handling (use -arch on osx/ios and -m64 everywhere else, except for mingw)
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+# arch handling (use -arch on macOS/iOS and -m64 everywhere else, except for mingw)
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	case $BUILD_ARCH in
 		"arm"*)
 			COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
@@ -774,9 +774,9 @@ fi
 REL_OPT_FLAGS="-flto"
 REL_OPT_LD_FLAGS="-flto"
 
-# osx/ios: set min version
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
-	if [ $BUILD_OS == "osx" ]; then
+# macOS/iOS: set min version
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
+	if [ $BUILD_OS == "macos" ]; then
 		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.13"
 	else # ios
 		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=12.0"

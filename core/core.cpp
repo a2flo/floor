@@ -298,7 +298,7 @@ map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
 		
 		_findclose(h_file);
 	}
-#else // works under Linux, OS X, FreeBSD (and probably all other posix systems)
+#else // works under Linux, macOS, FreeBSD (and probably all other posix systems)
 	struct dirent** namelist = nullptr;
 	
 	dir_str += ".";

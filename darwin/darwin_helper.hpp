@@ -32,9 +32,9 @@
 #endif
 
 #if !defined(FLOOR_IOS)
-#define floor_unused_on_osx floor_unused
+#define floor_unused_on_macos floor_unused
 #else
-#define floor_unused_on_osx
+#define floor_unused_on_macos
 #endif
 
 #if defined(__OBJC__)
@@ -47,7 +47,7 @@ struct hdr_metadata_t;
 
 class darwin_helper {
 public:
-	// OS X and iOS
+	// macOS and iOS
 	static uint32_t get_dpi(SDL_Window* wnd);
 	static float get_scale_factor(SDL_Window* wnd, const bool force_query = false);
 	static size_t get_system_version();
@@ -60,7 +60,7 @@ public:
 	static bool is_running_in_debugger();
 
 #if !defined(FLOOR_IOS)
-	// OS X specific
+	// macOS specific
 	static float get_menu_bar_height();
 #else
 	// iOS specific

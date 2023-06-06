@@ -167,7 +167,7 @@
 #undef RELATIVE
 #endif
 
-// some os x security framework
+// some macOS security framework
 #if defined(INTEL)
 #undef INTEL
 #endif
