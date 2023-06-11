@@ -18,7 +18,7 @@
 
 #include <floor/vr/openvr_context.hpp>
 
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR)
 #include <floor/floor/floor.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
@@ -499,15 +499,26 @@ bool openvr_context::present(const compute_queue& cqueue, const compute_image& i
 #endif
 }
 
-vr_context::frame_matrices_t openvr_context::get_frame_matrices(const float& z_near, const float& z_far,
-																const bool with_position) const {
+vr_context::frame_view_state_t openvr_context::get_frame_view_state(const float& z_near, const float& z_far,
+																	const bool with_position_in_mvm) const {
 	auto mview_hmd = get_hmd_matrix();
-	if (!with_position) {
+	if (!with_position_in_mvm) {
 		mview_hmd.set_translation(0.0f, 0.0f, 0.0f);
 	}
+	const auto eye_mat_left = get_eye_matrix(VR_EYE::LEFT);
+	const auto eye_mat_right = get_eye_matrix(VR_EYE::RIGHT);
+	const float eye_distance {
+		(float3 { eye_mat_left.data[12], eye_mat_left.data[13], eye_mat_left.data[14] } -
+		 float3 { eye_mat_right.data[12], eye_mat_right.data[13], eye_mat_right.data[14] }).length()
+	};
+	const auto hmd_inv_mat = get_hmd_matrix().inverted();
+	const float3 hmd_position { -hmd_inv_mat.data[12], -hmd_inv_mat.data[13], -hmd_inv_mat.data[14] };
+
 	return {
-		mview_hmd * get_eye_matrix(VR_EYE::LEFT),
-		mview_hmd * get_eye_matrix(VR_EYE::RIGHT),
+		hmd_position,
+		eye_distance,
+		mview_hmd * eye_mat_left,
+		mview_hmd * eye_mat_right,
 		get_projection_matrix(VR_EYE::LEFT, z_near, z_far),
 		get_projection_matrix(VR_EYE::RIGHT, z_near, z_far)
 	};

@@ -579,8 +579,9 @@ void vulkan_queue::destroy() {
 	}
 }
 
-vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_, const QUEUE_TYPE queue_type_) :
-compute_queue(device_, queue_type_), vk_queue(queue_), family_index(family_index_) {
+vulkan_queue::vulkan_queue(const compute_device& device_, const VkQueue queue_, const uint32_t family_index_,
+						   const uint32_t queue_index_, const QUEUE_TYPE queue_type_) :
+compute_queue(device_, queue_type_), vk_queue(queue_), family_index(family_index_), queue_index(queue_index_) {
 	// create impl
 	impl = make_unique<vulkan_queue_impl>(*this, (const vulkan_device&)device_, family_index);
 }

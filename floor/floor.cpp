@@ -30,6 +30,7 @@
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/vr/vr_context.hpp>
 #include <floor/vr/openvr_context.hpp>
+#include <floor/vr/openxr_context.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -329,8 +330,8 @@ bool floor::init(const init_state& state) {
 												 false
 #endif
 												 );
-
-#if !defined(FLOOR_NO_VR)
+		
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		config.vr = config_doc.get<bool>("screen.vr.enabled", false);
 #else
 		config.vr = false;
@@ -338,7 +339,7 @@ bool floor::init(const init_state& state) {
 		config.vr_companion = config_doc.get<bool>("screen.vr.companion", true);
 		config.vr_width = config_doc.get<uint32_t>("screen.vr.width", 0);
 		config.vr_height = config_doc.get<uint32_t>("screen.vr.height", 0);
-		config.vr_backend = config_doc.get<string>("toolchain.vr.backend", "");
+		config.vr_backend = config_doc.get<string>("screen.vr.backend", "");
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -819,12 +820,12 @@ void floor::destroy() {
 #endif
 	
 	compute_image::destroy_minify_programs();
-	
+
+	evt->set_vr_context(nullptr);
+	vr_ctx = nullptr;
 	metal_ctx = nullptr;
 	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;
-	evt->set_vr_context(nullptr);
-	vr_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) {
@@ -1030,18 +1031,27 @@ bool floor::init_internal(const init_state& state) {
 		log_debug("fullscreen mode set: w$ h$", config.width, config.height);
 		SDL_ShowWindow(window);
 #endif
-
-#if !defined(FLOOR_NO_VR)
+		
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		// create a VR context if this is enabled and we want to create a supported renderer
 		if (config.vr && (renderer == RENDERER::VULKAN || renderer == RENDERER::METAL)) {
 			log_debug("initializing VR");
+#if !defined(FLOOR_NO_OPENVR)
 			if (config.vr_backend == "openvr" || config.vr_backend.empty()) {
 				vr_ctx = make_unique<openvr_context>();
-			} else {
-				log_error("unknown VR backend: $", config.vr_backend);
 			}
+#endif
+#if !defined(FLOOR_NO_VULKAN) && !defined(FLOOR_NO_OPENXR) // Vulkan is required for this
+			if (!vr_ctx &&
+				(config.vr_backend == "openxr" || config.vr_backend.empty()) &&
+				renderer == RENDERER::VULKAN) {
+				vr_ctx = make_unique<openxr_context>();
+			}
+#endif
 			
-			if (vr_ctx) {
+			if (!vr_ctx) {
+				log_error("unknown or unsupported VR backend: $", config.vr_backend);
+			} else {
 				log_msg("VR backend: $", vr_backend_to_string(vr_ctx->get_backend()));
 				if (!vr_ctx->is_valid()) {
 					vr_ctx = nullptr;
@@ -1128,8 +1138,8 @@ bool floor::init_internal(const init_state& state) {
 		}
 	}
 	acquire_context();
-
-#if !defined(FLOOR_NO_VR)
+	
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	// kill the VR context if we couldn't create a supported renderer
 	if (vr_ctx && renderer != RENDERER::VULKAN && renderer != RENDERER::METAL) {
 		evt->set_vr_context(nullptr);

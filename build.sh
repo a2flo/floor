@@ -96,7 +96,8 @@ BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
 BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
-BUILD_CONF_VR=1
+BUILD_CONF_OPENVR=1
+BUILD_CONF_OPENXR=1
 BUILD_CONF_LIBSTDCXX=0
 BUILD_CONF_NATIVE=0
 
@@ -141,7 +142,8 @@ for arg in "$@"; do
 			echo "	no-metal           disables metal support (default for non-iOS and non-macOS targets)"
 			echo "	no-vulkan          disables vulkan support"
 			echo "	no-openal          disables openal support"
-			echo "	no-vr              disables VR support (default for macOS and iOS targets)"
+			echo "	no-openvr          disables OpenVR support (default for macOS and iOS targets)"
+			echo "	no-openxr          disables OpenXR support (default for macOS and iOS targets)"
 			echo "	no-net             disables network support"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	native             optimize and specifically build for the host cpu"
@@ -215,8 +217,11 @@ for arg in "$@"; do
 		"no-openal")
 			BUILD_CONF_OPENAL=0
 			;;
-		"no-vr")
-			BUILD_CONF_VR=0
+		"no-openvr")
+			BUILD_CONF_OPENVR=0
+			;;
+		"no-openxr")
+			BUILD_CONF_OPENXR=0
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
@@ -360,8 +365,9 @@ if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 fi
 
 # disable VR support on macOS/iOS targets
-if [ $BUILD_OS == "macos" -o $BUILD_OS != "ios" ]; then
-	BUILD_CONF_VR=0
+if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
+	BUILD_CONF_OPENVR=0
+	BUILD_CONF_OPENXR=0
 fi
 
 # try using lld if it is available, otherwise fall back to using clangs default
@@ -483,8 +489,11 @@ if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openal"
 	fi
-	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+	if [ ${BUILD_CONF_OPENVR} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openvr"
+	fi
+	if [ ${BUILD_CONF_OPENXR} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} openxr"
 	fi
 
 	# TODO: error checking + check if libs exist
@@ -601,8 +610,11 @@ else
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openal-soft/include"
 	fi
-	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+	if [ ${BUILD_CONF_OPENVR} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/include/openvr"
+	fi
+	if [ ${BUILD_CONF_OPENXR} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /usr/local/include/openxr"
 	fi
 	INCLUDES="${INCLUDES} -iframework /Library/Frameworks"
 	
@@ -640,8 +652,11 @@ else
 		LDFLAGS="${LDFLAGS} -lopenal"
 		LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/opt/openal-soft/lib"
 	fi
-	if [ ${BUILD_CONF_VR} -gt 0 ]; then
+	if [ ${BUILD_CONF_OPENVR} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lopenvr_api"
+	fi
+	if [ ${BUILD_CONF_OPENXR} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -lopenxr_loader"
 	fi
 	
 	# system frameworks
@@ -680,7 +695,8 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 		set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
 	fi
 	set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
-	set_conf_val "###FLOOR_VR###" "FLOOR_NO_VR" ${BUILD_CONF_VR}
+	set_conf_val "###FLOOR_OPENVR###" "FLOOR_NO_OPENVR" ${BUILD_CONF_OPENVR}
+	set_conf_val "###FLOOR_OPENXR###" "FLOOR_NO_OPENXR" ${BUILD_CONF_OPENXR}
 	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 	echo "${CONF}" > floor/floor_conf.hpp.tmp
 

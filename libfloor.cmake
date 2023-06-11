@@ -186,6 +186,10 @@ if (MSVC)
 endif (MSVC)
 target_link_libraries(${PROJECT_NAME} PRIVATE openvr_api)
 
+find_package(OpenXR REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenXR::openxr_loader)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OpenXR_INCLUDE_DIR})
+
 if (UNIX)
 	target_link_libraries(${PROJECT_NAME} PRIVATE pthread)
 endif (UNIX)

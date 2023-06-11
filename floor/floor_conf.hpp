@@ -56,8 +56,11 @@
 // if defined, this disables openal support
 //#define FLOOR_NO_OPENAL 1
 
-// if defined, this disables VR support
-//#define FLOOR_NO_VR 1
+// if defined, this disables OpenVR support
+//#define FLOOR_NO_OPENVR 1
+
+// if defined, this disables OpenXR support
+//#define FLOOR_NO_OPENXR 1
 
 // if defined, this disables network support
 //#define FLOOR_NO_NET 1
@@ -79,8 +82,13 @@
 #endif
 
 // no VR support on iOS/macOS
-#if defined(__APPLE__) && !defined(FLOOR_NO_VR)
-#define FLOOR_NO_VR 1
+#if defined(__APPLE__)
+#if !defined(FLOOR_NO_OPENVR)
+#define FLOOR_NO_OPENVR 1
+#endif
+#if !defined(FLOOR_NO_OPENXR)
+#define FLOOR_NO_OPENXR 1
+#endif
 #endif
 
 #endif

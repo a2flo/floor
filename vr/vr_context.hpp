@@ -20,8 +20,6 @@
 #define __FLOOR_VR_VR_CONTEXT_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_VR)
 #include <floor/compute/compute_context.hpp>
 #include <floor/math/matrix4.hpp>
 #include <floor/core/event_objects.hpp>
@@ -30,12 +28,14 @@
 enum class VR_BACKEND : uint32_t {
 	NONE,
 	OPENVR,
+	OPENXR,
 };
 
 //! returns the string representation of the enum VR_BACKEND
 floor_inline_always static constexpr const char* vr_backend_to_string(const VR_BACKEND& backend) {
 	switch (backend) {
 		case VR_BACKEND::OPENVR: return "OpenVR";
+		case VR_BACKEND::OPENXR: return "OpenXR";
 		default: return "NONE";
 	}
 }
@@ -119,7 +119,11 @@ public:
 	
 	//! the per-eye modelview and projection matrices for a particular frame
 	//! NOTE: this contains all necessary per-eye transformations
-	struct frame_matrices_t {
+	struct frame_view_state_t {
+		//! global HMD position
+		float3 hmd_position;
+		//! eye distance / IPD
+		float eye_distance { 0.0f };
 		//! left eye modelview matrix
 		matrix4f mvm_left;
 		//! right eye modelview matrix
@@ -130,22 +134,11 @@ public:
 		matrix4f pm_right;
 	};
 	
-	//! returns/computes the modelview and projection matrices for this frame
-	//! NOTE: if "with_position" is true, then the modelview will also contain the current position
-	virtual frame_matrices_t get_frame_matrices(const float& z_near, const float& z_far,
-												const bool with_position = true) const = 0;
-
-	//! computes the current projection matrix for the specified eye and near/far plane
-	virtual matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const = 0;
-
-	//! returns the raw FOV { -left, right, top, -bottom } tangents of half-angles in radian
-	virtual float4 get_projection_raw(const VR_EYE& eye) const = 0;
-
-	//! returns the eye to head matrix for the specified eye
-	virtual matrix4f get_eye_matrix(const VR_EYE& eye) const = 0;
-
-	//! returns the current HMD view matrix
-	virtual const matrix4f& get_hmd_matrix() const = 0;
+	//! returns/computes the modelview and projection matrices for this frame,
+	//! as well as the global HMD position and current eye distance (IPD)
+	//! NOTE: if "with_position_in_mvm" is true, then the MVMs will also contain the current position
+	virtual frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
+													const bool with_position_in_mvm = true) const = 0;
 
 protected:
 	bool valid { false };
@@ -158,7 +151,5 @@ protected:
 	uint2 recommended_render_size;
 
 };
-
-#endif
 
 #endif

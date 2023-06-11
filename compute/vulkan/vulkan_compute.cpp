@@ -36,6 +36,7 @@
 #include <floor/graphics/vulkan/vulkan_pass.hpp>
 #include <floor/graphics/vulkan/vulkan_renderer.hpp>
 #include <floor/vr/vr_context.hpp>
+#include <floor/vr/openxr_context.hpp>
 #include <regex>
 
 #include <floor/core/platform_windows.hpp>
@@ -71,6 +72,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	const auto vk_ctx = (const vulkan_compute*)ctx;
 	if (vk_ctx->is_vulkan_validation_ignored()) {
 		return VK_FALSE; // don't abort
+	}
+	if ((cb_data->messageIdNumber == 181611958 || cb_data->messageIdNumber == 555635515) &&
+		vk_ctx->get_vulkan_vr_context() != nullptr) {
+		// ignore UNASSIGNED-BestPractices-vkCreateDevice-deprecated-extension and
+		// VUID-VkDeviceCreateInfo-pNext-02830 when we're using a VR context
+		return VK_FALSE;
 	}
 	
 	string debug_message;
@@ -413,8 +420,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		instance_extensions.emplace(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 #endif
 	}
-
-#if !defined(FLOOR_NO_VR)
+	
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	if (vr_ctx) {
 		const auto vr_instance_exts = vr_ctx->get_vulkan_instance_extensions();
 		if (!vr_instance_exts.empty()) {
@@ -478,7 +485,15 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		.enabledExtensionCount = (uint32_t)size(instance_extensions_ptrs),
 		.ppEnabledExtensionNames = size(instance_extensions_ptrs) > 0 ? instance_extensions_ptrs.data() : nullptr,
 	};
-	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance")
+#if !defined(FLOOR_NO_OPENXR)
+	// when using OpenXR, we need to create the Vulkan instance through it instead of doing it directly
+	if (auto xr_ctx = dynamic_cast<openxr_context*>(vr_ctx); xr_ctx) {
+		VK_CALL_RET(xr_ctx->create_vulkan_instance(instance_info, ctx), "failed to create Vulkan instance")
+	} else
+#endif
+	{
+		VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create Vulkan instance")
+	}
 	
 #if defined(FLOOR_DEBUG)
 	// debug label handling
@@ -927,8 +942,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			.pNext = &vulkan13_props,
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
-
-#if !defined(FLOOR_NO_VR)
+		
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		if (vr_ctx) {
 			if (!vulkan11_features.multiview ||
 				!vulkan11_features.multiviewTessellationShader) {
@@ -1173,8 +1188,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			if (is_filtered) continue;
 			device_extensions_set.emplace(ext_name);
 		}
-
-#if !defined(FLOOR_NO_VR)
+		
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		// handle VR extensions
 		if (vr_ctx) {
 			const auto vr_dev_exts = vr_ctx->get_vulkan_device_extensions(phys_dev);
@@ -1382,7 +1397,17 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		};
 		
 		VkDevice dev;
-		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"")
+#if !defined(FLOOR_NO_OPENXR)
+		// when using OpenXR, we need to create the Vulkan device through it instead of doing it directly
+		if (auto xr_ctx = dynamic_cast<openxr_context*>(vr_ctx); xr_ctx) {
+			VK_CALL_RET(xr_ctx->create_vulkan_device(dev_info, dev, phys_dev, ctx),
+						"failed to create device \""s + props.deviceName + "\"")
+		} else
+#endif
+		{
+			VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev),
+						 "failed to create device \""s + props.deviceName + "\"")
+		}
 		
 		// post device creation properties query
 		if (additional_props.pNext != nullptr) {
@@ -2129,8 +2154,8 @@ bool vulkan_compute::init_renderer() {
 		set_vulkan_debug_label(*screen.render_device, VK_OBJECT_TYPE_IMAGE_VIEW, uint64_t(screen.swapchain_image_views[i]),
 							   "screen_image:" + to_string(i));
 	}
-
-#if !defined(FLOOR_NO_VR)
+	
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	if (vr_ctx) {
 		if (!init_vr_renderer()) {
 			return false;
@@ -2146,8 +2171,19 @@ bool vulkan_compute::init_renderer() {
 }
 
 bool vulkan_compute::init_vr_renderer() {
-	// create 2D 2-layer images for rendering (with aliasing support, so we can grab each layer individually)
 	const auto& vk_queue = (const vulkan_queue&)*get_device_default_queue(*screen.render_device);
+	
+#if !defined(FLOOR_NO_OPENXR)
+	// when we're using OpenXR, we need to have properly initialized Vulkan first, before we can actually use/init it
+	if (auto xr_ctx = dynamic_cast<openxr_context*>(vr_ctx); xr_ctx) {
+		if (!xr_ctx->create_session(*this, *screen.render_device, vk_queue)) {
+			log_error("failed to create OpenXR + Vulkan session");
+			return false;
+		}
+	}
+#endif
+	
+	// create 2D 2-layer images for rendering (with aliasing support, so we can grab each layer individually)
 	vr_screen.render_device = screen.render_device;
 
 	vr_screen.size = floor::get_vr_physical_screen_size();
@@ -2391,7 +2427,7 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 
 bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREAD_SAFETY_ANALYSIS {
 	if (vr_ctx && drawable.layer_count > 1) {
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		const auto& dev_queue = *get_device_default_queue(*vr_screen.render_device);
 		auto& present_image = (vulkan_image&)*vr_screen.images[drawable.index];
 
@@ -2457,7 +2493,7 @@ shared_ptr<compute_queue> vulkan_compute::create_queue_internal(const compute_de
 							   "compute_queue:" + (next_queue_index == 0 ? "default" : to_string(next_queue_index)));
 	set_vulkan_debug_label(vulkan_dev, VK_OBJECT_TYPE_QUEUE, uint64_t(queue_obj), queue_name);
 	
-	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index, queue_type);
+	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index, next_queue_index, queue_type);
 	queues.push_back(ret);
 	return ret;
 }

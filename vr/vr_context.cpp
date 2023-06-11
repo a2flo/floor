@@ -18,7 +18,6 @@
 
 #include <floor/vr/vr_context.hpp>
 
-#if !defined(FLOOR_NO_VR)
 #include <floor/floor/floor.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
@@ -28,5 +27,3 @@ vr_context::vr_context() {
 
 vr_context::~vr_context() {
 }
-
-#endif

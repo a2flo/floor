@@ -604,7 +604,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			supported = false;
 		}
 		
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		if (vr_ctx) {
 			if (!init_vr_renderer()) {
 				log_error("failed to init VR renderer");
@@ -954,7 +954,7 @@ id <CAMetalDrawable> metal_compute::get_metal_next_drawable(id <MTLCommandBuffer
 }
 
 bool metal_compute::init_vr_renderer() {
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	if (!vr_ctx) {
 		return false;
 	}
@@ -991,7 +991,7 @@ shared_ptr<compute_image> metal_compute::get_metal_next_vr_drawable() const NO_T
 	return vr_images[vr_image_index].image;
 }
 
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue floor_unused_on_ios,
 											  const compute_image& img floor_unused_on_ios) const NO_THREAD_SAFETY_ANALYSIS {
 	if (!vr_ctx) {

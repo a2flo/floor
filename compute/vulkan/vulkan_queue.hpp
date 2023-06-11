@@ -44,7 +44,7 @@ struct vulkan_command_pool_t;
 class vulkan_queue final : public compute_queue {
 public:
 	explicit vulkan_queue(const compute_device& device, VkQueue queue,
-						  const uint32_t family_index, const QUEUE_TYPE queue_type_);
+						  const uint32_t family_index, const uint32_t queue_index_, const QUEUE_TYPE queue_type_);
 	~vulkan_queue() override;
 	
 	static void init();
@@ -69,6 +69,10 @@ public:
 	
 	uint32_t get_family_index() const {
 		return family_index;
+	}
+
+	uint32_t get_queue_index() const {
+		return queue_index;
 	}
 	
 	//! definition for a fence that should be waited on before command buffer submission
@@ -132,6 +136,7 @@ protected:
 	VkQueue vk_queue GUARDED_BY(queue_lock);
 	mutable safe_mutex queue_lock;
 	const uint32_t family_index;
+	const uint32_t queue_index;
 	unique_ptr<vulkan_queue_impl> impl;
 	
 	friend vulkan_command_pool_t;

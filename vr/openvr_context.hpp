@@ -21,7 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_VR)
+#if !defined(FLOOR_NO_OPENVR)
 #include <floor/vr/vr_context.hpp>
 
 // forward decls so that we don't need to include OpenVR headers
@@ -59,12 +59,9 @@ public:
 	
 	bool present(const compute_queue& cqueue, const compute_image& image) override;
 	
-	frame_matrices_t get_frame_matrices(const float& z_near, const float& z_far, const bool with_position = true) const override;
-	matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const override;
-	float4 get_projection_raw(const VR_EYE& eye) const override;
-	matrix4f get_eye_matrix(const VR_EYE& eye) const override;
-	const matrix4f& get_hmd_matrix() const override;
-	
+	frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
+											const bool with_position_in_mvm) const override;
+
 	//! contains the current state of a tracked device
 	//! NOTE: corresponds to vr::TrackedDevicePose_t
 	struct tracked_device_pose_t {
@@ -111,6 +108,18 @@ protected:
 		vr::VRActionHandle_t handle;
 	};
 	unordered_map<string, action_t> actions;
+
+	//! computes the current projection matrix for the specified eye and near/far plane
+	matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const;
+
+	//! returns the eye to head matrix for the specified eye
+	matrix4f get_eye_matrix(const VR_EYE& eye) const;
+
+	//! returns the current HMD view matrix
+	const matrix4f& get_hmd_matrix() const;
+
+	//! returns the raw FOV { -left, right, top, -bottom } tangents of half-angles in radian
+	float4 get_projection_raw(const VR_EYE& eye) const;
 	
 };
 

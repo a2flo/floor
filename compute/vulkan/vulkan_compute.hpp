@@ -196,6 +196,10 @@ public:
 	const VkInstance& get_vulkan_context() const {
 		return ctx;
 	}
+
+	const vr_context* get_vulkan_vr_context() const {
+		return vr_ctx;
+	}
 	
 	//! returns the used screen image format
 	VkFormat get_screen_format() const {
