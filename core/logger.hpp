@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <iostream>
 #include <iomanip>
+#include <cstdint>
 using namespace std;
 
 //! floor logging functions, use appropriately

@@ -93,7 +93,7 @@ protected:
 		vector<vector<XrSwapchainImageVulkan2KHR>> swapchain_vk_images;
 		vector<vector<VkImageView>> swapchain_vk_image_views;
 	};
-	variant<multi_layer_swapchaint_t, multi_image_swapchaint_t> swapchain;
+	variant<nullptr_t, multi_layer_swapchaint_t, multi_image_swapchaint_t> swapchain { nullptr };
 
 	struct view_state_t {
 		float3 position;
