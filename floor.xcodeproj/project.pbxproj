@@ -128,6 +128,9 @@
 		5C3EA9E41D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
 		5C3EA9E51D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
 		5C3EA9E61D8B373000EC932F /* spirv_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */; };
+		5C41AC1B2A3DF4AB00D77AC7 /* openxr_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C41AC192A3DF4AA00D77AC7 /* openxr_common.hpp */; };
+		5C41AC1C2A3DF4AB00D77AC7 /* openxr_input.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */; };
+		5C41AC1D2A3DF4AB00D77AC7 /* openxr_input.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */; };
 		5C4331CB214DAA0F004F0CD0 /* opencl_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C51AD38F9700215230 /* opencl_image.cpp */; };
 		5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */; };
 		5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */; };
@@ -534,6 +537,8 @@
 		5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_toolchain.hpp; sourceTree = "<group>"; };
 		5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = spirv_handler.cpp; sourceTree = "<group>"; };
 		5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = spirv_handler.hpp; sourceTree = "<group>"; };
+		5C41AC192A3DF4AA00D77AC7 /* openxr_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = openxr_common.hpp; path = vr/openxr_common.hpp; sourceTree = "<group>"; };
+		5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = openxr_input.cpp; path = vr/openxr_input.cpp; sourceTree = "<group>"; };
 		5C43F88D2738414F0031510E /* cpp_bitcast.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_bitcast.hpp; sourceTree = "<group>"; };
 		5C43F88E273842480031510E /* cpp_consteval.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_consteval.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
@@ -1043,8 +1048,10 @@
 			children = (
 				5CF497162A2D136200F78B03 /* openvr_context.cpp */,
 				5CF497152A2D136200F78B03 /* openvr_context.hpp */,
+				5C41AC192A3DF4AA00D77AC7 /* openxr_common.hpp */,
 				5C2815DB2A310CA9005F964C /* openxr_context.cpp */,
 				5C2815DA2A310CA8005F964C /* openxr_context.hpp */,
+				5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */,
 				5C3D13B123B67784000BB608 /* vr_context.cpp */,
 				5C3D13B023B67784000BB608 /* vr_context.hpp */,
 			);
@@ -1442,6 +1449,7 @@
 				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */,
+				5C41AC1B2A3DF4AB00D77AC7 /* openxr_common.hpp in Headers */,
 				5C9AAEF9281A13C70049ABA6 /* metal_fence.hpp in Headers */,
 				5C1496DA279D68DC00194181 /* indirect_command.hpp in Headers */,
 				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
@@ -1720,6 +1728,7 @@
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
 				5C84530222B1A64D0014AECF /* graphics_pass.cpp in Sources */,
 				5CC5980F201E724600D8D19F /* vector_3d.cpp in Sources */,
+				5C41AC1C2A3DF4AB00D77AC7 /* openxr_input.cpp in Sources */,
 				5C84531C22B1A99C0014AECF /* metal_pass.mm in Sources */,
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C0416F91B60048100370253 /* json.cpp in Sources */,
@@ -1772,6 +1781,7 @@
 				5C4331DD214DAA5B004F0CD0 /* cuda_kernel.cpp in Sources */,
 				5C4331DE214DAA5B004F0CD0 /* cuda_program.cpp in Sources */,
 				5C4331DF214DAA5B004F0CD0 /* cuda_queue.cpp in Sources */,
+				5C41AC1D2A3DF4AB00D77AC7 /* openxr_input.cpp in Sources */,
 				5C4331CB214DAA0F004F0CD0 /* opencl_image.cpp in Sources */,
 				5C4331CC214DAA0F004F0CD0 /* vulkan_compute.cpp in Sources */,
 				5C4331CD214DAA0F004F0CD0 /* vulkan_buffer.cpp in Sources */,

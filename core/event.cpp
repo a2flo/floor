@@ -22,7 +22,7 @@
 #include <floor/vr/vr_context.hpp>
 
 event::event() : thread_base("event") {
-	const uint32_t cur_time { SDL_GetTicks() };
+	const auto cur_time = SDL_GetTicks64();
 	lm_double_click_timer = cur_time;
 	rm_double_click_timer = cur_time;
 	mm_double_click_timer = cur_time;
@@ -67,7 +67,7 @@ void event::handle_events() {
 	const auto coord_scalef = float(coord_scale);
 	while(SDL_PollEvent(&event_handle)) {
 		const auto event_type = event_handle.type;
-		const uint32_t cur_ticks = SDL_GetTicks();
+		const auto cur_ticks = SDL_GetTicks64();
 		
 		if(event_type == SDL_MOUSEBUTTONDOWN ||
 		   event_type == SDL_MOUSEBUTTONUP) {
@@ -162,7 +162,7 @@ void event::handle_events() {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_UP,
 											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord, pressure));
 								
-								if(SDL_GetTicks() - mm_double_click_timer < mdouble_click_time) {
+								if(cur_ticks - mm_double_click_timer < mdouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOUBLE_CLICK,
 												 make_shared<mouse_middle_double_click_event>(

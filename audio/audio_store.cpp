@@ -98,7 +98,7 @@ weak_ptr<audio_store::audio_data> audio_store::add_file(const string& filename,
 	SDL_FreeWAV(audio_buffer);
 	
 	floor::get_event()->add_event(EVENT_TYPE::AUDIO_STORE_LOAD,
-								  make_shared<audio_store_load_event>(SDL_GetTicks(), identifier));
+								  make_shared<audio_store_load_event>(SDL_GetTicks64(), identifier));
 	
 	return iter.first->second;
 }
@@ -130,7 +130,7 @@ weak_ptr<audio_store::audio_data> audio_store::add_raw(const uint8_t* raw_data,
 	audio_controller::release_context();
 	
 	floor::get_event()->add_event(EVENT_TYPE::AUDIO_STORE_LOAD,
-								  make_shared<audio_store_load_event>(SDL_GetTicks(), identifier));
+								  make_shared<audio_store_load_event>(SDL_GetTicks64(), identifier));
 	
 	return iter.first->second;
 }

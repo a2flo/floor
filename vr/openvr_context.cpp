@@ -294,7 +294,7 @@ vector<shared_ptr<event_object>> openvr_context::update_input() {
 	}
 
 	vector<shared_ptr<event_object>> events;
-	const auto cur_time = SDL_GetTicks();
+	const auto cur_time = SDL_GetTicks64();
 	for (auto& action : actions) {
 		vr::EVRInputError err = vr::EVRInputError::VRInputError_None;
 		switch (action.second.type) {

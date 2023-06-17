@@ -1678,7 +1678,7 @@ function void simplified_nbody ( %void() ) {
 ** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2019] with provided clang/LLVM or link:https://llvm.org/builds[Clang / LLVM for Windows]
 ** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 10.0+
 * libraries and optional requirements:
-** link:https://www.libsdl.org[SDL2] 2.0.4+
+** link:https://www.libsdl.org[SDL2] 2.0.18+
 ** link:https://www.opengl.org/registry/#headers[OpenGL 4.1+ Core headers]
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_30+/Kepler+ GPU and CUDA 9.0+ drivers (CUDA SDK not required!)

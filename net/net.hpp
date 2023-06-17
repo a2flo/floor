@@ -80,7 +80,7 @@ protected:
 	string last_packet_remains { "" };
 	size_t received_length { 0 };
 	size_t packets_per_second { 0 };
-	size_t last_packet_send { 0 };
+	uint64_t last_packet_send { 0 };
 	deque<vector<char>> receive_store;
 	deque<vector<char>> send_store;
 	
@@ -186,7 +186,7 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 	
 	// send data - if possible
 	if(!send_store.empty()) {
-		if(packets_per_second != 0 && last_packet_send > (SDL_GetTicks() - 1000u)) {
+		if(packets_per_second != 0 && last_packet_send > (SDL_GetTicks64() - 1000u)) {
 			// wait
 		}
 		else {
@@ -199,7 +199,7 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 			for(auto send_iter = send_begin; send_iter != send_end; send_iter++) {
 				send_packet(send_iter->data(), send_iter->size());
 			}
-			if(packets_per_second != 0) last_packet_send = SDL_GetTicks();
+			if(packets_per_second != 0) last_packet_send = SDL_GetTicks64();
 			
 			send_store.erase(send_begin, send_end);
 		}

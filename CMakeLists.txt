@@ -323,8 +323,10 @@ add_library(${PROJECT_NAME} SHARED
 	threading/thread_safety.hpp
 	vr/openvr_context.cpp
 	vr/openvr_context.hpp
+	vr/openxr_common.hpp
 	vr/openxr_context.cpp
 	vr/openxr_context.hpp
+	vr/openxr_input.cpp
 	vr/vr_context.cpp
 	vr/vr_context.hpp)
 

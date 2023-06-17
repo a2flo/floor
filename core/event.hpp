@@ -85,9 +85,9 @@ protected:
 	unordered_map<EVENT_TYPE, shared_ptr<event_object>> prev_events;
 	
 	//! timer that decides if there is a * mouse double click
-	uint32_t lm_double_click_timer;
-	uint32_t rm_double_click_timer;
-	uint32_t mm_double_click_timer;
+	uint64_t lm_double_click_timer;
+	uint64_t rm_double_click_timer;
+	uint64_t mm_double_click_timer;
 	
 	//! config setting for * mouse double click "timeframe"
 	uint32_t ldouble_click_time = 200;

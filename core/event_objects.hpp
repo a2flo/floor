@@ -108,26 +108,26 @@ enum_class_hash(EVENT_TYPE)
 
 //
 struct event_object {
-	const uint32_t time;
-	event_object(const uint32_t& time_) : time(time_) {}
+	const uint64_t time;
+	event_object(const uint64_t& time_) : time(time_) {}
 };
 template<EVENT_TYPE event_type> struct event_object_base : public event_object {
 	const EVENT_TYPE type;
-	event_object_base(const uint32_t& time_) : event_object(time_), type(event_type) {}
+	event_object_base(const uint64_t& time_) : event_object(time_), type(event_type) {}
 };
 
 // mouse events
 template<EVENT_TYPE event_type> struct mouse_event_base : public event_object_base<event_type> {
 	const int2 position;
 	const float pressure;
-	mouse_event_base(const uint32_t& time_, const int2& position_, const float& pressure_) :
+	mouse_event_base(const uint64_t& time_, const int2& position_, const float& pressure_) :
 	event_object_base<event_type>(time_), position(position_), pressure(pressure_) {}
 };
 
 template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_type> struct mouse_click_event : public event_object_base<event_type> {
 	shared_ptr<mouse_event_base<down_event_type>> down;
 	shared_ptr<mouse_event_base<up_event_type>> up;
-	mouse_click_event(const uint32_t& time_,
+	mouse_click_event(const uint64_t& time_,
 					  shared_ptr<event_object> down_evt,
 					  shared_ptr<event_object> up_evt)
 	: event_object_base<event_type>(time_),
@@ -137,7 +137,7 @@ template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_
 
 template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_event_base<event_type> {
 	const int2 move;
-	mouse_move_event_base(const uint32_t& time_,
+	mouse_move_event_base(const uint64_t& time_,
 						  const int2& position_,
 						  const int2& move_,
 						  const float& pressure_)
@@ -146,7 +146,7 @@ template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_even
 
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
 	const uint32_t amount;
-	mouse_wheel_event_base(const uint32_t& time_,
+	mouse_wheel_event_base(const uint64_t& time_,
 						   const int2& position_,
 						   const uint32_t& amount_)
 	: mouse_event_base<event_type>(time_, position_, 0.0f), amount(amount_) {}
@@ -179,7 +179,7 @@ typedef mouse_wheel_event_base<EVENT_TYPE::MOUSE_WHEEL_DOWN> mouse_wheel_down_ev
 // key events
 template<EVENT_TYPE event_type> struct key_event : public event_object_base<event_type> {
 	const uint32_t key;
-	key_event(const uint32_t& time_,
+	key_event(const uint64_t& time_,
 			  const uint32_t& key_) :
 	event_object_base<event_type>(time_), key(key_) {}
 };
@@ -193,7 +193,7 @@ template<EVENT_TYPE event_type> struct touch_event_base : public event_object_ba
 	const float2 normalized_position;
 	const float pressure;
 	const uint64_t id;
-	touch_event_base(const uint32_t& time_,
+	touch_event_base(const uint64_t& time_,
 					 const float2& norm_position_,
 					 const float& pressure_,
 					 const uint64_t& id_) :
@@ -201,7 +201,7 @@ template<EVENT_TYPE event_type> struct touch_event_base : public event_object_ba
 };
 template<EVENT_TYPE event_type> struct touch_move_event_base : public touch_event_base<event_type> {
 	const float2 normalized_move;
-	touch_move_event_base(const uint32_t& time_,
+	touch_move_event_base(const uint64_t& time_,
 						  const float2& position_,
 						  const float2& move_,
 						  const float& pressure_,
@@ -219,26 +219,26 @@ typedef event_object_base<EVENT_TYPE::SHADER_RELOAD> shader_reload_event;
 
 struct clipboard_update_event : public event_object_base<EVENT_TYPE::CLIPBOARD_UPDATE> {
 	const string text;
-	clipboard_update_event(const uint32_t& time_, const string& text_) : event_object_base(time_), text(text_) {}
+	clipboard_update_event(const uint64_t& time_, const string& text_) : event_object_base(time_), text(text_) {}
 };
 
 template<EVENT_TYPE event_type> struct window_resize_event_base : public event_object_base<event_type> {
 	const uint2 size;
-	window_resize_event_base(const uint32_t& time_, const uint2& size_) : event_object_base<event_type>(time_), size(size_) {}
+	window_resize_event_base(const uint64_t& time_, const uint2& size_) : event_object_base<event_type>(time_), size(size_) {}
 };
 typedef window_resize_event_base<EVENT_TYPE::WINDOW_RESIZE> window_resize_event;
 
 // audio store events
 struct audio_store_load_event : public event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD> {
 	const string identifier;
-	audio_store_load_event(const uint32_t& time_, const string& identifier_)
+	audio_store_load_event(const uint64_t& time_, const string& identifier_)
 	: event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD>(time_), identifier(identifier_) {}
 };
 
 // VR controller events
 template<EVENT_TYPE event_type> struct vr_event_base : public event_object_base<event_type> {
 	const bool side; //! false: left, true: right
-	vr_event_base(const uint32_t& time_, const bool& side_) :
+	vr_event_base(const uint64_t& time_, const bool& side_) :
 		event_object_base<event_type>(time_), side(side_) {}
 
 	bool is_left_controller() const {
@@ -251,7 +251,7 @@ template<EVENT_TYPE event_type> struct vr_event_base : public event_object_base<
 
 template<EVENT_TYPE event_type> struct vr_digital_event_base : public vr_event_base<event_type> {
 	const bool state;
-	vr_digital_event_base(const uint32_t& time_, const bool& side_, const bool& state_) :
+	vr_digital_event_base(const uint64_t& time_, const bool& side_, const bool& state_) :
 		vr_event_base<event_type>(time_, side_), state(state_) {}
 };
 typedef vr_digital_event_base<EVENT_TYPE::VR_APP_MENU_PRESS> vr_app_menu_press_event;
@@ -272,7 +272,7 @@ typedef vr_digital_event_base<EVENT_TYPE::VR_GRIP_TOUCH> vr_grip_touch_event;
 template<EVENT_TYPE event_type> struct vr_analog_move_event_base : public vr_event_base<event_type> {
 	const float2 position;
 	const float2 delta;
-	vr_analog_move_event_base(const uint32_t& time_, const bool& side_, const float2& position_, const float2& delta_) :
+	vr_analog_move_event_base(const uint64_t& time_, const bool& side_, const float2& position_, const float2& delta_) :
 		vr_event_base<event_type>(time_, side_), position(position_), delta(delta_) {}
 };
 typedef vr_analog_move_event_base<EVENT_TYPE::VR_TRACKPAD_MOVE> vr_trackpad_move_event;
@@ -281,7 +281,7 @@ typedef vr_analog_move_event_base<EVENT_TYPE::VR_THUMBSTICK_MOVE> vr_thumbstick_
 template<EVENT_TYPE event_type> struct vr_analog_pull_event_base : public vr_event_base<event_type> {
 	const float pull;
 	const float delta;
-	vr_analog_pull_event_base(const uint32_t& time_, const bool& side_, const float& pull_, const float& delta_) :
+	vr_analog_pull_event_base(const uint64_t& time_, const bool& side_, const float& pull_, const float& delta_) :
 		vr_event_base<event_type>(time_, side_), pull(pull_), delta(delta_) {}
 };
 typedef vr_analog_pull_event_base<EVENT_TYPE::VR_TRIGGER_PULL> vr_trigger_pull_event;
@@ -290,7 +290,7 @@ typedef vr_analog_pull_event_base<EVENT_TYPE::VR_GRIP_PULL> vr_grip_pull_event;
 template<EVENT_TYPE event_type> struct vr_analog_force_event_base : public vr_event_base<event_type> {
 	const float force;
 	const float delta;
-	vr_analog_force_event_base(const uint32_t& time_, const bool& side_, const float& force_, const float& delta_) :
+	vr_analog_force_event_base(const uint64_t& time_, const bool& side_, const float& force_, const float& delta_) :
 		vr_event_base<event_type>(time_, side_), force(force_), delta(delta_) {}
 };
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_TRACKPAD_FORCE> vr_trackpad_force_event;

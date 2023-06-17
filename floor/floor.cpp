@@ -100,12 +100,12 @@ string floor::abs_bin_path  {};
 string floor::config_name = "config.json";
 
 // fps counting
-uint32_t floor::fps = 0;
-uint32_t floor::fps_counter = 0;
-uint32_t floor::fps_time = 0;
+uint32_t floor::fps = 0u;
+uint32_t floor::fps_counter = 0u;
+uint64_t floor::fps_time = 0u;
 float floor::frame_time = 0.0f;
-uint32_t floor::frame_time_sum = 0;
-uint32_t floor::frame_time_counter = 0;
+uint64_t floor::frame_time_sum = 0u;
+uint64_t floor::frame_time_counter = 0u;
 bool floor::new_fps_count = false;
 
 // window event handlers
@@ -1390,7 +1390,7 @@ void floor::set_fullscreen(const bool& state) {
 				  (state ? "enable" : "disable"), SDL_GetError());
 	}
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks(),
+				   make_shared<window_resize_event>(SDL_GetTicks64(),
 													uint2(config.width, config.height)));
 	// TODO: border?
 }
@@ -1439,20 +1439,20 @@ void floor::end_frame(const bool window_swap) {
 	// optional window swap (client code might want to swap the window by itself)
 	if(window_swap) swap();
 	
-	frame_time_sum += SDL_GetTicks() - frame_time_counter;
+	frame_time_sum += SDL_GetTicks64() - frame_time_counter;
 
 	// handle fps count
 	fps_counter++;
-	if(SDL_GetTicks() - fps_time > 1000) {
+	if(SDL_GetTicks64() - fps_time > 1000u) {
 		fps = fps_counter;
 		new_fps_count = true;
 		fps_counter = 0;
-		fps_time = SDL_GetTicks();
+		fps_time = SDL_GetTicks64();
 		
 		frame_time = (float)frame_time_sum / (float)fps;
 		frame_time_sum = 0;
 	}
-	frame_time_counter = SDL_GetTicks();
+	frame_time_counter = SDL_GetTicks64();
 	
 	// check for kernel reload (this is safe to do here)
 	if(reload_kernels_flag) {
@@ -1727,7 +1727,7 @@ void floor::set_fov(const float& fov) {
 	if(const_math::is_equal(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks(), uint2(config.width, config.height)));
+				   make_shared<window_resize_event>(SDL_GetTicks64(), uint2(config.width, config.height)));
 }
 
 const float2& floor::get_near_far_plane() {

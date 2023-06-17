@@ -115,8 +115,8 @@
 #error "You need to install libc++ 10.0+ to compile floor"
 #endif
 
-#if !SDL_VERSION_ATLEAST(2, 0, 4)
-#error "You need to install SDL 2.0.4+ to compile floor"
+#if !SDL_VERSION_ATLEAST(2, 0, 18)
+#error "You need to install SDL 2.0.18+ to compile floor"
 #endif
 
 #if !defined(FLOOR_NO_NET)

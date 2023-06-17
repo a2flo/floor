@@ -518,10 +518,10 @@ protected:
 	// fps counting
 	static uint32_t fps;
 	static uint32_t fps_counter;
-	static uint32_t fps_time;
+	static uint64_t fps_time;
 	static float frame_time;
-	static uint32_t frame_time_sum;
-	static uint32_t frame_time_counter;
+	static uint64_t frame_time_sum;
+	static uint64_t frame_time_counter;
 	static bool new_fps_count;
 	
 	// window event handlers

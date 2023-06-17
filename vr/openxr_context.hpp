@@ -27,13 +27,7 @@
 #include <floor/compute/vulkan/vulkan_common.hpp>
 #include <floor/math/quaternion.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
-
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#if defined(__linux__)
-#define XR_USE_TIMESPEC 1
-#endif
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
+#include <floor/vr/openxr_common.hpp>
 
 class vulkan_compute;
 class vulkan_device;
@@ -70,6 +64,7 @@ protected:
 	XrSystemId system_id {};
 	XrSession session { nullptr };
 
+	// view and rendering handling
 	vulkan_compute* vk_ctx { nullptr };
 	const vulkan_device* vk_dev { nullptr };
 
@@ -112,6 +107,98 @@ protected:
 	PFN_xrCreateVulkanDeviceKHR CreateVulkanDeviceKHR { nullptr };
 	PFN_xrGetVulkanGraphicsDevice2KHR GetVulkanGraphicsDevice2KHR { nullptr };
 	PFN_xrGetVulkanGraphicsRequirements2KHR GetVulkanGraphicsRequirements2KHR { nullptr };
+
+	// input handling
+	bool input_setup();
+	bool handle_input_internal(vector<shared_ptr<event_object>>& events);
+	void add_bool_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+						const XrActionStateBoolean& state, const bool side);
+	void add_float_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+						 const XrActionStateFloat& state, const bool side);
+	void add_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+						  const XrActionStateVector2f& state, const bool side);
+
+	atomic<bool> is_focused { false };
+
+	XrActionSet input_action_set { nullptr };
+
+	enum class INPUT_TYPE : uint32_t {
+		NONE = 0u,
+		HAND_LEFT = (1u << 0u),
+		HAND_RIGHT = (1u << 1u),
+		HEAD = (1u << 2u),
+		GAMEPAD = (1u << 3u),
+		MAX_INPUT_TYPE = (1u << 4u),
+	};
+	floor_enum_ext(INPUT_TYPE)
+
+	array<XrPath, 4> input_paths;
+
+	enum class ACTION_TYPE : uint32_t {
+		//! inputs
+		BOOLEAN,
+		FLOAT,
+		FLOAT2,
+		POSE,
+		//! haptic / vibration output
+		HAPTIC,
+	};
+
+	struct action_t {
+		XrAction action { nullptr };
+		INPUT_TYPE input_type { INPUT_TYPE::NONE };
+		ACTION_TYPE action_type { ACTION_TYPE::BOOLEAN };
+	};
+
+	//! base action mapped to all possible VR event types
+	unordered_map<EVENT_TYPE, action_t> base_actions;
+
+	//! hand vars
+	XrAction hand_pose_action { nullptr };
+	array<XrSpace, 2> hand_spaces;
+	array<XrPath, 2> hand_paths;
+
+	//! converts "str" to an XrPath, or returns empty on failure
+	optional<XrPath> to_path(const std::string& str);
+	//! converts "str" to an XrPath, or returns empty on failure
+	optional<XrPath> to_path(const char* str);
+	//! converts "str" to an XrPath, throws on failure
+	XrPath to_path_or_throw(const std::string& str);
+	//! converts "str" to an XrPath, throws on failure
+	XrPath to_path_or_throw(const char* str);
+
+	//! converts the OpenXR time into SDL ticks that we need for event handling
+	uint64_t convert_time_to_ticks(XrTime time);
+
+#if defined(__WINDOWS__)
+	uint64_t win_start_perf_counter { 0u };
+	uint64_t win_perf_counter_freq { 0u };
+
+	// NOTE: using int64_t instead of LARGE_INTEGER here, because we don't want to include Windows headers
+	using xrConvertWin32PerformanceCounterToTimeKHR_f = XrResult (XRAPI_PTR*)(XrInstance instance,
+																			  const int64_t* performanceCounter,
+																			  XrTime* time);
+	using xrConvertTimeToWin32PerformanceCounterKHR_f = XrResult (XRAPI_PTR*)(XrInstance instance,
+																			  XrTime time,
+																			  int64_t* performanceCounter);
+	xrConvertWin32PerformanceCounterToTimeKHR_f ConvertWin32PerformanceCounterToTimeKHR { nullptr };
+	xrConvertTimeToWin32PerformanceCounterKHR_f ConvertTimeToWin32PerformanceCounterKHR { nullptr };
+#endif
+
+#if defined(__linux__)
+	//! always nanoseconds
+	static constexpr const uint64_t unix_perf_counter_freq { 1'000'000'000u };
+	uint64_t unix_start_time { 0u }; //! ns
+
+	using xrConvertTimespecTimeToTimeKHR_f = XrResult (XRAPI_PTR*)(XrInstance instance,
+																   const struct timespec* timespecTime,
+																   XrTime* time);
+	using xrConvertTimeToTimespecTimeKHR_f = XrResult (XRAPI_PTR*)(XrInstance instance,
+																   XrTime time,
+																   struct timespec* timespecTime);
+	xrConvertTimespecTimeToTimeKHR_f ConvertTimespecTimeToTimeKHR { nullptr };
+	xrConvertTimeToTimespecTimeKHR_f ConvertTimeToTimespecTimeKHR { nullptr };
+#endif
 	
 };
 

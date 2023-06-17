@@ -34,7 +34,7 @@
 
 class http_net : public thread_base {
 public:
-	static constexpr size_t default_timeout { 10 };
+	static constexpr uint64_t default_timeout { 10 };
 
 	enum class HTTP_STATUS : uint32_t {
 		NONE = 0,
@@ -51,16 +51,16 @@ public:
 	
 	// construct the http_net object and only connect to server (no request is being sent)
 	http_net(const string& server,
-			 const size_t timeout = default_timeout, const bool continue_on_error_status = true);
+			 const uint64_t timeout = default_timeout, const bool continue_on_error_status = true);
 	// construct the http_net object, connect to the server and send a url request
 	http_net(const string& server_url, receive_functor receive_cb,
-			 const size_t timeout = default_timeout, const bool continue_on_error_status = true);
+			 const uint64_t timeout = default_timeout, const bool continue_on_error_status = true);
 	// deconstructer -> disconnect from the server
 	virtual ~http_net();
 	
 	//
 	void open_url(const string& url, receive_functor receive_cb,
-				  const size_t timeout = default_timeout, const bool continue_on_error_status = true);
+				  const uint64_t timeout = default_timeout, const bool continue_on_error_status = true);
 	
 	// tries to connect to the previously defined server again (note: connection must be closed before calling this)
 	bool reconnect();
@@ -79,7 +79,7 @@ protected:
 	bool failure { false };
 	
 	receive_functor receive_cb;
-	size_t request_timeout { default_timeout };
+	uint64_t request_timeout { default_timeout };
 	bool continue_on_error_status { true };
 	string server_name { "" };
 	string server_url { "/" };
@@ -99,7 +99,7 @@ protected:
 	size_t header_length { 0 };
 	size_t content_length { 0 };
 	HTTP_STATUS status_code { HTTP_STATUS::NONE };
-	size_t start_time { SDL_GetTicks() };
+	uint64_t start_time { SDL_GetTicks64() };
 	
 	//
 	virtual void run();
@@ -231,7 +231,7 @@ void http_net::send_http_request(const string& url, const string& host) {
 
 void http_net::run() {
 	// timeout handling
-	if((start_time + request_timeout * 1000) < SDL_GetTicks()) {
+	if((start_time + request_timeout * 1000) < SDL_GetTicks64()) {
 		if(status_code == HTTP_STATUS::NONE) {
 			status_code = HTTP_STATUS::TIMEOUT;
 		}

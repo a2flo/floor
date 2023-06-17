@@ -30,145 +30,6 @@
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 
-constexpr const char* xr_error_to_string(const int& error_code) {
-	// NOTE: don't use actual enums here so this doesn't have to rely on OpenXR version or vendor specific headers
-	switch(error_code) {
-		case XR_SUCCESS: return "XR_SUCCESS";
-		case XR_TIMEOUT_EXPIRED: return "XR_TIMEOUT_EXPIRED";
-		case XR_SESSION_LOSS_PENDING: return "XR_SESSION_LOSS_PENDING";
-		case XR_EVENT_UNAVAILABLE: return "XR_EVENT_UNAVAILABLE";
-		case XR_SPACE_BOUNDS_UNAVAILABLE: return "XR_SPACE_BOUNDS_UNAVAILABLE";
-		case XR_SESSION_NOT_FOCUSED: return "XR_SESSION_NOT_FOCUSED";
-		case XR_FRAME_DISCARDED: return "XR_FRAME_DISCARDED";
-		case XR_ERROR_VALIDATION_FAILURE: return "XR_ERROR_VALIDATION_FAILURE";
-		case XR_ERROR_RUNTIME_FAILURE: return "XR_ERROR_RUNTIME_FAILURE";
-		case XR_ERROR_OUT_OF_MEMORY: return "XR_ERROR_OUT_OF_MEMORY";
-		case XR_ERROR_API_VERSION_UNSUPPORTED: return "XR_ERROR_API_VERSION_UNSUPPORTED";
-		case XR_ERROR_INITIALIZATION_FAILED: return "XR_ERROR_INITIALIZATION_FAILED";
-		case XR_ERROR_FUNCTION_UNSUPPORTED: return "XR_ERROR_FUNCTION_UNSUPPORTED";
-		case XR_ERROR_FEATURE_UNSUPPORTED: return "XR_ERROR_FEATURE_UNSUPPORTED";
-		case XR_ERROR_EXTENSION_NOT_PRESENT: return "XR_ERROR_EXTENSION_NOT_PRESENT";
-		case XR_ERROR_LIMIT_REACHED: return "XR_ERROR_LIMIT_REACHED";
-		case XR_ERROR_SIZE_INSUFFICIENT: return "XR_ERROR_SIZE_INSUFFICIENT";
-		case XR_ERROR_HANDLE_INVALID: return "XR_ERROR_HANDLE_INVALID";
-		case XR_ERROR_INSTANCE_LOST: return "XR_ERROR_INSTANCE_LOST";
-		case XR_ERROR_SESSION_RUNNING: return "XR_ERROR_SESSION_RUNNING";
-		case XR_ERROR_SESSION_NOT_RUNNING: return "XR_ERROR_SESSION_NOT_RUNNING";
-		case XR_ERROR_SESSION_LOST: return "XR_ERROR_SESSION_LOST";
-		case XR_ERROR_SYSTEM_INVALID: return "XR_ERROR_SYSTEM_INVALID";
-		case XR_ERROR_PATH_INVALID: return "XR_ERROR_PATH_INVALID";
-		case XR_ERROR_PATH_COUNT_EXCEEDED: return "XR_ERROR_PATH_COUNT_EXCEEDED";
-		case XR_ERROR_PATH_FORMAT_INVALID: return "XR_ERROR_PATH_FORMAT_INVALID";
-		case XR_ERROR_PATH_UNSUPPORTED: return "XR_ERROR_PATH_UNSUPPORTED";
-		case XR_ERROR_LAYER_INVALID: return "XR_ERROR_LAYER_INVALID";
-		case XR_ERROR_LAYER_LIMIT_EXCEEDED: return "XR_ERROR_LAYER_LIMIT_EXCEEDED";
-		case XR_ERROR_SWAPCHAIN_RECT_INVALID: return "XR_ERROR_SWAPCHAIN_RECT_INVALID";
-		case XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED: return "XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED";
-		case XR_ERROR_ACTION_TYPE_MISMATCH: return "XR_ERROR_ACTION_TYPE_MISMATCH";
-		case XR_ERROR_SESSION_NOT_READY: return "XR_ERROR_SESSION_NOT_READY";
-		case XR_ERROR_SESSION_NOT_STOPPING: return "XR_ERROR_SESSION_NOT_STOPPING";
-		case XR_ERROR_TIME_INVALID: return "XR_ERROR_TIME_INVALID";
-		case XR_ERROR_REFERENCE_SPACE_UNSUPPORTED: return "XR_ERROR_REFERENCE_SPACE_UNSUPPORTED";
-		case XR_ERROR_FILE_ACCESS_ERROR: return "XR_ERROR_FILE_ACCESS_ERROR";
-		case XR_ERROR_FILE_CONTENTS_INVALID: return "XR_ERROR_FILE_CONTENTS_INVALID";
-		case XR_ERROR_FORM_FACTOR_UNSUPPORTED: return "XR_ERROR_FORM_FACTOR_UNSUPPORTED";
-		case XR_ERROR_FORM_FACTOR_UNAVAILABLE: return "XR_ERROR_FORM_FACTOR_UNAVAILABLE";
-		case XR_ERROR_API_LAYER_NOT_PRESENT: return "XR_ERROR_API_LAYER_NOT_PRESENT";
-		case XR_ERROR_CALL_ORDER_INVALID: return "XR_ERROR_CALL_ORDER_INVALID";
-		case XR_ERROR_GRAPHICS_DEVICE_INVALID: return "XR_ERROR_GRAPHICS_DEVICE_INVALID";
-		case XR_ERROR_POSE_INVALID: return "XR_ERROR_POSE_INVALID";
-		case XR_ERROR_INDEX_OUT_OF_RANGE: return "XR_ERROR_INDEX_OUT_OF_RANGE";
-		case XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED: return "XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED";
-		case XR_ERROR_ENVIRONMENT_BLEND_MODE_UNSUPPORTED: return "XR_ERROR_ENVIRONMENT_BLEND_MODE_UNSUPPORTED";
-		case XR_ERROR_NAME_DUPLICATED: return "XR_ERROR_NAME_DUPLICATED";
-		case XR_ERROR_NAME_INVALID: return "XR_ERROR_NAME_INVALID";
-		case XR_ERROR_ACTIONSET_NOT_ATTACHED: return "XR_ERROR_ACTIONSET_NOT_ATTACHED";
-		case XR_ERROR_ACTIONSETS_ALREADY_ATTACHED: return "XR_ERROR_ACTIONSETS_ALREADY_ATTACHED";
-		case XR_ERROR_LOCALIZED_NAME_DUPLICATED: return "XR_ERROR_LOCALIZED_NAME_DUPLICATED";
-		case XR_ERROR_LOCALIZED_NAME_INVALID: return "XR_ERROR_LOCALIZED_NAME_INVALID";
-		case XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING: return "XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING";
-		case XR_ERROR_RUNTIME_UNAVAILABLE: return "XR_ERROR_RUNTIME_UNAVAILABLE";
-		case XR_ERROR_ANDROID_THREAD_SETTINGS_ID_INVALID_KHR: return "XR_ERROR_ANDROID_THREAD_SETTINGS_ID_INVALID_KHR";
-		case XR_ERROR_ANDROID_THREAD_SETTINGS_FAILURE_KHR: return "XR_ERROR_ANDROID_THREAD_SETTINGS_FAILURE_KHR";
-		case XR_ERROR_CREATE_SPATIAL_ANCHOR_FAILED_MSFT: return "XR_ERROR_CREATE_SPATIAL_ANCHOR_FAILED_MSFT";
-		case XR_ERROR_SECONDARY_VIEW_CONFIGURATION_TYPE_NOT_ENABLED_MSFT: return "XR_ERROR_SECONDARY_VIEW_CONFIGURATION_TYPE_NOT_ENABLED_MSFT";
-		case XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT: return "XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT";
-		case XR_ERROR_REPROJECTION_MODE_UNSUPPORTED_MSFT: return "XR_ERROR_REPROJECTION_MODE_UNSUPPORTED_MSFT";
-		case XR_ERROR_COMPUTE_NEW_SCENE_NOT_COMPLETED_MSFT: return "XR_ERROR_COMPUTE_NEW_SCENE_NOT_COMPLETED_MSFT";
-		case XR_ERROR_SCENE_COMPONENT_ID_INVALID_MSFT: return "XR_ERROR_SCENE_COMPONENT_ID_INVALID_MSFT";
-		case XR_ERROR_SCENE_COMPONENT_TYPE_MISMATCH_MSFT: return "XR_ERROR_SCENE_COMPONENT_TYPE_MISMATCH_MSFT";
-		case XR_ERROR_SCENE_MESH_BUFFER_ID_INVALID_MSFT: return "XR_ERROR_SCENE_MESH_BUFFER_ID_INVALID_MSFT";
-		case XR_ERROR_SCENE_COMPUTE_FEATURE_INCOMPATIBLE_MSFT: return "XR_ERROR_SCENE_COMPUTE_FEATURE_INCOMPATIBLE_MSFT";
-		case XR_ERROR_SCENE_COMPUTE_CONSISTENCY_MISMATCH_MSFT: return "XR_ERROR_SCENE_COMPUTE_CONSISTENCY_MISMATCH_MSFT";
-		case XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB: return "XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB";
-		case XR_ERROR_COLOR_SPACE_UNSUPPORTED_FB: return "XR_ERROR_COLOR_SPACE_UNSUPPORTED_FB";
-		case XR_ERROR_SPACE_COMPONENT_NOT_SUPPORTED_FB: return "XR_ERROR_SPACE_COMPONENT_NOT_SUPPORTED_FB";
-		case XR_ERROR_SPACE_COMPONENT_NOT_ENABLED_FB: return "XR_ERROR_SPACE_COMPONENT_NOT_ENABLED_FB";
-		case XR_ERROR_SPACE_COMPONENT_STATUS_PENDING_FB: return "XR_ERROR_SPACE_COMPONENT_STATUS_PENDING_FB";
-		case XR_ERROR_SPACE_COMPONENT_STATUS_ALREADY_SET_FB: return "XR_ERROR_SPACE_COMPONENT_STATUS_ALREADY_SET_FB";
-		case XR_ERROR_UNEXPECTED_STATE_PASSTHROUGH_FB: return "XR_ERROR_UNEXPECTED_STATE_PASSTHROUGH_FB";
-		case XR_ERROR_FEATURE_ALREADY_CREATED_PASSTHROUGH_FB: return "XR_ERROR_FEATURE_ALREADY_CREATED_PASSTHROUGH_FB";
-		case XR_ERROR_FEATURE_REQUIRED_PASSTHROUGH_FB: return "XR_ERROR_FEATURE_REQUIRED_PASSTHROUGH_FB";
-		case XR_ERROR_NOT_PERMITTED_PASSTHROUGH_FB: return "XR_ERROR_NOT_PERMITTED_PASSTHROUGH_FB";
-		case XR_ERROR_INSUFFICIENT_RESOURCES_PASSTHROUGH_FB: return "XR_ERROR_INSUFFICIENT_RESOURCES_PASSTHROUGH_FB";
-		case XR_ERROR_UNKNOWN_PASSTHROUGH_FB: return "XR_ERROR_UNKNOWN_PASSTHROUGH_FB";
-		case XR_ERROR_RENDER_MODEL_KEY_INVALID_FB: return "XR_ERROR_RENDER_MODEL_KEY_INVALID_FB";
-		case XR_RENDER_MODEL_UNAVAILABLE_FB: return "XR_RENDER_MODEL_UNAVAILABLE_FB";
-		case XR_ERROR_MARKER_NOT_TRACKED_VARJO: return "XR_ERROR_MARKER_NOT_TRACKED_VARJO";
-		case XR_ERROR_MARKER_ID_INVALID_VARJO: return "XR_ERROR_MARKER_ID_INVALID_VARJO";
-		case XR_ERROR_SPATIAL_ANCHOR_NAME_NOT_FOUND_MSFT: return "XR_ERROR_SPATIAL_ANCHOR_NAME_NOT_FOUND_MSFT";
-		case XR_ERROR_SPATIAL_ANCHOR_NAME_INVALID_MSFT: return "XR_ERROR_SPATIAL_ANCHOR_NAME_INVALID_MSFT";
-		case XR_ERROR_SPACE_MAPPING_INSUFFICIENT_FB: return "XR_ERROR_SPACE_MAPPING_INSUFFICIENT_FB";
-		case XR_ERROR_SPACE_LOCALIZATION_FAILED_FB: return "XR_ERROR_SPACE_LOCALIZATION_FAILED_FB";
-		case XR_ERROR_SPACE_NETWORK_TIMEOUT_FB: return "XR_ERROR_SPACE_NETWORK_TIMEOUT_FB";
-		case XR_ERROR_SPACE_NETWORK_REQUEST_FAILED_FB: return "XR_ERROR_SPACE_NETWORK_REQUEST_FAILED_FB";
-		case XR_ERROR_SPACE_CLOUD_STORAGE_DISABLED_FB: return "XR_ERROR_SPACE_CLOUD_STORAGE_DISABLED_FB";
-		case XR_ERROR_HINT_ALREADY_SET_QCOM: return "XR_ERROR_HINT_ALREADY_SET_QCOM";
-		default: break;
-	}
-	return "<UNKNOWN_ERROR>";
-}
-
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(unused-macros)
-
-#define XR_CALL_RET(call, error_msg, ...) do { \
-	const auto call_err_var = call; \
-	if (call_err_var != XR_SUCCESS) { \
-		log_error("$: $: $", error_msg, call_err_var, xr_error_to_string(call_err_var)); \
-		return __VA_ARGS__; \
-	} \
-} while(false)
-#define XR_CALL_CONT(call, error_msg) do { \
-	const int32_t call_err_var = call; \
-	if (call_err_var != XR_SUCCESS) { \
-		log_error("$: $: $", error_msg, call_err_var, xr_error_to_string(call_err_var)); \
-		continue; \
-	} \
-} while(false)
-#define XR_CALL_BREAK(call, error_msg) do { \
-	const int32_t call_err_var = call; \
-	if (call_err_var != XR_SUCCESS) { \
-		log_error("$: $: $", error_msg, call_err_var, xr_error_to_string(call_err_var)); \
-		break; \
-	} \
-} while(false)
-#define XR_CALL_ERR_EXEC(call, error_msg, do_stuff) do { \
-	const auto call_err_var = call; \
-	if (call_err_var != XR_SUCCESS) { \
-		log_error("$: $: $", error_msg, call_err_var, xr_error_to_string(call_err_var)); \
-		do_stuff \
-	} \
-} while(false)
-#define XR_CALL_IGNORE(call, error_msg) do { \
-	const auto call_err_var = call; \
-	if (call_err_var != XR_SUCCESS) { \
-		log_error("$: $: $", error_msg, call_err_var, xr_error_to_string(call_err_var)); \
-	} \
-} while(false)
-
-FLOOR_POP_WARNINGS()
-
 openxr_context::openxr_context() : vr_context() {
 	backend = VR_BACKEND::OPENXR;
 
@@ -450,8 +311,6 @@ openxr_context::openxr_context() : vr_context() {
 	views.resize(view_configs.size(), { .type = XR_TYPE_VIEW, .next = nullptr });
 	view_states.resize(view_configs.size());
 
-	// TODO: input setup
-
 	// query extension function pointers
 	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrCreateVulkanInstanceKHR",
 									  reinterpret_cast<PFN_xrVoidFunction*>(&CreateVulkanInstanceKHR)),
@@ -465,6 +324,40 @@ openxr_context::openxr_context() : vr_context() {
 	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrGetVulkanGraphicsRequirements2KHR",
 									  reinterpret_cast<PFN_xrVoidFunction*>(&GetVulkanGraphicsRequirements2KHR)),
 				"failed to query xrGetVulkanGraphicsRequirements2KHR function pointer");
+
+#if defined(__WINDOWS__)
+	// we need to be able to convert the Windows perf counter value into SDL ticks
+	// -> query current values from SDL and then solve for the start time/perf-counter
+	const auto sdl_ticks = SDL_GetTicks64();
+	const auto sdl_perf_counter = SDL_GetPerformanceCounter();
+	win_perf_counter_freq = SDL_GetPerformanceFrequency();
+	win_start_perf_counter = sdl_perf_counter - (sdl_ticks * win_perf_counter_freq) / 1000ull;
+
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrConvertWin32PerformanceCounterToTimeKHR",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&ConvertWin32PerformanceCounterToTimeKHR)),
+				"failed to query xrConvertWin32PerformanceCounterToTimeKHR function pointer");
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrConvertTimeToWin32PerformanceCounterKHR",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&ConvertTimeToWin32PerformanceCounterKHR)),
+				"failed to query xrConvertTimeToWin32PerformanceCounterKHR function pointer");
+#endif
+
+#if defined(__linux__)
+	// we need to be able to convert the timespec into SDL ticks
+	// -> query current values from SDL and then solve for the start time
+	// NOTE: this is set by SDL (supported by glibc and musl) -> must have support for this
+	static_assert(HAVE_CLOCK_GETTIME, "must have clock_gettime support");
+	const auto sdl_ticks = SDL_GetTicks64(); // -> in ms
+	const auto sdl_perf_counter = SDL_GetPerformanceCounter(); // -> in ns
+	assert(SDL_GetPerformanceFrequency() == unix_perf_counter_freq);
+	unix_start_time = sdl_perf_counter - sdl_ticks * 1000ull; // -> in ns
+
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrConvertTimespecTimeToTimeKHR",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&ConvertTimespecTimeToTimeKHR)),
+				"failed to query xrConvertTimespecTimeToTimeKHR function pointer");
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrConvertTimeToTimespecTimeKHR",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&ConvertTimeToTimespecTimeKHR)),
+				"failed to query xrConvertTimeToTimespecTimeKHR function pointer");
+#endif
 
 	// all done
 	valid = true;
@@ -497,6 +390,17 @@ openxr_context::~openxr_context() {
 				}
 			}
 		}
+	}
+	if (!base_actions.empty()) {
+		for (auto& base_action : base_actions) {
+			XR_CALL_IGNORE(xrDestroyAction(base_action.second.action), "failed to destroy OpenXR action");
+		}
+		if (hand_pose_action) {
+			XR_CALL_IGNORE(xrDestroyAction(hand_pose_action), "failed to destroy OpenXR hand pose action");
+		}
+	}
+	if (input_action_set) {
+		XR_CALL_IGNORE(xrDestroyActionSet(input_action_set), "failed to destroy OpenXR input action set");
 	}
 	if (view_space) {
 		XR_CALL_IGNORE(xrDestroySpace(view_space), "failed to destroy OpenXR view space");
@@ -888,6 +792,12 @@ bool openxr_context::create_session(vulkan_compute& vk_ctx_, const vulkan_device
 		swapchain = std::move(mi_swapchain);
 	}
 
+	// can now create input handling (-> openxr_input.cpp)
+	if (!input_setup()) {
+		log_error("OpenXR input setup failed");
+		return false;
+	}
+
 	// all done
 	return true;
 }
@@ -901,11 +811,17 @@ string openxr_context::get_vulkan_device_extensions([[maybe_unused]] VkPhysicalD
 }
 
 bool openxr_context::update() {
-	// TODO: poses / tracked device handling
+	// TODO: do we actually need this?
 	return true;
 }
 
 vector<shared_ptr<event_object>> openxr_context::update_input() {
+	vector<shared_ptr<event_object>> events;
+
+	if (!handle_input_internal(events)) {
+		log_error("failed to handle input");
+	}
+
 	XrEventDataBuffer xr_event { .type = XR_TYPE_EVENT_DATA_BUFFER, .next = nullptr };
 	auto& base_header = *reinterpret_cast<XrEventDataBaseHeader*>(&xr_event);
 	for (;;) {
@@ -930,9 +846,13 @@ vector<shared_ptr<event_object>> openxr_context::update_input() {
 						XR_CALL_IGNORE(xrBeginSession(session, &session_begin_info), "failed to begin session");
 						break;
 					}
+					case XR_SESSION_STATE_FOCUSED:
+						is_focused = true;
+						break;
 					case XR_SESSION_STATE_STOPPING:
 					case XR_SESSION_STATE_EXITING:
 					case XR_SESSION_STATE_LOSS_PENDING: {
+						is_focused = false;
 						if (session) {
 							assert(session_state_changed_event.session == session);
 							XR_CALL_IGNORE(xrEndSession(session), "failed to end session");
@@ -953,7 +873,8 @@ vector<shared_ptr<event_object>> openxr_context::update_input() {
 				break;
 		}
 	}
-	return {};
+
+	return events;
 }
 
 bool openxr_context::present(const compute_queue& cqueue, const compute_image& image) REQUIRES(!view_states_lock) {
@@ -1286,6 +1207,37 @@ vr_context::frame_view_state_t openxr_context::get_frame_view_state(const float&
 		project_matrix(VR_EYE::LEFT),
 		project_matrix(VR_EYE::RIGHT)
 	};
+}
+
+optional<XrPath> openxr_context::to_path(const std::string& str) {
+	XrPath path { 0 };
+	XR_CALL_RET(xrStringToPath(instance, str.c_str(), &path),
+				"failed to convert string \"" + str + "\" to XrPath", {});
+	return path;
+}
+
+optional<XrPath> openxr_context::to_path(const char* str) {
+	XrPath path { 0 };
+	XR_CALL_RET(xrStringToPath(instance, str, &path),
+				"failed to convert string \"" + (str ? string(str) : "nullptr") + "\" to XrPath", {});
+	return path;
+}
+
+XrPath openxr_context::to_path_or_throw(const std::string& str) {
+	XrPath path { 0 };
+	XR_CALL_ERR_EXEC(xrStringToPath(instance, str.c_str(), &path),
+					 "failed to convert string \"" + str + "\" to XrPath",
+					 throw std::runtime_error("failed to convert string \"" + str + "\" to XrPath"););
+	return path;
+}
+
+XrPath openxr_context::to_path_or_throw(const char* str) {
+	XrPath path { 0 };
+	XR_CALL_ERR_EXEC(xrStringToPath(instance, str, &path),
+					 "failed to convert string \"" + (str ? string(str) : "nullptr") + "\" to XrPath",
+					 throw std::runtime_error("failed to convert string \"" + (str ? string(str) : "nullptr") +
+											  "\" to XrPath"););
+	return path;
 }
 
 #endif
