@@ -99,21 +99,44 @@ public:
 		return {};
 	}
 
-	//! updates the state of all currently tracked devices
-	//! NOTE: must be called once each frame (done automatically through the graphics context)
-	virtual bool update() {
-		return true;
+	//! input update/event handling
+	//! NOTE: this is called automatically by the event handler
+	virtual vector<shared_ptr<event_object>> handle_input() {
+		return {};
 	}
 
-	//! input update handling
-	//! NOTE: this is called automatically by the event handler
-	virtual vector<shared_ptr<event_object>> update_input() {
+	//! returns true if the VR backend provides its own swapchain
+	virtual bool has_swapchain() const {
+		return false;
+	}
+
+	struct swapchain_info_t {
+		//! number of images in the swapchain
+		uint32_t image_count { 0 };
+		//! image type/format
+		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
+	};
+
+	//! if has_swapchain() is true, this returns info about the swapchain
+	virtual swapchain_info_t get_swapchain_info() const {
 		return {};
+	}
+
+	//! if has_swapchain() is true, this returns the next swapchain image that can be rendered to
+	//! NOTE: the returned image must provided to present() *as the next image*
+	virtual compute_image* acquire_next_image() {
+		return nullptr;
+	}
+
+	//! returns true if the VR backend generates Vulkan validation errors -> will ignore these in certain places
+	//! NOTE: since the situation is generally bad, this defaults to true and is only set to false for known good backends
+	virtual bool ignore_vulkan_validation() const {
+		return true;
 	}
 
 	//! presents the images of both eyes to the HMD/compositor
 	//! NOTE: image must be a 2D array with 2 layers (first is the left eye, second is the right eye)
-	virtual bool present(const compute_queue& /* cqueue */ , const compute_image& /* image */) {
+	virtual bool present(const compute_queue& /* cqueue */, const compute_image* /* image */) {
 		return false;
 	}
 	

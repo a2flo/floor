@@ -54,10 +54,9 @@ public:
 	string get_vulkan_instance_extensions() const override;
 	string get_vulkan_device_extensions(VkPhysicalDevice_T* physical_device) const override;
 	
-	bool update() override;
-	vector<shared_ptr<event_object>> update_input() override;
+	vector<shared_ptr<event_object>> handle_input() override;
 	
-	bool present(const compute_queue& cqueue, const compute_image& image) override;
+	bool present(const compute_queue& cqueue, const compute_image* image) override;
 	
 	frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
 											const bool with_position_in_mvm) const override;

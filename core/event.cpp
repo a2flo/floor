@@ -299,7 +299,7 @@ void event::handle_events() {
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	// handle VR events
 	if (vr_ctx != nullptr) {
-		const auto vr_events = vr_ctx->update_input();
+		const auto vr_events = vr_ctx->handle_input();
 		for (const auto& vr_event : vr_events) {
 			handle_event(((const vr_event_base<EVENT_TYPE::__VR_CONTROLLER_EVENT>*)vr_event.get())->type, vr_event);
 		}

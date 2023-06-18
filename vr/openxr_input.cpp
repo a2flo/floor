@@ -131,7 +131,6 @@ bool openxr_context::input_setup() {
 				.type = XR_TYPE_ACTION_CREATE_INFO,
 				.next = nullptr,
 				.actionType = action_type,
-				// TODO: support for actions other than hands
 				.countSubactionPaths = uint32_t(hand_paths.size()),
 				.subactionPaths = hand_paths.data(),
 			};

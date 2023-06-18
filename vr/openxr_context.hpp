@@ -51,10 +51,21 @@ public:
 	string get_vulkan_instance_extensions() const override;
 	string get_vulkan_device_extensions(VkPhysicalDevice_T* physical_device) const override;
 	
-	bool update() override;
-	vector<shared_ptr<event_object>> update_input() override;
+	vector<shared_ptr<event_object>> handle_input() override;
+
+	bool ignore_vulkan_validation() const override {
+		return !is_known_good_vulkan_backend;
+	}
+
+	bool has_swapchain() const override {
+		return true;
+	}
+
+	swapchain_info_t get_swapchain_info() const override;
+
+	compute_image* acquire_next_image() override;
 	
-	bool present(const compute_queue& cqueue, const compute_image& image) override;
+	bool present(const compute_queue& cqueue, const compute_image* image) override;
 	
 	frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
 											const bool with_position_in_mvm) const override;
@@ -67,6 +78,7 @@ protected:
 	// view and rendering handling
 	vulkan_compute* vk_ctx { nullptr };
 	const vulkan_device* vk_dev { nullptr };
+	bool is_known_good_vulkan_backend { false };
 
 	uint32_t swapchain_layer_count { 0u };
 	vector<XrReferenceSpaceType> spaces;
@@ -76,19 +88,18 @@ protected:
 	vector<XrViewConfigurationView> view_configs;
 	vector<XrView> views;
 
-	struct multi_layer_swapchaint_t {
+	struct multi_layer_swapchain_t {
 		XrSwapchain swapchain{ nullptr };
 		vector<unique_ptr<compute_image>> swapchain_images;
 		vector<XrSwapchainImageVulkan2KHR> swapchain_vk_images;
 		vector<VkImageView> swapchain_vk_image_views;
 	};
-	struct multi_image_swapchaint_t {
-		vector<XrSwapchain> swapchains;
-		vector<vector<unique_ptr<compute_image>>> swapchain_images;
-		vector<vector<XrSwapchainImageVulkan2KHR>> swapchain_vk_images;
-		vector<vector<VkImageView>> swapchain_vk_image_views;
-	};
-	variant<nullptr_t, multi_layer_swapchaint_t, multi_image_swapchaint_t> swapchain { nullptr };
+	multi_layer_swapchain_t swapchain {};
+
+	XrFrameState cur_frame_state {};
+	array<XrCompositionLayerProjectionView, 2> cur_layer_projection_views {{}};
+	XrCompositionLayerProjection cur_layer_projection {};
+	compute_image* cur_swapchain_image { nullptr };
 
 	struct view_state_t {
 		float3 position;

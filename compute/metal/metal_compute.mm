@@ -998,7 +998,6 @@ void metal_compute::present_metal_vr_drawable(const compute_queue& cqueue floor_
 		return;
 	}
 	vr_ctx->present(cqueue, img);
-	vr_ctx->update();
 	
 	// unlock image again
 	for (auto& vr_img : vr_images) {

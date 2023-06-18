@@ -388,6 +388,7 @@ protected:
 		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
 		vector<shared_ptr<compute_image>> images;
+		vector<compute_image*> external_swapchain_images;
 		vector<atomic_spin_lock> image_locks;
 		const vulkan_device* render_device { nullptr };
 		bool has_wide_gamut { false };

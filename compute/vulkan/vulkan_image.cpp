@@ -542,7 +542,7 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 
 vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, std::span<uint8_t> host_data_, const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_, 0, 0, nullptr,
-			  nullptr, false /* no shim type here */),
+			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
 	image_view = external_image.image_view;
@@ -551,6 +551,9 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_exte
 	image_info.imageLayout = external_image.layout;
 	cur_access_mask = external_image.access_mask;
 	vk_format = external_image.format;
+	if (shim_image_type != image_type) {
+		throw std::runtime_error("shim image type is not supported for external Vulkan images");
+	}
 }
 
 vulkan_image::~vulkan_image() {

@@ -419,7 +419,7 @@ protected:
 	};
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
-	COMPUTE_IMAGE_TYPE shim_image_type;
+	COMPUTE_IMAGE_TYPE shim_image_type { COMPUTE_IMAGE_TYPE::NONE };
 	size_t shim_image_data_size { 0 };
 	
 	// when automatically generating mip-maps, we also need to store all mip-maps

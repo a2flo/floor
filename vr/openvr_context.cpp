@@ -186,7 +186,7 @@ openvr_context::openvr_context() : vr_context() {
 	}
 
 	// initial setup / get initial poses / tracked devices
-	openvr_context::update();
+	openvr_context::handle_input();
 
 	// all done
 	valid = true;
@@ -229,57 +229,9 @@ string openvr_context::get_vulkan_device_extensions(VkPhysicalDevice_T* physical
 	return vk_dev_exts;
 }
 
-bool openvr_context::update() {
-	// poses / tracked device handling
-	array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount> vr_poses {};
-	const auto err = compositor->WaitGetPoses(&vr_poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
-	if (err != vr::EVRCompositorError::VRCompositorError_None) {
-		log_error("failed to update VR poses: $", err);
-		return false;
-	}
+vector<shared_ptr<event_object>> openvr_context::handle_input() {
+	vector<shared_ptr<event_object>> events;
 
-	poses.clear();
-	for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; ++i) {
-		const auto& vr_pose = vr_poses[i];
-		if (!vr_pose.bPoseIsValid) {
-			// valid poses are contiguous, no need to iterate any further
-			break;
-		}
-
-		const auto& vr_pose_mat = vr_pose.mDeviceToAbsoluteTracking.m;
-		tracked_device_pose_t pose {
-			.device_to_absolute_tracking = {
-				vr_pose_mat[0][0], vr_pose_mat[1][0], vr_pose_mat[2][0], 0.0f,
-				vr_pose_mat[0][1], vr_pose_mat[1][1], vr_pose_mat[2][1], 0.0f,
-				vr_pose_mat[0][2], vr_pose_mat[1][2], vr_pose_mat[2][2], 0.0f,
-				vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3], 1.0f
-			},
-			.velocity = { vr_pose.vVelocity.v[0], vr_pose.vVelocity.v[1], vr_pose.vVelocity.v[2] },
-			.angular_velocity = { vr_pose.vAngularVelocity.v[0], vr_pose.vAngularVelocity.v[1], vr_pose.vAngularVelocity.v[2] },
-			.status = (VR_TRACKING_STATUS)vr_pose.eTrackingResult,
-			.device_is_connected = vr_pose.bDeviceIsConnected
-		};
-		poses.emplace_back(pose);
-	}
-
-	const auto& hmd_pose = vr_poses[vr::k_unTrackedDeviceIndex_Hmd];
-	if (hmd_pose.bPoseIsValid) {
-		const auto& vr_mat = hmd_pose.mDeviceToAbsoluteTracking;
-		hmd_mat = {
-			vr_mat.m[0][0], vr_mat.m[1][0], vr_mat.m[2][0], 0.0f,
-			vr_mat.m[0][1], vr_mat.m[1][1], vr_mat.m[2][1], 0.0f,
-			vr_mat.m[0][2], vr_mat.m[1][2], vr_mat.m[2][2], 0.0f,
-			vr_mat.m[0][3], vr_mat.m[1][3], vr_mat.m[2][3], 1.0f
-		};
-		hmd_mat.invert();
-	} else {
-		hmd_mat.identity();
-	}
-
-	return true;
-}
-
-vector<shared_ptr<event_object>> openvr_context::update_input() {
 	vr::VRActiveActionSet_t active_action_set {
 		.ulActionSet = main_action_set,
 		.ulRestrictedToDevice = vr::k_ulInvalidInputValueHandle,
@@ -290,136 +242,201 @@ vector<shared_ptr<event_object>> openvr_context::update_input() {
 	const auto update_act_err = input->UpdateActionState(&active_action_set, sizeof(vr::VRActiveActionSet_t), 1);
 	if (update_act_err != vr::EVRInputError::VRInputError_None) {
 		log_error("failed to update action state: $", update_act_err);
-		return {};
+	} else {
+		const auto cur_time = SDL_GetTicks64();
+		for (auto& action : actions) {
+			vr::EVRInputError err = vr::EVRInputError::VRInputError_None;
+			switch (action.second.type) {
+				case ACTION_TYPE::DIGITAL: {
+					vr::InputDigitalActionData_t data{};
+					err = input->GetDigitalActionData(action.second.handle, &data, sizeof(vr::InputDigitalActionData_t),
+													  vr::k_ulInvalidInputValueHandle);
+					if (err != vr::EVRInputError::VRInputError_None) {
+						break;
+					}
+					if (data.bActive && data.bChanged) {
+						switch (action.second.event_type) {
+							case EVENT_TYPE::VR_APP_MENU_PRESS:
+								events.emplace_back(
+									make_shared<vr_app_menu_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_APP_MENU_TOUCH:
+								events.emplace_back(
+									make_shared<vr_app_menu_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_MAIN_PRESS:
+								events.emplace_back(
+									make_shared<vr_main_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_MAIN_TOUCH:
+								events.emplace_back(
+									make_shared<vr_main_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_SYSTEM_PRESS:
+								events.emplace_back(
+									make_shared<vr_system_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_SYSTEM_TOUCH:
+								events.emplace_back(
+									make_shared<vr_system_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_TRACKPAD_PRESS:
+								events.emplace_back(
+									make_shared<vr_trackpad_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_TRACKPAD_TOUCH:
+								events.emplace_back(
+									make_shared<vr_trackpad_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_THUMBSTICK_PRESS:
+								events.emplace_back(
+									make_shared<vr_thumbstick_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_THUMBSTICK_TOUCH:
+								events.emplace_back(
+									make_shared<vr_thumbstick_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_TRIGGER_PRESS:
+								events.emplace_back(
+									make_shared<vr_trigger_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_TRIGGER_TOUCH:
+								events.emplace_back(
+									make_shared<vr_trigger_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_GRIP_PRESS:
+								events.emplace_back(
+									make_shared<vr_grip_press_event>(cur_time, action.second.side, data.bState));
+								break;
+							case EVENT_TYPE::VR_GRIP_TOUCH:
+								events.emplace_back(
+									make_shared<vr_grip_touch_event>(cur_time, action.second.side, data.bState));
+								break;
+							default:
+								log_error("unknown/unhandled VR event: $", action.first);
+								break;
+						}
+					}
+					break;
+				}
+				case ACTION_TYPE::ANALOG: {
+					vr::InputAnalogActionData_t data{};
+					err = input->GetAnalogActionData(action.second.handle, &data, sizeof(vr::InputAnalogActionData_t),
+													 vr::k_ulInvalidInputValueHandle);
+					if (err != vr::EVRInputError::VRInputError_None) {
+						break;
+					}
+					if (data.bActive && (data.deltaX != 0.0f || data.deltaY != 0.0f || data.deltaZ != 0.0f)) {
+						switch (action.second.event_type) {
+							case EVENT_TYPE::VR_TRACKPAD_MOVE:
+								events.emplace_back(make_shared<vr_trackpad_move_event>(cur_time, action.second.side,
+																						float2{ data.x, data.y },
+																						float2{ data.deltaX, data.deltaY }));
+								break;
+							case EVENT_TYPE::VR_THUMBSTICK_MOVE:
+								events.emplace_back(make_shared<vr_thumbstick_move_event>(cur_time, action.second.side,
+																						  float2{ data.x, data.y },
+																						  float2{ data.deltaX, data.deltaY }));
+								break;
+							case EVENT_TYPE::VR_TRIGGER_PULL:
+								events.emplace_back(
+									make_shared<vr_trigger_pull_event>(cur_time, action.second.side, data.x, data.deltaX));
+								break;
+							case EVENT_TYPE::VR_GRIP_PULL:
+								events.emplace_back(
+									make_shared<vr_grip_pull_event>(cur_time, action.second.side, data.x, data.deltaX));
+								break;
+							case EVENT_TYPE::VR_TRACKPAD_FORCE:
+								events.emplace_back(
+									make_shared<vr_trackpad_force_event>(cur_time, action.second.side, data.x, data.deltaX));
+								break;
+							case EVENT_TYPE::VR_GRIP_FORCE:
+								events.emplace_back(
+									make_shared<vr_grip_force_event>(cur_time, action.second.side, data.x, data.deltaX));
+								break;
+							default:
+								log_error("unknown/unhandled VR event: $", action.first);
+								break;
+						}
+					}
+					break;
+				}
+				default:
+					// not handled yet
+					break;
+			}
+			if (err != vr::EVRInputError::VRInputError_None) {
+				log_error("failed to update action $: $", action.first, err);
+				continue;
+			}
+		}
 	}
 
-	vector<shared_ptr<event_object>> events;
-	const auto cur_time = SDL_GetTicks64();
-	for (auto& action : actions) {
-		vr::EVRInputError err = vr::EVRInputError::VRInputError_None;
-		switch (action.second.type) {
-			case ACTION_TYPE::DIGITAL: {
-				vr::InputDigitalActionData_t data {};
-				err = input->GetDigitalActionData(action.second.handle, &data, sizeof(vr::InputDigitalActionData_t),
-												  vr::k_ulInvalidInputValueHandle);
-				if (err != vr::EVRInputError::VRInputError_None) {
-					break;
-				}
-				if (data.bActive && data.bChanged) {
-					switch (action.second.event_type) {
-						case EVENT_TYPE::VR_APP_MENU_PRESS:
-							events.emplace_back(make_shared<vr_app_menu_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_APP_MENU_TOUCH:
-							events.emplace_back(make_shared<vr_app_menu_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_MAIN_PRESS:
-							events.emplace_back(make_shared<vr_main_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_MAIN_TOUCH:
-							events.emplace_back(make_shared<vr_main_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_SYSTEM_PRESS:
-							events.emplace_back(make_shared<vr_system_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_SYSTEM_TOUCH:
-							events.emplace_back(make_shared<vr_system_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_TRACKPAD_PRESS:
-							events.emplace_back(make_shared<vr_trackpad_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_TRACKPAD_TOUCH:
-							events.emplace_back(make_shared<vr_trackpad_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_THUMBSTICK_PRESS:
-							events.emplace_back(make_shared<vr_thumbstick_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_THUMBSTICK_TOUCH:
-							events.emplace_back(make_shared<vr_thumbstick_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_TRIGGER_PRESS:
-							events.emplace_back(make_shared<vr_trigger_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_TRIGGER_TOUCH:
-							events.emplace_back(make_shared<vr_trigger_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_GRIP_PRESS:
-							events.emplace_back(make_shared<vr_grip_press_event>(cur_time, action.second.side, data.bState));
-							break;
-						case EVENT_TYPE::VR_GRIP_TOUCH:
-							events.emplace_back(make_shared<vr_grip_touch_event>(cur_time, action.second.side, data.bState));
-							break;
-						default:
-							log_error("unknown/unhandled VR event: $", action.first);
-							break;
-					}
-				}
+	// poses / tracked device handling
+	array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount> vr_poses {};
+	const auto err = compositor->WaitGetPoses(&vr_poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+	if (err != vr::EVRCompositorError::VRCompositorError_None) {
+		log_error("failed to update VR poses: $", err);
+	} else {
+		poses.clear();
+		for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; ++i) {
+			const auto& vr_pose = vr_poses[i];
+			if (!vr_pose.bPoseIsValid) {
+				// valid poses are contiguous, no need to iterate any further
 				break;
 			}
-			case ACTION_TYPE::ANALOG: {
-				vr::InputAnalogActionData_t data {};
-				err = input->GetAnalogActionData(action.second.handle, &data, sizeof(vr::InputAnalogActionData_t),
-												 vr::k_ulInvalidInputValueHandle);
-				if (err != vr::EVRInputError::VRInputError_None) {
-					break;
-				}
-				if (data.bActive && (data.deltaX != 0.0f || data.deltaY != 0.0f || data.deltaZ != 0.0f)) {
-					switch (action.second.event_type) {
-						case EVENT_TYPE::VR_TRACKPAD_MOVE:
-							events.emplace_back(make_shared<vr_trackpad_move_event>(cur_time, action.second.side,
-																					float2 { data.x, data.y }, float2 { data.deltaX, data.deltaY }));
-							break;
-						case EVENT_TYPE::VR_THUMBSTICK_MOVE:
-							events.emplace_back(make_shared<vr_thumbstick_move_event>(cur_time, action.second.side,
-																					  float2 { data.x, data.y }, float2 { data.deltaX, data.deltaY }));
-							break;
-						case EVENT_TYPE::VR_TRIGGER_PULL:
-							events.emplace_back(make_shared<vr_trigger_pull_event>(cur_time, action.second.side, data.x, data.deltaX));
-							break;
-						case EVENT_TYPE::VR_GRIP_PULL:
-							events.emplace_back(make_shared<vr_grip_pull_event>(cur_time, action.second.side, data.x, data.deltaX));
-							break;
-						case EVENT_TYPE::VR_TRACKPAD_FORCE:
-							events.emplace_back(make_shared<vr_trackpad_force_event>(cur_time, action.second.side, data.x, data.deltaX));
-							break;
-						case EVENT_TYPE::VR_GRIP_FORCE:
-							events.emplace_back(make_shared<vr_grip_force_event>(cur_time, action.second.side, data.x, data.deltaX));
-							break;
-						default:
-							log_error("unknown/unhandled VR event: $", action.first);
-							break;
-					}
-				}
-				break;
-			}
-			default:
-				// not handled yet
-				break;
+
+			const auto& vr_pose_mat = vr_pose.mDeviceToAbsoluteTracking.m;
+			tracked_device_pose_t pose{
+				.device_to_absolute_tracking = { vr_pose_mat[0][0], vr_pose_mat[1][0], vr_pose_mat[2][0], 0.0f,
+												 vr_pose_mat[0][1], vr_pose_mat[1][1], vr_pose_mat[2][1], 0.0f,
+												 vr_pose_mat[0][2], vr_pose_mat[1][2], vr_pose_mat[2][2], 0.0f,
+												 vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3], 1.0f },
+				.velocity = { vr_pose.vVelocity.v[0], vr_pose.vVelocity.v[1], vr_pose.vVelocity.v[2] },
+				.angular_velocity = { vr_pose.vAngularVelocity.v[0], vr_pose.vAngularVelocity.v[1],
+									  vr_pose.vAngularVelocity.v[2] },
+				.status = (VR_TRACKING_STATUS)vr_pose.eTrackingResult,
+				.device_is_connected = vr_pose.bDeviceIsConnected
+			};
+			poses.emplace_back(pose);
 		}
-		if (err != vr::EVRInputError::VRInputError_None) {
-			log_error("failed to update action $: $", action.first, err);
-			continue;
+
+		const auto& hmd_pose = vr_poses[vr::k_unTrackedDeviceIndex_Hmd];
+		if (hmd_pose.bPoseIsValid) {
+			const auto& vr_mat = hmd_pose.mDeviceToAbsoluteTracking;
+			hmd_mat = { vr_mat.m[0][0], vr_mat.m[1][0], vr_mat.m[2][0], 0.0f,
+						vr_mat.m[0][1], vr_mat.m[1][1], vr_mat.m[2][1], 0.0f,
+						vr_mat.m[0][2], vr_mat.m[1][2], vr_mat.m[2][2], 0.0f,
+						vr_mat.m[0][3], vr_mat.m[1][3], vr_mat.m[2][3], 1.0f };
+			hmd_mat.invert();
+		} else {
+			hmd_mat.identity();
 		}
 	}
 
 	return events;
 }
 
-bool openvr_context::present(const compute_queue& cqueue, const compute_image& image) {
+bool openvr_context::present(const compute_queue& cqueue, const compute_image* image) {
+	if (!image) {
+		log_error("OpenVR present image must not be nullptr");
+		return false;
+	}
+
 #if !defined(FLOOR_NO_VULKAN) && !defined(__APPLE__)
 	// check if specified queue and image are actually from Vulkan
 	if (const auto vk_queue_ptr = dynamic_cast<const vulkan_queue*>(&cqueue); !vk_queue_ptr) {
 		log_error("specified queue is not a Vulkan queue");
 		return false;
 	}
-	if (const auto vk_image_ptr = dynamic_cast<const vulkan_image*>(&image); !vk_image_ptr) {
+	if (const auto vk_image_ptr = dynamic_cast<const vulkan_image*>(image); !vk_image_ptr) {
 		log_error("specified queue is not a Vulkan image");
 		return false;
 	}
 
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	const auto& vk_dev = (const vulkan_device&)vk_queue.get_device();
-	const auto& vk_image = (const vulkan_image&)image;
+	const auto& vk_image = *(const vulkan_image*)image;
 
 	const auto left_eye_image = vk_image.get_vulkan_aliased_layer_image(0);
 	const auto right_eye_image = vk_image.get_vulkan_aliased_layer_image(1);
@@ -436,8 +453,8 @@ bool openvr_context::present(const compute_queue& cqueue, const compute_image& i
 		.m_pInstance = ((const vulkan_compute*)vk_dev.context)->get_vulkan_context(),
 		.m_pQueue = (VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()),
 		.m_nQueueFamilyIndex = vk_queue.get_family_index(),
-		.m_nWidth = image.get_image_dim().x,
-		.m_nHeight = image.get_image_dim().y,
+		.m_nWidth = image->get_image_dim().x,
+		.m_nHeight = image->get_image_dim().y,
 		.m_nFormat = uint32_t(vk_image.get_vulkan_format()),
 		.m_nSampleCount = 1,
 	};
@@ -466,11 +483,11 @@ bool openvr_context::present(const compute_queue& cqueue, const compute_image& i
 	(void)cqueue; // unused
 	
 	// check if specified image is actually from Metal
-	if (const auto mtl_image_ptr = dynamic_cast<const metal_image*>(&image); !mtl_image_ptr) {
+	if (const auto mtl_image_ptr = dynamic_cast<const metal_image*>(image); !mtl_image_ptr) {
 		log_error("specified queue is not a Metal image");
 		return false;
 	}
-	const auto& mtl_image = (const metal_image&)image;
+	const auto& mtl_image = *(const metal_image*)image;
 
 	// present VR image
 	// NOTE: with TextureType_Metal we can directly present a layered 2D image

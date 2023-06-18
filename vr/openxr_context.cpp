@@ -230,6 +230,11 @@ openxr_context::openxr_context() : vr_context() {
 			XR_VERSION_MINOR(instance_props.runtimeVersion),
 			XR_VERSION_PATCH(instance_props.runtimeVersion));
 
+	// only PimaxXR has a known good Vulkan implementation
+	if (string_view(instance_props.runtimeName).find("PimaxXR") != string::npos) {
+		is_known_good_vulkan_backend = true;
+	}
+
 	XrSystemGetInfo sys_get_info {
 		.type = XR_TYPE_SYSTEM_GET_INFO,
 		.next = nullptr,
@@ -373,30 +378,13 @@ openxr_context::openxr_context() : vr_context() {
 }
 
 openxr_context::~openxr_context() {
-	if (auto ml_swapchain = get_if<multi_layer_swapchaint_t>(&swapchain); ml_swapchain) {
-		if (ml_swapchain->swapchain) {
-			XR_CALL_IGNORE(xrDestroySwapchain(ml_swapchain->swapchain), "failed to destroy OpenXR swapchain");
-		}
-		if (vk_dev) {
-			for (auto& image_view : ml_swapchain->swapchain_vk_image_views) {
-				if (image_view) {
-					vkDestroyImageView(vk_dev->device, image_view, nullptr);
-				}
-			}
-		}
-	} else if (auto mi_swapchain = get_if<multi_image_swapchaint_t>(&swapchain); mi_swapchain) {
-		for (auto& swapchain_ : mi_swapchain->swapchains) {
-			if (swapchain_) {
-				XR_CALL_IGNORE(xrDestroySwapchain(swapchain_), "failed to destroy OpenXR swapchain");
-			}
-		}
-		if (vk_dev) {
-			for (auto& image_views : mi_swapchain->swapchain_vk_image_views) {
-				for (auto& image_view : image_views) {
-					if (image_view) {
-						vkDestroyImageView(vk_dev->device, image_view, nullptr);
-					}
-				}
+	if (swapchain.swapchain) {
+		XR_CALL_IGNORE(xrDestroySwapchain(swapchain.swapchain), "failed to destroy OpenXR swapchain");
+	}
+	if (vk_dev) {
+		for (auto& image_view : swapchain.swapchain_vk_image_views) {
+			if (image_view) {
+				vkDestroyImageView(vk_dev->device, image_view, nullptr);
 			}
 		}
 	}
@@ -619,194 +607,89 @@ bool openxr_context::create_session(vulkan_compute& vk_ctx_, const vulkan_device
 	}
 	log_msg("OpenXR: using swapchain format: $", swapchain_format);
 
-	const bool use_ml_swapchain = false; // TODO: multi-layer currently doesn't work
-	if (use_ml_swapchain) {
-		// -> create a single multi-layer swapchain
-		multi_layer_swapchaint_t ml_swapchain;
+	// -> create a single multi-layer swapchain
+	const XrSwapchainCreateInfo swapchain_create_info{
+		.type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
+		.next = nullptr,
+		.createFlags = 0,
+		.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT |
+					  XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT |
+					  XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT,
+		.format = swapchain_format,
+		.sampleCount = 1,
+		.width = recommended_render_size.x,
+		.height = recommended_render_size.y,
+		.faceCount = 1,
+		.arraySize = uint32_t(views.size()),
+		.mipCount = 1,
+	};
+	XR_CALL_RET(xrCreateSwapchain(session, &swapchain_create_info, &swapchain.swapchain), "failed to create swapchain", false);
 
-		const XrSwapchainCreateInfo swapchain_create_info{
-			.type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
+	uint32_t swapchain_image_count = 0;
+	XR_CALL_RET(xrEnumerateSwapchainImages(swapchain.swapchain, 0, &swapchain_image_count, nullptr),
+				"failed to retrieve swapchain image count", false);
+
+	log_msg("OpenXR: swapchain image count: $", swapchain_image_count);
+	swapchain.swapchain_vk_images.resize(swapchain_image_count);
+	for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
+		swapchain.swapchain_vk_images[swapchain_image_idx] = {
+			.type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR,
 			.next = nullptr,
-			.createFlags = 0,
-			.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT |
-						  XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT |
-						  XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT,
-			.format = swapchain_format,
-			.sampleCount = 1,
-			.width = recommended_render_size.x,
-			.height = recommended_render_size.y,
-			.faceCount = 1,
-			.arraySize = uint32_t(views.size()),
-			.mipCount = 1,
+			.image = nullptr,
 		};
-		XR_CALL_RET(xrCreateSwapchain(session, &swapchain_create_info, &ml_swapchain.swapchain), "failed to create swapchain", false);
+	}
 
-		uint32_t swapchain_image_count = 0;
-		XR_CALL_RET(xrEnumerateSwapchainImages(ml_swapchain.swapchain, 0, &swapchain_image_count, nullptr),
-					"failed to retrieve swapchain image count", false);
+	XR_CALL_RET(xrEnumerateSwapchainImages(swapchain.swapchain, swapchain_image_count, &swapchain_image_count,
+										   reinterpret_cast<XrSwapchainImageBaseHeader*>(swapchain.swapchain_vk_images.data())),
+				"failed to enumerate swapchain images", false);
 
-		log_msg("OpenXR: swapchain image count: $", swapchain_image_count);
-		ml_swapchain.swapchain_vk_images.resize(swapchain_image_count);
-		for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
-			ml_swapchain.swapchain_vk_images[swapchain_image_idx] = {
-				.type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR,
-				.next = nullptr,
-				.image = nullptr,
-			};
-		}
+	// wrap swapchain images
+	swapchain.swapchain_images.resize(swapchain_image_count);
+	swapchain.swapchain_vk_image_views.resize(swapchain_image_count);
+	for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
+		auto swapchain_image = swapchain.swapchain_vk_images[swapchain_image_idx].image;
 
-		XR_CALL_RET(xrEnumerateSwapchainImages(ml_swapchain.swapchain, swapchain_image_count, &swapchain_image_count,
-											   reinterpret_cast<XrSwapchainImageBaseHeader*>(ml_swapchain.swapchain_vk_images.data())),
-					"failed to enumerate swapchain images", false);
+		VkImageViewCreateInfo image_view_create_info {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.image = swapchain_image,
+			.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+			.format = swapchain_format,
+			.components = {
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY
+			},
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = uint32_t(views.size()),
+			},
+		};
+		VK_CALL_RET(vkCreateImageView(vk_dev->device, &image_view_create_info, nullptr,
+									  &swapchain.swapchain_vk_image_views[swapchain_image_idx]),
+					"swapchain image view creation failed", false)
+		vk_ctx->set_vulkan_debug_label(*vk_dev, VK_OBJECT_TYPE_IMAGE_VIEW,
+									   uint64_t(swapchain.swapchain_vk_image_views[swapchain_image_idx]),
+									   "vr_swapchain_image_#" + to_string(swapchain_image_idx));
 
-		// wrap swapchain images
-		ml_swapchain.swapchain_images.resize(swapchain_image_count);
-		ml_swapchain.swapchain_vk_image_views.resize(swapchain_image_count);
-		for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
-			auto swapchain_image = ml_swapchain.swapchain_vk_images[swapchain_image_idx].image;
-
-			VkImageViewCreateInfo image_view_create_info {
-				.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-				.pNext = nullptr,
-				.flags = 0,
-				.image = swapchain_image,
-				.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
-				.format = swapchain_format,
-				.components = {
-					VK_COMPONENT_SWIZZLE_R,
-					VK_COMPONENT_SWIZZLE_G,
-					VK_COMPONENT_SWIZZLE_B,
-					VK_COMPONENT_SWIZZLE_A
-				},
-				.subresourceRange = {
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = uint32_t(views.size()),
-				},
-			};
-			VK_CALL_RET(vkCreateImageView(vk_dev->device, &image_view_create_info, nullptr,
-										  &ml_swapchain.swapchain_vk_image_views[swapchain_image_idx]),
-						"swapchain image view creation failed", false)
-			vk_ctx->set_vulkan_debug_label(*vk_dev, VK_OBJECT_TYPE_IMAGE_VIEW,
-										   uint64_t(ml_swapchain.swapchain_vk_image_views[swapchain_image_idx]),
-										   "vr_swapchain_image_#" + to_string(swapchain_image_idx));
-
-			vulkan_image::external_vulkan_image_info info {
-				.image = swapchain_image,
-				.image_view = ml_swapchain.swapchain_vk_image_views[swapchain_image_idx],
-				.format = swapchain_format,
-				.access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-				.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				.image_base_type = (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY |
-									COMPUTE_IMAGE_TYPE::READ_WRITE |
-									COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET),
-				.dim = { recommended_render_size.x, recommended_render_size.y, uint32_t(views.size()), 0 },
-			};
-			ml_swapchain.swapchain_images[swapchain_image_idx] = make_unique<vulkan_image>(vk_queue, info);
-			ml_swapchain.swapchain_images[swapchain_image_idx]->set_debug_label("swapchain_image_#" + to_string(swapchain_image_idx));
-		}
-
-		swapchain = std::move(ml_swapchain);
-	} else {
-		// -> create one swapchain per view
-		multi_image_swapchaint_t mi_swapchain;
-
-		const auto view_count = uint32_t(views.size());
-		mi_swapchain.swapchains.resize(view_count, nullptr);
-		mi_swapchain.swapchain_images.resize(view_count);
-		mi_swapchain.swapchain_vk_images.resize(view_count);
-		mi_swapchain.swapchain_vk_image_views.resize(view_count);
-		for (uint32_t view_idx = 0; view_idx < view_count; ++view_idx) {
-			const XrSwapchainCreateInfo swapchain_create_info{
-				.type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-				.next = nullptr,
-				.createFlags = 0,
-				.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT |
-							  XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT |
-							  XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT,
-				.format = swapchain_format,
-				.sampleCount = 1,
-				.width = recommended_render_size.x,
-				.height = recommended_render_size.y,
-				.faceCount = 1,
-				.arraySize = 1,
-				.mipCount = 1,
-			};
-			XR_CALL_RET(xrCreateSwapchain(session, &swapchain_create_info, &mi_swapchain.swapchains[view_idx]),
-						"failed to create swapchain #" + to_string(view_idx), false);
-
-			uint32_t swapchain_image_count = 0;
-			XR_CALL_RET(xrEnumerateSwapchainImages(mi_swapchain.swapchains[view_idx], 0, &swapchain_image_count, nullptr),
-						"failed to retrieve swapchain image count", false);
-
-			log_msg("OpenXR: swapchain image count: $", swapchain_image_count);
-			mi_swapchain.swapchain_vk_images[view_idx].resize(swapchain_image_count);
-			for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
-				mi_swapchain.swapchain_vk_images[view_idx][swapchain_image_idx] = {
-					.type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR,
-					.next = nullptr,
-					.image = nullptr,
-				};
-			}
-
-			XR_CALL_RET(xrEnumerateSwapchainImages(mi_swapchain.swapchains[view_idx], swapchain_image_count, &swapchain_image_count,
-												   reinterpret_cast<XrSwapchainImageBaseHeader*>(mi_swapchain.swapchain_vk_images[view_idx].data())),
-						"failed to enumerate swapchain #" + to_string(view_idx) + " images", false);
-
-			// wrap swapchain images
-			mi_swapchain.swapchain_images[view_idx].resize(swapchain_image_count);
-			mi_swapchain.swapchain_vk_image_views[view_idx].resize(swapchain_image_count);
-			for (uint32_t swapchain_image_idx = 0; swapchain_image_idx < swapchain_image_count; ++swapchain_image_idx) {
-				auto swapchain_image = mi_swapchain.swapchain_vk_images[view_idx][swapchain_image_idx].image;
-
-				VkImageViewCreateInfo image_view_create_info {
-					.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-					.pNext = nullptr,
-					.flags = 0,
-					.image = swapchain_image,
-					.viewType = VK_IMAGE_VIEW_TYPE_2D,
-					.format = swapchain_format,
-					.components = {
-						VK_COMPONENT_SWIZZLE_R,
-						VK_COMPONENT_SWIZZLE_G,
-						VK_COMPONENT_SWIZZLE_B,
-						VK_COMPONENT_SWIZZLE_A
-					},
-					.subresourceRange = {
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.baseMipLevel = 0,
-						.levelCount = 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-				};
-				VK_CALL_RET(vkCreateImageView(vk_dev->device, &image_view_create_info, nullptr,
-											  &mi_swapchain.swapchain_vk_image_views[view_idx][swapchain_image_idx]),
-							"swapchain image view creation failed", false)
-				vk_ctx->set_vulkan_debug_label(*vk_dev, VK_OBJECT_TYPE_IMAGE_VIEW,
-											   uint64_t(mi_swapchain.swapchain_vk_image_views[view_idx][swapchain_image_idx]),
-											   "vr_swapchain_image_" + to_string(view_idx) + "_#" + to_string(swapchain_image_idx));
-
-				vulkan_image::external_vulkan_image_info info {
-					.image = swapchain_image,
-					.image_view = mi_swapchain.swapchain_vk_image_views[view_idx][swapchain_image_idx],
-					.format = swapchain_format,
-					.access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-					.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					.image_base_type = (COMPUTE_IMAGE_TYPE::IMAGE_2D |
-										COMPUTE_IMAGE_TYPE::READ_WRITE |
-										COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET),
-					.dim = { recommended_render_size.x, recommended_render_size.y, 0, 0 },
-				};
-				mi_swapchain.swapchain_images[view_idx][swapchain_image_idx] = make_unique<vulkan_image>(vk_queue, info);
-				mi_swapchain.swapchain_images[view_idx][swapchain_image_idx]->set_debug_label("swapchain_image_" + to_string(view_idx) +
-																							  "_#" + to_string(swapchain_image_idx));
-			}
-		}
-
-		swapchain = std::move(mi_swapchain);
+		vulkan_image::external_vulkan_image_info info {
+			.image = swapchain_image,
+			.image_view = swapchain.swapchain_vk_image_views[swapchain_image_idx],
+			.format = swapchain_format,
+			.access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.image_base_type = (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY |
+								COMPUTE_IMAGE_TYPE::READ_WRITE |
+								COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET),
+			.dim = { recommended_render_size.x, recommended_render_size.y, uint32_t(views.size()), 0 },
+		};
+		swapchain.swapchain_images[swapchain_image_idx] = make_unique<vulkan_image>(vk_queue, info);
+		swapchain.swapchain_images[swapchain_image_idx]->set_debug_label("swapchain_image_#" + to_string(swapchain_image_idx));
 	}
 
 	// can now create input handling (-> openxr_input.cpp)
@@ -819,6 +702,16 @@ bool openxr_context::create_session(vulkan_compute& vk_ctx_, const vulkan_device
 	return true;
 }
 
+vr_context::swapchain_info_t openxr_context::get_swapchain_info() const {
+	if (swapchain.swapchain_images.empty()) {
+		throw runtime_error("swapchain has not been initialized");
+	}
+	return {
+		.image_count = uint32_t(swapchain.swapchain_images.size()),
+		.image_type = swapchain.swapchain_images[0]->get_image_type(),
+	};
+}
+
 string openxr_context::get_vulkan_instance_extensions() const {
 	return {}; // not needed for XR_KHR_vulkan_enable2
 }
@@ -827,12 +720,7 @@ string openxr_context::get_vulkan_device_extensions([[maybe_unused]] VkPhysicalD
 	return {}; // not needed for XR_KHR_vulkan_enable2
 }
 
-bool openxr_context::update() {
-	// TODO: do we actually need this?
-	return true;
-}
-
-vector<shared_ptr<event_object>> openxr_context::update_input() {
+vector<shared_ptr<event_object>> openxr_context::handle_input() {
 	vector<shared_ptr<event_object>> events;
 
 	if (!handle_input_internal(events)) {
@@ -894,33 +782,20 @@ vector<shared_ptr<event_object>> openxr_context::update_input() {
 	return events;
 }
 
-bool openxr_context::present(const compute_queue& cqueue, const compute_image& image) REQUIRES(!view_states_lock) {
-#if defined(FLOOR_DEBUG)
-	// check if specified queue and image are actually from Vulkan
-	if (const auto vk_queue_ptr = dynamic_cast<const vulkan_queue*>(&cqueue); !vk_queue_ptr) {
-		log_error("specified queue is not a Vulkan queue");
-		return false;
-	}
-	if (const auto vk_image_ptr = dynamic_cast<const vulkan_image*>(&image); !vk_image_ptr) {
-		log_error("specified queue is not a Vulkan image");
-		return false;
-	}
-#endif
-
-	// TODO: the start of this should really be put into a "start frame" function
-	// -> can then actually access the matrices/poses of the current frame from the outside
+compute_image* openxr_context::acquire_next_image() REQUIRES(!view_states_lock) {
+	cur_swapchain_image = nullptr; // reset
 
 	// wait for next frame
 	const XrFrameWaitInfo frame_wait_info {
 		.type = XR_TYPE_FRAME_WAIT_INFO,
 		.next = nullptr,
 	};
-	XrFrameState frame_state {
+	cur_frame_state = XrFrameState {
 		.type = XR_TYPE_FRAME_STATE,
 		.next = nullptr,
 	};
-	XR_CALL_RET(xrWaitFrame(session, &frame_wait_info, &frame_state),
-				"frame wait failed", false);
+	XR_CALL_RET(xrWaitFrame(session, &frame_wait_info, &cur_frame_state),
+				"frame wait failed", nullptr);
 
 	// begin frame
 	const XrFrameBeginInfo frame_begin_info {
@@ -928,9 +803,9 @@ bool openxr_context::present(const compute_queue& cqueue, const compute_image& i
 		.next = nullptr,
 	};
 	XR_CALL_RET(xrBeginFrame(session, &frame_begin_info),
-				"failed to begin frame", false);
+				"failed to begin frame", nullptr);
 
-	array<XrCompositionLayerProjectionView, 2> layer_projection_views {{
+	cur_layer_projection_views = {{
 		{
 			.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
 			.next = nullptr,
@@ -940,242 +815,158 @@ bool openxr_context::present(const compute_queue& cqueue, const compute_image& i
 			.next = nullptr,
 		}
 	}};
-	XrCompositionLayerProjection layer_projection {
+	cur_layer_projection = {
 		.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
 		.next = nullptr,
 	};
-	if (frame_state.shouldRender) {
-		layer_projection.layerFlags = 0;
-		layer_projection.space = scene_space;
-		layer_projection.viewCount = uint32_t(views.size());
-		layer_projection.views = layer_projection_views.data();
 
-		const XrViewLocateInfo view_locate_info {
-			.type = XR_TYPE_VIEW_LOCATE_INFO,
-			.next = nullptr,
-			.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
-			.displayTime = frame_state.predictedDisplayTime,
-			.space = scene_space,
-		};
-		XrViewState view_state {
-			.type = XR_TYPE_VIEW_STATE,
-			.next = nullptr,
-			.viewStateFlags = 0,
-		};
-		uint32_t view_count = 0;
-		XR_CALL_RET(xrLocateViews(session, &view_locate_info, &view_state, uint32_t(views.size()), &view_count,
-								  views.data()),
-					"failed to locate views", false);
+	if (!cur_frame_state.shouldRender) {
+		return nullptr;
+	}
 
-		XrSpaceLocation space_location {
-			.type = XR_TYPE_SPACE_LOCATION,
-			.next = nullptr,
-		};
-		XR_CALL_RET(xrLocateSpace(view_space, scene_space, frame_state.predictedDisplayTime, &space_location),
-					"failed to locate space", false);
-		float3 hmd_view_position {
-			space_location.pose.position.x,
-			space_location.pose.position.y,
-			space_location.pose.position.z
-		};
-		quaternionf hmd_view_quat {
-			space_location.pose.orientation.x,
-			space_location.pose.orientation.y,
-			space_location.pose.orientation.z,
-			space_location.pose.orientation.w
-		};
+	cur_layer_projection.layerFlags = 0;
+	cur_layer_projection.space = scene_space;
+	cur_layer_projection.viewCount = uint32_t(views.size());
+	cur_layer_projection.views = cur_layer_projection_views.data();
 
-		{
-			// update view state
-			GUARD(view_states_lock);
-			hmd_view_state.position = hmd_view_position;
-			hmd_view_state.orientation = hmd_view_quat;
-			for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
-				view_states[view_index].position = {
-					views[view_index].pose.position.x,
-					views[view_index].pose.position.y,
-					views[view_index].pose.position.z
-				};
-				view_states[view_index].orientation = {
-					views[view_index].pose.orientation.x,
-					views[view_index].pose.orientation.y,
-					views[view_index].pose.orientation.z,
-					views[view_index].pose.orientation.w
-				};
-				// store in the same order as OpenVR
-				view_states[view_index].fov = {
-					views[view_index].fov.angleLeft,
-					views[view_index].fov.angleRight,
-					views[view_index].fov.angleUp,
-					views[view_index].fov.angleDown
-				};
-			}
-		}
+	const XrViewLocateInfo view_locate_info {
+		.type = XR_TYPE_VIEW_LOCATE_INFO,
+		.next = nullptr,
+		.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+		.displayTime = cur_frame_state.predictedDisplayTime,
+		.space = scene_space,
+	};
+	XrViewState view_state {
+		.type = XR_TYPE_VIEW_STATE,
+		.next = nullptr,
+		.viewStateFlags = 0,
+	};
+	uint32_t view_count = 0;
+	XR_CALL_RET(xrLocateViews(session, &view_locate_info, &view_state, uint32_t(views.size()), &view_count,
+							  views.data()),
+				"failed to locate views", nullptr);
 
-		if (auto ml_swapchain = get_if<multi_layer_swapchaint_t>(&swapchain); ml_swapchain) {
-			for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
-				layer_projection_views[view_index].pose = views[view_index].pose;
-				layer_projection_views[view_index].fov = views[view_index].fov;
-				layer_projection_views[view_index].subImage = XrSwapchainSubImage {
-					.swapchain = ml_swapchain->swapchain,
-					.imageRect = {
-						.offset = { 0, 0 },
-						.extent = { int(recommended_render_size.x), int(recommended_render_size.y) },
-					},
-					.imageArrayIndex = view_index,
-				};
-			}
+	XrSpaceLocation space_location {
+		.type = XR_TYPE_SPACE_LOCATION,
+		.next = nullptr,
+	};
+	XR_CALL_RET(xrLocateSpace(view_space, scene_space, cur_frame_state.predictedDisplayTime, &space_location),
+				"failed to locate space", nullptr);
+	float3 hmd_view_position {
+		space_location.pose.position.x,
+		space_location.pose.position.y,
+		space_location.pose.position.z
+	};
+	quaternionf hmd_view_quat {
+		space_location.pose.orientation.x,
+		space_location.pose.orientation.y,
+		space_location.pose.orientation.z,
+		space_location.pose.orientation.w
+	};
 
-			// acquire and present/blit VR images
-			const XrSwapchainImageAcquireInfo acq_info{
-				.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO,
-				.next = nullptr,
+	{
+		// update view state
+		GUARD(view_states_lock);
+		hmd_view_state.position = hmd_view_position;
+		hmd_view_state.orientation = hmd_view_quat;
+		for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
+			view_states[view_index].position = {
+				views[view_index].pose.position.x,
+				views[view_index].pose.position.y,
+				views[view_index].pose.position.z
 			};
-			uint32_t swapchain_image_idx = ~0u;
-			XR_CALL_RET(xrAcquireSwapchainImage(ml_swapchain->swapchain, &acq_info, &swapchain_image_idx),
-						"failed to acquire swapchain image", false);
-			if (swapchain_image_idx >= ml_swapchain->swapchain_vk_images.size()) {
-				log_error("swapchain image index is out-of-bounds: $", swapchain_image_idx);
-				return false;
-			}
-
-			const XrSwapchainImageWaitInfo wait_info{
-				.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
-				.next = nullptr,
-				.timeout = XR_INFINITE_DURATION,
+			view_states[view_index].orientation = {
+				views[view_index].pose.orientation.x,
+				views[view_index].pose.orientation.y,
+				views[view_index].pose.orientation.z,
+				views[view_index].pose.orientation.w
 			};
-			XR_CALL_RET(xrWaitSwapchainImage(ml_swapchain->swapchain, &wait_info),
-						"failed to wait for swapchain image", false);
-
-			if (!ml_swapchain->swapchain_images[swapchain_image_idx]->blit(cqueue, const_cast<compute_image&>(image))) {
-				log_error("swapchain blit failed");
-			}
-
-			const XrSwapchainImageReleaseInfo release_info{
-				.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO,
-				.next = nullptr,
+			// store in the same order as OpenVR
+			view_states[view_index].fov = {
+				views[view_index].fov.angleLeft,
+				views[view_index].fov.angleRight,
+				views[view_index].fov.angleUp,
+				views[view_index].fov.angleDown
 			};
-			XR_CALL_RET(xrReleaseSwapchainImage(ml_swapchain->swapchain, &release_info),
-						"failed to release swapchain image", false);
-		} else if (auto mi_swapchain = get_if<multi_image_swapchaint_t>(&swapchain); mi_swapchain) {
-			vector<uint32_t> swapchain_image_idxs(view_count, ~0u);
-			for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
-				layer_projection_views[view_index].pose = views[view_index].pose;
-				layer_projection_views[view_index].fov = views[view_index].fov;
-				layer_projection_views[view_index].subImage = XrSwapchainSubImage {
-					.swapchain = mi_swapchain->swapchains[view_index],
-					.imageRect = {
-						.offset = { 0, 0 },
-						.extent = { int(recommended_render_size.x), int(recommended_render_size.y) },
-					},
-					.imageArrayIndex = 0,
-				};
-
-				// acquire VR images
-				const XrSwapchainImageAcquireInfo acq_info{
-					.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO,
-					.next = nullptr,
-				};
-				XR_CALL_RET(xrAcquireSwapchainImage(mi_swapchain->swapchains[view_index], &acq_info, &swapchain_image_idxs[view_index]),
-							"failed to acquire swapchain image", false);
-				if (swapchain_image_idxs[view_index] >= mi_swapchain->swapchain_vk_images[view_index].size()) {
-					log_error("swapchain image index is out-of-bounds: $", swapchain_image_idxs[view_index]);
-					return false;
-				}
-
-				const XrSwapchainImageWaitInfo wait_info{
-					.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
-					.next = nullptr,
-					.timeout = XR_INFINITE_DURATION,
-				};
-				XR_CALL_RET(xrWaitSwapchainImage(mi_swapchain->swapchains[view_index], &wait_info),
-							"failed to wait for swapchain image", false);
-			}
-
-			// blit VR images
-			const auto& vk_queue = (const vulkan_queue&)cqueue;
-			auto& vk_image = (vulkan_image&)const_cast<compute_image&>(image);
-			VK_CMD_BLOCK_RET(vk_queue, "swapchain image blit", ({
-				const auto src_restore_access_mask = vk_image.get_vulkan_access_mask();
-				const auto src_restore_layout = vk_image.get_vulkan_image_info()->imageLayout;
-				vk_image.transition(&cqueue, block_cmd_buffer.cmd_buffer,
-									VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-									VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-
-				for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
-					auto& swapchain_image = (vulkan_image&)*mi_swapchain->swapchain_images[view_index][swapchain_image_idxs[view_index]];
-					const auto restore_access_mask = swapchain_image.get_vulkan_access_mask();
-					const auto restore_layout = swapchain_image.get_vulkan_image_info()->imageLayout;
-
-					swapchain_image.transition(&cqueue,
-											   block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-											   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-											   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-
-					VkImageAspectFlags aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
-					const VkOffset3D extent { int(recommended_render_size.x), int(recommended_render_size.y), 1 };
-					vector<VkImageBlit2> regions { VkImageBlit2 {
-						.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-						.pNext = nullptr,
-						.srcSubresource = {
-							.aspectMask = aspect_mask,
-							.mipLevel = 0,
-							.baseArrayLayer = view_index,
-							.layerCount = 1,
-						},
-						.srcOffsets = { { 0, 0, 0 }, extent },
-						.dstSubresource = {
-							.aspectMask = aspect_mask,
-							.mipLevel = 0,
-							.baseArrayLayer = 0,
-							.layerCount = 1,
-						},
-						.dstOffsets = { { 0, 0, 0 }, extent },
-					}};
-
-					assert(!regions.empty());
-					const VkBlitImageInfo2 blit_info {
-						.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
-						.pNext = nullptr,
-						.srcImage = vk_image.get_vulkan_image(),
-						.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-						.dstImage = swapchain_image.get_vulkan_image(),
-						.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-						.regionCount = uint32_t(regions.size()),
-						.pRegions = &regions[0],
-						.filter = VK_FILTER_NEAREST,
-					};
-					vkCmdBlitImage2(block_cmd_buffer.cmd_buffer, &blit_info);
-
-					swapchain_image.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
-											   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-				}
-
-				vk_image.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
-									VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-			}), false /* return false on error */, true /* always blocking */);
-
-			// release/present VR images
-			for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
-			const XrSwapchainImageReleaseInfo release_info{
-				.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO,
-				.next = nullptr,
-			};
-			XR_CALL_RET(xrReleaseSwapchainImage(mi_swapchain->swapchains[view_index], &release_info),
-					   "failed to release swapchain image", false);
-			}
 		}
 	}
 
+	for (uint32_t view_index = 0; view_index < view_count; ++view_index) {
+		cur_layer_projection_views[view_index].pose = views[view_index].pose;
+		cur_layer_projection_views[view_index].fov = views[view_index].fov;
+		cur_layer_projection_views[view_index].subImage = XrSwapchainSubImage {
+			.swapchain = swapchain.swapchain,
+			.imageRect = {
+				.offset = { 0, 0 },
+				.extent = { int(recommended_render_size.x), int(recommended_render_size.y) },
+			},
+			.imageArrayIndex = view_index,
+		};
+	}
+
+	// acquire and present/blit VR images
+	const XrSwapchainImageAcquireInfo acq_info{
+		.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO,
+		.next = nullptr,
+	};
+	uint32_t swapchain_image_idx = ~0u;
+	XR_CALL_RET(xrAcquireSwapchainImage(swapchain.swapchain, &acq_info, &swapchain_image_idx),
+				"failed to acquire swapchain image", nullptr);
+	if (swapchain_image_idx >= swapchain.swapchain_vk_images.size()) {
+		log_error("swapchain image index is out-of-bounds: $", swapchain_image_idx);
+		return nullptr;
+	}
+
+	const XrSwapchainImageWaitInfo wait_info{
+		.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
+		.next = nullptr,
+		.timeout = XR_INFINITE_DURATION,
+	};
+	XR_CALL_RET(xrWaitSwapchainImage(swapchain.swapchain, &wait_info),
+				"failed to wait for swapchain image", nullptr);
+
+	cur_swapchain_image = swapchain.swapchain_images[swapchain_image_idx].get();
+	return cur_swapchain_image;
+}
+
+bool openxr_context::present(const compute_queue& cqueue, const compute_image* image) REQUIRES(!view_states_lock) {
+#if defined(FLOOR_DEBUG)
+	// check if specified queue and image are actually from Vulkan
+	if (const auto vk_queue_ptr = dynamic_cast<const vulkan_queue*>(&cqueue); !vk_queue_ptr) {
+		log_error("specified queue is not a Vulkan queue");
+		return false;
+	}
+	if (image) {
+		if (const auto vk_image_ptr = dynamic_cast<const vulkan_image*>(image); !vk_image_ptr) {
+			log_error("specified queue is not a Vulkan image");
+			return false;
+		}
+	}
+#endif
+
+	if (cur_swapchain_image != image) {
+		log_error("the image provided to present() is not the same as the one returned by acquire_next_image()");
+		return false;
+	}
+
+	if (cur_frame_state.shouldRender && image) {
+		const XrSwapchainImageReleaseInfo release_info{
+			.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO,
+			.next = nullptr,
+		};
+		XR_CALL_RET(xrReleaseSwapchainImage(swapchain.swapchain, &release_info),
+					"failed to release swapchain image", false);
+	}
+
 	// end frame
-	array<XrCompositionLayerBaseHeader*, 1> layers {{ reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer_projection) }};
+	array<XrCompositionLayerBaseHeader*, 1> layers {{ reinterpret_cast<XrCompositionLayerBaseHeader*>(&cur_layer_projection) }};
 	const XrFrameEndInfo frame_end_info {
 		.type = XR_TYPE_FRAME_END_INFO,
 		.next = nullptr,
-		.displayTime = frame_state.predictedDisplayTime,
+		.displayTime = cur_frame_state.predictedDisplayTime,
 		.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
-		.layerCount = frame_state.shouldRender ? 1u : 0u,
-		.layers = frame_state.shouldRender ? layers.data() : nullptr,
+		.layerCount = cur_frame_state.shouldRender ? 1u : 0u,
+		.layers = cur_frame_state.shouldRender ? layers.data() : nullptr,
 	};
 	XR_CALL_RET(xrEndFrame(session, &frame_end_info),
 				"failed to end frame", false);

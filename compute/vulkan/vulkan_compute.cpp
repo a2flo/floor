@@ -2182,30 +2182,44 @@ bool vulkan_compute::init_vr_renderer() {
 		}
 	}
 #endif
-	
-	// create 2D 2-layer images for rendering (with aliasing support, so we can grab each layer individually)
-	vr_screen.render_device = screen.render_device;
 
+	// general setup
+	vr_screen.render_device = screen.render_device;
 	vr_screen.size = floor::get_vr_physical_screen_size();
 	vr_screen.layer_count = 2;
-	vr_screen.image_count = 2;
-	// TODO: properly support wide-gamut (VK_FORMAT_R16G16B16A16_SFLOAT is overkill and VK_FORMAT_A2R10G10B10_UINT_PACK32 can't be used as a color att)
-	vr_screen.has_wide_gamut = floor::get_wide_gamut();
-	//vr_screen.has_wide_gamut = false;
-	vr_screen.format = (vr_screen.has_wide_gamut ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_B8G8R8A8_UNORM);
-	vr_screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-	// NOTE: we'll be using multi-view / layered rendering
-	vr_screen.image_type = *vulkan_image::image_type_from_vulkan_format(vr_screen.format);
-	vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ_WRITE;
-	for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
-		vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count },
-												   vr_screen.image_type,
-												   COMPUTE_MEMORY_FLAG::READ_WRITE |
-												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
-												   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
-		vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i));
+	
+	// if the VR backend doesn't provide a swapchain itself, we need to provide this manually
+	// NOTE: we'll always create 2D 2-layer images for rendering (with aliasing support, so we can grab each layer individually)
+	if (!vr_ctx->has_swapchain()) {
+		vr_screen.has_wide_gamut = floor::get_wide_gamut();
+		// TODO: properly support wide-gamut (VK_FORMAT_R16G16B16A16_SFLOAT is overkill and VK_FORMAT_A2R10G10B10_UINT_PACK32 can't be used as a color att)
+		vr_screen.format = (vr_screen.has_wide_gamut ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_B8G8R8A8_UNORM);
+		vr_screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		vr_screen.image_count = 2;
+		// NOTE: we'll be using multi-view / layered rendering
+		vr_screen.image_type = *vulkan_image::image_type_from_vulkan_format(vr_screen.format);
+		vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ_WRITE;
+		for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
+			vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count },
+													   vr_screen.image_type,
+													   COMPUTE_MEMORY_FLAG::READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+													   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
+			vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i));
+		}
+	} else {
+		const auto info = vr_ctx->get_swapchain_info();
+		vr_screen.image_count = info.image_count;
+		vr_screen.image_type = info.image_type;
+		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(vr_screen.image_type)) {
+			log_error("VR swapchain image must be an array");
+			return false;
+		}
+		vr_screen.has_wide_gamut = (image_bits_of_channel(vr_screen.image_type, 0) > 8);
+		vr_screen.external_swapchain_images.resize(vr_screen.image_count, nullptr);
 	}
 	vr_screen.image_locks.resize(vr_screen.image_count);
+
 	return true;
 }
 
@@ -2222,26 +2236,55 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 
 		// lock this image until it has been submitted for present (also blocks until the wanted image is available)
 		vr_screen.image_locks[vr_screen.image_index].lock();
-		auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
 
-		// transition / make the render target writable
-		vr_image->transition_write(&dev_queue, nullptr);
-
-		return {
-			true,
-			{
-				.index = vr_screen.image_index,
-				.image_size = vr_screen.size,
-				.layer_count = vr_screen.layer_count,
-				.image = vr_image->get_vulkan_image(),
-				.image_view = vr_image->get_vulkan_image_view(),
-				.format = vr_screen.format,
-				.access_mask = vr_image->get_vulkan_access_mask(),
-				.layout = vr_image->get_vulkan_image_info()->imageLayout,
-				.present_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY,
+		// if the VR backend provides its own swapchain, use the swapchain image directly
+		if (vr_ctx->has_swapchain()) {
+			auto swapchain_image = vr_ctx->acquire_next_image();
+			if (!swapchain_image) {
+				// still need to call present() to finish the frame
+				(void)vr_ctx->present(dev_queue, nullptr);
+				return { false, {} };
 			}
-		};
+
+			auto vk_swapchain_image = (vulkan_image*)swapchain_image;
+			vr_screen.external_swapchain_images[vr_screen.image_index] = swapchain_image;
+			return {
+				true,
+				{
+					.index = vr_screen.image_index,
+					.image_size = vr_screen.size,
+					.layer_count = vr_screen.layer_count,
+					.image = vk_swapchain_image->get_vulkan_image(),
+					.image_view = vk_swapchain_image->get_vulkan_image_view(),
+					.format = vk_swapchain_image->get_vulkan_format(),
+					.access_mask = vk_swapchain_image->get_vulkan_access_mask(),
+					.layout = vk_swapchain_image->get_vulkan_image_info()->imageLayout,
+					.present_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					.base_type = vk_swapchain_image->get_image_type(),
+				}
+			};
+		} else {
+			auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
+
+			// transition / make the render target writable
+			vr_image->transition_write(&dev_queue, nullptr);
+
+			return {
+				true,
+				{
+					.index = vr_screen.image_index,
+					.image_size = vr_screen.size,
+					.layer_count = vr_screen.layer_count,
+					.image = vr_image->get_vulkan_image(),
+					.image_view = vr_image->get_vulkan_image_view(),
+					.format = vr_screen.format,
+					.access_mask = vr_image->get_vulkan_access_mask(),
+					.layout = vr_image->get_vulkan_image_info()->imageLayout,
+					.present_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY,
+				}
+			};
+		}
 	}
 	
 	if (screen.x11_forwarding) {
@@ -2429,16 +2472,31 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 	if (vr_ctx && drawable.layer_count > 1) {
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		const auto& dev_queue = *get_device_default_queue(*vr_screen.render_device);
-		auto& present_image = (vulkan_image&)*vr_screen.images[drawable.index];
 
-		// keep image state in sync
-		present_image.update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_2_TRANSFER_READ_BIT);
+		compute_image* present_image = nullptr;
+		if (vr_ctx->has_swapchain()) {
+			present_image = vr_screen.external_swapchain_images[drawable.index];
+		} else {
+			present_image = vr_screen.images[drawable.index].get();
 
-		// present both eyes (+temporarily disable validation, because this will throw errors)
-		ignore_validation = true;
+			// keep image state in sync
+			((vulkan_image*)present_image)->update_with_external_vulkan_state(drawable.present_layout, VK_ACCESS_2_TRANSFER_READ_BIT);
+		}
+
+		// present both eyes
+		// for bad backends: also temporarily disable validation, because they will throw errors
+#if defined(FLOOR_DEBUG)
+		const auto should_ignore_validation = vr_ctx->ignore_vulkan_validation();
+		if (should_ignore_validation) {
+			ignore_validation = true;
+		}
+#endif
 		vr_ctx->present(dev_queue, present_image);
-		ignore_validation = false;
-		vr_ctx->update();
+#if defined(FLOOR_DEBUG)
+		if (should_ignore_validation) {
+			ignore_validation = false;
+		}
+#endif
 
 		// unlock image again
 		vr_screen.image_locks[drawable.index].unlock();
