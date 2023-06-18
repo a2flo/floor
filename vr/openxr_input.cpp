@@ -25,8 +25,8 @@ bool openxr_context::input_setup() {
 	const XrActionSetCreateInfo action_set_create_info {
 		.type = XR_TYPE_ACTION_SET_CREATE_INFO,
 		.next = nullptr,
-		.actionSetName = "input",
-		.localizedActionSetName = "input",
+		.actionSetName = "vr_input_default",
+		.localizedActionSetName = "vr_input_default",
 		.priority = 0,
 	};
 	XR_CALL_RET(xrCreateActionSet(instance, &action_set_create_info, &input_action_set),
@@ -98,6 +98,9 @@ bool openxr_context::input_setup() {
 			{ "trackpad_force", ACTION_TYPE::FLOAT, EVENT_TYPE::VR_TRACKPAD_FORCE },
 			{ "trackpad_press", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_TRACKPAD_PRESS },
 			{ "trackpad_touch", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_TRACKPAD_TOUCH },
+			{ "thumbrest_touch", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_THUMBREST_TOUCH },
+			{ "thumbrest_force", ACTION_TYPE::FLOAT, EVENT_TYPE::VR_THUMBREST_FORCE },
+			{ "shoulder_press", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_SHOULDER_PRESS },
 		};
 		for (const auto& base_action_def : base_actions_defs) {
 			XrActionType action_type {};
@@ -153,6 +156,36 @@ bool openxr_context::input_setup() {
 		string path;
 		EVENT_TYPE event_type;
 	};
+	// Khronos simple controller
+	{
+		const vector<action_definition_t> khronos_hand_actions {
+			{ "/input/select/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+		};
+		// NOTE: can't emulate any of the non-existing inputs
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : khronos_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/khr/simple_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Khronos simple controller");
+	}
+	// Valve Index
 	{
 		const vector<action_definition_t> index_hand_actions {
 			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
@@ -166,17 +199,20 @@ bool openxr_context::input_setup() {
 			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
 			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
 			{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
-			{ "/input/thumbstick/x", EVENT_TYPE::VR_THUMBSTICK_MOVE },
-			{ "/input/thumbstick/y", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
 			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
 			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
-			{ "/input/trackpad/x", EVENT_TYPE::VR_TRACKPAD_MOVE },
-			{ "/input/trackpad/y", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
 			{ "/input/trackpad/force", EVENT_TYPE::VR_TRACKPAD_FORCE },
 			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
 		};
-		// TODO: emulate VR_GRIP_PRESS support via VR_GRIP_FORCE
 		// TODO: /input/aim/pose, /output/haptic
+
+		// not provided: emulate these
+		emulate.grip_press = 1;
+		emulate.trackpad_press = 1;
+		emulate.grip_touch = 1;
+
 		vector<XrActionSuggestedBinding> bindings;
 		for (uint32_t i = 0; i < 2; ++i) {
 			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
@@ -196,6 +232,692 @@ bool openxr_context::input_setup() {
 		};
 		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
 					   "failed to set suggested interaction profile for Valve Index controller");
+	}
+	// HTC Vive
+	{
+		const vector<action_definition_t> vive_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/squeeze/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: no VR_THUMBSTICK_* or VR_GRIP_* and can't emulate them
+		// NOTE: no touch events except VR_TRACKPAD -> can't emulate them
+		// NOTE: VR_TRACKPAD_FORCE -> can't emulate
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : vive_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/htc/vive_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for HTC Vive controller");
+	}
+	// Google Daydream
+	{
+		const vector<action_definition_t> google_daydream_hand_actions {
+			{ "/input/select/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			// use this as VR_MAIN_PRESS, because it's more important than VR_TRACKPAD_PRESS
+			{ "/input/trackpad/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: can't emulate any of the non-existing inputs
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : google_daydream_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/google/daydream_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Google Daydream controller");
+	}
+	// Microsoft Mixed Reality Motion
+	{
+		const vector<action_definition_t> ms_mr_motion_hand_actions {
+			{ "/input/squeeze/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
+		// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		// not provided: emulate these
+		emulate.trigger_press = 1;
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : ms_mr_motion_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/microsoft/motion_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Microsoft Mixed Reality Motion controller");
+	}
+	// Oculus Go
+	{
+		const vector<action_definition_t> oculus_go_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/trigger/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/back/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: no VR_THUMBSTICK_*, VR_TRIGGER_* or VR_GRIP_* -> can't emulate these
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : oculus_go_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/oculus/go_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Oculus Go controller");
+	}
+	// Oculus Touch
+	{
+		const vector<action_definition_t> oculus_touch_hand_actions {
+			{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			{ "/input/thumbrest/touch", EVENT_TYPE::VR_THUMBREST_TOUCH },
+		};
+		const vector<action_definition_t> oculus_touch_left_hand_actions {
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/x/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+			// no real good match for this -> just map to trigger
+			{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/y/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+		};
+		const vector<action_definition_t> oculus_touch_right_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/a/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+			// no real good match for this -> just map to trigger
+			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+		};
+		// NOTE: no VR_TRACKPAD_* -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		// not provided: emulate these
+		emulate.grip_press = 1;
+		emulate.trigger_press = 1;
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : oculus_touch_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		for (const auto& hand_action : oculus_touch_left_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+			});
+		}
+		for (const auto& hand_action : oculus_touch_right_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+			});
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/oculus/touch_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Oculus Touch controller");
+	}
+	if (has_hp_mixed_reality_controller_support) {
+		const vector<action_definition_t> hp_mixed_reality_hand_actions {
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+		};
+		const vector<action_definition_t> hp_mixed_reality_left_hand_actions {
+			{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to system
+			{ "/input/y/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+		};
+		const vector<action_definition_t> hp_mixed_reality_right_hand_actions {
+			{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to trigger
+			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+		};
+		// NOTE: no VR_TRACKPAD_* -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		// not provided: emulate these
+		emulate.grip_press = 1;
+		emulate.trigger_press = 1;
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : hp_mixed_reality_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		for (const auto& hand_action : hp_mixed_reality_left_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+			});
+		}
+		for (const auto& hand_action : hp_mixed_reality_right_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+			});
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/hp/mixed_reality_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for HP Mixed Reality controller");
+	}
+	if (has_htc_vive_cosmos_controller_support) {
+		const vector<action_definition_t> vive_cosmos_hand_actions {
+			{ "/input/shoulder/click", EVENT_TYPE::VR_SHOULDER_PRESS },
+			{ "/input/squeeze/click", EVENT_TYPE::VR_GRIP_PRESS },
+			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+		};
+		const vector<action_definition_t> vive_cosmos_left_hand_actions {
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to trigger
+			{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+		};
+		const vector<action_definition_t> vive_cosmos_right_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to trigger
+			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+		};
+		// NOTE: no VR_TRACKPAD_* -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : vive_cosmos_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		for (const auto& hand_action : vive_cosmos_left_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+			});
+		}
+		for (const auto& hand_action : vive_cosmos_right_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+			});
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/htc/vive_cosmos_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for HTC Vive Cosmos controller");
+	}
+	if (has_htc_vive_focus3_controller_support) {
+		const vector<action_definition_t> vive_focus3_hand_actions {
+			{ "/input/squeeze/click", EVENT_TYPE::VR_GRIP_PRESS },
+			{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+			{ "/input/squeeze/touch", EVENT_TYPE::VR_GRIP_TOUCH },
+			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			{ "/input/thumbrest/touch", EVENT_TYPE::VR_THUMBREST_TOUCH },
+		};
+		const vector<action_definition_t> vive_focus3_left_hand_actions {
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to trigger
+			{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+		};
+		const vector<action_definition_t> vive_focus3_right_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+			// no real good match for this -> just map to trigger
+			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+		};
+		// NOTE: no VR_TRACKPAD_* -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : vive_focus3_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		for (const auto& hand_action : vive_focus3_left_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+			});
+		}
+		for (const auto& hand_action : vive_focus3_right_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+			});
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/htc/vive_focus3_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for HTC Vive Focus 3 controller");
+	}
+	if (has_huawei_controller_support) {
+		const vector<action_definition_t> huawei_hand_actions {
+			{ "/input/home/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/back/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : huawei_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/huawei/controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Huawei controller");
+	}
+	if (has_samsung_odyssey_controller_support) {
+		// NOTE: same as Microsoft Mixed Reality Motion controller
+		const vector<action_definition_t> odyssey_hand_actions {
+			{ "/input/squeeze/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+		};
+		// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
+		// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+
+		// not provided: emulate these
+		emulate.trigger_press = 1;
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : odyssey_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/samsung/odyssey_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Samsung Odyssey controller");
+	}
+	if (has_ml2_controller_support) {
+		const vector<action_definition_t> ml2_hand_actions {
+			{ "/input/home/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/menu/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			{ "/input/trackpad", EVENT_TYPE::VR_TRACKPAD_MOVE },
+			{ "/input/trackpad/click", EVENT_TYPE::VR_TRACKPAD_PRESS },
+			{ "/input/trackpad/force", EVENT_TYPE::VR_TRACKPAD_FORCE },
+			{ "/input/trackpad/touch", EVENT_TYPE::VR_TRACKPAD_TOUCH },
+			// use VR_APP_MENU_PRESS instead of VR_SHOULDER_PRESS, since it's more important
+			{ "/input/shoulder/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+		};
+		// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
+		// TODO: /input/aim/pose, /output/haptic
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : ml2_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/ml/ml2_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Magic Leap 2 controller");
+	}
+	if (has_fb_touch_controller_pro_support) {
+		const vector<action_definition_t> oculus_touch_pro_hand_actions {
+			{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+			{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+			{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+			{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+			{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			{ "/input/thumbrest/touch", EVENT_TYPE::VR_THUMBREST_TOUCH },
+			{ "/input/thumbrest/force", EVENT_TYPE::VR_THUMBREST_FORCE },
+		};
+		const vector<action_definition_t> oculus_touch_pro_left_hand_actions {
+			{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+			{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/x/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+			// no real good match for this -> just map to trigger
+			{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/y/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+		};
+		const vector<action_definition_t> oculus_touch_pro_right_hand_actions {
+			{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+			{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+			{ "/input/a/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+			// no real good match for this -> just map to trigger
+			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+			{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+		};
+		// NOTE: no VR_TRACKPAD_* -> can't emulate this
+		// TODO: /input/aim/pose, /output/haptic
+		// TODO: /input/stylus_fb/*, /input/trigger/*_fb, input/thumb_fb/proximity_fb, /output/haptic_*_fb
+
+		// not provided: emulate these
+		emulate.grip_press = 1;
+		emulate.trigger_press = 1;
+
+		vector<XrActionSuggestedBinding> bindings;
+		for (uint32_t i = 0; i < 2; ++i) {
+			const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+			for (const auto& hand_action : oculus_touch_pro_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw(hand_path + hand_action.path),
+				});
+			}
+		}
+		for (const auto& hand_action : oculus_touch_pro_left_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+			});
+		}
+		for (const auto& hand_action : oculus_touch_pro_right_hand_actions) {
+			bindings.emplace_back(XrActionSuggestedBinding {
+				.action = base_actions.at(hand_action.event_type).action,
+				.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+			});
+		}
+		const XrInteractionProfileSuggestedBinding suggested_binding {
+			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+			.next = nullptr,
+			.interactionProfile = to_path_or_throw("/interaction_profiles/oculus/touch_controller"),
+			.countSuggestedBindings = uint32_t(bindings.size()),
+			.suggestedBindings = bindings.data(),
+		};
+		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					   "failed to set suggested interaction profile for Meta Quest Touch Pro controller");
+	}
+	if (has_bd_controller_support) {
+		// enables both PICO Neo3 and PICO 4 controller support
+		{
+			const vector<action_definition_t> neo3_hand_actions {
+				{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+				{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+				{ "/input/squeeze/click", EVENT_TYPE::VR_GRIP_PRESS },
+				{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+				{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+				{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+				{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+				{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+				{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			};
+			const vector<action_definition_t> neo3_left_hand_actions {
+				{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+				{ "/input/x/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+				// no real good match for this -> just map to trigger
+				{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/y/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			};
+			const vector<action_definition_t> neo3_right_hand_actions {
+				{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+				{ "/input/a/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+				// no real good match for this -> just map to trigger
+				{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			};
+			// NOTE: no VR_TRACKPAD_* -> can't emulate this
+			// TODO: /input/aim/pose, /output/haptic
+
+			vector<XrActionSuggestedBinding> bindings;
+			for (uint32_t i = 0; i < 2; ++i) {
+				const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+				for (const auto& hand_action : neo3_hand_actions) {
+					bindings.emplace_back(XrActionSuggestedBinding {
+						.action = base_actions.at(hand_action.event_type).action,
+						.binding = to_path_or_throw(hand_path + hand_action.path),
+					});
+				}
+			}
+			for (const auto& hand_action : neo3_left_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+				});
+			}
+			for (const auto& hand_action : neo3_right_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+				});
+			}
+			const XrInteractionProfileSuggestedBinding suggested_binding {
+				.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+				.next = nullptr,
+				.interactionProfile = to_path_or_throw("/interaction_profiles/bytedance/pico_neo3_controller"),
+				.countSuggestedBindings = uint32_t(bindings.size()),
+				.suggestedBindings = bindings.data(),
+			};
+			XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+						   "failed to set suggested interaction profile for PICO Neo3 controller");
+		}
+		{
+			const vector<action_definition_t> neo4_hand_actions {
+				{ "/input/system/click", EVENT_TYPE::VR_SYSTEM_PRESS },
+				{ "/input/squeeze/click", EVENT_TYPE::VR_GRIP_PRESS },
+				{ "/input/squeeze/value", EVENT_TYPE::VR_GRIP_PULL },
+				{ "/input/trigger/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/trigger/value", EVENT_TYPE::VR_TRIGGER_PULL },
+				{ "/input/trigger/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+				{ "/input/thumbstick", EVENT_TYPE::VR_THUMBSTICK_MOVE },
+				{ "/input/thumbstick/click", EVENT_TYPE::VR_THUMBSTICK_PRESS },
+				{ "/input/thumbstick/touch", EVENT_TYPE::VR_THUMBSTICK_TOUCH },
+			};
+			const vector<action_definition_t> neo4_left_hand_actions {
+				{ "/input/menu/click", EVENT_TYPE::VR_APP_MENU_PRESS },
+				{ "/input/x/click", EVENT_TYPE::VR_MAIN_PRESS },
+				{ "/input/x/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+				// no real good match for this -> just map to trigger
+				{ "/input/y/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/y/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			};
+			const vector<action_definition_t> neo4_right_hand_actions {
+				{ "/input/a/click", EVENT_TYPE::VR_MAIN_PRESS },
+				{ "/input/a/touch", EVENT_TYPE::VR_MAIN_TOUCH },
+				// no real good match for this -> just map to trigger
+				{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
+				{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
+			};
+			// NOTE: no VR_TRACKPAD_* -> can't emulate this
+			// TODO: /input/aim/pose, /output/haptic
+
+			vector<XrActionSuggestedBinding> bindings;
+			for (uint32_t i = 0; i < 2; ++i) {
+				const auto hand_path = "/user/hand/"s + (i == 0 ? "left" : "right");
+				for (const auto& hand_action : neo4_hand_actions) {
+					bindings.emplace_back(XrActionSuggestedBinding {
+						.action = base_actions.at(hand_action.event_type).action,
+						.binding = to_path_or_throw(hand_path + hand_action.path),
+					});
+				}
+			}
+			for (const auto& hand_action : neo4_left_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw("/user/hand/left" + hand_action.path),
+				});
+			}
+			for (const auto& hand_action : neo4_right_hand_actions) {
+				bindings.emplace_back(XrActionSuggestedBinding {
+					.action = base_actions.at(hand_action.event_type).action,
+					.binding = to_path_or_throw("/user/hand/right" + hand_action.path),
+				});
+			}
+			const XrInteractionProfileSuggestedBinding suggested_binding {
+				.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+				.next = nullptr,
+				.interactionProfile = to_path_or_throw("/interaction_profiles/bytedance/pico4_controller"),
+				.countSuggestedBindings = uint32_t(bindings.size()),
+				.suggestedBindings = bindings.data(),
+			};
+			XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+						   "failed to set suggested interaction profile for PICO 4 controller");
+		}
 	}
 
 	// finally: attach
@@ -230,8 +952,8 @@ uint64_t openxr_context::convert_time_to_ticks(XrTime time) {
 #endif
 }
 
-void openxr_context::add_bool_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-									const XrActionStateBoolean& state, const bool side) {
+void openxr_context::add_hand_bool_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+										 const XrActionStateBoolean& state, const bool side) {
 	const auto cur_time = convert_time_to_ticks(state.lastChangeTime);
 	switch (event_type) {
 		case EVENT_TYPE::VR_SYSTEM_PRESS:
@@ -276,17 +998,25 @@ void openxr_context::add_bool_event(vector<shared_ptr<event_object>>& events, co
 		case EVENT_TYPE::VR_TRACKPAD_TOUCH:
 			events.emplace_back(make_shared<vr_trackpad_touch_event>(cur_time, side, state.currentState));
 			break;
+		case EVENT_TYPE::VR_THUMBREST_TOUCH:
+			events.emplace_back(make_shared<vr_thumbrest_touch_event>(cur_time, side, state.currentState));
+			break;
+		case EVENT_TYPE::VR_SHOULDER_PRESS:
+			events.emplace_back(make_shared<vr_shoulder_press_event>(cur_time, side, state.currentState));
+			break;
 		default:
 			log_error("unknown/unhandled VR event: $", event_type);
 			break;
 	}
 }
 
-void openxr_context::add_float_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-									 const XrActionStateFloat& state, const bool side) {
+void openxr_context::add_hand_float_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+										  const XrActionStateFloat& state, const bool side) {
 	const auto cur_time = convert_time_to_ticks(state.lastChangeTime);
-	// TODO: can we get a delta (or simulate it?) with OpenXR?
-	const float delta = 0.0f;
+	const auto cur_state = state.currentState;
+	auto& prev_state = hand_event_states[!side ? 0 : 1][event_type];
+	const auto delta = cur_state - prev_state.f;
+	prev_state.f = cur_state;
 	switch (event_type) {
 		case EVENT_TYPE::VR_TRIGGER_PULL:
 			events.emplace_back(make_shared<vr_trigger_pull_event>(cur_time, side, state.currentState, delta));
@@ -300,18 +1030,22 @@ void openxr_context::add_float_event(vector<shared_ptr<event_object>>& events, c
 		case EVENT_TYPE::VR_TRACKPAD_FORCE:
 			events.emplace_back(make_shared<vr_trackpad_force_event>(cur_time, side, state.currentState, delta));
 			break;
+		case EVENT_TYPE::VR_THUMBREST_FORCE:
+			events.emplace_back(make_shared<vr_thumbrest_force_event>(cur_time, side, state.currentState, delta));
+			break;
 		default:
 			log_error("unknown/unhandled VR event: $", event_type);
 			break;
 	}
 }
 
-void openxr_context::add_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-									  const XrActionStateVector2f& state, const bool side) {
+void openxr_context::add_hand_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+										   const XrActionStateVector2f& state, const bool side) {
 	const auto cur_time = convert_time_to_ticks(state.lastChangeTime);
 	const float2 cur_state { state.currentState.x, state.currentState.y };
-	// TODO: can we get a delta (or simulate it?) with OpenXR?
-	const float2 delta;
+	auto& prev_state = hand_event_states[!side ? 0 : 1][event_type];
+	const auto delta = cur_state - prev_state.f2;
+	prev_state.f2 = cur_state;
 	switch (event_type) {
 		case EVENT_TYPE::VR_TRACKPAD_MOVE:
 			events.emplace_back(make_shared<vr_trackpad_move_event>(cur_time, side, cur_state, delta));
@@ -376,7 +1110,7 @@ bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& eve
 					XR_CALL_BREAK(xrGetActionStateBoolean(session, &get_info, &state),
 								  "failed to get bool action state");
 					if (state.changedSinceLastSync) {
-						add_bool_event(events, event_type, state, side);
+						add_hand_bool_event(events, event_type, state, side);
 					}
 					break;
 				}
@@ -388,7 +1122,7 @@ bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& eve
 					XR_CALL_BREAK(xrGetActionStateFloat(session, &get_info, &state),
 								  "failed to get float action state");
 					if (state.changedSinceLastSync) {
-						add_float_event(events, event_type, state, side);
+						add_hand_float_event(events, event_type, state, side);
 					}
 					break;
 				}
@@ -400,7 +1134,7 @@ bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& eve
 					XR_CALL_BREAK(xrGetActionStateVector2f(session, &get_info, &state),
 								  "failed to get float2 action state");
 					if (state.changedSinceLastSync) {
-						add_float2_event(events, event_type, state, side);
+						add_hand_float2_event(events, event_type, state, side);
 					}
 					break;
 				}

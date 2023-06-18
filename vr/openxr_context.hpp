@@ -108,15 +108,18 @@ protected:
 	PFN_xrGetVulkanGraphicsDevice2KHR GetVulkanGraphicsDevice2KHR { nullptr };
 	PFN_xrGetVulkanGraphicsRequirements2KHR GetVulkanGraphicsRequirements2KHR { nullptr };
 
+	bool can_query_display_refresh_rate { false };
+	PFN_xrGetDisplayRefreshRateFB GetDisplayRefreshRateFB { nullptr };
+
 	// input handling
 	bool input_setup();
 	bool handle_input_internal(vector<shared_ptr<event_object>>& events);
-	void add_bool_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-						const XrActionStateBoolean& state, const bool side);
-	void add_float_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-						 const XrActionStateFloat& state, const bool side);
-	void add_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
-						  const XrActionStateVector2f& state, const bool side);
+	void add_hand_bool_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+							 const XrActionStateBoolean& state, const bool side);
+	void add_hand_float_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+							  const XrActionStateFloat& state, const bool side);
+	void add_hand_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
+							   const XrActionStateVector2f& state, const bool side);
 
 	atomic<bool> is_focused { false };
 
@@ -157,6 +160,42 @@ protected:
 	XrAction hand_pose_action { nullptr };
 	array<XrSpace, 2> hand_spaces;
 	array<XrPath, 2> hand_paths;
+
+	//! previous hand event states
+	struct event_state_t {
+		union {
+			float f;
+			float2 f2 { 0.0f, 0.0f };
+		};
+	};
+	array<unordered_map<EVENT_TYPE, event_state_t>, 2> hand_event_states;
+
+	//! input event emulation
+	struct input_event_emulation_t {
+		union {
+			//! via VR_GRIP_FORCE with force >= 0.98f
+			uint32_t grip_press : 1;
+			//! via VR_TRACKPAD_FORCE with force >= 0.95f
+			uint32_t trackpad_press : 1;
+			//! via VR_TRIGGER_PULL with force >= 0.95f
+			uint32_t trigger_press : 1;
+			//! via VR_GRIP_FORCE when state was 0 and changed to > 0
+			uint32_t grip_touch : 1;
+
+			uint32_t unused : 28;
+		};
+		uint32_t data { 0u };
+	} emulate;
+
+	// non-core controller support flags
+	bool has_hp_mixed_reality_controller_support { false };
+	bool has_htc_vive_cosmos_controller_support { false };
+	bool has_htc_vive_focus3_controller_support { false };
+	bool has_huawei_controller_support { false };
+	bool has_samsung_odyssey_controller_support { false };
+	bool has_ml2_controller_support { false };
+	bool has_fb_touch_controller_pro_support { false };
+	bool has_bd_controller_support { false };
 
 	//! converts "str" to an XrPath, or returns empty on failure
 	optional<XrPath> to_path(const std::string& str);

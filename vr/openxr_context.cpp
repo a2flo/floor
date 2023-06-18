@@ -117,14 +117,6 @@ openxr_context::openxr_context() : vr_context() {
 		instance_extensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 #endif
-	if (supports_extension(sys_extensions, XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
-		instance_extensions.emplace_back(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME);
-
-		// only these if the above is supported
-		if (supports_extension(sys_extensions, XR_EXT_DPAD_BINDING_EXTENSION_NAME)) {
-			instance_extensions.emplace_back(XR_EXT_DPAD_BINDING_EXTENSION_NAME);
-		}
-	}
 	if (supports_extension(sys_extensions, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
 
@@ -141,6 +133,7 @@ openxr_context::openxr_context() : vr_context() {
 	}
 	if (supports_extension(sys_extensions, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
+		can_query_display_refresh_rate = true;
 	}
 #if defined(__WINDOWS__)
 	if (supports_extension(sys_extensions, "XR_KHR_win32_convert_performance_counter_time")) {
@@ -156,38 +149,43 @@ openxr_context::openxr_context() : vr_context() {
 	// TODO: use XR_KHR_visibility_mask
 
 	// controllers
-	if (supports_extension(sys_extensions, XR_VALVE_ANALOG_THRESHOLD_EXTENSION_NAME)) {
-		instance_extensions.emplace_back(XR_VALVE_ANALOG_THRESHOLD_EXTENSION_NAME);
-	}
 	if (supports_extension(sys_extensions, XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME);
+		has_hp_mixed_reality_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME);
+		has_htc_vive_cosmos_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
+		has_htc_vive_focus3_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
 	}
 	if (supports_extension(sys_extensions, XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME);
+		has_huawei_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_EXT_SAMSUNG_ODYSSEY_CONTROLLER_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_SAMSUNG_ODYSSEY_CONTROLLER_EXTENSION_NAME);
+		has_samsung_odyssey_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_ML_ML2_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_ML_ML2_CONTROLLER_INTERACTION_EXTENSION_NAME);
+		has_ml2_controller_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
+		has_fb_touch_controller_pro_support = true;
 	}
 	if (supports_extension(sys_extensions, XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME);
 	}
 	if (supports_extension(sys_extensions, XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME);
+		has_bd_controller_support = true;
 	}
 
 	// init VR
@@ -242,6 +240,8 @@ openxr_context::openxr_context() : vr_context() {
 	XrSystemProperties system_props { .type = XR_TYPE_SYSTEM_PROPERTIES };
 	XR_CALL_RET(xrGetSystemProperties(instance, system_id, &system_props), "failed to retrieve OpenXR system properties");
 	log_msg("OpenXR: system: $, vendor: $X", system_props.systemName, system_props.vendorId);
+	hmd_name = system_props.systemName;
+	vendor_name = instance_props.runtimeName;
 	log_msg("OpenXR: tracking: orientation $, position $",
 			system_props.trackingProperties.orientationTracking,
 			system_props.trackingProperties.positionTracking);
@@ -252,6 +252,15 @@ openxr_context::openxr_context() : vr_context() {
 	};
 	swapchain_layer_count = system_props.graphicsProperties.maxLayerCount;
 	log_msg("OpenXR: max swapchain dim: $, max layers: $", max_swapchain_dim, swapchain_layer_count);
+
+	if (can_query_display_refresh_rate) {
+		XR_CALL_IGNORE(xrGetInstanceProcAddr(instance, "xrGetDisplayRefreshRateFB",
+											 reinterpret_cast<PFN_xrVoidFunction*>(&GetDisplayRefreshRateFB)),
+					   "failed to query xrGetDisplayRefreshRateFB function pointer");
+		if (!GetDisplayRefreshRateFB) {
+			can_query_display_refresh_rate = false;
+		}
+	}
 
 	uint32_t view_config_type_count = 0;
 	XR_CALL_RET(xrEnumerateViewConfigurations(instance, system_id, 0, &view_config_type_count, nullptr),
@@ -496,6 +505,14 @@ bool openxr_context::create_session(vulkan_compute& vk_ctx_, const vulkan_device
 	};
 	XR_CALL_RET(xrCreateSession(instance, &session_create_info, &session),
 				"failed to create session", false);
+
+	// query display refresh rate
+	while (can_query_display_refresh_rate) {
+		XR_CALL_BREAK(GetDisplayRefreshRateFB(session, &display_frequency),
+					  "failed to get display refresh rate");
+		log_msg("OpenXR: display refresh rate: $", display_frequency);
+		break;
+	}
 
 	// space setup
 	uint32_t space_count = 0;

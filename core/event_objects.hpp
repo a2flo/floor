@@ -97,6 +97,9 @@ enum class EVENT_TYPE : uint32_t {
 	VR_GRIP_TOUCH,
 	VR_GRIP_PULL,
 	VR_GRIP_FORCE,
+	VR_THUMBREST_TOUCH,
+	VR_THUMBREST_FORCE,
+	VR_SHOULDER_PRESS,
 	
 	__USER_EVENT_START = __USER_EVENT + 1,
 	FLOOR_USER_EVENT_TYPES
@@ -264,10 +267,12 @@ typedef vr_digital_event_base<EVENT_TYPE::VR_TRACKPAD_PRESS> vr_trackpad_press_e
 typedef vr_digital_event_base<EVENT_TYPE::VR_TRACKPAD_TOUCH> vr_trackpad_touch_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_THUMBSTICK_PRESS> vr_thumbstick_press_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_THUMBSTICK_TOUCH> vr_thumbstick_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_THUMBREST_TOUCH> vr_thumbrest_touch_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_TRIGGER_PRESS> vr_trigger_press_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_TRIGGER_TOUCH> vr_trigger_touch_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_GRIP_PRESS> vr_grip_press_event;
 typedef vr_digital_event_base<EVENT_TYPE::VR_GRIP_TOUCH> vr_grip_touch_event;
+typedef vr_digital_event_base<EVENT_TYPE::VR_SHOULDER_PRESS> vr_shoulder_press_event;
 
 template<EVENT_TYPE event_type> struct vr_analog_move_event_base : public vr_event_base<event_type> {
 	const float2 position;
@@ -295,5 +300,6 @@ template<EVENT_TYPE event_type> struct vr_analog_force_event_base : public vr_ev
 };
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_TRACKPAD_FORCE> vr_trackpad_force_event;
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_GRIP_FORCE> vr_grip_force_event;
+typedef vr_analog_force_event_base<EVENT_TYPE::VR_THUMBREST_FORCE> vr_thumbrest_force_event;
 
 #endif

@@ -33,7 +33,6 @@
 #include <openxr/openxr_platform.h>
 
 constexpr const char* xr_error_to_string(const int& error_code) {
-	// NOTE: don't use actual enums here so this doesn't have to rely on OpenXR version or vendor specific headers
 	switch(error_code) {
 		case XR_SUCCESS: return "XR_SUCCESS";
 		case XR_TIMEOUT_EXPIRED: return "XR_TIMEOUT_EXPIRED";
