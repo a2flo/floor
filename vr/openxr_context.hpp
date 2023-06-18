@@ -171,15 +171,16 @@ protected:
 	array<unordered_map<EVENT_TYPE, event_state_t>, 2> hand_event_states;
 
 	//! input event emulation
+	static constexpr const float emulation_trigger_force { 0.95f };
 	struct input_event_emulation_t {
 		union {
-			//! via VR_GRIP_FORCE with force >= 0.98f
+			//! via VR_GRIP_FORCE with force >= 0.95f
 			uint32_t grip_press : 1;
 			//! via VR_TRACKPAD_FORCE with force >= 0.95f
 			uint32_t trackpad_press : 1;
 			//! via VR_TRIGGER_PULL with force >= 0.95f
 			uint32_t trigger_press : 1;
-			//! via VR_GRIP_FORCE when state was 0 and changed to > 0
+			//! via VR_GRIP_PULL when state was 0 and changed to > 0
 			uint32_t grip_touch : 1;
 
 			uint32_t unused : 28;

@@ -1016,19 +1016,46 @@ void openxr_context::add_hand_float_event(vector<shared_ptr<event_object>>& even
 	const auto cur_state = state.currentState;
 	auto& prev_state = hand_event_states[!side ? 0 : 1][event_type];
 	const auto delta = cur_state - prev_state.f;
-	prev_state.f = cur_state;
 	switch (event_type) {
 		case EVENT_TYPE::VR_TRIGGER_PULL:
 			events.emplace_back(make_shared<vr_trigger_pull_event>(cur_time, side, state.currentState, delta));
+			if (emulate.trigger_press) {
+				if (prev_state.f < emulation_trigger_force && cur_state >= emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_trigger_press_event>(cur_time, side, true));
+				} else if (prev_state.f >= emulation_trigger_force && cur_state < emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_trigger_press_event>(cur_time, side, false));
+				}
+			}
 			break;
 		case EVENT_TYPE::VR_GRIP_PULL:
 			events.emplace_back(make_shared<vr_grip_pull_event>(cur_time, side, state.currentState, delta));
+			if (emulate.grip_touch) {
+				if (prev_state.f == 0.0f && cur_state > 0.0f) {
+					events.emplace_back(make_shared<vr_grip_touch_event>(cur_time, side, true));
+				} else if (prev_state.f > 0.0f && cur_state == 0.0f) {
+					events.emplace_back(make_shared<vr_grip_touch_event>(cur_time, side, false));
+				}
+			}
 			break;
 		case EVENT_TYPE::VR_GRIP_FORCE:
 			events.emplace_back(make_shared<vr_grip_force_event>(cur_time, side, state.currentState, delta));
+			if (emulate.grip_press) {
+				if (prev_state.f < emulation_trigger_force && cur_state >= emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_grip_press_event>(cur_time, side, true));
+				} else if (prev_state.f >= emulation_trigger_force && cur_state < emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_grip_press_event>(cur_time, side, false));
+				}
+			}
 			break;
 		case EVENT_TYPE::VR_TRACKPAD_FORCE:
 			events.emplace_back(make_shared<vr_trackpad_force_event>(cur_time, side, state.currentState, delta));
+			if (emulate.trackpad_press) {
+				if (prev_state.f < emulation_trigger_force && cur_state >= emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_trackpad_press_event>(cur_time, side, true));
+				} else if (prev_state.f >= emulation_trigger_force && cur_state < emulation_trigger_force) {
+					events.emplace_back(make_shared<vr_trackpad_press_event>(cur_time, side, false));
+				}
+			}
 			break;
 		case EVENT_TYPE::VR_THUMBREST_FORCE:
 			events.emplace_back(make_shared<vr_thumbrest_force_event>(cur_time, side, state.currentState, delta));
@@ -1037,6 +1064,7 @@ void openxr_context::add_hand_float_event(vector<shared_ptr<event_object>>& even
 			log_error("unknown/unhandled VR event: $", event_type);
 			break;
 	}
+	prev_state.f = cur_state;
 }
 
 void openxr_context::add_hand_float2_event(vector<shared_ptr<event_object>>& events, const EVENT_TYPE event_type,
@@ -1045,7 +1073,6 @@ void openxr_context::add_hand_float2_event(vector<shared_ptr<event_object>>& eve
 	const float2 cur_state { state.currentState.x, state.currentState.y };
 	auto& prev_state = hand_event_states[!side ? 0 : 1][event_type];
 	const auto delta = cur_state - prev_state.f2;
-	prev_state.f2 = cur_state;
 	switch (event_type) {
 		case EVENT_TYPE::VR_TRACKPAD_MOVE:
 			events.emplace_back(make_shared<vr_trackpad_move_event>(cur_time, side, cur_state, delta));
@@ -1057,6 +1084,7 @@ void openxr_context::add_hand_float2_event(vector<shared_ptr<event_object>>& eve
 			log_error("unknown/unhandled VR event: $", event_type);
 			break;
 	}
+	prev_state.f2 = cur_state;
 }
 
 bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& events) {
