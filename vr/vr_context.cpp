@@ -27,3 +27,27 @@ vr_context::vr_context() {
 
 vr_context::~vr_context() {
 }
+
+std::string_view vr_context::pose_type_to_string(const POSE_TYPE type) {
+	switch (type) {
+		case POSE_TYPE::UNKNOWN:
+			return "unknown";
+		case POSE_TYPE::HEAD:
+			return "head";
+		case POSE_TYPE::HAND_LEFT:
+			return "hand-left";
+		case POSE_TYPE::HAND_RIGHT:
+			return "hand-right";
+		case POSE_TYPE::HAND_LEFT_AIM:
+			return "hand-left-aim";
+		case POSE_TYPE::HAND_RIGHT_AIM:
+			return "hand-right-aim";
+		case POSE_TYPE::TRACKER:
+			return "tracker";
+		case POSE_TYPE::REFERENCE:
+			return "reference";
+		case POSE_TYPE::SPECIAL:
+			return "special";
+	}
+	return "<unhandled>";
+}

@@ -69,6 +69,8 @@ public:
 	
 	frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
 											const bool with_position_in_mvm) const override;
+
+	vector<pose_t> get_pose_state() const override;
 	
 protected:
 	XrInstance instance { nullptr };
@@ -168,9 +170,11 @@ protected:
 	unordered_map<EVENT_TYPE, action_t> base_actions;
 
 	//! hand vars
-	XrAction hand_pose_action { nullptr };
-	array<XrSpace, 2> hand_spaces;
-	array<XrPath, 2> hand_paths;
+	array<XrAction, 2> hand_pose_actions { nullptr, nullptr };
+	array<XrSpace, 2> hand_spaces { nullptr, nullptr };
+	array<XrAction, 2> hand_aim_pose_actions { nullptr, nullptr };
+	array<XrSpace, 2> hand_aim_spaces { nullptr, nullptr };
+	array<XrPath, 2> hand_paths { 0u, 0u };
 
 	//! previous hand event states
 	struct event_state_t {
@@ -180,6 +184,13 @@ protected:
 		};
 	};
 	array<unordered_map<EVENT_TYPE, event_state_t>, 2> hand_event_states;
+
+	//! access to "pose_state" must be thread-safe
+	mutable atomic_spin_lock pose_state_lock;
+	//! current pose state
+	vector<pose_t> pose_state GUARDED_BY(pose_state_lock);
+	//! size(pose_state) of the last update (helps with allocation)
+	size_t prev_pose_state_size { 0u };
 
 	//! input event emulation
 	static constexpr const float emulation_trigger_force { 0.95f };
@@ -220,6 +231,8 @@ protected:
 
 	//! converts the OpenXR time into SDL ticks that we need for event handling
 	uint64_t convert_time_to_ticks(XrTime time);
+	//! converts the SDL performance counter value to an OpenXR time
+	XrTime convert_perf_counter_to_time(const uint64_t perf_counter);
 
 #if defined(__WINDOWS__)
 	uint64_t win_start_perf_counter { 0u };

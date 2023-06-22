@@ -36,6 +36,7 @@ enum class EVENT_TYPE : uint32_t {
 	__TOUCH_EVENT			= (1u << 27u),
 	__UI_EVENT				= (1u << 26u),
 	__VR_CONTROLLER_EVENT	= (1u << 25u),
+	__VR_INTERNAL_EVENT		= (1u << 24u),
 	
 	MOUSE_LEFT_DOWN = __MOUSE_EVENT + 1,
 	MOUSE_LEFT_UP,
@@ -100,6 +101,12 @@ enum class EVENT_TYPE : uint32_t {
 	VR_THUMBREST_TOUCH,
 	VR_THUMBREST_FORCE,
 	VR_SHOULDER_PRESS,
+
+	// NOTE: these are only used internally and will not actually be emitted by events
+	VR_INTERNAL_HAND_POSE_LEFT = __VR_INTERNAL_EVENT + 1,
+	VR_INTERNAL_HAND_POSE_RIGHT,
+	VR_INTERNAL_HAND_AIM_LEFT,
+	VR_INTERNAL_HAND_AIM_RIGHT,
 	
 	__USER_EVENT_START = __USER_EVENT + 1,
 	FLOOR_USER_EVENT_TYPES

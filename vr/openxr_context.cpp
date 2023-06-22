@@ -392,8 +392,19 @@ openxr_context::~openxr_context() {
 		for (auto& base_action : base_actions) {
 			XR_CALL_IGNORE(xrDestroyAction(base_action.second.action), "failed to destroy OpenXR action");
 		}
-		if (hand_pose_action) {
-			XR_CALL_IGNORE(xrDestroyAction(hand_pose_action), "failed to destroy OpenXR hand pose action");
+	}
+	for (uint32_t hand_idx = 0; hand_idx < 2; ++hand_idx) {
+		if (hand_pose_actions[hand_idx]) {
+			XR_CALL_IGNORE(xrDestroyAction(hand_pose_actions[hand_idx]), "failed to destroy OpenXR hand pose action");
+		}
+		if (hand_spaces[hand_idx]) {
+			XR_CALL_IGNORE(xrDestroySpace(hand_spaces[hand_idx]), "failed to destroy OpenXR hand space");
+		}
+		if (hand_aim_pose_actions[hand_idx]) {
+			XR_CALL_IGNORE(xrDestroyAction(hand_aim_pose_actions[hand_idx]), "failed to destroy OpenXR hand aim pose action");
+		}
+		if (hand_aim_spaces[hand_idx]) {
+			XR_CALL_IGNORE(xrDestroySpace(hand_aim_spaces[hand_idx]), "failed to destroy OpenXR hand aim space");
 		}
 	}
 	if (input_action_set) {
@@ -929,7 +940,7 @@ compute_image* openxr_context::acquire_next_image() REQUIRES(!view_states_lock) 
 	return cur_swapchain_image;
 }
 
-bool openxr_context::present(const compute_queue& cqueue, const compute_image* image) REQUIRES(!view_states_lock) {
+bool openxr_context::present([[maybe_unused]] const compute_queue& cqueue, const compute_image* image) REQUIRES(!view_states_lock) {
 #if defined(FLOOR_DEBUG)
 	// check if specified queue and image are actually from Vulkan
 	if (const auto vk_queue_ptr = dynamic_cast<const vulkan_queue*>(&cqueue); !vk_queue_ptr) {

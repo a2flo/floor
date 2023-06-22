@@ -23,6 +23,7 @@
 
 #if !defined(FLOOR_NO_OPENVR)
 #include <floor/vr/vr_context.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 // forward decls so that we don't need to include OpenVR headers
 namespace vr {
@@ -34,17 +35,6 @@ namespace vr {
 	typedef uint64_t VRActionSetHandle_t;
 	typedef uint64_t VRActionHandle_t;
 }
-
-//! current status of a tracked VR device
-//! NOTE: corresponds to vr::ETrackingResult
-enum class VR_TRACKING_STATUS : int {
-	UNINITIALIZED = 1,
-	CALIBRATING_IN_PROGRESS = 100,
-	CALIBRATING_OUF_OF_RANGE = 101,
-	RUNNING_OK = 200,
-	RUNNING_OUT_OF_RANGE = 201,
-	FALLBACK_ROTATION_ONLY = 300,
-};
 
 class openvr_context : public vr_context {
 public:
@@ -61,29 +51,31 @@ public:
 	frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
 											const bool with_position_in_mvm) const override;
 
-	//! contains the current state of a tracked device
-	//! NOTE: corresponds to vr::TrackedDevicePose_t
-	struct tracked_device_pose_t {
-		matrix4f device_to_absolute_tracking;
-		float3 velocity;
-		float3 angular_velocity;
-		VR_TRACKING_STATUS status { VR_TRACKING_STATUS::UNINITIALIZED };
-		bool device_is_connected { false };
-	};
+	vector<pose_t> get_pose_state() const override;
 
-	//! returns the currently active/tracked device poses
-	const vector<tracked_device_pose_t>& get_poses() const {
-		return poses;
-	}
+	//! OpenVR only supports a fixed amount of devices (trackers, controllers, ...)
+	static constexpr const uint32_t max_tracked_devices { 64u };
 	
 protected:
 	vr::IVRSystem* system { nullptr };
 	unique_ptr<vr::COpenVRContext> ctx;
 	vr::IVRCompositor* compositor { nullptr };
 	vr::IVRInput* input { nullptr };
-	
-	//! stores the currently active tracked device state/poses
-	vector<tracked_device_pose_t> poses;
+
+	//! access to "pose_state" must be thread-safe
+	mutable atomic_spin_lock pose_state_lock;
+	//! current pose state
+	vector<pose_t> pose_state GUARDED_BY(pose_state_lock);
+	//! size(pose_state) of the last update (helps with allocation)
+	size_t prev_pose_state_size { 0u };
+
+	//! converts the specified device index to a POSE_TYPE
+	POSE_TYPE device_index_to_pose_type(const uint32_t idx);
+	//! access to "device_type_map" must be thread-safe
+	mutable atomic_spin_lock device_type_map_lock;
+	//! device index -> POSE_TYPE mapping
+	array<POSE_TYPE, max_tracked_devices> device_type_map GUARDED_BY(device_type_map_lock);
+
 	matrix4f hmd_mat;
 	
 	// input handling

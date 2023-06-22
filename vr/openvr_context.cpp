@@ -43,6 +43,8 @@
 #include <floor/compute/metal/metal_image.hpp>
 #endif
 
+static_assert(openvr_context::max_tracked_devices == vr::k_unMaxTrackedDeviceCount);
+
 static constexpr inline vr::EVREye eye_to_eye(const VR_EYE& eye) {
 	return (eye == VR_EYE::LEFT ? vr::EVREye::Eye_Left : vr::EVREye::Eye_Right);
 }
@@ -186,6 +188,7 @@ openvr_context::openvr_context() : vr_context() {
 	}
 
 	// initial setup / get initial poses / tracked devices
+	device_type_map.fill(POSE_TYPE::UNKNOWN);
 	openvr_context::handle_input();
 
 	// all done
@@ -229,7 +232,7 @@ string openvr_context::get_vulkan_device_extensions(VkPhysicalDevice_T* physical
 	return vk_dev_exts;
 }
 
-vector<shared_ptr<event_object>> openvr_context::handle_input() {
+vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_state_lock) {
 	vector<shared_ptr<event_object>> events;
 
 	vr::VRActiveActionSet_t active_action_set {
@@ -373,32 +376,79 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() {
 	}
 
 	// poses / tracked device handling
+	vector<pose_t> updated_pose_state;
+	updated_pose_state.reserve(std::max(prev_pose_state_size, size_t(4u)));
+
 	array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount> vr_poses {};
 	const auto err = compositor->WaitGetPoses(&vr_poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
 		log_error("failed to update VR poses: $", err);
 	} else {
-		poses.clear();
 		for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; ++i) {
 			const auto& vr_pose = vr_poses[i];
-			if (!vr_pose.bPoseIsValid) {
-				// valid poses are contiguous, no need to iterate any further
-				break;
+			// ignore invalid and disconnected
+			if (!vr_pose.bPoseIsValid || !vr_pose.bDeviceIsConnected) {
+				continue;
 			}
 
-			const auto& vr_pose_mat = vr_pose.mDeviceToAbsoluteTracking.m;
-			tracked_device_pose_t pose{
-				.device_to_absolute_tracking = { vr_pose_mat[0][0], vr_pose_mat[1][0], vr_pose_mat[2][0], 0.0f,
-												 vr_pose_mat[0][1], vr_pose_mat[1][1], vr_pose_mat[2][1], 0.0f,
-												 vr_pose_mat[0][2], vr_pose_mat[1][2], vr_pose_mat[2][2], 0.0f,
-												 vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3], 1.0f },
-				.velocity = { vr_pose.vVelocity.v[0], vr_pose.vVelocity.v[1], vr_pose.vVelocity.v[2] },
-				.angular_velocity = { vr_pose.vAngularVelocity.v[0], vr_pose.vAngularVelocity.v[1],
-									  vr_pose.vAngularVelocity.v[2] },
-				.status = (VR_TRACKING_STATUS)vr_pose.eTrackingResult,
-				.device_is_connected = vr_pose.bDeviceIsConnected
-			};
-			poses.emplace_back(pose);
+			pose_t pose { .type = device_index_to_pose_type(i) };
+
+			// handle activity
+			switch (vr_pose.eTrackingResult) {
+				case vr::TrackingResult_Uninitialized:
+				case vr::TrackingResult_Calibrating_InProgress:
+				case vr::TrackingResult_Calibrating_OutOfRange:
+					pose.is_active = 0;
+					break;
+				case vr::TrackingResult_Running_OK:
+				case vr::TrackingResult_Running_OutOfRange:
+				case vr::TrackingResult_Fallback_RotationOnly:
+					pose.is_active = 1;
+					break;
+			}
+
+			if (pose.is_active) {
+				// handle velocity validity based on pose type
+				switch (pose.type) {
+					case vr_context::POSE_TYPE::UNKNOWN:
+					case vr_context::POSE_TYPE::SPECIAL:
+					case vr_context::POSE_TYPE::REFERENCE:
+						// nope
+						break;
+					case vr_context::POSE_TYPE::HEAD:
+					case vr_context::POSE_TYPE::HAND_LEFT:
+					case vr_context::POSE_TYPE::HAND_RIGHT:
+					case vr_context::POSE_TYPE::HAND_LEFT_AIM: // TODO: actually support this somehow
+					case vr_context::POSE_TYPE::HAND_RIGHT_AIM: // TODO: actually support this somehow
+					case vr_context::POSE_TYPE::TRACKER:
+						pose.linear_velocity_valid = 1;
+						pose.angular_velocity_valid = 1;
+						pose.linear_velocity_tracked = 1;
+						pose.angular_velocity_tracked = 1;
+						pose.linear_velocity = { vr_pose.vVelocity.v[0], vr_pose.vVelocity.v[1], vr_pose.vVelocity.v[2] };
+						pose.angular_velocity = { vr_pose.vAngularVelocity.v[0], vr_pose.vAngularVelocity.v[1],
+												  vr_pose.vAngularVelocity.v[2] };
+						break;
+				}
+
+				// handle pose orientation + position
+				assert(vr_pose.bPoseIsValid); // already checked above
+				const auto& vr_pose_mat = vr_pose.mDeviceToAbsoluteTracking.m;
+				pose.position_valid = 1;
+				pose.orientation_valid = 1;
+				pose.position_tracked = 1;
+				pose.orientation_tracked = 1;
+				pose.position = { vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3] };
+				pose.orientation = {
+					vr_pose_mat[0][0], vr_pose_mat[1][0], vr_pose_mat[2][0], 0.0f,
+					vr_pose_mat[0][1], vr_pose_mat[1][1], vr_pose_mat[2][1], 0.0f,
+					vr_pose_mat[0][2], vr_pose_mat[1][2], vr_pose_mat[2][2], 0.0f,
+					0.0f, 0.0f, 0.0f, 1.0f
+				};
+				pose.orientation.invert();
+			}
+
+			updated_pose_state.emplace_back(std::move(pose));
 		}
 
 		const auto& hmd_pose = vr_poses[vr::k_unTrackedDeviceIndex_Hmd];
@@ -414,7 +464,75 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() {
 		}
 	}
 
+	// update pose state
+	prev_pose_state_size = updated_pose_state.size();
+	{
+		GUARD(pose_state_lock);
+		pose_state = std::move(updated_pose_state);
+	}
+
 	return events;
+}
+
+vr_context::POSE_TYPE openvr_context::device_index_to_pose_type(const uint32_t idx) REQUIRES(!device_type_map_lock) {
+	if (idx == vr::k_unTrackedDeviceIndex_Hmd) {
+		return POSE_TYPE::HEAD;
+	}
+
+	// it is very likely that we already know this mapping (-> double locking not an issue)
+	{
+		GUARD(device_type_map_lock);
+		if (auto pose_type = device_type_map[idx]; pose_type != vr_context::POSE_TYPE::UNKNOWN) {
+			return pose_type;
+		}
+	}
+
+	const auto dev_class = system->GetTrackedDeviceClass(idx);
+	auto pose_type = POSE_TYPE::UNKNOWN;
+	switch (dev_class) {
+		case vr::TrackedDeviceClass_Invalid:
+			// keep invalid/unknown
+			break;
+		case vr::TrackedDeviceClass_DisplayRedirect:
+			pose_type = POSE_TYPE::SPECIAL;
+			break;
+		case vr::TrackedDeviceClass_TrackingReference:
+			pose_type = POSE_TYPE::REFERENCE;
+			break;
+		case vr::TrackedDeviceClass_Controller: {
+			const auto ctrl_role = system->GetControllerRoleForTrackedDeviceIndex(idx);
+			switch (ctrl_role) {
+				case vr::TrackedControllerRole_Invalid:
+					// keep invalid/unknown
+					break;
+				case vr::TrackedControllerRole_LeftHand:
+					pose_type = POSE_TYPE::HAND_LEFT;
+					break;
+				case vr::TrackedControllerRole_RightHand:
+					pose_type = POSE_TYPE::HAND_RIGHT;
+					break;
+				case vr::TrackedControllerRole_OptOut:
+				case vr::TrackedControllerRole_Treadmill: // TODO: handle this
+				case vr::TrackedControllerRole_Stylus: // TODO: handle this
+					pose_type = POSE_TYPE::SPECIAL;
+					break;
+			}
+			break;
+		}
+		case vr::TrackedDeviceClass_GenericTracker:
+			pose_type = POSE_TYPE::TRACKER;
+			break;
+		case vr::TrackedDeviceClass_HMD:
+		case vr::TrackedDeviceClass_Max:
+			assert(false && "shouldn't be here");
+			break;
+	}
+
+	{
+		GUARD(device_type_map_lock);
+		device_type_map[idx] = pose_type;
+	}
+	return pose_type;
 }
 
 bool openvr_context::present(const compute_queue& cqueue, const compute_image* image) {
@@ -567,6 +685,11 @@ matrix4f openvr_context::get_eye_matrix(const VR_EYE& eye) const {
 
 const matrix4f& openvr_context::get_hmd_matrix() const {
 	return hmd_mat;
+}
+
+vector<vr_context::pose_t> openvr_context::get_pose_state() const REQUIRES(!pose_state_lock) {
+	GUARD(pose_state_lock);
+	return pose_state;
 }
 
 #endif

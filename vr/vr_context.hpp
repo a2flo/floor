@@ -22,6 +22,7 @@
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_context.hpp>
 #include <floor/math/matrix4.hpp>
+#include <floor/math/quaternion.hpp>
 #include <floor/core/event_objects.hpp>
 
 //! used to differentiate between the different VR implementations/backends
@@ -162,6 +163,65 @@ public:
 	//! NOTE: if "with_position_in_mvm" is true, then the MVMs will also contain the current position
 	virtual frame_view_state_t get_frame_view_state(const float& z_near, const float& z_far,
 													const bool with_position_in_mvm = true) const = 0;
+
+	//! known pose types
+	enum class POSE_TYPE {
+		//! invalid/unknown/none state
+		UNKNOWN,
+		//! head or HMD
+		HEAD,
+		//! left hand or controller
+		HAND_LEFT,
+		//! right hand or controller
+		HAND_RIGHT,
+		//! aim/target of the left hand/controller
+		HAND_LEFT_AIM,
+		//! aim/target of the right hand/controller
+		HAND_RIGHT_AIM,
+		//! generic tracker
+		TRACKER,
+		//! reference point
+		REFERENCE,
+		//! special/internal type that generally doesn't need to be handled
+		SPECIAL,
+		// TODO: specific trackers, joints, ...
+	};
+
+	//! returns a human-readable string of the specified pose type
+	static std::string_view pose_type_to_string(const POSE_TYPE type);
+
+	//! tracked pose (tracker device, hand tracking, ...)
+	struct pose_t {
+		POSE_TYPE type { POSE_TYPE::UNKNOWN };
+
+		float3 position;
+		matrix4f orientation;
+		float3 linear_velocity;
+		float3 angular_velocity;
+
+		//! validity flags
+		struct {
+			union {
+				uint32_t is_active : 1;
+
+				uint32_t position_valid : 1;
+				uint32_t orientation_valid : 1;
+				uint32_t linear_velocity_valid : 1;
+				uint32_t angular_velocity_valid : 1;
+
+				uint32_t position_tracked : 1;
+				uint32_t orientation_tracked : 1;
+				uint32_t linear_velocity_tracked : 1;
+				uint32_t angular_velocity_tracked : 1;
+
+				uint32_t unused : 23;
+			};
+			uint32_t flags { 0u };
+		};
+	};
+
+	//! retrieve the current pose state
+	virtual vector<pose_t> get_pose_state() const = 0;
 
 protected:
 	bool valid { false };
