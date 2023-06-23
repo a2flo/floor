@@ -748,8 +748,7 @@ vector<shared_ptr<event_object>> openxr_context::handle_input() {
 
 		switch (xr_event.type) {
 			case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
-				const XrEventDataSessionStateChanged& session_state_changed_event =
-					*reinterpret_cast<XrEventDataSessionStateChanged*>(&xr_event);
+				const auto& session_state_changed_event = *reinterpret_cast<XrEventDataSessionStateChanged*>(&xr_event);
 				switch (session_state_changed_event.state) {
 					case XR_SESSION_STATE_READY: {
 						// begin session
@@ -783,6 +782,10 @@ vector<shared_ptr<event_object>> openxr_context::handle_input() {
 			}
 			case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING: {
 				// TODO: !
+				break;
+			}
+			case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED: {
+				update_hand_controller_types();
 				break;
 			}
 			default:
@@ -1057,6 +1060,26 @@ XrPath openxr_context::to_path_or_throw(const char* str) {
 					 throw std::runtime_error("failed to convert string \"" + (str ? string(str) : "nullptr") +
 											  "\" to XrPath"););
 	return path;
+}
+
+optional<string> openxr_context::path_to_string(const XrPath& path) {
+	if (path == XR_NULL_PATH) {
+		return {}; // invalid
+	}
+
+	uint32_t size = 0u;
+	XR_CALL_RET(xrPathToString(instance, path, 0u, &size, nullptr),
+				"failed to query XrPath string length", {});
+	if (size <= 1) {
+		return ""; // empty string
+	}
+
+	string str(size, '\0');
+	XR_CALL_RET(xrPathToString(instance, path, size, &size, str.data()),
+				"failed to convert XrPath to string", {});
+	// remove \0 terminator
+	str.pop_back();
+	return str;
 }
 
 #endif

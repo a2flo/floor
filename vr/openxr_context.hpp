@@ -169,12 +169,39 @@ protected:
 	//! base action mapped to all possible VR event types
 	unordered_map<EVENT_TYPE, action_t> base_actions;
 
+	//! supported/known controller types including extensions
+	enum class CONTROLLER_TYPE {
+		KHRONOS_SIMPLE,
+		INDEX,
+		HTC_VIVE,
+		GOOGLE_DAYDREAM,
+		MICROSOFT_MIXED_REALITY,
+		OCULUS_GO,
+		OCULUS_TOUCH,
+		HP_MIXED_REALITY,
+		HTC_VIVE_COSMOS,
+		HTC_VIVE_FOCUS3,
+		HUAWEI,
+		SAMSUNG_ODYSSEY,
+		MAGIC_LEAP2,
+		OCULUS_TOUCH_PRO,
+		PICO_NEO3,
+		PICO4,
+		__MAX_CONTROLLER_TYPE
+	};
+
 	//! hand vars
 	array<XrAction, 2> hand_pose_actions { nullptr, nullptr };
 	array<XrSpace, 2> hand_spaces { nullptr, nullptr };
 	array<XrAction, 2> hand_aim_pose_actions { nullptr, nullptr };
 	array<XrSpace, 2> hand_aim_spaces { nullptr, nullptr };
 	array<XrPath, 2> hand_paths { 0u, 0u };
+	array<CONTROLLER_TYPE, 2> hand_controller_types {
+		CONTROLLER_TYPE::KHRONOS_SIMPLE,
+		CONTROLLER_TYPE::KHRONOS_SIMPLE
+	};
+	//! called on setup and on interaction profile change to update "hand_controller_types" and "hand_input_emulation"
+	void update_hand_controller_types();
 
 	//! previous hand event states
 	struct event_state_t {
@@ -195,20 +222,23 @@ protected:
 	//! input event emulation
 	static constexpr const float emulation_trigger_force { 0.95f };
 	struct input_event_emulation_t {
-		union {
-			//! via VR_GRIP_FORCE with force >= 0.95f
-			uint32_t grip_press : 1;
-			//! via VR_TRACKPAD_FORCE with force >= 0.95f
-			uint32_t trackpad_press : 1;
-			//! via VR_TRIGGER_PULL with force >= 0.95f
-			uint32_t trigger_press : 1;
-			//! via VR_GRIP_PULL when state was 0 and changed to > 0
-			uint32_t grip_touch : 1;
+		//! via VR_GRIP_FORCE with force >= 0.95f
+		uint32_t grip_press : 1 = 0u;
+		//! via VR_TRACKPAD_FORCE with force >= 0.95f
+		uint32_t trackpad_press : 1 = 0u;
+		//! via VR_TRIGGER_PULL with force >= 0.95f
+		uint32_t trigger_press : 1 = 0u;
+		//! via VR_GRIP_PULL when state was 0 and changed to > 0
+		uint32_t grip_touch : 1 = 0u;
 
-			uint32_t unused : 28;
-		};
-		uint32_t data { 0u };
-	} emulate;
+		uint32_t unused : 28 = 0u;
+	};
+	//! controller type -> necessary/available emulation lookup table
+	static array<input_event_emulation_t, size_t(CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)> controller_input_emulation_lut;
+	//! interaction profile name -> controller type lookup table (for all known/registered ones)
+	unordered_map<string, CONTROLLER_TYPE> interaction_profile_controller_lut;
+	//! currently active input emulation for each hand/controller
+	array<input_event_emulation_t, 2> hand_input_emulation {{ {}, {} }};
 
 	// non-core controller support flags
 	bool has_hp_mixed_reality_controller_support { false };
@@ -228,6 +258,9 @@ protected:
 	XrPath to_path_or_throw(const std::string& str);
 	//! converts "str" to an XrPath, throws on failure
 	XrPath to_path_or_throw(const char* str);
+
+	//! converts XrPath "path" to a string, or returns empty on failure
+	optional<string> path_to_string(const XrPath& path);
 
 	//! converts the OpenXR time into SDL ticks that we need for event handling
 	uint64_t convert_time_to_ticks(XrTime time);

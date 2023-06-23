@@ -20,6 +20,78 @@
 
 #if !defined(FLOOR_NO_OPENXR) && !defined(FLOOR_NO_VULKAN)
 
+array<openxr_context::input_event_emulation_t, size_t(openxr_context::CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)>
+openxr_context::controller_input_emulation_lut {{
+	// KHRONOS_SIMPLE
+	// NOTE: can't emulate any of the non-existing inputs
+	{},
+	// INDEX
+	{
+		.grip_press = 1,
+		.trackpad_press = 1,
+		.grip_touch = 1,
+	},
+	// HTC_VIVE
+	// NOTE: no VR_THUMBSTICK_* or VR_GRIP_* and can't emulate them
+	// NOTE: no touch events except VR_TRACKPAD -> can't emulate them
+	// NOTE: VR_TRACKPAD_FORCE -> can't emulate
+	{},
+	// GOOGLE_DAYDREAM
+	// NOTE: can't emulate any of the non-existing inputs
+	{},
+	// MICROSOFT_MIXED_REALITY
+	// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
+	// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
+	{
+		.trigger_press = 1,
+	},
+	// OCULUS_GO
+	// NOTE: no VR_THUMBSTICK_*, VR_TRIGGER_* or VR_GRIP_* -> can't emulate these
+	{},
+	// OCULUS_TOUCH
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{
+		.grip_press = 1,
+		.trigger_press = 1,
+	},
+	// HP_MIXED_REALITY
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{
+		.grip_press = 1,
+		.trigger_press = 1,
+	},
+	// HTC_VIVE_COSMOS
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{},
+	// HTC_VIVE_FOCUS3
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{},
+	// HUAWEI
+	// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
+	{},
+	// SAMSUNG_ODYSSEY
+	// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
+	// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
+	{
+		.trigger_press = 1,
+	},
+	// MAGIC_LEAP2
+	// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
+	{},
+	// OCULUS_TOUCH_PRO
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{
+		.grip_press = 1,
+		.trigger_press = 1,
+	},
+	// PICO_NEO3
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{},
+	// PICO4
+	// NOTE: no VR_TRACKPAD_* -> can't emulate this
+	{},
+}};
+
 bool openxr_context::input_setup() {
 	// create base input set
 	const XrActionSetCreateInfo action_set_create_info {
@@ -188,8 +260,9 @@ bool openxr_context::input_setup() {
 		EVENT_TYPE event_type;
 	};
 
-	const auto suggest_binding = [this](const string& interation_profile,
+	const auto suggest_binding = [this](const string& interaction_profile,
 										const string& controller_name,
+										const CONTROLLER_TYPE& controller_type,
 										const vector<action_definition_t>& both_hands,
 										const vector<action_definition_t>& left_hand,
 										const vector<action_definition_t>& right_hand) {
@@ -218,19 +291,21 @@ bool openxr_context::input_setup() {
 		const XrInteractionProfileSuggestedBinding suggested_binding {
 			.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
 			.next = nullptr,
-			.interactionProfile = to_path_or_throw(interation_profile),
+			.interactionProfile = to_path_or_throw(interaction_profile),
 			.countSuggestedBindings = uint32_t(bindings.size()),
 			.suggestedBindings = bindings.data(),
 		};
-		XR_CALL_IGNORE(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
-					   "failed to set suggested interaction profile for " + controller_name);
+		XR_CALL_RET(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+					"failed to set suggested interaction profile for " + controller_name, false);
+
+		// valid binding -> add to known interaction profile map
+		interaction_profile_controller_lut.insert_or_assign(interaction_profile, controller_type);
+		return true;
 	};
 
 	vector<action_definition_t> both_hand_actions;
 	vector<action_definition_t> left_hand_actions;
 	vector<action_definition_t> right_hand_actions;
-
-	// TODO: only enable input emulation when we actually know which controller is used!
 
 	// Khronos simple controller
 	{
@@ -247,10 +322,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/khr/simple_controller",
-						"Khronos simple controller",
+						"Khronos simple controller", CONTROLLER_TYPE::KHRONOS_SIMPLE,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: can't emulate any of the non-existing inputs
 		// TODO: /output/haptic
 	}
 	// Valve Index
@@ -283,15 +357,10 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/valve/index_controller",
-						"Valve Index controller",
+						"Valve Index controller", CONTROLLER_TYPE::INDEX,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
 		// TODO: /output/haptic
-
-		// not provided: emulate these
-		emulate.grip_press = 1;
-		emulate.trackpad_press = 1;
-		emulate.grip_touch = 1;
 	}
 	// HTC Vive
 	{
@@ -314,12 +383,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/htc/vive_controller",
-						"HTC Vive controller",
+						"HTC Vive controller", CONTROLLER_TYPE::HTC_VIVE,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_THUMBSTICK_* or VR_GRIP_* and can't emulate them
-		// NOTE: no touch events except VR_TRACKPAD -> can't emulate them
-		// NOTE: VR_TRACKPAD_FORCE -> can't emulate
 		// TODO: /output/haptic
 	}
 	// Google Daydream
@@ -340,10 +406,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/google/daydream_controller",
-						"Google Daydream controller",
+						"Google Daydream controller", CONTROLLER_TYPE::GOOGLE_DAYDREAM,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: can't emulate any of the non-existing inputs
 		// TODO: /output/haptic
 	}
 	// Microsoft Mixed Reality Motion
@@ -367,15 +432,10 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/microsoft/motion_controller",
-						"Microsoft Mixed Reality Motion controller",
+						"Microsoft Mixed Reality Motion controller", CONTROLLER_TYPE::MICROSOFT_MIXED_REALITY,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
-		// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
 		// TODO: /output/haptic
-
-		// not provided: emulate these
-		emulate.trigger_press = 1;
 	}
 	// Oculus Go
 	{
@@ -396,10 +456,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/oculus/go_controller",
-						"Oculus Go controller",
+						"Oculus Go controller", CONTROLLER_TYPE::OCULUS_GO,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_THUMBSTICK_*, VR_TRIGGER_* or VR_GRIP_* -> can't emulate these
 		// TODO: /output/haptic
 	}
 	// Oculus Touch
@@ -434,15 +493,10 @@ bool openxr_context::input_setup() {
 			{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
 		};
 		suggest_binding("/interaction_profiles/oculus/touch_controller",
-						"Oculus Touch controller",
+						"Oculus Touch controller", CONTROLLER_TYPE::OCULUS_TOUCH,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_TRACKPAD_* -> can't emulate this
 		// TODO: /output/haptic
-
-		// not provided: emulate these
-		emulate.grip_press = 1;
-		emulate.trigger_press = 1;
 	}
 	if (has_hp_mixed_reality_controller_support) {
 		both_hand_actions = {
@@ -467,15 +521,10 @@ bool openxr_context::input_setup() {
 			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
 		};
 		suggest_binding("/interaction_profiles/hp/mixed_reality_controller",
-						"HP Mixed Reality controller",
+						"HP Mixed Reality controller", CONTROLLER_TYPE::HP_MIXED_REALITY,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_TRACKPAD_* -> can't emulate this
 		// TODO: /output/haptic
-
-		// not provided: emulate these
-		emulate.grip_press = 1;
-		emulate.trigger_press = 1;
 	}
 	if (has_htc_vive_cosmos_controller_support) {
 		both_hand_actions = {
@@ -504,10 +553,9 @@ bool openxr_context::input_setup() {
 			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
 		};
 		suggest_binding("/interaction_profiles/htc/vive_cosmos_controller",
-						"HTC Vive Cosmos controller",
+						"HTC Vive Cosmos controller", CONTROLLER_TYPE::HTC_VIVE_COSMOS,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_TRACKPAD_* -> can't emulate this
 		// TODO: /output/haptic
 	}
 	if (has_htc_vive_focus3_controller_support) {
@@ -540,10 +588,9 @@ bool openxr_context::input_setup() {
 			{ "/input/b/click", EVENT_TYPE::VR_TRIGGER_PRESS },
 		};
 		suggest_binding("/interaction_profiles/htc/vive_focus3_controller",
-						"HTC Vive Focus 3 controller",
+						"HTC Vive Focus 3 controller", CONTROLLER_TYPE::HTC_VIVE_FOCUS3,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_TRACKPAD_* -> can't emulate this
 		// TODO: /output/haptic
 	}
 	if (has_huawei_controller_support) {
@@ -565,10 +612,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/huawei/controller",
-						"Huawei controller",
+						"Huawei controller", CONTROLLER_TYPE::HUAWEI,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
 		// TODO: /output/haptic
 	}
 	if (has_samsung_odyssey_controller_support) {
@@ -592,15 +638,10 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/samsung/odyssey_controller",
-						"Samsung Odyssey controller",
+						"Samsung Odyssey controller", CONTROLLER_TYPE::SAMSUNG_ODYSSEY,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_SYSTEM_* or VR_GRIP_* -> can't emulate this
-		// NOTE: no VR_TRIGGER_TOUCH/VR_THUMBSTICK_TOUCH/VR_TRACKPAD_FORCE -> can't emulate this
 		// TODO: /output/haptic
-
-		// not provided: emulate these
-		emulate.trigger_press = 1;
 	}
 	if (has_ml2_controller_support) {
 		both_hand_actions = {
@@ -627,10 +668,9 @@ bool openxr_context::input_setup() {
 			{ "/input/aim/pose", EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT },
 		};
 		suggest_binding("/interaction_profiles/ml/ml2_controller",
-						"Magic Leap 2 controller",
+						"Magic Leap 2 controller", CONTROLLER_TYPE::MAGIC_LEAP2,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_THUMBSTICK_*, VR_GRIP_* -> can't emulate these
 		// TODO: /output/haptic
 	}
 	if (has_fb_touch_controller_pro_support) {
@@ -665,16 +705,11 @@ bool openxr_context::input_setup() {
 			{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
 		};
 		suggest_binding("/interaction_profiles/oculus/touch_controller",
-						"Meta Quest Touch Pro controller",
+						"Meta Quest Touch Pro controller", CONTROLLER_TYPE::OCULUS_TOUCH_PRO,
 						both_hand_actions, left_hand_actions, right_hand_actions);
 
-		// NOTE: no VR_TRACKPAD_* -> can't emulate this
 		// TODO: /output/haptic
 		// TODO: /input/stylus_fb/*, /input/trigger/*_fb, input/thumb_fb/proximity_fb, /output/haptic_*_fb
-
-		// not provided: emulate these
-		emulate.grip_press = 1;
-		emulate.trigger_press = 1;
 	}
 	if (has_bd_controller_support) {
 		// enables both PICO Neo3 and PICO 4 controller support
@@ -710,10 +745,9 @@ bool openxr_context::input_setup() {
 				{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
 			};
 			suggest_binding("/interaction_profiles/bytedance/pico_neo3_controller",
-							"PICO Neo3 controller",
+							"PICO Neo3 controller", CONTROLLER_TYPE::PICO_NEO3,
 							both_hand_actions, left_hand_actions, right_hand_actions);
 
-			// NOTE: no VR_TRACKPAD_* -> can't emulate this
 			// TODO: /output/haptic
 		}
 		{
@@ -748,10 +782,9 @@ bool openxr_context::input_setup() {
 				{ "/input/b/touch", EVENT_TYPE::VR_TRIGGER_TOUCH },
 			};
 			suggest_binding("/interaction_profiles/bytedance/pico4_controller",
-							"PICO 4 controller",
+							"PICO 4 controller", CONTROLLER_TYPE::PICO4,
 							both_hand_actions, left_hand_actions, right_hand_actions);
 
-			// NOTE: no VR_TRACKPAD_* -> can't emulate this
 			// TODO: /output/haptic
 		}
 	}
@@ -766,7 +799,50 @@ bool openxr_context::input_setup() {
 	XR_CALL_RET(xrAttachSessionActionSets(session, &attach_info),
 				"failed to attach session action sets", false);
 
+	// query/update which controller types are actually used
+	update_hand_controller_types();
+
 	return true;
+}
+
+void openxr_context::update_hand_controller_types() {
+	// query interaction profile and update controller type of each hand
+	for (size_t hand_idx = 0; hand_idx < hand_paths.size(); ++hand_idx) {
+		const auto& hand_path = hand_paths[hand_idx];
+		if (!hand_path) {
+			continue;
+		}
+
+		// query current interaction profile (-> controller type)
+		XrInteractionProfileState profile{
+			.type = XR_TYPE_INTERACTION_PROFILE_STATE,
+			.next = nullptr,
+		};
+		XR_CALL_BREAK(xrGetCurrentInteractionProfile(session, hand_path, &profile),
+					  "failed to get current interaction profile for "s + (hand_idx == 0 ? "left" : "right") + " hand");
+
+		const auto profile_str = path_to_string(profile.interactionProfile);
+		if (!profile_str) {
+			// fallback
+			log_warn("interaction profile path for $ hand is invalid", (hand_idx == 0 ? "left" : "right"));
+			hand_controller_types[hand_idx] = CONTROLLER_TYPE::KHRONOS_SIMPLE;
+			continue;
+		}
+
+		const auto type_iter = interaction_profile_controller_lut.find(*profile_str);
+		if (type_iter == interaction_profile_controller_lut.end()) {
+			log_warn("unknown/unhandled interaction profile for $ hand: $",
+					 (hand_idx == 0 ? "left" : "right"), *profile_str);
+			hand_controller_types[hand_idx] = CONTROLLER_TYPE::KHRONOS_SIMPLE;
+			continue;
+		}
+		hand_controller_types[hand_idx] = type_iter->second;
+	}
+
+	// update required input emulation for each hand/controller
+	for (size_t hand_idx = 0; hand_idx < hand_paths.size(); ++hand_idx) {
+		hand_input_emulation[hand_idx] = controller_input_emulation_lut[size_t(hand_controller_types[hand_idx])];
+	}
 }
 
 uint64_t openxr_context::convert_time_to_ticks(XrTime time) {
@@ -870,6 +946,7 @@ void openxr_context::add_hand_float_event(vector<shared_ptr<event_object>>& even
 	const auto cur_state = state.currentState;
 	auto& prev_state = hand_event_states[!side ? 0 : 1][event_type];
 	const auto delta = cur_state - prev_state.f;
+	const auto& emulate = hand_input_emulation[!side ? 0 : 1];
 	switch (event_type) {
 		case EVENT_TYPE::VR_TRIGGER_PULL:
 			events.emplace_back(make_shared<vr_trigger_pull_event>(cur_time, side, state.currentState, delta));
