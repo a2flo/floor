@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_OPENVR)
 #include <floor/vr/vr_context.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
+#include <bitset>
 
 // forward decls so that we don't need to include OpenVR headers
 namespace vr {
@@ -74,7 +75,9 @@ protected:
 	//! access to "device_type_map" must be thread-safe
 	mutable atomic_spin_lock device_type_map_lock;
 	//! device index -> POSE_TYPE mapping
-	array<POSE_TYPE, max_tracked_devices> device_type_map GUARDED_BY(device_type_map_lock);
+	array<POSE_TYPE, max_tracked_devices> device_type_map GUARDED_BY(device_type_map_lock) {};
+	//! can use an optimized bit set for device activity tracking
+	bitset<max_tracked_devices> device_active { 0u };
 
 	matrix4f hmd_mat;
 	
@@ -99,6 +102,18 @@ protected:
 		vr::VRActionHandle_t handle;
 	};
 	unordered_map<string, action_t> actions;
+
+	//! tracked device index for each hand (0 signals no controller is connected)
+	array<uint32_t, 2> hand_device_indices { 0u, 0u };
+	//! currently active controller type for each hand
+	array<CONTROLLER_TYPE, 2> hand_controller_types {
+		CONTROLLER_TYPE::NONE,
+		CONTROLLER_TYPE::NONE
+	};
+	//! set when update_hand_controller_types() should be called next time input is handled
+	atomic<bool> force_update_controller_types { false };
+	//! called on setup and controller connect/disconnect/update
+	void update_hand_controller_types();
 
 	//! computes the current projection matrix for the specified eye and near/far plane
 	matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const;

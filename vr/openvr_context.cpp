@@ -54,12 +54,21 @@ static property_type get_vr_property(vr::IVRSystem& system,
 									 const vr::ETrackedDeviceProperty& prop,
 									 const vr::TrackedDeviceIndex_t idx = 0) {
 	if constexpr (is_same_v<property_type, string>) {
-		const auto len = system.GetStringTrackedDeviceProperty(idx, prop, nullptr, 0, nullptr);
+		vr::ETrackedPropertyError err = vr::TrackedProp_Success;
+		const auto len = system.GetStringTrackedDeviceProperty(idx, prop, nullptr, 0, &err);
+		if (err != vr::TrackedProp_Success && err != vr::TrackedProp_BufferTooSmall) {
+			log_error("OpenVR: failed to read string property $: $", prop, err);
+			return {};
+		}
 		if (len == 0) {
 			return {};
 		}
 		string str(len, '\0');
-		system.GetStringTrackedDeviceProperty(idx, prop, str.data(), len, nullptr);
+		system.GetStringTrackedDeviceProperty(idx, prop, str.data(), len, &err);
+		if (err != vr::TrackedProp_Success) {
+			log_error("OpenVR: failed to read string property $: $", prop, err);
+			return {};
+		}
 		return core::trim(str);
 	} else if constexpr (is_same_v<property_type, bool>) {
 		return system.GetBoolTrackedDeviceProperty(idx, prop, nullptr);
@@ -190,6 +199,8 @@ openvr_context::openvr_context() : vr_context() {
 	// initial setup / get initial poses / tracked devices
 	device_type_map.fill(POSE_TYPE::UNKNOWN);
 	openvr_context::handle_input();
+	// must call this after the initial setup (fills necessary device_type_map)
+	update_hand_controller_types();
 
 	// all done
 	valid = true;
@@ -235,6 +246,7 @@ string openvr_context::get_vulkan_device_extensions(VkPhysicalDevice_T* physical
 vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_state_lock) {
 	vector<shared_ptr<event_object>> events;
 
+	// action event/input handling
 	vr::VRActiveActionSet_t active_action_set {
 		.ulActionSet = main_action_set,
 		.ulRestrictedToDevice = vr::k_ulInvalidInputValueHandle,
@@ -386,12 +398,20 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 	} else {
 		for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; ++i) {
 			const auto& vr_pose = vr_poses[i];
-			// ignore invalid and disconnected
-			if (!vr_pose.bPoseIsValid || !vr_pose.bDeviceIsConnected) {
+			device_active[i] = vr_pose.bDeviceIsConnected;
+
+			// ignore of disconnected
+			if (!vr_pose.bDeviceIsConnected) {
 				continue;
 			}
 
+			// -> still set post type if pose is invalid
 			pose_t pose { .type = device_index_to_pose_type(i) };
+
+			// now also abort if pose is invalid
+			if (!vr_pose.bPoseIsValid) {
+				continue;
+			}
 
 			// handle activity
 			switch (vr_pose.eTrackingResult) {
@@ -471,6 +491,28 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 		pose_state = std::move(updated_pose_state);
 	}
 
+	// system event handling
+	vr::VREvent_t evt {};
+	while (system->PollNextEvent(&evt, sizeof(vr::VREvent_t))) {
+		switch (evt.eventType) {
+			case vr::VREvent_TrackedDeviceActivated:
+			case vr::VREvent_TrackedDeviceUpdated:
+				// ensure this is up-to-date
+				(void)device_index_to_pose_type(evt.trackedDeviceIndex);
+				[[fallthrough]];
+			case vr::VREvent_TrackedDeviceDeactivated:
+				update_hand_controller_types();
+				break;
+			default:
+				break;
+		}
+	}
+
+	if (force_update_controller_types) {
+		force_update_controller_types = false;
+		update_hand_controller_types();
+	}
+
 	return events;
 }
 
@@ -507,9 +549,17 @@ vr_context::POSE_TYPE openvr_context::device_index_to_pose_type(const uint32_t i
 					break;
 				case vr::TrackedControllerRole_LeftHand:
 					pose_type = POSE_TYPE::HAND_LEFT;
+					// actually knowing that a tracked device index is a controller may take some time -> force update
+					if (hand_controller_types[0] == CONTROLLER_TYPE::NONE) {
+						force_update_controller_types = true;
+					}
 					break;
 				case vr::TrackedControllerRole_RightHand:
 					pose_type = POSE_TYPE::HAND_RIGHT;
+					// actually knowing that a tracked device index is a controller may take some time -> force update
+					if (hand_controller_types[1] == CONTROLLER_TYPE::NONE) {
+						force_update_controller_types = true;
+					}
 					break;
 				case vr::TrackedControllerRole_OptOut:
 				case vr::TrackedControllerRole_Treadmill: // TODO: handle this
@@ -690,6 +740,64 @@ const matrix4f& openvr_context::get_hmd_matrix() const {
 vector<vr_context::pose_t> openvr_context::get_pose_state() const REQUIRES(!pose_state_lock) {
 	GUARD(pose_state_lock);
 	return pose_state;
+}
+
+void openvr_context::update_hand_controller_types() REQUIRES(!device_type_map_lock) {
+	// search for known left/right hand controller pose type -> device index
+	hand_device_indices = { 0u, 0u }; // reset
+	{
+		GUARD(device_type_map_lock);
+		for (uint32_t dev_idx = 0; dev_idx < max_tracked_devices; ++dev_idx) {
+			if (device_type_map[dev_idx] == vr_context::POSE_TYPE::HAND_LEFT) {
+				hand_device_indices[0] = dev_idx;
+				if (hand_device_indices[1] != 0u) {
+					break; // break if both were found
+				}
+			} else if (device_type_map[dev_idx] == vr_context::POSE_TYPE::HAND_RIGHT) {
+				hand_device_indices[1] = dev_idx;
+				if (hand_device_indices[0] != 0u) {
+					break; // break if both were found
+				}
+			}
+		}
+	}
+
+	for (uint32_t hand_idx = 0; hand_idx < 2; ++hand_idx) {
+		// if the device is inactive -> set to 0 again (NONE controller)
+		if (hand_device_indices[hand_idx] > 0 && !device_active[hand_device_indices[hand_idx]]) {
+			hand_device_indices[hand_idx] = 0u;
+		}
+
+		if (hand_device_indices[hand_idx] == 0u) {
+			hand_controller_types[hand_idx] = CONTROLLER_TYPE::NONE;
+			continue;
+		}
+
+		// NOTE: would prefer using Prop_AttachedDeviceId_String, but this doesn't work at all
+		//       -> need to use Prop_ControllerType_String instead, but this doesn't differentiate enough between controller types
+		const auto controller_name = get_vr_property<string>(*system, vr::Prop_ControllerType_String, hand_device_indices[hand_idx]);
+		static const unordered_map<string, CONTROLLER_TYPE> controller_name_map {
+			{ "knuckles", CONTROLLER_TYPE::INDEX },
+			{ "vive_controller", CONTROLLER_TYPE::HTC_VIVE },
+			{ "vive_cosmos_controller", CONTROLLER_TYPE::HTC_VIVE_COSMOS },
+			{ "oculus_touch", CONTROLLER_TYPE::OCULUS_TOUCH },
+			{ "holographic_controller", CONTROLLER_TYPE::MICROSOFT_MIXED_REALITY },
+			{ "hpmotioncontroller", CONTROLLER_TYPE::HP_MIXED_REALITY },
+			{ "pico_controller", CONTROLLER_TYPE::PICO_NEO3 },
+		};
+		const auto controller_iter = controller_name_map.find(controller_name);
+		if (controller_iter == controller_name_map.end()) {
+			log_error("unknown controller type: $", controller_name);
+			hand_controller_types[hand_idx] = CONTROLLER_TYPE::NONE;
+			continue;
+		}
+		hand_controller_types[hand_idx] = controller_iter->second;
+	}
+
+	for (uint32_t hand_idx = 0; hand_idx < 2; ++hand_idx) {
+		log_msg("OpenVR: now using $ hand controller: $", hand_idx == 0 ? "left" : "right",
+				controller_type_to_string(hand_controller_types[hand_idx]));
+	}
 }
 
 #endif

@@ -169,36 +169,16 @@ protected:
 	//! base action mapped to all possible VR event types
 	unordered_map<EVENT_TYPE, action_t> base_actions;
 
-	//! supported/known controller types including extensions
-	enum class CONTROLLER_TYPE {
-		KHRONOS_SIMPLE,
-		INDEX,
-		HTC_VIVE,
-		GOOGLE_DAYDREAM,
-		MICROSOFT_MIXED_REALITY,
-		OCULUS_GO,
-		OCULUS_TOUCH,
-		HP_MIXED_REALITY,
-		HTC_VIVE_COSMOS,
-		HTC_VIVE_FOCUS3,
-		HUAWEI,
-		SAMSUNG_ODYSSEY,
-		MAGIC_LEAP2,
-		OCULUS_TOUCH_PRO,
-		PICO_NEO3,
-		PICO4,
-		__MAX_CONTROLLER_TYPE
-	};
-
 	//! hand vars
 	array<XrAction, 2> hand_pose_actions { nullptr, nullptr };
 	array<XrSpace, 2> hand_spaces { nullptr, nullptr };
 	array<XrAction, 2> hand_aim_pose_actions { nullptr, nullptr };
 	array<XrSpace, 2> hand_aim_spaces { nullptr, nullptr };
 	array<XrPath, 2> hand_paths { 0u, 0u };
+	//! currently active controller type for each hand
 	array<CONTROLLER_TYPE, 2> hand_controller_types {
-		CONTROLLER_TYPE::KHRONOS_SIMPLE,
-		CONTROLLER_TYPE::KHRONOS_SIMPLE
+		CONTROLLER_TYPE::NONE,
+		CONTROLLER_TYPE::NONE
 	};
 	//! called on setup and on interaction profile change to update "hand_controller_types" and "hand_input_emulation"
 	void update_hand_controller_types();

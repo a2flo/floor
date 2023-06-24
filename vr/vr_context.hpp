@@ -223,6 +223,31 @@ public:
 	//! retrieve the current pose state
 	virtual vector<pose_t> get_pose_state() const = 0;
 
+	//! supported/known controller types (including OpenXR extensions)
+	enum class CONTROLLER_TYPE {
+		NONE,
+		KHRONOS_SIMPLE,
+		INDEX,
+		HTC_VIVE,
+		GOOGLE_DAYDREAM,
+		MICROSOFT_MIXED_REALITY,
+		OCULUS_GO,
+		OCULUS_TOUCH,
+		HP_MIXED_REALITY,
+		HTC_VIVE_COSMOS,
+		HTC_VIVE_FOCUS3,
+		HUAWEI,
+		SAMSUNG_ODYSSEY,
+		MAGIC_LEAP2,
+		OCULUS_TOUCH_PRO,
+		PICO_NEO3,
+		PICO4,
+		__MAX_CONTROLLER_TYPE
+	};
+
+	//! returns a human-readable string of the specified controller type
+	static std::string_view controller_type_to_string(const CONTROLLER_TYPE type);
+
 protected:
 	bool valid { false };
 

@@ -51,3 +51,45 @@ std::string_view vr_context::pose_type_to_string(const POSE_TYPE type) {
 	}
 	return "<unhandled>";
 }
+
+std::string_view vr_context::controller_type_to_string(const CONTROLLER_TYPE type) {
+	switch (type) {
+		case CONTROLLER_TYPE::NONE:
+			return "<none>";
+		case CONTROLLER_TYPE::KHRONOS_SIMPLE:
+			return "Khronos simple controller";
+		case CONTROLLER_TYPE::INDEX:
+			return "Valve Index controller";
+		case CONTROLLER_TYPE::HTC_VIVE:
+			return "HTC Vive controller";
+		case CONTROLLER_TYPE::GOOGLE_DAYDREAM:
+			return "Google Daydream controller";
+		case CONTROLLER_TYPE::MICROSOFT_MIXED_REALITY:
+			return "Microsoft Mixed Reality Motion controller";
+		case CONTROLLER_TYPE::OCULUS_GO:
+			return "Oculus Go controller";
+		case CONTROLLER_TYPE::OCULUS_TOUCH:
+			return "Oculus Touch controller";
+		case CONTROLLER_TYPE::HP_MIXED_REALITY:
+			return "HP Mixed Reality controller";
+		case CONTROLLER_TYPE::HTC_VIVE_COSMOS:
+			return "HTC Vive Cosmos controller";
+		case CONTROLLER_TYPE::HTC_VIVE_FOCUS3:
+			return "HTC Vive Focus 3 controller";
+		case CONTROLLER_TYPE::HUAWEI:
+			return "Huawei controller";
+		case CONTROLLER_TYPE::SAMSUNG_ODYSSEY:
+			return "Samsung Odyssey controller";
+		case CONTROLLER_TYPE::MAGIC_LEAP2:
+			return "Magic Leap 2 controller";
+		case CONTROLLER_TYPE::OCULUS_TOUCH_PRO:
+			return "Meta Quest Touch Pro controller";
+		case CONTROLLER_TYPE::PICO_NEO3:
+			return "PICO Neo3 controller";
+		case CONTROLLER_TYPE::PICO4:
+			return "PICO 4 controller";
+		case CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE:
+			break;
+	}
+	return "<unhandled>";
+}
