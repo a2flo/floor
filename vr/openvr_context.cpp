@@ -83,6 +83,46 @@ static property_type get_vr_property(vr::IVRSystem& system,
 	}
 }
 
+//! tries to match the specified tracker name/type against a known tracker POSE_TYPE
+static optional<vr_context::POSE_TYPE> tracker_type_from_name(const string& name) {
+	if (name.ends_with("handed")) {
+		return vr_context::POSE_TYPE::TRACKER_HANDHELD_OBJECT;
+	} else if (name.ends_with("left_foot")) {
+		return vr_context::POSE_TYPE::TRACKER_FOOT_LEFT;
+	} else if (name.ends_with("right_foot")) {
+		return vr_context::POSE_TYPE::TRACKER_FOOT_RIGHT;
+	} else if (name.ends_with("left_shoulder")) {
+		return vr_context::POSE_TYPE::TRACKER_SHOULDER_LEFT;
+	} else if (name.ends_with("right_shoulder")) {
+		return vr_context::POSE_TYPE::TRACKER_SHOULDER_RIGHT;
+	} else if (name.ends_with("left_elbow")) {
+		return vr_context::POSE_TYPE::TRACKER_ELBOW_LEFT;
+	} else if (name.ends_with("right_elbow")) {
+		return vr_context::POSE_TYPE::TRACKER_ELBOW_RIGHT;
+	} else if (name.ends_with("left_knee")) {
+		return vr_context::POSE_TYPE::TRACKER_KNEE_LEFT;
+	} else if (name.ends_with("right_knee")) {
+		return vr_context::POSE_TYPE::TRACKER_KNEE_RIGHT;
+	} else if (name.ends_with("waist")) {
+		return vr_context::POSE_TYPE::TRACKER_WAIST;
+	} else if (name.ends_with("chest")) {
+		return vr_context::POSE_TYPE::TRACKER_CHEST;
+	} else if (name.ends_with("camera")) {
+		return vr_context::POSE_TYPE::TRACKER_CAMERA;
+	} else if (name.ends_with("keyboard")) {
+		return vr_context::POSE_TYPE::TRACKER_KEYBOARD;
+	} else if (name.ends_with("left_wrist")) {
+		return vr_context::POSE_TYPE::TRACKER_WRIST_LEFT;
+	} else if (name.ends_with("right_wrist")) {
+		return vr_context::POSE_TYPE::TRACKER_WRIST_RIGHT;
+	} else if (name.ends_with("left_ankle")) {
+		return vr_context::POSE_TYPE::TRACKER_ANKLE_LEFT;
+	} else if (name.ends_with("right_ankle")) {
+		return vr_context::POSE_TYPE::TRACKER_ANKLE_RIGHT;
+	}
+	return {};
+}
+
 openvr_context::openvr_context() : vr_context() {
 	backend = VR_BACKEND::OPENVR;
 	
@@ -391,6 +431,7 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 	vector<pose_t> updated_pose_state;
 	updated_pose_state.reserve(std::max(prev_pose_state_size, size_t(4u)));
 
+	static const auto ignore_trackers = !floor::get_vr_trackers();
 	array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount> vr_poses {};
 	const auto err = compositor->WaitGetPoses(&vr_poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 	if (err != vr::EVRCompositorError::VRCompositorError_None) {
@@ -409,7 +450,12 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 			pose_t pose { .type = device_index_to_pose_type(i) };
 
 			// now also abort if pose is invalid
-			if (!vr_pose.bPoseIsValid) {
+			if (!vr_pose.bPoseIsValid || pose.type == vr_context::POSE_TYPE::UNKNOWN) {
+				continue;
+			}
+
+			// ignore tracker devices if trackers support is disabled
+			if (ignore_trackers && pose.type == vr_context::POSE_TYPE::TRACKER) {
 				continue;
 			}
 
@@ -440,7 +486,8 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 					case vr_context::POSE_TYPE::HAND_RIGHT:
 					case vr_context::POSE_TYPE::HAND_LEFT_AIM: // TODO: actually support this somehow
 					case vr_context::POSE_TYPE::HAND_RIGHT_AIM: // TODO: actually support this somehow
-					case vr_context::POSE_TYPE::TRACKER:
+					case vr_context::POSE_TYPE::TRACKER...vr_context::POSE_TYPE::TRACKER_ANKLE_RIGHT:
+					case vr_context::POSE_TYPE::HAND_JOINT_PALM_LEFT...vr_context::POSE_TYPE::HAND_FOREARM_JOINT_ELBOW_RIGHT:
 						pose.linear_velocity_valid = 1;
 						pose.angular_velocity_valid = 1;
 						pose.linear_velocity_tracked = 1;
@@ -569,9 +616,17 @@ vr_context::POSE_TYPE openvr_context::device_index_to_pose_type(const uint32_t i
 			}
 			break;
 		}
-		case vr::TrackedDeviceClass_GenericTracker:
+		case vr::TrackedDeviceClass_GenericTracker: {
 			pose_type = POSE_TYPE::TRACKER;
+			if (floor::get_vr_trackers()) {
+				const auto tracker_name = get_vr_property<string>(*system, vr::Prop_ControllerType_String, idx);
+				if (auto tracker_type = tracker_type_from_name(tracker_name); tracker_type) {
+					pose_type = *tracker_type;
+				}
+				log_msg("OpenVR: now using tracker: \"$\" -> $", tracker_name, pose_type_to_string(pose_type));
+			}
 			break;
+		}
 		case vr::TrackedDeviceClass_HMD:
 		case vr::TrackedDeviceClass_Max:
 			assert(false && "shouldn't be here");

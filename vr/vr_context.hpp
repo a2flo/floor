@@ -178,13 +178,89 @@ public:
 		HAND_LEFT_AIM,
 		//! aim/target of the right hand/controller
 		HAND_RIGHT_AIM,
-		//! generic tracker
-		TRACKER,
 		//! reference point
 		REFERENCE,
 		//! special/internal type that generally doesn't need to be handled
 		SPECIAL,
-		// TODO: specific trackers, joints, ...
+
+		//! generic + specific trackers
+		TRACKER,
+		TRACKER_HANDHELD_OBJECT,
+		TRACKER_FOOT_LEFT,
+		TRACKER_FOOT_RIGHT,
+		TRACKER_SHOULDER_LEFT,
+		TRACKER_SHOULDER_RIGHT,
+		TRACKER_ELBOW_LEFT,
+		TRACKER_ELBOW_RIGHT,
+		TRACKER_KNEE_LEFT,
+		TRACKER_KNEE_RIGHT,
+		TRACKER_WAIST,
+		TRACKER_CHEST,
+		TRACKER_CAMERA,
+		TRACKER_KEYBOARD,
+		//! SteamVR/OpenVR-only
+		TRACKER_WRIST_LEFT,
+		TRACKER_WRIST_RIGHT,
+		TRACKER_ANKLE_LEFT,
+		TRACKER_ANKLE_RIGHT,
+
+		//! hand + forearm joints for each hand/arm
+		//! NOTE: these match the OpenXR order
+		HAND_JOINT_PALM_LEFT,
+		HAND_JOINT_WRIST_LEFT,
+		HAND_JOINT_THUMB_METACARPAL_LEFT,
+		HAND_JOINT_THUMB_PROXIMAL_LEFT,
+		HAND_JOINT_THUMB_DISTAL_LEFT,
+		HAND_JOINT_THUMB_TIP_LEFT,
+		HAND_JOINT_INDEX_METACARPAL_LEFT,
+		HAND_JOINT_INDEX_PROXIMAL_LEFT,
+		HAND_JOINT_INDEX_INTERMEDIATE_LEFT,
+		HAND_JOINT_INDEX_DISTAL_LEFT,
+		HAND_JOINT_INDEX_TIP_LEFT,
+		HAND_JOINT_MIDDLE_METACARPAL_LEFT,
+		HAND_JOINT_MIDDLE_PROXIMAL_LEFT,
+		HAND_JOINT_MIDDLE_INTERMEDIATE_LEFT,
+		HAND_JOINT_MIDDLE_DISTAL_LEFT,
+		HAND_JOINT_MIDDLE_TIP_LEFT,
+		HAND_JOINT_RING_METACARPAL_LEFT,
+		HAND_JOINT_RING_PROXIMAL_LEFT,
+		HAND_JOINT_RING_INTERMEDIATE_LEFT,
+		HAND_JOINT_RING_DISTAL_LEFT,
+		HAND_JOINT_RING_TIP_LEFT,
+		HAND_JOINT_LITTLE_METACARPAL_LEFT,
+		HAND_JOINT_LITTLE_PROXIMAL_LEFT,
+		HAND_JOINT_LITTLE_INTERMEDIATE_LEFT,
+		HAND_JOINT_LITTLE_DISTAL_LEFT,
+		HAND_JOINT_LITTLE_TIP_LEFT,
+		HAND_FOREARM_JOINT_ELBOW_LEFT,
+
+		HAND_JOINT_PALM_RIGHT,
+		HAND_JOINT_WRIST_RIGHT,
+		HAND_JOINT_THUMB_METACARPAL_RIGHT,
+		HAND_JOINT_THUMB_PROXIMAL_RIGHT,
+		HAND_JOINT_THUMB_DISTAL_RIGHT,
+		HAND_JOINT_THUMB_TIP_RIGHT,
+		HAND_JOINT_INDEX_METACARPAL_RIGHT,
+		HAND_JOINT_INDEX_PROXIMAL_RIGHT,
+		HAND_JOINT_INDEX_INTERMEDIATE_RIGHT,
+		HAND_JOINT_INDEX_DISTAL_RIGHT,
+		HAND_JOINT_INDEX_TIP_RIGHT,
+		HAND_JOINT_MIDDLE_METACARPAL_RIGHT,
+		HAND_JOINT_MIDDLE_PROXIMAL_RIGHT,
+		HAND_JOINT_MIDDLE_INTERMEDIATE_RIGHT,
+		HAND_JOINT_MIDDLE_DISTAL_RIGHT,
+		HAND_JOINT_MIDDLE_TIP_RIGHT,
+		HAND_JOINT_RING_METACARPAL_RIGHT,
+		HAND_JOINT_RING_PROXIMAL_RIGHT,
+		HAND_JOINT_RING_INTERMEDIATE_RIGHT,
+		HAND_JOINT_RING_DISTAL_RIGHT,
+		HAND_JOINT_RING_TIP_RIGHT,
+		HAND_JOINT_LITTLE_METACARPAL_RIGHT,
+		HAND_JOINT_LITTLE_PROXIMAL_RIGHT,
+		HAND_JOINT_LITTLE_INTERMEDIATE_RIGHT,
+		HAND_JOINT_LITTLE_DISTAL_RIGHT,
+		HAND_JOINT_LITTLE_TIP_RIGHT,
+		HAND_FOREARM_JOINT_ELBOW_RIGHT,
 	};
 
 	//! returns a human-readable string of the specified pose type
@@ -195,28 +271,31 @@ public:
 		POSE_TYPE type { POSE_TYPE::UNKNOWN };
 
 		float3 position;
+		float radius { 0.0f };
 		matrix4f orientation;
 		float3 linear_velocity;
 		float3 angular_velocity;
 
 		//! validity flags
-		struct {
-			union {
-				uint32_t is_active : 1;
+		union {
+			struct {
+				uint32_t is_active : 1 { 0u };
 
-				uint32_t position_valid : 1;
-				uint32_t orientation_valid : 1;
-				uint32_t linear_velocity_valid : 1;
-				uint32_t angular_velocity_valid : 1;
+				uint32_t position_valid : 1 { 0u };
+				uint32_t orientation_valid : 1 { 0u };
+				uint32_t linear_velocity_valid : 1 { 0u };
+				uint32_t angular_velocity_valid : 1 { 0u };
 
-				uint32_t position_tracked : 1;
-				uint32_t orientation_tracked : 1;
-				uint32_t linear_velocity_tracked : 1;
-				uint32_t angular_velocity_tracked : 1;
+				uint32_t position_tracked : 1 { 0u };
+				uint32_t orientation_tracked : 1 { 0u };
+				uint32_t linear_velocity_tracked : 1 { 0u };
+				uint32_t angular_velocity_tracked : 1 { 0u };
 
-				uint32_t unused : 23;
+				uint32_t radius_valid : 1 { 0u };
+
+				uint32_t unused : 22 { 0u };
 			};
-			uint32_t flags { 0u };
+			uint32_t flags;
 		};
 	};
 

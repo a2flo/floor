@@ -340,6 +340,9 @@ bool floor::init(const init_state& state) {
 		config.vr_width = config_doc.get<uint32_t>("screen.vr.width", 0);
 		config.vr_height = config_doc.get<uint32_t>("screen.vr.height", 0);
 		config.vr_backend = config_doc.get<string>("screen.vr.backend", "");
+		config.vr_validation = config_doc.get<bool>("screen.vr.validation", false);
+		config.vr_trackers = config_doc.get<bool>("screen.vr.trackers", true);
+		config.vr_hand_tracking = config_doc.get<bool>("screen.vr.hand_tracking", true);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -1036,16 +1039,15 @@ bool floor::init_internal(const init_state& state) {
 		// create a VR context if this is enabled and we want to create a supported renderer
 		if (config.vr && (renderer == RENDERER::VULKAN || renderer == RENDERER::METAL)) {
 			log_debug("initializing VR");
-#if !defined(FLOOR_NO_OPENVR)
-			if (config.vr_backend == "openvr" || config.vr_backend.empty()) {
-				vr_ctx = make_unique<openvr_context>();
-			}
-#endif
 #if !defined(FLOOR_NO_VULKAN) && !defined(FLOOR_NO_OPENXR) // Vulkan is required for this
-			if (!vr_ctx &&
-				(config.vr_backend == "openxr" || config.vr_backend.empty()) &&
+			if ((config.vr_backend == "openxr" || config.vr_backend.empty()) &&
 				renderer == RENDERER::VULKAN) {
 				vr_ctx = make_unique<openxr_context>();
+			}
+#endif
+#if !defined(FLOOR_NO_OPENVR)
+			if (!vr_ctx && (config.vr_backend == "openvr" || config.vr_backend.empty())) {
+				vr_ctx = make_unique<openvr_context>();
 			}
 #endif
 			
@@ -1776,6 +1778,18 @@ uint2 floor::get_vr_physical_screen_size() {
 
 const string& floor::get_vr_backend() {
 	return config.vr_backend;
+}
+
+bool floor::get_vr_validation() {
+	return config.vr_validation;
+}
+
+bool floor::get_vr_trackers() {
+	return config.vr_trackers;
+}
+
+bool floor::get_vr_hand_tracking() {
+	return config.vr_hand_tracking;
 }
 
 json::document& floor::get_config_doc() {

@@ -30,6 +30,59 @@
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 
+#if defined(FLOOR_DEBUG)
+static XRAPI_ATTR XrBool32 XRAPI_CALL openxr_debug_callback(XrDebugUtilsMessageSeverityFlagsEXT severity,
+															XrDebugUtilsMessageTypeFlagsEXT message_types floor_unused,
+															const XrDebugUtilsMessengerCallbackDataEXT* cb_data,
+															/* openxr_context* */ void* ctx) {
+	[[maybe_unused]] const auto xr_ctx = (const openxr_context*)ctx;
+
+	string debug_message;
+	if (cb_data != nullptr) {
+		debug_message += "\n\t";
+		debug_message += cb_data->messageId;
+		if (cb_data->functionName) {
+			debug_message += " in " + string(cb_data->functionName);
+		}
+		debug_message += "\n";
+
+		if (cb_data->message) {
+			auto tokens = core::tokenize(cb_data->message, '|');
+			for (auto& token : tokens) {
+				token = core::trim(token);
+				debug_message += "\t" + token + "\n";
+			}
+		}
+
+		if (cb_data->objectCount > 0 && cb_data->objects != nullptr) {
+			debug_message += "\tobjects:\n";
+			for (uint32_t oidx = 0; oidx < cb_data->objectCount; ++oidx) {
+				debug_message += "\t\t";
+				debug_message += (cb_data->objects[oidx].objectName ? cb_data->objects[oidx].objectName : "<no-object-name>");
+				debug_message += " ("s + vulkan_object_type_to_string(cb_data->objects[oidx].objectType) + ", ";
+				debug_message += to_string(cb_data->objects[oidx].objectHandle) + ")\n";
+			}
+		}
+	} else {
+		debug_message = " <callback-data-is-nullptr>";
+	}
+
+	if ((severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) > 0) {
+		log_error("OpenXR error:$", debug_message);
+	} else if ((severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) > 0) {
+		log_warn("OpenXR warning:$", debug_message);
+	} else if ((severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) > 0) {
+		log_msg("OpenXR info:$", debug_message);
+	} else if ((severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) > 0) {
+		log_debug("OpenXR verbose:$", debug_message);
+	} else {
+		assert(false && "unknown severity");
+	}
+	logger::flush();
+	return XR_FALSE; // don't abort
+}
+#endif
+
 openxr_context::openxr_context() : vr_context() {
 	backend = VR_BACKEND::OPENXR;
 
@@ -53,14 +106,15 @@ openxr_context::openxr_context() : vr_context() {
 		}
 		return ret;
 	};
-	const auto supports_extension = [](const vector<XrExtensionProperties>& extensions, const string_view extension) {
-		return (std::find_if(extensions.begin(), extensions.end(), [&extension](const XrExtensionProperties& ext) {
-			return (ext.extensionName == extension);
-		}) != extensions.end());
-	};
 
-	const auto sys_extensions = query_extensions(nullptr);
-	log_msg("OpenXR system extensions: $", extensions_to_string(sys_extensions));
+	auto supported_extensions = query_extensions(nullptr);
+	log_msg("OpenXR system extensions: $", extensions_to_string(supported_extensions));
+
+	const auto supports_extension = [&supported_extensions](const string_view extension) {
+		return (std::find_if(supported_extensions.begin(), supported_extensions.end(), [&extension](const XrExtensionProperties& ext) {
+					return (ext.extensionName == extension);
+				}) != supported_extensions.end());
+	};
 
 	uint32_t layer_count = 0;
 	XR_CALL_RET(xrEnumerateApiLayerProperties(0, &layer_count, nullptr),
@@ -71,14 +125,14 @@ openxr_context::openxr_context() : vr_context() {
 		XR_CALL_RET(xrEnumerateApiLayerProperties(layer_count, &layer_count, layers.data()), "failed to query layers");
 	}
 
-	vector<vector<XrExtensionProperties>> layer_extensions(layer_count);
 	for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx) {
 		const auto& layer = layers[layer_idx];
-		layer_extensions[layer_idx] = query_extensions(layer.layerName);
+		auto layer_extensions = query_extensions(layer.layerName);
 		string ext_str;
-		if (!layer_extensions[layer_idx].empty()) {
+		if (!layer_extensions.empty()) {
 			ext_str = ": ";
-			ext_str += extensions_to_string(layer_extensions[layer_idx]);
+			ext_str += extensions_to_string(layer_extensions);
+			supported_extensions.insert(supported_extensions.end(), layer_extensions.begin(), layer_extensions.end());
 		}
 		log_msg("OpenXR layer: $ (v$, spec $.$.$, $)$", layer.layerName,
 				layer.layerVersion,
@@ -93,55 +147,65 @@ openxr_context::openxr_context() : vr_context() {
 				}) != layers.end());
 	};
 	vector<const char*> instance_layers;
-#if defined(FLOOR_DEBUG)
-	if (supports_layer("XR_APILAYER_LUNARG_core_validation")) {
-		instance_layers.emplace_back("XR_APILAYER_LUNARG_core_validation");
-	}
-#endif
 	if (supports_layer("XR_APILAYER_ULTRALEAP_hand_tracking")) {
 		instance_layers.emplace_back("XR_APILAYER_ULTRALEAP_hand_tracking");
 	}
 
 	// check/add required extensions
 	vector<const char*> instance_extensions;
-	if (!supports_extension(sys_extensions, XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
+	if (!supports_extension(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
 		log_error("OpenXR: $ extension is required", XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
 		return;
 	}
 	instance_extensions.emplace_back(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
 
 	// add optional extensions
-	// TODO: enable + set up debug ext utils / validation layers!
-#if defined(FLOOR_DEBUG) && 0
-	if (supports_extension(sys_extensions, XR_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+#if defined(FLOOR_DEBUG)
+	bool enable_debug_utils_callback = false;
+	if (supports_extension(XR_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		enable_debug_utils_callback = true;
+
+		// only enable validation if debug utils is also supported
+		if (supports_layer("XR_APILAYER_LUNARG_core_validation")) {
+			instance_layers.emplace_back("XR_APILAYER_LUNARG_core_validation");
+		}
+
+		// we don't want any console/file output from the validation layer, we have our own callback/logger
+		SDL_setenv("XR_CORE_VALIDATION_EXPORT_TYPE", "none", 1);
 	}
 #endif
-	if (supports_extension(sys_extensions, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+	if (floor::get_vr_hand_tracking() && supports_extension(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+		has_hand_tracking_support = true;
 
-		// only these if the above is supported
-		if (supports_extension(sys_extensions, XR_EXT_HAND_JOINTS_MOTION_RANGE_EXTENSION_NAME)) {
+		// only enable these if the above is supported
+		if (supports_extension(XR_EXT_HAND_JOINTS_MOTION_RANGE_EXTENSION_NAME)) {
 			instance_extensions.emplace_back(XR_EXT_HAND_JOINTS_MOTION_RANGE_EXTENSION_NAME);
 		}
-		if (supports_extension(sys_extensions, XR_ULTRALEAP_HAND_TRACKING_FOREARM_EXTENSION_NAME)) {
+		if (supports_extension(XR_ULTRALEAP_HAND_TRACKING_FOREARM_EXTENSION_NAME)) {
 			instance_extensions.emplace_back(XR_ULTRALEAP_HAND_TRACKING_FOREARM_EXTENSION_NAME);
+			has_hand_tracking_forearm_support = true;
 		}
 	}
-	if (supports_extension(sys_extensions, XR_EXT_PALM_POSE_EXTENSION_NAME)) {
+	if (supports_extension(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_PALM_POSE_EXTENSION_NAME);
 	}
-	if (supports_extension(sys_extensions, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
+	if (supports_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 		can_query_display_refresh_rate = true;
 	}
+	if (floor::get_vr_trackers() && supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
+		instance_extensions.emplace_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
+		has_tracker_interaction_support = true;
+	}
 #if defined(__WINDOWS__)
-	if (supports_extension(sys_extensions, "XR_KHR_win32_convert_performance_counter_time")) {
+	if (supports_extension("XR_KHR_win32_convert_performance_counter_time")) {
 		instance_extensions.emplace_back("XR_KHR_win32_convert_performance_counter_time");
 	}
 #endif
 #if defined(__linux__)
-	if (supports_extension(sys_extensions, XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME)) {
+	if (supports_extension(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME);
 	}
 #endif
@@ -149,41 +213,38 @@ openxr_context::openxr_context() : vr_context() {
 	// TODO: use XR_KHR_visibility_mask
 
 	// controllers
-	if (supports_extension(sys_extensions, XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME)) {
+	if (supports_extension(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME);
 		has_hp_mixed_reality_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
+	if (supports_extension(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME);
 		has_htc_vive_cosmos_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
+	if (supports_extension(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTC_VIVE_FOCUS3_CONTROLLER_INTERACTION_EXTENSION_NAME);
 		has_htc_vive_focus3_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
-		instance_extensions.emplace_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
-	}
-	if (supports_extension(sys_extensions, XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
+	if (supports_extension(XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME);
 		has_huawei_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_EXT_SAMSUNG_ODYSSEY_CONTROLLER_EXTENSION_NAME)) {
+	if (supports_extension(XR_EXT_SAMSUNG_ODYSSEY_CONTROLLER_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_EXT_SAMSUNG_ODYSSEY_CONTROLLER_EXTENSION_NAME);
 		has_samsung_odyssey_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_ML_ML2_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
+	if (supports_extension(XR_ML_ML2_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_ML_ML2_CONTROLLER_INTERACTION_EXTENSION_NAME);
 		has_ml2_controller_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME)) {
+	if (supports_extension(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
 		has_fb_touch_controller_pro_support = true;
 	}
-	if (supports_extension(sys_extensions, XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME)) {
+	if (supports_extension(XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME);
 	}
-	if (supports_extension(sys_extensions, XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
+	if (supports_extension(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME);
 		has_bd_controller_support = true;
 	}
@@ -230,6 +291,33 @@ openxr_context::openxr_context() : vr_context() {
 			XR_VERSION_MINOR(instance_props.runtimeVersion),
 			XR_VERSION_PATCH(instance_props.runtimeVersion));
 
+#if defined(FLOOR_DEBUG)
+	// register debug callback
+	if (enable_debug_utils_callback) {
+		XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrCreateDebugUtilsMessengerEXT",
+										  reinterpret_cast<PFN_xrVoidFunction*>(&create_debug_utils_messenger)),
+					"failed to query xrCreateDebugUtilsMessengerEXT function pointer");
+		XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrDestroyDebugUtilsMessengerEXT",
+										  reinterpret_cast<PFN_xrVoidFunction*>(&destroy_debug_utils_messenger)),
+					"failed to query xrDestroyDebugUtilsMessengerEXT function pointer");
+
+		const XrDebugUtilsMessengerCreateInfoEXT create_info {
+			.type = XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.next = nullptr,
+			.messageSeverities = (XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+								  XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT),
+			.messageTypes = (XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+							 XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+							 XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
+							 XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT),
+			.userCallback = &openxr_debug_callback,
+			.userData = this,
+		};
+		XR_CALL_RET(create_debug_utils_messenger(instance, &create_info, &debug_utils_messenger),
+					"failed to create debug utils messenger");
+	}
+#endif
+
 	// only PimaxXR has a known good Vulkan implementation
 	if (string_view(instance_props.runtimeName).find("PimaxXR") != string::npos) {
 		is_known_good_vulkan_backend = true;
@@ -242,14 +330,25 @@ openxr_context::openxr_context() : vr_context() {
 	};
 	XR_CALL_RET(xrGetSystem(instance, &sys_get_info, &system_id), "failed to retrieve OpenXR system info");
 
-	XrSystemProperties system_props { .type = XR_TYPE_SYSTEM_PROPERTIES };
-	XR_CALL_RET(xrGetSystemProperties(instance, system_id, &system_props), "failed to retrieve OpenXR system properties");
+	XrSystemHandTrackingPropertiesEXT hand_tracking_props {
+		.type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT,
+		.next = nullptr,
+		.supportsHandTracking = false,
+	};
+	XrSystemProperties system_props {
+		.type = XR_TYPE_SYSTEM_PROPERTIES,
+		.next = (has_hand_tracking_support ? &hand_tracking_props : nullptr),
+	};
+	XR_CALL_RET(xrGetSystemProperties(instance, system_id, &system_props),
+				"failed to retrieve OpenXR system properties");
 	log_msg("OpenXR: system: $, vendor: $X", system_props.systemName, system_props.vendorId);
 	hmd_name = system_props.systemName;
 	vendor_name = instance_props.runtimeName;
 	log_msg("OpenXR: tracking: orientation $, position $",
 			system_props.trackingProperties.orientationTracking,
 			system_props.trackingProperties.positionTracking);
+	log_msg("OpenXR: hand-tracking: $", hand_tracking_props.supportsHandTracking);
+	has_hand_tracking_support = hand_tracking_props.supportsHandTracking;
 
 	const uint2 max_swapchain_dim {
 		system_props.graphicsProperties.maxSwapchainImageWidth,
@@ -264,6 +363,20 @@ openxr_context::openxr_context() : vr_context() {
 					   "failed to query xrGetDisplayRefreshRateFB function pointer");
 		if (!GetDisplayRefreshRateFB) {
 			can_query_display_refresh_rate = false;
+		}
+	}
+
+	if (has_tracker_interaction_support) {
+		XR_CALL_IGNORE(xrGetInstanceProcAddr(instance, "xrEnumerateViveTrackerPathsHTCX",
+											 reinterpret_cast<PFN_xrVoidFunction*>(&EnumerateViveTrackerPaths)),
+					   "failed to query xrEnumerateViveTrackerPathsHTCX function pointer");
+		if (!EnumerateViveTrackerPaths) {
+			has_tracker_interaction_support = false;
+		} else {
+			log_msg("OpenXR: has tracker support");
+			tracker_role_paths.fill(0u);
+			tracker_pose_actions.fill(nullptr);
+			tracker_spaces.fill(nullptr);
 		}
 	}
 
@@ -394,6 +507,9 @@ openxr_context::~openxr_context() {
 		}
 	}
 	for (uint32_t hand_idx = 0; hand_idx < 2; ++hand_idx) {
+		if (hand_trackers[hand_idx]) {
+			XR_CALL_IGNORE(DestroyHandTracker(hand_trackers[hand_idx]), "failed to destroy OpenXR hand tracker");
+		}
 		if (hand_pose_actions[hand_idx]) {
 			XR_CALL_IGNORE(xrDestroyAction(hand_pose_actions[hand_idx]), "failed to destroy OpenXR hand pose action");
 		}
@@ -407,6 +523,24 @@ openxr_context::~openxr_context() {
 			XR_CALL_IGNORE(xrDestroySpace(hand_aim_spaces[hand_idx]), "failed to destroy OpenXR hand aim space");
 		}
 	}
+	for (uint32_t i = 0; i < tracker_role_count; ++i) {
+		base_actions.erase(EVENT_TYPE(uint32_t(EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT) + i));
+		if (tracker_spaces[i]) {
+			XR_CALL_IGNORE(xrDestroySpace(tracker_spaces[i]),
+						   "failed to destroy tracker pose action space");
+			tracker_spaces[i] = nullptr;
+		}
+		if (tracker_pose_actions[i]) {
+			XR_CALL_IGNORE(xrDestroyAction(tracker_pose_actions[i]),
+						   "failed to destroy tracker pose action");
+			tracker_pose_actions[i] = nullptr;
+		}
+	}
+	if (tracker_input_action_set) {
+		XR_CALL_IGNORE(xrDestroyActionSet(tracker_input_action_set),
+					   "failed to destroy tracker action set");
+		tracker_input_action_set = nullptr;
+	}
 	if (input_action_set) {
 		XR_CALL_IGNORE(xrDestroyActionSet(input_action_set), "failed to destroy OpenXR input action set");
 	}
@@ -419,6 +553,11 @@ openxr_context::~openxr_context() {
 	if (session) {
 		XR_CALL_IGNORE(xrDestroySession(session), "failed to destroy OpenXR session");
 	}
+#if defined(FLOOR_DEBUG)
+	if (debug_utils_messenger) {
+		XR_CALL_IGNORE(destroy_debug_utils_messenger(debug_utils_messenger), "failed to destroy debug utils messenger");
+	}
+#endif
 	if (instance) {
 		XR_CALL_IGNORE(xrDestroyInstance(instance), "failed to destroy OpenXR instance");
 	}
@@ -786,6 +925,16 @@ vector<shared_ptr<event_object>> openxr_context::handle_input() {
 			}
 			case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED: {
 				update_hand_controller_types();
+				if (has_tracker_interaction_support) {
+					tracker_enumerate();
+				}
+				break;
+			}
+			case XR_TYPE_EVENT_DATA_VIVE_TRACKER_CONNECTED_HTCX: {
+				if (!has_tracker_interaction_support) {
+					break;
+				}
+				tracker_enumerate();
 				break;
 			}
 			default:

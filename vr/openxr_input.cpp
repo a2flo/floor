@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_OPENXR) && !defined(FLOOR_NO_VULKAN)
 
-array<openxr_context::input_event_emulation_t, size_t(openxr_context::CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)>
+const array<openxr_context::input_event_emulation_t, size_t(openxr_context::CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)>
 openxr_context::controller_input_emulation_lut {{
 	// NONE
 	{},
@@ -93,6 +93,73 @@ openxr_context::controller_input_emulation_lut {{
 	// NOTE: no VR_TRACKPAD_* -> can't emulate this
 	{},
 }};
+
+static string tracker_role_to_string(const vr_context::POSE_TYPE tracker_type) {
+	string role_str;
+	switch (tracker_type) {
+		case vr_context::POSE_TYPE::TRACKER_HANDHELD_OBJECT:
+			role_str = "handheld_object";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_FOOT_LEFT:
+			role_str = "left_foot";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_FOOT_RIGHT:
+			role_str = "right_foot";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_SHOULDER_LEFT:
+			role_str = "left_shoulder";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_SHOULDER_RIGHT:
+			role_str = "right_shoulder";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_ELBOW_LEFT:
+			role_str = "left_elbow";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_ELBOW_RIGHT:
+			role_str = "right_elbow";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_KNEE_LEFT:
+			role_str = "left_knee";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_KNEE_RIGHT:
+			role_str = "right_knee";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_WAIST:
+			role_str = "waist";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_CHEST:
+			role_str = "chest";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_CAMERA:
+			role_str = "camera";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_KEYBOARD:
+			role_str = "keyboard";
+			break;
+#if 0 // not supported yet
+		case vr_context::POSE_TYPE::TRACKER_WRIST_LEFT:
+			role_str = "left_wrist";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_WRIST_RIGHT:
+			role_str = "right_wrist";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_ANKLE_LEFT:
+			role_str = "left_ankle";
+			break;
+		case vr_context::POSE_TYPE::TRACKER_ANKLE_RIGHT:
+			role_str = "right_ankle";
+			break;
+#endif
+		default:
+			throw std::runtime_error("invalid tracker role");
+	}
+	return role_str;
+}
+
+struct action_definition_t {
+	string path;
+	EVENT_TYPE event_type;
+};
 
 bool openxr_context::input_setup() {
 	// create base input set
@@ -257,11 +324,6 @@ bool openxr_context::input_setup() {
 	}
 
 	// create controller bindings
-	struct action_definition_t {
-		string path;
-		EVENT_TYPE event_type;
-	};
-
 	const auto suggest_binding = [this](const string& interaction_profile,
 										const CONTROLLER_TYPE& controller_type,
 										const vector<action_definition_t>& both_hands,
@@ -791,18 +853,218 @@ bool openxr_context::input_setup() {
 		}
 	}
 
+	// tracker init
+	if (has_tracker_interaction_support) {
+		if (create_tracker_actions_and_spaces()) {
+			if (!tracker_enumerate()) {
+				log_warn("tracker enumeration failed - disabling now");
+				has_tracker_interaction_support = false;
+			}
+		} else {
+			log_warn("tracker action/space creation failed - disabling now");
+			has_tracker_interaction_support = false;
+		}
+	}
+
+	// hand-tracking init
+	if (has_hand_tracking_support) {
+		if (!hand_tracking_setup()) {
+			log_warn("hand-tracking setup failed - disabling now");
+			has_hand_tracking_support = false;
+			has_hand_tracking_forearm_support = false;
+		}
+	}
+
 	// finally: attach
+	vector<XrActionSet> attach_action_sets {
+		input_action_set,
+	};
+	if (has_tracker_interaction_support && tracker_input_action_set) {
+		attach_action_sets.emplace_back(tracker_input_action_set);
+	}
 	const XrSessionActionSetsAttachInfo attach_info {
 		.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO,
 		.next = nullptr,
-		.countActionSets = 1,
-		.actionSets = &input_action_set,
+		.countActionSets = uint32_t(attach_action_sets.size()),
+		.actionSets = attach_action_sets.data(),
 	};
 	XR_CALL_RET(xrAttachSessionActionSets(session, &attach_info),
 				"failed to attach session action sets", false);
 
 	// query/update which controller types are actually used
 	update_hand_controller_types();
+
+	return true;
+}
+
+bool openxr_context::create_tracker_actions_and_spaces() {
+	// create role paths
+	for (uint32_t i = 0; i < tracker_role_count; ++i) {
+		const auto role_str = tracker_role_to_string(POSE_TYPE(uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + i));
+		const string role_path_str = "/user/vive_tracker_htcx/role/" + role_str;
+		tracker_role_paths[i] = to_path_or_throw(role_path_str);
+	}
+
+	// create separate action set
+	const XrActionSetCreateInfo action_set_create_info {
+		.type = XR_TYPE_ACTION_SET_CREATE_INFO,
+		.next = nullptr,
+		.actionSetName = "vr_tracker_default",
+		.localizedActionSetName = "vr_tracker_default",
+		.priority = 0,
+	};
+	XR_CALL_RET(xrCreateActionSet(instance, &action_set_create_info, &tracker_input_action_set),
+				"failed to create tracker input action set", false);
+
+	for (uint32_t i = 0; i < tracker_role_count; ++i) {
+		const auto role_str = tracker_role_to_string(POSE_TYPE(uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + i));
+		XrActionCreateInfo action_create_info{
+			.type = XR_TYPE_ACTION_CREATE_INFO,
+			.next = nullptr,
+			.actionType = XR_ACTION_TYPE_POSE_INPUT,
+			.countSubactionPaths = 1u,
+			.subactionPaths = &tracker_role_paths[i],
+		};
+		const auto tracker_action_name = "tracker_" + role_str;
+		strcpy(action_create_info.actionName, tracker_action_name.c_str());
+		strcpy(action_create_info.localizedActionName, tracker_action_name.c_str());
+		XR_CALL_RET(xrCreateAction(tracker_input_action_set, &action_create_info, &tracker_pose_actions[i]),
+					"failed to create tracker " + role_str + " pose action", false);
+
+		XrActionSpaceCreateInfo tracker_space_create_info {
+			.type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+			.next = nullptr,
+			.action = tracker_pose_actions[i],
+			.subactionPath = tracker_role_paths[i],
+			.poseInActionSpace = {
+				.orientation = { 0.0f, 0.0f, 0.0f, 1.0f },
+				.position = { 0.0f, 0.0f, 0.0f },
+			},
+		};
+		XR_CALL_RET(xrCreateActionSpace(session, &tracker_space_create_info, &tracker_spaces[i]),
+					"failed to create tracker " + role_str + " action space", false);
+
+		tracker_actions.emplace(EVENT_TYPE(uint32_t(EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT) + i),
+								action_t {
+									.action = tracker_pose_actions[i],
+									.input_type = INPUT_TYPE::TRACKER,
+									.action_type = ACTION_TYPE::POSE,
+								});
+	}
+
+	// create tracker bindings
+	const auto interaction_profile = "/interaction_profiles/htc/vive_tracker_htcx";
+	const vector<action_definition_t> tracker_action_definitions {
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_FOOT_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_FOOT_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_SHOULDER_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_SHOULDER_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ELBOW_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ELBOW_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_KNEE_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_KNEE_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WAIST },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CHEST },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CAMERA },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_KEYBOARD },
+#if 0 // not supported yet
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_RIGHT },
+#endif
+	};
+	vector<XrActionSuggestedBinding> bindings;
+	for (const auto& tracker_action : tracker_action_definitions) {
+		const auto role_str = tracker_role_to_string(POSE_TYPE(uint32_t(tracker_action.event_type) -
+															   uint32_t(EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT) +
+															   uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT)));
+		const auto role_path = "/user/vive_tracker_htcx/role/" + role_str;
+		bindings.emplace_back(XrActionSuggestedBinding {
+			.action = tracker_actions.at(tracker_action.event_type).action,
+			.binding = to_path_or_throw(role_path + tracker_action.path),
+		});
+	}
+	const XrInteractionProfileSuggestedBinding suggested_binding {
+		.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+		.next = nullptr,
+		.interactionProfile = to_path_or_throw(interaction_profile),
+		.countSuggestedBindings = uint32_t(bindings.size()),
+		.suggestedBindings = bindings.data(),
+	};
+	XR_CALL_RET(xrSuggestInteractionProfileBindings(instance, &suggested_binding),
+				"failed to set suggested interaction profile for trackers", false);
+
+	return true;
+}
+
+bool openxr_context::tracker_enumerate() {
+	uint32_t path_count = 0;
+	XR_CALL_RET(EnumerateViveTrackerPaths(instance, 0, &path_count, nullptr),
+				"failed to enumerate tracker paths count", false);
+	if (path_count == 0) {
+		log_msg("OpenXR: no trackers connected");
+		return true; // nothing to do here
+	}
+
+	vector<XrViveTrackerPathsHTCX> tracker_paths(path_count, { .type = XR_TYPE_VIVE_TRACKER_PATHS_HTCX, .next = nullptr });
+	XR_CALL_RET(EnumerateViveTrackerPaths(instance, path_count, &path_count, tracker_paths.data()),
+				"failed to enumerate tracker paths", false);
+
+	// -> we have at least one tracker at this point
+	for (const auto& tracker_path : tracker_paths) {
+		const auto pers_path = path_to_string(tracker_path.persistentPath);
+		const auto role = path_to_string(tracker_path.rolePath);
+		if (!pers_path || !role) {
+			log_error("failed to convert tracker path");
+			continue;
+		}
+		log_msg("OpenXR: tracker: $ -> $", *pers_path, *role);
+	}
+
+	// call xrGetCurrentInteractionProfile to query current profile + possibly enable tracker
+	for (uint32_t tracker_idx = 0; tracker_idx < tracker_role_count; ++tracker_idx) {
+		const auto& tracker_role_path = tracker_role_paths[tracker_idx];
+		if (!tracker_role_path) {
+			continue;
+		}
+
+		// query current interaction profile
+		XrInteractionProfileState profile{
+			.type = XR_TYPE_INTERACTION_PROFILE_STATE,
+			.next = nullptr,
+		};
+		XR_CALL_CONT(xrGetCurrentInteractionProfile(session, tracker_role_path, &profile),
+					 "failed to get current interaction profile for tracker");
+		// NOTE/TODO: do anything with this? really just need to query this to poke trackers
+	}
+
+	return true;
+}
+
+bool openxr_context::hand_tracking_setup() {
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrCreateHandTrackerEXT",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&CreateHandTracker)),
+				"failed to query xrCreateHandTrackerEXT function pointer", false);
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrDestroyHandTrackerEXT",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&DestroyHandTracker)),
+				"failed to query xrDestroyHandTrackerEXT function pointer", false);
+	XR_CALL_RET(xrGetInstanceProcAddr(instance, "xrLocateHandJointsEXT",
+									  reinterpret_cast<PFN_xrVoidFunction*>(&LocateHandJoints)),
+				"failed to query xrLocateHandJointsEXT function pointer", false);
+
+	for (uint32_t hand_idx = 0; hand_idx < 2; ++hand_idx) {
+		const XrHandTrackerCreateInfoEXT create_info{
+			.type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
+			.next = nullptr,
+			.hand = (hand_idx == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT),
+			.handJointSet = (!has_hand_tracking_forearm_support ?
+							 XR_HAND_JOINT_SET_DEFAULT_EXT : XR_HAND_JOINT_SET_HAND_WITH_FOREARM_ULTRALEAP),
+		};
+		XR_CALL_RET(CreateHandTracker(session, &create_info, &hand_trackers[hand_idx]),
+					"failed to create hand tracker", false);
+	}
 
 	return true;
 }
@@ -1025,9 +1287,10 @@ void openxr_context::add_hand_float2_event(vector<shared_ptr<event_object>>& eve
 	prev_state.f2 = cur_state;
 }
 
+template <bool has_radius = false, typename location_type = XrSpaceLocation, typename velocity_type = XrSpaceVelocity>
 static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
-									const XrSpaceLocation& location,
-									const XrSpaceVelocity& velocity) {
+									const location_type& location,
+									const velocity_type& velocity) {
 	vr_context::pose_t pose { .type = type };
 
 	if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == XR_SPACE_LOCATION_POSITION_VALID_BIT) {
@@ -1070,6 +1333,13 @@ static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
 		pose.angular_velocity_tracked = 0;
 	}
 
+	if constexpr (has_radius) {
+		pose.radius = location.radius;
+		pose.radius_valid = 1;
+	} else {
+		pose.radius_valid = 0;
+	}
+
 	return pose;
 }
 
@@ -1091,21 +1361,72 @@ static optional<vr_context::pose_t> pose_from_space(const vr_context::POSE_TYPE 
 	return make_pose(type, space_location, space_velocity);
 }
 
+void openxr_context::add_hand_tracking_poses(vector<pose_t>& poses, const XrSpace& base_space, const XrTime& time) {
+	const auto joint_count = uint32_t(has_hand_tracking_forearm_support ? XR_HAND_FOREARM_JOINT_COUNT_ULTRALEAP : XR_HAND_JOINT_COUNT_EXT);
+	vector<XrHandJointLocationEXT> joint_locations(joint_count);
+	vector<XrHandJointVelocityEXT> joint_velocities(joint_count);
+	for (size_t hand_idx = 0; hand_idx < hand_trackers.size(); ++hand_idx) {
+		const XrHandJointsLocateInfoEXT locate_info {
+			.type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+			.next = nullptr,
+			.baseSpace = base_space,
+			.time = time,
+		};
+		XrHandJointVelocitiesEXT velocities {
+			.type = XR_TYPE_HAND_JOINT_VELOCITIES_EXT,
+			.next = nullptr,
+			.jointCount = uint32_t(joint_velocities.size()),
+			.jointVelocities = joint_velocities.data(),
+		};
+		XrHandJointLocationsEXT locations {
+			.type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+			.next = &velocities,
+			.isActive = false,
+			.jointCount = uint32_t(joint_locations.size()),
+			.jointLocations = joint_locations.data(),
+		};
+		XR_CALL_CONT(LocateHandJoints(hand_trackers[hand_idx], &locate_info, &locations),
+					 "failed to locate "s + (hand_idx == 0 ? "left" : "right") + " hand joints");
+
+		if (!locations.isActive) {
+			// -> hand is not tracked right now
+			continue;
+		}
+
+		for (uint32_t i = 0; i < joint_count; ++i) {
+			poses.emplace_back(make_pose<true>(POSE_TYPE(uint32_t(hand_idx == 0 ? POSE_TYPE::HAND_JOINT_PALM_LEFT :
+																				  POSE_TYPE::HAND_JOINT_PALM_RIGHT) + i),
+											   locations.jointLocations[i], velocities.jointVelocities[i]));
+		}
+	}
+}
+
 bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& events) REQUIRES(!pose_state_lock) {
 	if (!session || !input_action_set || !is_focused) {
 		return true;
 	}
 	
 	// sync
-	const XrActiveActionSet active_action_set{
-		.actionSet = input_action_set,
-		.subactionPath = XR_NULL_PATH,
+	array<XrActiveActionSet, 2> active_action_sets {
+		XrActiveActionSet {
+			.actionSet = input_action_set,
+			.subactionPath = XR_NULL_PATH,
+		},
+		XrActiveActionSet {
+			.actionSet = nullptr,
+			.subactionPath = XR_NULL_PATH,
+		}
 	};
+	uint32_t active_action_set_count = 1;
+	if (has_tracker_interaction_support && tracker_input_action_set) {
+		active_action_sets[1].actionSet = tracker_input_action_set;
+		active_action_set_count = 2;
+	}
 	const XrActionsSyncInfo sync_info{
 		.type = XR_TYPE_ACTIONS_SYNC_INFO,
 		.next = nullptr,
-		.countActiveActionSets = 1,
-		.activeActionSets = &active_action_set,
+		.countActiveActionSets = active_action_set_count,
+		.activeActionSets = active_action_sets.data(),
 	};
 	XR_CALL_RET(xrSyncActions(session, &sync_info),
 				"failed to sync actions", false);
@@ -1118,6 +1439,11 @@ bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& eve
 	// head state
 	if (auto head_pose = pose_from_space(vr_context::POSE_TYPE::HEAD, view_space, scene_space, current_time); head_pose) {
 		updated_pose_state.emplace_back(std::move(*head_pose));
+	}
+
+	// hand/arm joints
+	if (has_hand_tracking_support) {
+		add_hand_tracking_poses(updated_pose_state, scene_space, current_time);
 	}
 
 	// must iterate over all actions to figure out if something changed
@@ -1220,6 +1546,42 @@ bool openxr_context::handle_input_internal(vector<shared_ptr<event_object>>& eve
 				case ACTION_TYPE::HAPTIC:
 					assert(false && "should not be here");
 					break;
+			}
+		}
+	}
+
+	// handle tracker actions
+	if (has_tracker_interaction_support) {
+		for (const auto& tracker_action : tracker_actions) {
+			const auto event_type = tracker_action.first;
+			const auto& action = tracker_action.second;
+			if ((action.input_type & INPUT_TYPE::TRACKER) == INPUT_TYPE::TRACKER) {
+				if (action.action_type != ACTION_TYPE::POSE) {
+					assert(false && "should not be here");
+					continue;
+				}
+
+				const auto tracker_idx = uint32_t(event_type) - uint32_t(EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT);
+				const XrActionStateGetInfo get_info {
+					.type = XR_TYPE_ACTION_STATE_GET_INFO,
+					.next = nullptr,
+					.action = action.action,
+					.subactionPath = tracker_role_paths[tracker_idx],
+				};
+
+				XrActionStatePose state {
+					.type = XR_TYPE_ACTION_STATE_POSE,
+					.next = nullptr,
+				};
+				XR_CALL_CONT(xrGetActionStatePose(session, &get_info, &state),
+							 "failed to get tracker pose action state");
+
+				if (state.isActive) {
+					const auto pose_type = POSE_TYPE(uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + tracker_idx);
+					if (auto pose = pose_from_space(pose_type, tracker_spaces[tracker_idx], scene_space, current_time); pose) {
+						updated_pose_state.emplace_back(std::move(*pose));
+					}
+				}
 			}
 		}
 	}

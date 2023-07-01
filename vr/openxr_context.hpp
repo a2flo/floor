@@ -144,7 +144,8 @@ protected:
 		HAND_RIGHT = (1u << 1u),
 		HEAD = (1u << 2u),
 		GAMEPAD = (1u << 3u),
-		MAX_INPUT_TYPE = (1u << 4u),
+		TRACKER = (1u << 4u),
+		MAX_INPUT_TYPE = (1u << 5u),
 	};
 	floor_enum_ext(INPUT_TYPE)
 
@@ -214,11 +215,43 @@ protected:
 		uint32_t unused : 28 = 0u;
 	};
 	//! controller type -> necessary/available emulation lookup table
-	static array<input_event_emulation_t, size_t(CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)> controller_input_emulation_lut;
+	static const array<input_event_emulation_t, size_t(CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)> controller_input_emulation_lut;
 	//! interaction profile name -> controller type lookup table (for all known/registered ones)
 	unordered_map<string, CONTROLLER_TYPE> interaction_profile_controller_lut;
 	//! currently active input emulation for each hand/controller
 	array<input_event_emulation_t, 2> hand_input_emulation {{ {}, {} }};
+
+	// tracker interaction
+	bool tracker_enumerate();
+	bool create_tracker_actions_and_spaces();
+	//! number of different tracker roles
+	//! NOTE: this only includes tracker types that are supported in OpenXR
+	static constexpr const uint32_t tracker_role_count {
+		uint32_t(POSE_TYPE::TRACKER_KEYBOARD) - uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + 1u
+	};
+	//! all known tracker role paths
+	array<XrPath, tracker_role_count> tracker_role_paths {};
+	//! all known tracker input pose actions
+	array<XrAction, tracker_role_count> tracker_pose_actions {};
+	//! all known tracker spaces
+	array<XrSpace, tracker_role_count> tracker_spaces {};
+	//! tracker specific event -> action map
+	unordered_map<EVENT_TYPE, action_t> tracker_actions;
+	//! we keep all tracker actions within its own action set
+	XrActionSet tracker_input_action_set { nullptr };
+
+	PFN_xrEnumerateViveTrackerPathsHTCX EnumerateViveTrackerPaths { nullptr };
+
+	// hand-tracking
+	bool hand_tracking_setup();
+	//! left/right hand trackers
+	array<XrHandTrackerEXT, 2> hand_trackers { nullptr, nullptr };
+	//! called in handle_input_internal(), queries all current hand/arm joints/poses
+	void add_hand_tracking_poses(vector<pose_t>& poses, const XrSpace& base_space, const XrTime& time);
+
+	PFN_xrCreateHandTrackerEXT CreateHandTracker { nullptr };
+	PFN_xrDestroyHandTrackerEXT DestroyHandTracker { nullptr };
+	PFN_xrLocateHandJointsEXT LocateHandJoints { nullptr };
 
 	// non-core controller support flags
 	bool has_hp_mixed_reality_controller_support { false };
@@ -229,6 +262,9 @@ protected:
 	bool has_ml2_controller_support { false };
 	bool has_fb_touch_controller_pro_support { false };
 	bool has_bd_controller_support { false };
+	bool has_hand_tracking_support { false };
+	bool has_hand_tracking_forearm_support { false };
+	bool has_tracker_interaction_support { false };
 
 	//! converts "str" to an XrPath, or returns empty on failure
 	optional<XrPath> to_path(const std::string& str);
@@ -275,6 +311,12 @@ protected:
 																   struct timespec* timespecTime);
 	xrConvertTimespecTimeToTimeKHR_f ConvertTimespecTimeToTimeKHR { nullptr };
 	xrConvertTimeToTimespecTimeKHR_f ConvertTimeToTimespecTimeKHR { nullptr };
+#endif
+
+#if defined(FLOOR_DEBUG)
+	PFN_xrCreateDebugUtilsMessengerEXT create_debug_utils_messenger { nullptr };
+	PFN_xrDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger { nullptr };
+	XrDebugUtilsMessengerEXT debug_utils_messenger { nullptr };
 #endif
 	
 };
