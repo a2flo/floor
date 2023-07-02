@@ -56,6 +56,10 @@ public:
 
 	//! OpenVR only supports a fixed amount of devices (trackers, controllers, ...)
 	static constexpr const uint32_t max_tracked_devices { 64u };
+	//! SteamVR/OpenVR should always report 31 bones per hand
+	static constexpr const uint32_t expected_bone_count { 31u };
+	//! we will only handle the first 26 bones that match the OpenXR bones (-> ignore aux bones)
+	static constexpr const uint32_t handled_bone_count { 26u };
 	
 protected:
 	vr::IVRSystem* system { nullptr };
@@ -114,6 +118,10 @@ protected:
 	atomic<bool> force_update_controller_types { false };
 	//! called on setup and controller connect/disconnect/update
 	void update_hand_controller_types();
+
+	// hand-tracking
+	//! this is supported by default, but will be disabled if the config does so or if there is an error
+	bool has_hand_tracking_support { true };
 
 	//! computes the current projection matrix for the specified eye and near/far plane
 	matrix4f get_projection_matrix(const VR_EYE& eye, const float& z_near, const float& z_far) const;

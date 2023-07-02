@@ -123,6 +123,46 @@ static optional<vr_context::POSE_TYPE> tracker_type_from_name(const string& name
 	return {};
 }
 
+//! OpenVR hand skeleton/bone indices are fixed
+//! ref: https://github.com/ValveSoftware/openvr/wiki/Hand-Skeleton
+enum class BONE : uint32_t {
+	//! ROOT -> PINKY_FINGER_4 match the OpenXR and POSE_TYPE order (HAND_JOINT_PALM_LEFT -> HAND_JOINT_LITTLE_TIP_LEFT)
+	ROOT,
+	WRIST,
+	THUMB_0,
+	THUMB_1,
+	THUMB_2,
+	THUMB_3,
+	INDEX_FINGER_0,
+	INDEX_FINGER_1,
+	INDEX_FINGER_2,
+	INDEX_FINGER_3,
+	INDEX_FINGER_4,
+	MIDDLE_FINGER_0,
+	MIDDLE_FINGER_1,
+	MIDDLE_FINGER_2,
+	MIDDLE_FINGER_3,
+	MIDDLE_FINGER_4,
+	RING_FINGER_0,
+	RING_FINGER_1,
+	RING_FINGER_2,
+	RING_FINGER_3,
+	RING_FINGER_4,
+	PINKY_FINGER_0,
+	PINKY_FINGER_1,
+	PINKY_FINGER_2,
+	PINKY_FINGER_3,
+	PINKY_FINGER_4,
+
+	//! additional bones that we will ignore
+	AUX_THUMB,
+	AUX_INDEX_FINGER,
+	AUX_MIDDLE_FINGER,
+	AUX_RING_FINGER,
+	AUX_PINKY_FINGER,
+};
+static_assert(uint32_t(BONE::PINKY_FINGER_4) + 1u == openvr_context::handled_bone_count);
+
 openvr_context::openvr_context() : vr_context() {
 	backend = VR_BACKEND::OPENVR;
 	
@@ -166,6 +206,8 @@ openvr_context::openvr_context() : vr_context() {
 	log_debug("VR HMD: $ ($) -> $*$ @$Hz", hmd_name, vendor_name,
 			  recommended_render_size.x, recommended_render_size.y, display_frequency);
 
+	has_hand_tracking_support = floor::get_vr_hand_tracking();
+
 	// input setup
 	const auto vr_action_manifest_file = floor::data_path("vr_action_manifest.json");
 	if (file_io::is_file(vr_action_manifest_file)) {
@@ -202,7 +244,8 @@ openvr_context::openvr_context() : vr_context() {
 			{ "/actions/main/in/left_grip_touch", { ACTION_TYPE::DIGITAL, false, EVENT_TYPE::VR_GRIP_TOUCH, 0 } },
 			{ "/actions/main/in/left_grip_force", { ACTION_TYPE::ANALOG, false, EVENT_TYPE::VR_GRIP_FORCE, 0 } },
 			{ "/actions/main/in/left_grip_pull", { ACTION_TYPE::ANALOG, false, EVENT_TYPE::VR_GRIP_PULL, 0 } },
-			{ "/actions/main/in/left_pose", { ACTION_TYPE::POSE, false, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 } }, // TODO
+			{ "/actions/main/in/left_pose", { ACTION_TYPE::POSE, false, EVENT_TYPE::VR_INTERNAL_HAND_POSE_LEFT, 0 } },
+			{ "/actions/main/in/left_pose_aim", { ACTION_TYPE::POSE, false, EVENT_TYPE::VR_INTERNAL_HAND_AIM_LEFT, 0 } },
 			{ "/actions/main/out/left_haptic", { ACTION_TYPE::HAPTIC, false, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 } }, // TODO
 			{ "/actions/main/in/right_applicationmenu_press", { ACTION_TYPE::DIGITAL, true, EVENT_TYPE::VR_APP_MENU_PRESS, 0 } },
 			{ "/actions/main/in/right_applicationmenu_touch", { ACTION_TYPE::DIGITAL, true, EVENT_TYPE::VR_APP_MENU_TOUCH, 0 } },
@@ -224,14 +267,45 @@ openvr_context::openvr_context() : vr_context() {
 			{ "/actions/main/in/right_grip_touch", { ACTION_TYPE::DIGITAL, true, EVENT_TYPE::VR_GRIP_TOUCH, 0 } },
 			{ "/actions/main/in/right_grip_force", { ACTION_TYPE::ANALOG, true, EVENT_TYPE::VR_GRIP_FORCE, 0 } },
 			{ "/actions/main/in/right_grip_pull", { ACTION_TYPE::ANALOG, true, EVENT_TYPE::VR_GRIP_PULL, 0 } },
-			{ "/actions/main/in/right_pose", { ACTION_TYPE::POSE, true, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 } }, // TODO
+			{ "/actions/main/in/right_pose", { ACTION_TYPE::POSE, true, EVENT_TYPE::VR_INTERNAL_HAND_POSE_RIGHT, 0 } },
+			{ "/actions/main/in/right_pose_aim", { ACTION_TYPE::POSE, true, EVENT_TYPE::VR_INTERNAL_HAND_AIM_RIGHT, 0 } },
 			{ "/actions/main/out/right_haptic", { ACTION_TYPE::HAPTIC, true, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 } }, // TODO
 		};
+		if (has_hand_tracking_support) {
+			actions.emplace("/actions/main/in/left_hand_skeleton", action_t { ACTION_TYPE::SKELETAL, false, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 });
+			actions.emplace("/actions/main/in/right_hand_skeleton", action_t { ACTION_TYPE::SKELETAL, true, EVENT_TYPE::__VR_CONTROLLER_EVENT, 0 });
+		}
 		for (auto& action : actions) {
 			const auto handle_err = input->GetActionHandle(action.first.c_str(), &action.second.handle);
 			if (handle_err != vr::EVRInputError::VRInputError_None || action.second.handle == vr::k_ulInvalidActionHandle) {
 				log_error("VR: failed to get action handle $: $", action.first, handle_err);
 				return;
+			}
+		}
+
+		while (has_hand_tracking_support) {
+			const auto left_hand_skel_iter = actions.find("/actions/main/in/left_hand_skeleton");
+			const auto right_hand_skel_iter = actions.find("/actions/main/in/right_hand_skeleton");
+			if (left_hand_skel_iter == actions.end() || right_hand_skel_iter == actions.end()) {
+				has_hand_tracking_support = false;
+				log_warn("left/right hand skeleton action not found - disabling hand-tracking support");
+				break;
+			}
+
+			uint32_t lh_bone_count = 0, rh_bone_count = 0;
+			if (input->GetBoneCount(left_hand_skel_iter->second.handle, &lh_bone_count) != vr::EVRInputError::VRInputError_None ||
+				input->GetBoneCount(right_hand_skel_iter->second.handle, &rh_bone_count) != vr::EVRInputError::VRInputError_None) {
+				log_warn("failed to retrieve left/right bone counts");
+				break;
+			}
+
+			// if not properly initialized yet, the returned bone count will be zero (-> don't disable yet)
+			if ((lh_bone_count > 0 && lh_bone_count != expected_bone_count) ||
+				(rh_bone_count > 0 && rh_bone_count != expected_bone_count)) {
+				has_hand_tracking_support = false;
+				log_warn("invalid left/right skeleton bones ($, $) - disabling hand-tracking support",
+						 lh_bone_count, rh_bone_count);
+				break;
 			}
 		}
 	}
@@ -294,6 +368,8 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 		.unPadding = 0,
 		.nPriority = 0,
 	};
+	array<array<pose_t, handled_bone_count>, 2> hand_bone_poses {};
+	bool2 hand_bone_poses_valid { false, false };
 	const auto update_act_err = input->UpdateActionState(&active_action_set, sizeof(vr::VRActiveActionSet_t), 1);
 	if (update_act_err != vr::EVRInputError::VRInputError_None) {
 		log_error("failed to update action state: $", update_act_err);
@@ -416,6 +492,63 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 					}
 					break;
 				}
+				case ACTION_TYPE::SKELETAL: {
+					if (!has_hand_tracking_support) {
+						break;
+					}
+
+					vr::InputSkeletalActionData_t data{};
+					err = input->GetSkeletalActionData(action.second.handle, &data, sizeof(vr::InputSkeletalActionData_t));
+					if (err != vr::EVRInputError::VRInputError_None) {
+						break;
+					}
+					if (data.bActive) {
+						// check tracking level before retrieving bone transforms
+						vr::EVRSkeletalTrackingLevel tracking_level = vr::VRSkeletalTracking_Estimated;
+						if (auto tracking_err = input->GetSkeletalTrackingLevel(action.second.handle, &tracking_level);
+							tracking_err != vr::EVRInputError::VRInputError_None) {
+							log_warn("failed to retrieve bone tracking level: $", tracking_err);
+							break;
+						}
+						// ignore if not at least partial
+						if (tracking_level < vr::VRSkeletalTracking_Partial) {
+							break;
+						}
+
+						// we have active hand tracking/skeletal info for this hand
+						// -> we need to query all bones, but we'll handle the ones that we actually want
+						vector<vr::VRBoneTransform_t> bone_transforms(expected_bone_count);
+						if (auto skel_err = input->GetSkeletalBoneData(action.second.handle, vr::VRSkeletalTransformSpace_Model,
+																	   vr::VRSkeletalMotionRange_WithoutController,
+																	   bone_transforms.data(), (uint32_t)bone_transforms.size());
+							skel_err != vr::EVRInputError::VRInputError_None) {
+							log_warn("failed to retrieve bone data: $", skel_err);
+							break;
+						}
+
+						// add/create all bone poses, however, these will only be added if we actually have a resp. hand pose
+						auto bone_pose_type = uint32_t(!action.second.side ? POSE_TYPE::HAND_JOINT_PALM_LEFT : POSE_TYPE::HAND_JOINT_PALM_RIGHT);
+						hand_bone_poses_valid[!action.second.side ? 0 : 1] = true;
+						for (uint32_t bone_idx = 0; bone_idx < handled_bone_count; ++bone_idx) {
+							const auto& bone_transform = bone_transforms[bone_idx];
+							// NOTE: we don't get any per-bone velocity info
+							auto& pose = hand_bone_poses[!action.second.side ? 0 : 1][bone_idx];
+							pose.type = POSE_TYPE(bone_pose_type + bone_idx);
+							pose.is_active = 1;
+							pose.position_valid = 1;
+							pose.orientation_valid = 1;
+							pose.position_tracked = 1;
+							pose.orientation_tracked = 1;
+							pose.position = { bone_transform.position.v[0], bone_transform.position.v[1], bone_transform.position.v[2] };
+							const quaternionf rot {
+								bone_transform.orientation.x, bone_transform.orientation.y, bone_transform.orientation.z, bone_transform.orientation.w
+							};
+							pose.orientation = rot.to_matrix4();
+							pose.orientation.invert(); // TODO: needed?
+						}
+					}
+					break;
+				}
 				default:
 					// not handled yet
 					break;
@@ -513,6 +646,14 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 					0.0f, 0.0f, 0.0f, 1.0f
 				};
 				pose.orientation.invert();
+				
+				// add hand bone poses if the left/right hand pose is actually active
+				if ((pose.type == vr_context::POSE_TYPE::HAND_LEFT && hand_bone_poses_valid.x) ||
+					(pose.type == vr_context::POSE_TYPE::HAND_RIGHT && hand_bone_poses_valid.y)) {
+					updated_pose_state.insert(updated_pose_state.end(),
+											  hand_bone_poses[pose.type == vr_context::POSE_TYPE::HAND_LEFT ? 0 : 1].begin(),
+											  hand_bone_poses[pose.type == vr_context::POSE_TYPE::HAND_LEFT ? 0 : 1].end());
+				}
 			}
 
 			updated_pose_state.emplace_back(std::move(pose));
