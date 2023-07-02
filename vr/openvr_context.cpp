@@ -305,8 +305,8 @@ openvr_context::openvr_context() : vr_context() {
 				has_hand_tracking_support = false;
 				log_warn("invalid left/right skeleton bones ($, $) - disabling hand-tracking support",
 						 lh_bone_count, rh_bone_count);
-				break;
 			}
+			break;
 		}
 	}
 
