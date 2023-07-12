@@ -64,7 +64,7 @@ indirect_command_pipeline(desc_) {
 		}
 	}
 	// NOTE: we don't have a technical limit for this in Vulkan -> keep it at the same limit as Metal for consistency
-	if (desc.max_command_count > 16384u) {
+	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
 		log_error("max supported command count by Vulkan is 16384, in indirect command pipeline \"$\"",
 				  desc.debug_label);
 		valid = false;

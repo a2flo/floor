@@ -55,7 +55,7 @@ indirect_command_pipeline(desc_) {
 			tessellation_support = false;
 		}
 	}
-	if (desc.max_command_count > 16384u) {
+	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
 		log_error("max supported command count by Metal is 16384, in indirect command pipeline \"$\"",
 				  desc.debug_label);
 		valid = false;

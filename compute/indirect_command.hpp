@@ -62,6 +62,10 @@ struct indirect_command_description {
 	
 	//! sets the debug label for indirect commands created from this description (e.g. for display in a debugger)
 	string debug_label;
+	
+	//! if set, this ignores the backend specific fixed max command count limit (use at your own risk)
+	//! NOTE: Vulkan technically has no limit anyways and on Metal it is currently unclear what the actual limit is
+	bool ignore_max_max_command_count_limit { false };
 };
 
 class indirect_command_encoder;
