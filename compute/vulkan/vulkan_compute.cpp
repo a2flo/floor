@@ -1162,6 +1162,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_map_memory2",
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
+			"VK_KHR_shared_presentable_image",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
