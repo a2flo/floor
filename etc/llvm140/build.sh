@@ -51,8 +51,8 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
-LLVM_REV=a328f72256a78946a91c359374a072a743a27fb9
-LLVM_SPIRV_REV=5a486d7509e92166904f022454f4279d44c9af4e
+LLVM_REV=0fe666f476cdb3b357a2e665defaf0b411b9d08e
+LLVM_SPIRV_REV=38edbd98c5aed2e453263eed698ea009605fee43
 if [ ! -d llvm ]; then
 	git clone -b floor_toolchain_1406 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
