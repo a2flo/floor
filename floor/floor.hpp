@@ -317,6 +317,8 @@ public:
 	static const bool& get_vulkan_soft_printf();
 	static const vector<string>& get_vulkan_log_binary_filter();
 	static const bool& get_vulkan_nvidia_device_diagnostics();
+	static const bool& get_vulkan_debug_labels();
+	static const bool& get_vulkan_fence_wait_polling();
 	
 	// host
 	static const string& get_host_base_path();
@@ -480,6 +482,8 @@ protected:
 		bool vulkan_soft_printf = false;
 		vector<string> vulkan_log_binary_filter;
 		bool vulkan_nvidia_device_diagnostics = false;
+		bool vulkan_debug_labels = false;
+		bool vulkan_fence_wait_polling = false;
 
 		// sdl
 		uint32_t flags = 0;

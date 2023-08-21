@@ -327,7 +327,7 @@ bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_fini
 	// non-blocking: add present completion handler at the end
 	if (!is_blocking && is_presenting) {
 		(void)add_completion_handler([this]() {
-			((vulkan_compute*)cqueue.get_device().context)->queue_present(cur_drawable->vk_drawable);
+			((vulkan_compute*)cqueue.get_device().context)->queue_present(cqueue, cur_drawable->vk_drawable);
 		});
 	}
 	
@@ -363,7 +363,7 @@ bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_fini
 	if (is_blocking) {
 		// if present has been called earlier, we can now actually present the image to the screen
 		if (is_presenting) {
-			((vulkan_compute*)cqueue.get_device().context)->queue_present(cur_drawable->vk_drawable);
+			((vulkan_compute*)cqueue.get_device().context)->queue_present(cqueue, cur_drawable->vk_drawable);
 			is_presenting = false;
 		}
 		
@@ -402,7 +402,7 @@ vulkan_renderer::vulkan_drawable_t::~vulkan_drawable_t() {
 }
 
 graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable(const bool get_multi_view_drawable) {
-	auto drawable_ret = ((vulkan_compute*)cqueue.get_device().context)->acquire_next_image(get_multi_view_drawable);
+	auto drawable_ret = ((vulkan_compute*)cqueue.get_device().context)->acquire_next_image(cqueue, get_multi_view_drawable);
 	if (!drawable_ret.first) {
 		return nullptr;
 	}

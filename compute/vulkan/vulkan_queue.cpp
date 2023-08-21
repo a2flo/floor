@@ -27,6 +27,7 @@
 #include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
 #include <floor/threading/thread_base.hpp>
+#include <floor/floor/floor.hpp>
 #include <condition_variable>
 
 //! returns the debug name of the specified buffer or "unknown"
@@ -199,10 +200,12 @@ struct vulkan_command_pool_t {
 	const vulkan_queue& queue;
 	const bool is_secondary { false };
 	const bool experimental_no_blocking { false };
+	const bool fence_wait_polling { false };
 	
 	vulkan_command_pool_t(const vulkan_device& dev_, const vulkan_queue& queue_, const bool is_secondary_) :
 	dev(dev_), queue(queue_), is_secondary(is_secondary_),
-	experimental_no_blocking(has_flag<COMPUTE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())) {}
+	experimental_no_blocking(has_flag<COMPUTE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())),
+	fence_wait_polling(floor::get_vulkan_fence_wait_polling()) {}
 	
 	~vulkan_command_pool_t() {
 		// TODO: destructor (manually + on thread exit)
@@ -399,18 +402,38 @@ void vulkan_complete_cmd_buffer(vulkan_command_pool_t& pool,
 								pair<VkFence, uint32_t> fence,
 								function<void(const vulkan_command_buffer&)>&& completion_handler)
 REQUIRES(!pool.fence_lock, !pool.cmd_buffers_lock) {
-	// NOTE: vkWaitForFences is faster + more efficient than a vkGetFenceStatus loop
-	const auto wait_ret = vkWaitForFences(vk_dev.device, 1, &fence.first, true, ~0ull);
-	if (wait_ret != VK_SUCCESS) {
-		if (wait_ret == VK_TIMEOUT) {
-			log_error("waiting for fence timed out");
-		} else if (wait_ret == VK_ERROR_DEVICE_LOST) {
-			log_error("device lost during command buffer execution/wait (probably program error)$!",
-					  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
-			logger::flush();
-			throw runtime_error("Vulkan device lost");
-		} else {
-			log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
+	// TODO/NOTE: at this point, I am not sure what the better/faster approach is (one would think vkWaitForFences, but apparently not)
+	// -> Linux: polling seems to be a lot faster, with vkWaitForFences sometimes having multi-millisecond delays
+	// -> Windows: not much of a difference between these, with the polling being slightly faster
+	if (!pool.fence_wait_polling) {
+		// -> wait on fence until completion
+		const auto wait_ret = vkWaitForFences(vk_dev.device, 1, &fence.first, true, ~0ull);
+		if (wait_ret != VK_SUCCESS) {
+			if (wait_ret == VK_TIMEOUT) {
+				log_error("waiting for fence timed out");
+			} else if (wait_ret == VK_ERROR_DEVICE_LOST) {
+				log_error("device lost during command buffer execution/wait (probably program error)$!",
+						  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
+				logger::flush();
+				throw runtime_error("Vulkan device lost");
+			} else {
+				log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
+			}
+		}
+	} else {
+		// -> poll fence status until completion
+		for (;;) {
+			const auto status = vkGetFenceStatus(vk_dev.device, fence.first);
+			if (status == VK_SUCCESS) {
+				break;
+			} else if (status == VK_ERROR_DEVICE_LOST) {
+				log_error("device lost during command buffer execution/wait (probably program error)$!",
+						  cmd_buffer.name != nullptr ? ": "s + cmd_buffer.name : ""s);
+				logger::flush();
+				throw runtime_error("Vulkan device lost");
+			} else if (status != VK_NOT_READY) {
+				log_error("waiting for fence failed: $ ($)", vulkan_error_to_string(status), status);
+			}
 		}
 	}
 	

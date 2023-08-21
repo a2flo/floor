@@ -243,14 +243,14 @@ public:
 	
 	//! acquires the next drawable image
 	//! NOTE: will block for now
-	pair<bool, const drawable_image_info> acquire_next_image(const bool get_multi_view_drawable = false);
+	pair<bool, const drawable_image_info> acquire_next_image(const compute_queue& dev_queue, const bool get_multi_view_drawable = false);
 	
 	//! presents the drawable image that has previously been acquired
 	//! NOTE: will block for now
-	bool present_image(const drawable_image_info& drawable);
+	bool present_image(const compute_queue& dev_queue, const drawable_image_info& drawable);
 	//! final queue image present only
 	//! NOTE: "present_image" calls this
-	bool queue_present(const drawable_image_info& drawable);
+	bool queue_present(const compute_queue& dev_queue, const drawable_image_info& drawable);
 	
 #if defined(__WINDOWS__)
 	//! calls vkGetMemoryWin32HandleKHR

@@ -405,6 +405,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if (floor::get_vulkan_validation()) {
 		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		instance_extensions.emplace(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+	} else if (floor::get_vulkan_debug_labels()) {
+		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 #endif
 	if(enable_renderer && !screen.x11_forwarding) {
@@ -1163,6 +1165,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
 			"VK_KHR_shared_presentable_image",
+			"VK_KHR_maintenance5",
+			"VK_KHR_cooperative_matrix",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -2224,8 +2228,8 @@ bool vulkan_compute::init_vr_renderer() {
 	return true;
 }
 
-pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const bool get_multi_view_drawable) NO_THREAD_SAFETY_ANALYSIS {
-	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const compute_queue& dev_queue,
+																						 const bool get_multi_view_drawable) NO_THREAD_SAFETY_ANALYSIS {
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
 	// none of this is thread-safe -> ensure only one thread is actively executing this
@@ -2393,8 +2397,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	};
 }
 
-bool vulkan_compute::present_image(const drawable_image_info& drawable) {
-	const auto& dev_queue = *get_device_default_queue(*screen.render_device);
+bool vulkan_compute::present_image(const compute_queue& dev_queue, const drawable_image_info& drawable) {
 	const auto& vk_queue = (const vulkan_queue&)dev_queue;
 	
 	if(screen.x11_forwarding) {
@@ -2466,14 +2469,12 @@ bool vulkan_compute::present_image(const drawable_image_info& drawable) {
 		vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
 	}), true /* always blocking */);
 	
-	return queue_present(drawable);
+	return queue_present(dev_queue, drawable);
 }
 
-bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREAD_SAFETY_ANALYSIS {
+bool vulkan_compute::queue_present(const compute_queue& dev_queue, const drawable_image_info& drawable) NO_THREAD_SAFETY_ANALYSIS {
 	if (vr_ctx && drawable.layer_count > 1) {
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
-		const auto& dev_queue = *get_device_default_queue(*vr_screen.render_device);
-
 		compute_image* present_image = nullptr;
 		if (vr_ctx->has_swapchain()) {
 			present_image = vr_screen.external_swapchain_images[drawable.index];
@@ -2503,7 +2504,6 @@ bool vulkan_compute::queue_present(const drawable_image_info& drawable) NO_THREA
 		vr_screen.image_locks[drawable.index].unlock();
 #endif
 	} else {
-		const auto& dev_queue = *get_device_default_queue(*screen.render_device);
 		const auto& vk_queue = (const vulkan_queue&)dev_queue;
 
 		// present window image

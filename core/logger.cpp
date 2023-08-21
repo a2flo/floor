@@ -30,6 +30,9 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
+//! enable this to print the thread id in each log message
+#define FLOOR_LOG_THREAD_ID 0
+
 static string log_filename, msg_filename;
 static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
 static atomic<uint32_t> log_err_counter { 0u };
@@ -303,9 +306,14 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 			buffer << ".";
 			buffer << setw(const_math::int_width(chrono::system_clock::period::den));
 			buffer << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
-			buffer << "] ";
+			buffer << "]";
 		}
-		else buffer << " ";
+		
+#if FLOOR_LOG_THREAD_ID
+		buffer << "[" << this_thread::get_id() << "]";
+#endif
+		
+		buffer << " ";
 		
 		if(type == LOG_TYPE::ERROR_MSG) {
 			buffer << "#" << log_err_counter++ << ": ";
