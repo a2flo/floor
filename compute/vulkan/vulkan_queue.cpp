@@ -208,8 +208,20 @@ struct vulkan_command_pool_t {
 	fence_wait_polling(floor::get_vulkan_fence_wait_polling()) {}
 	
 	~vulkan_command_pool_t() {
-		// TODO: destructor (manually + on thread exit)
-		// -> global thread exit and per-thread exit
+		// NOTE: this is called via vulkan_command_pool_destructor_t on thread exit
+		{
+			GUARD(fence_lock);
+			if (auto fences_in_flight = fences_in_use.count(); fences_in_flight > 0) {
+				log_warn("#$ fences still in use", fences_in_flight);
+			} else {
+				for (const auto& fence : fences) {
+					vkDestroyFence(dev.device, fence, nullptr);
+				}
+			}
+		}
+		if (cmd_pool) {
+			vkDestroyCommandPool(dev.device, cmd_pool, nullptr);
+		}
 	}
 	
 	struct command_buffer_internal_t {
@@ -220,7 +232,7 @@ struct vulkan_command_pool_t {
 	//! per-thread command buffer and fence count
 	//! NOTE: since these are *per-thread* we probably never going to need more than this
 	static constexpr const uint32_t cmd_buffer_count { 64 /* make use of optimized bitset */ };
-	static constexpr const uint32_t fence_count { cmd_buffer_count };
+	static constexpr const uint32_t fence_count { 16 };
 
 	safe_mutex cmd_buffers_lock;
 	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock) {};
@@ -473,7 +485,7 @@ struct vulkan_command_pool_storage {
 	//! access to "cmd_pools" must be thread-safe
 	static inline safe_mutex cmd_pools_lock;
 	//! contains all currently active/allocated command pools
-	static inline list<unique_ptr<vulkan_command_pool_t>> cmd_pools GUARDED_BY(cmd_pools_lock);
+	static inline floor_core::flat_map<vulkan_command_pool_t*, unique_ptr<vulkan_command_pool_t>> cmd_pools GUARDED_BY(cmd_pools_lock);
 	
 	//! creates a new command pool, returning a *non-owning* reference to it
 	static vulkan_command_pool_t* create_cmd_pool(const vulkan_device& dev, const vulkan_queue& queue, const bool is_secondary) {
@@ -481,11 +493,39 @@ struct vulkan_command_pool_storage {
 		auto cmd_pool_ret = cmd_pool.get();
 		{
 			GUARD(cmd_pools_lock);
-			cmd_pools.emplace_back(std::move(cmd_pool));
+			vulkan_command_pool_t* cmd_pool_ptr = cmd_pool.get();
+			cmd_pools.emplace(std::move(cmd_pool_ptr), std::move(cmd_pool));
 		}
 		return cmd_pool_ret;
 	}
+	
+	//! destroys the specified command pool, returns true on success
+	static bool destroy_cmd_pool(vulkan_command_pool_t* cmd_pool) {
+		GUARD(cmd_pools_lock);
+		if (auto cmd_pool_iter = cmd_pools.find(cmd_pool); cmd_pool_iter != cmd_pools.end()) {
+			cmd_pools.erase(cmd_pool_iter);
+			return true;
+		}
+		return false;
+	}
 };
+
+//! since command pools are created per-thread and we don't necessarily have a clean direct way of destructing command pool resources,
+//! we do this via a static thread-local RAII class instead, with the destructor in it being called once the thread exits
+static thread_local struct vulkan_command_pool_destructor_t {
+	vulkan_command_pool_destructor_t() = default;
+	~vulkan_command_pool_destructor_t() {
+		if (primary_pool) {
+			vulkan_command_pool_storage::destroy_cmd_pool(primary_pool);
+		}
+		if (secondary_pool) {
+			vulkan_command_pool_storage::destroy_cmd_pool(secondary_pool);
+		}
+	}
+	
+	vulkan_command_pool_t* primary_pool { nullptr };
+	vulkan_command_pool_t* secondary_pool { nullptr };
+} vulkan_command_pool_destructor {};
 
 //! internal Vulkan device queue implementation
 struct vulkan_queue_impl {
@@ -516,6 +556,14 @@ struct vulkan_queue_impl {
 			return true;
 		}
 		cmd_pool = vulkan_command_pool_storage::create_cmd_pool(dev, queue, is_secondary);
+		
+		// register in per-thread destructor
+		if (!is_secondary) {
+			vulkan_command_pool_destructor.primary_pool = cmd_pool;
+		} else {
+			vulkan_command_pool_destructor.secondary_pool = cmd_pool;
+		}
+		
 		MULTI_GUARD(cmd_pool->cmd_buffers_lock, cmd_pool->fence_lock);
 		
 		// create command pool for this queue + device
@@ -528,7 +576,6 @@ struct vulkan_queue_impl {
 		};
 		VK_CALL_RET(vkCreateCommandPool(dev.device, &cmd_pool_info, nullptr, &cmd_pool->cmd_pool),
 					"failed to create command pool", false)
-		// TODO: vkDestroyCommandPool in destructor! this will live as long as the context/instance does
 		
 #if defined(FLOOR_DEBUG)
 		auto thread_name = core::get_current_thread_name();
@@ -610,7 +657,6 @@ compute_queue(device_, queue_type_), vk_queue(queue_), family_index(family_index
 }
 
 vulkan_queue::~vulkan_queue() {
-	// TODO: clean up all thread pools/buffers
 	finish();
 	impl = nullptr;
 }
