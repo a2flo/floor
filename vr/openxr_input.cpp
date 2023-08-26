@@ -136,7 +136,6 @@ static string tracker_role_to_string(const vr_context::POSE_TYPE tracker_type) {
 		case vr_context::POSE_TYPE::TRACKER_KEYBOARD:
 			role_str = "keyboard";
 			break;
-#if 0 // not supported yet
 		case vr_context::POSE_TYPE::TRACKER_WRIST_LEFT:
 			role_str = "left_wrist";
 			break;
@@ -149,7 +148,6 @@ static string tracker_role_to_string(const vr_context::POSE_TYPE tracker_type) {
 		case vr_context::POSE_TYPE::TRACKER_ANKLE_RIGHT:
 			role_str = "right_ankle";
 			break;
-#endif
 		default:
 			throw std::runtime_error("invalid tracker role");
 	}
@@ -954,7 +952,7 @@ bool openxr_context::create_tracker_actions_and_spaces() {
 
 	// create tracker bindings
 	const auto interaction_profile = "/interaction_profiles/htc/vive_tracker_htcx";
-	const vector<action_definition_t> tracker_action_definitions {
+	vector<action_definition_t> tracker_action_definitions {
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_HANDHELD_OBJECT },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_FOOT_LEFT },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_FOOT_RIGHT },
@@ -968,13 +966,17 @@ bool openxr_context::create_tracker_actions_and_spaces() {
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CHEST },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CAMERA },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_KEYBOARD },
-#if 0 // not supported yet
-		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_LEFT },
-		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_RIGHT },
-		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_LEFT },
-		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_RIGHT },
-#endif
 	};
+	if (has_tracker_interaction_with_wrist_ankle_support) {
+		vector<action_definition_t> wrist_ankle_definitions {
+			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_LEFT },
+			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_RIGHT },
+			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_LEFT },
+			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_RIGHT },
+		};
+		tracker_action_definitions.insert(tracker_action_definitions.end(),
+										  wrist_ankle_definitions.begin(), wrist_ankle_definitions.end());
+	}
 	vector<XrActionSuggestedBinding> bindings;
 	for (const auto& tracker_action : tracker_action_definitions) {
 		const auto role_str = tracker_role_to_string(POSE_TYPE(uint32_t(tracker_action.event_type) -

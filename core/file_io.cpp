@@ -37,6 +37,7 @@
 
 #else // !__WINDOWS__
 #include <dirent.h>
+#include <fcntl.h>
 #endif
 
 #if !defined(__APPLE__) // can't use <filesystem> when targeting 10.13 (need at least 10.15)
@@ -139,7 +140,7 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 	}
 	
 	const auto size_ll = file.get_filesize();
-	if (size_ll < 0) {
+	if (size_ll <= 0) {
 		return {};
 	}
 	
@@ -157,6 +158,66 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 	}
 	
 	return { std::move(data), size };
+}
+
+pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer_uncached(const string& filename) {
+#if defined(_WIN32)
+	// TODO: implement this on Windows
+	return file_io::file_to_buffer(filename);
+#else
+	auto open_flags = O_RDONLY;
+	// try O_DIRECT for uncached file reads (but probably Linux only)
+#if defined(O_DIRECT)
+	open_flags |= O_DIRECT;
+#elif defined(__O_DIRECT)
+	open_flags |= __O_DIRECT;
+#endif
+	auto fd = ::open(filename.c_str(), open_flags);
+	if (fd < 0) {
+		return {};
+	}
+	
+	// on macOS/iOS, we can enable F_NOCACHE
+	// NOTE: we ignore if this fails and simply read the file as-is (as we do if neither O_DIRECT nor F_NOCACHE is supported)
+#if !defined(O_DIRECT) && !defined(__O_DIRECT) && defined(F_NOCACHE)
+	(void)fcntl(fd, F_NOCACHE, 1);
+#endif
+	
+	// get file size
+	const auto size_ll = lseek(fd, 0u, SEEK_END);
+	if (size_ll <= 0) {
+		::close(fd);
+		return {};
+	}
+	const auto size = (uint64_t)size_ll;
+	
+	//
+	auto data = make_unique<uint8_t[]>(size);
+	if (!data) {
+		::close(fd);
+		return {};
+	}
+	
+	uint64_t total_read_bytes = 0u;
+	off_t read_offset = 0u;
+	auto remaining_size = size;
+	do {
+		const auto read_bytes = pread(fd, data.get(), remaining_size, read_offset);
+		if (read_bytes < 0) {
+			::close(fd);
+			return {};
+		}
+		total_read_bytes += (uint64_t)read_bytes;
+		if (total_read_bytes >= size) {
+			break;
+		}
+		read_offset += read_bytes;
+		remaining_size -= (uint64_t)read_bytes;
+	} while (true);
+	::close(fd);
+	
+	return { std::move(data), size };
+#endif
 }
 
 bool file_io::file_to_string(const string& filename, string& str) {

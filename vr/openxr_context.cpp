@@ -87,22 +87,27 @@ openxr_context::openxr_context() : vr_context() {
 	backend = VR_BACKEND::OPENXR;
 
 	// query supported extensions and layers
-	const auto query_extensions = [](const char* layer_name) -> vector<XrExtensionProperties> {
+	const auto query_extensions = [](const char* layer_name) -> unordered_map<string, XrExtensionProperties> {
 		uint32_t ext_count = 0;
 		XR_CALL_RET(xrEnumerateInstanceExtensionProperties(layer_name, 0, &ext_count, nullptr),
 					"failed to query extension count" + (layer_name ? " for "s + layer_name : ""), {});
 		if (ext_count == 0) {
 			return {};
 		}
-		vector<XrExtensionProperties> extensions(ext_count, { .type = XR_TYPE_EXTENSION_PROPERTIES, .next = nullptr });
-		XR_CALL_RET(xrEnumerateInstanceExtensionProperties(layer_name, ext_count, &ext_count, extensions.data()),
+		vector<XrExtensionProperties> extensions_vec(ext_count, { .type = XR_TYPE_EXTENSION_PROPERTIES, .next = nullptr });
+		XR_CALL_RET(xrEnumerateInstanceExtensionProperties(layer_name, ext_count, &ext_count, extensions_vec.data()),
 					"failed to query extensions" + (layer_name ? " for "s + layer_name : ""), {});
+		unordered_map<string, XrExtensionProperties> extensions;
+		extensions.reserve(extensions_vec.size());
+		for (auto& ext : extensions_vec) {
+			extensions.emplace(ext.extensionName, ext);
+		}
 		return extensions;
 	};
-	const auto extensions_to_string = [](const vector<XrExtensionProperties>& extensions) {
+	const auto extensions_to_string = [](const auto& extensions) {
 		string ret;
 		for (const auto& ext : extensions) {
-			ret += ext.extensionName + " "s;
+			ret += ext.first + " "s;
 		}
 		return ret;
 	};
@@ -110,10 +115,12 @@ openxr_context::openxr_context() : vr_context() {
 	auto supported_extensions = query_extensions(nullptr);
 	log_msg("OpenXR system extensions: $", extensions_to_string(supported_extensions));
 
-	const auto supports_extension = [&supported_extensions](const string_view extension) {
-		return (std::find_if(supported_extensions.begin(), supported_extensions.end(), [&extension](const XrExtensionProperties& ext) {
-					return (ext.extensionName == extension);
-				}) != supported_extensions.end());
+	const auto supports_extension = [&supported_extensions](const string extension, const uint32_t version = 0) {
+		if (version == 0) {
+			return supported_extensions.contains(extension);
+		}
+		const auto ext_iter = supported_extensions.find(extension);
+		return (ext_iter != supported_extensions.end() && ext_iter->second.extensionVersion >= version);
 	};
 
 	uint32_t layer_count = 0;
@@ -132,7 +139,7 @@ openxr_context::openxr_context() : vr_context() {
 		if (!layer_extensions.empty()) {
 			ext_str = ": ";
 			ext_str += extensions_to_string(layer_extensions);
-			supported_extensions.insert(supported_extensions.end(), layer_extensions.begin(), layer_extensions.end());
+			supported_extensions.merge(layer_extensions);
 		}
 		log_msg("OpenXR layer: $ (v$, spec $.$.$, $)$", layer.layerName,
 				layer.layerVersion,
@@ -198,6 +205,10 @@ openxr_context::openxr_context() : vr_context() {
 	if (floor::get_vr_trackers() && supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
 		instance_extensions.emplace_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
 		has_tracker_interaction_support = true;
+		// version 3 / OpenXR 1.0.29 added wrist and ankle role support
+		if (supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME, 3)) {
+			has_tracker_interaction_with_wrist_ankle_support = true;
+		}
 	}
 #if defined(__WINDOWS__)
 	if (supports_extension("XR_KHR_win32_convert_performance_counter_time")) {

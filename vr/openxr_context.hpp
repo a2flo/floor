@@ -149,7 +149,7 @@ protected:
 	};
 	floor_enum_ext(INPUT_TYPE)
 
-	array<XrPath, 4> input_paths;
+	array<XrPath, 4> input_paths {};
 
 	enum class ACTION_TYPE : uint32_t {
 		//! inputs
@@ -265,6 +265,7 @@ protected:
 	bool has_hand_tracking_support { false };
 	bool has_hand_tracking_forearm_support { false };
 	bool has_tracker_interaction_support { false };
+	bool has_tracker_interaction_with_wrist_ankle_support { false };
 
 	//! converts "str" to an XrPath, or returns empty on failure
 	optional<XrPath> to_path(const std::string& str);
