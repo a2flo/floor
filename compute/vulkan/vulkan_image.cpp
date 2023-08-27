@@ -258,7 +258,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 												  is_sharing /* sharing requires device memory */,
 												  false /* host-coherent is not required */),
 	};
-	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false)
+	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem),
+				"image allocation (" + std::to_string(allocation_size) + " bytes) failed", false)
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
 
 	// aliased array: back each layer
