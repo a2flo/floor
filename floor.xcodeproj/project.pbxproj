@@ -111,6 +111,7 @@
 		5C34F17F1C29BB9300C8F645 /* metal_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C34F17D1C29BB9300C8F645 /* metal_device.cpp */; };
 		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
+		5C39288B2ABDA15100B3E57D /* vr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3D13B123B67784000BB608 /* vr_context.cpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
 		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
 		5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61D91C60FD4400358DAB /* opaque_image.hpp */; };
@@ -1773,6 +1774,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C39288B2ABDA15100B3E57D /* vr_context.cpp in Sources */,
 				5C4331D9214DAA5B004F0CD0 /* cuda_api.cpp in Sources */,
 				5C4331DA214DAA5B004F0CD0 /* cuda_buffer.cpp in Sources */,
 				5C4B89BE25576830001CB537 /* host_argument_buffer.cpp in Sources */,
@@ -2542,6 +2544,7 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
+					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2812,6 +2815,7 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
+					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2917,6 +2921,7 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
+					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2956,6 +2961,7 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
+					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";

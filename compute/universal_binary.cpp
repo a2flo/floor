@@ -280,6 +280,7 @@ namespace universal_binary {
 				
 				cl_dev.cl_version = cl_version_from_uint(cl_target.major, cl_target.minor);
 				cl_dev.c_version = cl_dev.cl_version;
+				cl_dev.spirv_version = (cl_target.is_spir ? SPIRV_VERSION::NONE : SPIRV_VERSION::SPIRV_1_0);
 				
 				cl_dev.image_depth_support = cl_target.image_depth_support;
 				cl_dev.image_msaa_support = cl_target.image_msaa_support;
@@ -367,9 +368,14 @@ namespace universal_binary {
 				// handle PTX ISA version
 				if ((cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3)) ||
 					(cuda_dev.sm.x == 8 && cuda_dev.sm.y < 6 && cuda_target.ptx_isa_major < 7) ||
-					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 6 && (cuda_target.ptx_isa_major < 7 ||
-																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
-					(cuda_dev.sm.x > 8 && (cuda_target.ptx_isa_major != 7 || cuda_target.ptx_isa_minor != 1))) {
+					(cuda_dev.sm.x == 8 && cuda_dev.sm.y > 0 && cuda_dev.sm.y <= 6 && (cuda_target.ptx_isa_major < 7 ||
+																					   (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
+					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 7 && cuda_dev.sm.y <= 8 && (cuda_target.ptx_isa_major < 7 ||
+																						(cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 6))) ||
+					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 9 && (cuda_target.ptx_isa_major < 7 ||
+																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 8))) ||
+					(cuda_dev.sm.x > 8 && (cuda_target.ptx_isa_major < 7 ||
+										   (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 8)))) {
 					log_error("invalid PTX version $.$ for target $",
 							  cuda_target.ptx_isa_major, cuda_target.ptx_isa_minor, cuda_dev.sm);
 					return {};

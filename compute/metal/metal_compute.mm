@@ -170,11 +170,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		
 		if (@available(iOS 13.0, *)) {
 			// find max supported Apple* family
-			static constexpr const auto max_gpu_family = MTLGPUFamilyApple8;
+			static constexpr const auto max_gpu_family = MTLGPUFamilyApple9;
 			device.family_tier = 0;
 			for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
 				if ([dev supportsFamily:family]) {
-					device.family_tier = uint32_t(family);
+					device.family_tier = (uint32_t(family) - uint32_t(MTLGPUFamilyApple1)) + 1u;
 				}
 			}
 		} else {
@@ -278,7 +278,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				else {
 					device.units = 6; // GT7600 / GT7600 Plus
 				}
-				device.mem_clock = 1600; // TODO: ram clock
+				device.mem_clock = 3200; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 512;
@@ -287,7 +287,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			// A11
 			case 4:
 				device.units = 3; // Apple custom
-				device.mem_clock = 1600; // TODO: ram clock
+				device.mem_clock = 4233; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
@@ -296,7 +296,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			// A12/A12X/A12Z
 			case 5:
 				device.units = 4; // Apple custom
-				device.mem_clock = 1600; // TODO: ram clock
+				device.mem_clock = 4233; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
@@ -304,8 +304,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				
 			// A13
 			case 6:
-				device.units = 4; // Apple custom (TODO: correct number)
-				device.mem_clock = 1600; // TODO: ram clock
+				device.units = 4; // Apple custom
+				device.mem_clock = 4233; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
@@ -313,8 +313,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				
 			// A14 / M1
 			case 7:
-				device.units = 8;
-				device.mem_clock = 1600; // TODO: ram clock
+				device.units = ([dev supportsFamily:MTLGPUFamilyMac2] ? 8 /* M2 */ : 4);
+				device.mem_clock = 4233;
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
@@ -322,15 +322,23 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				
 			// A15 / A16 / M2
 			case 8:
-				device.units = 8;
-				device.mem_clock = 1600; // TODO: ram clock
+				device.units = ([dev supportsFamily:MTLGPUFamilyMac2] ? 8 /* M2 */ : 5);
+				device.mem_clock = 3200; // or 2133, ...
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_total_local_size = 1024;
+				break;
+				
+			// A17
+			case 9:
+				device.units = 6;
+				device.mem_clock = 3200; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
 				device.max_total_local_size = 1024;
 				break;
 		}
-		device.local_mem_size = 16384; // fallback
-		device.local_mem_size = [dev maxThreadgroupMemoryLength];
+		device.local_mem_size = std::max(uint32_t([dev maxThreadgroupMemoryLength]), 16384u /* fallback */);
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true; // always true
