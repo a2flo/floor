@@ -1022,6 +1022,10 @@ bool floor::init_internal(const init_state& state) {
 			log_debug("video mode set: w$ h$", config.width, config.height);
 			
 #if defined(__APPLE__)
+#if !defined(FLOOR_IOS)
+			darwin_helper::create_app_delegate();
+#endif
+			
 			// cache window scale factor while we're on the main thread
 			(void)darwin_helper::get_scale_factor(window, true /* force query */);
 #endif

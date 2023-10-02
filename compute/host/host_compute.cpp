@@ -229,7 +229,9 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_cont
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
 			break;
 		case 0x1b588bb3 /* Firestorm/Icestorm A14 & M1 */:
-		case 0xda33d83d /* Blizzard/Avalanche A15 - A16 & M2 */:
+		case 0xda33d83d /* Blizzard/Avalanche A15 & M2 */:
+		case 0x8765edea /* Everest/Sawtooth A16 */:
+		case 0x2876f5b5 /* Coll A17 */:
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
 			break;
 	}

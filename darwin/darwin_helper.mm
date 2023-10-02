@@ -35,6 +35,7 @@
 
 #if !defined(FLOOR_IOS)
 #import <AppKit/AppKit.h>
+#import <AppKit/NSApplication.h>
 #define UI_VIEW_CLASS NSView
 #else
 #import <UIKit/UIKit.h>
@@ -56,6 +57,55 @@ typedef NSWindow* wnd_type_ptr;
 typedef UIWindow* wnd_type_ptr;
 #endif
 
+#if !defined(FLOOR_IOS)
+// we need to create an app delegate to disable applicationSupportsSecureRestorableState warnings ...
+// however, if we do this, we also need to handle SDL things (https://wiki.libsdl.org/SDL2/README/macos/raw)
+@interface libfloor_app_delegate : NSObject <NSApplicationDelegate>
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender;
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename;
+- (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app;
+@end
+
+@implementation libfloor_app_delegate
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+	if (SDL_GetEventState(SDL_QUIT) == SDL_ENABLE) {
+		SDL_Event event;
+		event.type = SDL_QUIT;
+		SDL_PushEvent(&event);
+	}
+	return NSTerminateCancel;
+}
+
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
+{
+	if (SDL_GetEventState(SDL_DROPFILE) == SDL_ENABLE) {
+		SDL_Event event;
+		event.type = SDL_DROPFILE;
+		event.drop.file = SDL_strdup([filename UTF8String]);
+		return (SDL_PushEvent(&event) > 0);
+	}
+	return NO;
+}
+
+- (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app {
+	return YES;
+}
+@end
+
+static libfloor_app_delegate* libfloor_app_delegate_instance = nil;
+void darwin_helper::create_app_delegate() {
+	if (libfloor_app_delegate_instance) {
+		return;
+	}
+	@autoreleasepool {
+		libfloor_app_delegate_instance = [libfloor_app_delegate new];
+		[[NSApplication sharedApplication] setDelegate:libfloor_app_delegate_instance];
+	}
+}
+#endif
+
+// global metal view variables
 static constexpr const uint32_t max_drawables_in_flight { 6 };
 static atomic<bool> window_did_resize { true };
 

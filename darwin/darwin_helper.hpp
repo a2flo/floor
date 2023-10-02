@@ -61,6 +61,7 @@ public:
 
 #if !defined(FLOOR_IOS)
 	// macOS specific
+	static void create_app_delegate();
 	static float get_menu_bar_height();
 #else
 	// iOS specific
