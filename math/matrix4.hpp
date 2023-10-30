@@ -395,6 +395,11 @@ public:
 		return *this;
 	}
 	
+	//! returns the "translation components" of this matrix
+	constexpr vector3<scalar_type> get_translation() const {
+		return { data[12], data[13], data[14] };
+	}
+	
 	//! scales this matrix by (x, y, z)
 	constexpr matrix4& scale(const scalar_type x, const scalar_type y, const scalar_type z) {
 		*this *= scaling(x, y, z);

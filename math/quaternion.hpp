@@ -278,6 +278,23 @@ public:
 		};
 	}
 	
+	//! converts the specified 4x4 matrix (only considering 3x3) to a quaternion
+	static constexpr quaternion<scalar_type> from_matrix4(const matrix4<scalar_type>& mat) {
+		// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm
+		// (also see sign handling + correction further down below)
+		using st = scalar_type;
+		quaternion<scalar_type> q {
+			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] - mat.data[5] - mat.data[10], st(0))) * st(0.5),
+			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] + mat.data[5] - mat.data[10], st(0))) * st(0.5),
+			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] - mat.data[5] + mat.data[10], st(0))) * st(0.5),
+			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] + mat.data[5] + mat.data[10], st(0))) * st(0.5),
+		};
+		q.v.x = vector_helper<st>::copysign(q.v.x, mat.data[9] - mat.data[6]);
+		q.v.y = vector_helper<st>::copysign(q.v.y, mat.data[2] - mat.data[8]);
+		q.v.z = vector_helper<st>::copysign(q.v.z, mat.data[4] - mat.data[1]);
+		return q;
+	}
+	
 	//////////////////////////////////////////
 	// static quaternion creation functions
 #pragma mark static quaternion creation functions

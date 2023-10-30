@@ -510,7 +510,24 @@ namespace rt_math {
 #endif
 		}
 	}
-	
+
+	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
+	//! NOTE: fallback for integral types, floating point types are handled via std::copysign
+	template <typename int_type> requires(ext::is_integral_v<int_type>)
+	static floor_inline_always int_type copysign(const int_type a, const int_type b) {
+		if constexpr (ext::is_signed_v<int_type>) {
+			if constexpr (sizeof(int_type) <= 8) {
+				const auto abs_a = int_type(std::abs(a));
+				return (b < int_type(0) ? -abs_a : abs_a);
+			} else { // we don't have std::abs for integers > 64-bit
+				const auto abs_a = int_type(const_math::abs(a));
+				return (b < int_type(0) ? -abs_a : abs_a);
+			}
+		} else {
+			return a;
+		}
+	}
+
 }
 
 // -> "std::" s/w half/fp16 math functions (simply forward to float functions)

@@ -111,6 +111,7 @@ public:
 	static constexpr int popcount(const T& val);
 	static constexpr int ffs(const T& val);
 	static constexpr int parity(const T& val);
+	static constexpr T copysign(const T& lhs /* mag */, const T& rhs /* sgn */);
 	
 protected:
 	// static class
@@ -215,6 +216,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_DOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(double, \
@@ -261,6 +263,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_LDOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(long double, \
@@ -307,6 +310,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_HALF(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(half, \
@@ -353,6 +357,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \
@@ -399,6 +404,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_UINT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint32_t, \
@@ -445,6 +451,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int8_t, \
@@ -491,6 +498,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_UINT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint8_t, \
@@ -537,6 +545,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int16_t, \
@@ -583,6 +592,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_UINT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint16_t, \
@@ -629,6 +639,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int64_t, \
@@ -675,6 +686,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_UINT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint64_t, \
@@ -721,6 +733,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(ssize_t, \
@@ -767,6 +780,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(size_t, \
@@ -813,6 +827,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__int128_t, \
@@ -859,6 +874,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, math::__copysign(lhs, rhs)) \
 )
 
 #define FLOOR_VH_IMPL_DEF_UINT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__uint128_t, \
@@ -905,6 +921,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, lhs) \
 )
 
 #define FLOOR_VH_IMPL_DEF_BOOL(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(bool, \
@@ -951,6 +968,7 @@ F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
 F1(ffs, constexpr, math::__ffs(val)) \
 F1(parity, constexpr, math::__parity(val)) \
+F2(copysign, constexpr, rhs /* == sign */) \
 )
 
 // input parameters might be unused if the function/operation isn't applicable to the type

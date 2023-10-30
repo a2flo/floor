@@ -1030,10 +1030,14 @@ namespace const_math {
 	}
 	
 	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
-	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
-	constexpr fp_type copysign(const fp_type a, const fp_type b) {
-		const auto abs_a = const_math::abs(a);
-		return (b < fp_type(0) ? -abs_a : abs_a);
+	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
+	constexpr arithmetic_type copysign(const arithmetic_type a, const arithmetic_type b) {
+		if constexpr (ext::is_signed_v<arithmetic_type>) {
+			const auto abs_a = const_math::abs(a);
+			return (b < arithmetic_type(0) ? -abs_a : abs_a);
+		} else {
+			return a;
+		}
 	}
 	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"
@@ -1509,6 +1513,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int8_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int8_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int8_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, int8_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int16_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int16_t)
@@ -1520,6 +1525,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int16_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int16_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int16_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, int16_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int32_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int32_t)
@@ -1531,6 +1537,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int32_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int32_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, int32_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int64_t)
@@ -1542,6 +1549,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int64_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, int64_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint8_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint8_t)
@@ -1553,6 +1561,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint8_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint8_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint8_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, uint8_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint16_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint16_t)
@@ -1564,6 +1573,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint16_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint16_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint16_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, uint16_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint32_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint32_t)
@@ -1575,6 +1585,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint32_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint32_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, uint32_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint64_t)
@@ -1586,6 +1597,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint64_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, uint64_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, bool)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, bool)
@@ -1609,6 +1621,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, __int128_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, __int128_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, __int128_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, __int128_t)
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, __uint128_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, __uint128_t)
@@ -1620,6 +1633,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, __uint128_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, __uint128_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, __uint128_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, __uint128_t)
 #endif
 	
 #if defined(__APPLE__)
@@ -1633,6 +1647,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, ssize_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, ssize_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, ssize_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, ssize_t)
 #endif
 #if defined(__APPLE__) || defined(FLOOR_COMPUTE_CUDA)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, size_t)
@@ -1645,6 +1660,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, size_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, size_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, size_t)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, rt_math::copysign, size_t)
 #endif
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
