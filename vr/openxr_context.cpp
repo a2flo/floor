@@ -1168,8 +1168,7 @@ vr_context::frame_view_state_t openxr_context::get_frame_view_state(const float&
 	const auto eye_distance = (frame_view_states[0].position - frame_view_states[1].position).length();
 	const auto view_matrix = [&frame_view_states, &hmd_position, &eye_distance, &with_position_in_mvm](const VR_EYE eye) {
 		// rotation matrix from view orientation
-		// NOTE: this must not be inverted like we do for the OpenVR view matrix!
-		auto mat = frame_view_states[eye == VR_EYE::LEFT ? 0 : 1].orientation.normalized().to_matrix4();
+		auto mat = frame_view_states[eye == VR_EYE::LEFT ? 0 : 1].orientation.normalized().to_matrix4().inverted();
 
 		// always add relative eye position/offset
 		float3 pos { eye_distance * (eye == VR_EYE::LEFT ? 0.5f : -0.5f), 0.0f, 0.0f };
