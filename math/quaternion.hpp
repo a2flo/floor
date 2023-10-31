@@ -213,6 +213,22 @@ public:
 		return *this * inv_magnitude();
 	}
 	
+	//! canonicalizes this quaternion (r will be positive)
+	constexpr quaternion& canonicalize() {
+		if (r < scalar_type(0)) {
+			r = -r;
+			v.x = -v.x;
+			v.y = -v.y;
+			v.z = -v.z;
+		}
+		return *this;
+	}
+	
+	//! returns a canonicalized copy of this quaternion (r will be positive)
+	constexpr quaternion canonicalized() const {
+		return (r >= scalar_type(0) ? *this : quaternion { -v.x, -v.y, -v.z, -r });
+	}
+	
 	//! computes the r component for this quaternion when only the vector component has been set (used for compression)
 	constexpr quaternion& compute_r() {
 		const scalar_type val = scalar_type(1) - v.dot();
@@ -257,17 +273,17 @@ public:
 		
 		return {
 			scalar_type(1) - scalar_type(2) * yy - scalar_type(2) * zz,
-			scalar_type(2) * (v.x * v.y - v.z * r),
-			scalar_type(2) * (v.x * v.z + v.y * r),
-			scalar_type(0),
-			
 			scalar_type(2) * (v.x * v.y + v.z * r),
-			scalar_type(1) - scalar_type(2) * xx - scalar_type(2) * zz,
-			scalar_type(2) * (v.y * v.z - v.x * r),
+			scalar_type(2) * (v.x * v.z - v.y * r),
 			scalar_type(0),
 			
-			scalar_type(2) * (v.x * v.z - v.y * r),
+			scalar_type(2) * (v.x * v.y - v.z * r),
+			scalar_type(1) - scalar_type(2) * xx - scalar_type(2) * zz,
 			scalar_type(2) * (v.y * v.z + v.x * r),
+			scalar_type(0),
+			
+			scalar_type(2) * (v.x * v.z + v.y * r),
+			scalar_type(2) * (v.y * v.z - v.x * r),
 			scalar_type(1) - scalar_type(2) * xx - scalar_type(2) * yy,
 			scalar_type(0),
 			
@@ -279,20 +295,48 @@ public:
 	}
 	
 	//! converts the specified 4x4 matrix (only considering 3x3) to a quaternion
+	//! NOTE: for accuracy and better/proper handling of singularities, the branched conversion should be used (default), the branchless variant is however faster
+	template <bool branchless = false>
 	static constexpr quaternion<scalar_type> from_matrix4(const matrix4<scalar_type>& mat) {
-		// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm
-		// (also see sign handling + correction further down below)
-		using st = scalar_type;
-		quaternion<scalar_type> q {
-			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] - mat.data[5] - mat.data[10], st(0))) * st(0.5),
-			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] + mat.data[5] - mat.data[10], st(0))) * st(0.5),
-			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] - mat.data[5] + mat.data[10], st(0))) * st(0.5),
-			vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] + mat.data[5] + mat.data[10], st(0))) * st(0.5),
-		};
-		q.v.x = vector_helper<st>::copysign(q.v.x, mat.data[9] - mat.data[6]);
-		q.v.y = vector_helper<st>::copysign(q.v.y, mat.data[2] - mat.data[8]);
-		q.v.z = vector_helper<st>::copysign(q.v.z, mat.data[4] - mat.data[1]);
-		return q;
+		if constexpr (branchless) {
+			// http://www.thetenthplanet.de/archives/1994
+			using st = scalar_type;
+			quaternion<scalar_type> q {
+				vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] - mat.data[5] - mat.data[10], st(0))) * st(0.5),
+				vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] + mat.data[5] - mat.data[10], st(0))) * st(0.5),
+				vector_helper<st>::sqrt(vector_helper<st>::max(st(1) - mat.data[0] - mat.data[5] + mat.data[10], st(0))) * st(0.5),
+				vector_helper<st>::sqrt(vector_helper<st>::max(st(1) + mat.data[0] + mat.data[5] + mat.data[10], st(0))) * st(0.5),
+			};
+			q.v.x = vector_helper<st>::copysign(q.v.x, mat.data[6] - mat.data[9]);
+			q.v.y = vector_helper<st>::copysign(q.v.y, mat.data[8] - mat.data[2]);
+			q.v.z = vector_helper<st>::copysign(q.v.z, mat.data[1] - mat.data[4]);
+			return q;
+		} else {
+			// https://math.stackexchange.com/questions/893984/conversion-of-rotation-matrix-to-quaternion/3183435#3183435
+			// https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
+			// NOTE: matrix is transposed here
+			quaternion<scalar_type> q;
+			scalar_type t {};
+			if (mat.data[10] < scalar_type(0)) {
+				if (mat.data[0] > mat.data[5]) {
+					t = scalar_type(1) + mat.data[0] - mat.data[5] - mat.data[10];
+					q = { t, mat.data[1] + mat.data[4], mat.data[8] + mat.data[2], mat.data[6] - mat.data[9] };
+				} else {
+					t = scalar_type(1) - mat.data[0] + mat.data[5] - mat.data[10];
+					q = { mat.data[1] + mat.data[4], t, mat.data[6] + mat.data[9], mat.data[8] - mat.data[2] };
+				}
+			} else {
+				if (mat.data[0] < -mat.data[5]) {
+					t = scalar_type(1) - mat.data[0] - mat.data[5] + mat.data[10];
+					q = { mat.data[8] + mat.data[2], mat.data[6] + mat.data[9], t, mat.data[1] - mat.data[4] };
+				} else {
+					t = scalar_type(1) + mat.data[0] + mat.data[5] + mat.data[10];
+					q = { mat.data[6] - mat.data[9], mat.data[8] - mat.data[2], mat.data[1] - mat.data[4], t };
+				}
+			}
+			q *= scalar_type(0.5) / vector_helper<scalar_type>::sqrt(t);
+			return q;
+		}
 	}
 	
 	//////////////////////////////////////////
@@ -300,27 +344,52 @@ public:
 #pragma mark static quaternion creation functions
 	
 	//! creates a quaternion from the specified radian angle 'rad_angle' and axis vector 'vec'
+	template <bool canonicalize = true>
 	static constexpr quaternion rotation(const scalar_type& rad_angle, const vector3<scalar_type>& vec) {
 		const auto rad_angle_2 = rad_angle * scalar_type(0.5);
-		return {
-			vec.normalized() * vector_helper<scalar_type>::sin(rad_angle_2),
-			vector_helper<scalar_type>::cos(rad_angle_2)
-		};
+		const auto r = vector_helper<scalar_type>::cos(rad_angle_2);
+		if constexpr (canonicalize) {
+			return {
+				(r < scalar_type(0) ? -scalar_type(1) : scalar_type(1)) * vec.normalized() * vector_helper<scalar_type>::sin(rad_angle_2),
+				r < scalar_type(0) ? -r : r,
+			};
+		} else {
+			return { vec.normalized() * vector_helper<scalar_type>::sin(rad_angle_2), r };
+		}
 	}
 	
 	//! creates a quaternion from the specified degrees angle 'deg_angle' and axis vector 'vec'
+	template <bool canonicalize = true>
 	static constexpr quaternion rotation_deg(const scalar_type& deg_angle, const vector3<scalar_type>& vec) {
 		// note that this already performs the later division by 2
 		const auto rad_angle = const_math::PI_DIV_360<scalar_type> * deg_angle;
-		return {
-			vec.normalized() * vector_helper<scalar_type>::sin(rad_angle),
-			vector_helper<scalar_type>::cos(rad_angle)
-		};
+		const auto r = vector_helper<scalar_type>::cos(rad_angle);
+		if constexpr (canonicalize) {
+			return {
+				(r < scalar_type(0) ? -scalar_type(1) : scalar_type(1)) * vec.normalized() * vector_helper<scalar_type>::sin(rad_angle),
+				r < scalar_type(0) ? -r : r,
+			};
+		} else {
+			return { vec.normalized() * vector_helper<scalar_type>::sin(rad_angle), r };
+		}
 	}
 	
 	//! creates a quaternion according to the necessary rotation to get from vector "from" to vector "to"
 	static constexpr quaternion rotation_from_to_vector(const vector3<scalar_type>& from, const vector3<scalar_type>& to) {
 		return rotation(from.angle(to), from.crossed(to).normalize());
+	}
+	
+	//////////////////////////////////////////
+	// type conversion
+	
+	//! returns a C++/std array with the elements of this quaternion in { x, y, z, r } order
+	constexpr auto to_array() const {
+		return std::array<scalar_type, 4u> { v.x, v.y, v.z, r };
+	}
+	
+	//! returns a vector4<scalar_type> with the elements of this quaternion in { x, y, z, r } order
+	constexpr auto to_vector4() const {
+		return vector4<scalar_type> { v.x, v.y, v.z, r };
 	}
 	
 };

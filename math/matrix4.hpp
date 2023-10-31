@@ -471,14 +471,19 @@ public:
 	}
 	
 	//! returns a matrix that is rotated by 'rad_angle' radians on the specified axis (0 = x, 1 = y, 2 = z)
-	template <uint32_t axis>
+	//! NOTE: right-handed (default) should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
+	template <uint32_t axis, bool is_right_handed = true>
 	static constexpr matrix4 rotation(const scalar_type rad_angle) {
 		static_assert(axis < 3, "axis must be 0 (x), 1 (y) or 2 (z)");
 		
-		const scalar_type sin_val { vector_helper<scalar_type>::sin(rad_angle) };
+		const scalar_type sin_val {
+			is_right_handed ?
+			vector_helper<scalar_type>::sin(rad_angle) :
+			-vector_helper<scalar_type>::sin(rad_angle)
+		};
 		const scalar_type cos_val { vector_helper<scalar_type>::cos(rad_angle) };
 		
-		switch(axis) {
+		switch (axis) {
 			case 0:
 				return {
 					scalar_type(1), scalar_type(0), scalar_type(0), scalar_type(0),
@@ -505,32 +510,32 @@ public:
 	}
 	
 	//! returns a matrix that is rotated by 'rad_angle' radians on the specified axis ('x', 'y' or 'z')
-	template <char axis>
+	template <char axis, bool is_right_handed = true>
 	static constexpr matrix4 rotation_named(const scalar_type rad_angle) {
 		static_assert(axis == 'x' || axis == 'y' || axis == 'z', "axis must be x, y or z");
-		switch(axis) {
-			case 'x': return rotation<0>(rad_angle);
-			case 'y': return rotation<1>(rad_angle);
-			case 'z': return rotation<2>(rad_angle);
+		switch (axis) {
+			case 'x': return rotation<0, is_right_handed>(rad_angle);
+			case 'y': return rotation<1, is_right_handed>(rad_angle);
+			case 'z': return rotation<2, is_right_handed>(rad_angle);
 			default: floor_unreachable();
 		}
 	}
 	
 	//! returns a matrix that is rotated by 'deg_angle' degrees on the specified axis (0 = x, 1 = y, 2 = z)
-	template <uint32_t axis>
+	template <uint32_t axis, bool is_right_handed = true>
 	static constexpr matrix4 rotation_deg(const scalar_type deg_angle) {
-		return rotation<axis>(const_math::deg_to_rad(deg_angle));
+		return rotation<axis, is_right_handed>(const_math::deg_to_rad(deg_angle));
 	}
 	
 	//! returns a matrix that is rotated by 'deg_angle' degrees on the specified axis ('x', 'y' or 'z')
-	template <char axis>
+	template <char axis, bool is_right_handed = true>
 	static constexpr matrix4 rotation_deg_named(const scalar_type deg_angle) {
-		return rotation_named<axis>(const_math::deg_to_rad(deg_angle));
+		return rotation_named<axis, is_right_handed>(const_math::deg_to_rad(deg_angle));
 	}
 	
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: this function will be selected if the fov parameter is constant (this is beneficial, because tan(x) calls are costly)
-	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
+	//! NOTE: right-handed (default) should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
 	template <bool is_right_handed = true, bool is_only_positive_z = true>
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far)
