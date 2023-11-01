@@ -1304,13 +1304,12 @@ static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
 	pose.position_tracked = ((location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0);
 
 	if ((location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-		quaternionf orientation {
+		pose.orientation = {
 			location.pose.orientation.x,
 			location.pose.orientation.y,
 			location.pose.orientation.z,
 			location.pose.orientation.w
 		};
-		pose.orientation = orientation.to_matrix4();
 		pose.orientation_valid = 1;
 	} else {
 		pose.orientation_valid = 0;

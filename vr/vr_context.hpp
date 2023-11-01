@@ -271,7 +271,7 @@ public:
 
 		float3 position;
 		float radius { 0.0f };
-		matrix4f orientation;
+		quaternionf orientation;
 		float3 linear_velocity;
 		float3 angular_velocity;
 

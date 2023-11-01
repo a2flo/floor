@@ -540,11 +540,7 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 							pose.position_tracked = 1;
 							pose.orientation_tracked = 1;
 							pose.position = { bone_transform.position.v[0], bone_transform.position.v[1], bone_transform.position.v[2] };
-							const quaternionf rot {
-								bone_transform.orientation.x, bone_transform.orientation.y, bone_transform.orientation.z, bone_transform.orientation.w
-							};
-							pose.orientation = rot.to_matrix4();
-							pose.orientation.invert(); // TODO: needed?
+							pose.orientation = { bone_transform.orientation.x, bone_transform.orientation.y, bone_transform.orientation.z, bone_transform.orientation.w };
 						}
 					}
 					break;
@@ -639,13 +635,14 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 				pose.position_tracked = 1;
 				pose.orientation_tracked = 1;
 				pose.position = { vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3] };
-				pose.orientation = {
+				// https://github.com/ValveSoftware/openvr/wiki/Matrix-Usage-Example
+				// "axes and translation vectors are represented as column vectors, while their memory layout is row-major"
+				pose.orientation = quaternionf::from_matrix4(matrix4f {
 					vr_pose_mat[0][0], vr_pose_mat[1][0], vr_pose_mat[2][0], 0.0f,
 					vr_pose_mat[0][1], vr_pose_mat[1][1], vr_pose_mat[2][1], 0.0f,
 					vr_pose_mat[0][2], vr_pose_mat[1][2], vr_pose_mat[2][2], 0.0f,
 					0.0f, 0.0f, 0.0f, 1.0f
-				};
-				pose.orientation.invert();
+				});
 				
 				// add hand bone poses if the left/right hand pose is actually active
 				if ((pose.type == vr_context::POSE_TYPE::HAND_LEFT && hand_bone_poses_valid.x) ||

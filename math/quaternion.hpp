@@ -248,8 +248,11 @@ public:
 	}
 
 	//! rotates the specified vector 'vec' according to this quaternion and returns the result
+	//! NOTE: quaternion must be a unit/normalized quaternion
 	constexpr vector3<scalar_type> rotate_vector(const vector3<scalar_type>& vec) const {
-		return (*this * quaternion { vec, scalar_type(0) } * conjugated()).v;
+		// original: (*this * quaternion { vec, scalar_type(0) } * conjugated()).v;
+		// simplified: https://gamedev.stackexchange.com/a/50545 + comments
+		return { scalar_type(2) * (v.dot(vec) * v + r * v.crossed(vec)) + (scalar_type(2) * r * r - scalar_type(1)) * vec };
 	}
 	
 	//! converts the rotation of this quaternion to euler angles
