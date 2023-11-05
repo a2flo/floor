@@ -39,12 +39,6 @@ public:
 	typedef quaternion<scalar_type> quaternion_type;
 	//! this scalar type
 	typedef scalar_type this_scalar_type;
-	//! decayed scalar type (removes refs/etc.)
-	typedef decay_t<scalar_type> decayed_scalar_type;
-	//! this vector type
-	typedef vector3<scalar_type> this_vector_type;
-	//! decayed vector type (with decayed_scalar_type)
-	typedef vector3<decayed_scalar_type> decayed_vector_type;
 	
 	//! { xyz = 3D vector component, r = real component }
 	scalar_type x;
@@ -136,6 +130,11 @@ public:
 		z -= q.z;
 		r -= q.r;
 		return *this;
+	}
+	
+	//! component-wise unary - (flips the sign of all components)
+	constexpr quaternion operator-() const {
+		return { -x, -y, -z, -r };
 	}
 	
 	//! interprets this quaternion as 4D vector and computes its dot product with itself
@@ -335,6 +334,10 @@ public:
 		};
 	}
 	
+	//////////////////////////////////////////
+	// static quaternion creation functions
+#pragma mark static quaternion creation functions
+	
 	//! converts the specified 4x4 matrix (only considering 3x3) to a quaternion
 	//! NOTE: for accuracy and better/proper handling of singularities, the branched conversion should be used (default), the branchless variant is however faster
 	template <bool branchless = false>
@@ -379,10 +382,6 @@ public:
 			return q;
 		}
 	}
-	
-	//////////////////////////////////////////
-	// static quaternion creation functions
-#pragma mark static quaternion creation functions
 	
 	//! creates a quaternion from the specified radian angle 'rad_angle' and axis vector 'vec'
 	template <bool canonicalize = true>

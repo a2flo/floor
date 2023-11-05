@@ -293,6 +293,8 @@ add_library(${PROJECT_NAME} SHARED
 	math/matrix4.hpp
 	math/quaternion.cpp
 	math/quaternion.hpp
+	math/dual_quaternion.cpp
+	math/dual_quaternion.hpp
 	math/ray.hpp
 	math/rt_math.hpp
 	math/vector.cpp

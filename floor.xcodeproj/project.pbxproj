@@ -215,6 +215,9 @@
 		5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */; };
 		5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
 		5C7C6F142348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
+		5C80107A2AF2BFE000CFF6B6 /* dual_quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */; };
+		5C80107B2AF2BFE000CFF6B6 /* dual_quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */; };
+		5C80107C2AF2BFE000CFF6B6 /* dual_quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8010792AF2BFDF00CFF6B6 /* dual_quaternion.hpp */; };
 		5C8452FC22B1A09C0014AECF /* graphics_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */; };
 		5C8452FD22B1A09C0014AECF /* graphics_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */; };
 		5C8452FE22B1A09C0014AECF /* graphics_pipeline.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */; };
@@ -593,6 +596,8 @@
 		5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_pre.hpp; path = device/vulkan_pre.hpp; sourceTree = "<group>"; };
 		5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_semaphore.hpp; path = vulkan/vulkan_semaphore.hpp; sourceTree = "<group>"; };
 		5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_semaphore.cpp; path = vulkan/vulkan_semaphore.cpp; sourceTree = "<group>"; };
+		5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dual_quaternion.cpp; sourceTree = "<group>"; };
+		5C8010792AF2BFDF00CFF6B6 /* dual_quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = dual_quaternion.hpp; sourceTree = "<group>"; };
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = graphics_pipeline.cpp; sourceTree = "<group>"; };
 		5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_pipeline.hpp; sourceTree = "<group>"; };
@@ -794,6 +799,8 @@
 				5CE0BDD419BB2A75000B28B3 /* matrix4.hpp */,
 				5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */,
 				5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */,
+				5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */,
+				5C8010792AF2BFDF00CFF6B6 /* dual_quaternion.hpp */,
 				5CE0BDD719BB2A75000B28B3 /* ray.hpp */,
 				5CE797CF1C5338D0005AB753 /* rt_math.hpp */,
 				5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */,
@@ -1464,6 +1471,7 @@
 				5CF974C824E87F6600014CDC /* elf_binary.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
+				5C80107C2AF2BFE000CFF6B6 /* dual_quaternion.hpp in Headers */,
 				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
 				5C8F323526347403008144CF /* metal_device_query.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
@@ -1592,7 +1600,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1725,6 +1733,7 @@
 				5CF497182A2D136300F78B03 /* openvr_context.cpp in Sources */,
 				5CD4E87322B444CA00AE0385 /* vulkan_renderer.cpp in Sources */,
 				5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */,
+				5C80107A2AF2BFE000CFF6B6 /* dual_quaternion.cpp in Sources */,
 				5C5383EA1A641B1E007AEDD7 /* cuda_kernel.cpp in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
 				5C84530222B1A64D0014AECF /* graphics_pass.cpp in Sources */,
@@ -1842,6 +1851,7 @@
 				5C2815DE2A310CA9005F964C /* openxr_context.cpp in Sources */,
 				5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */,
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
+				5C80107B2AF2BFE000CFF6B6 /* dual_quaternion.cpp in Sources */,
 				5CD4E87422B444CA00AE0385 /* vulkan_renderer.cpp in Sources */,
 				5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5C4A85B018F953590039BFD4 /* lexer.cpp in Sources */,
