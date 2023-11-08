@@ -276,26 +276,50 @@ public:
 		float3 angular_velocity;
 
 		//! validity flags
-		union {
-			struct {
-				uint32_t is_active : 1 { 0u };
-
-				uint32_t position_valid : 1 { 0u };
-				uint32_t orientation_valid : 1 { 0u };
-				uint32_t linear_velocity_valid : 1 { 0u };
-				uint32_t angular_velocity_valid : 1 { 0u };
-
-				uint32_t position_tracked : 1 { 0u };
-				uint32_t orientation_tracked : 1 { 0u };
-				uint32_t linear_velocity_tracked : 1 { 0u };
-				uint32_t angular_velocity_tracked : 1 { 0u };
-
-				uint32_t radius_valid : 1 { 0u };
-
-				uint32_t unused : 22 { 0u };
+		struct flags_t {
+			union {
+				struct {
+					uint32_t is_active : 1 { 0u };
+					
+					uint32_t position_valid : 1 { 0u };
+					uint32_t orientation_valid : 1 { 0u };
+					uint32_t linear_velocity_valid : 1 { 0u };
+					uint32_t angular_velocity_valid : 1 { 0u };
+					
+					uint32_t position_tracked : 1 { 0u };
+					uint32_t orientation_tracked : 1 { 0u };
+					uint32_t linear_velocity_tracked : 1 { 0u };
+					uint32_t angular_velocity_tracked : 1 { 0u };
+					
+					uint32_t radius_valid : 1 { 0u };
+					
+					uint32_t unused : 22 { 0u };
+				};
+				uint32_t all;
 			};
-			uint32_t flags;
-		};
+			
+			constexpr std::strong_ordering operator<=>(const flags_t& rhs) const noexcept {
+				if (all < rhs.all) {
+					return std::strong_ordering::less;
+				} else if (all > rhs.all) {
+					return std::strong_ordering::greater;
+				}
+				return std::strong_ordering::equal;
+			}
+			
+			constexpr bool operator==(const flags_t& rhs) const noexcept {
+				return (all == rhs.all);
+			}
+			
+			constexpr bool operator!=(const flags_t& rhs) const noexcept {
+				return (all != rhs.all);
+			}
+		} flags {};
+		
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(float-equal)
+		constexpr auto operator<=>(const pose_t&) const noexcept = default;
+FLOOR_POP_WARNINGS()
 	};
 
 	//! retrieve the current pose state

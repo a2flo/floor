@@ -35,6 +35,7 @@ FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is alway
 #include <type_traits>
 #include <tuple>
 #include <functional>
+#include <compare>
 
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <array>
@@ -1274,6 +1275,18 @@ public:
 	//! component-wise greater-or-equal comparison (this >= another vector)
 	constexpr FLOOR_VECNAME<bool> operator>=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., >=, FLOOR_COMMA) };
+	}
+	
+	//! three-way comparison
+	constexpr std::partial_ordering operator<=>(const vector_type& vec) const {
+		if (is_less(vec)) {
+			return std::partial_ordering::less;
+		} else if (is_greater(vec)) {
+			return std::partial_ordering::greater;
+		} else if (is_equal(vec)) {
+			return std::partial_ordering::equivalent;
+		}
+		return std::partial_ordering::unordered;
 	}
 	
 	// comparisons returning ANDed component-wise results

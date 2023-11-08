@@ -335,6 +335,32 @@ public:
 	}
 	
 	//////////////////////////////////////////
+	// relational
+#pragma mark relational
+
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(float-equal)
+	
+	//! equal comparison
+	constexpr bool operator==(const quaternion<scalar_type>& q) const {
+		return (r == q.r && x == q.x && y == q.y && z == q.z);
+	}
+	//! unequal comparison
+	constexpr bool operator!=(const quaternion<scalar_type>& q) const {
+		return (r != q.r || x != q.x || y != q.y || z != q.z);
+	}
+	
+	//! three-way comparison
+	constexpr std::partial_ordering operator<=>(const quaternion<scalar_type>& q) const {
+		if (*this == q) {
+			return std::partial_ordering::equivalent;
+		}
+		return std::partial_ordering::unordered;
+	}
+	
+FLOOR_POP_WARNINGS()
+
+	//////////////////////////////////////////
 	// static quaternion creation functions
 #pragma mark static quaternion creation functions
 	

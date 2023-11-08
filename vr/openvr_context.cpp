@@ -534,11 +534,11 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 							// NOTE: we don't get any per-bone velocity info
 							auto& pose = hand_bone_poses[!action.second.side ? 0 : 1][bone_idx];
 							pose.type = POSE_TYPE(bone_pose_type + bone_idx);
-							pose.is_active = 1;
-							pose.position_valid = 1;
-							pose.orientation_valid = 1;
-							pose.position_tracked = 1;
-							pose.orientation_tracked = 1;
+							pose.flags.is_active = 1;
+							pose.flags.position_valid = 1;
+							pose.flags.orientation_valid = 1;
+							pose.flags.position_tracked = 1;
+							pose.flags.orientation_tracked = 1;
 							pose.position = { bone_transform.position.v[0], bone_transform.position.v[1], bone_transform.position.v[2] };
 							pose.orientation = { bone_transform.orientation.x, bone_transform.orientation.y, bone_transform.orientation.z, bone_transform.orientation.w };
 						}
@@ -576,7 +576,7 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 			}
 
 			// -> still set post type if pose is invalid
-			pose_t pose { .type = device_index_to_pose_type(i) };
+			pose_t pose { .type = device_index_to_pose_type(i), .flags.all = 0u };
 
 			// now also abort if pose is invalid
 			if (!vr_pose.bPoseIsValid || pose.type == vr_context::POSE_TYPE::UNKNOWN) {
@@ -593,16 +593,16 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 				case vr::TrackingResult_Uninitialized:
 				case vr::TrackingResult_Calibrating_InProgress:
 				case vr::TrackingResult_Calibrating_OutOfRange:
-					pose.is_active = 0;
+					pose.flags.is_active = 0;
 					break;
 				case vr::TrackingResult_Running_OK:
 				case vr::TrackingResult_Running_OutOfRange:
 				case vr::TrackingResult_Fallback_RotationOnly:
-					pose.is_active = 1;
+					pose.flags.is_active = 1;
 					break;
 			}
 
-			if (pose.is_active) {
+			if (pose.flags.is_active) {
 				// handle velocity validity based on pose type
 				switch (pose.type) {
 					case vr_context::POSE_TYPE::UNKNOWN:
@@ -617,10 +617,10 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 					case vr_context::POSE_TYPE::HAND_RIGHT_AIM: // TODO: actually support this somehow
 					case vr_context::POSE_TYPE::TRACKER...vr_context::POSE_TYPE::TRACKER_ANKLE_RIGHT:
 					case vr_context::POSE_TYPE::HAND_JOINT_PALM_LEFT...vr_context::POSE_TYPE::HAND_FOREARM_JOINT_ELBOW_RIGHT:
-						pose.linear_velocity_valid = 1;
-						pose.angular_velocity_valid = 1;
-						pose.linear_velocity_tracked = 1;
-						pose.angular_velocity_tracked = 1;
+						pose.flags.linear_velocity_valid = 1;
+						pose.flags.angular_velocity_valid = 1;
+						pose.flags.linear_velocity_tracked = 1;
+						pose.flags.angular_velocity_tracked = 1;
 						pose.linear_velocity = { vr_pose.vVelocity.v[0], vr_pose.vVelocity.v[1], vr_pose.vVelocity.v[2] };
 						pose.angular_velocity = { vr_pose.vAngularVelocity.v[0], vr_pose.vAngularVelocity.v[1],
 												  vr_pose.vAngularVelocity.v[2] };
@@ -630,10 +630,10 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 				// handle pose orientation + position
 				assert(vr_pose.bPoseIsValid); // already checked above
 				const auto& vr_pose_mat = vr_pose.mDeviceToAbsoluteTracking.m;
-				pose.position_valid = 1;
-				pose.orientation_valid = 1;
-				pose.position_tracked = 1;
-				pose.orientation_tracked = 1;
+				pose.flags.position_valid = 1;
+				pose.flags.orientation_valid = 1;
+				pose.flags.position_tracked = 1;
+				pose.flags.orientation_tracked = 1;
 				pose.position = { vr_pose_mat[0][3], vr_pose_mat[1][3], vr_pose_mat[2][3] };
 				// https://github.com/ValveSoftware/openvr/wiki/Matrix-Usage-Example
 				// "axes and translation vectors are represented as column vectors, while their memory layout is row-major"

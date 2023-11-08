@@ -1293,15 +1293,15 @@ template <bool has_radius = false, typename location_type = XrSpaceLocation, typ
 static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
 									const location_type& location,
 									const velocity_type& velocity) {
-	vr_context::pose_t pose { .type = type };
+	vr_context::pose_t pose { .type = type, .flags.all = 0u };
 
 	if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == XR_SPACE_LOCATION_POSITION_VALID_BIT) {
 		pose.position = { location.pose.position.x, location.pose.position.y, location.pose.position.z };
-		pose.position_valid = 1;
+		pose.flags.position_valid = 1;
 	} else {
-		pose.position_valid = 0;
+		pose.flags.position_valid = 0;
 	}
-	pose.position_tracked = ((location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0);
+	pose.flags.position_tracked = ((location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0);
 
 	if ((location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
 		pose.orientation = {
@@ -1310,35 +1310,35 @@ static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
 			location.pose.orientation.z,
 			location.pose.orientation.w
 		};
-		pose.orientation_valid = 1;
+		pose.flags.orientation_valid = 1;
 	} else {
-		pose.orientation_valid = 0;
+		pose.flags.orientation_valid = 0;
 	}
-	pose.orientation_tracked = ((location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT) != 0);
+	pose.flags.orientation_tracked = ((location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT) != 0);
 
 	if ((velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) == XR_SPACE_VELOCITY_LINEAR_VALID_BIT) {
 		pose.linear_velocity = { velocity.linearVelocity.x, velocity.linearVelocity.y, velocity.linearVelocity.z };
-		pose.linear_velocity_valid = 1;
-		pose.linear_velocity_tracked = 1;
+		pose.flags.linear_velocity_valid = 1;
+		pose.flags.linear_velocity_tracked = 1;
 	} else {
-		pose.linear_velocity_valid = 0;
-		pose.linear_velocity_tracked = 0;
+		pose.flags.linear_velocity_valid = 0;
+		pose.flags.linear_velocity_tracked = 0;
 	}
 
 	if ((velocity.velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) == XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) {
 		pose.angular_velocity = { velocity.linearVelocity.x, velocity.linearVelocity.y, velocity.linearVelocity.z };
-		pose.angular_velocity_valid = 1;
-		pose.angular_velocity_tracked = 1;
+		pose.flags.angular_velocity_valid = 1;
+		pose.flags.angular_velocity_tracked = 1;
 	} else {
-		pose.angular_velocity_valid = 0;
-		pose.angular_velocity_tracked = 0;
+		pose.flags.angular_velocity_valid = 0;
+		pose.flags.angular_velocity_tracked = 0;
 	}
 
 	if constexpr (has_radius) {
 		pose.radius = location.radius;
-		pose.radius_valid = 1;
+		pose.flags.radius_valid = 1;
 	} else {
-		pose.radius_valid = 0;
+		pose.flags.radius_valid = 0;
 	}
 
 	return pose;

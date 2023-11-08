@@ -246,6 +246,27 @@ public:
 	}
 	
 	//////////////////////////////////////////
+	// relational
+#pragma mark relational
+	
+	//! equal comparison
+	constexpr bool operator==(const dual_quaternion<scalar_type>& q) const {
+		return (rq == q.rq && dq == q.dq);
+	}
+	//! unequal comparison
+	constexpr bool operator!=(const dual_quaternion<scalar_type>& q) const {
+		return (rq != q.rq || dq != q.dq);
+	}
+	
+	//! three-way comparison
+	constexpr std::partial_ordering operator<=>(const dual_quaternion<scalar_type>& q) const {
+		if (*this == q) {
+			return std::partial_ordering::equivalent;
+		}
+		return std::partial_ordering::unordered;
+	}
+	
+	//////////////////////////////////////////
 	// static dual quaternion creation functions
 #pragma mark static dual quaternion creation functions
 	

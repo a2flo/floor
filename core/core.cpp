@@ -520,11 +520,11 @@ uint32_t unix_timestamp() {
 }
 
 uint64_t unix_timestamp_ms() {
-	return (uint32_t)chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+	return (uint64_t)chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
 uint64_t unix_timestamp_us() {
-	return (uint32_t)chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now().time_since_epoch()).count();
+	return (uint64_t)chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now().time_since_epoch()).count();
 }
 
 uint32_t get_hw_thread_count() {
