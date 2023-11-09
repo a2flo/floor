@@ -95,6 +95,8 @@ namespace core {
 	string escape_string(const string& str);
 	vector<string> tokenize(const string& src, const char& delim);
 	vector<string> tokenize(const string& src, const string& delim);
+	vector<string_view> tokenize_sv(const string_view& src, const char& delim);
+	vector<string_view> tokenize_sv(const string_view& src, const string_view& delim);
 	void str_to_lower_inplace(string& str);
 	void str_to_upper_inplace(string& str);
 	string str_to_lower(const string& str);

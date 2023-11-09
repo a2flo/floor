@@ -135,8 +135,8 @@ void find_and_replace_once(string& str, const string& find_str, const string& re
 	}
 }
 
-#define tokenize_algorithm(delim_size) \
-vector<string> dst; \
+#define tokenize_algorithm(delim_size, str_type) \
+vector<str_type> dst; \
 size_t pos = 0; \
 size_t old_pos = 0; \
 if(src.find(delim, pos) != string::npos) { \
@@ -150,12 +150,21 @@ else dst.emplace_back(src); \
 return dst;
 
 vector<string> tokenize(const string& src, const char& delim) {
-	tokenize_algorithm(1)
+	tokenize_algorithm(1, string)
 }
 
 vector<string> tokenize(const string& src, const string& delim) {
 	const size_t delim_size = delim.size();
-	tokenize_algorithm(delim_size)
+	tokenize_algorithm(delim_size, string)
+}
+
+vector<string_view> tokenize_sv(const string_view& src, const char& delim) {
+	tokenize_algorithm(1, string_view)
+}
+
+vector<string_view> tokenize_sv(const string_view& src, const string_view& delim) {
+	const size_t delim_size = delim.size();
+	tokenize_algorithm(delim_size, string_view)
 }
 
 void str_to_lower_inplace(string& str) {
