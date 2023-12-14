@@ -1357,7 +1357,7 @@ static optional<vr_context::pose_t> pose_from_space(const vr_context::POSE_TYPE 
 		.next = &space_velocity,
 	};
 	XR_CALL_RET(xrLocateSpace(space, base_space, time, &space_location),
-				"failed to locate hand space", {});
+				"failed to locate pose space", {});
 
 	return make_pose(type, space_location, space_velocity);
 }

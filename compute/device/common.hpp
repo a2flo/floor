@@ -179,6 +179,7 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 // c++ stl "extensions"
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
+#include <floor/core/cpp_consteval.hpp>
 
 // parallel group ops
 #include <floor/compute/device/group.hpp>

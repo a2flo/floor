@@ -366,72 +366,64 @@ public:
 #endif
 	
 	//////////////////////////////////////////
+	// constants
+	
+#if FLOOR_VECTOR_WIDTH == 3
+	
+	//! +X right vector
+	static constexpr vector3<decayed_scalar_type> right() {
+		return { decayed_scalar_type(1), decayed_scalar_type(0), decayed_scalar_type(0) };
+	}
+	//! -X left vector
+	static constexpr vector3<decayed_scalar_type> left() {
+		return { decayed_scalar_type(-1), decayed_scalar_type(0), decayed_scalar_type(0) };
+	}
+	//! +Y up vector
+	static constexpr vector3<decayed_scalar_type> up() {
+		return { decayed_scalar_type(0), decayed_scalar_type(1), decayed_scalar_type(0) };
+	}
+	//! -Y down vector
+	static constexpr vector3<decayed_scalar_type> down() {
+		return { decayed_scalar_type(0), decayed_scalar_type(-1), decayed_scalar_type(0) };
+	}
+	//! -Z forward vector
+	static constexpr vector3<decayed_scalar_type> forward() {
+		return { decayed_scalar_type(0), decayed_scalar_type(0), decayed_scalar_type(-1) };
+	}
+	//! +Z backward vector
+	static constexpr vector3<decayed_scalar_type> backward() {
+		return { decayed_scalar_type(0), decayed_scalar_type(0), decayed_scalar_type(1) };
+	}
+	
+#endif
+	
+	//////////////////////////////////////////
 	// access
 #pragma mark access
 	
 	//! const subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
-	const scalar_type& operator[](const uint32_t& index) const {
+	constexpr const scalar_type& operator[](const uint32_t& index) const {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
+		if_consteval {
+			std::array arr { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::cref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
+			return arr[index];
+		}
 		return ((const scalar_type*)this)[index];
 	}
 	
 	//! subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
-	scalar_type& operator[](const uint32_t& index) {
+	constexpr scalar_type& operator[](const uint32_t& index) {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
+		if_consteval {
+			std::array arr { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::ref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
+			return arr[index];
+		}
 		return ((scalar_type*)this)[index];
 	}
-
-#if !defined(_MSC_VER) // duplicate name mangling issues
-	//! constexpr subscript access, with index == 0
-	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
-		return x;
-	}
-#if FLOOR_VECTOR_WIDTH >= 2
-	//! constexpr subscript access, with index == 1
-	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 1, "index is const"))) {
-		return y;
-	}
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-	//! constexpr subscript access, with index == 2
-	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 2, "index is const"))) {
-		return z;
-	}
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-	//! constexpr subscript access, with index == 3
-	constexpr const scalar_type& operator[](const uint32_t& index) const __attribute__((enable_if(index == 3, "index is const"))) {
-		return w;
-	}
-#endif
-	
-	//! constexpr subscript access, with index == 0
-	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 0, "index is const"))) {
-		return x;
-	}
-#if FLOOR_VECTOR_WIDTH >= 2
-	//! constexpr subscript access, with index == 1
-	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 1, "index is const"))) {
-		return y;
-	}
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-	//! constexpr subscript access, with index == 2
-	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 2, "index is const"))) {
-		return z;
-	}
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-	//! constexpr subscript access, with index == 3
-	constexpr scalar_type& operator[](const uint32_t& index) __attribute__((enable_if(index == 3, "index is const"))) {
-		return w;
-	}
-#endif
-#endif
 	
 	//! constexpr subscript access, with index out of bounds
 	constexpr const scalar_type& operator[](const uint32_t& index) const

@@ -1050,11 +1050,6 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
-		if (!vulkan13_features.synchronization2) {
-			log_error("synchronization2 is not supported by $", props.deviceName);
-			continue;
-		}
-		
 		// check IUB limits
 		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
 			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",

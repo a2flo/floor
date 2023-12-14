@@ -395,6 +395,14 @@ public:
 		return *this;
 	}
 	
+	//! sets the "translation components" of this matrix to "vec"
+	constexpr matrix4& set_translation(const vector3<scalar_type>& vec) {
+		data[12] = vec.x;
+		data[13] = vec.y;
+		data[14] = vec.z;
+		return *this;
+	}
+	
 	//! returns the "translation components" of this matrix
 	constexpr vector3<scalar_type> get_translation() const {
 		return { data[12], data[13], data[14] };

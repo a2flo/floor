@@ -98,6 +98,13 @@ public:
 		sstr << *this;
 		return sstr.str();
 	}
+	
+	//! returns a more human-readable string representation of this quaternion as a rotation angle + axis
+	string to_rotation_string() const {
+		stringstream sstr;
+		sstr << "(" << rotation_angle_deg() << "°: " << rotation_axis() << ")";
+		return sstr.str();
+	}
 #endif
 	
 	//////////////////////////////////////////
@@ -290,6 +297,32 @@ public:
 		// original: (*this * quaternion { vec, scalar_type(0) } * conjugated()).v;
 		// simplified: https://gamedev.stackexchange.com/a/50545 + comments
 		return { scalar_type(2) * (to_vector3().dot(vec) * to_vector3() + r * crossed(vec)) + (scalar_type(2) * r * r - scalar_type(1)) * vec };
+	}
+	
+	//! returns the rotation axis of this quaternion
+	constexpr vector3<scalar_type> rotation_axis() const {
+		return vector3<scalar_type>(x, y, z).normalize();
+	}
+	
+	//! returns the rotation angle of this quaternion in radian
+	constexpr scalar_type rotation_angle() const {
+		return scalar_type(2) * vector_helper<scalar_type>::acos(r);
+	}
+	
+	//! returns the rotation angle of this quaternion in degrees
+	constexpr scalar_type rotation_angle_deg() const {
+		return const_math::rad_to_deg(rotation_angle());
+	}
+	
+	//! linearly interpolates this quaternion with another quaternion according to interp
+	constexpr quaternion& interpolate(const quaternion& q, const scalar_type& interp) {
+		*this = ((q - *this) * interp + *this).normalize();
+		return *this;
+	}
+	
+	//! returns the linear interpolation between this quaternion and another quaternion according to interp
+	constexpr quaternion interpolated(const quaternion& q, const scalar_type& interp) const {
+		return ((q - *this) * interp + *this).normalize();
 	}
 	
 	//! converts the rotation of this quaternion to euler angles
