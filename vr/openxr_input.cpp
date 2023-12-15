@@ -966,17 +966,13 @@ bool openxr_context::create_tracker_actions_and_spaces() {
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CHEST },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_CAMERA },
 		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_KEYBOARD },
+#if 0 // disabled until this is fixed
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_RIGHT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_LEFT },
+		{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_RIGHT },
+#endif
 	};
-	if (has_tracker_interaction_with_wrist_ankle_support) {
-		vector<action_definition_t> wrist_ankle_definitions {
-			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_LEFT },
-			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_WRIST_RIGHT },
-			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_LEFT },
-			{ "/input/grip/pose", EVENT_TYPE::VR_INTERNAL_TRACKER_ANKLE_RIGHT },
-		};
-		tracker_action_definitions.insert(tracker_action_definitions.end(),
-										  wrist_ankle_definitions.begin(), wrist_ankle_definitions.end());
-	}
 	vector<XrActionSuggestedBinding> bindings;
 	for (const auto& tracker_action : tracker_action_definitions) {
 		const auto role_str = tracker_role_to_string(POSE_TYPE(uint32_t(tracker_action.event_type) -
@@ -1038,7 +1034,8 @@ bool openxr_context::tracker_enumerate() {
 			.next = nullptr,
 		};
 		XR_CALL_CONT(xrGetCurrentInteractionProfile(session, tracker_role_path, &profile),
-					 "failed to get current interaction profile for tracker");
+					 "failed to get current interaction profile for tracker " +
+					 tracker_role_to_string(POSE_TYPE(tracker_idx + uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT))));
 		// NOTE/TODO: do anything with this? really just need to query this to poke trackers
 	}
 

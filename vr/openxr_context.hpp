@@ -227,7 +227,7 @@ protected:
 	//! number of different tracker roles
 	//! NOTE: this only includes tracker types that are supported in OpenXR
 	static constexpr const uint32_t tracker_role_count {
-		uint32_t(POSE_TYPE::TRACKER_KEYBOARD) - uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + 1u
+		uint32_t(POSE_TYPE::TRACKER_ANKLE_RIGHT) - uint32_t(POSE_TYPE::TRACKER_HANDHELD_OBJECT) + 1u
 	};
 	//! all known tracker role paths
 	array<XrPath, tracker_role_count> tracker_role_paths {};
@@ -265,7 +265,6 @@ protected:
 	bool has_hand_tracking_support { false };
 	bool has_hand_tracking_forearm_support { false };
 	bool has_tracker_interaction_support { false };
-	bool has_tracker_interaction_with_wrist_ankle_support { false };
 
 	//! converts "str" to an XrPath, or returns empty on failure
 	optional<XrPath> to_path(const std::string& str);

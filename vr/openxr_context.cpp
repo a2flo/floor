@@ -107,7 +107,7 @@ openxr_context::openxr_context() : vr_context() {
 	const auto extensions_to_string = [](const auto& extensions) {
 		string ret;
 		for (const auto& ext : extensions) {
-			ret += ext.first + " "s;
+			ret += ext.first + "(" + to_string(ext.second.extensionVersion) + ")" + " "s;
 		}
 		return ret;
 	};
@@ -202,13 +202,11 @@ openxr_context::openxr_context() : vr_context() {
 		instance_extensions.emplace_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
 		can_query_display_refresh_rate = true;
 	}
-	if (floor::get_vr_trackers() && supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
+	// NOTE: requires version 3 / OpenXR 1.0.29 that added wrist and ankle role support
+	if (floor::get_vr_trackers() && supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME) &&
+		supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME, 3)) {
 		instance_extensions.emplace_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
 		has_tracker_interaction_support = true;
-		// version 3 / OpenXR 1.0.29 added wrist and ankle role support
-		if (supports_extension(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME, 3)) {
-			has_tracker_interaction_with_wrist_ankle_support = true;
-		}
 	}
 #if defined(__WINDOWS__)
 	if (supports_extension("XR_KHR_win32_convert_performance_counter_time")) {
@@ -283,7 +281,7 @@ openxr_context::openxr_context() : vr_context() {
 			.applicationVersion = floor::get_app_version(),
 			.engineName = "libfloor",
 			.engineVersion = FLOOR_VERSION_U32,
-			.apiVersion = XR_MAKE_VERSION(1, 0, 27),
+			.apiVersion = XR_MAKE_VERSION(1, 0, 32),
 		},
 		.enabledApiLayerCount = uint32_t(instance_layers.size()),
 		.enabledApiLayerNames = (!instance_layers.empty() ? instance_layers.data() : nullptr),
@@ -755,10 +753,19 @@ bool openxr_context::create_session(vulkan_compute& vk_ctx_, const vulkan_device
 		}
 	}
 	if (swapchain_format == VK_FORMAT_UNDEFINED) {
+		// prefer UNORM, but fall back to SRGB if it's not supported
 		for (const auto& format : swapchain_formats) {
 			if (format == VK_FORMAT_B8G8R8A8_UNORM) {
 				swapchain_format = VK_FORMAT_B8G8R8A8_UNORM;
 				break;
+			}
+		}
+		if (swapchain_format == VK_FORMAT_UNDEFINED) {
+			for (const auto& format : swapchain_formats) {
+				if (format == VK_FORMAT_R8G8B8A8_SRGB) {
+					swapchain_format = VK_FORMAT_R8G8B8A8_SRGB;
+					break;
+				}
 			}
 		}
 	}
