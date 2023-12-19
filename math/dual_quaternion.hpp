@@ -327,6 +327,20 @@ public:
 		return std::array<scalar_type, 8u> { rq.x, rq.y, rq.z, rq.r, dq.x, dq.y, dq.z, dq.r };
 	}
 	
+	//! explicitly casts this dual quaternion (its components) to "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto cast() const {
+		return dual_quaternion<dst_scalar_type> { rq.template cast<dst_scalar_type>(), dq.template cast<dst_scalar_type>() };
+	}
+	
+	//! explicitly reinterprets this dual quaternion (its components) as "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto reinterpret() const {
+		static_assert(sizeof(dst_scalar_type) <= sizeof(scalar_type),
+					  "reinterpret type size must <= the current type size");
+		return dual_quaternion<dst_scalar_type> { rq.template reinterpret<dst_scalar_type>(), dq.template reinterpret<dst_scalar_type>() };
+	}
+	
 };
 
 typedef dual_quaternion<float> dual_quaternionf;

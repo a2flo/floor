@@ -496,6 +496,30 @@ FLOOR_POP_WARNINGS()
 		return { x, y, z };
 	}
 	
+	//! explicitly casts this quaternion (its components) to "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto cast() const {
+		return quaternion<dst_scalar_type> {
+			dst_scalar_type(x),
+			dst_scalar_type(y),
+			dst_scalar_type(z),
+			dst_scalar_type(r)
+		};
+	}
+	
+	//! explicitly reinterprets this quaternion (its components) as "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto reinterpret() const {
+		static_assert(sizeof(dst_scalar_type) <= sizeof(scalar_type),
+					  "reinterpret type size must <= the current type size");
+		return quaternion<dst_scalar_type> {
+			*((const dst_scalar_type*)&x),
+			*((const dst_scalar_type*)&y),
+			*((const dst_scalar_type*)&z),
+			*((const dst_scalar_type*)&r),
+		};
+	}
+	
 };
 
 #undef FLOOR_CLANG_VECTOR_COMPAT

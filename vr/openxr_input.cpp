@@ -1338,6 +1338,9 @@ static vr_context::pose_t make_pose(const vr_context::POSE_TYPE type,
 		pose.flags.radius_valid = 0;
 	}
 
+	pose.flags.is_active = (pose.flags.position_valid || pose.flags.position_tracked ||
+							pose.flags.orientation_valid || pose.flags.orientation_tracked);
+
 	return pose;
 }
 
