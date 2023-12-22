@@ -282,7 +282,7 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 
 // we can't use the 'h' suffix everywhere (e.g. Host-Compute with a vanilla clang)
 // -> add custom '_h' UDL which can be used everywhere
-static constexpr inline half operator "" _h (long double val) {
+static constexpr inline half operator""_h (long double val) {
 	return half(val);
 }
 

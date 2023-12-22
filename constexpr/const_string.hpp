@@ -270,7 +270,7 @@ template <size_t size> static constexpr auto make_sized_array(const char* str) {
 }
 
 //! const_string udl for number literals only
-template <char... chars> constexpr auto operator"" _cs() {
+template <char... chars> constexpr auto operator""_cs() {
 	return const_string<sizeof...(chars)> {{ chars... }};
 }
 

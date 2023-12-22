@@ -113,12 +113,12 @@ namespace const_math {
 }
 
 //! udl to convert any floating-point value into the largest supported one at compile-time
-constexpr const_math::max_fp_type operator"" _fp(long double val) {
+constexpr const_math::max_fp_type operator""_fp(long double val) {
 	return (const_math::max_fp_type)val;
 }
 
 //! udl to convert any floating-point value into the largest supported one at run-time
-constexpr const_math::max_rt_fp_type operator"" _rtfp(long double val) {
+constexpr const_math::max_rt_fp_type operator""_rtfp(long double val) {
 	return (const_math::max_rt_fp_type)val;
 }
 

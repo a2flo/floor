@@ -88,9 +88,15 @@ public:
 	}
 	
 	//! returns a string representation of this dual quaternion
-	string to_string() const {
+	//!  * if !as_readable: returns the plain rq and dq quaternions as a string (same as operator<<)
+	//!  * if as_readable: returns a more human-readable (rotation-angle: 3D rotatation-axis, 3D position) string
+	string to_string(const bool as_readable = false) const {
 		stringstream sstr;
-		sstr << *this;
+		if (!as_readable) {
+			sstr << *this;
+		} else {
+			sstr << "(" << rq.rotation_angle_deg() << "°: " << rq.rotation_axis() << ", @" << to_position() << ")";
+		}
 		return sstr.str();
 	}
 #endif
@@ -243,6 +249,16 @@ public:
 	constexpr vector3<scalar_type> transform(const vector3<scalar_type>& vec) const {
 		// TODO: optimize this
 		return (*this * dual_quaternion<scalar_type>(quaternion<scalar_type>(), { vec, scalar_type(0) }) * combined_conjugated()).dq.to_vector3();
+	}
+	
+	//! returns the translational part as a 3D position
+	constexpr vector3<scalar_type> to_position() const {
+		return ((dq * scalar_type(2)) * rq.conjugated()).to_vector3();
+	}
+	
+	//! converts this dual quaterion to a 4x4 matrix
+	constexpr matrix4<scalar_type> to_matrix4() const {
+		return rq.to_matrix4().set_translation(to_position());
 	}
 	
 	//////////////////////////////////////////

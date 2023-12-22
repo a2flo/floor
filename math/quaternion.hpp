@@ -92,17 +92,16 @@ public:
 		return output;
 	}
 	
-	//! returns a string representation of this quaternion
-	string to_string() const {
+	//! returns a string representation of this quaternion:
+	//!  * if !as_readable: returns the plain (x, y, z, r) values as a string (same as operator<<)
+	//!  * if as_readable: returns a more human-readable (rotation-angle: 3D rotatation-axis) string
+	string to_string(const bool as_readable = false) const {
 		stringstream sstr;
-		sstr << *this;
-		return sstr.str();
-	}
-	
-	//! returns a more human-readable string representation of this quaternion as a rotation angle + axis
-	string to_rotation_string() const {
-		stringstream sstr;
-		sstr << "(" << rotation_angle_deg() << "°: " << rotation_axis() << ")";
+		if (!as_readable) {
+			sstr << *this;
+		} else {
+			sstr << "(" << rotation_angle_deg() << "°: " << rotation_axis() << ")";
+		}
 		return sstr.str();
 	}
 #endif
