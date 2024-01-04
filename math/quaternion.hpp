@@ -382,6 +382,14 @@ FLOOR_IGNORE_WARNING(float-equal)
 		return (r != q.r || x != q.x || y != q.y || z != q.z);
 	}
 	
+	//! equal comparison with an epsilon
+	constexpr bool is_equal(const quaternion<scalar_type>& q, const scalar_type& epsilon) const {
+		return (const_math::is_equal(r, q.r, epsilon) &&
+				const_math::is_equal(x, q.x, epsilon) &&
+				const_math::is_equal(y, q.y, epsilon) &&
+				const_math::is_equal(z, q.z, epsilon));
+	}
+	
 	//! three-way comparison
 	constexpr std::partial_ordering operator<=>(const quaternion<scalar_type>& q) const {
 		if (*this == q) {
@@ -475,6 +483,12 @@ FLOOR_POP_WARNINGS()
 	//! creates a quaternion according to the necessary rotation to get from vector "from" to vector "to"
 	static constexpr quaternion rotation_from_to_vector(const vector3<scalar_type>& from, const vector3<scalar_type>& to) {
 		return rotation(from.angle(to), from.crossed(to).normalize());
+	}
+	
+	//! creates a quaternion according to the necessary rotation to get from quaternion "from" to quaternion "to",
+	//! i.e. result * from == to
+	static constexpr quaternion rotation_from_to(const quaternion<scalar_type>& from, const quaternion<scalar_type>& to) {
+		return to * from.inverted();
 	}
 	
 	//////////////////////////////////////////

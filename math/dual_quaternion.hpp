@@ -274,6 +274,11 @@ public:
 		return (rq != q.rq || dq != q.dq);
 	}
 	
+	//! equal comparison with an epsilon
+	constexpr bool is_equal(const dual_quaternion<scalar_type>& q, const scalar_type& epsilon) const {
+		return (rq.is_equal(q.rq, epsilon) && dq.is_equal(q.dq, epsilon));
+	}
+	
 	//! three-way comparison
 	constexpr std::partial_ordering operator<=>(const dual_quaternion<scalar_type>& q) const {
 		if (*this == q) {
