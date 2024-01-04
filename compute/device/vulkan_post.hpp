@@ -152,13 +152,6 @@ const_func clang_float2 get_point_coord_clang() asm("floor.builtin.point_coord.f
 //! returns the normalized (in [0, 1]) point coordinate
 floor_inline_always const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_clang()); }
 
-//! NOTE/TODO: temporary
-const_func clang_float4 get_frag_coord_clang() asm("floor.builtin.frag_coord.float4");
-//! NOTE/TODO: temporary
-floor_inline_always const_func float4 get_frag_coord() { return float4::from_clang_vector(get_frag_coord_clang()); }
-//! NOTE/TODO: temporary
-#define frag_coord get_frag_coord()
-
 #if defined(FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID_1)
 //! returns the primitive id inside a fragment shader
 const_func uint32_t get_primitive_id() asm("floor.builtin.primitive_id.i32");
