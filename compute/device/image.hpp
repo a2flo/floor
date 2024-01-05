@@ -320,10 +320,9 @@ namespace floor_image {
 		//! convert any coordinate vector type to floor int{1,2,3,4} or float{1,2,3,4} vectors
 		template <typename coord_type>
 		static auto convert_coord(const coord_type& coord) {
-			if constexpr(!ext::is_fundamental_v<coord_type>) {
+			if constexpr (!ext::is_fundamental_v<coord_type>) {
 				return vector_n<conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>, coord_type::dim()> { coord };
-			}
-			else {
+			} else {
 				return vector_n<conditional_t<ext::is_integral_v<coord_type>, int, float>, 1> { coord };
 			}
 		}
@@ -497,31 +496,31 @@ namespace floor_image {
 															  compare_function, compare_value, is_compare));
 			}
 #elif defined(FLOOR_COMPUTE_HOST)
-			if constexpr(!is_compare) {
-				if constexpr(!sample_linear) {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																										 converted_coord, offset, layer,
-																										 (!is_lod_float ? int32_t(lod) : 0),
-																										 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
+			if constexpr (!is_compare) {
+				if constexpr (!sample_linear) {
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
+																														converted_coord, offset, layer,
+																														(!is_lod_float ? int32_t(lod) : 0),
+																														(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 				} else {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																												converted_coord, offset, layer,
-																												(!is_lod_float ? int32_t(lod) : 0),
-																												(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
+																															   converted_coord, offset, layer,
+																															   (!is_lod_float ? int32_t(lod) : 0),
+																															   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 				}
 			} else {
-				if constexpr(!sample_linear) {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																											converted_coord, offset, layer,
-																											(!is_lod_float ? int32_t(lod) : 0),
-																											(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																											compare_function, compare_value));
+				if constexpr (!sample_linear) {
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
+																														   converted_coord, offset, layer,
+																														   (!is_lod_float ? int32_t(lod) : 0),
+																														   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																														   compare_function, compare_value));
 				} else {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																														 converted_coord, offset, layer,
-																														 (!is_lod_float ? int32_t(lod) : 0),
-																														 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																														 compare_function, compare_value));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
+																																  converted_coord, offset, layer,
+																																  (!is_lod_float ? int32_t(lod) : 0),
+																																  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																																  compare_function, compare_value));
 				}
 			}
 #endif
@@ -968,7 +967,7 @@ namespace floor_image {
 				else cuda_image::write_uint<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
 			}
 #elif defined(FLOOR_COMPUTE_HOST)
-			host_device_image<image_type, is_lod, false, false>::write((host_device_image<image_type, is_lod, false, false>*)w_img(), converted_coord, layer, lod, converted_data);
+			host_device_image<image_type, is_lod, false, false, false>::write((host_device_image<image_type, is_lod, false, false, false>*)w_img(), converted_coord, layer, lod, converted_data);
 #endif
 		}
 		

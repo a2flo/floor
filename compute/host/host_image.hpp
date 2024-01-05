@@ -79,11 +79,18 @@ protected:
 		uint8_t* __attribute__((aligned(aligned_ptr<uint8_t>::page_size))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;
 		alignas(16) struct {
-			uint4 dim;
+			union {
+				uint4 dim {};
+				struct {
+					uint32_t dim_x;
+					uint32_t dim_y;
+					uint32_t dim_z;
+					uint32_t offset;
+				};
+			};
 			int4 clamp_dim_int;
 			float4 clamp_dim_float;
-			uint32_t offset;
-			const uint32_t _unused[3] { 0, 0, 0 };
+			float4 clamp_dim_float_excl;
 		} level_info[host_limits::max_mip_levels];
 		static_assert(sizeof(level_info) == (16 * 4) * host_limits::max_mip_levels,
 					  "invalid level_info size");

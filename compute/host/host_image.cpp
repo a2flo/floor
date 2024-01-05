@@ -79,12 +79,13 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 	};
 	uint32_t level_offset = 0;
 	for(size_t level = 0; level < host_limits::max_mip_levels; ++level, mip_image_dim >>= 1) {
+		program_info.level_info[level].dim = mip_image_dim;
+		
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
 		const auto level_data_size = slice_data_size * layer_count;
 		program_info.level_info[level].offset = level_offset;
 		level_offset += level_data_size;
 		
-		program_info.level_info[level].dim = mip_image_dim;
 		program_info.level_info[level].clamp_dim_int = {
 			mip_image_dim.x > 0 ? int(mip_image_dim.x - 1) : 0,
 			mip_image_dim.y > 0 ? int(mip_image_dim.y - 1) : 0,
@@ -95,6 +96,12 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 			mip_image_dim.x > 0 ? float(mip_image_dim.x) : 0.0f,
 			mip_image_dim.y > 0 ? float(mip_image_dim.y) : 0.0f,
 			mip_image_dim.z > 0 ? float(mip_image_dim.z) : 0.0f,
+			0.0f
+		};
+		program_info.level_info[level].clamp_dim_float_excl = {
+			mip_image_dim.x > 0 ? std::nextafterf(float(mip_image_dim.x), 0.0f) : 0.0f,
+			mip_image_dim.y > 0 ? std::nextafterf(float(mip_image_dim.y), 0.0f) : 0.0f,
+			mip_image_dim.z > 0 ? std::nextafterf(float(mip_image_dim.z), 0.0f) : 0.0f,
 			0.0f
 		};
 	}
