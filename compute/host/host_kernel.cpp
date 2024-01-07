@@ -37,6 +37,8 @@
 #include <floor/compute/host/host_argument_buffer.hpp>
 #include <floor/compute/device/host_limits.hpp>
 #include <floor/compute/device/host_id.hpp>
+#include <floor/compute/soft_printf.hpp>
+#include <floor/floor/floor.hpp>
 
 //#define FLOOR_HOST_KERNEL_ENABLE_TIMING 1
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
@@ -623,6 +625,9 @@ static uint32_t local_memory_alloc_offset { 0 };
 static bool local_memory_exceeded { false };
 static aligned_ptr<uint8_t> floor_local_memory_data;
 
+// host-device print buffer
+static aligned_ptr<uint8_t> floor_host_device_printf_buffer;
+
 // extern in host_kernel.hpp and common.hpp
 #if !defined(__WINDOWS__) // TLS dllexport vars are handled differently on Windows
 thread_local uint32_t floor_thread_idx { 0 };
@@ -638,6 +643,17 @@ static aligned_ptr<uint8_t> floor_stack_memory_data;
 static void floor_alloc_host_local_memory() {
 	if (!floor_local_memory_data) {
 		floor_local_memory_data = make_aligned_ptr<uint8_t>(floor_max_thread_count * floor_local_memory_max_size);
+	}
+}
+
+static void floor_alloc_host_device_printf_buffer() {
+	if (!floor_host_device_printf_buffer) {
+		// alloc
+		floor_host_device_printf_buffer = make_aligned_ptr<uint8_t>(printf_buffer_size);
+		// init
+		auto buffer_ptr = floor_host_device_printf_buffer.get_as<uint32_t>();
+		*buffer_ptr = printf_buffer_header_size;
+		*(buffer_ptr + 1) = printf_buffer_size;
 	}
 }
 
@@ -788,24 +804,45 @@ void host_kernel::execute(const compute_queue& cqueue,
 	
 	// extract/handle kernel arguments
 	vector<const void*> vptr_args;
+	vector<unique_ptr<void*[]>> array_args;
 	vptr_args.reserve(args.size());
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr());
 		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for Host-Compute");
-			return;
+			auto arr_arg = make_unique<void*[]>((*vec_buf_ptrs)->size());
+			auto arr_buf_ptr = arr_arg.get();
+			for (const auto& buf : **vec_buf_ptrs) {
+				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf)->get_host_buffer_ptr() : nullptr);
+			}
+			vptr_args.emplace_back(arr_arg.get());
+			array_args.emplace_back(std::move(arr_arg));
 		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-			log_error("array of buffers is not yet supported for Host-Compute");
-			return;
+			auto arr_arg = make_unique<void*[]>((*vec_buf_sptrs)->size());
+			auto arr_buf_ptr = arr_arg.get();
+			for (const auto& buf : **vec_buf_sptrs) {
+				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf.get())->get_host_buffer_ptr() : nullptr);
+			}
+			vptr_args.emplace_back(arr_arg.get());
+			array_args.emplace_back(std::move(arr_arg));
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info());
-		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-			log_error("array of images is not supported for Host-Compute");
-			return;
-		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-			log_error("array of images is not supported for Host-Compute");
-			return;
+		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var); vec_img_ptrs && *vec_img_ptrs) {
+			auto arr_arg = make_unique<void*[]>((*vec_img_ptrs)->size());
+			auto arr_img_ptr = arr_arg.get();
+			for (const auto& img : **vec_img_ptrs) {
+				*arr_img_ptr++ = (img ? ((const host_image*)img)->get_host_image_program_info() : nullptr);
+			}
+			vptr_args.emplace_back(arr_arg.get());
+			array_args.emplace_back(std::move(arr_arg));
+		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var); vec_img_sptrs && *vec_img_sptrs) {
+			auto arr_arg = make_unique<void*[]>((*vec_img_sptrs)->size());
+			auto arr_img_ptr = arr_arg.get();
+			for (const auto& img : **vec_img_sptrs) {
+				*arr_img_ptr++ = (img ? ((const host_image*)img.get())->get_host_image_program_info() : nullptr);
+			}
+			vptr_args.emplace_back(arr_arg.get());
+			array_args.emplace_back(std::move(arr_arg));
 		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			const auto storage_buffer = (const host_buffer*)(*arg_buf_ptr)->get_storage_buffer();
 			vptr_args.emplace_back(storage_buffer->get_host_buffer_ptr());
@@ -823,7 +860,10 @@ void host_kernel::execute(const compute_queue& cqueue,
 	}
 	
 	// device cpu count must be <= h/w thread count, b/c local memory is only allocated for such many threads
-	const auto cpu_count = cqueue.get_device().units;
+	auto cpu_count = cqueue.get_device().units;
+	if (const auto max_core_count = floor::get_host_max_core_count(); max_core_count > 0) {
+		cpu_count = std::min(cpu_count, max_core_count);
+	}
 	if (cpu_count > floor_max_thread_count) {
 		log_error("device cpu count exceeds h/w count");
 		return;
@@ -856,6 +896,15 @@ void host_kernel::execute(const compute_queue& cqueue,
 		// device or host execution?
 		// NOTE: when using a kernel that has been compiled into the program (not host-compute device), "kernel" will be non-nullptr
 		if (kernel == nullptr) {
+			// allow printf buffer memory (only done once)
+			floor_alloc_host_device_printf_buffer();
+			auto printf_buffer_ptr = floor_host_device_printf_buffer.get_as<uint32_t>();
+			if (*printf_buffer_ptr > printf_buffer_header_size) {
+				// reset
+				*printf_buffer_ptr = printf_buffer_header_size;
+				*(printf_buffer_ptr + 1) = printf_buffer_size;
+			}
+			
 			// -> device execution
 			const auto kernel_iter = get_kernel(cqueue);
 			if (kernel_iter == kernels.cend() || kernel_iter->second.program == nullptr) {
@@ -863,6 +912,11 @@ void host_kernel::execute(const compute_queue& cqueue,
 				return;
 			}
 			execute_device(kernel_iter->second, cpu_count, group_dim, local_dim, work_dim, vptr_args);
+			
+			// eval printf buffer if anything was written
+			if (*printf_buffer_ptr > printf_buffer_header_size) {
+				handle_printf_buffer(span { printf_buffer_ptr, printf_buffer_size / 4u });
+			}
 		} else {
 			// -> host execution
 			auto kernel_func = make_callable_kernel_function(kernel, vptr_args);
@@ -1359,6 +1413,10 @@ void host_compute_device_barrier() {
 	ids.instance_local_linear_idx = save_item_local_linear_idx;
 	ids.instance_local_idx = saved_local_id;
 	ids.instance_global_idx = saved_global_id;
+}
+
+uint32_t* host_compute_device_printf_buffer() {
+	return floor_host_device_printf_buffer.get_as<uint32_t>();
 }
 
 // memory fence handling (all the same)

@@ -269,7 +269,7 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 			for (const auto& printf_buffer : printf_buffers) {
 				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
 				printf_buffer->read(*default_queue, cpu_printf_buffer.get());
-				handle_printf_buffer(cpu_printf_buffer);
+				handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 			}
 		});
 	}

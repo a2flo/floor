@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_SOFT_PRINTF_HPP__
 #define __FLOOR_COMPUTE_DEVICE_SOFT_PRINTF_HPP__
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 
 namespace soft_printf {
 
@@ -106,7 +106,7 @@ template <typename T> floor_inline_always static int printf_handle_arg(const T& 
 
 ////////////////////////////////////////////////////////////////////////////////
 // address-space version (Metal/Vulkan)
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 namespace as {
 
 // casts and copies the printf argument to the correct "va_list"/buffer position + handles necessary alignment

@@ -468,6 +468,8 @@ bool floor::init(const init_state& state) {
 		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
 		config.host_as = config_doc.get<string>("toolchain.host.as", config.default_as);
 		config.host_dis = config_doc.get<string>("toolchain.host.dis", config.default_dis);
+		config.host_run_on_device = config_doc.get<bool>("toolchain.host.device", true);
+		config.host_max_core_count = config_doc.get<uint32_t>("toolchain.host.max_core_count", 0);
 		config.execution_model = config_doc.get<string>("toolchain.host.exec_model", "mt-group");
 	}
 	
@@ -2136,6 +2138,12 @@ const string& floor::get_host_as() {
 }
 const string& floor::get_host_dis() {
 	return config.host_dis;
+}
+const bool& floor::get_host_run_on_device() {
+	return config.host_run_on_device;
+}
+const uint32_t& floor::get_host_max_core_count() {
+	return config.host_max_core_count;
 }
 const string& floor::get_execution_model() {
 	return config.execution_model;

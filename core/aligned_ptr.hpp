@@ -130,19 +130,31 @@ public:
 		std::swap(pinned, rhs.pinned);
 	}
 	
-	pointer __attribute__((aligned(page_size))) get() noexcept {
+	pointer __attribute__((aligned(page_size))) get() noexcept __attribute__((assume_aligned(page_size))) {
 		return ptr;
 	}
 	
-	const pointer __attribute__((aligned(page_size))) get() const noexcept {
+	const pointer __attribute__((aligned(page_size))) get() const noexcept __attribute__((assume_aligned(page_size))) {
 		return ptr;
+	}
+	
+	template <typename data_type>
+	data_type* __attribute__((aligned(page_size))) get_as() noexcept __attribute__((assume_aligned(page_size))) {
+		using aligned_data_ptr = data_type* __attribute__((align_value(page_size)));
+		return (aligned_data_ptr)__builtin_assume_aligned(ptr, page_size);
+	}
+	
+	template <typename data_type>
+	const data_type* __attribute__((aligned(page_size))) get_as() const noexcept __attribute__((assume_aligned(page_size))) {
+		using aligned_data_ptr = const data_type* __attribute__((align_value(page_size)));
+		return (aligned_data_ptr)__builtin_assume_aligned(ptr, page_size);
 	}
 
 	std::add_lvalue_reference_t<T> operator*() const {
 		return *ptr;
 	}
 	
-	pointer __attribute__((aligned(page_size))) operator->() const noexcept {
+	pointer __attribute__((aligned(page_size))) operator->() const noexcept __attribute__((assume_aligned(page_size))) {
 		return ptr;
 	}
 	

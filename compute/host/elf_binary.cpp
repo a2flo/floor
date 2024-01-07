@@ -1208,6 +1208,8 @@ const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t
 			   sym.name == "image_barrier" ||
 			   sym.name == "host_compute_device_barrier") {
 		ext_sym_ptr = get_external_symbol_ptr("host_compute_device_barrier");
+	} else if (sym.name == "host_compute_device_printf_buffer") {
+		ext_sym_ptr = get_external_symbol_ptr("host_compute_device_printf_buffer");
 	} else if (sym.name == "_GLOBAL_OFFSET_TABLE_") {
 		if (!instance.GOT) {
 			log_error("GOT is empty");

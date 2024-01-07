@@ -83,7 +83,7 @@ void metal_shader::set_shader_arguments(const compute_queue& cqueue,
 			for (const auto& printf_buffer_rsrc : printf_buffer_rsrcs) {
 				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
 				printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
-				handle_printf_buffer(cpu_printf_buffer);
+				handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 				ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
 			}
 		}];

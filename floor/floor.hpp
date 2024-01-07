@@ -326,6 +326,8 @@ public:
 	static const string& get_host_compiler();
 	static const string& get_host_as();
 	static const string& get_host_dis();
+	static const bool& get_host_run_on_device();
+	static const uint32_t& get_host_max_core_count();
 	static const string& get_execution_model();
 	
 	//! returns the default compute/graphics context (CUDA/Host/Metal/OpenCL/Vulkan)
@@ -463,6 +465,8 @@ protected:
 		string host_compiler = default_compiler;
 		string host_as = default_as;
 		string host_dis = default_dis;
+		bool host_run_on_device = true;
+		uint32_t host_max_core_count = 0;
 		string execution_model = "mt-group";
 		
 		// vulkan

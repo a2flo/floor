@@ -142,7 +142,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 			auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
 			printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
-			handle_printf_buffer(cpu_printf_buffer);
+			handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 			ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
 		}];
 	}

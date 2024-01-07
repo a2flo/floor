@@ -459,7 +459,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	if (is_soft_printf) {
 		auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
 		printf_buffer->read(cqueue, cpu_printf_buffer.get());
-		handle_printf_buffer(cpu_printf_buffer);
+		handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 	}
 }
 

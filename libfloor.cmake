@@ -115,6 +115,11 @@ if (MINGW)
 	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--export-all-symbols)
 endif (MINGW)
 
+# UNIX/Linux: must export symbols to the dynamic symbol table
+if (UNIX)
+	target_link_options(${PROJECT_NAME} PRIVATE -Wl,--export-dynamic)
+endif (UNIX)
+
 ## use console subsystem (MSVC/MINGW)
 if (MSVC)
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")

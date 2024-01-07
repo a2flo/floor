@@ -112,6 +112,8 @@ protected:
 
 //! host-compute device specific barrier
 extern "C" void host_compute_device_barrier();
+//! host-compute device specific printf buffer
+extern "C" uint32_t* host_compute_device_printf_buffer();
 
 #endif
 

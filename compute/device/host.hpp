@@ -164,13 +164,26 @@ floor_inline_always const_func static double rsqrt(double x) { return 1.0 / sqrt
 #endif // FLOOR_COMPUTE_HOST_DEVICE
 } // namespace std
 
-// printf
+// printing
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)
 #include <cstdio>
 #else
-// only printf and puts are no supported (resolved at load time)
-extern "C" int printf(const char* __restrict format, ...);
+// only puts is supported (resolved at load time)
 extern "C" int puts(const char* __restrict str);
+
+// NOTE: printf can not be supported directly, due to va_list semantics/impl possibly being different between device and host code
+// -> we'll use soft-printf instead and have it always enabled
+#define FLOOR_COMPUTE_HAS_SOFT_PRINTF 1
+extern "C" uint32_t* host_compute_device_printf_buffer() __attribute__((FLOOR_COMPUTE_HOST_CALLING_CONV));
+floor_inline_always const_func global uint32_t* floor_get_printf_buffer() {
+	return host_compute_device_printf_buffer();
+}
+#include <floor/compute/device/soft_printf.hpp>
+
+template <size_t format_N, typename... Args>
+static void printf(constant const char (&format)[format_N], const Args&... args) {
+	soft_printf::as::printf_impl(format, args...);
+}
 #endif
 
 // already need this here

@@ -431,6 +431,13 @@ template <typename T> using compute_param = const constant T&;
 template <typename T> using param = const T&;
 #endif
 
+//! image or buffer array parameter
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_CUDA)
+template <typename data_type, size_t array_size> using array_param = std::array<data_type, array_size>;
+#elif defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_OPENCL)
+template <typename data_type, size_t array_size> using array_param = const global std::array<data_type, array_size>&;
+#endif
+
 // implementation specific image headers
 #include <floor/compute/device/sampler.hpp>
 #if defined(FLOOR_COMPUTE_CUDA)

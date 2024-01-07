@@ -21,7 +21,7 @@
 
 static constexpr const inline uint32_t printf_buffer_size { 1 * 1024 * 1024 };
 static constexpr const inline uint32_t printf_buffer_header_size { 2 * sizeof(uint32_t) };
-static inline void handle_printf_buffer(const unique_ptr<uint32_t[]>& buf) {
+static inline void handle_printf_buffer(const span<uint32_t> buf) {
 	const uint32_t total_size = buf[1];
 	if (total_size != printf_buffer_size) {
 		log_error("device printf has overwritten printf buffer size!");

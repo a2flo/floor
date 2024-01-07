@@ -27,6 +27,7 @@
 #include <floor/core/file_io.hpp>
 #include <floor/compute/device/host_limits.hpp>
 #include <floor/compute/host/elf_binary.hpp>
+#include <floor/floor/floor.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -547,7 +548,7 @@ bool host_compute::has_host_device_support() const {
 #if defined(__WINDOWS__)
 	return false;
 #else
-	return true;
+	return floor::get_host_run_on_device();
 #endif
 }
 

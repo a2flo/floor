@@ -274,7 +274,7 @@ void metal_indirect_command_pipeline::metal_pipeline_entry::printf_completion(co
 	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
 		auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
 		printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());
-		handle_printf_buffer(cpu_printf_buffer);
+		handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 	}];
 }
 
