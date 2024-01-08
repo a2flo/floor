@@ -193,7 +193,11 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_cont
 	// figure out CPU tier
 #if defined(__x86_64__)
 	if (core::cpu_has_avx512()) {
-		device.cpu_tier = HOST_CPU_TIER::X86_TIER_4;
+		if (core::cpu_has_avx512_tier_5()) {
+			device.cpu_tier = HOST_CPU_TIER::X86_TIER_5;
+		} else {
+			device.cpu_tier = HOST_CPU_TIER::X86_TIER_4;
+		}
 	} else if (core::cpu_has_avx2() && core::cpu_has_fma()) {
 		device.cpu_tier = HOST_CPU_TIER::X86_TIER_3;
 	} else if (core::cpu_has_avx()) {
@@ -210,7 +214,7 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_cont
 	switch (cpufamily) {
 		default:
 			// default to highest tier for all unknown (newer) cores
-			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_7;
 			break;
 		case 0x37a09642 /* Cyclone A7 */:
 		case 0x2c91a47e /* Typhoon A8 */:
@@ -230,10 +234,15 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_cont
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_5;
 			break;
 		case 0x1b588bb3 /* Firestorm/Icestorm A14 & M1 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
+			break;
 		case 0xda33d83d /* Blizzard/Avalanche A15 & M2 */:
 		case 0x8765edea /* Everest/Sawtooth A16 */:
 		case 0x2876f5b5 /* Coll A17 */:
-			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_6;
+		case 0xfa33415e /* Ibiza M3 */:
+		case 0x72015832 /* Palma M3 */:
+		case 0x5f4dea93 /* Lobos M3 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_7;
 			break;
 	}
 	

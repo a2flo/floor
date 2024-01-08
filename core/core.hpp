@@ -223,14 +223,17 @@ namespace core {
 	bool is_windows_8_or_higher();
 #endif
 	
-	//! returns true if the cpu has fma instruction support
+	//! returns true if the cpu has FMA instruction support
 	bool cpu_has_fma();
-	//! returns true if the cpu has avx instruction support
+	//! returns true if the cpu has AVX instruction support
 	bool cpu_has_avx();
-	//! returns true if the cpu has avx2 instruction support
+	//! returns true if the cpu has AVX2 instruction support
 	bool cpu_has_avx2();
-	//! returns true if the cpu has avx-512 instruction support
+	//! returns true if the cpu has general AVX-512 instruction support
 	bool cpu_has_avx512();
+	//! returns true if the cpu has AVX-512 with IFMA, VBMI, VBMI2, VAES, BITALG, VPCLMULQDQ, GFNI, VNNI, VPOPCNTDQ, BF16 instruction support
+	//! NOTE: this is used to determine Host-Compute X86_TIER_5 support
+	bool cpu_has_avx512_tier_5();
 
 }
 

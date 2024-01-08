@@ -36,9 +36,12 @@ enum class HOST_CPU_TIER : uint64_t {
 	//! AVX v2 / FMA3 / F16C / BMI1+2
 	//! NOTE: targets Haswell / Excavator / Zen 1 and higher (core-avx2 arch)
 	X86_TIER_3 = (__X86_OFFSET + 3u),
-	//! AVX-512 (F, CD, VL, DQ, BW)
+	//! AVX-512 (F, CD, DQ, VL, BW)
 	//! NOTE: targets Skylake-Server / Zen 4 and higher (skylake-avx512 arch)
 	X86_TIER_4 = (__X86_OFFSET + 4u),
+	//! AVX-512 (F, CD, DQ, VL, BW, IFMA, VBMI, VBMI2, VAES, BITALG, VPCLMULQDQ, GFNI, VNNI, VPOPCNTDQ, BF16)
+	//! NOTE: targets Sapphire Rapids / Zen 4 and higher (x86-64-v4 arch + listed AVX-512 features + Zen tuning)
+	X86_TIER_5 = (__X86_OFFSET + 5u),
 	
 	//! ARM-based CPUs
 	__ARM_OFFSET = 1000u,
@@ -53,8 +56,10 @@ enum class HOST_CPU_TIER : uint64_t {
 	ARM_TIER_4 = (__ARM_OFFSET + 4u),
 	//! ARMv8.4 + FP16 (e.g. Apple A13)
 	ARM_TIER_5 = (__ARM_OFFSET + 5u),
-	//! ARMv8.5 + FP16 + FP16FML (e.g. Apple A14 - A16, Apple M1 - M2)
+	//! ARMv8.5 + FP16 + FP16FML (e.g. Apple A14, Apple M1)
 	ARM_TIER_6 = (__ARM_OFFSET + 6u),
+	//! ARMv8.6 + FP16 + FP16FML (e.g. Apple A15 - A17, Apple M2 - M3)
+	ARM_TIER_7 = (__ARM_OFFSET + 7u),
 };
 
 constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
@@ -63,12 +68,14 @@ constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
 		case HOST_CPU_TIER::X86_TIER_2: return "x86 Tier 2";
 		case HOST_CPU_TIER::X86_TIER_3: return "x86 Tier 3";
 		case HOST_CPU_TIER::X86_TIER_4: return "x86 Tier 4";
+		case HOST_CPU_TIER::X86_TIER_5: return "x86 Tier 5";
 		case HOST_CPU_TIER::ARM_TIER_1: return "ARM Tier 1";
 		case HOST_CPU_TIER::ARM_TIER_2: return "ARM Tier 2";
 		case HOST_CPU_TIER::ARM_TIER_3: return "ARM Tier 3";
 		case HOST_CPU_TIER::ARM_TIER_4: return "ARM Tier 4";
 		case HOST_CPU_TIER::ARM_TIER_5: return "ARM Tier 5";
 		case HOST_CPU_TIER::ARM_TIER_6: return "ARM Tier 6";
+		case HOST_CPU_TIER::ARM_TIER_7: return "ARM Tier 7";
 		default: return "";
 	}
 }

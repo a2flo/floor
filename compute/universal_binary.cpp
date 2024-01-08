@@ -498,6 +498,7 @@ namespace universal_binary {
 						host_dev.simd_width = 8u; // AVX
 						break;
 					case HOST_CPU_TIER::X86_TIER_4:
+					case HOST_CPU_TIER::X86_TIER_5:
 						host_dev.simd_width = 16u; // AVX-512
 						break;
 					case HOST_CPU_TIER::ARM_TIER_1:
@@ -506,6 +507,7 @@ namespace universal_binary {
 					case HOST_CPU_TIER::ARM_TIER_4:
 					case HOST_CPU_TIER::ARM_TIER_5:
 					case HOST_CPU_TIER::ARM_TIER_6:
+					case HOST_CPU_TIER::ARM_TIER_7:
 						host_dev.simd_width = 4u; // NEON
 						break;
 					default:

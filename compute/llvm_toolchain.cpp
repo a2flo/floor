@@ -576,7 +576,7 @@ program_data compile_input(const string& input,
 			output_file_type = "bin";
 			const auto& cpu_device = (const host_device&)device;
 			
-			string arch, prefer_vec_width;
+			string arch, tune, prefer_vec_width;
 			switch (cpu_device.cpu_tier) {
 #if defined(__x86_64__)
 				default:
@@ -595,7 +595,13 @@ program_data compile_input(const string& input,
 					// override default behavior of preferring 256-bit
 					prefer_vec_width = " -mprefer-vector-width=512";
 					break;
-					
+				case HOST_CPU_TIER::X86_TIER_5:
+					arch = "x86-64-v4";
+					arch += " -mavx512ifma -mavx512vbmi -mavx512vbmi2 -mvaes -mavx512bitalg -mvpclmulqdq -mgfni -mavx512vnni -mavx512vpopcntdq -mavx512bf16";
+					tune = "znver3";
+					// override default behavior of preferring 256-bit
+					prefer_vec_width = " -mprefer-vector-width=512";
+					break;
 #if defined(__aarch64__)
 				default:
 #endif
@@ -617,6 +623,9 @@ program_data compile_input(const string& input,
 				case HOST_CPU_TIER::ARM_TIER_6:
 					arch = "armv8.5-a+fp16+fp16fml";
 					break;
+				case HOST_CPU_TIER::ARM_TIER_7:
+					arch = "armv8.6-a+fp16+fp16fml";
+					break;
 			}
 			
 			string target;
@@ -637,6 +646,7 @@ program_data compile_input(const string& input,
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
 				" -march=" + arch +
+				(!tune.empty() ? " -mtune=" + tune : "") +
 				prefer_vec_width +
 				" -mcmodel=large" +
 				" -DFLOOR_COMPUTE_HOST_DEVICE -DFLOOR_COMPUTE_HOST" +

@@ -774,6 +774,33 @@ bool cpu_has_avx512() {
 	return false;
 }
 
+bool cpu_has_avx512_tier_5() {
+#if defined(__x86_64__)
+	bool has_first_features = false;
+	{
+		uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
+		if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx) == 1) {
+			has_first_features = ((ebx & 0x100000) > 0 && // IFMA
+								  (ecx & 0x2) > 0 && // VBMI
+								  (ecx & 0x40) > 0 && // VBMI2
+								  (ecx & 0x200) > 0 && // VAES
+								  (ecx & 0x1000) > 0 && // BITALG
+								  (ecx & 0x400) > 0 && // VPCLMULQDQ
+								  (ecx & 0x100) > 0 && // GFNI
+								  (ecx & 0x800) > 0 && // VNNI
+								  (ecx & 0x4000) > 0); // VPOPCNTDQ
+		}
+	}
+	if (has_first_features) {
+		uint32_t eax { 0 }, ebx { 0 }, ecx { 0 }, edx { 0 };
+		if (__get_cpuid_count(7, 1, &eax, &ebx, &ecx, &edx) == 1) {
+			return ((eax & 0x20) > 0); // BF16
+		}
+	}
+#endif
+	return false;
+}
+
 string create_tmp_file_name(const string prefix, const string suffix) {
 	seed_seq seed {
 		rd(),
