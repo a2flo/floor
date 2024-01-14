@@ -26,6 +26,7 @@
 
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp> // cleanup
+#include <floor/core/core.hpp>
 
 #if defined(_MSC_VER)
 #include <direct.h>
@@ -382,7 +383,7 @@ long long int file_io::get_filesize() {
 #else
 	struct stat file_stat;
 	if(stat(filename.c_str(), &file_stat) != 0) {
-		log_error("failed to get file size of \"$\": $", filename, strerror(errno));
+		log_error("failed to get file size of \"$\": $", filename, core::get_system_error());
 		return 0;
 	}
 	return file_stat.st_size;
@@ -643,7 +644,7 @@ bool file_io::create_directory(const string& dirname) {
 #if defined(__APPLE__)
 	const auto success = mkdir(dirname.c_str(), 0777);
 	if (success != 0) {
-		log_error("failed to create directory \"$\": $", dirname, errno);
+		log_error("failed to create directory \"$\": $", dirname, core::get_system_error());
 		return false;
 	}
 #else

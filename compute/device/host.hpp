@@ -174,7 +174,7 @@ extern "C" int puts(const char* __restrict str);
 // NOTE: printf can not be supported directly, due to va_list semantics/impl possibly being different between device and host code
 // -> we'll use soft-printf instead and have it always enabled
 #define FLOOR_COMPUTE_HAS_SOFT_PRINTF 1
-extern "C" uint32_t* host_compute_device_printf_buffer() __attribute__((FLOOR_COMPUTE_HOST_CALLING_CONV));
+extern "C" uint32_t* host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC;
 floor_inline_always const_func global uint32_t* floor_get_printf_buffer() {
 	return host_compute_device_printf_buffer();
 }
@@ -234,17 +234,17 @@ floor_inline_always const_func static uint32_t get_work_dim() {
 
 // barrier and mem_fence functionality (NOTE: implemented in host_kernel.cpp)
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)
-void global_barrier();
+void global_barrier() FLOOR_HOST_COMPUTE_CC;
 void global_mem_fence();
 void global_read_mem_fence();
 void global_write_mem_fence();
-void local_barrier();
+void local_barrier() FLOOR_HOST_COMPUTE_CC;
 void local_mem_fence();
 void local_read_mem_fence();
 void local_write_mem_fence();
-void barrier();
+void barrier() FLOOR_HOST_COMPUTE_CC;
 
-void image_barrier();
+void image_barrier() FLOOR_HOST_COMPUTE_CC;
 void image_mem_fence();
 void image_read_mem_fence();
 void image_write_mem_fence();
@@ -253,7 +253,7 @@ void image_write_mem_fence();
 extern "C" {
 // host-compute device handling is slightly different:
 // since all barriers are identical in function, forward everything to a single barrier function
-void host_compute_device_barrier() __attribute__((noduplicate, FLOOR_COMPUTE_HOST_CALLING_CONV));
+void host_compute_device_barrier() __attribute__((noduplicate)) FLOOR_HOST_COMPUTE_CC;
 
 #pragma clang attribute push (__attribute__((noduplicate)), apply_to=function)
 #pragma clang attribute push (__attribute__((internal_linkage)), apply_to=function)

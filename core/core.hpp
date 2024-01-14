@@ -222,6 +222,16 @@ namespace core {
 	//! returns true if running Windows 8 or higher
 	bool is_windows_8_or_higher();
 #endif
+
+	//! returns a description of the last system error (errno/GetLastError())
+#if !defined(__WINDOWS__)
+	static inline string get_system_error() {
+		const auto err = errno;
+		return strerror(err) + " ("s + std::to_string(err) + ")";
+	}
+#else
+	string get_system_error();
+#endif
 	
 	//! returns true if the cpu has FMA instruction support
 	bool cpu_has_fma();

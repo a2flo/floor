@@ -27,6 +27,7 @@
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
+#include <strsafe.h>
 #include <floor/core/essentials.hpp> // cleanup
 
 #if defined(_MSC_VER)
@@ -866,5 +867,30 @@ string expand_path_with_env(const string& in) {
 	return in;
 #endif
 }
+
+#if defined(__WINDOWS__)
+string get_system_error() {
+	// ref: https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
+	const auto err = GetLastError();
+
+	string msg;
+	LPVOID err_msg = nullptr;
+	if (const auto len = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+										FORMAT_MESSAGE_FROM_SYSTEM |
+										FORMAT_MESSAGE_IGNORE_INSERTS,
+										nullptr, err,
+										MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+										(LPSTR)&err_msg, 0, nullptr); len > 0) {
+		msg = string_view { (const char*)err_msg, len };
+		msg += " (" + std::to_string(err) + ")";
+	} else {
+		msg = std::to_string(err);
+	}
+	if (err_msg) {
+		LocalFree(err_msg);
+	}
+	return msg;
+}
+#endif
 
 } // namespace core

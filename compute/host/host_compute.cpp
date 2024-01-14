@@ -554,11 +554,7 @@ shared_ptr<compute_program::program_entry> host_compute::create_program_entry(co
 }
 
 bool host_compute::has_host_device_support() const {
-#if defined(__WINDOWS__)
-	return false;
-#else
 	return floor::get_host_run_on_device();
-#endif
 }
 
 unique_ptr<indirect_command_pipeline> host_compute::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {

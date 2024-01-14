@@ -405,6 +405,9 @@
 		5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
+		5CF41D612B4E17EB004772C7 /* host_device_builtins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF41D5F2B4E17EA004772C7 /* host_device_builtins.cpp */; };
+		5CF41D622B4E17EB004772C7 /* host_device_builtins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF41D5F2B4E17EA004772C7 /* host_device_builtins.cpp */; };
+		5CF41D632B4E17EB004772C7 /* host_device_builtins.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF41D602B4E17EA004772C7 /* host_device_builtins.hpp */; };
 		5CF497172A2D136300F78B03 /* openvr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF497152A2D136200F78B03 /* openvr_context.hpp */; };
 		5CF497182A2D136300F78B03 /* openvr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF497162A2D136200F78B03 /* openvr_context.cpp */; };
 		5CF497192A2D136300F78B03 /* openvr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF497162A2D136200F78B03 /* openvr_context.cpp */; };
@@ -755,6 +758,8 @@
 		5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_program.hpp; sourceTree = "<group>"; };
 		5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_queue.cpp; sourceTree = "<group>"; };
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
+		5CF41D5F2B4E17EA004772C7 /* host_device_builtins.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_device_builtins.cpp; path = host/host_device_builtins.cpp; sourceTree = "<group>"; };
+		5CF41D602B4E17EA004772C7 /* host_device_builtins.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_device_builtins.hpp; path = host/host_device_builtins.hpp; sourceTree = "<group>"; };
 		5CF497152A2D136200F78B03 /* openvr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = openvr_context.hpp; path = vr/openvr_context.hpp; sourceTree = "<group>"; };
 		5CF497162A2D136200F78B03 /* openvr_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = openvr_context.cpp; path = vr/openvr_context.cpp; sourceTree = "<group>"; };
 		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
@@ -965,6 +970,8 @@
 			children = (
 				5CF974C424E87F6500014CDC /* elf_binary.cpp */,
 				5CF974C524E87F6600014CDC /* elf_binary.hpp */,
+				5CF41D5F2B4E17EA004772C7 /* host_device_builtins.cpp */,
+				5CF41D602B4E17EA004772C7 /* host_device_builtins.hpp */,
 				5C4B89BB2557682F001CB537 /* host_argument_buffer.cpp */,
 				5C4B89BC2557682F001CB537 /* host_argument_buffer.hpp */,
 				5C20C8B61B4139260005F5EA /* host_common.hpp */,
@@ -1424,6 +1431,7 @@
 				5C84530A22B1A6C90014AECF /* metal_pipeline.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C8EDFD12A193D7C00DB1EEF /* group.hpp in Headers */,
+				5CF41D632B4E17EB004772C7 /* host_device_builtins.hpp in Headers */,
 				5C8FD0D31AD3947200215230 /* compute_memory.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */,
@@ -1712,6 +1720,7 @@
 				5CAD573E24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */,
 				5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5C4B89BD25576830001CB537 /* host_argument_buffer.cpp in Sources */,
+				5CF41D612B4E17EB004772C7 /* host_device_builtins.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5C1496E1279D769F00194181 /* metal_indirect_command.mm in Sources */,
@@ -1830,6 +1839,7 @@
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5C9AAEFE281A14D00049ABA6 /* metal_fence.mm in Sources */,
 				5C8FD0D11AD3944F00215230 /* metal_image.mm in Sources */,
+				5CF41D622B4E17EB004772C7 /* host_device_builtins.cpp in Sources */,
 				5C8461491A914759004D4745 /* metal_compute.mm in Sources */,
 				5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,

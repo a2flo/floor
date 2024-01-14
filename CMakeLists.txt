@@ -140,6 +140,8 @@ add_library(${PROJECT_NAME} SHARED
 	compute/host/host_compute.hpp
 	compute/host/host_device.cpp
 	compute/host/host_device.hpp
+	compute/host/host_device_builtins.cpp
+	compute/host/host_device_builtins.hpp
 	compute/host/host_image.cpp
 	compute/host/host_image.hpp
 	compute/host/host_kernel.cpp

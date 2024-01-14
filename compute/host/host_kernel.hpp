@@ -50,12 +50,10 @@ class elf_binary;
 
 class host_kernel final : public compute_kernel {
 public:
-	typedef void (*kernel_func_type)(...);
-	
 	struct host_kernel_entry : kernel_entry {
 		shared_ptr<elf_binary> program;
 	};
-	typedef floor_core::flat_map<const host_device&, host_kernel_entry> kernel_map_type;
+	using kernel_map_type = floor_core::flat_map<const host_device&, host_kernel_entry>;
 	
 	//! constructor for kernels built using the host compiler / vanilla toolchain
 	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
@@ -78,7 +76,7 @@ public:
 	const kernel_entry* get_kernel_entry(const compute_device&) const override;
 	
 protected:
-	const kernel_func_type kernel { nullptr };
+	const void* kernel { nullptr };
 	const string func_name;
 	const compute_kernel::kernel_entry entry;
 	
@@ -111,9 +109,9 @@ protected:
 };
 
 //! host-compute device specific barrier
-extern "C" void host_compute_device_barrier();
+extern "C" void host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC;
 //! host-compute device specific printf buffer
-extern "C" uint32_t* host_compute_device_printf_buffer();
+extern "C" uint32_t* host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC;
 
 #endif
 

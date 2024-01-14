@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/compute/host/elf_binary.hpp>
+#include <floor/compute/host/host_device_builtins.hpp>
 #include <floor/core/enum_helpers.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
@@ -39,6 +40,28 @@
 #include <mach/vm_prot.h>
 #include <mach/mach_init.h>
 #endif
+
+#if defined(__WINDOWS__)
+static auto get_module_handle_from_address(const void* addr) {
+	HMODULE handle { nullptr };
+	if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+						   (LPCSTR)addr, &handle) != 0) {
+		return handle;
+	}
+	return (HMODULE)nullptr;
+}
+#endif
+
+template <bool in_libfloor = false>
+static auto get_external_symbol_ptr(const string& name) {
+#if !defined(__WINDOWS__)
+	return dlsym(!in_libfloor ? RTLD_DEFAULT : RTLD_SELF, name.c_str());
+#else
+	static const auto exe_handle = GetModuleHandleA(nullptr);
+	static const auto libfloor_handle = get_module_handle_from_address((const void*)&get_module_handle_from_address);
+	return (const void*)GetProcAddress(!in_libfloor ? exe_handle : libfloor_handle, name.c_str());
+#endif
+}
 
 enum class ELF_SECTION_TYPE : uint32_t {
 	UNUSED = 0,
@@ -921,7 +944,7 @@ static bool map_memory(aligned_ptr<uint8_t>& mem,
 		section_map.emplace(section.first, mem.get() + offset);
 	}
 	if (!mem.pin()) {
-		log_error("failed to pin memory: $", strerror(errno));
+		log_error("failed to pin memory: $", core::get_system_error());
 		return false;
 	}
 	
@@ -983,18 +1006,12 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 		if (!sym.name.empty() && sym.symbol_ptr->section_header_table_index == 0 &&
 			(sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::GLOBAL || sym.symbol_ptr->binding == ELF_SYMBOL_BINDING::WEAK)) {
 			// -> external
-#if !defined(__WINDOWS__)
-			const auto ext_sym_ptr = dlsym(RTLD_DEFAULT, sym.name.c_str());
+			const auto ext_sym_ptr = get_external_symbol_ptr(sym.name);
 			cout << "\t-> external symbol ptr: 0x" << hex << uppercase << to_string(uint64_t(ext_sym_ptr)) << nouppercase << dec << endl;
-#else
-			log_error("not implemented yet");
-			return false;
-#endif
 		}
 	}
 #endif
 	
-#if !defined(__WINDOWS__)
 	// allocate/map read-only memory (if necessary)
 	if (info->relocate_rodata) {
 		if (!map_memory<ELF_SECTION_FLAG::NONE /* no req */, (ELF_SECTION_FLAG::WRITE |
@@ -1062,7 +1079,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 			memset(instance.exec_memory.get() + sec.size, 0, instance.exec_memory.allocation_size() - sec.size);
 		}
 		if (!instance.exec_memory.pin()) {
-			log_error("failed to pin exec memory: $", strerror(errno));
+			log_error("failed to pin exec memory: $", core::get_system_error());
 			return false;
 		}
 		// NOTE: delay rx protection to after we've done the relocations
@@ -1134,14 +1151,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 			return false;
 		}
 	}
-	
-#else // TODO: Windows
-	(void)ext_instance;
-	log_error("not implemented yet");
-	return false;
-#endif
 
-#if !defined(__WINDOWS__) // TODO: remove this once Windows is supported, right now this is unreachable
 	// can now set the protection on the read-exec and read-only sections
 	{
 		if (!instance.exec_memory.set_protection(decltype(instance.exec_memory)::PAGE_PROTECTION::READ_EXEC)) {
@@ -1172,15 +1182,6 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 	}
 	
 	return true;
-#endif
-}
-
-static auto get_external_symbol_ptr(const string& name) {
-#if !defined(__WINDOWS__)
-	return dlsym(RTLD_DEFAULT, name.c_str());
-#else
-	return nullptr;
-#endif
 }
 
 const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t& ext_instance, const symbol_t& sym) {
@@ -1207,9 +1208,9 @@ const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t
 			   sym.name == "barrier" ||
 			   sym.name == "image_barrier" ||
 			   sym.name == "host_compute_device_barrier") {
-		ext_sym_ptr = get_external_symbol_ptr("host_compute_device_barrier");
+		ext_sym_ptr = get_external_symbol_ptr<true>("host_compute_device_barrier");
 	} else if (sym.name == "host_compute_device_printf_buffer") {
-		ext_sym_ptr = get_external_symbol_ptr("host_compute_device_printf_buffer");
+		ext_sym_ptr = get_external_symbol_ptr<true>("host_compute_device_printf_buffer");
 	} else if (sym.name == "_GLOBAL_OFFSET_TABLE_") {
 		if (!instance.GOT) {
 			log_error("GOT is empty");
@@ -1218,7 +1219,12 @@ const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t
 		ext_sym_ptr = &instance.GOT[0];
 	} else {
 		// normal symbol
-		ext_sym_ptr = get_external_symbol_ptr(sym.name);
+		static const auto& floor_builtins = floor_get_c_to_floor_builtin_map();
+		if (const auto floor_builtin_iter = floor_builtins.find(sym.name); floor_builtin_iter != floor_builtins.end()) {
+			ext_sym_ptr = get_external_symbol_ptr<true>(floor_builtin_iter->second);
+		} else {
+			ext_sym_ptr = get_external_symbol_ptr(sym.name);
+		}
 	}
 	if (ext_sym_ptr == nullptr) {
 		log_error("external symbol $ could not be resolved", sym.name);

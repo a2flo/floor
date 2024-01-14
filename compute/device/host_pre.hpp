@@ -40,6 +40,24 @@
 typedef __SIZE_TYPE__ size_t;
 #endif
 
+// define calling convention
+#if !defined(FLOOR_HOST_COMPUTE_CC)
+#if defined(__x86_64__)
+#define FLOOR_HOST_COMPUTE_CC __attribute__((sysv_abi))
+#elif defined(__aarch64__)
+#define FLOOR_HOST_COMPUTE_CC __attribute__((pcs("aapcs")))
+#else
+#error "unhandled arch"
+#endif
+#endif
+
+// define host entry point calling convention (we only need this if the default CC is incompatible)
+#if defined(__x86_64__) && defined(__WINDOWS__)
+#define FLOOR_HOST_COMPUTE_CC_ENTRY_POINT FLOOR_HOST_COMPUTE_CC
+#else
+#define FLOOR_HOST_COMPUTE_CC_ENTRY_POINT
+#endif
+
 // used to mark kernel functions which must be dynamically retrievable at runtime
 // extern "C": use C name mangling instead of C++ mangling (so function name is the same as written in the code)
 // inline: not actually inline, but makes sure that no prototype is required for global functions
@@ -57,9 +75,9 @@ typedef __SIZE_TYPE__ size_t;
 #define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader, used, visibility("default")))
 #else // host toolchain
 #if !defined(__WINDOWS__)
-#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default")))
+#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default"))) FLOOR_HOST_COMPUTE_CC_ENTRY_POINT
 #else
-#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default"))) __declspec(dllexport)
+#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default"))) FLOOR_HOST_COMPUTE_CC_ENTRY_POINT __declspec(dllexport)
 #endif
 #define FLOOR_ENTRY_POINT_SPEC_C extern "C" FLOOR_ENTRY_POINT_SPEC
 
@@ -73,15 +91,6 @@ typedef __SIZE_TYPE__ size_t;
 #define fragment FLOOR_ENTRY_POINT_SPEC
 #define tessellation_control FLOOR_ENTRY_POINT_SPEC
 #define tessellation_evaluation FLOOR_ENTRY_POINT_SPEC
-#endif
-
-// define calling convention
-#if defined(__x86_64__)
-#define FLOOR_COMPUTE_HOST_CALLING_CONV sysv_abi
-#elif defined(__aarch64__)
-#define FLOOR_COMPUTE_HOST_CALLING_CONV pcs("aapcs")
-#else
-#error "unhandled arch"
 #endif
 
 // workaround use of "global" in locale header by including it before killing global

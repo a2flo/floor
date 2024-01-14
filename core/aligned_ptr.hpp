@@ -28,7 +28,8 @@
 #include <tuple>
 #include <span>
 #if defined(__WINDOWS__)
-#include <malloc.h>
+#include <memoryapi.h>
+#include <errhandlingapi.h>
 #else
 #include <sys/mman.h>
 #endif
@@ -116,7 +117,7 @@ public:
 			set_protection(PAGE_PROTECTION::READ_WRITE);
 			free(ptr);
 #else
-			_aligned_free(ptr);
+			VirtualFree(ptr, 0, MEM_RELEASE);
 #endif
 			size = 0;
 			pinned = false;
@@ -174,27 +175,28 @@ public:
 	//! page-locks/pins the memory
 	bool pin() {
 #if !defined(__WINDOWS__)
-		if (mlock(ptr, size) == 0) {
+		if (mlock(ptr, size) == 0)
+#else
+		if (VirtualLock(ptr, size) != 0)
+#endif
+		{
 			pinned = true;
 			return true;
 		}
-#else
-		// TODO: Windows implementation
-		return false;
-#endif
 		return false;
 	}
 	
 	//! unlocks/unpins the memory again
 	bool unpin() {
 #if !defined(__WINDOWS__)
-		if (munlock(ptr, size) == 0) {
+		if (munlock(ptr, size) == 0)
+#else
+		if (VirtualUnlock(ptr, size) != 0)
+#endif
+		{
 			pinned = false;
 			return true;
 		}
-#else
-		// TODO: Windows implementation
-#endif
 		return false;
 	}
 	
@@ -221,14 +223,22 @@ public:
 				prot_flags = PROT_READ | PROT_EXEC;
 				break;
 		}
-		if (mprotect(ptr, size, prot_flags) != 0) {
-			return false;
-		}
-		return true;
+		return (mprotect(ptr, size, prot_flags) == 0);
 #else
-		// TODO: Windows implementation
-		(void)protection;
-		return false;
+		uint32_t new_protect = 0;
+		switch (protection) {
+			case PAGE_PROTECTION::READ_ONLY:
+				new_protect = PAGE_READONLY;
+				break;
+			case PAGE_PROTECTION::READ_WRITE:
+				new_protect = PAGE_READWRITE;
+				break;
+			case PAGE_PROTECTION::READ_EXEC:
+				new_protect = PAGE_EXECUTE_READ;
+				break;
+		}
+		uint32_t old_protect = 0;
+		return (VirtualProtect(ptr, size, (DWORD)new_protect, (PDWORD)&old_protect) != 0);
 #endif
 	}
 	
@@ -259,12 +269,14 @@ aligned_ptr<T> make_aligned_ptr(const size_t count = 1u) {
 	T* ptr = nullptr;
 #if !defined(__WINDOWS__)
 	if (posix_memalign((void**)&ptr, aligned_ptr<T>::page_size, size) != 0 || ptr == nullptr) {
-		throw std::runtime_error("failed to allocated aligned_ptr");
+		throw std::runtime_error("failed to allocate aligned_ptr");
 	}
 #else
-	ptr = (T*)_aligned_malloc(size, aligned_ptr<T>::page_size);
+	ptr = (T*)VirtualAlloc(nullptr, size,
+						   MEM_COMMIT | MEM_RESERVE,
+						   PAGE_EXECUTE_READWRITE);
 	if (ptr == nullptr) {
-		throw std::runtime_error("failed to allocated aligned_ptr");
+		throw std::runtime_error("failed to allocate aligned_ptr: " + std::to_string(GetLastError()));
 	}
 #endif
 	return aligned_ptr<T> { ptr, size };

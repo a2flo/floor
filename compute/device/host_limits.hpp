@@ -39,13 +39,8 @@
 #define FLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MIN 1u
 #define FLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MAX 0xFFFFFFFFu
 
-#if !defined(__WINDOWS__)
 #define FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX 1024u
 #define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX 1025u
-#else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
-#define FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX 64u
-#define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX 65u
-#endif
 
 //! various host limits that are known at compile-time
 namespace host_limits {

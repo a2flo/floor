@@ -38,6 +38,7 @@
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
+#include <memoryapi.h>
 #include <SDL2/SDL_syswm.h>
 #include <floor/core/essentials.hpp> // cleanup
 
@@ -678,8 +679,9 @@ bool floor::init(const init_state& state) {
 				 config.log_filename, config.msg_filename);
 	log_debug("$", (FLOOR_VERSION_STRING).c_str());
 	
-	// change max open files and max locked memory to a reasonable limit on Linux
+	[[maybe_unused]] const uint64_t wanted_locked_memory_size = core::get_hw_thread_count() * 32u * 1024u * 1024u;
 #if defined(__linux__)
+	// change max open files and max locked memory to a reasonable limit on Linux
 	struct rlimit nofile_limit;
 	memset(&nofile_limit, 0, sizeof(rlimit));
 	if (getrlimit(RLIMIT_NOFILE, &nofile_limit) == 0) {
@@ -693,13 +695,13 @@ bool floor::init(const init_state& state) {
 			setrlimit(RLIMIT_NOFILE, &nofile_limit);
 		}
 	} else {
-		log_error("failed to query NOFILE limit: $", errno);
+		log_error("failed to query NOFILE limit: $", core::get_system_error());
 	}
 	
 	struct rlimit memlock_limit;
 	memset(&memlock_limit, 0, sizeof(rlimit));
 	if (getrlimit(RLIMIT_MEMLOCK, &memlock_limit) == 0) {
-		const auto wanted_memlock = (decltype(memlock_limit.rlim_cur))core::get_hw_thread_count() * 32u * 1024u * 1024u;
+		const auto wanted_memlock = (decltype(memlock_limit.rlim_cur))wanted_locked_memory_size;
 		if (memlock_limit.rlim_cur < wanted_memlock) {
 			memlock_limit.rlim_cur = wanted_memlock;
 			if (memlock_limit.rlim_cur > memlock_limit.rlim_max) {
@@ -709,7 +711,16 @@ bool floor::init(const init_state& state) {
 			setrlimit(RLIMIT_MEMLOCK, &memlock_limit);
 		}
 	} else {
-		log_error("failed to query MEMLOCK limit: $", errno);
+		log_error("failed to query MEMLOCK limit: $", core::get_system_error());
+	}
+#elif defined(__WINDOWS__)
+	// change max locked memory / working set + disable hard quota limits on Windows
+	if (SetProcessWorkingSetSizeEx(GetCurrentProcess(),
+								   wanted_locked_memory_size / 32u,
+								   wanted_locked_memory_size,
+								   QUOTA_LIMITS_HARDWS_MIN_DISABLE |
+								   QUOTA_LIMITS_HARDWS_MAX_DISABLE) == 0) {
+		log_warn("failed to set max working set to $': $", wanted_locked_memory_size, core::get_system_error());
 	}
 #endif
 	

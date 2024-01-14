@@ -56,13 +56,25 @@ static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, som
 // ignore warnings about deprecated functions
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 
+// for targets that don't have the same calling convention as the device code, we must ensure that inlining is prevented,
+// otherwise the inlining will circumvent the calling convention change/attribute
+// NOTE: on all other targets we do of course want inlining to happen if it's beneficial
+#if defined(__WINDOWS__)
+#define FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE FLOOR_HOST_COMPUTE_CC __attribute__((noinline))
+#else
+#define FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE FLOOR_HOST_COMPUTE_CC
+#endif
+
 //
-static const function<void()>* cur_kernel_function { nullptr };
-extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
-extern "C" void run_host_device_group_item(const uint32_t local_linear_idx);
+struct kernel_func_wrapper;
+struct fiber_context;
+static const kernel_func_wrapper* cur_kernel_function { nullptr };
+extern "C" void run_mt_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC;
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC;
+extern "C" void run_exec(fiber_context& main_ctx, fiber_context& first_item) FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE;
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
-#if defined(__x86_64__) && !defined(__WINDOWS__)
+#if defined(__x86_64__)
 #if defined(__AVX512F__) && defined(__AVX512DQ__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
@@ -273,9 +285,9 @@ static constexpr const size_t fiber_context_alignment {
 };
 
 struct alignas(fiber_context_alignment) fiber_context {
-	typedef void (*init_func_type)(const uint32_t);
+	using init_func_type = void (FLOOR_HOST_COMPUTE_CC *)(const uint32_t);
 
-#if (defined(__x86_64__) || defined(__aarch64__)) && !defined(__WINDOWS__)
+#if defined(__x86_64__) || defined(__aarch64__)
 	// SysV x86-64 ABI / ARM AArch64 AAPCS64 compliant implementation
 	static constexpr const size_t min_stack_size { std::max(size_t(8192u), size_t(aligned_ptr<int>::page_size)) };
 	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
@@ -388,7 +400,7 @@ struct alignas(fiber_context_alignment) fiber_context {
 #endif
 	}
 
-	void get_context() noexcept {
+	void get_context() noexcept FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE {
 		floor_get_context(this);
 	}
 
@@ -396,13 +408,13 @@ struct alignas(fiber_context_alignment) fiber_context {
 // (ud2 insertion at a point we don't want this to happen -> we already have a ud2 trap in enter_context)
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(missing-noreturn)
-	void set_context() noexcept {
+	void set_context() noexcept FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE {
 		floor_set_context(this);
 		floor_unreachable();
 	}
 FLOOR_POP_WARNINGS()
 
-	void swap_context(fiber_context* next_ctx) noexcept {
+	void swap_context(fiber_context* next_ctx) noexcept FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE {
 		// NOTE: order of operation in here:
 		// * fiber #1 enters
 		// * set swapped to false
@@ -423,82 +435,6 @@ FLOOR_POP_WARNINGS()
 		}
 	}
 
-#elif defined(__WINDOWS__)
-	static constexpr const size_t min_stack_size { aligned_ptr<int>::page_size };
-
-	// the windows fiber context
-	void* ctx { nullptr };
-
-	static void fiber_run(void* data) noexcept {
-		auto this_ctx = (fiber_context*)data;
-		(*this_ctx->init_func)(this_ctx->init_arg);
-		if(this_ctx->exit_ctx != nullptr) {
-			SwitchToFiber(this_ctx->exit_ctx->ctx);
-		}
-	}
-
-	void init(void* stack_ptr_, const size_t& stack_size_,
-			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_, fiber_context* main_ctx_) noexcept {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
-
-		if(stack_ptr == nullptr) {
-			// this is the main thread
-			// -> need to convert to fiber before creating/using all other fibers
-			ctx = ConvertThreadToFiber(nullptr);
-			if(ctx == nullptr) {
-				log_error("failed to convert thread to fiber: $", GetLastError());
-				logger::flush();
-			}
-		}
-	}
-
-	~fiber_context() {
-		if(ctx == nullptr) return;
-		if(stack_ptr == nullptr) {
-			// main thread, convert fiber back to thread
-			if(!ConvertFiberToThread()) {
-				log_error("failed to convert fiber to thread: $", GetLastError());
-				logger::flush();
-			}
-		}
-		else {
-			// worker fiber
-			DeleteFiber(ctx);
-		}
-		ctx = nullptr;
-	}
-
-	void reset() noexcept {
-		// don't do anything in the main fiber/thread
-		if(stack_ptr == nullptr) return;
-
-		// kill the old fiber if there was one (can't simply reset a windows fiber)
-		if(ctx != nullptr) {
-			DeleteFiber(ctx);
-			ctx = nullptr;
-		}
-
-		// this is a worker fiber/context
-		// -> create a new windows fiber context for this
-		ctx = CreateFiberEx(stack_size, stack_size, 0, fiber_run, this);
-		if(ctx == nullptr) {
-			log_error("failed to create worker fiber context: $", GetLastError());
-			logger::flush();
-		}
-	}
-
-	void get_context() noexcept {
-		// nop
-	}
-
-	void set_context() noexcept {
-		SwitchToFiber(ctx);
-	}
-
-	void swap_context(fiber_context* next_ctx) noexcept {
-		SwitchToFiber(next_ctx->ctx);
-	}
 #else
 	// fallback to posix ucontext_t/etc
 	static constexpr const size_t min_stack_size { 32768 };
@@ -572,7 +508,7 @@ FLOOR_POP_WARNINGS()
 static_assert(sizeof(fiber_context) <= fiber_context_alignment, "fiber_context alignment is not large enough");
 
 // make sure member variables are at the right offsets when using the sysv abi fiber approach
-#if defined(__x86_64__) && !defined(__WINDOWS__)
+#if defined(__x86_64__)
 static_assert(offsetof(fiber_context, init_func) == 0x50);
 static_assert(offsetof(fiber_context, exit_ctx) == 0x58);
 static_assert(offsetof(fiber_context, main_ctx) == 0x60);
@@ -665,16 +601,9 @@ static void floor_alloc_host_stack_memory() {
 #endif
 }
 
-// host-compute device execution context
-struct device_exec_context_t {
-	elf_binary::instance_ids_t* ids { nullptr };
-	function<void()> kernel_func;
-};
-static thread_local device_exec_context_t device_exec_context;
-
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
-kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(std::move(entry_)) {
+kernel(kernel_), func_name(func_name_), entry(std::move(entry_)) {
 }
 
 host_kernel::host_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
@@ -693,95 +622,113 @@ typename host_kernel::kernel_map_type::const_iterator host_kernel::get_kernel(co
 	return kernels.find((const host_device&)cqueue.get_device());
 }
 
-// needed to cast variadic kernel function type to a function type with the correct amount of parameters
-template <typename... Args> using kernel_func_type_t = void (*)(Args...);
-
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-function-type-strict)
+FLOOR_IGNORE_WARNING(cast-qual)
+FLOOR_IGNORE_WARNING(ctad-maybe-unsupported)
+FLOOR_IGNORE_WARNING(weak-vtables)
 
-static function<void()> make_callable_kernel_function(const host_kernel::kernel_func_type kernel_ptr, const vector<const void*>& vptr_args) {
-	function<void()> kernel_func;
+struct kernel_func_wrapper {
+	struct kernel_func_base {
+		kernel_func_base() noexcept = default;
+		kernel_func_base(kernel_func_base&&) noexcept = default;
+		kernel_func_base(const kernel_func_base&) noexcept = default;
+		virtual ~kernel_func_base() noexcept = default;
+		kernel_func_base& operator=(kernel_func_base&&) noexcept = default;
+		kernel_func_base& operator=(const kernel_func_base&) noexcept = default;
+		virtual void call() const noexcept FLOOR_HOST_COMPUTE_CC {}
+	};
+	
+	template <typename int_type, int_type... ints>
+	struct kernel_func final : kernel_func_base {
+		void* func_ptr { nullptr };
+		const vector<const void*>& vptr_args;
+		
+		kernel_func(void* func_ptr_, const vector<const void*>& vptr_args_) noexcept :
+		kernel_func_base(), func_ptr(func_ptr_), vptr_args(vptr_args_) {}
+		
+		//! needed to cast the kernel function type to a function type with the correct amount of parameters
+		template <typename... Args> using kernel_func_type_t = void (FLOOR_HOST_COMPUTE_CC *)(Args...);
+		
+		//! needed to create a const void* parameter pack
+		template <auto> using make_const_void_ptr = const void*;
+		
+		void call() const noexcept override FLOOR_HOST_COMPUTE_CC {
+			(*(kernel_func_type_t<make_const_void_ptr<ints>...>)func_ptr)(vptr_args[ints]...);
+		}
+	};
+	
+	unique_ptr<kernel_func_base> kfunc {};
+	
+	void operator()() const noexcept FLOOR_HOST_COMPUTE_CC {
+		kfunc->call();
+	}
+	
+	explicit operator bool() const {
+		return (kfunc != nullptr);
+	}
+	
+};
+
+// host-compute device execution context
+struct device_exec_context_t {
+	elf_binary::instance_ids_t* ids { nullptr };
+	kernel_func_wrapper kernel_func;
+};
+static thread_local device_exec_context_t device_exec_context;
+
+template <typename int_type, int_type... ints>
+static kernel_func_wrapper make_kernel_func_wrapper(const void* kernel_ptr,
+													const vector<const void*>& vptr_args,
+													std::integer_sequence<int_type, ints...>) {
+	kernel_func_wrapper::kernel_func<int_type, ints...> kfunc((void*)kernel_ptr, vptr_args);
+	return kernel_func_wrapper {
+		.kfunc = make_unique<decltype(kfunc)>(std::move(kfunc))
+	};
+}
+
+static kernel_func_wrapper make_callable_kernel_function(const void* kernel_ptr, const vector<const void*>& vptr_args) {
 	switch (vptr_args.size()) {
-		case 0: kernel_func = [kernel_ptr]() { (*(kernel_func_type_t<>)kernel_ptr)(); }; break;
-
-#define EXPAND_1(var, offset) var[0 + offset]
-#define EXPAND_2(var, offset) var[0 + offset], var[1 + offset]
-#define EXPAND_3(var, offset) var[0 + offset], var[1 + offset], var[2 + offset]
-#define EXPAND_4(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset]
-#define EXPAND_5(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset]
-#define EXPAND_6(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset]
-#define EXPAND_7(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset]
-#define EXPAND_8(var, offset) var[0 + offset], var[1 + offset], var[2 + offset], var[3 + offset], var[4 + offset], var[5 + offset], var[6 + offset], var[7 + offset]
-#define EXPAND_PTR_1() const void*
-#define EXPAND_PTR_2() const void*, EXPAND_PTR_1()
-#define EXPAND_PTR_3() const void*, EXPAND_PTR_2()
-#define EXPAND_PTR_4() const void*, EXPAND_PTR_3()
-#define EXPAND_PTR_5() const void*, EXPAND_PTR_4()
-#define EXPAND_PTR_6() const void*, EXPAND_PTR_5()
-#define EXPAND_PTR_7() const void*, EXPAND_PTR_6()
-#define EXPAND_PTR_8() const void*, EXPAND_PTR_7()
-		
-		case 1: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_1()>)kernel_ptr)(EXPAND_1(vptr_args, 0)); }; break;
-		case 2: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_2()>)kernel_ptr)(EXPAND_2(vptr_args, 0)); }; break;
-		case 3: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_3()>)kernel_ptr)(EXPAND_3(vptr_args, 0)); }; break;
-		case 4: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_4()>)kernel_ptr)(EXPAND_4(vptr_args, 0)); }; break;
-		case 5: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_5()>)kernel_ptr)(EXPAND_5(vptr_args, 0)); }; break;
-		case 6: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_6()>)kernel_ptr)(EXPAND_6(vptr_args, 0)); }; break;
-		case 7: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_7()>)kernel_ptr)(EXPAND_7(vptr_args, 0)); }; break;
-		case 8: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0)); }; break;
-		
-		case 9: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_1(vptr_args, 8)); }; break;
-		case 10: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_2(vptr_args, 8)); }; break;
-		case 11: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_3(vptr_args, 8)); }; break;
-		case 12: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_4(vptr_args, 8)); }; break;
-		case 13: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_5(vptr_args, 8)); }; break;
-		case 14: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_6(vptr_args, 8)); }; break;
-		case 15: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_7(vptr_args, 8)); }; break;
-		case 16: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8)); }; break;
-		
-		case 17: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_1(vptr_args, 16)); }; break;
-		case 18: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_2(vptr_args, 16)); }; break;
-		case 19: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_3(vptr_args, 16)); }; break;
-		case 20: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_4(vptr_args, 16)); }; break;
-		case 21: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_5(vptr_args, 16)); }; break;
-		case 22: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_6(vptr_args, 16)); }; break;
-		case 23: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_7(vptr_args, 16)); }; break;
-		case 24: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16)); }; break;
-		
-		case 25: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_1()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_1(vptr_args, 24)); }; break;
-		case 26: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_2()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_2(vptr_args, 24)); }; break;
-		case 27: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_3()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_3(vptr_args, 24)); }; break;
-		case 28: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_4()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_4(vptr_args, 24)); }; break;
-		case 29: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_5()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_5(vptr_args, 24)); }; break;
-		case 30: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_6()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_6(vptr_args, 24)); }; break;
-		case 31: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_7()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_7(vptr_args, 24)); }; break;
-		case 32: kernel_func = [kernel_ptr, &vptr_args]() { (*(kernel_func_type_t<EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8(), EXPAND_PTR_8()>)kernel_ptr)(EXPAND_8(vptr_args, 0), EXPAND_8(vptr_args, 8), EXPAND_8(vptr_args, 16), EXPAND_8(vptr_args, 24)); }; break;
-		
-#undef EXPAND_1
-#undef EXPAND_2
-#undef EXPAND_3
-#undef EXPAND_4
-#undef EXPAND_5
-#undef EXPAND_6
-#undef EXPAND_7
-#undef EXPAND_8
-#undef EXPAND_PTR_1
-#undef EXPAND_PTR_2
-#undef EXPAND_PTR_3
-#undef EXPAND_PTR_4
-#undef EXPAND_PTR_5
-#undef EXPAND_PTR_6
-#undef EXPAND_PTR_7
-#undef EXPAND_PTR_8
-
-FLOOR_POP_WARNINGS()
-		
+		case 0: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 0u> {});
+		case 1: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 1u> {});
+		case 2: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 2u> {});
+		case 3: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 3u> {});
+		case 4: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 4u> {});
+		case 5: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 5u> {});
+		case 6: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 6u> {});
+		case 7: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 7u> {});
+		case 8: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 8u> {});
+		case 9: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 9u> {});
+		case 10: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 10u> {});
+		case 11: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 11u> {});
+		case 12: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 12u> {});
+		case 13: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 13u> {});
+		case 14: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 14u> {});
+		case 15: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 15u> {});
+		case 16: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 16u> {});
+		case 17: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 17u> {});
+		case 18: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 18u> {});
+		case 19: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 19u> {});
+		case 20: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 20u> {});
+		case 21: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 21u> {});
+		case 22: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 22u> {});
+		case 23: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 23u> {});
+		case 24: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 24u> {});
+		case 25: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 25u> {});
+		case 26: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 26u> {});
+		case 27: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 27u> {});
+		case 28: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 28u> {});
+		case 29: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 29u> {});
+		case 30: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 30u> {});
+		case 31: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 31u> {});
+		case 32: return make_kernel_func_wrapper(kernel_ptr, vptr_args, std::make_integer_sequence<int, 32u> {});
 		default:
 			log_error("too many kernel parameters specified (only up to 32 parameters are supported)");
 			return {};
 	}
-	return kernel_func;
 }
+
+FLOOR_POP_WARNINGS()
 
 void host_kernel::execute(const compute_queue& cqueue,
 						  const bool& is_cooperative,
@@ -949,6 +896,19 @@ void host_kernel::execute(const compute_queue& cqueue,
 		if (completion_handler) {
 			completion_handler();
 		}
+	}
+}
+
+//! starts the actual fiber context execution (needed here for CC purposes)
+extern "C" void run_exec(fiber_context& main_ctx, fiber_context& first_item) FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE {
+	static thread_local volatile bool done;
+	done = false;
+	main_ctx.get_context();
+	if (!done) {
+		done = true;
+		
+		// start first fiber
+		first_item.set_context();
 	}
 }
 
@@ -1136,15 +1096,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 #endif
 				
 				// run fibers/work-items for this group
-				static thread_local volatile bool done;
-				done = false;
-				main_ctx.get_context();
-				if(!done) {
-					done = true;
-					
-					// start first fiber
-					items[0].set_context();
-				}
+				run_exec(main_ctx, items[0]);
 				
 				// exit due to excessive local memory allocation?
 				if(local_memory_exceeded) {
@@ -1175,7 +1127,7 @@ void host_kernel::execute_host(const uint32_t& cpu_count, const uint3& group_dim
 #endif
 }
 
-extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
+extern "C" void run_mt_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC {
 	// set local + global id
 	const uint3 local_id {
 		local_linear_idx % floor_local_work_size.x,
@@ -1247,8 +1199,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 				success = false;
 				return;
 			}
-			const auto func_ptr = (const kernel_func_type)const_cast<void*>(func_iter->second);
-			device_exec_context.kernel_func = make_callable_kernel_function(func_ptr, vptr_args);
+			device_exec_context.kernel_func = make_callable_kernel_function(func_iter->second, vptr_args);
 			if (!device_exec_context.kernel_func) {
 				log_error("failed to create kernel function for CPU #$", cpu_idx);
 				success = false;
@@ -1295,15 +1246,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 #endif
 				
 				// run fibers/work-items for this group
-				static thread_local volatile bool done;
-				done = false;
-				main_ctx.get_context();
-				if(!done) {
-					done = true;
-					
-					// start first fiber
-					items[0].set_context();
-				}
+				run_exec(main_ctx, items[0]);
 				
 				// check if any items are still unfinished (in a valid program, all must be finished at this point)
 				// NOTE: this won't detect all barrier misuses, doing so would require *a lot* of work
@@ -1323,7 +1266,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 	}
 }
 
-extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) {
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC {
 	// set ids for work-item
 	{
 		auto& ids = *device_exec_context.ids;
@@ -1354,7 +1297,7 @@ extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) {
 
 // barrier handling (all the same)
 // NOTE: the same barrier _must_ be encountered at the same point for all work-items
-void global_barrier() {
+void global_barrier() FLOOR_HOST_COMPUTE_CC {
 #if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
 	// save current barrier generation/id
 	const uint32_t cur_gen = barrier_gen;
@@ -1388,17 +1331,17 @@ void global_barrier() {
 	floor_global_idx = saved_global_id;
 #endif
 }
-void local_barrier() {
+void local_barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
 }
-void image_barrier() {
+void image_barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
 }
-void barrier() {
+void barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
 }
 
-void host_compute_device_barrier() {
+void host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC {
 	auto& ids = *device_exec_context.ids;
 	
 	// save indices, switch to next fiber and restore indices again
@@ -1415,7 +1358,7 @@ void host_compute_device_barrier() {
 	ids.instance_global_idx = saved_global_id;
 }
 
-uint32_t* host_compute_device_printf_buffer() {
+uint32_t* host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC {
 	return floor_host_device_printf_buffer.get_as<uint32_t>();
 }
 
