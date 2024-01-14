@@ -38,13 +38,13 @@ FLOOR_IGNORE_WARNING(missing-prototypes)
 
 // function definitions / forwarders
 FLOOR_HOST_DEVICE_FUNC_DECL float FLOOR_HOST_DEVICE_BUILTIN(sinf)(const float val) FLOOR_HOST_COMPUTE_CC {
-	return std::sinf(val);
+	return ::sinf(val);
 }
 FLOOR_HOST_DEVICE_FUNC_DECL float FLOOR_HOST_DEVICE_BUILTIN(cosf)(const float val) FLOOR_HOST_COMPUTE_CC {
-	return std::cosf(val);
+	return ::cosf(val);
 }
 FLOOR_HOST_DEVICE_FUNC_DECL float FLOOR_HOST_DEVICE_BUILTIN(powf)(const float a, const float b) FLOOR_HOST_COMPUTE_CC {
-	return std::powf(a, b);
+	return ::powf(a, b);
 }
 
 FLOOR_POP_WARNINGS()

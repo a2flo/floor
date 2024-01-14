@@ -55,7 +55,13 @@ static auto get_module_handle_from_address(const void* addr) {
 template <bool in_libfloor = false>
 static auto get_external_symbol_ptr(const string& name) {
 #if !defined(__WINDOWS__)
-	return dlsym(!in_libfloor ? RTLD_DEFAULT : RTLD_SELF, name.c_str());
+	return dlsym(
+#if defined(RTLD_SELF)
+				 !in_libfloor ? RTLD_DEFAULT : RTLD_SELF,
+#else
+				 RTLD_DEFAULT,
+#endif
+				 name.c_str());
 #else
 	static const auto exe_handle = GetModuleHandleA(nullptr);
 	static const auto libfloor_handle = get_module_handle_from_address((const void*)&get_module_handle_from_address);
