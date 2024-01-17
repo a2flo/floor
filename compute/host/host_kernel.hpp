@@ -29,25 +29,14 @@
 #include <floor/threading/task.hpp>
 #include <floor/compute/compute_kernel.hpp>
 
-// host compute exeuction model, choose wisely:
-
-// single-threaded, one logical cpu (the calling thread) corresponding to all work-items and work-groups
-// NOTE: no parallelism
-//#define FLOOR_HOST_COMPUTE_ST 1
-
-// multi-threaded, each logical cpu ("h/w thread") corresponding to one work-item in a work-group
-// NOTE: has intra-group parallelism, has no inter-group parallelism
-// NOTE: no fibers, barriers are sync'ed through spin locking
-//#define FLOOR_HOST_COMPUTE_MT_ITEM 1
-
-// multi-threaded, each logical cpu ("h/w thread") corresponding to one work-group
-// NOTE: has no intra-group parallelism, has inter-group parallelism
-// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
-#define FLOOR_HOST_COMPUTE_MT_GROUP 1
-
 class host_device;
 class elf_binary;
+struct kernel_func_wrapper;
 
+// host kernel execution implementation:
+// multi-threaded, each logical cpu ("h/w thread") corresponds to one work-group
+// NOTE: has no intra-group parallelism, but has inter-group parallelism
+// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
 class host_kernel final : public compute_kernel {
 public:
 	struct host_kernel_entry : kernel_entry {
@@ -85,9 +74,13 @@ protected:
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
 	//! host-compute "host" execution
-	void execute_host(const uint32_t& cpu_count,
+	void execute_host(const kernel_func_wrapper& func,
+					  const uint32_t& cpu_count,
 					  const uint3& group_dim,
-					  const uint3& local_dim) const;
+					  const uint3& group_size,
+					  const uint3& global_dim,
+					  const uint3& local_dim,
+					  const uint32_t& work_dim) const;
 	
 	//! host-compute "device" execution
 	void execute_device(const host_kernel_entry& func_entry,
@@ -112,6 +105,23 @@ protected:
 extern "C" void host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC;
 //! host-compute device specific printf buffer
 extern "C" uint32_t* host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC;
+
+//! host-compute (host) local memory offset retrieval
+extern uint32_t floor_host_compute_thread_local_memory_offset_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) global index retrieval
+extern uint3 floor_host_compute_global_idx_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) local index retrieval
+extern uint3 floor_host_compute_local_idx_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) group index retrieval
+extern uint3 floor_host_compute_group_idx_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) work dim retrieval
+extern uint32_t floor_host_compute_work_dim_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) global work size/dim retrieval
+extern uint3 floor_host_compute_global_work_size_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) local work size/dim retrieval
+extern uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC;
+//! host-compute (host) group size/dim retrieval
+extern uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC;
 
 #endif
 

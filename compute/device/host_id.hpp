@@ -24,52 +24,27 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // host-compute
 #if !defined(FLOOR_COMPUTE_HOST_DEVICE)
-// this is used to compute the offset into local memory depending on the worker thread id.
-// this must be declared extern, so that it is properly visible to host compute code, so that
-// no "opaque" function has to called, which would be detrimental to vectorization.
-#if !defined(__WINDOWS__)
-extern thread_local uint32_t floor_thread_idx;
-extern thread_local uint32_t floor_thread_local_memory_offset;
-#else // Windows workarounds for dllexport of TLS vars
-FLOOR_DLL_API inline auto& floor_thread_idx_get() {
-	static thread_local uint32_t floor_thread_idx_tls;
-	return floor_thread_idx_tls;
-}
-FLOOR_DLL_API inline auto& floor_thread_local_memory_offset_get() {
-	static thread_local uint32_t floor_thread_local_memory_offset_tls;
-	return floor_thread_local_memory_offset_tls;
-}
-#define floor_thread_idx floor_thread_idx_get()
-#define floor_thread_local_memory_offset floor_thread_local_memory_offset_get()
-#endif
 
-// id handling vars, as above, this is externally visible to aid vectorization
-extern FLOOR_DLL_API uint32_t floor_work_dim;
-extern FLOOR_DLL_API uint3 floor_global_work_size;
-extern FLOOR_DLL_API uint3 floor_local_work_size;
-extern FLOOR_DLL_API uint3 floor_group_size;
+// dynamic vars/functions
+extern uint32_t floor_host_compute_thread_local_memory_offset_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_global_idx_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_local_idx_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_group_idx_get() FLOOR_HOST_COMPUTE_CC;
 
-#if !defined(__WINDOWS__)
-extern thread_local uint3 floor_global_idx;
-extern thread_local uint3 floor_local_idx;
-extern thread_local uint3 floor_group_idx;
-#else // Windows workarounds for dllexport of TLS vars
-FLOOR_DLL_API inline auto& floor_global_idx_get() {
-	static thread_local uint3 floor_global_idx_tls;
-	return floor_global_idx_tls;
-}
-FLOOR_DLL_API inline auto& floor_local_idx_get() {
-	static thread_local uint3 floor_local_idx_tls;
-	return floor_local_idx_tls;
-}
-FLOOR_DLL_API inline auto& floor_group_idx_get() {
-	static thread_local uint3 floor_group_idx_tls;
-	return floor_group_idx_tls;
-}
-#define floor_global_idx floor_global_idx_get()
-#define floor_local_idx floor_local_idx_get()
-#define floor_group_idx floor_group_idx_get()
-#endif
+#define floor_thread_local_memory_offset floor_host_compute_thread_local_memory_offset_get()
+#define floor_global_idx floor_host_compute_global_idx_get()
+#define floor_local_idx floor_host_compute_local_idx_get()
+#define floor_group_idx floor_host_compute_group_idx_get()
+
+// globally constant vars/functions
+extern uint32_t floor_host_compute_work_dim_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_global_work_size_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC;
+extern uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC;
+#define floor_work_dim floor_host_compute_work_dim_get()
+#define floor_global_work_size floor_host_compute_global_work_size_get()
+#define floor_local_work_size floor_host_compute_local_work_size_get()
+#define floor_group_size floor_host_compute_group_size_get()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // host-compute device

@@ -45,7 +45,12 @@ typedef __SIZE_TYPE__ size_t;
 #if defined(__x86_64__)
 #define FLOOR_HOST_COMPUTE_CC __attribute__((sysv_abi))
 #elif defined(__aarch64__)
+#if defined(__APPLE__)
+// we can't use a different CC on Apple ARM, but the Darwin CC is close enough to AAPCS for this to not matter
+#define FLOOR_HOST_COMPUTE_CC
+#else
 #define FLOOR_HOST_COMPUTE_CC __attribute__((pcs("aapcs")))
+#endif
 #else
 #error "unhandled arch"
 #endif
