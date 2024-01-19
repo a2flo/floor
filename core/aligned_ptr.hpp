@@ -28,8 +28,10 @@
 #include <tuple>
 #include <span>
 #if defined(__WINDOWS__)
+#include <floor/core/platform_windows.hpp>
 #include <memoryapi.h>
 #include <errhandlingapi.h>
+#include <floor/core/essentials.hpp> // cleanup
 #else
 #include <sys/mman.h>
 #endif

@@ -111,7 +111,7 @@ protected:
 	std::mutex mtx;
 	
 public:
-#if !defined(__GLIBCXX__) // libstdc++ is not standard compliant - don't make it constexpr there for now
+#if !defined(__GLIBCXX__) && !defined(_MSVC_STL_UPDATE) // libstdc++/MSSTL are not standard compliant - don't make it constexpr there for now
 	constexpr
 #endif
 	safe_mutex() noexcept = default;

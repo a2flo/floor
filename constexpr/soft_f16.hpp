@@ -32,6 +32,7 @@
 
 #if !defined(FLOOR_NO_MATH_STR)
 #include <string>
+#include <iostream>
 #endif
 
 using namespace std;

@@ -1675,7 +1675,7 @@ function void simplified_nbody ( %void() ) {
 * compiler/toolchain:
 ** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 10.0+
 ** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 12.5+]
-** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2019] with provided clang/LLVM or link:https://llvm.org/builds[Clang / LLVM for Windows]
+** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
 ** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 10.0+
 * libraries and optional requirements:
 ** link:https://www.libsdl.org[SDL2] 2.0.18+
@@ -1730,8 +1730,9 @@ function void simplified_nbody ( %void() ) {
 ** iOS linker flags for a depending project: `-lSDL2 -lfloor -lcrypto -lssl`
 
 === Build Instructions (Visual Studio / CMake / vcpkg / Windows) ===
-* install link:https://visualstudio.microsoft.com/vs[Visual Studio 2019 16.9+]
-* install link:https://llvm.org/builds[Clang / LLVM for Windows] or select clang in the VS installer
+* install link:https://visualstudio.microsoft.com/vs[Visual Studio 2022]
+* in "Workloads" select "Desktop development with C++", in "Individual components" search for and select all clang packages
+* install and wait
 * install link:https://vulkan.lunarg.com/sdk/home[Vulkan SDK]
 * install vcpkg (somewhere, not within libfloor):
 ** `git clone https://github.com/Microsoft/vcpkg.git`
@@ -1739,10 +1740,13 @@ function void simplified_nbody ( %void() ) {
 ** `.\bootstrap-vcpkg.bat -disableMetrics`
 ** `.\vcpkg integrate install`
 * install vcpkg packages:
-** `vcpkg --triplet x64-windows install sdl2 opengl opengl-registry OpenCL vulkan openssl-windows asio openal-soft openvr openxr`
+** `.\vcpkg --triplet x64-windows install sdl2 opengl opengl-registry OpenCL vulkan openssl-windows asio openal-soft openvr openxr-loader`
+* add a user (or system) environment variable `VCPKG_ROOT` that points to the vcpkg folder
+* in Visual Studio: Tools -> Options -> search for vcpkg and set the custom vcpkg.exe path
 * in Visual Studio: open folder `floor` (wait a little until build files are generated)
 * select `Debug` or `Release` configuration and build
 ** NOTE: all dependencies (optional parts) are enabled here
+** NOTE: having other build environments/systems in `PATH` (e.g. MSYS2/MinGW) may result in install/build issues
 
 == Installation ==
 === Installation (Unix / macOS) ===
@@ -1755,7 +1759,7 @@ function void simplified_nbody ( %void() ) {
 * create a `%%ProgramFiles%%/floor` folder (C:/Program Files/floor)
 * inside this folder:
 ** create a `lib` folder
-** VS2019:
+** VS2022:
 *** copy everything from bin/ in there (dlls/lib/exp)
 ** MinGW/MSYS2:
 *** copy libfloor_static.a/libfloord_static.a there

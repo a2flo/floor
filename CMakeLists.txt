@@ -19,6 +19,10 @@ set(WITH_LIBCXX false CACHE BOOL "build with libc++")
 add_compile_definitions(FLOOR_DLL_EXPORT)
 add_compile_options(-march=corei7-avx -mf16c)
 
+if (WIN32)
+	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif (WIN32)
+
 ## build output
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

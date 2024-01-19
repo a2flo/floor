@@ -26,7 +26,6 @@ if (WIN32)
 	if (MINGW)
 		target_compile_definitions(${PROJECT_NAME} PUBLIC MINGW)
 	endif (MINGW)
-	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif (WIN32)
 
 if (CMAKE_BUILD_TYPE MATCHES "RELEASE" OR CMAKE_BUILD_TYPE MATCHES "Release")
@@ -102,8 +101,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
 
 # on MinGW, ignore casing warnings (there is an issue where this warnings triggers even if the casing is correct)
 if (MINGW)
-	target_compile_options(${PROJECT_NAME} PUBLIC "-Wno-nonportable-system-include-path")
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nonportable-system-include-path)
 endif (MINGW)
+# similarly, also do this with a MSVC toolchain, but do it for all non-system includes as well
+if (MSVC)
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nonportable-system-include-path)
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nonportable-include-path)
+endif (MSVC)
 
 # MinGW: use lld
 if (MINGW)

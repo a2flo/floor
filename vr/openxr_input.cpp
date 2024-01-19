@@ -191,21 +191,21 @@ bool openxr_context::input_setup() {
 			.subactionPaths = &hand_paths[i],
 		};
 		if (i == 0) {
-			strcpy(action_create_info.actionName, "hand_pose_left");
-			strcpy(action_create_info.localizedActionName, "hand_pose_left");
+			strcpy_s(action_create_info.actionName, std::size(action_create_info.actionName), "hand_pose_left");
+			strcpy_s(action_create_info.localizedActionName, std::size(action_create_info.localizedActionName), "hand_pose_left");
 		} else {
-			strcpy(action_create_info.actionName, "hand_pose_right");
-			strcpy(action_create_info.localizedActionName, "hand_pose_right");
+			strcpy_s(action_create_info.actionName, std::size(action_create_info.actionName), "hand_pose_right");
+			strcpy_s(action_create_info.localizedActionName, std::size(action_create_info.localizedActionName), "hand_pose_right");
 		}
 		XR_CALL_RET(xrCreateAction(input_action_set, &action_create_info, &hand_pose_actions[i]),
 					"failed to create hand pose action", false);
 
 		if (i == 0) {
-			strcpy(action_create_info.actionName, "hand_aim_pose_left");
-			strcpy(action_create_info.localizedActionName, "hand_aim_pose_left");
+			strcpy_s(action_create_info.actionName, std::size(action_create_info.actionName), "hand_aim_pose_left");
+			strcpy_s(action_create_info.localizedActionName, std::size(action_create_info.localizedActionName), "hand_aim_pose_left");
 		} else {
-			strcpy(action_create_info.actionName, "hand_aim_pose_right");
-			strcpy(action_create_info.localizedActionName, "hand_aim_pose_right");
+			strcpy_s(action_create_info.actionName, std::size(action_create_info.actionName), "hand_aim_pose_right");
+			strcpy_s(action_create_info.localizedActionName, std::size(action_create_info.localizedActionName), "hand_aim_pose_right");
 		}
 		XR_CALL_RET(xrCreateAction(input_action_set, &action_create_info, &hand_aim_pose_actions[i]),
 					"failed to create hand aim pose action", false);
@@ -924,8 +924,8 @@ bool openxr_context::create_tracker_actions_and_spaces() {
 			.subactionPaths = &tracker_role_paths[i],
 		};
 		const auto tracker_action_name = "tracker_" + role_str;
-		strcpy(action_create_info.actionName, tracker_action_name.c_str());
-		strcpy(action_create_info.localizedActionName, tracker_action_name.c_str());
+		strcpy_s(action_create_info.actionName, std::size(action_create_info.actionName), tracker_action_name.c_str());
+		strcpy_s(action_create_info.localizedActionName, std::size(action_create_info.localizedActionName), tracker_action_name.c_str());
 		XR_CALL_RET(xrCreateAction(tracker_input_action_set, &action_create_info, &tracker_pose_actions[i]),
 					"failed to create tracker " + role_str + " pose action", false);
 
