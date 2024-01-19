@@ -1745,8 +1745,8 @@ function void simplified_nbody ( %void() ) {
 * in Visual Studio: Tools -> Options -> search for vcpkg and set the custom vcpkg.exe path
 * in Visual Studio: open folder `floor` (wait a little until build files are generated)
 * select `Debug` or `Release` configuration and build
-** NOTE: all dependencies (optional parts) are enabled here
-** NOTE: having other build environments/systems in `PATH` (e.g. MSYS2/MinGW) may result in install/build issues
+* NOTE: all dependencies (optional parts) are enabled here
+* NOTE: having other build environments/systems in `PATH` (e.g. MSYS2/MinGW) may result in install/build issues
 
 == Installation ==
 === Installation (Unix / macOS) ===

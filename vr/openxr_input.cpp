@@ -20,6 +20,11 @@
 
 #if !defined(FLOOR_NO_OPENXR) && !defined(FLOOR_NO_VULKAN)
 
+#if !defined(__WINDOWS__)
+#include <string.h>
+#define strcpy_s(dst, len, src) strncpy(dst, src, len)
+#endif
+
 const array<openxr_context::input_event_emulation_t, size_t(openxr_context::CONTROLLER_TYPE::__MAX_CONTROLLER_TYPE)>
 openxr_context::controller_input_emulation_lut {{
 	// NONE
