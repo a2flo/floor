@@ -1162,6 +1162,8 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_shared_presentable_image",
 			"VK_KHR_maintenance5",
 			"VK_KHR_cooperative_matrix",
+			"VK_KHR_maintenance6",
+			"VK_KHR_performance_query",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
