@@ -1156,6 +1156,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_incremental_present",
 			"VK_KHR_video_decode_h264",
 			"VK_KHR_video_decode_h265",
+			"VK_KHR_video_decode_av1",
+			"VK_KHR_video_encode_h264",
+			"VK_KHR_video_encode_h265",
+			"VK_KHR_video_encode_av1",
 			"VK_KHR_map_memory2",
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
@@ -1164,6 +1168,15 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			"VK_KHR_cooperative_matrix",
 			"VK_KHR_maintenance6",
 			"VK_KHR_performance_query",
+			"VK_KHR_video_maintenance1",
+			"VK_KHR_index_type_uint8",
+			"VK_KHR_line_rasterization",
+			"VK_KHR_load_store_op_none",
+			"VK_KHR_shader_expect_assume",
+			"VK_KHR_shader_float_controls2",
+			"VK_KHR_shader_maximal_reconvergence",
+			"VK_KHR_shader_quad_control",
+			"VK_KHR_shader_subgroup_rotate",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;

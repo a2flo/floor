@@ -1608,7 +1608,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1520;
+				LastUpgradeCheck = 1530;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -2249,7 +2249,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2263,7 +2263,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/include",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2297,7 +2297,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2311,7 +2311,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/include",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2509,7 +2509,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2523,7 +2523,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/include",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
@@ -2781,7 +2781,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/lib",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2795,7 +2795,7 @@
 					"-isystem",
 					"/opt/homebrew/opt/openssl@1.1/include",
 					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.0/include",
+					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);

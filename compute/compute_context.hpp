@@ -157,7 +157,8 @@ public:
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, { (uint8_t*)data.data(), data.size_bytes() }, flags, opengl_type);
+		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
+							 flags, opengl_type);
 	}
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
@@ -248,7 +249,8 @@ public:
 										   std::span<data_type> data,
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data.data(), data.size_bytes() }, flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type,
+							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags, opengl_type);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count on the specified device
