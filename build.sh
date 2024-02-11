@@ -432,9 +432,9 @@ if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
 	LDFLAGS="${LDFLAGS} -stdlib=libstdc++"
 else
 	LDFLAGS="${LDFLAGS} -stdlib=libc++"
+	INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
 fi
 LIBS="${LIBS}"
-INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
 COMMON_FLAGS="${COMMON_FLAGS}"
 
 # if no AR is specified, set it to the default ar (used when creating a static lib)
@@ -852,6 +852,8 @@ WARNINGS="${WARNINGS} -Wthread-safety -Wthread-safety-negative -Wthread-safety-b
 WARNINGS="${WARNINGS} -Wno-return-std-move-in-c++11"
 # ignore unsafe pointer/buffer access warnings
 WARNINGS="${WARNINGS} -Wno-unsafe-buffer-usage"
+# ignore reserved identifier warnings because of "__" prefixes
+WARNINGS="${WARNINGS} -Wno-reserved-identifier"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
 # diagnostics
@@ -882,6 +884,8 @@ if [ $BUILD_OS == "mingw" ]; then
 	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-static-libgcc //g")
 	# remove unwanted -lm (this won't work and lead to linker errors!)
 	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-lm //g")
+	# remove unwanted -ldl (this doesn't exist on Windows)
+	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-ldl //g")
 fi
 
 # mingw: create import lib and export everything
