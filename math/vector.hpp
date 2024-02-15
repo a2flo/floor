@@ -2184,15 +2184,15 @@ public:
 		static_assert(sizeof(dst_scalar_type) == sizeof(scalar_type),
 					  "bitcast type size must == the current type size");
 		return FLOOR_VECNAME<dst_scalar_type> {
-			std::bit_cast<dst_scalar_type>(x),
+			bit_cast<dst_scalar_type>(x),
 #if FLOOR_VECTOR_WIDTH >= 2
-			std::bit_cast<dst_scalar_type>(y),
+			bit_cast<dst_scalar_type>(y),
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			std::bit_cast<dst_scalar_type>(z),
+			bit_cast<dst_scalar_type>(z),
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			std::bit_cast<dst_scalar_type>(w),
+			bit_cast<dst_scalar_type>(w),
 #endif
 		};
 	}
