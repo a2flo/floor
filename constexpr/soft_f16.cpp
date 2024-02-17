@@ -20,3 +20,6 @@
 
 // just to make sure this is correct
 static_assert(sizeof(soft_f16) == 2, "invalid soft 16-bit half floating point type size");
+
+// this must be ensured
+static_assert(std::is_trivially_copyable_v<soft_f16>, "soft 16-bit half floating point type must be trivially copyable");

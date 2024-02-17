@@ -52,12 +52,11 @@ using namespace std;
 //! storage-only 16-bit half-precision floating point type
 //! NOTE: this implementation is incomplete and not always constexpr at this point
 struct soft_f16 {
-	union {
-		uint16_t value;
 #if FLOOR_HAS_NATIVE_FP16 == 1
-		__fp16 value_fp16;
+	__fp16 value_fp16 { 0.0f };
+#else
+	uint16_t value { 0u };
 #endif
-	};
 	
 	enum : uint16_t {
 		SIGN_MASK = 0x8000u,
@@ -67,17 +66,11 @@ struct soft_f16 {
 	
 #if FLOOR_HAS_NATIVE_FP16 != 1
 	//! default constructors
-	constexpr soft_f16() noexcept : value(0) {}
-	constexpr soft_f16(const soft_f16& val) noexcept : value(val.value) {}
-	constexpr soft_f16(soft_f16&& val) noexcept : value(val.value) {}
-	constexpr soft_f16& operator=(const soft_f16& val) {
-		value = val.value;
-		return *this;
-	}
-	constexpr soft_f16& operator=(soft_f16&& val) {
-		value = val.value;
-		return *this;
-	}
+	constexpr soft_f16() noexcept = default;
+	constexpr soft_f16(const soft_f16&) noexcept = default;
+	constexpr soft_f16(soft_f16&&) noexcept = default;
+	constexpr soft_f16& operator=(const soft_f16&) noexcept = default;
+	constexpr soft_f16& operator=(soft_f16&&) noexcept = default;
 	
 	//! construction from a floating point value
 	template <typename fp_type> requires(is_floating_point_v<fp_type>)
@@ -104,35 +97,29 @@ struct soft_f16 {
 	}
 #else // native/proper __fp16 type: use 'value_fp16' instead of 'value' for constexpr reasons
 	//! default constructors
-	constexpr soft_f16() noexcept : value_fp16(0.0f) {}
-	constexpr soft_f16(const soft_f16& val) noexcept : value_fp16(val.value_fp16) {}
-	constexpr soft_f16(soft_f16&& val) noexcept : value_fp16(val.value_fp16) {}
-	constexpr soft_f16& operator=(const soft_f16& val) {
-		value_fp16 = val.value_fp16;
-		return *this;
-	}
-	constexpr soft_f16& operator=(soft_f16&& val) {
-		value_fp16 = val.value_fp16;
-		return *this;
-	}
+	constexpr soft_f16() noexcept = default;
+	constexpr soft_f16(const soft_f16&) noexcept = default;
+	constexpr soft_f16(soft_f16&&) noexcept = default;
+	constexpr soft_f16& operator=(const soft_f16&) noexcept = default;
+	constexpr soft_f16& operator=(soft_f16&&) noexcept = default;
 	
 	//! construction from a floating point value
-	template <typename fp_type> requires(is_floating_point_v<fp_type>)
-	constexpr soft_f16(const fp_type& val) noexcept : value_fp16((__fp16)val) {}
+	template <typename fp_type> requires(is_floating_point_v<fp_type> || is_same_v<fp_type, __fp16>)
+	constexpr soft_f16(const fp_type& val) noexcept : value_fp16(__fp16(val)) {}
 	//! assignment from a floating point value
-	template <typename fp_type> requires(is_floating_point_v<fp_type>)
+	template <typename fp_type> requires(is_floating_point_v<fp_type> || is_same_v<fp_type, __fp16>)
 	constexpr soft_f16& operator=(const fp_type& val) noexcept {
-		value_fp16 = (__fp16)val;
+		value_fp16 = __fp16(val);
 		return *this;
 	}
 	
 	//! construction from an integral value
 	template <typename int_type> requires(is_integral_v<int_type>)
-	constexpr soft_f16(const int_type& val) noexcept : value_fp16((__fp16)((float)val)) {}
+	constexpr soft_f16(const int_type& val) noexcept : value_fp16(__fp16(float(val))) {}
 	//! assignment from an integral value
 	template <typename int_type> requires(is_integral_v<int_type>)
 	constexpr soft_f16& operator=(const int_type& val) noexcept {
-		value_fp16 = (__fp16)((float)val);
+		value_fp16 = __fp16(float(val));
 		return *this;
 	}
 #endif
@@ -369,14 +356,14 @@ struct soft_f16 {
 #else
 #define FLOOR_F16_OP(op) \
 	constexpr soft_f16 operator op (const soft_f16& val) const noexcept { \
-		return (float(value_fp16) op float(val.value_fp16)); \
+		return soft_f16 { __fp16(float(value_fp16) op float(val.value_fp16)) }; \
 	} \
 	constexpr soft_f16& operator op##= (const soft_f16& val) noexcept { \
 		value_fp16 = __fp16(float(value_fp16) op float(val.value_fp16)); \
 		return *this; \
 	} \
 	constexpr friend soft_f16 operator op (const float& lhs, const soft_f16& rhs) { \
-	   return lhs * float(rhs); \
+		return soft_f16 { __fp16(lhs * float(rhs)) }; \
 	}
 #endif
 	
@@ -389,7 +376,11 @@ struct soft_f16 {
 	
 	static constexpr soft_f16 direct_u16_value_init(const uint16_t& val) {
 		soft_f16 ret;
+#if FLOOR_HAS_NATIVE_FP16 != 1
 		ret.value = val;
+#else
+		ret.value_fp16 = bit_cast<__fp16>(val);
+#endif
 		return ret;
 	}
 	
@@ -433,10 +424,18 @@ struct soft_f16 {
 #endif
 	}
 	constexpr bool operator==(const soft_f16& val) const {
+#if FLOOR_HAS_NATIVE_FP16 != 1
 		return value == val.value;
+#else
+		return (bit_cast<uint16_t>(value_fp16) == bit_cast<uint16_t>(val.value_fp16));
+#endif
 	}
 	constexpr bool operator!=(const soft_f16& val) const {
+#if FLOOR_HAS_NATIVE_FP16 != 1
 		return (value != val.value);
+#else
+		return (bit_cast<uint16_t>(value_fp16) != bit_cast<uint16_t>(val.value_fp16));
+#endif
 	}
 	constexpr bool operator<=(const soft_f16& val) const {
 		return (*this < val || *this == val);
@@ -446,16 +445,49 @@ struct soft_f16 {
 	}
 	
 	constexpr bool is_nan() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
 		return ((value & EXPONENT_MASK) == EXPONENT_MASK) && ((value & MANTISSA_MASK) != 0);
 	}
 	constexpr bool is_infinite() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
 		return ((value & EXPONENT_MASK) == EXPONENT_MASK) && ((value & MANTISSA_MASK) == 0);
 	}
 	constexpr bool is_normal() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
 		return ((value & EXPONENT_MASK) != EXPONENT_MASK) && ((value & EXPONENT_MASK) != 0);
 	}
 	constexpr bool is_finite() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
 		return ((value & EXPONENT_MASK) != EXPONENT_MASK);
+	}
+	
+	constexpr int clz() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
+		return __builtin_clzs(value);
+	}
+	
+	constexpr int ctz() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
+		return __builtin_ctzs(value);
+	}
+	
+	constexpr int popcount() const {
+#if FLOOR_HAS_NATIVE_FP16 == 1
+		const auto value = bit_cast<uint16_t>(value_fp16);
+#endif
+		return __builtin_popcount(uint32_t(value));
 	}
 	
 #if !defined(FLOOR_NO_MATH_STR)

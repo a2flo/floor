@@ -1147,7 +1147,7 @@ namespace const_math {
 	constexpr int clz(const fp_type val) {
 #if defined(FLOOR_HAS_NATIVE_FP16)
 		if constexpr (is_same_v<fp_type, soft_f16>) {
-			return clz(val.value);
+			return val.clz();
 		} else
 #endif
 		{
@@ -1201,7 +1201,7 @@ namespace const_math {
 	constexpr int ctz(const fp_type val) {
 #if defined(FLOOR_HAS_NATIVE_FP16)
 		if constexpr (is_same_v<fp_type, soft_f16>) {
-			return ctz(val.value);
+			return val.ctz();
 		} else
 #endif
 		{
@@ -1251,7 +1251,7 @@ namespace const_math {
 	constexpr int popcount(const fp_type val) {
 #if defined(FLOOR_HAS_NATIVE_FP16)
 		if constexpr (is_same_v<fp_type, soft_f16>) {
-			return popcount(val.value);
+			return val.popcount();
 		} else
 #endif
 		{
