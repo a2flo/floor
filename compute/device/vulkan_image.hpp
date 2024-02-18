@@ -32,15 +32,9 @@ namespace vulkan_image {
 			NEAREST						= (0u << __FILTER_MODE_SHIFT),
 			LINEAR						= (1u << __FILTER_MODE_SHIFT),
 		};
-		enum ADDRESS_MODE : uint32_t {
-			__ADDRESS_MODE_MASK			= (0x00000002u),
-			__ADDRESS_MODE_SHIFT		= (1u),
-			CLAMP_TO_EDGE				= (0u << __ADDRESS_MODE_SHIFT),
-			REPEAT						= (1u << __ADDRESS_MODE_SHIFT),
-		};
 		enum COMPARE_FUNCTION : uint32_t {
-			__COMPARE_FUNCTION_MASK		= (0x0000001Cu),
-			__COMPARE_FUNCTION_SHIFT	= (2u),
+			__COMPARE_FUNCTION_MASK		= (0x0000000Eu),
+			__COMPARE_FUNCTION_SHIFT	= (1u),
 			NEVER						= (0u << __COMPARE_FUNCTION_SHIFT),
 			LESS						= (1u << __COMPARE_FUNCTION_SHIFT),
 			EQUAL						= (2u << __COMPARE_FUNCTION_SHIFT),
@@ -50,10 +44,17 @@ namespace vulkan_image {
 			GREATER_OR_EQUAL			= (6u << __COMPARE_FUNCTION_SHIFT),
 			ALWAYS						= (7u << __COMPARE_FUNCTION_SHIFT),
 		};
+		enum ADDRESS_MODE : uint32_t {
+			__ADDRESS_MODE_MASK			= (0x00000030u),
+			__ADDRESS_MODE_SHIFT		= (4u),
+			CLAMP_TO_EDGE				= (0u << __ADDRESS_MODE_SHIFT),
+			REPEAT						= (1u << __ADDRESS_MODE_SHIFT),
+			REPEAT_MIRRORED				= (2u << __ADDRESS_MODE_SHIFT),
+		};
 		// NOTE: this should be the MSB, because we won't actually be creating samplers for pixel addressing
 		enum COORD_MODE : uint32_t {
-			__COORD_MODE_MASK			= (0x00000020u),
-			__COORD_MODE_SHIFT			= (5u),
+			__COORD_MODE_MASK			= (0x00000040u),
+			__COORD_MODE_SHIFT			= (6u),
 			NORMALIZED					= (0u << __COORD_MODE_SHIFT),
 			PIXEL						= (1u << __COORD_MODE_SHIFT),
 		};

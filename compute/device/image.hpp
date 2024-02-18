@@ -121,24 +121,30 @@ namespace floor_image {
 #endif
 	
 	//! backend specific default sampler (for integral and floating point coordinates)
-	template <typename coord_type, bool sample_linear, bool sample_repeat, COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER>
+	template <typename coord_type, bool sample_linear, bool sample_repeat, bool sample_repeat_mirrored,
+			  COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER>
 	struct default_sampler {
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
-			return ((!sample_repeat ? opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE : opencl_image::sampler::ADDRESS_MODE::REPEAT) |
+			return ((sample_repeat ? opencl_image::sampler::ADDRESS_MODE::REPEAT :
+					 (sample_repeat_mirrored ? opencl_image::sampler::ADDRESS_MODE::MIRRORED_REPEAT :
+					  opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE)) |
 					(is_int_coord<coord_type>() ? opencl_image::sampler::COORD_MODE::PIXEL : opencl_image::sampler::COORD_MODE::NORMALIZED) |
 					(!sample_linear ? opencl_image::sampler::FILTER_MODE::NEAREST : opencl_image::sampler::FILTER_MODE::LINEAR));
 #elif defined(FLOOR_COMPUTE_VULKAN)
 			return (vulkan_image::sampler {
 				(!sample_linear ? vulkan_image::sampler::NEAREST : vulkan_image::sampler::LINEAR),
-				(!sample_repeat ? vulkan_image::sampler::CLAMP_TO_EDGE : vulkan_image::sampler::REPEAT),
+				(sample_repeat ? vulkan_image::sampler::REPEAT :
+				 (sample_repeat_mirrored ? vulkan_image::sampler::REPEAT_MIRRORED : vulkan_image::sampler::CLAMP_TO_EDGE)),
 				(is_int_coord<coord_type>() ? vulkan_image::sampler::PIXEL : vulkan_image::sampler::NORMALIZED),
 				(vulkan_image::sampler::COMPARE_FUNCTION)(uint32_t(compare_function) <<
 														  vulkan_image::sampler::__COMPARE_FUNCTION_SHIFT)
 			}).value;
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
-				(!sample_repeat ? metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE : metal_image::sampler::ADDRESS_MODE::REPEAT),
+				(sample_repeat ? metal_image::sampler::ADDRESS_MODE::REPEAT :
+				 (sample_repeat_mirrored ? metal_image::sampler::ADDRESS_MODE::MIRRORED_REPEAT :
+				  metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE)),
 				(is_int_coord<coord_type>() ? metal_image::sampler::COORD_MODE::PIXEL : metal_image::sampler::COORD_MODE::NORMALIZED),
 				(!sample_linear ? metal_image::sampler::FILTER_MODE::NEAREST : metal_image::sampler::FILTER_MODE::LINEAR),
 				(!sample_linear ? metal_image::sampler::MIP_FILTER_MODE::MIP_NONE : metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR),
@@ -376,8 +382,9 @@ namespace floor_image {
 		//! internal read function, handling all kinds of reads
 		//! NOTE: while this is an internal function, it might be useful for anyone insane enough to use it directly on the outside
 		//!       -> this is a public function and not protected
-		template <bool sample_linear, bool sample_repeat = false, bool is_lod = false, bool is_gradient = false,
-				  bool is_compare = false, COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER,
+		template <bool sample_linear, bool sample_repeat = false, bool sample_repeat_mirrored = false,
+				  bool is_lod = false, bool is_gradient = false, bool is_compare = false,
+				  COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER,
 				  typename coord_type, typename lod_type = int32_t>
 		requires (is_readable())
 		floor_inline_always auto read_internal(const coord_type& coord,
@@ -444,7 +451,7 @@ namespace floor_image {
 #if !defined(FLOOR_COMPUTE_METAL) // only constexpr with opencl/vulkan
 			constexpr
 #endif
-			const sampler_type smplr = default_sampler<coord_type, sample_linear, sample_repeat, compare_function>::value();
+			const sampler_type smplr = default_sampler<coord_type, sample_linear, sample_repeat, sample_repeat_mirrored, compare_function>::value();
 			if constexpr (is_float) {
 				return fit_output(opaque_image::read_image_float(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
 																 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
@@ -469,7 +476,8 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_CUDA)
 			constexpr const auto cuda_tex_idx = cuda_sampler::sampler_index(is_int_coord<coord_type>() ? cuda_sampler::PIXEL : cuda_sampler::NORMALIZED,
 																			sample_linear ? cuda_sampler::LINEAR : cuda_sampler::NEAREST,
-																			sample_repeat ? cuda_sampler::REPEAT : cuda_sampler::CLAMP_TO_EDGE,
+																			(sample_repeat ? cuda_sampler::REPEAT :
+																			 (sample_repeat_mirrored ? cuda_sampler::REPEAT_MIRRORED : cuda_sampler::CLAMP_TO_EDGE)),
 																			(!is_compare ||
 																			 compare_function == COMPARE_FUNCTION::ALWAYS ||
 																			 compare_function == COMPARE_FUNCTION::NEVER) ?
@@ -498,29 +506,33 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_HOST)
 			if constexpr (!is_compare) {
 				if constexpr (!sample_linear) {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
-																														converted_coord, offset, layer,
-																														(!is_lod_float ? int32_t(lod) : 0),
-																														(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat,
+									  sample_repeat_mirrored>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)r_img(),
+																	converted_coord, offset, layer,
+																	(!is_lod_float ? int32_t(lod) : 0),
+																	(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 				} else {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
-																															   converted_coord, offset, layer,
-																															   (!is_lod_float ? int32_t(lod) : 0),
-																															   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat,
+									  sample_repeat_mirrored>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)r_img(),
+																		   converted_coord, offset, layer,
+																		   (!is_lod_float ? int32_t(lod) : 0),
+																		   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 				}
 			} else {
 				if constexpr (!sample_linear) {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
-																														   converted_coord, offset, layer,
-																														   (!is_lod_float ? int32_t(lod) : 0),
-																														   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																														   compare_function, compare_value));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat,
+									  sample_repeat_mirrored>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)r_img(),
+																	   converted_coord, offset, layer,
+																	   (!is_lod_float ? int32_t(lod) : 0),
+																	   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																	   compare_function, compare_value));
 				} else {
-					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat>*)r_img(),
-																																  converted_coord, offset, layer,
-																																  (!is_lod_float ? int32_t(lod) : 0),
-																																  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																																  compare_function, compare_value));
+					return fit_output(host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat,
+									  sample_repeat_mirrored>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)r_img(),
+																			  converted_coord, offset, layer,
+																			  (!is_lod_float ? int32_t(lod) : 0),
+																			  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																			  compare_function, compare_value));
 				}
 			}
 #endif
@@ -590,6 +602,38 @@ namespace floor_image {
 			return read_internal<false, true>(coord, layer, sample, offset, bias);
 		}
 		
+		//! image read with nearest/point sampling and repeat-mirrored address mode (non-array, non-msaa)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_repeat_mirrored(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<false, false, true>(coord, 0, 0, offset, bias);
+		}
+		
+		//! image read with nearest/point sampling and repeat-mirrored address mode (array, non-msaa)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_repeat_mirrored(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<false, false, true>(coord, layer, 0, offset, bias);
+		}
+		
+		//! image read with nearest/point sampling and repeat-mirrored address mode (non-array, msaa)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_repeat_mirrored(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<false, false, true>(coord, 0, sample, offset, bias);
+		}
+		
+		//! image read with nearest/point sampling and repeat-mirrored address mode (array, msaa)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_repeat_mirrored(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<false, false, true>(coord, layer, sample, offset, bias);
+		}
+		
 		//! image read with linear sampling and clamp-to-edge address mode (non-array, non-msaa)
 		template <typename coord_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
@@ -654,12 +698,44 @@ namespace floor_image {
 			return read_internal<true, true>(coord, layer, sample, offset, bias);
 		}
 		
+		//! image read with linear sampling and repeat-mirrored address mode (non-array, non-msaa)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_linear_repeat_mirrored(const coord_type& coord, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<true, false, true>(coord, 0, 0, offset, bias);
+		}
+		
+		//! image read with linear sampling and repeat-mirrored address mode (array, non-msaa)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_linear_repeat_mirrored(const coord_type& coord, const uint32_t layer, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<true, false, true>(coord, layer, 0, offset, bias);
+		}
+		
+		//! image read with linear sampling and repeat-mirrored address mode (non-array, msaa)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_linear_repeat_mirrored(const coord_type& coord, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<true, false, true>(coord, 0, sample, offset, bias);
+		}
+		
+		//! image read with linear sampling and repeat-mirrored address mode (array, msaa)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_linear_repeat_mirrored(const coord_type& coord, const uint32_t layer, const uint32_t sample, const offset_vec_type offset = {}, const float bias = 0.0f) const {
+			return read_internal<true, false, true>(coord, layer, sample, offset, bias);
+		}
+		
 		//! image read at an explicit lod level with nearest/point sampling and clamp-to-edge address mode (non-array)
 		template <typename coord_type, typename lod_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, false, true>(coord, 0, 0, offset, 0.0f, lod);
+			return read_internal<false, false, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and clamp-to-edge address mode (array)
@@ -667,7 +743,7 @@ namespace floor_image {
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, false, true>(coord, layer, 0, offset, 0.0f, lod);
+			return read_internal<false, false, false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and repeat address mode (non-array)
@@ -675,7 +751,7 @@ namespace floor_image {
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_repeat(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, true, true>(coord, 0, 0, offset, 0.0f, lod);
+			return read_internal<false, true, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with nearest/point sampling and repeat address mode (array)
@@ -683,7 +759,23 @@ namespace floor_image {
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_repeat(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, true, true>(coord, layer, 0, offset, 0.0f, lod);
+			return read_internal<false, true, false, true>(coord, layer, 0, offset, 0.0f, lod);
+		}
+		
+		//! image read at an explicit lod level with nearest/point sampling and repeat-mirrored address mode (non-array)
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_lod_repeat_mirrored(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
+			return read_internal<false, false, true, true>(coord, 0, 0, offset, 0.0f, lod);
+		}
+		
+		//! image read at an explicit lod level with nearest/point sampling and repeat-mirrored address mode (array)
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_lod_repeat_mirrored(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
+			return read_internal<false, false, true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and clamp-to-edge address mode (non-array)
@@ -691,7 +783,7 @@ namespace floor_image {
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, false, true>(coord, 0, 0, offset, 0.0f, lod);
+			return read_internal<true, false, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and clamp-to-edge address mode (array)
@@ -699,7 +791,7 @@ namespace floor_image {
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, false, true>(coord, layer, 0, offset, 0.0f, lod);
+			return read_internal<true, false, false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and repeat address mode (non-array)
@@ -707,7 +799,7 @@ namespace floor_image {
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear_repeat(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, true, true>(coord, 0, 0, offset, 0.0f, lod);
+			return read_internal<true, true, false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read at an explicit lod level with linear sampling and repeat address mode (array)
@@ -715,7 +807,23 @@ namespace floor_image {
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
 		auto read_lod_linear_repeat(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, true, true>(coord, layer, 0, offset, 0.0f, lod);
+			return read_internal<true, true, false, true>(coord, layer, 0, offset, 0.0f, lod);
+		}
+		
+		//! image read at an explicit lod level with linear sampling and repeat-mirrored address mode (non-array)
+		template <typename coord_type, typename lod_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_lod_linear_repeat_mirrored(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
+			return read_internal<true, false, true, true>(coord, 0, 0, offset, 0.0f, lod);
+		}
+		
+		//! image read at an explicit lod level with linear sampling and repeat-mirrored address mode (array)
+		template <typename coord_type, typename lod_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_lod_linear_repeat_mirrored(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
+			return read_internal<true, false, true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and clamp-to-edge address mode (non-array)
@@ -725,7 +833,7 @@ namespace floor_image {
 		auto read_gradient(const coord_type& coord,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
 						   const offset_vec_type offset = {}) const {
-			return read_internal<false, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+			return read_internal<false, false, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and clamp-to-edge address mode (array)
@@ -735,7 +843,7 @@ namespace floor_image {
 		auto read_gradient(const coord_type& coord, const uint32_t layer,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
 						   const offset_vec_type offset = {}) const {
-			return read_internal<false, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+			return read_internal<false, false, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat address mode (non-array)
@@ -745,7 +853,7 @@ namespace floor_image {
 		auto read_gradient_repeat(const coord_type& coord,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
-			return read_internal<false, true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+			return read_internal<false, true, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat address mode (array)
@@ -755,7 +863,27 @@ namespace floor_image {
 		auto read_gradient_repeat(const coord_type& coord, const uint32_t layer,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
-			return read_internal<false, true, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+			return read_internal<false, true, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+		}
+		
+		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat-mirrored address mode (non-array)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_gradient_repeat_mirrored(const coord_type& coord,
+										   const pair<gradient_vec_type, gradient_vec_type> gradient,
+										   const offset_vec_type offset = {}) const {
+			return read_internal<false, false, true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+		}
+		
+		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling and repeat-mirrored address mode (array)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_gradient_repeat_mirrored(const coord_type& coord, const uint32_t layer,
+										   const pair<gradient_vec_type, gradient_vec_type> gradient,
+										   const offset_vec_type offset = {}) const {
+			return read_internal<false, false, true, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and clamp-to-edge address mode (non-array)
@@ -765,7 +893,7 @@ namespace floor_image {
 		auto read_gradient_linear(const coord_type& coord,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
-			return read_internal<true, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+			return read_internal<true, false, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and clamp-to-edge address mode (array)
@@ -775,7 +903,7 @@ namespace floor_image {
 		auto read_gradient_linear(const coord_type& coord, const uint32_t layer,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
 								  const offset_vec_type offset = {}) const {
-			return read_internal<true, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+			return read_internal<true, false, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat address mode (non-array)
@@ -785,7 +913,7 @@ namespace floor_image {
 		auto read_gradient_linear_repeat(const coord_type& coord,
 										 const pair<gradient_vec_type, gradient_vec_type> gradient,
 										 const offset_vec_type offset = {}) const {
-			return read_internal<true, true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+			return read_internal<true, true, false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat address mode (array)
@@ -795,7 +923,27 @@ namespace floor_image {
 		auto read_gradient_linear_repeat(const coord_type& coord, const uint32_t layer,
 										 const pair<gradient_vec_type, gradient_vec_type> gradient,
 										 const offset_vec_type offset = {}) const {
-			return read_internal<true, true, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+			return read_internal<true, true, false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
+		}
+		
+		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat-mirrored address mode (non-array)
+		template <typename coord_type>
+		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_gradient_linear_repeat_mirrored(const coord_type& coord,
+												  const pair<gradient_vec_type, gradient_vec_type> gradient,
+												  const offset_vec_type offset = {}) const {
+			return read_internal<true, false, true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
+		}
+		
+		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling and repeat-mirrored address mode (array)
+		template <typename coord_type>
+		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))
+		auto read_gradient_linear_repeat_mirrored(const coord_type& coord, const uint32_t layer,
+												  const pair<gradient_vec_type, gradient_vec_type> gradient,
+												  const offset_vec_type offset = {}) const {
+			return read_internal<true, false, true, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
 		//////////////////////////////////////////
@@ -810,56 +958,56 @@ namespace floor_image {
 		template <COMPARE_FUNCTION compare_function, typename coord_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare(const coord_type& coord, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
-			return read_internal<false, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
+			return read_internal<false, false, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with nearest/point sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare(const coord_type& coord, const uint32_t layer, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
-			return read_internal<false, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
+			return read_internal<false, false, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with linear sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_linear(const coord_type& coord, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
-			return read_internal<true, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
+			return read_internal<true, false, false, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with linear sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_linear(const coord_type& coord, const uint32_t layer, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
-			return read_internal<true, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
+			return read_internal<true, false, false, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with nearest/point sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod(const coord_type& coord, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
+			return read_internal<false, false, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with nearest/point sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod(const coord_type& coord, const uint32_t layer, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<false, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
+			return read_internal<false, false, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with linear sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod_linear(const coord_type& coord, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
+			return read_internal<true, false, false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read at an explicit lod level with linear sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))
 		auto compare_lod_linear(const coord_type& coord, const uint32_t layer, const float& compare_value, const lod_type lod, const offset_vec_type offset = {}) const {
-			return read_internal<true, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
+			return read_internal<true, false, false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (non-array)
@@ -868,7 +1016,7 @@ namespace floor_image {
 		auto compare_gradient(const coord_type& coord, const float& compare_value,
 							  const pair<gradient_vec_type, gradient_vec_type> gradient,
 							  const offset_vec_type offset = {}) const {
-			return read_internal<false, false, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
+			return read_internal<false, false, false, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (array)
@@ -877,7 +1025,7 @@ namespace floor_image {
 		auto compare_gradient(const coord_type& coord, const uint32_t layer, const float& compare_value,
 							  const pair<gradient_vec_type, gradient_vec_type> gradient,
 							  const offset_vec_type offset = {}) const {
-			return read_internal<false, false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
+			return read_internal<false, false, false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (non-array)
@@ -886,7 +1034,7 @@ namespace floor_image {
 		auto compare_gradient_linear(const coord_type& coord, const float& compare_value,
 									 const pair<gradient_vec_type, gradient_vec_type> gradient,
 									 const offset_vec_type offset = {}) const {
-			return read_internal<true, false, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
+			return read_internal<true, false, false, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
 		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (array)
@@ -895,7 +1043,7 @@ namespace floor_image {
 		auto compare_gradient_linear(const coord_type& coord, const uint32_t layer, const float& compare_value,
 									 const pair<gradient_vec_type, gradient_vec_type> gradient,
 									 const offset_vec_type offset = {}) const {
-			return read_internal<true, false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
+			return read_internal<true, false, false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
 	public: // image write functions

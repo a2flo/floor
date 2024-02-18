@@ -351,8 +351,8 @@ public:
 	{}
 #endif
 	
-	//! amount of fixed/embedded samplers: 5 bits -> 32 combinations
-	static constexpr const uint32_t max_sampler_combinations { 32 };
+	//! amount of fixed/embedded samplers: 6 bits (used 75%) -> 48 combinations
+	static constexpr const uint32_t max_sampler_combinations { 48 };
 	
 protected:
 	VkInstance ctx { nullptr };

@@ -30,7 +30,7 @@ FLOOR_PUSH_WARNINGS()
 #pragma clang diagnostic ignored "-Rpass"
 #endif
 
-template <COMPUTE_IMAGE_TYPE, bool is_lod, bool is_lod_float, bool is_bias, bool sample_repeat> struct host_device_image;
+template <COMPUTE_IMAGE_TYPE, bool is_lod, bool is_lod_float, bool is_bias, bool sample_repeat, bool sample_repeat_mirrored> struct host_device_image;
 
 namespace host_image_impl {
 	struct image_level_info {
@@ -52,7 +52,7 @@ namespace host_image_impl {
 	//! due to the fact that there are normalized image formats that differ in sample type from their storage type,
 	//! we can't simply create templated functions for the specified 'image_type', but have to instantiate all possible
 	//! ones and select the appropriate one at run-time (-> 'runtime_image_type').
-	template <COMPUTE_IMAGE_TYPE fixed_image_type, bool is_lod, bool is_lod_float, bool is_bias, bool sample_repeat>
+	template <COMPUTE_IMAGE_TYPE fixed_image_type, bool is_lod, bool is_lod_float, bool is_bias, bool sample_repeat, bool sample_repeat_mirrored>
 	struct fixed_image {
 		// returns the image_dim vector corresponding to the coord dimensionality
 		template <size_t dim, typename clamp_dim_type> requires(dim == 1)
@@ -80,15 +80,26 @@ namespace host_image_impl {
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
-			if constexpr (!sample_repeat) {
-				// clamp to [0, image_dim - 1]
-				return vector_n<uint32_t, coord_type::dim()> {
-					(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
-				};
-			} else {
+			if constexpr (sample_repeat) {
 				// wrap to [0, image_dim - 1]
 				return vector_n<uint32_t, coord_type::dim()> {
 					(coord + offset).wrapped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
+				};
+			} else if constexpr (sample_repeat_mirrored) {
+				const auto clamp_dim = image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int);
+				const auto coord_offset = coord + offset;
+				// for each dim: 0 = not mirrored, 1 = mirrored
+				const auto mirrored = (coord_offset / (clamp_dim + 1)) % 2;
+				// start with coord wrapped to [0, image_dim - 1]
+				const auto repeat_coord = coord_offset.wrapped(clamp_dim);
+				return vector_n<uint32_t, coord_type::dim()> {
+					// select based on "mirrored"
+					(repeat_coord) * (1 - mirrored) /* !mirrored */ + (clamp_dim - repeat_coord) * mirrored /* mirrored */
+				};
+			} else {
+				// clamp to [0, image_dim - 1]
+				return vector_n<uint32_t, coord_type::dim()> {
+					(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
 				};
 			}
 		}
@@ -100,15 +111,27 @@ namespace host_image_impl {
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const int2 offset = {}) {
-			if constexpr (!sample_repeat) {
-				// clamp to [0, image_dim - 1]
-				return vector_n<uint32_t, coord_type::dim()> {
-					int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
-				};
-			} else {
+			if constexpr (sample_repeat) {
 				// wrap to [0, image_dim - 1]
 				return vector_n<uint32_t, coord_type::dim()> {
 					int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).wrapped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
+				};
+			} else if constexpr (sample_repeat_mirrored) {
+				const auto clamp_dim = image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int);
+				const int2 coord_offset_2d { int(coord.x) + offset.x, int(coord.y) + offset.y };
+				// for each dim: 0 = not mirrored, 1 = mirrored
+				const auto mirrored_2d = (coord_offset_2d / (clamp_dim.xy + 1)) % 2;
+				// start with coord wrapped to [0, image_dim - 1]
+				const auto repeat_coord_2d = coord_offset_2d.wrapped(clamp_dim.xy);
+				return vector_n<uint32_t, coord_type::dim()> {
+					// select based on "mirrored"
+					(repeat_coord_2d) * (1 - mirrored_2d) /* !mirrored */ + (clamp_dim.xy - repeat_coord_2d) * mirrored_2d /* mirrored */,
+					int1(int(coord.z)).wrapped(clamp_dim.z).x
+				};
+			} else {
+				// clamp to [0, image_dim - 1]
+				return vector_n<uint32_t, coord_type::dim()> {
+					int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
 				};
 			}
 		}
@@ -122,15 +145,7 @@ namespace host_image_impl {
 													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
 			const auto fdim = image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_float);
 			const auto fdim_excl = image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_float_excl);
-			if constexpr (!sample_repeat) {
-				// with normalized coords:
-				// * scale and add [0, 1] to [0, image dim]
-				// * apply offset (now in [-min offset, image dim + max offset])
-				// * clamp to [0, image dim), taking care of out-of-bounds access and the case that
-				//   floor(image_dim) != image_dim - 1, but floor(nextafter(image_dim, 0.0)) == image_dim -1
-				// * convert to uint (equivalent to floor(x))
-				return vector_n<uint32_t, coord_type::dim()> { (coord * fdim + coord_type(offset)).clamp(fdim_excl) };
-			} else {
+			if constexpr (sample_repeat) {
 				// with normalized coords and repeat sampling:
 				// * scale normalized coordinates to image dim
 				// * apply offset (now in [-N * image dim - min offset, N * image dim + max offset])
@@ -138,6 +153,22 @@ namespace host_image_impl {
 				//   floor(image_dim) != image_dim - 1, but floor(nextafter(image_dim, 0.0)) == image_dim -1
 				// * convert to uint (equivalent to floor(x))
 				return vector_n<uint32_t, coord_type::dim()> { (coord * fdim + coord_type(offset)).wrap(fdim).clamp(fdim_excl) };
+			} else if constexpr (sample_repeat_mirrored) {
+				const auto coord_offset = coord * fdim + coord_type(offset);
+				const auto mirrored = (((coord_offset / fdim) % 2.0f) >= 1.0f).template cast<float>();
+				const auto repeat_coord = coord_offset.wrapped(fdim).clamped(fdim_excl);
+				return vector_n<uint32_t, coord_type::dim()> {
+					// select based on "mirrored"
+					(repeat_coord) * (1 - mirrored) /* !mirrored */ + (fdim_excl - repeat_coord) * mirrored /* mirrored */
+				};
+			} else {
+				// with normalized coords:
+				// * scale and add [0, 1] to [0, image dim]
+				// * apply offset (now in [-min offset, image dim + max offset])
+				// * clamp to [0, image dim), taking care of out-of-bounds access and the case that
+				//   floor(image_dim) != image_dim - 1, but floor(nextafter(image_dim, 0.0)) == image_dim -1
+				// * convert to uint (equivalent to floor(x))
+				return vector_n<uint32_t, coord_type::dim()> { (coord * fdim + coord_type(offset)).clamp(fdim_excl) };
 			}
 		}
 		
@@ -152,17 +183,26 @@ namespace host_image_impl {
 			const auto fdim = image_dim_to_coord_dim<coord_type::dim() - 1u>(level_info.clamp_dim_float);
 			const auto fdim_excl = image_dim_to_coord_dim<coord_type::dim() - 1u>(level_info.clamp_dim_float_excl);
 			const auto coord_layer = compute_cube_coord_and_layer(coord);
-			if constexpr (!sample_repeat) {
-				return vector_n<uint32_t, coord_type::dim()> {
-					(coord_layer.first * fdim + float2(offset)).clamp(fdim_excl),
-					coord_layer.second
-				};
-			} else {
+			if constexpr (sample_repeat) {
 				// repeat sampling: this is somewhat underspecified, since coordinate represents a 3D vector/direction here
 				// and not a point in 2D coordinate space
 				// -> assume user defined a proper multiple and use as-is (doesn't affect layer), but wrap+clamp the 2D coordinate
 				return vector_n<uint32_t, coord_type::dim()> {
 					(coord_layer.first * fdim + float2(offset)).wrap(fdim).clamp(fdim_excl),
+					coord_layer.second
+				};
+			} else if constexpr (sample_repeat_mirrored) {
+				const auto coord_offset = coord_layer.first * fdim + float2(offset);
+				const auto mirrored = (((coord_offset / fdim) % 2.0f) >= 1.0f).template cast<float>();
+				const auto repeat_coord = coord_offset.wrapped(fdim).clamped(fdim_excl);
+				return vector_n<uint32_t, coord_type::dim()> {
+					// select based on "mirrored"
+					(repeat_coord) * (1 - mirrored) /* !mirrored */ + (fdim_excl - repeat_coord) * mirrored /* mirrored */,
+					coord_layer.second
+				};
+			} else {
+				return vector_n<uint32_t, coord_type::dim()> {
+					(coord_layer.first * fdim + float2(offset)).clamp(fdim_excl),
 					coord_layer.second
 				};
 			}
@@ -446,7 +486,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 		requires((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) ||
 				  data_type == COMPUTE_IMAGE_TYPE::FLOAT) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
-		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
@@ -522,7 +562,7 @@ FLOOR_POP_WARNINGS()
 
 		template <typename coord_type, typename offset_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
-		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
@@ -599,7 +639,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) &&
 				 (data_type == COMPUTE_IMAGE_TYPE::INT || data_type == COMPUTE_IMAGE_TYPE::UINT) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
-		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static auto read(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						 const coord_type& coord,
 						 const offset_type& coord_offset,
 						 const uint32_t layer,
@@ -631,7 +671,7 @@ FLOOR_POP_WARNINGS()
 		requires((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) ||
 				  data_type == COMPUTE_IMAGE_TYPE::FLOAT) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
-		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
@@ -682,7 +722,7 @@ FLOOR_POP_WARNINGS()
 
 		template <typename coord_type>
 		requires(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type))
-		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
@@ -763,7 +803,7 @@ FLOOR_POP_WARNINGS()
 		requires(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(fixed_image_type) &&
 				 !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(fixed_image_type) &&
 				 (data_type == COMPUTE_IMAGE_TYPE::INT || data_type == COMPUTE_IMAGE_TYPE::UINT))
-		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat>* img,
+		static void write(const host_device_image<fixed_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
@@ -784,11 +824,11 @@ FLOOR_POP_WARNINGS()
 	};
 }
 
-template <COMPUTE_IMAGE_TYPE sample_image_type, bool is_lod = false, bool is_lod_float = false, bool is_bias = false, bool sample_repeat = false>
+template <COMPUTE_IMAGE_TYPE sample_image_type, bool is_lod = false, bool is_lod_float = false, bool is_bias = false, bool sample_repeat = false, bool sample_repeat_mirrored = false>
 struct host_device_image {
 	using storage_type = conditional_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(sample_image_type) &&
 										!has_flag<COMPUTE_IMAGE_TYPE::WRITE>(sample_image_type)), const uint8_t, uint8_t>;
-	using host_device_image_type = host_device_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>;
+	using host_device_image_type = host_device_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>;
 	
 	static constexpr const COMPUTE_IMAGE_TYPE fixed_data_type = (sample_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 	
@@ -810,7 +850,7 @@ struct host_device_image {
 		// * normalize coord to [0, 1]
 		// * scale it to [0, image dim]
 		// * get fractional [0, 1) in this texel
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
 		// texel A is always the outside pixel, texel B is always the active one
 		const color_type colors[2] {
@@ -834,7 +874,7 @@ struct host_device_image {
 							const float lod_or_bias_f) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
 		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
 		color_type colors[4] {
@@ -862,7 +902,7 @@ struct host_device_image {
 							const float lod_or_bias_f) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
 		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
 		color_type colors[8] {
@@ -957,7 +997,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
 		const color_type depth_values[2] {
 			read(img, coord, coord_offset + int1 { frac_coord < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
@@ -985,7 +1025,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
 		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
 		const color_type depth_values[4] {
@@ -1023,7 +1063,7 @@ FLOOR_POP_WARNINGS()
 							   const float compare_value) {
 		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
 		
-		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat>::select_lod(lod_i, lod_or_bias_f);
+		const auto lod = host_image_impl::fixed_image<sample_image_type, is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
 		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
 		const color_type depth_values[8] {
@@ -1097,12 +1137,12 @@ FLOOR_POP_WARNINGS()
 	};
 	
 #define FLOOR_RT_READ_IMAGE_CASE(rt_base_type) case (rt_base_type): \
-return host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat>::read( \
-(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat>*)img, std::forward<Args>(args)...);
+return host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::read( \
+(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)img, std::forward<Args>(args)...);
 
 #define FLOOR_RT_WRITE_IMAGE_CASE(rt_base_type) case (rt_base_type): \
-host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat>::write( \
-(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat>*)img, std::forward<Args>(args)...); return;
+host_image_impl::fixed_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>::write( \
+(const host_device_image<(rt_base_type | fixed_base_type), is_lod, is_lod_float, is_bias, sample_repeat, sample_repeat_mirrored>*)img, std::forward<Args>(args)...); return;
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPUTE_IMAGE_TYPE'" warnings, this is expected

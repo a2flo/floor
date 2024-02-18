@@ -2839,13 +2839,13 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		struct {
 			//! nearest or linear, includes mip-map filtering
 			uint32_t filter : 1;
-			//! 0 = clamp to edge, 1 = repeat
-			uint32_t address_mode : 1;
 			//! -> sampler.hpp: never, less, equal, less or equal, greater, not equal, greater or equal, always
 			// TODO: get rid of always, b/c the compiler takes care of these (never as well, but we need a way to signal "no depth compare")
 			uint32_t compare_mode : 3;
+			//! 0 = clamp to edge, 1 = repeat, 2 = repeat-mirrored
+			uint32_t address_mode : 2;
 			//! unused
-			uint32_t _unused : 27;
+			uint32_t _unused : 26;
 		};
 		uint32_t value;
 	};
@@ -2873,8 +2873,9 @@ void vulkan_compute::create_fixed_sampler_set() const {
 		const VkFilter filter = (smplr.filter == 0 ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
 		const VkSamplerMipmapMode mipmap_filter = (smplr.filter == 0 ?
 												   VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR);
-		const VkSamplerAddressMode address_mode = (smplr.address_mode == 0 ?
-												   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT);
+		const VkSamplerAddressMode address_mode = (smplr.address_mode == 0 ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE :
+												   (smplr.address_mode == 1 ? VK_SAMPLER_ADDRESS_MODE_REPEAT :
+													VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT));
 		VkSamplerCreateInfo sampler_create_info {
 			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 			.pNext = nullptr,

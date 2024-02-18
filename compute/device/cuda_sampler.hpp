@@ -37,14 +37,6 @@ struct cuda_sampler {
 		FILTER_MODE_SHIFT		= 1u,
 		FILTER_MODE_MASK		= (1u << FILTER_MODE_SHIFT),
 	};
-	enum ADDRESS_MODE : uint32_t {
-		CLAMP_TO_EDGE			= 0u,
-		REPEAT					= 1u,
-		
-		ADDRESS_MODE_MAX		= REPEAT,
-		ADDRESS_MODE_SHIFT		= 2u,
-		ADDRESS_MODE_MASK		= (1u << ADDRESS_MODE_SHIFT),
-	};
 	enum COMPARE_FUNCTION : uint32_t {
 		NONE					= 0u,
 		//! NOTE: this is handled on the compiler side
@@ -60,8 +52,17 @@ struct cuda_sampler {
 		NOT_EQUAL				= 6u,
 		
 		COMPARE_FUNCTION_MAX	= NOT_EQUAL,
-		COMPARE_FUNCTION_SHIFT	= 3u,
+		COMPARE_FUNCTION_SHIFT	= 2u,
 		COMPARE_FUNCTION_MASK	= (7u << COMPARE_FUNCTION_SHIFT),
+	};
+	enum ADDRESS_MODE : uint32_t {
+		CLAMP_TO_EDGE			= 0u,
+		REPEAT					= 1u,
+		REPEAT_MIRRORED			= 2u,
+		
+		ADDRESS_MODE_MAX		= REPEAT_MIRRORED,
+		ADDRESS_MODE_SHIFT		= 5u,
+		ADDRESS_MODE_MASK		= (1u << ADDRESS_MODE_SHIFT),
 	};
 	
 	static constexpr COORD_MODE get_coord_mode(const uint32_t& index) {
@@ -92,14 +93,8 @@ struct cuda_sampler {
 		return ret;
 	}
 	
-	static constexpr const uint32_t max_sampler_count {
-		1u +
-		((COORD_MODE_MAX << COORD_MODE_SHIFT) |
-		 (FILTER_MODE_MAX << FILTER_MODE_SHIFT) |
-		 (ADDRESS_MODE_MAX << ADDRESS_MODE_SHIFT) |
-		 (COMPARE_FUNCTION_MAX << COMPARE_FUNCTION_SHIFT))
-	};
-	static_assert(max_sampler_count == 56u, "invalid max sampler count");
+	static constexpr const uint32_t max_sampler_count { 2u /* coord */ * 2u /* filter */ * 8u /* compare+ */ * 3u /* address */ };
+	static_assert(max_sampler_count == 96u, "invalid max sampler count");
 	
 };
 

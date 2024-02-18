@@ -616,8 +616,10 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
 			
 			// address mode (either clamp-to-edge or repeat/wrap)
-			const auto address_mode = (cuda_sampler::get_address_mode(i) == cuda_sampler::REPEAT ?
-									   CU_ADDRESS_MODE::WRAP : CU_ADDRESS_MODE::CLAMP);
+			const auto sampler_addr_mode = cuda_sampler::get_address_mode(i);
+			const auto address_mode = (sampler_addr_mode == cuda_sampler::REPEAT ? CU_ADDRESS_MODE::WRAP :
+									   (sampler_addr_mode == cuda_sampler::REPEAT_MIRRORED ? CU_ADDRESS_MODE::MIRROR :
+										CU_ADDRESS_MODE::CLAMP));
 			tex_desc.address_mode[0] = address_mode;
 			if(dim_count >= 2) tex_desc.address_mode[1] = address_mode;
 			if(dim_count >= 3) tex_desc.address_mode[2] = address_mode;
@@ -644,29 +646,33 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			cur_device = (const cuda_device*)&dev;
 			cuda_sampler_or.low = 0;
 			cuda_sampler_or.high = 0;
-			const auto compare_function = cuda_sampler::get_compare_function(i);
-			if(compare_function != cuda_sampler::NONE) {
-				apply_sampler_modifications = true;
-				switch(compare_function) {
-					case cuda_sampler::LESS:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS;
-						break;
-					case cuda_sampler::LESS_OR_EQUAL:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL;
-						break;
-					case cuda_sampler::GREATER:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER;
-						break;
-					case cuda_sampler::GREATER_OR_EQUAL:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER_OR_EQUAL;
-						break;
-					case cuda_sampler::EQUAL:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::EQUAL;
-						break;
-					case cuda_sampler::NOT_EQUAL:
-						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::NOT_EQUAL;
-						break;
-					default: break;
+			// this is no longer exhaustive
+			auto compare_function = cuda_sampler::COMPARE_FUNCTION::NONE;
+			if (((i & cuda_sampler::COMPARE_FUNCTION_MASK) >> cuda_sampler::COMPARE_FUNCTION_SHIFT) <= cuda_sampler::COMPARE_FUNCTION_MAX) {
+				compare_function = cuda_sampler::get_compare_function(i);
+				if (compare_function != cuda_sampler::NONE) {
+					apply_sampler_modifications = true;
+					switch (compare_function) {
+						case cuda_sampler::LESS:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS;
+							break;
+						case cuda_sampler::LESS_OR_EQUAL:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL;
+							break;
+						case cuda_sampler::GREATER:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER;
+							break;
+						case cuda_sampler::GREATER_OR_EQUAL:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER_OR_EQUAL;
+							break;
+						case cuda_sampler::EQUAL:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::EQUAL;
+							break;
+						case cuda_sampler::NOT_EQUAL:
+							cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::NOT_EQUAL;
+							break;
+						default: break;
+					}
 				}
 			}
 			
