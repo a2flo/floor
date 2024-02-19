@@ -122,16 +122,9 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 	uint8_t* data = kernel_params_data.get();
 	
 	{
-#if defined(FLOOR_DEBUG)
-		const auto& entry = kernel_iter->second;
-		uint32_t param_idx = 0;
-#endif
 		auto param_iter = kernel_params.begin();
 		for (const auto& arg : args) {
 			void*& param = *param_iter++;
-#if defined(FLOOR_DEBUG)
-			const auto idx = param_idx++;
-#endif
 			
 			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 				param = data;
@@ -146,37 +139,13 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 				auto cu_img = (const cuda_image*)*img_ptr;
 				
-#if defined(FLOOR_DEBUG)
-				// sanity checks
-				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::NONE) {
-					log_error("no image access qualifier specified!");
-					return;
-				}
-				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ ||
-					entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
-					if (cu_img->get_cuda_textures()[0] == 0) {
-						log_error("image is set to be readable, but texture objects don't exist!");
-						return;
-					}
-				}
-				if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::WRITE ||
-					entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
-					if (cu_img->get_cuda_surfaces()[0] == 0) {
-						log_error("image is set to be writable, but surface object doesn't exist!");
-						return;
-					}
-				}
-#endif
-				
 				// set this to the start
 				param = data;
 				
 				// set texture+sampler objects
 				const auto& textures = cu_img->get_cuda_textures();
-				for (const auto& texture : textures) {
-					memcpy(data, &texture, sizeof(uint32_t));
-					data += sizeof(uint32_t);
-				}
+				memcpy(data, textures.data(), textures.size() * sizeof(uint32_t));
+				data += textures.size() * sizeof(uint32_t);
 				
 				// set surface object
 				memcpy(data, &cu_img->get_cuda_surfaces()[0], sizeof(uint64_t));
@@ -194,8 +163,6 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 				// set run-time image type
 				memcpy(data, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
 				data += sizeof(COMPUTE_IMAGE_TYPE);
-				
-				data += 4 /* padding */;
 			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 				log_error("array of images is not supported for CUDA");
 				return;

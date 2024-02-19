@@ -48,16 +48,7 @@ bool cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 	size_t copy_size = 0;
 	const auto buffer_size = cuda_storage_buffer->get_size();
 	
-#if defined(FLOOR_DEBUG)
-	const auto& dev = dev_queue.get_device();
-	const auto& entry = *func.get_kernel_entry(dev);
-	uint32_t param_idx = 0;
-#endif
 	for (const auto& arg : args) {
-#if defined(FLOOR_DEBUG)
-		const auto idx = param_idx++;
-#endif
-		
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(cu_device_ptr);
 			copy_size += arg_size;
@@ -97,34 +88,10 @@ bool cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
 			auto cu_img = (const cuda_image*)*img_ptr;
 			
-#if defined(FLOOR_DEBUG)
-			// sanity checks
-			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::NONE) {
-				log_error("no image access qualifier specified!");
-				return false;
-			}
-			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ ||
-				entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
-				if (cu_img->get_cuda_textures()[0] == 0) {
-					log_error("image is set to be readable, but texture objects don't exist!");
-					return false;
-				}
-			}
-			if (entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::WRITE ||
-				entry.info->args[idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
-				if (cu_img->get_cuda_surfaces()[0] == 0) {
-					log_error("image is set to be writable, but surface object doesn't exist!");
-					return false;
-				}
-			}
-#endif
-			
 			// set texture+sampler objects
 			const auto& textures = cu_img->get_cuda_textures();
-			for (const auto& texture : textures) {
-				memcpy(copy_buffer_ptr, &texture, sizeof(uint32_t));
-				copy_buffer_ptr += sizeof(uint32_t);
-			}
+			memcpy(copy_buffer_ptr, textures.data(), textures.size() * sizeof(uint32_t));
+			copy_buffer_ptr += textures.size() * sizeof(uint32_t);
 			
 			// set surface object
 			memcpy(copy_buffer_ptr, &cu_img->get_cuda_surfaces()[0], sizeof(uint64_t));
@@ -142,8 +109,6 @@ bool cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 			// set run-time image type
 			memcpy(copy_buffer_ptr, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
 			copy_buffer_ptr += sizeof(COMPUTE_IMAGE_TYPE);
-			
-			copy_buffer_ptr += 4 /* padding */;
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
 			return false;
