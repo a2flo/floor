@@ -24,6 +24,9 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/task.hpp>
 
+#if !defined(FLOOR_NO_METAL)
+#include <floor/compute/metal/metal_image.hpp>
+#endif
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/compute/vulkan/vulkan_image.hpp>
 #endif
@@ -1147,6 +1150,46 @@ bool compute_image::blit_check(const compute_queue&, const compute_image& src) {
 void compute_image::destroy_minify_programs() {
 	GUARD(minify_programs_mtx);
 	minify_programs.clear();
+}
+
+metal_image* compute_image::get_underlying_metal_image_safe() {
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		metal_image* ret = nullptr;
+		if (ret = get_shared_metal_image(); !ret) {
+			ret = (metal_image*)this;
+		} else {
+			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image();
+			}
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_image = dynamic_cast<metal_image*>(ret); !test_cast_mtl_image) {
+			throw runtime_error("specified image is neither a Metal image nor a shared Metal image");
+		}
+#endif
+		return ret;
+	}
+	return (metal_image*)this;
+}
+
+const metal_image* compute_image::get_underlying_metal_image_safe() const {
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		const metal_image* ret = nullptr;
+		if (ret = get_shared_metal_image(); !ret) {
+			ret = (const metal_image*)this;
+		} else {
+			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image();
+			}
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_image = dynamic_cast<const metal_image*>(ret); !test_cast_mtl_image) {
+			throw runtime_error("specified image is neither a Metal image nor a shared Metal image");
+		}
+#endif
+		return ret;
+	}
+	return (const metal_image*)this;
 }
 
 vulkan_image* compute_image::get_underlying_vulkan_image_safe() {

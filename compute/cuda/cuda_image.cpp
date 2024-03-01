@@ -451,8 +451,12 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			.array_desc = array_desc,
 			.num_levels = mip_level_count,
 		};
-		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-			ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE;
+		// NOTE: this used to be necessary at some point, but it's no longer needed and will actually result in an error if used
+		//       -> only enable this for CUDA < 12.0
+		if (cuda_driver_version < 12000) {
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+				ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE;
+			}
 		}
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
 			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {

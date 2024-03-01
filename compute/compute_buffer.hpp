@@ -141,6 +141,9 @@ public:
 		return false;
 	}
 	
+	//! returns the underlying Metal buffer that should be used on the device (i.e. this or a shared buffer)
+	const metal_buffer* get_underlying_metal_buffer_safe() const;
+	
 	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
 	const vulkan_buffer* get_shared_vulkan_buffer() const {
 		return shared_vk_buffer;

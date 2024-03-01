@@ -104,26 +104,7 @@ namespace metal_args {
 							 const compute_buffer* arg,
 							 const vector<uint32_t>* arg_buffer_indices,
 							 metal_resource_tracking::resource_info_t* res_info) {
-		const metal_buffer* mtl_buffer = nullptr;
-		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
-			mtl_buffer = arg->get_shared_metal_buffer();
-			if (mtl_buffer == nullptr) {
-				mtl_buffer = (const metal_buffer*)arg;
-#if defined(FLOOR_DEBUG)
-				if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(arg); !test_cast_mtl_buffer) {
-					log_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
-					return;
-				}
-#endif
-			} else {
-				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(arg->get_flags())) {
-					arg->sync_metal_buffer();
-				}
-			}
-		} else {
-			mtl_buffer = (const metal_buffer*)arg;
-		}
-		
+		const auto mtl_buffer = arg->get_underlying_metal_buffer_safe();
 		auto mtl_buffer_obj = mtl_buffer->get_metal_buffer();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBuffer:mtl_buffer_obj
@@ -298,27 +279,7 @@ namespace metal_args {
 			return;
 		}
 		
-		const metal_image* mtl_image = nullptr;
-		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(arg->get_flags())) {
-			mtl_image = arg->get_shared_metal_image();
-			if (mtl_image == nullptr) {
-				mtl_image = (const metal_image*)arg;
-#if defined(FLOOR_DEBUG)
-				if (auto test_cast_mtl_image = dynamic_cast<const metal_image*>(arg); !test_cast_mtl_image) {
-					log_error("specified image is neither a Metal image nor a shared Metal image");
-					return;
-				}
-#endif
-			} else {
-				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(arg->get_flags())) {
-					arg->sync_metal_image();
-				}
-			}
-		} else {
-			mtl_image = (const metal_image*)arg;
-		}
-		
-		
+		const auto mtl_image = arg->get_underlying_metal_image_safe();
 		auto mtl_image_obj = mtl_image->get_metal_image();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 			[encoder setTexture:mtl_image_obj

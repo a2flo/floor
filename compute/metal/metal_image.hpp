@@ -73,7 +73,7 @@ public:
 	
 	//! returns the metal specific image object
 #if defined(__OBJC__)
-	id <MTLTexture> floor_nullable get_metal_image() const { return image; }
+	id <MTLTexture> floor_nonnull get_metal_image() const { return image; }
 #endif
 	
 	//! returns the metal specific image object as a void*

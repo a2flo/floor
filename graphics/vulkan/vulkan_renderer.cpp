@@ -60,13 +60,13 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 	
 	vector<VkImageView> vk_attachments;
 	for (const auto& att : attachments_map) {
-		vk_attachments.emplace_back(((const vulkan_image*)att.second.image)->get_vulkan_image_view());
+		vk_attachments.emplace_back(att.second.image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
 		if (att.second.resolve_image) {
-			vk_attachments.emplace_back(((const vulkan_image*)att.second.resolve_image)->get_vulkan_image_view());
+			vk_attachments.emplace_back(att.second.resolve_image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
 		}
 	}
 	if (depth_attachment) {
-		vk_attachments.emplace_back(((const vulkan_image*)depth_attachment->image)->get_vulkan_image_view());
+		vk_attachments.emplace_back(depth_attachment->image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
 	}
 	
 	VkFramebufferCreateInfo framebuffer_create_info {
@@ -452,15 +452,16 @@ bool vulkan_renderer::set_attachments(vector<attachment_t>& attachments) {
 
 static inline bool attachment_transition(compute_image& img, vector<VkImageMemoryBarrier2>& att_transition_barriers,
 										 const bool is_read_only = false) {
+	auto vk_img = img.get_underlying_vulkan_image_safe();
 	if (!is_read_only) {
 		// make attachment writable
-		auto [needs_transition, barrier] = ((vulkan_image&)img).transition_write(nullptr, nullptr, false, false, false, true /* soft_transition */);
+		auto [needs_transition, barrier] = vk_img->transition_write(nullptr, nullptr, false, false, false, true /* soft_transition */);
 		if (needs_transition) {
 			att_transition_barriers.emplace_back(std::move(barrier));
 		}
 	} else {
 		// make attachment readable
-		auto [needs_transition, barrier] = ((vulkan_image&)img).transition_read(nullptr, nullptr, false, true /* soft_transition */);
+		auto [needs_transition, barrier] = vk_img->transition_read(nullptr, nullptr, false, true /* soft_transition */);
 		if (needs_transition) {
 			att_transition_barriers.emplace_back(std::move(barrier));
 		}

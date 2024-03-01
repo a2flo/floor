@@ -26,7 +26,9 @@
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/core/aligned_ptr.hpp>
+#if defined(__OBJC__)
 #include <Metal/Metal.h>
+#endif
 
 class metal_device;
 class compute_device;
@@ -48,44 +50,47 @@ public:
 				 const uint32_t opengl_type_ = 0) :
 	metal_buffer(false, cqueue, size_, {}, flags_, opengl_type_) {}
 	
+#if defined(__OBJC__)
 	//! wraps an already existing metal buffer, with the specified flags and backed by the specified host pointer
 	metal_buffer(const compute_queue& cqueue,
-				 id <MTLBuffer> external_buffer,
+				 id <MTLBuffer> floor_nonnull external_buffer,
 				 std::span<uint8_t> host_data_ = {},
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+#endif
 	
 	~metal_buffer() override;
 	
 	void read(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void read(const compute_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
+	void read(const compute_queue& cqueue, void* floor_nullable dst, const size_t size = 0, const size_t offset = 0) override;
 	
 	void write(const compute_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void write(const compute_queue& cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
+	void write(const compute_queue& cqueue, const void* floor_nonnull src, const size_t size = 0, const size_t offset = 0) override;
 	
 	void copy(const compute_queue& cqueue, const compute_buffer& src,
 			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
 	
 	bool fill(const compute_queue& cqueue,
-			  const void* pattern, const size_t& pattern_size,
+			  const void* floor_nonnull pattern, const size_t& pattern_size,
 			  const size_t size = 0, const size_t offset = 0) override;
 	
 	bool zero(const compute_queue& cqueue) override;
 	
-	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
-											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),
-											const size_t size = 0,
-											const size_t offset = 0) override;
+	void* floor_nullable __attribute__((aligned(128))) map(const compute_queue& cqueue,
+														   const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK),
+														   const size_t size = 0,
+														   const size_t offset = 0) override;
 	
-	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const compute_queue& cqueue, void* floor_nonnull __attribute__((aligned(128))) mapped_ptr) override;
 	
-	bool acquire_opengl_object(const compute_queue* cqueue) override;
-	bool release_opengl_object(const compute_queue* cqueue) override;
+	bool acquire_opengl_object(const compute_queue* floor_nullable cqueue) override;
+	bool release_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	
 	void set_debug_label(const string& label) override;
 	
+#if defined(__OBJC__)
 	//! returns the metal specific buffer object
-	id <MTLBuffer> get_metal_buffer() const { return buffer; }
+	id <MTLBuffer> floor_nonnull get_metal_buffer() const { return buffer; }
 	
 	//! returns the MTLResourceOptions of this buffer
 	MTLResourceOptions get_metal_resource_options() const { return options; }
@@ -101,10 +106,11 @@ public:
 	}
 	
 	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
-	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc);
+	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> floor_nonnull rsrc);
+#endif
 	
 	//! returns the null-buffer for the specified device
-	static const compute_buffer* get_null_buffer(const compute_device& dev);
+	static const compute_buffer* floor_nullable get_null_buffer(const compute_device& dev);
 	
 	//! potential staging constructor so that we can decide whether a staging buffer is created
 	metal_buffer(const bool is_staging_buffer_,
@@ -116,12 +122,18 @@ public:
 				 const uint32_t external_gl_object_ = 0);
 	
 protected:
-	id <MTLBuffer> buffer { nil };
+#if defined(__OBJC__)
+	id <MTLBuffer> floor_null_unspecified buffer { nil };
+#else
+	void* floor_null_unspecified buffer { nullptr };
+#endif
 	unique_ptr<metal_buffer> staging_buffer;
 	bool is_external { false };
 	bool is_staging_buffer { false };
 	
+#if defined(__OBJC__)
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
+#endif
 	
 	struct metal_mapping {
 		aligned_ptr<uint8_t> ptr;

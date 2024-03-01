@@ -21,6 +21,9 @@
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/logger.hpp>
 
+#if !defined(FLOOR_NO_METAL)
+#include <floor/compute/metal/metal_buffer.hpp>
+#endif
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/compute/vulkan/vulkan_buffer.hpp>
 #endif
@@ -248,6 +251,26 @@ shared_ptr<compute_buffer> compute_buffer::clone(const compute_queue& cqueue, co
 	}
 	
 	return ret;
+}
+
+const metal_buffer* compute_buffer::get_underlying_metal_buffer_safe() const {
+	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+		const metal_buffer* ret = nullptr;
+		if (ret = get_shared_metal_buffer(); !ret) {
+			ret = (const metal_buffer*)this;
+		} else {
+			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_buffer();
+			}
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(ret); !test_cast_mtl_buffer) {
+			throw runtime_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
+		}
+#endif
+		return ret;
+	}
+	return (const metal_buffer*)this;
 }
 
 const vulkan_buffer* compute_buffer::get_underlying_vulkan_buffer_safe() const {

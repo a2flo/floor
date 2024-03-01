@@ -566,6 +566,10 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			return true;
 		}, shim_image_type);
 		
+		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			[blit_encoder synchronizeResource:image];
+		}
+		
 		// manually create the mip-map chain if this was specified
 		if(is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
 			// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
@@ -747,8 +751,6 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 		}
 		
 		// copy image data to the host
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
 		
 		aligned_ptr<uint8_t> host_shim_buffer;
@@ -784,10 +786,6 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const comput
 			}
 			return true;
 		}, shim_image_type);
-		
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
 		
 		// convert to RGB + cleanup
 		if (image_type != shim_image_type) {
@@ -862,6 +860,9 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 			return true;
 		}, shim_image_type);
 		
+		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			[blit_encoder synchronizeResource:image];
+		}
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];

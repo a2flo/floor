@@ -393,6 +393,13 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 }
 
 shared_ptr<compute_queue> cuda_compute::create_queue(const compute_device& dev) const {
+	// ensure context is set for the calling thread
+	const auto& cuda_dev = (const cuda_device&)dev;
+	if (cuda_dev.ctx != nullptr) {
+		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
+					"failed to make cuda context current", {})
+	}
+	
 	cu_stream stream;
 	CU_CALL_RET(cu_stream_create(&stream, CU_STREAM_FLAGS::NON_BLOCKING),
 				"failed to create cuda stream", {})

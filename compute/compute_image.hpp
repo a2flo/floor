@@ -125,6 +125,11 @@ public:
 	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
 	
 	//! returns the internal shared Metal image if there is one, returns nullptr otherwise
+	metal_image* get_shared_metal_image() {
+		return shared_mtl_image;
+	}
+	
+	//! returns the internal shared Metal image if there is one, returns nullptr otherwise
 	const metal_image* get_shared_metal_image() const {
 		return shared_mtl_image;
 	}
@@ -145,6 +150,12 @@ public:
 								  const metal_queue* mtl_queue floor_unused = nullptr) const {
 		return false;
 	}
+	
+	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
+	metal_image* get_underlying_metal_image_safe();
+	
+	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
+	const metal_image* get_underlying_metal_image_safe() const;
 	
 	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
 	vulkan_image* get_shared_vulkan_image() {
@@ -169,7 +180,7 @@ public:
 	//! synchronizes the contents of this image with the shared Vulkan image
 	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
 	virtual bool sync_vulkan_image(const compute_queue* cqueue floor_unused = nullptr,
-								  const vulkan_queue* vk_queue floor_unused = nullptr) const {
+								   const vulkan_queue* vk_queue floor_unused = nullptr) const {
 		return false;
 	}
 	
