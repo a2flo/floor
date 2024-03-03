@@ -164,6 +164,9 @@ public:
 		return true;
 	}
 	
+	//! returns the default compute_queue of the device backing the specified memory object
+	static const compute_queue* get_default_queue_for_memory(const compute_memory& mem);
+	
 protected:
 	//! constructs an incomplete memory object
 	compute_memory(const compute_queue& cqueue,
@@ -192,17 +195,19 @@ protected:
 	bool gl_object_state { true };
 	
 	//! false: compute use, true: Metal use
-	bool mtl_object_state { true };
+	mutable bool mtl_object_state { true };
 	
 	//! false: compute use, true: Vulkan use
-	bool vk_object_state { true };
-	
-	//! returns the default compute_queue of the device backing the specified memory object
-	const compute_queue* get_default_queue_for_memory(const compute_memory& mem) const;
+	mutable bool vk_object_state { true };
 	
 	mutable safe_recursive_mutex lock;
 	
 	string debug_label;
+	
+	//! computes the shared memory (buffer/image) flags that should be used when creating shared Vulkan/Metal memory for Host-Compute
+	static COMPUTE_MEMORY_FLAG make_host_shared_memory_flags(const COMPUTE_MEMORY_FLAG& flags,
+															 const compute_device& shared_dev,
+															 const bool copy_host_data);
 	
 };
 

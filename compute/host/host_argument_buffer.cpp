@@ -41,7 +41,7 @@ bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 				log_error("out-of-bounds write for buffer pointer in argument buffer");
 				return false;
 			}
-			const auto ptr = ((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr();
+			const auto ptr = ((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr_with_sync();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
 		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
@@ -53,7 +53,7 @@ bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 					return false;
 				}
 				
-				const auto ptr = (entry ? ((const host_buffer*)entry)->get_host_buffer_ptr() : nullptr);
+				const auto ptr = (entry ? ((const host_buffer*)entry)->get_host_buffer_ptr_with_sync() : nullptr);
 				memcpy(copy_buffer_ptr, &ptr, arg_size);
 				copy_buffer_ptr += arg_size;
 			}
@@ -66,7 +66,7 @@ bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 					return false;
 				}
 				
-				const auto ptr = (entry ? ((const host_buffer*)entry.get())->get_host_buffer_ptr() : nullptr);
+				const auto ptr = (entry ? ((const host_buffer*)entry.get())->get_host_buffer_ptr_with_sync() : nullptr);
 				memcpy(copy_buffer_ptr, &ptr, arg_size);
 				copy_buffer_ptr += arg_size;
 			}
@@ -77,7 +77,7 @@ bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 				log_error("out-of-bounds write for image pointer in argument buffer");
 				return false;
 			}
-			const auto ptr = ((const host_image*)(*img_ptr))->get_host_image_program_info();
+			const auto ptr = ((const host_image*)(*img_ptr))->get_host_image_program_info_with_sync();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {

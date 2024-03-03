@@ -92,12 +92,14 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! automatically copy the current contents of the memory object to the shared Vulkan memory object
 	//! NOTE: only functional for Host-Compute <-> Vulkan interop, this is not needed for CUDA <-> Vulkan interop (backed by the same memory)
 	//! NOTE: this is only intended for reading data on the Vulkan side (no write-back will happen)
+	//! NOTE: prefer using SHARING_SYNC + specific r/w flags instead
 	VULKAN_SHARING_SYNC_SHARED	= (1u << 12u),
 	
 	//! automatically synchronizes the contents of the memory of the memory object with the shared Metal memory,
 	//! i.e. when using the memory in a Metal kernel/shader execution with the memory currently being acquired for compute use,
 	//! automatically copy the current contents of the memory object to the shared Metal memory object
 	//! NOTE: this is only intended for reading data on the Metal side (no write-back will happen)
+	//! NOTE: prefer using SHARING_SYNC + specific r/w flags instead
 	METAL_SHARING_SYNC_SHARED	= (1u << 13u),
 
 	//! Vulkan-only: creates images/buffers with memory aliasing support
@@ -113,6 +115,28 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	
 	//! Vulkan-only: allocates a buffer with support for being used as a descriptor buffer
 	VULKAN_DESCRIPTOR_BUFFER	= (1u << 17u),
+	
+	//! with VULKAN_SHARING/METAL_SHARING: automatically synchronizes (writes back) the contents between the shared Metal/Vulkan memory and
+	//! the memory object when the memory is used in kernels/shaders, under consideration of render and compute backend specfic read/write flags
+	//! NOTE: only functional for Host-Compute <-> Vulkan/Metal interop, not needed when the memory backing is physically the same
+	//! NOTE: needs to set appropriate SHARING_RENDER_* and SHARING_COMPUTE_* flags, otherwise it is assumed everything is r/w
+	SHARING_SYNC				= (1u << 18u),
+	
+	//! with SHARING_SYNC: render backend only reads memory from the compute backend
+	SHARING_RENDER_READ			= (1u << 19u),
+	//! with SHARING_SYNC: render backend only writes memory for the compute backend
+	SHARING_RENDER_WRITE		= (1u << 20u),
+	//! with SHARING_SYNC: render backend reads and writes memory from/for the compute backend
+	//! NOTE: this is the default
+	SHARING_RENDER_READ_WRITE	= (SHARING_RENDER_READ | SHARING_RENDER_WRITE),
+	
+	//! with SHARING_SYNC: compute backend only reads memory from the render backend
+	SHARING_COMPUTE_READ		= (1u << 21u),
+	//! with SHARING_SYNC: compute backend only writes memory for the render backend
+	SHARING_COMPUTE_WRITE		= (1u << 22u),
+	//! with SHARING_SYNC: compute backend reads and writes memory from/for the render backend
+	//! NOTE: this is the default
+	SHARING_COMPUTE_READ_WRITE	= (SHARING_COMPUTE_READ | SHARING_COMPUTE_WRITE),
 	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)

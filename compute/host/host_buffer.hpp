@@ -72,23 +72,24 @@ public:
 	bool acquire_opengl_object(const compute_queue* cqueue) override;
 	bool release_opengl_object(const compute_queue* cqueue) override;
 	
-	bool acquire_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
-	bool release_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
-	bool sync_metal_buffer(const compute_queue* cqueue = nullptr,
-						   const metal_queue* mtl_queue = nullptr) const override;
+	bool acquire_metal_buffer(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
+	bool release_metal_buffer(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
+	bool sync_metal_buffer(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
 	
-	bool acquire_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
-	bool release_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
-	bool sync_vulkan_buffer(const compute_queue* cqueue = nullptr,
-							const vulkan_queue* vk_queue = nullptr) const override;
+	bool acquire_vulkan_buffer(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
+	bool release_vulkan_buffer(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
+	bool sync_vulkan_buffer(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
 	
 	//! returns a direct pointer to the internal host buffer
 	auto get_host_buffer_ptr() const {
 		return buffer.get();
 	}
+	
+	//! returns a direct pointer to the internal host buffer and synchronizes buffer contents if synchronization flags are set
+	decltype(aligned_ptr<uint8_t>{}.get()) get_host_buffer_ptr_with_sync() const;
 
 protected:
-	aligned_ptr<uint8_t> buffer;
+	mutable aligned_ptr<uint8_t> buffer;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);

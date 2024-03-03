@@ -62,18 +62,19 @@ public:
 		return (void*)&program_info;
 	}
 	
-	bool acquire_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
-	bool release_metal_image(const compute_queue& cqueue, const metal_queue& mtl_queue) override;
-	bool sync_metal_image(const compute_queue* cqueue = nullptr,
-						  const metal_queue* mtl_queue = nullptr) const override;
+	//! returns the internal structure necessary to run a function/program with this image and synchronizes buffer contents if synchronization flags are set
+	void* get_host_image_program_info_with_sync() const;
 	
-	bool acquire_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
-	bool release_vulkan_image(const compute_queue& cqueue, const vulkan_queue& vk_queue) override;
-	bool sync_vulkan_image(const compute_queue* cqueue = nullptr,
-						   const vulkan_queue* vk_queue = nullptr) const override;
+	bool acquire_metal_image(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
+	bool release_metal_image(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
+	bool sync_metal_image(const compute_queue* cqueue, const metal_queue* mtl_queue) const override;
+	
+	bool acquire_vulkan_image(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
+	bool release_vulkan_image(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
+	bool sync_vulkan_image(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
 	
 protected:
-	aligned_ptr<uint8_t> image;
+	mutable aligned_ptr<uint8_t> image;
 	
 	struct image_program_info {
 		uint8_t* __attribute__((aligned(aligned_ptr<uint8_t>::page_size))) buffer;

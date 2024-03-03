@@ -255,13 +255,16 @@ shared_ptr<compute_buffer> compute_buffer::clone(const compute_queue& cqueue, co
 
 const metal_buffer* compute_buffer::get_underlying_metal_buffer_safe() const {
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
-		const metal_buffer* ret = nullptr;
-		if (ret = get_shared_metal_buffer(); !ret) {
-			ret = (const metal_buffer*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
-				sync_metal_buffer();
+		const metal_buffer* ret = get_shared_metal_buffer();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_buffer(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_buffer(nullptr, nullptr);
 			}
+		} else {
+			ret = (const metal_buffer*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
 		if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(ret); !test_cast_mtl_buffer) {
@@ -275,13 +278,16 @@ const metal_buffer* compute_buffer::get_underlying_metal_buffer_safe() const {
 
 const vulkan_buffer* compute_buffer::get_underlying_vulkan_buffer_safe() const {
 	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-		const vulkan_buffer* ret = nullptr;
-		if (ret = get_shared_vulkan_buffer(); !ret) {
-			ret = (const vulkan_buffer*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
-				sync_vulkan_buffer();
+		const vulkan_buffer* ret = get_shared_vulkan_buffer();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Vulkan use
+				release_vulkan_buffer(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
+				sync_vulkan_buffer(nullptr, nullptr);
 			}
+		} else {
+			ret = (const vulkan_buffer*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_VULKAN)
 		if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(ret); !test_cast_vk_buffer) {

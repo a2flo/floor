@@ -125,23 +125,23 @@ public:
 	}
 	
 	//! acquires the associated Metal buffer for use with compute (-> release from Metal use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
-	virtual bool acquire_metal_buffer(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
+	virtual bool acquire_metal_buffer(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Metal buffer from use with compute (-> acquire for Metal use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
-	virtual bool release_metal_buffer(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
+	virtual bool release_metal_buffer(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this buffer with the shared Metal buffer
 	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
-	virtual bool sync_metal_buffer(const compute_queue* cqueue floor_unused = nullptr,
-								   const metal_queue* mtl_queue floor_unused = nullptr) const {
+	virtual bool sync_metal_buffer(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Metal buffer that should be used on the device (i.e. this or a shared buffer)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const metal_buffer* get_underlying_metal_buffer_safe() const;
 	
 	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
@@ -151,22 +151,22 @@ public:
 	
 	//! acquires the associated Vulkan buffer for use with compute (-> release from Vulkan use)
 	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
-	virtual bool acquire_vulkan_buffer(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+	virtual bool acquire_vulkan_buffer(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Vulkan buffer from use with compute (-> acquire for Vulkan use)
 	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
-	virtual bool release_vulkan_buffer(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+	virtual bool release_vulkan_buffer(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this buffer with the shared Vulkan buffer
 	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
-	virtual bool sync_vulkan_buffer(const compute_queue* cqueue floor_unused = nullptr,
-									const vulkan_queue* vk_queue floor_unused = nullptr) const {
+	virtual bool sync_vulkan_buffer(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Vulkan buffer that should be used on the device (i.e. this or a shared buffer)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const vulkan_buffer* get_underlying_vulkan_buffer_safe() const;
 	
 	//! for debugging purposes: dumps the content of this buffer into a file using the specified "value_type" operator<<

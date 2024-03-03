@@ -1152,54 +1152,55 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_image::acquire_vulkan_image(const compute_queue& cqueue floor_unused_if_release, const vulkan_queue& vk_queue) {
+bool cuda_image::acquire_vulkan_image(const compute_queue* cqueue_ floor_unused_if_release, const vulkan_queue* vk_queue_) const {
 	if (!vk_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Vulkan image has already been acquired for use with CUDA!");
-#endif
+		// -> already acquired for use with CUDA
 		return true;
 	}
 	
+	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	const auto comp_vk_queue = (vk_queue_ != nullptr ? (const vulkan_queue*)vk_queue_ : get_default_queue_for_memory(*shared_image));
+	
 	// validate CUDA queue
 #if defined(FLOOR_DEBUG)
-	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(&cqueue); cuda_queue_ == nullptr) {
+	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(cqueue); cuda_queue_ == nullptr) {
 		log_error("specified queue is not a CUDA queue");
 		return false;
 	}
 #endif
 	
 	// finish Vulkan queue
-	vk_queue.finish();
+	comp_vk_queue->finish();
 	vk_object_state = false;
 	return true;
 }
 
-bool cuda_image::release_vulkan_image(const compute_queue& cqueue, const vulkan_queue&) {
+bool cuda_image::release_vulkan_image(const compute_queue* cqueue_, const vulkan_queue*) const {
 	if (vk_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Vulkan image has already been released for Vulkan use!");
-#endif
+		// -> already released for use with Vulkan
 		return true;
 	}
 	
+	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	
 	// validate CUDA queue
 #if defined(FLOOR_DEBUG)
-	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(&cqueue); cuda_queue_ == nullptr) {
+	if (const auto cuda_queue_ = dynamic_cast<const cuda_queue*>(cqueue); cuda_queue_ == nullptr) {
 		log_error("specified queue is not a CUDA queue");
 		return false;
 	}
 #endif
 	
 	// finish CUDA queue
-	cqueue.finish();
+	cqueue->finish();
 	vk_object_state = true;
 	return true;
 }
 #else
-bool cuda_image::acquire_vulkan_image(const compute_queue&, const vulkan_queue&) {
+bool cuda_image::acquire_vulkan_image(const compute_queue*, const vulkan_queue*) const {
 	return false;
 }
-bool cuda_image::release_vulkan_image(const compute_queue&, const vulkan_queue&) {
+bool cuda_image::release_vulkan_image(const compute_queue*, const vulkan_queue*) const {
 	return false;
 }
 #endif

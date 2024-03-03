@@ -20,6 +20,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_context.hpp>
+#include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/core/logger.hpp>
 
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
@@ -67,6 +68,43 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 		flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
 	}
 	
+	// handle SHARING_SYNC and related flags
+	if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags) ||
+			has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+			// automatically set SHARING_RENDER_READ_WRITE/SHARING_COMPUTE_READ_WRITE if no r/w is defined
+			if (!has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ>(flags) &&
+				!has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_WRITE>(flags)) {
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE;
+			}
+			if (!has_flag<COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ>(flags) &&
+				!has_flag<COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_WRITE>(flags)) {
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE;
+			}
+			
+			// check for incompatible r/w flags
+			if ((flags & COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE) == COMPUTE_MEMORY_FLAG::SHARING_RENDER_WRITE &&
+				(flags & COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE) == COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_WRITE) {
+				log_warn("both the render and compute backend are set to write-only (SHARING_RENDER_WRITE/SHARING_COMPUTE_WRITE)");
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE;
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE;
+			}
+			if ((flags & COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE) == COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ &&
+				(flags & COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE) == COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ) {
+				log_warn("both the render and compute backend are set to read-only (SHARING_RENDER_READ/SHARING_COMPUTE_READ)");
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE;
+				flags |= COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE;
+			}
+		} else {
+			log_warn("SHARING_SYNC is set, but neither Vulkan nor Metal sharing is enabled");
+			
+			// clear all
+			flags &= ~COMPUTE_MEMORY_FLAG::SHARING_SYNC;
+			flags &= ~COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE;
+			flags &= ~COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE;
+		}
+	}
+	
 	return flags;
 }
 
@@ -107,7 +145,7 @@ void compute_memory::_unlock() const {
 	lock.unlock();
 }
 
-const compute_queue* compute_memory::get_default_queue_for_memory(const compute_memory& mem) const {
+const compute_queue* compute_memory::get_default_queue_for_memory(const compute_memory& mem) {
 	const auto& mem_dev = mem.get_device();
 	return mem_dev.context->get_device_default_queue(mem_dev);
 }
@@ -119,4 +157,49 @@ void compute_memory::set_debug_label(const string& label) {
 
 const string& compute_memory::get_debug_label() const {
 	return debug_label;
+}
+
+COMPUTE_MEMORY_FLAG compute_memory::make_host_shared_memory_flags(const COMPUTE_MEMORY_FLAG& flags,
+																  const compute_device& shared_dev,
+																  const bool copy_host_data) {
+	auto shared_flags = flags;
+	
+	// we don't actually want to have sharing flags on the shared memory itself
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::SHARING_SYNC;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ_WRITE;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ_WRITE;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::VULKAN_SHARING;
+	shared_flags &= ~COMPUTE_MEMORY_FLAG::METAL_SHARING;
+	
+	// determine necessary r/w flags
+	if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+		if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_WRITE>(flags) &&
+			!has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ>(flags)) {
+			// -> Host-Compute will never to write/update data in the render backend
+			shared_flags |= COMPUTE_MEMORY_FLAG::HOST_READ;
+		} else if (!has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_WRITE>(flags) &&
+				   has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ>(flags)) {
+			// -> Host-Compute will never to read data in the render backend
+			shared_flags |= COMPUTE_MEMORY_FLAG::HOST_WRITE;
+		} else {
+			shared_flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+		}
+	} else {
+		shared_flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+	}
+	
+	if (!copy_host_data) {
+		shared_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+	}
+	
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		// use host-coherent memory if preferred
+		if (((const vulkan_device&)shared_dev).prefer_host_coherent_mem) {
+			shared_flags |= COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT;
+		}
+	}
+	
+	return shared_flags;
 }

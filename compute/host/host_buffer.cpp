@@ -25,6 +25,7 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
 #include <floor/floor/floor.hpp>
+#include <floor/constexpr/const_string.hpp>
 
 host_buffer::host_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
@@ -83,7 +84,7 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 		
 		// acquire for use with the host
 		const compute_queue* comp_mtl_queue = get_default_queue_for_memory(*shared_buffer);
-		acquire_metal_buffer(cqueue, (const metal_queue&)*comp_mtl_queue);
+		acquire_metal_buffer(&cqueue, (const metal_queue*)comp_mtl_queue);
 	}
 #endif
 #if !defined(FLOOR_NO_VULKAN)
@@ -95,7 +96,7 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 		
 		// acquire for use with the host
 		const compute_queue* comp_vk_queue = get_default_queue_for_memory(*shared_buffer);
-		acquire_vulkan_buffer(cqueue, (const vulkan_queue&)*comp_vk_queue);
+		acquire_vulkan_buffer(&cqueue, (const vulkan_queue*)comp_vk_queue);
 	}
 #endif
 	// -> shared host/OpenGL buffer
@@ -295,110 +296,159 @@ bool host_buffer::release_opengl_object(const compute_queue* cqueue floor_unused
 	return true;
 }
 
-#if !defined(FLOOR_NO_METAL)
-bool host_buffer::acquire_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) {
-	if (shared_mtl_buffer == nullptr) return false;
-	if (!mtl_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Metal buffer has already been acquired for use with the host!");
-#endif
+static bool needs_sync_to_host(const COMPUTE_MEMORY_FLAG& flags) {
+	return (!has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags) ||
+			(has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags) &&
+			 has_flag<COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_READ>(flags) &&
+			 has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_WRITE>(flags)));
+}
+
+static bool needs_sync_from_host(const COMPUTE_MEMORY_FLAG& flags) {
+	return (!has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags) ||
+			(has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags) &&
+			 has_flag<COMPUTE_MEMORY_FLAG::SHARING_COMPUTE_WRITE>(flags) &&
+			 has_flag<COMPUTE_MEMORY_FLAG::SHARING_RENDER_READ>(flags)));
+}
+
+template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+static inline bool acquire_sync_buffer(const compute_queue* cqueue_, const backend_queue_type* rqueue, const compute_device& dev,
+									   aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									   bool& shared_object_state, const size_t& buffer_size,
+									   const COMPUTE_MEMORY_FLAG& flags) {
+	if (!shared_buffer_ptr || !buffer) {
+		return false;
+	}
+	if (!shared_object_state) {
+		// -> buffer has already been acquired for use with Host-Compute
 		return true;
 	}
 	
-	// validate host queue
+	if (needs_sync_to_host(flags)) {
+		const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
 #if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
-		return false;
-	}
+		// validate host queue
+		if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
+			log_error("specified host queue is not a Host-Compute queue");
+			return false;
+		}
 #endif
+		
+		const auto comp_rqueue = (rqueue != nullptr ? (const compute_queue*)rqueue :
+								  compute_memory::get_default_queue_for_memory(*shared_buffer_ptr));
+		
+		// full sync
+		cqueue->finish();
+		comp_rqueue->finish();
+		
+		// read/copy shared buffer data to host memory
+		shared_buffer_ptr->read(*comp_rqueue, buffer.get(), buffer_size, 0);
+		
+		// finish read
+		comp_rqueue->finish();
+	}
 	
-	const auto& comp_mtl_queue = (const compute_queue&)mtl_queue;
-	
-	// full sync
-	cqueue.finish();
-	comp_mtl_queue.finish();
-	
-	// read/copy Metal buffer data to host memory
-	shared_buffer->read(comp_mtl_queue, buffer.get(), size, 0);
-	
-	// finish read
-	comp_mtl_queue.finish();
-	
-	mtl_object_state = false;
+	shared_object_state = false;
 	return true;
 }
 
-bool host_buffer::release_metal_buffer(const compute_queue& cqueue, const metal_queue& mtl_queue) {
-	if (shared_mtl_buffer == nullptr) return false;
-	if (!buffer) return false;
-	if (mtl_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Metal buffer has already been released for Metal use!");
-#endif
+template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+static inline bool release_sync_buffer(const compute_queue* cqueue_, const backend_queue_type* rqueue, const compute_device& dev,
+									   const aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									   bool& shared_object_state, const size_t& buffer_size,
+									   const COMPUTE_MEMORY_FLAG& flags) {
+	if (!shared_buffer_ptr || !buffer) {
+		return false;
+	}
+	if (shared_object_state) {
+		// -> buffer has already been released for use with the render backend
 		return true;
 	}
 	
-	// validate host queue
+	if (needs_sync_from_host(flags)) {
+		const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
 #if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
+		// validate host queue
+		if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
+			log_error("specified host queue is not a Host-Compute queue");
+			return false;
+		}
+#endif
+		
+		const auto comp_rqueue = (rqueue != nullptr ? (const compute_queue*)rqueue :
+								  compute_memory::get_default_queue_for_memory(*shared_buffer_ptr));
+		
+		// full sync
+		cqueue->finish();
+		comp_rqueue->finish();
+		
+		// write/copy the host data to the shared buffer
+		shared_buffer_ptr->write(*comp_rqueue, buffer.get(), buffer_size, 0);
+		
+		// finish write
+		comp_rqueue->finish();
+	}
+	
+	shared_object_state = true;
+	return true;
+}
+
+template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+static inline bool sync_shared_buffer(const compute_queue* cqueue_, const backend_queue_type* rqueue, const compute_device& dev,
+									  const aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									  bool& shared_object_state, const size_t& buffer_size,
+									  const COMPUTE_MEMORY_FLAG& flags) {
+	if (!shared_buffer_ptr || !buffer) {
 		return false;
 	}
+	if (shared_object_state) {
+		// no need, already acquired for shared/render backend use
+		return true;
+	}
+	
+	if (needs_sync_from_host(flags)) {
+		const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+#if defined(FLOOR_DEBUG)
+		// validate host queue
+		if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
+			log_error("specified host queue is not a Host-Compute queue");
+			return false;
+		}
 #endif
-
-	const auto& comp_mtl_queue = (const compute_queue&)mtl_queue;
+		
+		const auto comp_rqueue = (rqueue != nullptr ? (const compute_queue*)rqueue :
+								  compute_memory::get_default_queue_for_memory(*shared_buffer_ptr));
+		
+		// full sync
+		cqueue->finish();
+		comp_rqueue->finish();
+		
+		// write/copy the host data to the shared buffer
+		shared_buffer_ptr->write(*comp_rqueue, buffer.get(), buffer_size, 0);
+		
+		// finish write
+		comp_rqueue->finish();
+	}
 	
-	// full sync
-	cqueue.finish();
-	comp_mtl_queue.finish();
-	
-	// write/copy the host data to the Metal buffer
-	shared_buffer->write(comp_mtl_queue, buffer.get(), size, 0);
-	
-	// finish write
-	comp_mtl_queue.finish();
-	
-	mtl_object_state = true;
 	return true;
+}
+
+#if !defined(FLOOR_NO_METAL)
+bool host_buffer::acquire_metal_buffer(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
+	return acquire_sync_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
+}
+
+bool host_buffer::release_metal_buffer(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
+	return release_sync_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
 }
 
 bool host_buffer::sync_metal_buffer(const compute_queue* cqueue_, const metal_queue* mtl_queue_) const {
-	if (shared_mtl_buffer == nullptr) return false;
-	if (!buffer) return false;
-	if (mtl_object_state) {
-		// no need, already acquired for Metal use
-		return true;
-	}
-	
-	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
-	const auto comp_mtl_queue = (mtl_queue_ != nullptr ? (const compute_queue*)mtl_queue_ : get_default_queue_for_memory(*shared_buffer));
-	
-	// validate host queue
-#if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
-		return false;
-	}
-#endif
-
-	// full sync
-	cqueue->finish();
-	comp_mtl_queue->finish();
-	
-	// write/copy the host data to the Metal buffer
-	shared_buffer->write(*comp_mtl_queue, buffer.get(), size, 0);
-	
-	// finish write
-	comp_mtl_queue->finish();
-	
-	return true;
+	return sync_shared_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
 }
 #else
-bool host_buffer::acquire_metal_buffer(const compute_queue&, const metal_queue&) {
+bool host_buffer::acquire_metal_buffer(const compute_queue*, const metal_queue*) const {
 	return false;
 }
-bool host_buffer::release_metal_buffer(const compute_queue&, const metal_queue&) {
+bool host_buffer::release_metal_buffer(const compute_queue*, const metal_queue*) const {
 	return false;
 }
 bool host_buffer::sync_metal_buffer(const compute_queue*, const metal_queue*) const {
@@ -407,109 +457,22 @@ bool host_buffer::sync_metal_buffer(const compute_queue*, const metal_queue*) co
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool host_buffer::acquire_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
-	if (shared_vk_buffer == nullptr) return false;
-	if (!vk_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Vulkan buffer has already been acquired for use with the host!");
-#endif
-		return true;
-	}
-	
-	// validate host queue
-#if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
-		return false;
-	}
-#endif
-	
-	const auto& comp_vk_queue = (const compute_queue&)vk_queue;
-	
-	// full sync
-	cqueue.finish();
-	comp_vk_queue.finish();
-	
-	// read/copy Vulkan buffer data to host memory
-	shared_buffer->read(comp_vk_queue, buffer.get(), size, 0);
-	
-	// finish read
-	comp_vk_queue.finish();
-	
-	vk_object_state = false;
-	return true;
+bool host_buffer::acquire_vulkan_buffer(const compute_queue* cqueue_, const vulkan_queue* vk_queue) const {
+	return acquire_sync_buffer<"Vulkan"_cs>(cqueue_, vk_queue, dev, buffer, shared_buffer, vk_object_state, size, flags);
 }
 
-bool host_buffer::release_vulkan_buffer(const compute_queue& cqueue, const vulkan_queue& vk_queue) {
-	if (shared_vk_buffer == nullptr) return false;
-	if (!buffer) return false;
-	if (vk_object_state) {
-#if defined(FLOOR_DEBUG)
-		log_warn("Vulkan buffer has already been released for Vulkan use!");
-#endif
-		return true;
-	}
-	
-	// validate host queue
-#if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(&cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
-		return false;
-	}
-#endif
-
-	const auto& comp_vk_queue = (const compute_queue&)vk_queue;
-	
-	// full sync
-	cqueue.finish();
-	comp_vk_queue.finish();
-	
-	// write/copy the host data to the Vulkan buffer
-	shared_buffer->write(comp_vk_queue, buffer.get(), size, 0);
-	
-	// finish write
-	comp_vk_queue.finish();
-	
-	vk_object_state = true;
-	return true;
+bool host_buffer::release_vulkan_buffer(const compute_queue* cqueue_, const vulkan_queue* vk_queue) const {
+	return release_sync_buffer<"Vulkan"_cs>(cqueue_, vk_queue, dev, buffer, shared_buffer, vk_object_state, size, flags);
 }
 
-bool host_buffer::sync_vulkan_buffer(const compute_queue* cqueue_, const vulkan_queue* vk_queue_) const {
-	if (shared_vk_buffer == nullptr) return false;
-	if (!buffer) return false;
-	if (vk_object_state) {
-		// no need, already acquired for Vulkan use
-		return true;
-	}
-	
-	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
-	const auto comp_vk_queue = (vk_queue_ != nullptr ? (const compute_queue*)vk_queue_ : get_default_queue_for_memory(*shared_buffer));
-	
-	// validate host queue
-#if defined(FLOOR_DEBUG)
-	if (const auto hst_queue = dynamic_cast<const host_queue*>(cqueue); hst_queue == nullptr) {
-		log_error("specified queue is not a host-compute queue");
-		return false;
-	}
-#endif
-
-	// full sync
-	cqueue->finish();
-	comp_vk_queue->finish();
-	
-	// write/copy the host data to the Vulkan buffer
-	shared_buffer->write(*comp_vk_queue, buffer.get(), size, 0);
-	
-	// finish write
-	comp_vk_queue->finish();
-	
-	return true;
+bool host_buffer::sync_vulkan_buffer(const compute_queue* cqueue_, const vulkan_queue* vk_queue) const {
+	return sync_shared_buffer<"Vulkan"_cs>(cqueue_, vk_queue, dev, buffer, shared_buffer, vk_object_state, size, flags);
 }
 #else
-bool host_buffer::acquire_vulkan_buffer(const compute_queue&, const vulkan_queue&) {
+bool host_buffer::acquire_vulkan_buffer(const compute_queue*, const vulkan_queue*) const {
 	return false;
 }
-bool host_buffer::release_vulkan_buffer(const compute_queue&, const vulkan_queue&) {
+bool host_buffer::release_vulkan_buffer(const compute_queue*, const vulkan_queue*) const {
 	return false;
 }
 bool host_buffer::sync_vulkan_buffer(const compute_queue*, const vulkan_queue*) const {
@@ -547,10 +510,7 @@ bool host_buffer::create_shared_buffer(const bool copy_host_data) {
 	
 	// create the underlying Metal/Vulkan buffer
 	auto default_queue = render_ctx->get_device_default_queue(*render_dev);
-	auto shared_buffer_flags = flags | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
-	if (!copy_host_data) {
-		shared_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
-	}
+	auto shared_buffer_flags = compute_memory::make_host_shared_memory_flags(flags, *render_dev, copy_host_data);
 	host_shared_buffer = (host_data.data() != nullptr ?
 						  render_ctx->create_buffer(*default_queue, host_data, shared_buffer_flags) :
 						  render_ctx->create_buffer(*default_queue, size, shared_buffer_flags));
@@ -562,6 +522,26 @@ bool host_buffer::create_shared_buffer(const bool copy_host_data) {
 	shared_buffer = host_shared_buffer.get();
 	
 	return true;
+}
+
+decltype(aligned_ptr<uint8_t>{}.get()) host_buffer::get_host_buffer_ptr_with_sync() const {
+#if !defined(FLOOR_NO_METAL) || !defined(FLOOR_NO_VULKAN)
+	if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+#if !defined(FLOOR_NO_METAL)
+		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
+			// -> acquire for compute use, release from Metal use
+			acquire_metal_buffer(nullptr, nullptr);
+		}
+#endif
+#if !defined(FLOOR_NO_VULKAN)
+		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+			// -> acquire for compute use, release from Vulkan use
+			acquire_vulkan_buffer(nullptr, nullptr);
+		}
+#endif
+	}
+#endif
+	return buffer.get();
 }
 
 #endif

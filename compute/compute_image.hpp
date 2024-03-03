@@ -135,26 +135,27 @@ public:
 	}
 	
 	//! acquires the associated Metal image for use with compute (-> release from Metal use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
-	virtual bool acquire_metal_image(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
+	virtual bool acquire_metal_image(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Metal image from use with compute (-> acquire for Metal use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "mtl_queue" must be a compute_queue of the Metal context
-	virtual bool release_metal_image(const compute_queue& cqueue floor_unused, const metal_queue& mtl_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
+	virtual bool release_metal_image(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this image with the shared Metal image
 	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "mtl_queue" must be a compute_queue of the Metal context (or nullptr)
-	virtual bool sync_metal_image(const compute_queue* cqueue floor_unused = nullptr,
-								  const metal_queue* mtl_queue floor_unused = nullptr) const {
+	virtual bool sync_metal_image(const compute_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	metal_image* get_underlying_metal_image_safe();
 	
 	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const metal_image* get_underlying_metal_image_safe() const;
 	
 	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
@@ -168,26 +169,27 @@ public:
 	}
 	
 	//! acquires the associated Vulkan image for use with compute (-> release from Vulkan use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
-	virtual bool acquire_vulkan_image(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
+	virtual bool acquire_vulkan_image(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Vulkan image from use with compute (-> acquire for Vulkan use)
-	//! NOTE: "cqueue" must be a compute_queue of the compute context, "vk_queue" must be a compute_queue of the Vulkan context
-	virtual bool release_vulkan_image(const compute_queue& cqueue floor_unused, const vulkan_queue& vk_queue floor_unused) {
+	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
+	virtual bool release_vulkan_image(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this image with the shared Vulkan image
 	//! NOTE: "cqueue" must be a compute_queue of the compute context (or nullptr), "vk_queue" must be a compute_queue of the Vulkan context (or nullptr)
-	virtual bool sync_vulkan_image(const compute_queue* cqueue floor_unused = nullptr,
-								   const vulkan_queue* vk_queue floor_unused = nullptr) const {
+	virtual bool sync_vulkan_image(const compute_queue* cqueue floor_unused, const vulkan_queue* vk_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	vulkan_image* get_underlying_vulkan_image_safe();
 	
 	//! returns the underlying Vulkan image that should be used on the device (i.e. this or a shared image)
+	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const vulkan_image* get_underlying_vulkan_image_safe() const;
 	
 	//! returns the compute image type of this image

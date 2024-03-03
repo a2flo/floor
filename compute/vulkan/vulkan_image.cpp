@@ -34,6 +34,17 @@
 
 // TODO: proper error (return) value handling everywhere
 
+static VkImageAspectFlags vk_aspect_flags_from_type(const COMPUTE_IMAGE_TYPE& image_type) {
+	VkImageAspectFlags aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+		aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+			aspect_flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	return aspect_flags;
+}
+
 vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
@@ -293,13 +304,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		default: floor_unreachable();
 	}
 	
-	VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-	if(is_depth) {
-		aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
-			aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
-	}
+	VkImageAspectFlags aspect = vk_aspect_flags_from_type(image_type);
 	const VkImageSubresourceRange sub_rsrc_range {
 		.aspectMask = aspect,
 		.baseMipLevel = 0,
@@ -602,7 +607,7 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 		
 		VkImageSubresourceRange zero_range {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.aspectMask = vk_aspect_flags_from_type(image_type),
 			.baseMipLevel = 0,
 			.levelCount = mip_level_count,
 			.baseArrayLayer = 0,
@@ -663,13 +668,7 @@ bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
 		transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 		
-		VkImageAspectFlags aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
-		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-			aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
-				aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-			}
-		}
+		VkImageAspectFlags aspect_mask = vk_aspect_flags_from_type(image_type);
 		
 		vector<VkImageBlit2> regions;
 		regions.reserve(mip_level_count);
@@ -770,7 +769,7 @@ void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommand
 	// TODO: mip-mapping, array/layer support, depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
 	const VkImageSubresourceLayers img_sub_rsrc_layers {
-		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.aspectMask = vk_aspect_flags_from_type(image_type),
 		.mipLevel = 0,
 		.baseArrayLayer = 0,
 		.layerCount = 1,
@@ -827,7 +826,7 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 		}
 		
 		const VkImageSubresourceLayers img_sub_rsrc_layers {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.aspectMask = vk_aspect_flags_from_type(shim_image_type),
 			.mipLevel = level,
 			.baseArrayLayer = 0,
 			.layerCount = layer_count,
@@ -878,16 +877,7 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition(const compute_queue* 
 														   const VkPipelineStageFlags2 src_stage_mask_in,
 														   const VkPipelineStageFlags2 dst_stage_mask_in,
 														   const bool soft_transition) {
-	VkImageAspectFlags aspect_mask = 0;
-	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-		aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
-			aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
-	} else {
-		aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
-	}
-
+	VkImageAspectFlags aspect_mask = vk_aspect_flags_from_type(image_type);
 	VkPipelineStageFlags2 src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in);
 	VkPipelineStageFlags2 dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in);
 	

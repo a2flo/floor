@@ -1154,13 +1154,16 @@ void compute_image::destroy_minify_programs() {
 
 metal_image* compute_image::get_underlying_metal_image_safe() {
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
-		metal_image* ret = nullptr;
-		if (ret = get_shared_metal_image(); !ret) {
-			ret = (metal_image*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
-				sync_metal_image();
+		metal_image* ret = get_shared_metal_image();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_image(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image(nullptr, nullptr);
 			}
+		} else {
+			ret = (metal_image*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
 		if (auto test_cast_mtl_image = dynamic_cast<metal_image*>(ret); !test_cast_mtl_image) {
@@ -1174,13 +1177,16 @@ metal_image* compute_image::get_underlying_metal_image_safe() {
 
 const metal_image* compute_image::get_underlying_metal_image_safe() const {
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
-		const metal_image* ret = nullptr;
-		if (ret = get_shared_metal_image(); !ret) {
-			ret = (const metal_image*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
-				sync_metal_image();
+		const metal_image* ret = get_shared_metal_image();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_image(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image(nullptr, nullptr);
 			}
+		} else {
+			ret = (const metal_image*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
 		if (auto test_cast_mtl_image = dynamic_cast<const metal_image*>(ret); !test_cast_mtl_image) {
@@ -1194,13 +1200,16 @@ const metal_image* compute_image::get_underlying_metal_image_safe() const {
 
 vulkan_image* compute_image::get_underlying_vulkan_image_safe() {
 	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-		vulkan_image* ret = nullptr;
-		if (ret = get_shared_vulkan_image(); !ret) {
-			ret = (vulkan_image*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
-				sync_vulkan_image();
+		vulkan_image* ret = get_shared_vulkan_image();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Vulkan use
+				release_vulkan_image(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
+				sync_vulkan_image(nullptr, nullptr);
 			}
+		} else {
+			ret = (vulkan_image*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_VULKAN)
 		if (auto test_cast_vk_image = dynamic_cast<vulkan_image*>(ret); !test_cast_vk_image) {
@@ -1214,13 +1223,16 @@ vulkan_image* compute_image::get_underlying_vulkan_image_safe() {
 
 const vulkan_image* compute_image::get_underlying_vulkan_image_safe() const {
 	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-		const vulkan_image* ret = nullptr;
-		if (ret = get_shared_vulkan_image(); !ret) {
-			ret = (const vulkan_image*)this;
-		} else {
-			if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
-				sync_vulkan_image();
+		const vulkan_image* ret = get_shared_vulkan_image();
+		if (ret) {
+			if (has_flag<COMPUTE_MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Vulkan use
+				release_vulkan_image(nullptr, nullptr);
+			} else if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING_SYNC_SHARED>(flags)) {
+				sync_vulkan_image(nullptr, nullptr);
 			}
+		} else {
+			ret = (const vulkan_image*)this;
 		}
 #if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_VULKAN)
 		if (auto test_cast_vk_image = dynamic_cast<const vulkan_image*>(ret); !test_cast_vk_image) {

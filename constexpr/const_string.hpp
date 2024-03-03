@@ -273,6 +273,10 @@ template <size_t size> static constexpr auto make_sized_array(const char* str) {
 template <char... chars> constexpr auto operator""_cs() {
 	return const_string<sizeof...(chars)> {{ chars... }};
 }
+template <const_string str> constexpr auto operator""_cs() {
+	return str;
+}
+template <size_t count> const_string(const char (&str)[count]) -> const_string<count>;
 
 //! create a const_string<*> from a c string (with size info)
 template <size_t n> constexpr auto make_const_string(const char (&str)[n]) {

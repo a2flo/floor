@@ -753,12 +753,12 @@ void host_kernel::execute(const compute_queue& cqueue,
 	vptr_args.reserve(args.size());
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr());
+			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr_with_sync());
 		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
 			auto arr_arg = make_unique<void*[]>((*vec_buf_ptrs)->size());
 			auto arr_buf_ptr = arr_arg.get();
 			for (const auto& buf : **vec_buf_ptrs) {
-				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf)->get_host_buffer_ptr() : nullptr);
+				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf)->get_host_buffer_ptr_with_sync() : nullptr);
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));
@@ -766,17 +766,17 @@ void host_kernel::execute(const compute_queue& cqueue,
 			auto arr_arg = make_unique<void*[]>((*vec_buf_sptrs)->size());
 			auto arr_buf_ptr = arr_arg.get();
 			for (const auto& buf : **vec_buf_sptrs) {
-				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf.get())->get_host_buffer_ptr() : nullptr);
+				*arr_buf_ptr++ = (buf ? ((const host_buffer*)buf.get())->get_host_buffer_ptr_with_sync() : nullptr);
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));
 		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info());
+			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info_with_sync());
 		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var); vec_img_ptrs && *vec_img_ptrs) {
 			auto arr_arg = make_unique<void*[]>((*vec_img_ptrs)->size());
 			auto arr_img_ptr = arr_arg.get();
 			for (const auto& img : **vec_img_ptrs) {
-				*arr_img_ptr++ = (img ? ((const host_image*)img)->get_host_image_program_info() : nullptr);
+				*arr_img_ptr++ = (img ? ((const host_image*)img)->get_host_image_program_info_with_sync() : nullptr);
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));
@@ -784,7 +784,7 @@ void host_kernel::execute(const compute_queue& cqueue,
 			auto arr_arg = make_unique<void*[]>((*vec_img_sptrs)->size());
 			auto arr_img_ptr = arr_arg.get();
 			for (const auto& img : **vec_img_sptrs) {
-				*arr_img_ptr++ = (img ? ((const host_image*)img.get())->get_host_image_program_info() : nullptr);
+				*arr_img_ptr++ = (img ? ((const host_image*)img.get())->get_host_image_program_info_with_sync() : nullptr);
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));

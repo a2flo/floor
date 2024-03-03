@@ -25,11 +25,15 @@
 
 #include <floor/compute/compute_queue.hpp>
 #include <floor/threading/thread_safety.hpp>
+#if defined(__OBJC__)
 #include <Metal/Metal.h>
+#endif
 
 class metal_queue final : public compute_queue {
 public:
-	explicit metal_queue(const compute_device& device, id <MTLCommandQueue> queue);
+#if defined(__OBJC__)
+	explicit metal_queue(const compute_device& device, id <MTLCommandQueue> floor_nonnull queue);
+#endif
 	
 	void finish() const override REQUIRES(!cmd_buffers_lock);
 	void flush() const override REQUIRES(!cmd_buffers_lock);
@@ -40,11 +44,13 @@ public:
 						  const uint32_t command_offset,
 						  const uint32_t command_count) const override REQUIRES(!cmd_buffers_lock);
 	
-	const void* get_queue_ptr() const override;
-	void* get_queue_ptr() override;
+	const void* floor_nonnull get_queue_ptr() const override;
+	void* floor_nonnull get_queue_ptr() override;
 	
-	id <MTLCommandQueue> get_queue() const;
-	id <MTLCommandBuffer> make_command_buffer() const REQUIRES(!cmd_buffers_lock);
+#if defined(__OBJC__)
+	id <MTLCommandQueue> floor_nonnull get_queue() const;
+	id <MTLCommandBuffer> floor_nonnull make_command_buffer() const REQUIRES(!cmd_buffers_lock);
+#endif
 	
 	bool has_profiling_support() const override {
 		return true;
@@ -55,10 +61,18 @@ public:
 	void set_debug_label(const string& label) override;
 	
 protected:
-	id <MTLCommandQueue> queue { nil };
+#if defined(__OBJC__)
+	id <MTLCommandQueue> floor_null_unspecified queue { nil };
+#else
+	void* floor_null_unspecified queue { nullptr };
+#endif
 	
 	mutable safe_recursive_mutex cmd_buffers_lock;
+#if defined(__OBJC__)
 	mutable vector<pair<id <MTLCommandBuffer>, bool>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+#else
+	mutable vector<pair<void*, bool>> cmd_buffers;
+#endif
 	
 	bool can_do_profiling { false };
 	mutable atomic<bool> is_profiling { false };

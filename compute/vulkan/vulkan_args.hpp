@@ -177,7 +177,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const span<uint8_t>& host_desc_data,
 								const vector<shared_ptr<compute_buffer>>& arg) {
 	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const shared_ptr<compute_buffer>& buf) {
-		return (const vulkan_buffer*)buf.get();
+		return buf->get_underlying_vulkan_buffer_safe();
 	});
 }
 
@@ -188,7 +188,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const span<uint8_t>& host_desc_data,
 								const vector<compute_buffer*>& arg) {
 	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const compute_buffer* buf) {
-		return (const vulkan_buffer*)buf;
+		return buf->get_underlying_vulkan_buffer_safe();
 	});
 }
 
@@ -351,7 +351,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								transition_info_t* transition_info) {
 	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info,
 									   [](const shared_ptr<compute_image>& img) {
-		return (const vulkan_image*)img.get();
+		return img->get_underlying_vulkan_image_safe();
 	});
 }
 
@@ -364,7 +364,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const vector<compute_image*>& arg,
 								transition_info_t* transition_info) {
 	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info, [](const compute_image* img) {
-		return (const vulkan_image*)img;
+		return img->get_underlying_vulkan_image_safe();
 	});
 }
 

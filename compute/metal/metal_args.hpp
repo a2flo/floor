@@ -151,7 +151,7 @@ namespace metal_args {
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
 			if (arg[i]) {
-				mtl_buf_array[i] = ((metal_buffer*)arg[i].get())->get_metal_buffer();
+				mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
 			} else {
 				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
 				assert(null_buffer);
@@ -180,7 +180,7 @@ namespace metal_args {
 		vector<NSUInteger> offsets(count, 0);
 		for (size_t i = 0; i < count; ++i) {
 			if (arg[i]) {
-				mtl_buf_array[i] = ((metal_buffer*)arg[i])->get_metal_buffer();
+				mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
 			} else {
 				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
 				assert(null_buffer);
@@ -202,26 +202,7 @@ namespace metal_args {
 							 const vector<uint32_t>* arg_buffer_indices,
 							 metal_resource_tracking::resource_info_t* res_info) {
 		const auto buf = arg_buf->get_storage_buffer();
-		const metal_buffer* mtl_buffer = nullptr;
-		if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(buf->get_flags())) {
-			mtl_buffer = buf->get_shared_metal_buffer();
-			if (mtl_buffer == nullptr) {
-				mtl_buffer = (const metal_buffer*)buf;
-	#if defined(FLOOR_DEBUG)
-				if (auto test_cast_mtl_buffer = dynamic_cast<const metal_buffer*>(buf); !test_cast_mtl_buffer) {
-					log_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
-					return;
-				}
-	#endif
-			} else {
-				if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(buf->get_flags())) {
-					buf->sync_metal_buffer();
-				}
-			}
-		} else {
-			mtl_buffer = (const metal_buffer*)buf;
-		}
-		
+		const metal_buffer* mtl_buffer = buf->get_underlying_metal_buffer_safe();
 		auto mtl_buffer_obj = mtl_buffer->get_metal_buffer();
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 			[encoder setBuffer:mtl_buffer_obj
@@ -337,7 +318,7 @@ namespace metal_args {
 		
 		vector<id <MTLTexture>> mtl_img_array(count, nil);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = (arg[i] ? ((metal_image*)arg[i].get())->get_metal_image() : nil);
+			mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
@@ -376,7 +357,7 @@ namespace metal_args {
 		
 		vector<id <MTLTexture>> mtl_img_array(count, nil);
 		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = (arg[i] ? ((metal_image*)arg[i])->get_metal_image() : nil);
+			mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
 		}
 		
 		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
