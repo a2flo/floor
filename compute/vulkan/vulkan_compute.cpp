@@ -1074,6 +1074,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 					  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
 			continue;
 		}
+		if (desc_buf_props.maxDescriptorBufferBindings < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
+			log_error("failed argument buffer support: max number of bound descriptor buffer bindings $ < required count $",
+					  desc_buf_props.maxDescriptorBufferBindings, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
+			continue;
+		}
 		if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
 			log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
 					  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
