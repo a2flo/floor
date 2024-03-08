@@ -74,6 +74,17 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(std::move(pr
 															 CU_FUNCTION_ATTRIBUTE::MAX_THREADS_PER_BLOCK, entry.kernel))
 					entry.max_total_local_size = (max_total_local_size < 0 ? 0 : (uint32_t)max_total_local_size);
 					
+					// we only support static local/shared memory, not dynamic
+					// -> ignore the kernel if it uses too much memory
+					int local_mem_size = 0;
+					CU_CALL_IGNORE(cu_function_get_attribute(&local_mem_size,
+															 CU_FUNCTION_ATTRIBUTE::LOCAL_SIZE_BYTES, entry.kernel))
+					if (local_mem_size > 0 && uint64_t(local_mem_size) > prog.first.get().local_mem_size) {
+						log_error("kernel $ requires $' bytes of local memory, but the device only provides $' bytes",
+								  kernel_name, uint64_t(local_mem_size), prog.first.get().local_mem_size);
+						break;
+					}
+					
 #if 0 // WIP
 					// use this to compute max occupancy
 					int min_grid_size = 0, block_size = 0;
