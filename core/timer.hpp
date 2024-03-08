@@ -28,6 +28,9 @@ template <class clock_type = conditional_t<chrono::high_resolution_clock::is_ste
 										   chrono::steady_clock>>
 class floor_timer_t {
 public:
+	//! the active clock type for this timer
+	using timer_clock_type = clock_type;
+	
 	//! "starts" the timer: returns the current time_point of a monotonic clock
 	static chrono::time_point<clock_type> start() {
 		return clock_type::now();

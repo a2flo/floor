@@ -20,7 +20,7 @@
 
 compute_program::~compute_program() {}
 
-shared_ptr<compute_kernel> compute_program::get_kernel(const string& func_name) const {
+shared_ptr<compute_kernel> compute_program::get_kernel(const string_view& func_name) const {
 	const auto iter = find(cbegin(kernel_names), cend(kernel_names), func_name);
 	if(iter == cend(kernel_names)) return {};
 	return kernels[(size_t)distance(cbegin(kernel_names), iter)];

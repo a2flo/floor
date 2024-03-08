@@ -97,7 +97,7 @@ device(device_), programs(programs_), has_device_binary(!programs.empty()) {
 	}
 }
 
-shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
+shared_ptr<compute_kernel> host_program::get_kernel(const string_view& func_name) const {
 	if (has_device_binary) {
 		return compute_program::get_kernel(func_name);
 	}
@@ -105,7 +105,7 @@ shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) con
 #if !defined(__WINDOWS__)
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(zero-as-null-pointer-constant) // RTLD_DEFAULT is implementation-defined, but cast from int to void*
-	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.c_str());
+	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.data());
 FLOOR_POP_WARNINGS()
 #else
 	// get a handle to the main program / exe if it hasn't been created yet
@@ -118,7 +118,7 @@ FLOOR_POP_WARNINGS()
 		return {};
 	}
 
-	auto func_ptr = (void*)GetProcAddress(exe_module, func_name.c_str());
+	auto func_ptr = (void*)GetProcAddress(exe_module, func_name.data());
 #endif
 	if(func_ptr == nullptr) {
 #if !defined(__WINDOWS__)
@@ -133,7 +133,7 @@ FLOOR_POP_WARNINGS()
 	entry.max_total_local_size = device.max_total_local_size;
 	entry.max_local_size = device.max_local_size;
 	
-	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name, std::move(entry));
+	auto kernel = make_shared<host_kernel>((const void*)func_ptr, string(func_name), std::move(entry));
 	kernels.emplace_back(kernel);
 	kernel_names.emplace_back(func_name);
 	

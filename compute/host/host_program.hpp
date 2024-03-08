@@ -39,7 +39,7 @@ public:
 	
 	host_program(const compute_device& device, program_map_type&& programs);
 	
-	shared_ptr<compute_kernel> get_kernel(const string& func_name) const override;
+	shared_ptr<compute_kernel> get_kernel(const string_view& func_name) const override;
 	
 protected:
 	const compute_device& device;

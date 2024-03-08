@@ -32,7 +32,7 @@ public:
 	virtual ~compute_program() = 0;
 	
 	//! returns the kernel with the exact function name of "func_name", nullptr if not found
-	virtual shared_ptr<compute_kernel> get_kernel(const string& func_name) const;
+	virtual shared_ptr<compute_kernel> get_kernel(const string_view& func_name) const;
 	
 	//! returns a container of all kernels in this program
 	const vector<shared_ptr<compute_kernel>>& get_kernels() const {
