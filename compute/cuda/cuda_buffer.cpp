@@ -557,13 +557,13 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_buffer::acquire_vulkan_buffer(const compute_queue* cqueue_ floor_unused_if_release, const vulkan_queue* vk_queue_) const {
+bool cuda_buffer::acquire_vulkan_buffer(const compute_queue* cqueue_, const vulkan_queue* vk_queue_) const {
 	if (!vk_object_state) {
 		// -> already acquired for use with CUDA
 		return true;
 	}
 	
-	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	[[maybe_unused]] const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
 	const auto comp_vk_queue = (vk_queue_ != nullptr ? (const vulkan_queue*)vk_queue_ : get_default_queue_for_memory(*shared_buffer));
 	
 	// validate CUDA queue

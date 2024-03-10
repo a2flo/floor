@@ -137,6 +137,9 @@ static inline void set_argument(const vulkan_device& vk_dev,
 	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
+	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::SSBO) {
+		throw runtime_error("argument is not a buffer, but a buffer was specified");
+	}
 	if (write_offset + desc_data.size() > host_desc_data.size_bytes()) {
 		throw runtime_error("out-of-bounds descriptor/argument buffer write");
 	}
@@ -154,9 +157,12 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 	const auto elem_count = arg_info.args[idx.arg].size;
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
+	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY) {
+		throw runtime_error("argument is not a buffer array, but a buffer array was specified");
+	}
 	if (elem_count != buffer_array.size()) {
-		log_error("invalid buffer array: expected $ elements, got $ elements", elem_count, buffer_array.size());
-		return;
+		throw runtime_error("invalid buffer array: expected " + to_string(elem_count) + " elements, got " +
+							to_string(buffer_array.size()) + " elements");
 	}
 	const auto desc_data_total_size = vk_dev.desc_buffer_sizes.ssbo * elem_count;
 	if (write_offset + desc_data_total_size > host_desc_data.size_bytes()) {
@@ -165,7 +171,12 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 #endif
 	
 	for (uint32_t i = 0; i < elem_count; ++i) {
-		const span<const uint8_t> desc_data { &buffer_accessor(buffer_array[i])->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
+		auto buf_ptr = buffer_accessor(buffer_array[i]);
+		if (!buf_ptr) {
+			memset(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, 0, vk_dev.desc_buffer_sizes.ssbo);
+			continue;
+		}
+		const span<const uint8_t> desc_data { &buf_ptr->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 		memcpy(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, desc_data.data(), vk_dev.desc_buffer_sizes.ssbo);
 	}
 }
@@ -177,7 +188,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const span<uint8_t>& host_desc_data,
 								const vector<shared_ptr<compute_buffer>>& arg) {
 	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const shared_ptr<compute_buffer>& buf) {
-		return buf->get_underlying_vulkan_buffer_safe();
+		return (buf ? buf->get_underlying_vulkan_buffer_safe() : nullptr);
 	});
 }
 
@@ -188,7 +199,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const span<uint8_t>& host_desc_data,
 								const vector<compute_buffer*>& arg) {
 	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const compute_buffer* buf) {
-		return buf->get_underlying_vulkan_buffer_safe();
+		return (buf ? buf->get_underlying_vulkan_buffer_safe() : nullptr);
 	});
 }
 
@@ -202,6 +213,12 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 								transition_info_t* transition_info) {
 	const auto vk_img = arg->get_underlying_vulkan_image_safe();
 	const auto img_access = arg_info.args[idx.arg].image_access;
+	
+#if defined(FLOOR_DEBUG)
+	if (arg_info.args[idx.arg].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
+		throw runtime_error("argument is not an image, but an image was specified");
+	}
+#endif
 	
 	// soft-transition image if request + gather transition info
 	if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) {
@@ -272,6 +289,12 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 														 F&& image_accessor) {
 	// TODO: write/read-write array support
 	
+#if defined(FLOOR_DEBUG)
+	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY) {
+		throw runtime_error("argument is not an image array, but an image array was specified");
+	}
+#endif
+	
 	// soft-transition image if request + gather transition info
 	if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) {
 		if (transition_info) {
@@ -321,8 +344,8 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
 	if (elem_count != image_array.size()) {
-		log_error("invalid image array: expected $ elements, got $ elements", elem_count, image_array.size());
-		return;
+		throw runtime_error("invalid image array: expected " + to_string(elem_count) + " elements, got " +
+							to_string(image_array.size()) + " elements");
 	}
 	const auto desc_data_total_size = desc_data_size * elem_count;
 	if (write_offset + desc_data_total_size > host_desc_data.size_bytes()) {
@@ -351,7 +374,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								transition_info_t* transition_info) {
 	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info,
 									   [](const shared_ptr<compute_image>& img) {
-		return img->get_underlying_vulkan_image_safe();
+		return (img ? img->get_underlying_vulkan_image_safe() : nullptr);
 	});
 }
 
@@ -364,7 +387,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const vector<compute_image*>& arg,
 								transition_info_t* transition_info) {
 	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info, [](const compute_image* img) {
-		return img->get_underlying_vulkan_image_safe();
+		return (img ? img->get_underlying_vulkan_image_safe() : nullptr);
 	});
 }
 
@@ -385,12 +408,14 @@ arg_pre_handler(const vector<span<uint8_t>>& mapped_host_desc_data,
 		// get the next non-nullptr entry or use the current one if it's valid
 		while (entries[idx.entry] == nullptr) {
 			++idx.entry;
-#if defined(FLOOR_DEBUG)
 			if (idx.entry >= entries.size()) {
+#if defined(FLOOR_DEBUG)
+				throw runtime_error("shader/kernel entry out of bounds");
+#else
 				log_error("shader/kernel entry out of bounds");
+#endif
 				return { nullptr, nullptr, nullptr, {} };
 			}
-#endif
 		}
 		entry = entries[idx.entry];
 		argument_offsets = (idx.entry < per_entry_argument_offsets.size() ? per_entry_argument_offsets[idx.entry] : nullptr);
@@ -470,40 +495,52 @@ set_arguments(const vulkan_device& dev,
 	size_t explicit_idx = 0, implicit_idx = 0;
 	vector<pair<uint32_t /* entry idx */, const vulkan_buffer* /* argument buffer storage */>> argument_buffers;
 	for (size_t i = 0; i < arg_count; ++i) {
-		auto [arg_info_ptr, argument_offsets_ptr, const_buf_ptr, host_desc_data] = arg_pre_handler<enc_type>(mapped_host_desc_data, entries,
-																											 per_entry_argument_offsets,
-																											 per_entry_const_buffers, idx);
-		if (!arg_info_ptr || !argument_offsets_ptr) {
+#if defined(FLOOR_DEBUG)
+		try
+#endif
+		{
+			auto [arg_info_ptr, argument_offsets_ptr, const_buf_ptr, host_desc_data] = arg_pre_handler<enc_type>(mapped_host_desc_data, entries,
+																												 per_entry_argument_offsets,
+																												 per_entry_const_buffers, idx);
+			if (!arg_info_ptr || !argument_offsets_ptr) {
+				return { false, {} };
+			}
+			const auto& arg_info = *arg_info_ptr;
+			const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
+			const auto& arg_offsets = *argument_offsets_ptr;
+			
+			if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
+				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *buf_ptr);
+			} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
+				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_ptrs);
+			} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
+				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_sptrs);
+			} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *img_ptr, transition_info);
+			} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_ptrs, transition_info);
+			} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_sptrs, transition_info);
+			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+				// argument buffers may not be set by this: these must be handled by the user -> collect and return them
+				const auto arg_storage_buf = (*arg_buf_ptr)->get_storage_buffer();
+				argument_buffers.emplace_back(idx.entry, (const vulkan_buffer*)arg_storage_buf);
+			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *generic_arg_ptr, arg.size, const_buf_ptr);
+			} else {
+				log_error("encountered invalid arg");
+				return { false, {} };
+			}
+			
+			arg_post_handler(arg_info, idx);
+		}
+#if defined(FLOOR_DEBUG)
+		catch (std::exception& exc) {
+			log_error("in $: argument #$: $", (idx.entry < entries.size() && entries[idx.entry] ?
+											   entries[idx.entry]->name : "<invalid-function>"), i, exc.what());
 			return { false, {} };
 		}
-		const auto& arg_info = *arg_info_ptr;
-		const auto& arg = (!idx.is_implicit ? args[explicit_idx++] : implicit_args[implicit_idx++]);
-		const auto& arg_offsets = *argument_offsets_ptr;
-		
-		if (auto buf_ptr = get_if<const compute_buffer*>(&arg.var)) {
-			set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *buf_ptr);
-		} else if (auto vec_buf_ptrs = get_if<const vector<compute_buffer*>*>(&arg.var)) {
-			set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_ptrs);
-		} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
-			set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_sptrs);
-		} else if (auto img_ptr = get_if<const compute_image*>(&arg.var)) {
-			set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *img_ptr, transition_info);
-		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
-			set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_ptrs, transition_info);
-		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
-			set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_sptrs, transition_info);
-		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
-			// argument buffers may not be set by this: these must be handled by the user -> collect and return them
-			const auto arg_storage_buf = (*arg_buf_ptr)->get_storage_buffer();
-			argument_buffers.emplace_back(idx.entry, (const vulkan_buffer*)arg_storage_buf);
-		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {
-			set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *generic_arg_ptr, arg.size, const_buf_ptr);
-		} else {
-			log_error("encountered invalid arg");
-			return { false, {} };
-		}
-		
-		arg_post_handler(arg_info, idx);
+#endif
 	}
 	
 	return { true, argument_buffers };

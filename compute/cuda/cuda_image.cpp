@@ -1152,13 +1152,13 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
-bool cuda_image::acquire_vulkan_image(const compute_queue* cqueue_ floor_unused_if_release, const vulkan_queue* vk_queue_) const {
+bool cuda_image::acquire_vulkan_image(const compute_queue* cqueue_, const vulkan_queue* vk_queue_) const {
 	if (!vk_object_state) {
 		// -> already acquired for use with CUDA
 		return true;
 	}
 	
-	const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
+	[[maybe_unused]] const auto cqueue = (cqueue_ != nullptr ? cqueue_ : dev.context->get_device_default_queue(dev));
 	const auto comp_vk_queue = (vk_queue_ != nullptr ? (const vulkan_queue*)vk_queue_ : get_default_queue_for_memory(*shared_image));
 	
 	// validate CUDA queue
