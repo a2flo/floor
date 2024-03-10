@@ -653,21 +653,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 	if (draw_entry) {
 		vkCmdDraw(cmd_buffer, draw_entry->vertex_count, draw_entry->instance_count, draw_entry->first_vertex, draw_entry->first_instance);
 	} else if (draw_index_entry) {
-		VkBuffer vk_idx_buffer { nullptr };
-		if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(draw_index_entry->index_buffer->get_flags())) {
-			auto vk_buffer = draw_index_entry->index_buffer->get_shared_vulkan_buffer();
-			if (!vk_buffer) {
-				vk_buffer = (const vulkan_buffer*)draw_index_entry->index_buffer;
-				if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(draw_index_entry->index_buffer); !test_cast_vk_buffer) {
-					throw runtime_error("specified index buffer \"" + draw_index_entry->index_buffer->get_debug_label() +
-										"\" is neither a Vulkan buffer nor a shared Vulkan buffer");
-				}
-			}
-			vk_idx_buffer = vk_buffer->get_vulkan_buffer();
-		} else {
-			vk_idx_buffer = ((const vulkan_buffer*)draw_index_entry->index_buffer)->get_vulkan_buffer();
-		}
-		
+		const auto vk_idx_buffer = draw_index_entry->index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
 		vkCmdBindIndexBuffer(cmd_buffer, vk_idx_buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(cmd_buffer, draw_index_entry->index_count, draw_index_entry->instance_count, draw_index_entry->first_index,
 						 draw_index_entry->vertex_offset, draw_index_entry->first_instance);

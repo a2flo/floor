@@ -109,7 +109,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& p
 		[encoder drawIndexedPrimitives:mtl_primitve
 							indexCount:entry.index_count
 							 indexType:MTLIndexTypeUInt32
-						   indexBuffer:((const metal_buffer*)entry.index_buffer)->get_metal_buffer()
+						   indexBuffer:entry.index_buffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
 					 indexBufferOffset:(entry.first_index * 4u)
 						 instanceCount:entry.instance_count
 							baseVertex:entry.vertex_offset
@@ -126,7 +126,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const graphics_ren
 	// always contiguous at the front
 	uint32_t vbuffer_idx = 0u;
 	for (const auto& vbuffer : entry.control_point_buffers) {
-		[encoder setVertexBuffer:((const metal_buffer*)vbuffer)->get_metal_buffer()
+		[encoder setVertexBuffer:vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
 						  offset:0u
 						 atIndex:vbuffer_idx++];
 	}
@@ -154,7 +154,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
 	// always contiguous at the front
 	uint32_t vbuffer_idx = 0u;
 	for (const auto& vbuffer : entry.control_point_buffers) {
-		[encoder setVertexBuffer:((const metal_buffer*)vbuffer)->get_metal_buffer()
+		[encoder setVertexBuffer:vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
 						  offset:0u
 						 atIndex:vbuffer_idx++];
 	}
@@ -164,7 +164,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
 					 patchCount:entry.patch_count
 			   patchIndexBuffer:nil
 		 patchIndexBufferOffset:0u
-		controlPointIndexBuffer:((const metal_buffer*)entry.control_point_index_buffer)->get_metal_buffer()
+		controlPointIndexBuffer:entry.control_point_index_buffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
   controlPointIndexBufferOffset:(entry.first_index * 4u)
 				  instanceCount:entry.instance_count
 				   baseInstance:entry.first_instance];

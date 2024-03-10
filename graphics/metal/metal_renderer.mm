@@ -413,7 +413,7 @@ bool metal_renderer::set_tessellation_factors(const compute_buffer& tess_factors
 		return false;
 	}
 	
-	[encoder setTessellationFactorBuffer:((const metal_buffer&)tess_factors_buffer).get_metal_buffer()
+	[encoder setTessellationFactorBuffer:tess_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer()
 								  offset:0u
 						  instanceStride:0u];
 	

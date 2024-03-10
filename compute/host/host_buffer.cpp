@@ -49,7 +49,7 @@ compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_obje
 	}
 #endif
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) && has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
-		throw runtime_error("can now have both Metal and Vulkan sharing enabled");
+		throw runtime_error("can not have both Metal and Vulkan sharing enabled");
 	}
 
 	// actually create the buffer

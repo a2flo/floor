@@ -236,24 +236,7 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 	}
 	if (draw_indexed_entries != nullptr) {
 		for (const auto& entry : *draw_indexed_entries) {
-			VkBuffer vk_idx_buffer { nullptr };
-			if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(entry.index_buffer->get_flags())) {
-				auto vk_buffer = entry.index_buffer->get_shared_vulkan_buffer();
-				if (vk_buffer == nullptr) {
-					vk_buffer = (const vulkan_buffer*)entry.index_buffer;
-#if defined(FLOOR_DEBUG)
-					if (auto test_cast_vk_buffer = dynamic_cast<const vulkan_buffer*>(entry.index_buffer); !test_cast_vk_buffer) {
-						log_error("specified index buffer \"$\" is neither a Vulkan buffer nor a shared Vulkan buffer",
-								  entry.index_buffer->get_debug_label());
-						continue;
-					}
-#endif
-				}
-				vk_idx_buffer = vk_buffer->get_vulkan_buffer();
-			} else {
-				vk_idx_buffer = ((const vulkan_buffer*)entry.index_buffer)->get_vulkan_buffer();
-			}
-			
+			const auto vk_idx_buffer = entry.index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
 			vkCmdBindIndexBuffer(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(encoder->cmd_buffer.cmd_buffer, entry.index_count, entry.instance_count, entry.first_index,
 							 entry.vertex_offset, entry.first_instance);

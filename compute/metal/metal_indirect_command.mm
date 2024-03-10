@@ -362,7 +362,7 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_ind
 																					 const int32_t vertex_offset,
 																					 const uint32_t first_instance) {
 	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
-	auto idx_buffer = ((const metal_buffer&)index_buffer).get_metal_buffer();
+	auto idx_buffer = index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
 	[command drawIndexedPrimitives:mtl_primitve
 						indexCount:index_count
 						 indexType:MTLIndexTypeUInt32
@@ -385,14 +385,14 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																					 const uint32_t first_instance) {
 	uint32_t vbuffer_idx = 0u;
 	for (const auto& vbuffer : control_point_buffers) {
-		auto mtl_buf = ((const metal_buffer*)vbuffer)->get_metal_buffer();
+		auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
 		[command setVertexBuffer:mtl_buf
 						  offset:0u
 						 atIndex:vbuffer_idx++];
 		resources.read_only.emplace_back(mtl_buf);
 	}
 	
-	auto factors_buffer = ((const metal_buffer&)tessellation_factors_buffer).get_metal_buffer();
+	auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
 	[command drawPatches:patch_control_point_count
 			  patchStart:first_patch
 			  patchCount:patch_count
@@ -418,15 +418,15 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																							 const uint32_t first_instance) {
 	uint32_t vbuffer_idx = 0u;
 	for (const auto& vbuffer : control_point_buffers) {
-		auto mtl_buf = ((const metal_buffer*)vbuffer)->get_metal_buffer();
+		auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
 		[command setVertexBuffer:mtl_buf
 						  offset:0u
 						 atIndex:vbuffer_idx++];
 		resources.read_only.emplace_back(mtl_buf);
 	}
 	
-	auto idx_buffer = ((const metal_buffer&)control_point_index_buffer).get_metal_buffer();
-	auto factors_buffer = ((const metal_buffer&)tessellation_factors_buffer).get_metal_buffer();
+	auto idx_buffer = control_point_index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+	auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
 	[command drawIndexedPatches:patch_control_point_count
 					 patchStart:first_patch
 					 patchCount:patch_count
