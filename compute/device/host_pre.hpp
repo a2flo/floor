@@ -238,6 +238,9 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY 0
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_0
 
+// we still support local memory however -> fixed amount is defined by host_limits
+#define FLOOR_COMPUTE_INFO_DEDICATED_LOCAL_MEMORY (host_limits::local_memory_size)
+
 // host-compute doesn't support sub-groups or sub-group shuffle right now
 #define FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS 0
 #define FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_0

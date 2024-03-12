@@ -31,6 +31,8 @@ class opencl_compute;
 
 class opencl_device final : public compute_device {
 public:
+	opencl_device();
+	
 	//! opencl version of the device
 	OPENCL_VERSION cl_version { OPENCL_VERSION::NONE };
 	

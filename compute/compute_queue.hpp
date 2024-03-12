@@ -73,6 +73,14 @@ public:
 		return (check_arg_types<T>() && check_arg_types<Args...>());
 	}
 	
+	//! checks if "work_size_type" is a valid work size type (uint1/uint2/uint3)
+	template <class work_size_type>
+	static constexpr bool is_valid_work_size_type() {
+		return (is_same_v<work_size_type, uint1> ||
+				is_same_v<work_size_type, uint2> ||
+				is_same_v<work_size_type, uint3>);
+	}
+	
 public:
 	enum class QUEUE_TYPE {
 		//! default queue type
@@ -99,9 +107,7 @@ public:
 	
 	//! enqueues (and executes) the specified kernel into this queue
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
+	requires (is_valid_work_size_type<work_size_type>())
 	void execute(const compute_kernel& kernel,
 				 const work_size_type& global_work_size,
 				 const work_size_type& local_work_size,
@@ -110,40 +116,47 @@ public:
 	}
 	
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
+	requires (is_valid_work_size_type<work_size_type>())
 	void execute(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues (and executes) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
-	void execute_with_handler(const compute_kernel& kernel,
-							  const work_size_type& global_work_size,
-							  const work_size_type& local_work_size,
-							  kernel_completion_handler_f&& completion_handler,
-							  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute(const compute_kernel& kernel,
+				 kernel_completion_handler_f&& completion_handler,
+				 const work_size_type& global_work_size,
+				 const work_size_type& local_work_size,
+				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size,
 								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
 	}
 	
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
-	void execute_with_handler(const compute_kernel&, const work_size_type&, const work_size_type&, kernel_completion_handler_f&&, const Args&...) const
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute(const compute_kernel&, kernel_completion_handler_f&&, const work_size_type&, const work_size_type&, const Args&...) const
+	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
+	
+	//! enqueues and executes the specified kernel into this queue, blocking until execution has finished
+	template <typename... Args, class work_size_type>
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_sync(const compute_kernel& kernel,
+					  const work_size_type& global_work_size,
+					  const work_size_type& local_work_size,
+					  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, false, true, global_work_size, local_work_size, {}, { args... });
+	}
+	
+	template <typename... Args, class work_size_type>
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_sync(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
 	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
+	requires (is_valid_work_size_type<work_size_type>())
 	void execute_cooperative(const compute_kernel& kernel,
 							 const work_size_type& global_work_size,
 							 const work_size_type& local_work_size,
@@ -152,33 +165,43 @@ public:
 	}
 	
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
+	requires (is_valid_work_size_type<work_size_type>())
 	void execute_cooperative(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues (and executes cooperatively) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
 	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
-	void execute_cooperative_with_handler(const compute_kernel& kernel,
-										  const work_size_type& global_work_size,
-										  const work_size_type& local_work_size,
-										  kernel_completion_handler_f&& completion_handler,
-										  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_cooperative(const compute_kernel& kernel,
+							 kernel_completion_handler_f&& completion_handler,
+							 const work_size_type& global_work_size,
+							 const work_size_type& local_work_size,
+							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size,
 								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
 	}
 	
 	template <typename... Args, class work_size_type>
-	requires (is_same_v<work_size_type, uint1> ||
-			  is_same_v<work_size_type, uint2> ||
-			  is_same_v<work_size_type, uint3>)
-	void execute_cooperative_with_handler(const compute_kernel&, const work_size_type&, const work_size_type&,
-										  kernel_completion_handler_f&&, const Args&...) const
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_cooperative(const compute_kernel&, kernel_completion_handler_f&&,
+							 const work_size_type&, const work_size_type&, const Args&...) const
+	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
+	
+	//! enqueues (and executes cooperatively) the specified kernel into this queue, blocking until execution has finished
+	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
+	template <typename... Args, class work_size_type>
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_cooperative_sync(const compute_kernel& kernel,
+								  const work_size_type& global_work_size,
+								  const work_size_type& local_work_size,
+								  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, true, true, global_work_size, local_work_size, {}, { args... });
+	}
+	
+	template <typename... Args, class work_size_type>
+	requires (is_valid_work_size_type<work_size_type>())
+	void execute_cooperative_sync(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	

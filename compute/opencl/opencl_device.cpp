@@ -17,3 +17,7 @@
  */
 
 #include <floor/compute/opencl/opencl_device.hpp>
+
+opencl_device::opencl_device() : compute_device() {
+	local_mem_size = 16u * 1024u; // at least 16KiB
+}

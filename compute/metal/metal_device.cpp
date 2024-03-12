@@ -24,6 +24,7 @@ metal_device::metal_device() : compute_device() {
 	platform_vendor = COMPUTE_VENDOR::APPLE;
 	
 	local_mem_dedicated = true;
+	local_mem_size = 16u * 1024u; // at least 16KiB
 	
 	image_support = true;
 	image_depth_support = true;

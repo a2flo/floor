@@ -30,6 +30,7 @@ cuda_device::cuda_device() : compute_device() {
 	simd_range = { simd_width, simd_width };
 	max_total_local_size = 1024; // true for all gpus right now
 	local_mem_dedicated = true;
+	local_mem_size = 48u * 1024u; // always 48KiB for all supported generations
 	double_support = true; // true for all gpus since fermi/sm_20
 	basic_64_bit_atomics_support = true; // always true since fermi/sm_20
 	basic_32_bit_float_atomics_support = true; // always true since fermi/sm_20

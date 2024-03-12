@@ -759,6 +759,7 @@ program_data compile_input(const string& input,
 	const auto has_dedicated_local_memory_str = to_string(device.local_mem_dedicated);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_DEDICATED_LOCAL_MEMORY=" + to_string(device.local_mem_size) + "u";
 	
 	// primitive ID / barycentric coord support
 	const auto has_primitive_id_support_str = to_string(primitive_id_support);

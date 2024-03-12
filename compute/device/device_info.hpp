@@ -124,6 +124,13 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
 	}
 	
+	//! returns the amount of the dedicated local memory that is supported by the device
+	//! NOTE: for CUDA, this always equals the static memory size
+	//! NOTE: generally, this should return a value >= 16KiB
+	constexpr uint32_t dedicated_local_memory() {
+		return FLOOR_COMPUTE_INFO_DEDICATED_LOCAL_MEMORY;
+	}
+	
 	//! returns true if the device has primitive ID support
 	constexpr bool has_primitive_id() {
 		return (FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID != 0);

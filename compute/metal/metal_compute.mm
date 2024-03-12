@@ -442,7 +442,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			//device.image_read_write_support = true; // TODO: enable this when supported by the compiler
 		}
 
-		device.local_mem_size = [dev_spi maxComputeThreadgroupMemory];
+		device.local_mem_size = [dev maxThreadgroupMemoryLength];
 		device.max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		// we sadly can't query the amount of compute units directly
 		// -> we can figure out the amount for AMD GPUs via ioreg (-> metal_device_query)

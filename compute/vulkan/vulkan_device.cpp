@@ -21,6 +21,7 @@
 vulkan_device::vulkan_device() : compute_device() {
 	// init statically known info
 	local_mem_dedicated = true;
+	local_mem_size = 16u * 1024u; // at least 16KiB
 	primitive_id_support = true;
 	sub_group_support = true;
 	sub_group_shuffle_support = true;
