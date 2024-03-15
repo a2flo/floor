@@ -262,8 +262,10 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 			device.ptx = { 8, 1 };
 		} else if (driver_version < 12030) {
 			device.ptx = { 8, 2 };
-		} else {
+		} else if (driver_version < 12040) {
 			device.ptx = { 8, 3 };
+		} else {
+			device.ptx = { 8, 4 };
 		}
 		
 		device.min_req_ptx = { 6, 0 };
@@ -279,10 +281,10 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 			} else {
 				device.min_req_ptx = { 7, 8 };
 			}
-		} else if (device.sm.x == 9) {
+		} else if (device.sm.x == 9 && device.sm.y == 0) {
 			device.min_req_ptx = { 7, 8 };
 		} else {
-			device.min_req_ptx = { 8, 3 };
+			device.min_req_ptx = { 8, 4 };
 		}
 		
 		// additional info
