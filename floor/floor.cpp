@@ -1389,6 +1389,10 @@ bool floor::init_internal(const init_state& state) {
 	return true;
 }
 
+bool floor::is_initialized() {
+	return (floor_init_status.load() == FLOOR_INIT_STATUS::SUCCESSFUL);
+}
+
 void floor::set_screen_size(const uint2& screen_size) {
 	if(screen_size.x == config.width && screen_size.y == config.height) return;
 	config.width = screen_size.x;

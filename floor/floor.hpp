@@ -110,6 +110,7 @@ public:
 	};
 	static bool init(const init_state& state);
 	static void destroy();
+	static bool is_initialized();
 	
 	// graphic control functions
 	static RENDERER get_renderer();
