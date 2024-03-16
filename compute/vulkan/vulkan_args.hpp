@@ -137,7 +137,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
-	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::SSBO) {
+	if (!idx.is_implicit && arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::SSBO) {
 		throw runtime_error("argument is not a buffer, but a buffer was specified");
 	}
 	if (write_offset + desc_data.size() > host_desc_data.size_bytes()) {
@@ -154,6 +154,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 														  const idx_handler& idx,
 														  const span<uint8_t>& host_desc_data,
 														  const vector<T>& buffer_array, F&& buffer_accessor) {
+	assert(!idx.is_implicit);
 	const auto elem_count = arg_info.args[idx.arg].size;
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
@@ -211,6 +212,7 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 								const span<uint8_t>& host_desc_data,
 								const compute_image* arg,
 								transition_info_t* transition_info) {
+	assert(!idx.is_implicit);
 	const auto vk_img = arg->get_underlying_vulkan_image_safe();
 	const auto img_access = arg_info.args[idx.arg].image_access;
 	
@@ -287,6 +289,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 														 const vector<T>& image_array,
 														 transition_info_t* transition_info,
 														 F&& image_accessor) {
+	assert(!idx.is_implicit);
 	// TODO: write/read-write array support
 	
 #if defined(FLOOR_DEBUG)

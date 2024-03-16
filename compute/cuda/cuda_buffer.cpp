@@ -478,7 +478,7 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */ || !cuda_vk_sema) {
 		// get the render/graphics context so that we can create a buffer (TODO: allow specifying a different context?)
 		auto render_ctx = floor::get_render_context();
-		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
+		if (!render_ctx || render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
 			log_error("CUDA/Vulkan buffer sharing failed: render context is not Vulkan");
 			return false;
 		}

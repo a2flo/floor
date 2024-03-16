@@ -1076,7 +1076,7 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 	if (shared_vk_image == nullptr || cuda_vk_image != nullptr /* !nullptr if resize */ || !cuda_vk_sema) {
 		// get the render/graphics context so that we can create a image (TODO: allow specifying a different context?)
 		auto render_ctx = floor::get_render_context();
-		if (render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
+		if (!render_ctx || render_ctx->get_compute_type() != COMPUTE_TYPE::VULKAN) {
 			log_error("CUDA/Vulkan image sharing failed: render context is not Vulkan");
 			return false;
 		}
