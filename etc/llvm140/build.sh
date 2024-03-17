@@ -51,8 +51,8 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
-LLVM_REV=05a5fa7f3de013a964804dc8402a0fcf4f6b560c
-LLVM_SPIRV_REV=6057f648b035aa60528df49139edff6895fd108f
+LLVM_REV=78c83c6c36c313f5dd646b52aeab473ca36e55b2
+LLVM_SPIRV_REV=8ed93153d22f88251606fe506f4927f7c33352b5
 if [ ! -d llvm ]; then
 	git clone -b floor_toolchain_1406 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
@@ -87,10 +87,10 @@ cd ../
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
-git clone -b libfloor_202305 https://github.com/a2flo/SPIRV-Tools.git
+git clone -b libfloor_202403 https://github.com/a2flo/SPIRV-Tools.git
 git clone -b main https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
 cd SPIRV-Tools/external/spirv-headers
-git reset --hard 268a061764ee69f09a477a695bf6a11ffe311b8d
+git reset --hard 8b246ff75c6615ba4532fe4fde20f1be090c3764
 cd ../../../
 
 # handle platform
