@@ -276,7 +276,12 @@ template <char... chars> constexpr auto operator""_cs() {
 template <const_string str> constexpr auto operator""_cs() {
 	return str;
 }
+#if (defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || \
+	 defined(FLOOR_COMPUTE_HOST_DEVICE) || defined(FLOOR_COMPUTE_VULKAN))
+template <size_t count> const_string(const constant char (&str)[count]) -> const_string<count>;
+#else
 template <size_t count> const_string(const char (&str)[count]) -> const_string<count>;
+#endif
 
 //! create a const_string<*> from a c string (with size info)
 template <size_t n> constexpr auto make_const_string(const char (&str)[n]) {

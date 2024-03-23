@@ -235,9 +235,9 @@ program_data compile_input(const string& input,
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x " + (!build_pch ? "cl" : "clcxx-header") +
-				(!build_pch ? " -Xclang -llvm-bc-32" : "") +
-				" -Xclang -cl-std=CL1.2 -cl-no-stdinc" +
+				" -x " + (!build_pch ? "cl" : "cl-header") +
+				(!build_pch ? " -Xclang -llvm-bc-32 -cl-no-stdinc" : "") +
+				" -Xclang -cl-std=CL1.2" +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -549,10 +549,9 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
-				" -x " + (!build_pch ? "cl" : "clcxx-header") +
-				(!build_pch ? " -Xclang -emit-spirv" : "") +
+				" -x " + (!build_pch ? "cl" : "cl-header") +
+				(!build_pch ? " -Xclang -emit-spirv -cl-no-stdinc" : "") +
 				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
-				" -cl-no-stdinc" \
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -1278,9 +1277,9 @@ program_data compile_input(const string& input,
 				}
 				if (!options.silence_debug_output) {
 					if (spirv_validator_output == "") {
-						log_msg("spir-v validator: valid");
+						log_msg("SPIR-V validator ($): valid", (options.target == TARGET::SPIRV_VULKAN ? "Vulkan" : "OpenCL"));
 					} else {
-						log_error("spir-v validator: $", spirv_validator_output);
+						log_error("SPIR-V validator ($):\n$", (options.target == TARGET::SPIRV_VULKAN ? "Vulkan" : "OpenCL"), spirv_validator_output);
 					}
 				}
 			}
