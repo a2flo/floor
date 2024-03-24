@@ -73,16 +73,16 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(std::move(pr
 					CU_CALL_IGNORE(cu_function_get_attribute(&max_total_local_size,
 															 CU_FUNCTION_ATTRIBUTE::MAX_THREADS_PER_BLOCK, entry.kernel))
 					entry.max_total_local_size = (max_total_local_size < 0 ? 0 : (uint32_t)max_total_local_size);
-					if (info.has_valid_local_size()) {
+					if (info.has_valid_required_local_size()) {
 						// check and update local size if a required local size was specified
-						const auto req_local_size = info.local_size.maxed(1u).extent();
+						const auto req_local_size = info.required_local_size.maxed(1u).extent();
 						if (req_local_size > entry.max_total_local_size) {
 							log_error("in kernel $: supported total local size $' is < required total local size $' ($)",
-									  kernel_name, entry.max_total_local_size, req_local_size, info.local_size);
+									  kernel_name, entry.max_total_local_size, req_local_size, info.required_local_size);
 							continue;
 						}
 						entry.max_total_local_size = req_local_size;
-						entry.max_local_size = info.local_size;
+						entry.max_local_size = info.required_local_size;
 					}
 					
 					// we only support static local/shared memory, not dynamic

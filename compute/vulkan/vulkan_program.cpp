@@ -354,7 +354,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 														 info.type == FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
 														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
 					
-					if (!info.has_valid_local_size()) {
+					if (!info.has_valid_required_local_size()) {
 						entry.max_local_size = dev.max_local_size;
 						
 						// always assume that we can execute this with the max possible work-group size,
@@ -362,8 +362,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 						entry.max_total_local_size = dev.max_total_local_size;
 					} else {
 						// a required local size/dim is specified -> use it
-						entry.max_local_size = info.local_size;
-						entry.max_total_local_size = info.local_size.extent();
+						entry.max_local_size = info.required_local_size;
+						entry.max_total_local_size = info.required_local_size.extent();
 					}
 					
 					// TODO: make sure that _all_ of this is synchronized
@@ -420,8 +420,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 									 "failed to create pipeline layout (" + func_name + ")")
 						
 						GUARD(entry.specializations_lock);
-						const uint3 work_group_size = (info.has_valid_local_size() ?
-													   info.local_size :
+						const uint3 work_group_size = (info.has_valid_required_local_size() ?
+													   info.required_local_size :
 													   uint3 { entry.max_total_local_size, 1, 1 });
 						if ((work_group_size.x % entry.stage_sub_group_info.requiredSubgroupSize) != 0) {
 							log_error("work-group size X ($) must be a multiple of the sub-group size ($) in function \"$\"",

@@ -72,14 +72,14 @@ device(device_), programs(programs_), has_device_binary(!programs.empty()) {
 				host_kernel::host_kernel_entry entry;
 				entry.info = &info;
 				entry.program = prog.second.program;
-				if (info.has_valid_local_size()) {
-					const auto local_size_extent = info.local_size.extent();
+				if (info.has_valid_required_local_size()) {
+					const auto local_size_extent = info.required_local_size.extent();
 					if (local_size_extent > host_limits::max_total_local_size) {
-						log_error("kernel $ local size extent of $ is larger than the max supported local size of $",
+						log_error("kernel $ required local size extent of $ is larger than the max supported local size of $",
 								  info.name, local_size_extent, host_limits::max_total_local_size);
 						continue;
 					}
-					entry.max_local_size = info.local_size;
+					entry.max_local_size = info.required_local_size;
 					entry.max_total_local_size = local_size_extent;
 				} else {
 					// else: just assume the device/global default

@@ -137,9 +137,9 @@ namespace llvm_toolchain {
 		
 		//! required local size/dim needed for execution
 		//! NOTE: if any component is 0, the local size is considered unspecified
-		uint3 local_size { 0u };
-		constexpr bool has_valid_local_size() const {
-			return (local_size != 0u).all();
+		uint3 required_local_size { 0u };
+		constexpr bool has_valid_required_local_size() const {
+			return (required_local_size != 0u).all();
 		}
 		
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
@@ -147,6 +147,17 @@ namespace llvm_toolchain {
 		FUNCTION_FLAGS flags { FUNCTION_FLAGS::NONE };
 		
 		vector<arg_info> args;
+		
+		//! returns the kernel dimensionality
+		uint32_t get_kernel_dim() const {
+			if (has_flag<llvm_toolchain::FUNCTION_FLAGS::KERNEL_3D>(flags)) {
+				return 3u;
+			} else if (has_flag<llvm_toolchain::FUNCTION_FLAGS::KERNEL_2D>(flags)) {
+				return 2u;
+			}
+			// either KERNEL_1D or not a kernel -> just return 1
+			return 1u;
+		}
 	};
 
 	//! argument information

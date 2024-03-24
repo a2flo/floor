@@ -62,9 +62,9 @@ bool create_floor_function_info(const string& ffi_file_name,
 		const auto& token_type = tokens[2];
 		const auto& token_flags = tokens[3];
 		// -> functions
-		const auto& token_local_size_x = tokens[4];
-		const auto& token_local_size_y = tokens[5];
-		const auto& token_local_size_z = tokens[6];
+		const auto& token_req_local_size_x = tokens[4];
+		const auto& token_req_local_size_y = tokens[5];
+		const auto& token_req_local_size_z = tokens[6];
 		// -> argument buffer
 		const auto& token_arg_num = tokens[4];
 		
@@ -96,23 +96,23 @@ bool create_floor_function_info(const string& ffi_file_name,
 		
 		const auto func_flags = (FUNCTION_FLAGS)strtoull(token_flags.c_str(), nullptr, 10);
 		
-		uint3 local_size {};
+		uint3 required_local_size {};
 		if (func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
-			local_size = {
-				(uint32_t)strtoull(token_local_size_x.c_str(), nullptr, 10),
-				(uint32_t)strtoull(token_local_size_y.c_str(), nullptr, 10),
-				(uint32_t)strtoull(token_local_size_z.c_str(), nullptr, 10),
+			required_local_size = {
+				(uint32_t)strtoull(token_req_local_size_x.c_str(), nullptr, 10),
+				(uint32_t)strtoull(token_req_local_size_y.c_str(), nullptr, 10),
+				(uint32_t)strtoull(token_req_local_size_z.c_str(), nullptr, 10),
 			};
 		}
 		
 		function_info info {
 			.name = token_name,
-			.local_size = local_size,
+			.required_local_size = required_local_size,
 			.type = func_type,
 			.flags = func_flags,
 		};
-		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT && !info.local_size.is_null()) {
-			log_error("local size must be 0 for argument buffer struct info");
+		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT && !info.required_local_size.is_null()) {
+			log_error("required local size must be 0 for argument buffer struct info");
 			return false;
 		}
 		

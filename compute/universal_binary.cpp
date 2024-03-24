@@ -842,7 +842,7 @@ namespace universal_binary {
 						.type = func.type,
 						.flags = func.flags,
 						.arg_count = uint32_t(func.args.size()),
-						.details.local_size = func.local_size,
+						.details.local_size = func.required_local_size,
 					},
 					.name = func.name,
 					.args = {}, // need proper conversion
@@ -1549,7 +1549,7 @@ namespace universal_binary {
 			
 			uint32_t arg_idx = 0u;
 			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
-				entry.local_size = func.static_function_info.details.local_size;
+				entry.required_local_size = func.static_function_info.details.local_size;
 			} else {
 				arg_idx = func.static_function_info.details.argument_buffer_index;
 			}

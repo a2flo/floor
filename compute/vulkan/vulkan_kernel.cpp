@@ -62,9 +62,9 @@ bool vulkan_kernel::should_log_vulkan_binary(const string& function_name) {
 
 vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(const vulkan_device& device,
 																							   const uint3& work_group_size) {
-	if (info->has_valid_local_size() && (info->local_size != work_group_size).any()) {
-		log_error("kernel $ has fixed compiled local size of $, it may not be specialized to a different local size of $",
-				  info->name, info->local_size, work_group_size);
+	if (info->has_valid_required_local_size() && (info->required_local_size != work_group_size).any()) {
+		log_error("kernel $ has fixed compiled required local size of $, it may not be specialized to a different local size of $",
+				  info->name, info->required_local_size, work_group_size);
 		return nullptr;
 	}
 	
@@ -268,9 +268,10 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	// check work size
 	const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
-	if (kernel_iter->second.info->has_valid_local_size() && (kernel_iter->second.info->local_size != local_work_size_.maxed(1u)).any()) {
-		log_error("kernel $ has fixed compiled local size of $, it may not be executed with a different local size of $",
-				  kernel_iter->second.info->name, kernel_iter->second.info->local_size, local_work_size_);
+	if (kernel_iter->second.info->has_valid_required_local_size() &&
+		(kernel_iter->second.info->required_local_size != local_work_size_.maxed(1u)).any()) {
+		log_error("kernel $ has fixed compiled required local size of $, it may not be executed with a different local size of $",
+				  kernel_iter->second.info->name, kernel_iter->second.info->required_local_size, local_work_size_);
 		return;
 	}
 	
