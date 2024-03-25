@@ -144,12 +144,12 @@ floor_inline_always const_func uint64_t floor_rt_max(uint64_t a, uint64_t b) { r
 floor_inline_always const_func half floor_rt_max(half a, half b) { return (half)__builtin_fmaxf(float(a), float(b)); }
 floor_inline_always const_func float floor_rt_max(float a, float b) { return __builtin_fmaxf(a, b); }
 
-floor_inline_always const_func uint16_t floor_rt_clz(uint16_t x) { return __builtin_clzs(x); }
-floor_inline_always const_func uint32_t floor_rt_clz(uint32_t x) { return __builtin_clz(x); }
-floor_inline_always const_func uint64_t floor_rt_clz(uint64_t x) { return __builtin_clzll(x); }
-floor_inline_always const_func uint16_t floor_rt_ctz(uint16_t x) { return __builtin_ctzs(x); }
-floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) { return __builtin_ctz(x); }
-floor_inline_always const_func uint64_t floor_rt_ctz(uint64_t x) { return __builtin_ctzll(x); }
+floor_inline_always const_func uint16_t floor_rt_clz(uint16_t x) { return (x != 0u ? __builtin_clzs(x) : 16u); }
+floor_inline_always const_func uint32_t floor_rt_clz(uint32_t x) { return (x != 0u ? __builtin_clz(x) : 32u); }
+floor_inline_always const_func uint64_t floor_rt_clz(uint64_t x) { return (x != 0u ? __builtin_clzll(x) : 64u); }
+floor_inline_always const_func uint16_t floor_rt_ctz(uint16_t x) { return (x != 0u ? __builtin_ctzs(x) : 16u); }
+floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) { return (x != 0u ? __builtin_ctz(x) : 32u); }
+floor_inline_always const_func uint64_t floor_rt_ctz(uint64_t x) { return (x != 0u ? __builtin_ctzll(x) : 64u); }
 floor_inline_always const_func uint16_t floor_rt_popcount(uint16_t x) { return __builtin_popcount(uint32_t(x)); }
 floor_inline_always const_func uint32_t floor_rt_popcount(uint32_t x) { return __builtin_popcount(x); }
 floor_inline_always const_func uint64_t floor_rt_popcount(uint64_t x) { return __builtin_popcountll(x); }

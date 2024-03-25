@@ -1108,9 +1108,13 @@ namespace const_math {
 			 is_same_v<uint_type, uint64_t> ||
 			 is_same_v<uint_type, size_t>)
 	constexpr int clz(const uint_type val) {
-		if constexpr(is_same_v<uint_type, uint16_t>) return __builtin_clzs(val);
-		else if constexpr(sizeof(uint_type) == 4) return __builtin_clz(val);
-		else return __builtin_clzll(val);
+		if constexpr (is_same_v<uint_type, uint16_t>) {
+			return (val != 0u ? __builtin_clzs(val) : 16u);
+		} else if constexpr (sizeof(uint_type) == 4) {
+			return (val != 0u ? __builtin_clz(val) : 32u);
+		} else {
+			return (val != 0u ? __builtin_clzll(val) : 64u);
+		}
 	}
 	//! count leading zeros
 	template <typename uint_type> requires(is_same_v<uint_type, bool>)
@@ -1162,9 +1166,13 @@ namespace const_math {
 			 is_same_v<uint_type, uint64_t> ||
 			 is_same_v<uint_type, size_t>)
 	constexpr int ctz(const uint_type val) {
-		if constexpr(is_same_v<uint_type, uint16_t>) return __builtin_ctzs(val);
-		else if constexpr(sizeof(uint_type) == 4) return __builtin_ctz(val);
-		else return __builtin_ctzll(val);
+		if constexpr (is_same_v<uint_type, uint16_t>) {
+			return (val != 0u ? __builtin_ctzs(val) : 16u);
+		} else if constexpr (sizeof(uint_type) == 4) {
+			return (val != 0u ? __builtin_ctz(val) : 32u);
+		} else {
+			return (val != 0u ? __builtin_ctzll(val) : 64u);
+		}
 	}
 	//! count trailing zeros
 	template <typename uint_type> requires(is_same_v<uint_type, bool>)

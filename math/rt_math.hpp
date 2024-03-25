@@ -159,7 +159,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint16_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_clzs(val);
+		return (val != 0u ? __builtin_clzs(val) : 16u);
 #else
 		return floor_rt_clz(val);
 #endif
@@ -167,7 +167,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint32_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_clz(val);
+		return (val != 0u ? __builtin_clz(val) : 32u);
 #else
 		return floor_rt_clz(val);
 #endif
@@ -175,7 +175,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint64_t>)
 	static floor_inline_always int32_t clz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_clzll(val);
+		return (val != 0u ? __builtin_clzll(val) : 64u);
 #else
 		return floor_rt_clz(val);
 #endif
@@ -220,7 +220,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint16_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_ctzs(val);
+		return (val != 0u ? __builtin_ctzs(val) : 16u);
 #else
 		return floor_rt_ctz(val);
 #endif
@@ -228,7 +228,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint32_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_ctz(val);
+		return (val != 0u ? __builtin_ctz(val) : 32u);
 #else
 		return floor_rt_ctz(val);
 #endif
@@ -236,7 +236,7 @@ namespace rt_math {
 	template <typename uint_type> requires(is_same_v<uint_type, uint64_t>)
 	static floor_inline_always int32_t ctz(const uint_type& val) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-		return __builtin_ctzll(val);
+		return (val != 0u ? __builtin_ctzll(val) : 64u);
 #else
 		return floor_rt_ctz(val);
 #endif
