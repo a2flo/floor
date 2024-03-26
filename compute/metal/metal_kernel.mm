@@ -158,6 +158,12 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	
 	if (wait_until_completion) {
 		[encoder->cmd_buffer waitUntilCompleted];
+#if defined(FLOOR_DEBUG)
+		if ([encoder->cmd_buffer status] == MTLCommandBufferStatus::MTLCommandBufferStatusError && [encoder->cmd_buffer error]) {
+			const string err_str = [[[encoder->cmd_buffer error] localizedDescription] UTF8String];
+			log_error("failed to execute kernel: $: $", entry.info->name, err_str);
+		}
+#endif
 	}
 }
 

@@ -109,7 +109,7 @@ REQUIRES(!args_lock) {
 									   // that need to be destroyed once the kernel has finished execution,
 									   // we also need the wait event if a user-specified completion handler is set or wait_until_completion is true
 									   (handler->needs_param_workaround && has_tmp_buffers) || completion_handler || wait_until_completion ? &wait_evt : nullptr),
-				"failed to execute kernel " + entry.info->name)
+				"failed to execute kernel: " + entry.info->name)
 	
 	// TODO: implement signaling of "signal_fences"
 	

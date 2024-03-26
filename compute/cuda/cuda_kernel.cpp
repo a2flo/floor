@@ -44,7 +44,7 @@ void cuda_kernel::execute_internal(const compute_queue& cqueue,
 									   (const_cu_stream)cqueue.get_queue_ptr(),
 									   kernel_params,
 									   nullptr),
-					  "failed to execute kernel")
+					  "failed to execute kernel: " + entry.info->name)
 }
 
 void cuda_kernel::execute_cooperative_internal(const compute_queue& cqueue,
@@ -58,7 +58,7 @@ void cuda_kernel::execute_cooperative_internal(const compute_queue& cqueue,
 												   0,
 												   (const_cu_stream)cqueue.get_queue_ptr(),
 												   kernel_params),
-					  "failed to execute cooperative kernel")
+					  "failed to execute cooperative kernel: " + entry.info->name)
 }
 
 struct cuda_completion_handler {

@@ -1070,7 +1070,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			// retrieve the instance for this CPU + reset/init it
 			auto instance = func_entry.program->get_instance(cpu_idx);
 			if (!instance) {
-				log_error("no instance for CPU #$", cpu_idx);
+				log_error("no instance for CPU #$ (for $)", cpu_idx, func_name);
 				success = false;
 				return;
 			}
@@ -1091,7 +1091,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			}
 			exec_ctx.kernel_func = make_callable_kernel_function(func_iter->second, vptr_args);
 			if (!exec_ctx.kernel_func) {
-				log_error("failed to create kernel function for CPU #$", cpu_idx);
+				log_error("failed to create kernel function \"$\" for CPU #$", func_name, cpu_idx);
 				success = false;
 				return;
 			}
