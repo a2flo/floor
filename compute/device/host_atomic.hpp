@@ -32,6 +32,8 @@
 #define floor_host_atomic_fetch_and(...) __c11_atomic_fetch_and(__VA_ARGS__)
 #define floor_host_atomic_fetch_or(...) __c11_atomic_fetch_or(__VA_ARGS__)
 #define floor_host_atomic_fetch_xor(...) __c11_atomic_fetch_xor(__VA_ARGS__)
+#define floor_host_atomic_fetch_min(...) __c11_atomic_fetch_min(__VA_ARGS__)
+#define floor_host_atomic_fetch_max(...) __c11_atomic_fetch_max(__VA_ARGS__)
 #define floor_host_atomic_load(...) __c11_atomic_load(__VA_ARGS__)
 #define floor_host_atomic_store(...) __c11_atomic_store(__VA_ARGS__)
 
@@ -83,7 +85,7 @@ floor_inline_always uint32_t atomic_add(volatile uint32_t* p, uint32_t val) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(uint32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_add(volatile float* p, float val) {
-	FLOOR_ATOMIC_FALLBACK_OP_32(+, , p, val)
+	return floor_host_atomic_fetch_add((volatile _Atomic(float)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always int64_t atomic_add(volatile int64_t* p, int64_t val) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(int64_t)*)p, val, floor_memory_order_seq_cst);
@@ -92,7 +94,7 @@ floor_inline_always uint64_t atomic_add(volatile uint64_t* p, uint64_t val) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(uint64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_add(volatile double* p, double val) {
-	FLOOR_ATOMIC_FALLBACK_OP_64(+, , p, val)
+	return floor_host_atomic_fetch_add((volatile _Atomic(double)*)p, val, floor_memory_order_seq_cst);
 }
 
 // sub
@@ -103,7 +105,7 @@ floor_inline_always uint32_t atomic_sub(volatile uint32_t* p, uint32_t val) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(uint32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_sub(volatile float* p, float val) {
-	FLOOR_ATOMIC_FALLBACK_OP_32(-, , p, val)
+	return floor_host_atomic_fetch_sub((volatile _Atomic(float)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always int64_t atomic_sub(volatile int64_t* p, int64_t val) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(int64_t)*)p, val, floor_memory_order_seq_cst);
@@ -112,7 +114,7 @@ floor_inline_always uint64_t atomic_sub(volatile uint64_t* p, uint64_t val) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(uint64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_sub(volatile double* p, double val) {
-	FLOOR_ATOMIC_FALLBACK_OP_64(-, , p, val)
+	return floor_host_atomic_fetch_sub((volatile _Atomic(double)*)p, val, floor_memory_order_seq_cst);
 }
 
 // inc
@@ -123,7 +125,7 @@ floor_inline_always uint32_t atomic_inc(volatile uint32_t* p) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(uint32_t)*)p, 1u, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_inc(volatile float* p) {
-	return atomic_add(p, 1.0f);
+	return floor_host_atomic_fetch_add((volatile _Atomic(float)*)p, 1.0f, floor_memory_order_seq_cst);
 }
 floor_inline_always int64_t atomic_inc(volatile int64_t* p) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(int64_t)*)p, 1ll, floor_memory_order_seq_cst);
@@ -132,7 +134,7 @@ floor_inline_always uint64_t atomic_inc(volatile uint64_t* p) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(uint64_t)*)p, 1ull, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_inc(volatile double* p) {
-	return atomic_add(p, 1.0);
+	return floor_host_atomic_fetch_add((volatile _Atomic(double)*)p, 1.0, floor_memory_order_seq_cst);
 }
 
 // dec
@@ -143,7 +145,7 @@ floor_inline_always uint32_t atomic_dec(volatile uint32_t* p) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(uint32_t)*)p, 1u, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_dec(volatile float* p) {
-	return atomic_sub(p, 1.0f);
+	return floor_host_atomic_fetch_sub((volatile _Atomic(float)*)p, 1.0f, floor_memory_order_seq_cst);
 }
 floor_inline_always int64_t atomic_dec(volatile int64_t* p) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(int64_t)*)p, 1ll, floor_memory_order_seq_cst);
@@ -152,7 +154,7 @@ floor_inline_always uint64_t atomic_dec(volatile uint64_t* p) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(uint64_t)*)p, 1ull, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_dec(volatile double* p) {
-	return atomic_sub(p, 1.0);
+	return floor_host_atomic_fetch_sub((volatile _Atomic(double)*)p, 1.0, floor_memory_order_seq_cst);
 }
 
 // xchg
@@ -177,41 +179,41 @@ floor_inline_always double atomic_xchg(volatile double* p, double val) {
 	return *(const double*)&ret;
 }
 
-// min (not natively supported)
+// min
 floor_inline_always int32_t atomic_min(volatile int32_t* p, int32_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(min, , p, val)
+	return floor_host_atomic_fetch_min((volatile _Atomic(int32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always uint32_t atomic_min(volatile uint32_t* p, uint32_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(min, , p, val)
+	return floor_host_atomic_fetch_min((volatile _Atomic(uint32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_min(volatile float* p, float val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(min, , p, val)
 }
 floor_inline_always int64_t atomic_min(volatile int64_t* p, int64_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, , p, val)
+	return floor_host_atomic_fetch_min((volatile _Atomic(int64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always uint64_t atomic_min(volatile uint64_t* p, uint64_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, , p, val)
+	return floor_host_atomic_fetch_min((volatile _Atomic(uint64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_min(volatile double* p, double val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, , p, val)
 }
 
-// max (not natively supported)
+// max
 floor_inline_always int32_t atomic_max(volatile int32_t* p, int32_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(max, , p, val)
+	return floor_host_atomic_fetch_max((volatile _Atomic(int32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always uint32_t atomic_max(volatile uint32_t* p, uint32_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(max, , p, val)
+	return floor_host_atomic_fetch_max((volatile _Atomic(uint32_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always float atomic_max(volatile float* p, float val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(max, , p, val)
 }
 floor_inline_always int64_t atomic_max(volatile int64_t* p, int64_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, , p, val)
+	return floor_host_atomic_fetch_max((volatile _Atomic(int64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always uint64_t atomic_max(volatile uint64_t* p, uint64_t val) {
-	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, , p, val)
+	return floor_host_atomic_fetch_max((volatile _Atomic(uint64_t)*)p, val, floor_memory_order_seq_cst);
 }
 floor_inline_always double atomic_max(volatile double* p, double val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, , p, val)

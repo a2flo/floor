@@ -1673,10 +1673,10 @@ function void simplified_nbody ( %void() ) {
 ** Linux: any current x64 distribution
 ** other Unix: if other requirements are met
 * compiler/toolchain:
-** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 10.0+
-** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 12.5+]
+** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 13.0+
+** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 13.3+]
 ** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
-** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 10.0+
+** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 13.0+
 * libraries and optional requirements:
 ** link:https://www.libsdl.org[SDL2] 2.0.18+
 ** link:https://www.opengl.org/registry/#headers[OpenGL 4.1+ Core headers]

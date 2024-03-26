@@ -30,8 +30,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 3
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xb3
-#define FLOOR_DEV_STAGE_VERSION_STR "b3"
+#define FLOOR_DEV_STAGE_VERSION 0xb4
+#define FLOOR_DEV_STAGE_VERSION_STR "b4"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -99,8 +99,16 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 10) || (__clang_major__ == 10 && __clang_minor__ < 0)
-#error "Sorry, but you need Clang 10.0+ to compile floor"
+#if !defined(__APPLE__)
+// official version
+#if (__clang_major__ < 13)
+#error "Sorry, but you need Clang 13.0+ to compile floor"
+#endif
+#else
+// Apple version
+#if (__clang_major__ < 13) || (__clang_major__ == 13 && __clang_minor__ < 1)
+#error "Sorry, but you need Clang 13.0+ to compile floor"
+#endif
 #endif
 
 // gcc check
@@ -111,8 +119,8 @@
 // library checks:
 #include <floor/core/platform.hpp>
 
-#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 10000)
-#error "You need to install libc++ 10.0+ to compile floor"
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 12000)
+#error "You need to install libc++ 12.0+ to compile floor"
 #endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 18)

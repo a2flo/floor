@@ -64,14 +64,14 @@ if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor|clang_patchlevel" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 11.0 is required (ships with Xcode 12.5)
-		if [ $CLANG_MAJOR -lt 12 ] || [ $CLANG_MAJOR -eq 12 -a $CLANG_MINOR -eq 0 -a $CLANG_PATCHLEVEL -lt 5 ]; then
-			error "at least Xcode 12.5 / Apple clang/LLVM 12.0.5 is required to compile this project!"
+		# apple xcode/llvm/clang versioning scheme -> at least 13.1 is required (ships with Xcode / CLI tools 13.3)
+		if [ $CLANG_MAJOR -lt 13 ] || [ $CLANG_MAJOR -eq 13 -a $CLANG_MINOR -lt 1 -a $CLANG_PATCHLEVEL -lt 0 ]; then
+			error "at least Xcode 13.3 / Apple clang/LLVM 13.1.0 is required to compile this project!"
 		fi
 	else
-		# standard clang versioning scheme -> at least 10.0 is required
-		if [ $CLANG_MAJOR -lt 10 ] || [ $CLANG_MAJOR -eq 10 -a $CLANG_MINOR -lt 0 ]; then
-			error "at least clang 10.0 is required to compile this project!"
+		# standard clang versioning scheme -> at least 13.0 is required
+		if [ $CLANG_MAJOR -lt 13 ] || [ $CLANG_MAJOR -eq 13 -a $CLANG_MINOR -lt 0 ]; then
+			error "at least clang 13.0 is required to compile this project!"
 		fi
 	fi
 else
