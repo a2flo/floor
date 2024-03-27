@@ -569,7 +569,7 @@ namespace compute_algorithm {
 #endif
 		}
 #endif
-		return work_group_size * 2u - 1u;
+		return work_group_size * 2u;
 	}
 	
 }

@@ -217,46 +217,46 @@ SUB_GROUP_TYPES(SUB_GROUP_FUNC, simd_shuffle_xor)
 void air_wg_barrier(uint32_t mem_scope, int32_t sync_scope) __attribute__((noduplicate, convergent)) asm("air.wg.barrier");
 
 floor_inline_always static void global_barrier() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void global_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void global_read_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void global_write_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 floor_inline_always static void local_barrier() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void local_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void local_read_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void local_write_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 floor_inline_always static void barrier() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 floor_inline_always static void image_barrier() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void image_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void image_read_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always static void image_write_mem_fence() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 #if !defined(FLOOR_COMPUTE_HAS_SOFT_PRINTF) || (FLOOR_COMPUTE_HAS_SOFT_PRINTF == 0)

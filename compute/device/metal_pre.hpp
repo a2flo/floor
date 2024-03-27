@@ -57,19 +57,17 @@ typedef __PTRDIFF_TYPE__ intptr_t;
 typedef __PTRDIFF_TYPE__ ptrdiff_t;
 
 // memory and synchronization scopes
-// note that the inconsistencies are intentional, apparently apple isn't sure about this either,
-// cl_kernel.h and metal_compute/metal_atomic are doing the exact opposite. it also seems like that
-// these values don't actually make a difference!? (this is to be expected on nvidia h/w, but not on powervr or intel?)
-// -> will be using metal values now, as this is hopefully better tested than opencl
-#define FLOOR_METAL_SYNC_SCOPE_GLOBAL 2
 #define FLOOR_METAL_SYNC_SCOPE_LOCAL 1
+#define FLOOR_METAL_SYNC_SCOPE_GLOBAL 2
+#define FLOOR_METAL_SYNC_SCOPE_SUB_GROUP 4
 
-#define FLOOR_METAL_MEM_SCOPE_NONE 0
-#define FLOOR_METAL_MEM_SCOPE_GLOBAL 1
-#define FLOOR_METAL_MEM_SCOPE_LOCAL 2
-#define FLOOR_METAL_MEM_SCOPE_ALL 3
-#define FLOOR_METAL_MEM_SCOPE_TEXTURE 4
-#define FLOOR_METAL_MEM_SCOPE_LOCAL_IMAGE_BLOCK 8
+#define FLOOR_METAL_MEM_FLAGS_NONE 0
+#define FLOOR_METAL_MEM_FLAGS_GLOBAL 1
+#define FLOOR_METAL_MEM_FLAGS_LOCAL 2
+#define FLOOR_METAL_MEM_FLAGS_ALL 3
+#define FLOOR_METAL_MEM_FLAGS_TEXTURE 4
+#define FLOOR_METAL_MEM_FLAGS_LOCAL_IMAGE_BLOCK 8
+#define FLOOR_METAL_MEM_FLAGS_OBJECT_DATA 16
 
 #endif
 
