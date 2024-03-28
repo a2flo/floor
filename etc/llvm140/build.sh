@@ -193,6 +193,10 @@ CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
 	info "using clang"
 	CLANG_OPTIONS="-fvectorize"
+	if [ $BUILD_OS == "mingw" ]; then
+		# can't get the LTO build to work on MinGW/MSYS2
+		ENABLE_LTO=0
+	fi
 	if [ $ENABLE_LTO -gt 0 ]; then
 		CLANG_OPTIONS="${CLANG_OPTIONS} -flto"
 	fi
