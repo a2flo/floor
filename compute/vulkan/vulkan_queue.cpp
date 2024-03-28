@@ -199,12 +199,12 @@ struct vulkan_command_pool_t {
 	const vulkan_device& dev;
 	const vulkan_queue& queue;
 	const bool is_secondary { false };
-	const bool experimental_no_blocking { false };
+	const bool no_blocking { false };
 	const bool fence_wait_polling { false };
 	
 	vulkan_command_pool_t(const vulkan_device& dev_, const vulkan_queue& queue_, const bool is_secondary_) :
 	dev(dev_), queue(queue_), is_secondary(is_secondary_),
-	experimental_no_blocking(has_flag<COMPUTE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())),
+	no_blocking(has_flag<COMPUTE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())),
 	fence_wait_polling(floor::get_vulkan_fence_wait_polling()) {}
 	
 	~vulkan_command_pool_t() {
@@ -377,7 +377,7 @@ struct vulkan_command_pool_t {
 		
 		// if blocking: wait until completion in here (in this thread),
 		// otherwise offload to a completion handler thread
-		if (blocking || !experimental_no_blocking) {
+		if (blocking || !no_blocking) {
 			vulkan_complete_cmd_buffer(*this, dev, std::move(cmd_buffer), fence, std::move(completion_handler));
 		} else {
 			// -> offload

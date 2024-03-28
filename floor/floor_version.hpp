@@ -92,9 +92,9 @@
 // msvc check
 #if defined(_MSC_VER)
 #if !defined(__clang__)
-#error "Sorry, you need clang/llvm and VS2019 to compile floor (http://llvm.org/builds/)"
-#elif (_MSC_VER < 1920)
-#error "Sorry, but you need VS2019 to compile floor"
+#error "Sorry, you need clang/llvm and VS2022 to compile floor (http://llvm.org/builds/)"
+#elif (_MSC_VER < 1930)
+#error "Sorry, but you need VS2022 to compile floor"
 #endif
 
 // clang check
