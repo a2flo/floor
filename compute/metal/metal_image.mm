@@ -566,9 +566,11 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			return true;
 		}, shim_image_type);
 		
+#if !defined(FLOOR_IOS)
 		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 			[blit_encoder synchronizeResource:image];
 		}
+#endif
 		
 		// manually create the mip-map chain if this was specified
 		if(is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
@@ -860,9 +862,11 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 			return true;
 		}, shim_image_type);
 		
+#if !defined(FLOOR_IOS)
 		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 			[blit_encoder synchronizeResource:image];
 		}
+#endif
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
