@@ -284,8 +284,6 @@ if [ $DEPLOY_OS == "windows" ]; then
 	deploy_file "libstdc++-6.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
 	deploy_file "libwinpthread-1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
 	deploy_file "zlib1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
-	deploy_file "libz3.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
-	deploy_file "libgomp-1.dll" "/mingw64/bin" "bin" ${DEPLOY_DEP_AS_BIN}
 fi
 
 info "done"

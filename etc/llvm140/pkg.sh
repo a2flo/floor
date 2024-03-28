@@ -50,12 +50,16 @@ case ${BUILD_PLATFORM} in
 		cp "/mingw64/bin/libstdc++-6.dll" bin/
 		cp "/mingw64/bin/libwinpthread-1.dll" bin/
 		cp "/mingw64/bin/zlib1.dll" bin/
-		cp "/mingw64/bin/libz3.dll" bin/
-		cp "/mingw64/bin/libgomp-1.dll" bin/
 		;;
 	*)
 		;;
 esac
+
+# copy licenses
+mkdir licenses
+for license in $(ls ../licenses/*.txt); do
+	cp ${license} licenses/
+done
 
 cd ..
 
