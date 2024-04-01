@@ -41,7 +41,7 @@ using namespace std;
 #include <floor/core/cpp_consteval.hpp>
 
 // TODO: detect arm targets on non-apple platforms
-#if defined(__APPLE__) // prefer __fp16 over f16c support
+#if defined(__APPLE__) && !defined(__x86_64__)
 #define FLOOR_HAS_NATIVE_FP16 1
 #elif defined(__F16C__)
 #define FLOOR_HAS_NATIVE_FP16 2
