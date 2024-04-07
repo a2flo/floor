@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_IMAGE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_IMAGE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_METAL)
 
@@ -35,7 +34,6 @@ namespace metal_image {
 			CLAMP_TO_EDGE		= 1,
 			REPEAT				= 2,
 			MIRRORED_REPEAT		= 3,
-			// macOS or Metal 2.3+ (iOS)
 			CLAMP_TO_BORDER		= 4
 		};
 		enum FILTER_MODE {
@@ -100,10 +98,10 @@ namespace metal_image {
 				uint64_t lod_clamp_min : 16;
 				uint64_t lod_clamp_max : 16;
 				
-				// macOS or Metal 2.3+ (iOS): border color
+				// border color
 				uint64_t border_color : 2;
 				
-				// Metal 2.4+: reduction
+				// reduction
 				uint64_t reduction : 2;
 				
 				// currently unused/reserved
@@ -155,7 +153,5 @@ namespace metal_image {
 	static_assert(sizeof(sampler) == 8, "invalid sampler size");
 	
 }
-
-#endif
 
 #endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VR_VR_CONTEXT_HPP__
-#define __FLOOR_VR_VR_CONTEXT_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_context.hpp>
@@ -361,5 +360,3 @@ protected:
 	uint2 recommended_render_size;
 
 };
-
-#endif

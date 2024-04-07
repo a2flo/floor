@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_PRE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_PRE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_METAL)
 
@@ -68,7 +67,5 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 #define FLOOR_METAL_MEM_FLAGS_TEXTURE 4
 #define FLOOR_METAL_MEM_FLAGS_LOCAL_IMAGE_BLOCK 8
 #define FLOOR_METAL_MEM_FLAGS_OBJECT_DATA 16
-
-#endif
 
 #endif

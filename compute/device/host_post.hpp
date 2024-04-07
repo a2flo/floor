@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_HOST_POST_HPP__
-#define __FLOOR_COMPUTE_DEVICE_HOST_POST_HPP__
+#pragma once
 
 #if defined(FLOOR_GRAPHICS_HOST)
 
@@ -73,7 +72,5 @@ floor_inline_always __attribute__((const)) pair<float3, float3> dfdx_dfdy_gradie
 floor_inline_always __attribute__((const)) uint32_t get_patch_id() { return 0u; }
 // NOTE: not supported
 floor_inline_always __attribute__((const)) float3 get_position_in_patch() { return {}; }
-
-#endif
 
 #endif

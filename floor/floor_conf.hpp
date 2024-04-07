@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONF_HPP__
-#define __FLOOR_CONF_HPP__
+#pragma once
 
 // when building on macOS/iOS, always disable opencl
 // for Vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
@@ -53,32 +52,17 @@
 #define FLOOR_NO_METAL 1
 #endif
 
-// if defined, this disables openal support
-//#define FLOOR_NO_OPENAL 1
-
 // if defined, this disables OpenVR support
 //#define FLOOR_NO_OPENVR 1
 
 // if defined, this disables OpenXR support
 //#define FLOOR_NO_OPENXR 1
 
-// if defined, this disables network support
-//#define FLOOR_NO_NET 1
-
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 // NOTE: don't enable this for compute (these won't compile the necessary .cpp files)
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #define FLOOR_EXPORT 1
-#endif
-
-// use asio standalone and header-only
-#if !defined(FLOOR_NO_NET)
-#define ASIO_STANDALONE 1
-#define ASIO_HEADER_ONLY 1
-#define ASIO_NO_EXCEPTIONS 1
-#define ASIO_DISABLE_BOOST_THROW_EXCEPTION 1
-#define ASIO_DISABLE_BUFFER_DEBUGGING 1
 #endif
 
 // no VR support on iOS/macOS
@@ -89,6 +73,4 @@
 #if !defined(FLOOR_NO_OPENXR)
 #define FLOOR_NO_OPENXR 1
 #endif
-#endif
-
 #endif

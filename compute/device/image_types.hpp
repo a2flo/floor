@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_IMAGE_TYPES_HPP__
-#define __FLOOR_COMPUTE_IMAGE_TYPES_HPP__
+#pragma once
 
 //! image type
 enum class COMPUTE_IMAGE_TYPE : uint64_t {
@@ -78,8 +77,8 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	FLAG_DEPTH				= (1ull << (__FLAG_SHIFT + 4ull)),
 	//! base type: image is a stencil image
 	FLAG_STENCIL			= (1ull << (__FLAG_SHIFT + 5ull)),
-	//! base type: image is a render target (Metal) / renderbuffer (OpenGL) / framebuffer attachment (Vulkan)
-	//! NOTE: only applicable when using OpenGL sharing, Metal or Vulkan
+	//! base type: image is a render target (Metal) / framebuffer attachment (Vulkan)
+	//! NOTE: only applicable when using Metal or Vulkan
 	FLAG_RENDER_TARGET		= (1ull << (__FLAG_SHIFT + 6ull)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 	FLAG_MIPMAPPED			= (1ull << (__FLAG_SHIFT + 7ull)),
@@ -277,7 +276,7 @@ enum class COMPUTE_IMAGE_TYPE : uint64_t {
 	//////////////////////////////////////////
 	// -> convenience aliases
 	
-	//! normalized unsigned integer formats (for consistency with opengl, without a UI and _NORM suffix)
+	//! normalized unsigned integer formats
 	R8						= CHANNELS_1 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RG8						= CHANNELS_2 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RGB8					= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
@@ -874,5 +873,3 @@ requires(image_channel_count(image_type) == 4)
 struct image_vec_ret_type<image_type, data_type> {
 	static constexpr floor_inline_always vector_n<data_type, 4> fit(const vector_n<data_type, 4>& color) { return color; }
 };
-
-#endif

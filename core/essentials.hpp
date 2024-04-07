@@ -16,6 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+// NOTE: this may be included more than once (see below)
 #ifndef __FLOOR_ESSENTIALS_HPP__
 #define __FLOOR_ESSENTIALS_HPP__
 
@@ -98,11 +99,6 @@
 #if defined(__APPLE__)
 #define FLOOR_GRAPHICS_HOST 1
 #endif
-#endif
-
-// compat with compute device code
-#if !defined(constant) && defined(FLOOR_HOST_COMPUTE)
-#define constant
 #endif
 
 // ignore warning handling

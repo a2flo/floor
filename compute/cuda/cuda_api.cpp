@@ -44,14 +44,6 @@ typedef HMODULE lib_handle_type;
 #endif
 static lib_handle_type cuda_lib { nullptr };
 
-#if defined(__APPLE__)
-#include <mach-o/dyld.h>
-#include <mach-o/dyld_images.h>
-#include <mach/mach_init.h>
-#include <mach/task.h>
-#include <mach/task_info.h>
-#endif
-
 bool cuda_api_init(const bool use_internal_api) {
 	// already init check
 	static bool did_init = false, init_success = false;
@@ -60,9 +52,7 @@ bool cuda_api_init(const bool use_internal_api) {
 	
 	// init function pointers
 	static const char* cuda_lib_name {
-#if defined(__APPLE__)
-		"/Library/Frameworks/CUDA.framework/CUDA"
-#elif defined(__WINDOWS__)
+#if defined(__WINDOWS__)
 		"nvcuda.dll"
 #else
 		"libcuda.so"
@@ -140,12 +130,6 @@ bool cuda_api_init(const bool use_internal_api) {
 	
 	(void*&)cuda_api.get_error_string = load_symbol(cuda_lib, "cuGetErrorString");
 	if(cuda_api.get_error_string == nullptr) log_error("failed to retrieve function pointer for \"cuGetErrorString\"");
-	
-	(void*&)cuda_api.graphics_gl_register_buffer = load_symbol(cuda_lib, "cuGraphicsGLRegisterBuffer");
-	if(cuda_api.graphics_gl_register_buffer == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsGLRegisterBuffer\"");
-	
-	(void*&)cuda_api.graphics_gl_register_image = load_symbol(cuda_lib, "cuGraphicsGLRegisterImage");
-	if(cuda_api.graphics_gl_register_image == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsGLRegisterImage\"");
 	
 	(void*&)cuda_api.graphics_map_resources = load_symbol(cuda_lib, "cuGraphicsMapResources");
 	if(cuda_api.graphics_map_resources == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsMapResources\"");
@@ -297,45 +281,41 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.tex_object_get_resource_desc = load_symbol(cuda_lib, "cuTexObjectGetResourceDesc");
 	if(cuda_api.tex_object_get_resource_desc == nullptr) log_error("failed to retrieve function pointer for \"cuTexObjectGetResourceDesc\"");
 	
-	// external memory functions (supported since CUDA 10.0)
-	// NOTE: we won't error if function pointers could not be retrieved -> rather signal false in cuda_can_use_external_memory
 	(void*&)cuda_api.destroy_external_memory = load_symbol(cuda_lib, "cuDestroyExternalMemory");
+	if(cuda_api.destroy_external_memory == nullptr) log_error("failed to retrieve function pointer for \"cuDestroyExternalMemory\"");
+	
 	(void*&)cuda_api.destroy_external_semaphore = load_symbol(cuda_lib, "cuDestroyExternalSemaphore");
+	if(cuda_api.destroy_external_semaphore == nullptr) log_error("failed to retrieve function pointer for \"cuDestroyExternalSemaphore\"");
+	
 	(void*&)cuda_api.external_memory_get_mapped_buffer = load_symbol(cuda_lib, "cuExternalMemoryGetMappedBuffer");
+	if(cuda_api.external_memory_get_mapped_buffer == nullptr) log_error("failed to retrieve function pointer for \"cuExternalMemoryGetMappedBuffer\"");
+	
 	(void*&)cuda_api.external_memory_get_mapped_mip_mapped_array = load_symbol(cuda_lib, "cuExternalMemoryGetMappedMipmappedArray");
+	if(cuda_api.external_memory_get_mapped_mip_mapped_array == nullptr) log_error("failed to retrieve function pointer for \"cuExternalMemoryGetMappedMipmappedArray\"");
+	
 	(void*&)cuda_api.import_external_memory = load_symbol(cuda_lib, "cuImportExternalMemory");
+	if(cuda_api.import_external_memory == nullptr) log_error("failed to retrieve function pointer for \"cuImportExternalMemory\"");
+	
 	(void*&)cuda_api.import_external_semaphore = load_symbol(cuda_lib, "cuImportExternalSemaphore");
+	if(cuda_api.import_external_semaphore == nullptr) log_error("failed to retrieve function pointer for \"cuImportExternalSemaphore\"");
+	
 	(void*&)cuda_api.signal_external_semaphore_async = load_symbol(cuda_lib, "cuSignalExternalSemaphoresAsync");
+	if(cuda_api.signal_external_semaphore_async == nullptr) log_error("failed to retrieve function pointer for \"cuSignalExternalSemaphoresAsync\"");
+	
 	(void*&)cuda_api.wait_external_semaphore_async = load_symbol(cuda_lib, "cuWaitExternalSemaphoresAsync");
+	if(cuda_api.wait_external_semaphore_async == nullptr) log_error("failed to retrieve function pointer for \"cuWaitExternalSemaphoresAsync\"");
+	
 	
 	// if this is enabled, we need to look up offsets of cuda internal structs for later use
 	if (use_internal_api) {
 		bool has_cuda_lib_data = false;
 		string cuda_lib_data;
 		string cuda_lib_path;
-#if defined(__APPLE__)
-		// get a list of all loaded dylibs
-		task_dyld_info dyld_info;
-		mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
-		if (task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
-			const auto all_image_infos = (const dyld_all_image_infos*)dyld_info.all_image_info_addr;
-			
-			// figure out which cuda dylib is loaded (-> we're using)
-			for (uint32_t i = 0; i < all_image_infos->infoArrayCount; ++i) {
-				if (strstr(all_image_infos->infoArray[i].imageFilePath, "libcuda_") != nullptr) {
-					cuda_lib_path = all_image_infos->infoArray[i].imageFilePath;
-					break;
-				}
-			}
-		} else {
-			log_error("task_info was unsuccessful");
-		}
-#else // linux/windows
+		
 #if defined(__WINDOWS__)
 		cuda_lib_path = core::expand_path_with_env("%windir%/System32/"s + cuda_lib_name);
-#elif !defined(__APPLE__)
+#else
 		cuda_lib_path = "/usr/lib/"s + cuda_lib_name;
-#endif
 #endif
 		
 		// load the cuda lib (.so/.dylib/.dll)
@@ -349,10 +329,7 @@ bool cuda_api_init(const bool use_internal_api) {
 		if (has_cuda_lib_data) {
 			// -> find the call to the device specific sampler creation/init function pointer
 			static const uint8_t pattern_start[] {
-#if defined(__APPLE__) // os x
-				// mov  rax, qword ptr [r15 + $device_in_ctx]
-				0x49, 0x8B, 0x87, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
-#elif defined(__WINDOWS__) // windows x64
+#if defined(__WINDOWS__) // windows x64
 				// mov  rax, qword ptr [r13 + $device_in_ctx]
 				0x49, 0x8B, 0x85, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
 #else // linux
@@ -361,11 +338,7 @@ bool cuda_api_init(const bool use_internal_api) {
 #endif
 			};
 			static const uint8_t pattern_middle[] {
-#if defined(__APPLE__) // os x
-				// mov  rdi, qword ptr [rbp - 48]
-				// call qword ptr [rax + $sampler_init_func_ptr_offset]
-				0x48, 0x8B, 0x7D, 0xD0, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
-#elif defined(__WINDOWS__) // windows x64
+#if defined(__WINDOWS__) // windows x64
 				// mov  rcx, qword ptr [rbp - 81]
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
 				0x48, 0x8B, 0x4D, 0xAF, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
@@ -377,17 +350,12 @@ bool cuda_api_init(const bool use_internal_api) {
 			};
 			static const uint8_t pattern_end[] {
 				// always followed by:
-#if defined(__APPLE__) // os x
-				// mov  r14d, eax
-				0x41, 0x89, 0xC6,
-#else // windows/linux
 #if defined(__WINDOWS__)
 				// mov  ebx, eax
 				0x8B, 0xD8, // only on windows x64
 #endif
 				// test eax, eax
 				0x85, 0xC0,
-#endif
 			};
 			
 			size_t offset = 0;

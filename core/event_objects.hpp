@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_EVENT_OBJECTS_HPP__
-#define __FLOOR_EVENT_OBJECTS_HPP__
+#pragma once
 
 #if !defined(FLOOR_USER_EVENT_TYPES)
 #define FLOOR_USER_EVENT_TYPES
@@ -72,10 +71,7 @@ enum class EVENT_TYPE : uint32_t {
 	
 	QUIT = __OTHER_EVENT + 1,
 	WINDOW_RESIZE,
-	KERNEL_RELOAD, // note: used for opencl class kernels
-	SHADER_RELOAD, // note: used in a2elight
 	CLIPBOARD_UPDATE,
-	AUDIO_STORE_LOAD,
 
 	// NOTE: VR controller events are for both the left and right controller, differentiation is part of the event object
 	VR_APP_MENU_PRESS = __VR_CONTROLLER_EVENT + 1,
@@ -145,10 +141,9 @@ template<EVENT_TYPE event_type> struct event_object_base : public event_object {
 
 // mouse events
 template<EVENT_TYPE event_type> struct mouse_event_base : public event_object_base<event_type> {
-	const int2 position;
-	const float pressure;
-	mouse_event_base(const uint64_t& time_, const int2& position_, const float& pressure_) :
-	event_object_base<event_type>(time_), position(position_), pressure(pressure_) {}
+	const float2 position;
+	mouse_event_base(const uint64_t& time_, const float2& position_) :
+	event_object_base<event_type>(time_), position(position_) {}
 };
 
 template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_type> struct mouse_click_event : public event_object_base<event_type> {
@@ -163,20 +158,19 @@ template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_
 };
 
 template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_event_base<event_type> {
-	const int2 move;
+	const float2 move;
 	mouse_move_event_base(const uint64_t& time_,
-						  const int2& position_,
-						  const int2& move_,
-						  const float& pressure_)
-	: mouse_event_base<event_type>(time_, position_, pressure_), move(move_) {}
+						  const float2& position_,
+						  const float2& move_)
+	: mouse_event_base<event_type>(time_, position_), move(move_) {}
 };
 
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
 	const uint32_t amount;
 	mouse_wheel_event_base(const uint64_t& time_,
-						   const int2& position_,
+						   const float2& position_,
 						   const uint32_t& amount_)
-	: mouse_event_base<event_type>(time_, position_, 0.0f), amount(amount_) {}
+	: mouse_event_base<event_type>(time_, position_), amount(amount_) {}
 };
 
 // mouse event typedefs
@@ -241,8 +235,6 @@ typedef touch_move_event_base<EVENT_TYPE::FINGER_MOVE> finger_move_event;
 
 // misc
 typedef event_object_base<EVENT_TYPE::QUIT> quit_event;
-typedef event_object_base<EVENT_TYPE::KERNEL_RELOAD> kernel_reload_event;
-typedef event_object_base<EVENT_TYPE::SHADER_RELOAD> shader_reload_event;
 
 struct clipboard_update_event : public event_object_base<EVENT_TYPE::CLIPBOARD_UPDATE> {
 	const string text;
@@ -254,13 +246,6 @@ template<EVENT_TYPE event_type> struct window_resize_event_base : public event_o
 	window_resize_event_base(const uint64_t& time_, const uint2& size_) : event_object_base<event_type>(time_), size(size_) {}
 };
 typedef window_resize_event_base<EVENT_TYPE::WINDOW_RESIZE> window_resize_event;
-
-// audio store events
-struct audio_store_load_event : public event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD> {
-	const string identifier;
-	audio_store_load_event(const uint64_t& time_, const string& identifier_)
-	: event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD>(time_), identifier(identifier_) {}
-};
 
 // VR controller events
 template<EVENT_TYPE event_type> struct vr_event_base : public event_object_base<event_type> {
@@ -325,5 +310,3 @@ template<EVENT_TYPE event_type> struct vr_analog_force_event_base : public vr_ev
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_TRACKPAD_FORCE> vr_trackpad_force_event;
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_GRIP_FORCE> vr_grip_force_event;
 typedef vr_analog_force_event_base<EVENT_TYPE::VR_THUMBREST_FORCE> vr_thumbrest_force_event;
-
-#endif

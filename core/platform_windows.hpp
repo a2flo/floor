@@ -19,8 +19,7 @@
 // NOTE: this should not be included in a header file
 // NOTE: it's recommended to include <floor/core/essentials.hpp> after this for macro cleanup
 
-#ifndef __FLOOR_PLATFORM_WINDOWS_HPP__
-#define __FLOOR_PLATFORM_WINDOWS_HPP__
+#pragma once
 
 #if defined(__WINDOWS__)
 
@@ -36,9 +35,4 @@
 #undef byte
 #endif
 
-#include <wingdi.h>
-
-#include <SDL2/SDL_syswm.h>
-
 #endif // __WINDOWS__
-#endif // __FLOOR_PLATFORM_WINDOWS_HPP__

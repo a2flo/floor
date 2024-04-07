@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_IMAGE_HPP__
-#define __FLOOR_METAL_IMAGE_HPP__
+#pragma once
 
 #include <floor/compute/metal/metal_common.hpp>
 
@@ -38,10 +37,7 @@ public:
 				const uint4 image_dim,
 				const COMPUTE_IMAGE_TYPE image_type,
 				std::span<uint8_t> host_data_ = {},
-				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t opengl_type = 0,
-				const uint32_t external_gl_object_ = 0,
-				const opengl_image_info* floor_nullable gl_image_info = nullptr);
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 
 #if defined(__OBJC__)
 	//! wraps an already existing metal image, with the specified flags and backed by the specified host pointer
@@ -55,9 +51,6 @@ public:
 	~metal_image() override;
 	
 	bool blit(const compute_queue& cqueue, compute_image& src) override;
-	
-	bool acquire_opengl_object(const compute_queue* floor_nullable cqueue) override;
-	bool release_opengl_object(const compute_queue* floor_nullable cqueue) override;
 	
 	bool zero(const compute_queue& cqueue) override;
 	
@@ -116,7 +109,5 @@ protected:
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 };
-
-#endif
 
 #endif

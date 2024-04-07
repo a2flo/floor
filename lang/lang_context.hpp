@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPILER_CONTEXT_HPP__
-#define __FLOOR_COMPILER_CONTEXT_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <vector>
@@ -43,5 +42,3 @@ struct translation_unit {
 	
 	explicit translation_unit(const string& file_name_) : file_name(file_name_) {}
 };
-
-#endif

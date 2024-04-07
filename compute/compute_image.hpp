@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_IMAGE_HPP__
-#define __FLOOR_COMPUTE_IMAGE_HPP__
+#pragma once
 
 #include <floor/compute/compute_memory.hpp>
 #include <floor/compute/device/image_types.hpp>
@@ -38,8 +37,6 @@ class metal_queue;
 
 class compute_image : public compute_memory {
 public:
-	struct opengl_image_info;
-	
 	//! this sets the r/w flags in a COMPUTE_MEMORY_FLAG enum according to the ones in an COMPUTE_IMAGE_TYPE enum
 	static constexpr COMPUTE_MEMORY_FLAG infer_rw_flags(const COMPUTE_IMAGE_TYPE& image_type, COMPUTE_MEMORY_FLAG flags_) {
 		// clear existing r/w flags
@@ -104,21 +101,7 @@ public:
 											const COMPUTE_MEMORY_FLAG flags_override = COMPUTE_MEMORY_FLAG::NONE,
 											const COMPUTE_IMAGE_TYPE image_type_override = COMPUTE_IMAGE_TYPE::NONE);
 	
-	//! return struct of get_opengl_image_info
-	struct opengl_image_info {
-		uint4 image_dim;
-		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
-		int32_t gl_internal_format { 0 };
-		uint32_t gl_format { 0 };
-		uint32_t gl_type { 0 };
-		bool valid { false };
-	};
-	//! helper function to retrieve information from a pre-existing opengl image
-	static opengl_image_info get_opengl_image_info(const uint32_t& opengl_image,
-												   const uint32_t& opengl_target,
-												   const COMPUTE_MEMORY_FLAG& flags);
-	
-	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
+	//! creates the mip-map chain for this image (if not manually generating mip-maps)
 	virtual void generate_mip_map_chain(const compute_queue& cqueue);
 	
 	//! for debugging purposes: dump COMPUTE_IMAGE_TYPE information into a human-readable string
@@ -330,12 +313,9 @@ protected:
 				  const COMPUTE_IMAGE_TYPE image_type_,
 				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_,
-				  const uint32_t opengl_type_,
-				  const uint32_t external_gl_object_,
-				  const opengl_image_info* gl_image_info,
 				  compute_image* shared_image_,
 				  const bool backend_may_need_shim_type) :
-	compute_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
+	compute_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_)),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
@@ -343,9 +323,6 @@ protected:
 	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps)),
 	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
 	layer_count(image_layer_count(image_dim, image_type)),
-	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
-	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
-	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
 	shared_image(shared_image_),
 	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, false)) {
 		if (backend_may_need_shim_type) {
@@ -406,21 +383,6 @@ protected:
 	const size_t image_data_size;
 	const uint32_t mip_level_count;
 	const uint32_t layer_count;
-	
-#if !defined(FLOOR_IOS)
-	// internal function to create/delete an opengl image if compute/opengl sharing is used
-	bool create_gl_image(const bool copy_host_data);
-	void delete_gl_image();
-	
-	// helper functions to init/update opengl image data (handles all types)
-	void init_gl_image_data(const void* data);
-	void update_gl_image_data(const void* data);
-#endif
-	
-	// track gl format types (these are set after a gl texture has been created/wrapped)
-	int32_t gl_internal_format { 0 };
-	uint32_t gl_format { 0u };
-	uint32_t gl_type { 0u };
 	
 	// NOTE: only one of these can be active at a time
 	union {
@@ -507,5 +469,3 @@ protected:
 };
 
 FLOOR_POP_WARNINGS()
-
-#endif

@@ -406,7 +406,7 @@ public:
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	constexpr const scalar_type& operator[](const uint32_t& index) const {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
-		if_consteval {
+		if consteval {
 			std::array arr { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::cref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 			return arr[index];
 		}
@@ -418,7 +418,7 @@ public:
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	constexpr scalar_type& operator[](const uint32_t& index) {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
-		if_consteval {
+		if consteval {
 			std::array arr { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::ref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 			return arr[index];
 		}

@@ -30,10 +30,8 @@
 opencl_buffer::opencl_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
 							 std::span<uint8_t> host_data_,
-							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_,
-							 const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_) {
+							 const COMPUTE_MEMORY_FLAG flags_) :
+compute_buffer(cqueue, size_, host_data_, flags_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -78,50 +76,24 @@ compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_obje
 	}
 }
 
-bool opencl_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+bool opencl_buffer::create_internal([[maybe_unused]] const bool copy_host_data, const compute_queue& cqueue) {
 	// TODO: handle the remaining flags + host ptr
 	const auto& cl_dev = (const opencl_device&)cqueue.get_device();
 	cl_int create_err = CL_SUCCESS;
 	
 	// -> normal opencl buffer
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_data.data(), &create_err);
-		if(create_err != CL_SUCCESS) {
-			log_error("failed to create buffer: $: $", create_err, cl_error_to_string(create_err));
-			buffer = nullptr;
-			return false;
-		}
-	}
-	// -> shared opencl/opengl buffer
-	else {
-		if(!create_gl_buffer(copy_host_data)) return false;
-		
-		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
-		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		buffer = clCreateFromGLBuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
-		if(create_err != CL_SUCCESS) {
-			log_error("failed to create shared opengl/opencl buffer: $: $", create_err, cl_error_to_string(create_err));
-			buffer = nullptr;
-			return false;
-		}
-		// acquire for use with opencl
-		acquire_opengl_object(&cqueue);
+	buffer = clCreateBuffer(cl_dev.ctx, cl_flags, size, host_data.data(), &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create buffer: $: $", create_err, cl_error_to_string(create_err));
+		buffer = nullptr;
+		return false;
 	}
 	
 	return true;
 }
 
 opencl_buffer::~opencl_buffer() {
-	// first, release and kill the opengl buffer
-	if(gl_object != 0) {
-		if(gl_object_state) {
-			log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
-		}
-		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
-		delete_gl_buffer();
-	}
-	// then, also kill the opencl buffer
-	if(buffer != nullptr) {
+	if (buffer != nullptr) {
 		clReleaseMemObject(buffer);
 	}
 }
@@ -242,43 +214,6 @@ bool opencl_buffer::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	
 	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), buffer, mapped_ptr, 0, nullptr, nullptr),
 				"failed to unmap buffer", false)
-	return true;
-}
-
-bool opencl_buffer::acquire_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been acquired for use with opencl!");
-#endif
-		return true;
-	}
-	
-	cl_event wait_evt;
-	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, &wait_evt),
-				"failed to acquire opengl buffer - opencl gl object acquire failed", false)
-	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl buffer acquire failed", false)
-	gl_object_state = false;
-	return true;
-}
-
-bool opencl_buffer::release_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(buffer == nullptr) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	cl_event wait_evt;
-	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, &wait_evt),
-				"failed to release opengl buffer - opencl gl object release failed", false)
-	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl buffer release failed", false)
-	gl_object_state = true;
 	return true;
 }
 

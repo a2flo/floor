@@ -16,9 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_SERIALIZER_STORAGE_HPP__
-#define __FLOOR_SERIALIZER_STORAGE_HPP__
-
 #include <floor/core/cpp_headers.hpp>
 #include <floor/core/logger.hpp>
 
@@ -123,5 +120,3 @@ struct serializer_storage_wrapper {
 
 typedef serializer_storage_wrapper<true, false> read_only_serializer_storage;
 typedef serializer_storage_wrapper<false, true> write_only_serializer_storage;
-
-#endif

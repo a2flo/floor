@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_DUAL_QUATERNION_HPP__
-#define __FLOOR_DUAL_QUATERNION_HPP__
+#pragma once
 
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/quaternion.hpp>
@@ -380,6 +379,4 @@ extern template class dual_quaternion<float>;
 extern template class dual_quaternion<double>;
 extern template class dual_quaternion<long double>;
 #endif
-#endif
-
 #endif

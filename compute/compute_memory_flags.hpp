@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_MEMORY_FLAGS_HPP__
-#define __FLOOR_COMPUTE_MEMORY_FLAGS_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/core/enum_helpers.hpp>
@@ -67,10 +66,7 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! will be used for all memory operations
 	USE_HOST_MEMORY				= (1u << 7u),
 	
-	//! creates the memory with opengl sharing enabled
-	//! NOTE: the opengl object can be retrieved via get_opengl_object()
-	//! NOTE: OPENGL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
-	OPENGL_SHARING				= (1u << 8u),
+	// unused					= (1u << 8u),
 	
 	//! automatically create mip-levels (either happens in the backend or libfloor)
 	//! NOTE: if not set, it is expected that the host data pointer contains all necessary mip-levels
@@ -151,5 +147,3 @@ enum class COMPUTE_MEMORY_MAP_FLAG : uint32_t {
 	BLOCK				= (1u << 3u),
 };
 floor_global_enum_ext(COMPUTE_MEMORY_MAP_FLAG)
-
-#endif

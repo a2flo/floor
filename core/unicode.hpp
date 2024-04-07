@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_UNICODE_HPP__
-#define __FLOOR_UNICODE_HPP__
+#pragma once
 
 #include <vector>
 #include <string>
@@ -45,5 +44,3 @@ namespace unicode {
 #endif
 	
 } // unicode
-
-#endif

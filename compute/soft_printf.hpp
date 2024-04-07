@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_SOFT_PRINTF_HPP__
-#define __FLOOR_COMPUTE_SOFT_PRINTF_HPP__
+#pragma once
 
 static constexpr const inline uint32_t printf_buffer_size { 1 * 1024 * 1024 };
 static constexpr const inline uint32_t printf_buffer_header_size { 2 * sizeof(uint32_t) };
@@ -270,5 +269,3 @@ static inline shared_ptr<compute_buffer> allocate_printf_buffer(const compute_qu
 static inline void initialize_printf_buffer(const compute_queue& dev_queue, compute_buffer& printf_buffer) {
 	printf_buffer.write_from(uint2 { printf_buffer_header_size, printf_buffer_size }, dev_queue);
 }
-
-#endif

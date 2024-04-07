@@ -32,10 +32,8 @@ metal_buffer::metal_buffer(const bool is_staging_buffer_,
 						   const compute_queue& cqueue,
 						   const size_t& size_,
 						   std::span<uint8_t> host_data_,
-						   const COMPUTE_MEMORY_FLAG flags_,
-						   const uint32_t opengl_type_,
-						   const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_), is_staging_buffer(is_staging_buffer_) {
+						   const COMPUTE_MEMORY_FLAG flags_) :
+compute_buffer(cqueue, size_, host_data_, flags_), is_staging_buffer(is_staging_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
@@ -67,7 +65,7 @@ compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_obje
 				options |= MTLResourceStorageModePrivate;
 				staging_buffer = make_unique<metal_buffer>(true, cqueue, size, std::span<uint8_t> {},
 														   COMPUTE_MEMORY_FLAG::READ_WRITE |
-														   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE), 0, 0);
+														   (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 				staging_buffer->set_debug_label(debug_label + "_staging_buffer");
 			} else {
 				// use managed storage for the staging buffer or host memory backed buffer
@@ -102,7 +100,7 @@ metal_buffer::metal_buffer(const compute_queue& cqueue,
 						   id <MTLBuffer> external_buffer,
 						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_buffer(cqueue, [external_buffer length], host_data_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
+compute_buffer(cqueue, [external_buffer length], host_data_, flags_), buffer(external_buffer), is_external(true) {
 	// size _has_ to match and be valid/compatible (compute_buffer will try to fix the size, but it's obviously an external object)
 	// -> detect size mismatch and bail out
 	if(size != [external_buffer length]) {
@@ -552,16 +550,6 @@ bool metal_buffer::unmap(const compute_queue& cqueue, void* __attribute__((align
 	_unlock();
 	
 	return success;
-}
-
-// NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
-bool metal_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
-	return true;
-}
-
-// NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
-bool metal_buffer::release_opengl_object(const compute_queue* cqueue floor_unused) {
-	return true;
 }
 
 void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc) {

@@ -22,7 +22,7 @@
 #include <floor/vr/vr_context.hpp>
 
 event::event() : thread_base("event") {
-	const auto cur_time = SDL_GetTicks64();
+	const auto cur_time = SDL_GetTicks();
 	lm_double_click_timer = cur_time;
 	rm_double_click_timer = cur_time;
 	mm_double_click_timer = cur_time;
@@ -50,9 +50,6 @@ void event::run() {
 /*! handles the sdl events
  */
 void event::handle_events() {
-	// always acquire the gl context for internal handlers, since these are very likely to modify gl data
-	floor::acquire_context();
-	
 	// handle queued events first
 	{
 		GUARD(queued_events_lock);
@@ -63,54 +60,48 @@ void event::handle_events() {
 	}
 	
 	// internal engine event handler
-	const int coord_scale = (floor::get_hidpi() ? int(floor::get_scale_factor()) : 1);
-	const auto coord_scalef = float(coord_scale);
-	while(SDL_PollEvent(&event_handle)) {
+	const auto coord_scale = (floor::get_hidpi() ? floor::get_scale_factor() : 1.0f);
+	while (SDL_PollEvent(&event_handle)) {
 		const auto event_type = event_handle.type;
-		const auto cur_ticks = SDL_GetTicks64();
+		const auto cur_ticks = SDL_GetTicks();
 		
-		if(event_type == SDL_MOUSEBUTTONDOWN ||
-		   event_type == SDL_MOUSEBUTTONUP) {
+		if (event_type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+			event_type == SDL_EVENT_MOUSE_BUTTON_UP) {
 			// mouse event handling
-			const int2 mouse_coord { event_handle.button.x * coord_scale, event_handle.button.y * coord_scale };
-#if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
-			const float pressure = event_handle.button.pressure;
-#else
-			const float pressure = 0.0f;
-#endif
+			const float2 mouse_coord { event_handle.button.x * coord_scale, event_handle.button.y * coord_scale };
 			
 			switch(event_type) {
 				default: break;
-				case SDL_MOUSEBUTTONDOWN: {
+				case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 					switch(event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_DOWN,
-											 make_shared<mouse_left_down_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_left_down_event>(cur_ticks, mouse_coord));
 							}
 							break;
 						case SDL_BUTTON_RIGHT:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_DOWN,
-											 make_shared<mouse_right_down_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_right_down_event>(cur_ticks, mouse_coord));
 							}
 							break;
 						case SDL_BUTTON_MIDDLE:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOWN,
-											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord));
 							}
 							break;
 						default: break;
 					}
 				}
 				break;
-				case SDL_MOUSEBUTTONUP: {
+				case SDL_EVENT_MOUSE_BUTTON_UP: {
 					switch(event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_UP,
-											 make_shared<mouse_left_up_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_left_up_event>(cur_ticks, mouse_coord));
 								
 								if(cur_ticks - lm_double_click_timer < ldouble_click_time) {
 									// emit a double click event
@@ -135,7 +126,7 @@ void event::handle_events() {
 						case SDL_BUTTON_RIGHT:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_UP,
-											 make_shared<mouse_right_up_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_right_up_event>(cur_ticks, mouse_coord));
 								
 								if(cur_ticks - rm_double_click_timer < rdouble_click_time) {
 									// emit a double click event
@@ -160,7 +151,7 @@ void event::handle_events() {
 						case SDL_BUTTON_MIDDLE:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_UP,
-											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord, pressure));
+											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord));
 								
 								if(cur_ticks - mm_double_click_timer < mdouble_click_time) {
 									// emit a double click event
@@ -188,24 +179,19 @@ void event::handle_events() {
 				break;
 			}
 		}
-		else if(event_type == SDL_MOUSEMOTION ||
-				event_type == SDL_MOUSEWHEEL) {
+		else if(event_type == SDL_EVENT_MOUSE_MOTION ||
+				event_type == SDL_EVENT_MOUSE_WHEEL) {
 			switch(event_type) {
-				case SDL_MOUSEMOTION: {
-					const int2 abs_pos { event_handle.motion.x * coord_scale, event_handle.motion.y * coord_scale };
-					const int2 rel_move { event_handle.motion.xrel * coord_scale, event_handle.motion.yrel * coord_scale };
-#if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
-					const float pressure = event_handle.motion.pressure;
-#else
-					const float pressure = 0.0f;
-#endif
+				case SDL_EVENT_MOUSE_MOTION: {
+					const float2 abs_pos { event_handle.motion.x * coord_scale, event_handle.motion.y * coord_scale };
+					const float2 rel_move { event_handle.motion.xrel * coord_scale, event_handle.motion.yrel * coord_scale };
 					handle_event(EVENT_TYPE::MOUSE_MOVE,
-								 make_shared<mouse_move_event>(cur_ticks, abs_pos, rel_move, pressure));
+								 make_shared<mouse_move_event>(cur_ticks, abs_pos, rel_move));
 				}
 				break;
-				case SDL_MOUSEWHEEL: {
+				case SDL_EVENT_MOUSE_WHEEL: {
 					// this sdl event contains no mouse button coordinate, so we need to get it ourselves
-					int2 mouse_coord;
+					float2 mouse_coord;
 					SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
 					if(event_handle.wheel.y > 0) {
 						handle_event(EVENT_TYPE::MOUSE_WHEEL_UP,
@@ -214,7 +200,7 @@ void event::handle_events() {
 																	   event_handle.wheel.y));
 					}
 					else if(event_handle.wheel.y < 0) {
-						const auto abs_wheel_move = (uint32_t)abs(event_handle.wheel.y);
+						const auto abs_wheel_move = abs(event_handle.wheel.y);
 						handle_event(EVENT_TYPE::MOUSE_WHEEL_DOWN,
 									 make_shared<mouse_wheel_down_event>(cur_ticks,
 																		 mouse_coord,
@@ -225,28 +211,28 @@ void event::handle_events() {
 				default: break;
 			}
 		}
-		else if(event_type == SDL_FINGERDOWN ||
-				event_type == SDL_FINGERUP ||
-				event_type == SDL_FINGERMOTION) {
+		else if(event_type == SDL_EVENT_FINGER_DOWN ||
+				event_type == SDL_EVENT_FINGER_UP ||
+				event_type == SDL_EVENT_FINGER_MOTION) {
 			// touch event handling
-			const float2 finger_coord { event_handle.tfinger.x * coord_scalef, event_handle.tfinger.y * coord_scalef };
+			const float2 finger_coord { event_handle.tfinger.x * coord_scale, event_handle.tfinger.y * coord_scale };
 			const float pressure = event_handle.tfinger.pressure;
-			const auto finger_id = event_handle.tfinger.fingerId;
+			const auto finger_id = event_handle.tfinger.fingerID;
 			
-			if(event_type == SDL_FINGERDOWN) {
-				if(event_handle.tfinger.type == SDL_FINGERDOWN) {
+			if(event_type == SDL_EVENT_FINGER_DOWN) {
+				if(event_handle.tfinger.type == SDL_EVENT_FINGER_DOWN) {
 					handle_event(EVENT_TYPE::FINGER_DOWN,
 								 make_shared<finger_down_event>(cur_ticks, finger_coord, pressure, finger_id));
 				}
 			}
-			else if(event_type == SDL_FINGERUP) {
-				if(event_handle.tfinger.type == SDL_FINGERUP) {
+			else if(event_type == SDL_EVENT_FINGER_UP) {
+				if(event_handle.tfinger.type == SDL_EVENT_FINGER_UP) {
 					handle_event(EVENT_TYPE::FINGER_UP,
 								 make_shared<finger_up_event>(cur_ticks, finger_coord, pressure, finger_id));
 				}
 			}
-			else if(event_type == SDL_FINGERMOTION) {
-				if(event_handle.tfinger.type == SDL_FINGERMOTION) {
+			else if(event_type == SDL_EVENT_FINGER_MOTION) {
+				if(event_handle.tfinger.type == SDL_EVENT_FINGER_MOTION) {
 					const float2 rel_move { event_handle.tfinger.dx, event_handle.tfinger.dy };
 					handle_event(EVENT_TYPE::FINGER_MOVE,
 								 make_shared<finger_move_event>(cur_ticks, finger_coord, rel_move, pressure, finger_id));
@@ -256,38 +242,32 @@ void event::handle_events() {
 		else {
 			// key, etc. event handling
 			switch(event_type) {
-				case SDL_KEYUP:
+				case SDL_EVENT_KEY_UP:
 					handle_event(EVENT_TYPE::KEY_UP,
 								 make_shared<key_up_event>(cur_ticks, event_handle.key.keysym.sym));
 					break;
-				case SDL_KEYDOWN:
+				case SDL_EVENT_KEY_DOWN:
 					handle_event(EVENT_TYPE::KEY_DOWN,
 								 make_shared<key_up_event>(cur_ticks, event_handle.key.keysym.sym));
 					break;
-				case SDL_TEXTINPUT: {
-					string text;
-					for(size_t i = 0; i < SDL_TEXTINPUTEVENT_TEXT_SIZE; i++) {
-						if(event_handle.text.text[i] == 0) break;
-						text += event_handle.text.text[i];
-					}
-					const auto codes = unicode::utf8_to_unicode(text);
+				case SDL_EVENT_TEXT_INPUT: {
+					const auto codes = unicode::utf8_to_unicode(event_handle.text.text);
 					for(const auto& code : codes) {
 						handle_event(EVENT_TYPE::UNICODE_INPUT,
 									 make_shared<unicode_input_event>(cur_ticks, code));
 					}
 				}
 				break;
-				case SDL_WINDOWEVENT:
-					if(event_handle.window.event == SDL_WINDOWEVENT_RESIZED) {
-						const size2 new_size((size_t)event_handle.window.data1, (size_t)event_handle.window.data2);
-						handle_event(EVENT_TYPE::WINDOW_RESIZE,
-									 make_shared<window_resize_event>(cur_ticks, new_size));
-					}
+				case SDL_EVENT_WINDOW_RESIZED: {
+					const size2 new_size((size_t)event_handle.window.data1, (size_t)event_handle.window.data2);
+					handle_event(EVENT_TYPE::WINDOW_RESIZE,
+								 make_shared<window_resize_event>(cur_ticks, new_size));
 					break;
-				case SDL_QUIT:
+				}
+				case SDL_EVENT_QUIT:
 					handle_event(EVENT_TYPE::QUIT, make_shared<quit_event>(cur_ticks));
 					break;
-				case SDL_CLIPBOARDUPDATE:
+				case SDL_EVENT_CLIPBOARD_UPDATE:
 					handle_event(EVENT_TYPE::CLIPBOARD_UPDATE,
 								 make_shared<clipboard_update_event>(cur_ticks, SDL_HasClipboardText() ? SDL_GetClipboardText() : ""));
 					break;
@@ -305,14 +285,12 @@ void event::handle_events() {
 		}
 	}
 #endif
-	
-	floor::release_context();
 }
 
-uint2 event::get_mouse_pos() const {
-	uint2 pos;
-	SDL_GetMouseState((int*)&pos.x, (int*)&pos.y);
-	pos *= (floor::get_hidpi() ? uint32_t(floor::get_scale_factor()) : 1u);
+float2 event::get_mouse_pos() const {
+	float2 pos;
+	SDL_GetMouseState(&pos.x, &pos.y);
+	pos *= (floor::get_hidpi() ? floor::get_scale_factor() : 1.0f);
 	return pos;
 }
 

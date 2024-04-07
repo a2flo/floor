@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_GRAPHICS_GRAPHICS_VERTEX_FORMAT_HPP__
-#define __FLOOR_GRAPHICS_GRAPHICS_VERTEX_FORMAT_HPP__
+#pragma once
 
 enum class VERTEX_FORMAT : uint32_t {
 	//! invalid/uninitialized
@@ -196,5 +195,3 @@ struct vertex_sized_data_type<vertex_format, size> {
 						  (size > 16u && size <= 32u), float, conditional_t<
 						  (size > 32u && size <= 64u), double, void>>>> type;
 };
-
-#endif

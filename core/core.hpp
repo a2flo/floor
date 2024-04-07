@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CORE_HPP__
-#define __FLOOR_CORE_HPP__
+#pragma once
 
 #include <floor/core/cpp_headers.hpp>
 #include <floor/math/vector_lib.hpp>
@@ -246,5 +245,3 @@ namespace core {
 	bool cpu_has_avx512_tier_5();
 
 }
-
-#endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_ENUM_HELPERS_HPP__
-#define __FLOOR_ENUM_HELPERS_HPP__
+#pragma once
 
 #include <type_traits>
 #include <functional>
@@ -110,5 +109,3 @@ enum_class_bitwise_or_global(enum_class) \
 enum_class_bitwise_and_global(enum_class) \
 enum_class_bitwise_complement_global(enum_class) \
 enum_class_has_flag(enum_class)
-
-#endif

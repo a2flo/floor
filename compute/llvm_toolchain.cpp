@@ -20,6 +20,7 @@
 #include <floor/floor/floor.hpp>
 #include <regex>
 #include <climits>
+#include <filesystem>
 
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
@@ -221,8 +222,8 @@ program_data compile_input(const string& input,
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path, clang_path, floor_path;
-	string sm_version = "30"; // handle cuda sm version (default to Kepler/sm_30)
-	uint32_t ptx_version = max(60u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 6.0)
+	string sm_version = "50"; // handle cuda sm version (default to Maxwell/sm_50)
+	uint32_t ptx_version = max(80u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 8.0)
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
@@ -268,21 +269,6 @@ program_data compile_input(const string& input,
 			const auto metal_force_version = (!options.ignore_runtime_info ? floor::get_metal_force_version() : 0);
 			if (metal_force_version != 0) {
 				switch (metal_force_version) {
-					case 20:
-						metal_version = METAL_VERSION::METAL_2_0;
-						break;
-					case 21:
-						metal_version = METAL_VERSION::METAL_2_1;
-						break;
-					case 22:
-						metal_version = METAL_VERSION::METAL_2_2;
-						break;
-					case 23:
-						metal_version = METAL_VERSION::METAL_2_3;
-						break;
-					case 24:
-						metal_version = METAL_VERSION::METAL_2_4;
-						break;
 					case 30:
 						metal_version = METAL_VERSION::METAL_3_0;
 						break;
@@ -301,24 +287,9 @@ program_data compile_input(const string& input,
 			
 			string os_target;
 			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE) {
-				// -> iOS 12.0+
+				// -> iOS 16.0+
 				switch (metal_version) {
-					case METAL_VERSION::METAL_2_0:
-						log_error("iOS 11.0 / Metal 2.0 on iOS target is no longer supported");
-						return {};
 					default:
-					case METAL_VERSION::METAL_2_1:
-						os_target = "ios12.0.0";
-						break;
-					case METAL_VERSION::METAL_2_2:
-						os_target = "ios13.0.0";
-						break;
-					case METAL_VERSION::METAL_2_3:
-						os_target = "ios14.0.0";
-						break;
-					case METAL_VERSION::METAL_2_4:
-						os_target = "ios15.0.0";
-						break;
 					case METAL_VERSION::METAL_3_0:
 						os_target = "ios16.0.0";
 						break;
@@ -327,24 +298,9 @@ program_data compile_input(const string& input,
 						break;
 				}
 			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC) {
-				// -> macOS 10.13+
+				// -> macOS 13.0+
 				switch (metal_version) {
 					default:
-					case METAL_VERSION::METAL_2_0:
-						os_target = "macosx10.13.0";
-						break;
-					case METAL_VERSION::METAL_2_1:
-						os_target = "macosx10.14.0";
-						break;
-					case METAL_VERSION::METAL_2_2:
-						os_target = "macosx10.15.0";
-						break;
-					case METAL_VERSION::METAL_2_3:
-						os_target = "macosx11.0.0";
-						break;
-					case METAL_VERSION::METAL_2_4:
-						os_target = "macosx12.0.0";
-						break;
 					case METAL_VERSION::METAL_3_0:
 						os_target = "macosx13.0.0";
 						break;
@@ -357,20 +313,8 @@ program_data compile_input(const string& input,
 				return {};
 			}
 			
-			string metal_std = "metal2.0";
+			string metal_std = "metal3.0";
 			switch (metal_version) {
-				case METAL_VERSION::METAL_2_1:
-					metal_std = "metal2.1";
-					break;
-				case METAL_VERSION::METAL_2_2:
-					metal_std = "metal2.2";
-					break;
-				case METAL_VERSION::METAL_2_3:
-					metal_std = "metal2.3";
-					break;
-				case METAL_VERSION::METAL_2_4:
-					metal_std = "metal2.4";
-					break;
 				case METAL_VERSION::METAL_3_0:
 					metal_std = "metal3.0";
 					break;
@@ -387,15 +331,6 @@ program_data compile_input(const string& input,
 				soft_printf = floor::get_metal_soft_printf();
 			}
 			
-			// primitive ID and barycentric coord support also depend on Metal version and OS
-			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC && metal_version < METAL_VERSION::METAL_2_2) {
-				primitive_id_support = false;
-				barycentric_coord_support = false;
-			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE && metal_version < METAL_VERSION::METAL_2_3) {
-				primitive_id_support = false;
-				barycentric_coord_support = false;
-			}
-			
 			metal_emit_format = (!build_pch ? " -Xclang -emit-metallib" : "");
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
@@ -404,8 +339,6 @@ program_data compile_input(const string& input,
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device.vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
-				(!options.ignore_runtime_info && device.vendor == COMPUTE_VENDOR::NVIDIA ?
-				 " -Xclang -metal-nvidia-workarounds" : "") +
 #endif
 				(soft_printf ? " -Xclang -metal-soft-printf -DFLOOR_COMPUTE_HAS_SOFT_PRINTF=1" : "") +
 				" -Xclang -cl-mad-enable" \
@@ -437,35 +370,25 @@ program_data compile_input(const string& input,
 			output_file_type = "ptx";
 
 			// handle ptx version:
-			// * 6.0 is the minimum requirement for floor
-			// * 6.3 for sm_75
-			// * 7.0 for sm_80/sm_82
-			// * 7.1 for sm_86
-			// * 7.6 for sm_87
-			// * 7.8 for sm_88/sm_89/sm_90
+			// * 8.0 is the minimum requirement for floor (sm_50 - sm_90)
 			// * 8.4 for anything else
-			switch(cuda_dev.sm.x) {
-				case 3:
+			switch (cuda_dev.sm.x) {
 				case 5:
 				case 6:
-					// already 60
-					break;
 				case 7:
-					ptx_version = max(cuda_dev.sm.y < 5 ? 60u : 63u, ptx_version);
-					break;
 				case 8:
-					ptx_version = max(cuda_dev.sm.y < 6 ? 70u : (cuda_dev.sm.y < 7 ? 71u : (cuda_dev.sm.y < 8 ? 76u : 78u)), ptx_version);
+					// already 80
 					break;
 				case 9:
-					ptx_version = max(cuda_dev.sm.y == 0 ? 78u : 84u, ptx_version);
+					ptx_version = max(cuda_dev.sm.y == 0 ? 80u : 84u, ptx_version);
 					break;
 				default:
 					ptx_version = max(84u, ptx_version);
 					break;
 			}
-			if(!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
+			if (!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
 				const auto forced_version = stou(floor::get_cuda_force_ptx());
-				if(forced_version >= 60 && forced_version < numeric_limits<uint32_t>::max()) {
+				if (forced_version >= 80 && forced_version < numeric_limits<uint32_t>::max()) {
 					ptx_version = forced_version;
 				}
 			}
@@ -640,7 +563,7 @@ program_data compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_host_compiler() + "\"" +
 				" -x " + (!build_pch ? "c++" : "c++-header") +
-				" -std=gnu++2a" +
+				" -std=gnu++2b" +
 				" -target " + target + "-pc-none-floor_host_compute" \
 				" -nostdinc -fbuiltin -fno-math-errno" \
 				" -fPIC" /* must be relocatable */ \
@@ -1063,7 +986,8 @@ program_data compile_input(const string& input,
 		" -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 		" -Wno-c++14-compat -Wno-c++14-compat-pedantic"
 		" -Wno-c++17-compat -Wno-c++17-compat-pedantic"
-		" -Wno-c++2a-compat -Wno-c++2a-compat-pedantic -Wno-c++2a-extensions"
+		" -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions"
+		" -Wno-c++2b-compat -Wno-c++2b-compat-pedantic -Wno-c++2b-extensions"
 		" -Wno-c99-extensions -Wno-c11-extensions"
 		" -Wno-gcc-compat -Wno-gnu"
 		// in case we're using warning options that aren't supported by other clang versions
@@ -1211,7 +1135,8 @@ program_data compile_input(const string& input,
 			return {};
 		}
 		if (!floor::get_toolchain_keep_temp()) {
-			core::system("rm " + function_info_file_name);
+			error_code ec {};
+			(void)filesystem::remove(function_info_file_name, ec);
 		}
 	}
 	
@@ -1226,7 +1151,8 @@ program_data compile_input(const string& input,
 			
 			// cleanup
 			if (!floor::get_toolchain_keep_temp()) {
-				core::system("rm " + compiled_file_or_code);
+				error_code ec {};
+				(void)filesystem::remove(compiled_file_or_code, ec);
 			}
 			
 			// move spir data
@@ -1245,7 +1171,8 @@ program_data compile_input(const string& input,
 			
 			// cleanup
 			if (!floor::get_toolchain_keep_temp()) {
-				core::system("rm " + compiled_file_or_code);
+				error_code ec {};
+				(void)filesystem::remove(compiled_file_or_code, ec);
 			}
 			
 			if (ptx_code == "" || ptx_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {

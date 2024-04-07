@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_SOFT_F16_HPP__
-#define __FLOOR_SOFT_F16_HPP__
+#pragma once
 
 // we don't want/need soft_f16 on any of the non-host compute/graphics backends
 #if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN) && !defined(FLOOR_COMPUTE_HOST_DEVICE)
@@ -29,6 +28,7 @@
 #include <immintrin.h>
 #endif
 #endif
+#include <bit>
 
 #if !defined(FLOOR_NO_MATH_STR)
 #include <string>
@@ -37,11 +37,8 @@
 
 using namespace std;
 
-#include <floor/core/cpp_bitcast.hpp>
-#include <floor/core/cpp_consteval.hpp>
-
 // TODO: detect arm targets on non-apple platforms
-#if defined(__APPLE__) // prefer __fp16 over f16c support
+#if defined(__APPLE__) && !defined(__x86_64__)
 #define FLOOR_HAS_NATIVE_FP16 1
 #elif defined(__F16C__)
 #define FLOOR_HAS_NATIVE_FP16 2
@@ -289,7 +286,7 @@ struct soft_f16 {
 	//! conversion to/from other types
 	constexpr float to_float() const {
 #if FLOOR_HAS_NATIVE_FP16 == 2
-		if_consteval {
+		if consteval {
 			return half_to_float(value);
 		} else {
 			return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
@@ -304,7 +301,7 @@ struct soft_f16 {
 #if FLOOR_HAS_NATIVE_FP16 != 1 // NOTE: not needed when __fp16 is supported directly + we can't return __fp16
 	static constexpr uint16_t from_float(const float& val) {
 #if FLOOR_HAS_NATIVE_FP16 == 2
-		if_consteval {
+		if consteval {
 			return float_to_half(val);
 		} else {
 			return (uint16_t)_mm_cvtsi128_si32(_mm_cvtps_ph(_mm_set_ss(val), 0));
@@ -508,7 +505,5 @@ struct soft_f16 {
 };
 
 typedef soft_f16 half;
-
-#endif
 
 #endif

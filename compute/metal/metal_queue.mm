@@ -24,22 +24,7 @@
 #include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/compute/metal/metal_fence.hpp>
 
-// make GPUStartTime/GPUEndTime available everywhere
-@protocol MTLCommandBufferProfiling <MTLCommandBuffer>
-@property(readonly) double GPUEndTime;
-@property(readonly) double GPUStartTime;
-@end
-
-metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {
-	// check if we can do profiling
-	id <MTLCommandBuffer> buffer = [queue commandBufferWithUnretainedReferences];
-	__unsafe_unretained id <MTLCommandBufferProfiling> prof_buffer = (id <MTLCommandBufferProfiling>)buffer;
-	if ([prof_buffer respondsToSelector:@selector(GPUStartTime)] &&
-		[prof_buffer respondsToSelector:@selector(GPUEndTime)]) {
-		can_do_profiling = true;
-	}
-	buffer = nil;
-}
+metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {}
 
 void metal_queue::finish() const {
 	// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
@@ -101,12 +86,7 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	
 	// create and setup the compute encoder
 	id <MTLCommandBuffer> cmd_buffer = make_command_buffer();
-	id <MTLComputeCommandEncoder> encoder;
-	if (@available(macOS 10.14, iOS 12.0, *)) {
-		encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
-	} else {
-		encoder = [cmd_buffer computeCommandEncoder];
-	}
+	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
 	if (params.debug_label) {
 		[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
 	}
@@ -136,12 +116,12 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	if (!resources.read_only_images.empty()) {
 		[encoder useResources:resources.read_only_images.data()
 						count:resources.read_only_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageSample)];
+						usage:MTLResourceUsageRead];
 	}
 	if (!resources.read_write_images.empty()) {
 		[encoder useResources:resources.read_write_images.data()
 						count:resources.read_write_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
 	}
 	
 	if (mtl_indirect_pipeline_entry->printf_buffer) {
@@ -198,9 +178,8 @@ id <MTLCommandBuffer> metal_queue::make_command_buffer() const {
 			return;
 		}
 		
-		if (iter->second && can_do_profiling) {
-			__unsafe_unretained id <MTLCommandBufferProfiling> prof_buffer = (id <MTLCommandBufferProfiling>)buffer;
-			const auto elapsed_time = ([prof_buffer GPUEndTime] - [prof_buffer GPUStartTime]);
+		if (iter->second) {
+			const auto elapsed_time = ([buffer GPUEndTime] - [buffer GPUStartTime]);
 			profiling_sum += uint64_t(elapsed_time * 1000000.0);
 		}
 		// else: nothing to do here
@@ -215,22 +194,11 @@ id <MTLCommandBuffer> metal_queue::make_command_buffer() const {
 }
 
 void metal_queue::start_profiling() const {
-	if (!can_do_profiling) {
-		// fallback to host side profiling
-		compute_queue::start_profiling();
-		return;
-	}
-	
 	// signal new buffers that we're profiling
 	is_profiling = true;
 }
 
 uint64_t metal_queue::stop_profiling() const {
-	if (!can_do_profiling) {
-		// fallback to host side profiling
-		return compute_queue::stop_profiling();
-	}
-	
 	// wait on all buffers
 	finish();
 	

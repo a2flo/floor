@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_DEVICE_HPP__
-#define __FLOOR_CUDA_DEVICE_HPP__
+#pragma once
 
 #include <floor/compute/cuda/cuda_common.hpp>
 #include <floor/compute/compute_device.hpp>
@@ -31,10 +30,10 @@ public:
 	cuda_device();
 	
 	//! compute capability (aka sm_xx)
-	uint2 sm { 3, 0 };
+	uint2 sm { 5, 0 };
 	
 	//! max supported PTX version
-	uint2 ptx { 6, 0 };
+	uint2 ptx { 8, 0 };
 	
 	//! minimum required PTX version
 	uint2 min_req_ptx { 6, 0 };
@@ -80,5 +79,3 @@ public:
 };
 
 FLOOR_POP_WARNINGS()
-
-#endif

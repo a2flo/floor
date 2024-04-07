@@ -16,9 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_UTIL_HPP__
-#define __FLOOR_UTIL_HPP__
+#pragma once
 
 #include <floor/core/cpp_headers.hpp>
-
-#endif

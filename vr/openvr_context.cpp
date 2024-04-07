@@ -374,7 +374,7 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 	if (update_act_err != vr::EVRInputError::VRInputError_None) {
 		log_error("failed to update action state: $", update_act_err);
 	} else {
-		const auto cur_time = SDL_GetTicks64();
+		const auto cur_time = SDL_GetTicks();
 		for (auto& action : actions) {
 			vr::EVRInputError err = vr::EVRInputError::VRInputError_None;
 			switch (action.second.type) {

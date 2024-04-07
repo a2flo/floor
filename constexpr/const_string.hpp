@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONST_STRING_HPP__
-#define __FLOOR_CONST_STRING_HPP__
+#pragma once
 
 #include <type_traits>
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
@@ -290,5 +289,3 @@ template <size_t n> constexpr auto make_const_string(const char (&str)[n]) {
 template <size_t n> constexpr auto CS(const char (&str)[n]) {
 	return const_string<n> { str };
 }
-
-#endif

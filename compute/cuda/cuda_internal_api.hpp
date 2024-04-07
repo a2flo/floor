@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_INTERNAL_API_HPP__
-#define __FLOOR_CUDA_INTERNAL_API_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 
@@ -165,7 +164,5 @@ using cu_texture_ref_80 = cu_texture_ref_template<8000>;
 // check if sizes/offsets are correct
 static_assert(sizeof(cu_texture_ref_80) == 0x1C0, "invalid cu_texture_ref size");
 static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 368, "invalid sampler enum offset");
-
-#endif
 
 #endif

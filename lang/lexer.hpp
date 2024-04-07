@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_LEXER_HPP__
-#define __FLOOR_LEXER_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <string>
@@ -102,5 +101,3 @@ protected:
 	lexer& operator=(const lexer&) = delete;
 	
 };
-
-#endif

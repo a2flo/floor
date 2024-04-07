@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONSTANTS_HPP__
-#define __FLOOR_CONSTANTS_HPP__
+#pragma once
 
 #include <type_traits>
 #include <floor/core/essentials.hpp>
@@ -121,5 +120,3 @@ constexpr const_math::max_fp_type operator""_fp(long double val) {
 constexpr const_math::max_rt_fp_type operator""_rtfp(long double val) {
 	return (const_math::max_rt_fp_type)val;
 }
-
-#endif

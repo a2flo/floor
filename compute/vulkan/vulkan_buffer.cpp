@@ -37,10 +37,8 @@
 vulkan_buffer::vulkan_buffer(const compute_queue& cqueue,
 							 const size_t& size_,
 							 std::span<uint8_t> host_data_,
-							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_,
-							 const uint32_t external_gl_object_) :
-compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_),
+							 const COMPUTE_MEMORY_FLAG flags_) :
+compute_buffer(cqueue, size_, host_data_, flags_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	if(size < min_multiple()) return;
 	
@@ -370,16 +368,6 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(const compute_queue& cque
 
 bool vulkan_buffer::unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	return vulkan_memory::unmap(cqueue, mapped_ptr);
-}
-
-bool vulkan_buffer::acquire_opengl_object(const compute_queue*) {
-	log_error("not supported by vulkan");
-	return false;
-}
-
-bool vulkan_buffer::release_opengl_object(const compute_queue*) {
-	log_error("not supported by vulkan");
-	return false;
 }
 
 void vulkan_buffer::set_debug_label(const string& label) {

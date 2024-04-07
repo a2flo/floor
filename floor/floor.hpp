@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_FLOOR_HPP__
-#define __FLOOR_FLOOR_HPP__
+#pragma once
 
 #include <floor/core/platform.hpp>
 #include <floor/core/core.hpp>
@@ -44,15 +43,11 @@ public:
 		//! selects the renderer based on the config and OS
 		DEFAULT = 1,
 		
-		//! use the OpenGL 2.0 or 3.3+ renderer, or the OpenGL ES 3.0 renderer,
-		//! based on the OS and init_state
-		OPENGL = 2,
-		
 		//! use the Vulkan 1.3+ renderer
-		VULKAN = 3,
+		VULKAN = 2,
 		
-		//! use the Metal 2.0+ renderer
-		METAL = 4,
+		//! use the Metal 3.0+ renderer
+		METAL = 3,
 	};
 	
 	struct init_state {
@@ -72,22 +67,17 @@ public:
 		//! NOTE: the local/user config will be used if a file with the specified name + ".local" exists
 		const char* config_name { "config.json" };
 		
-		//! if true, will not create a window and will not create an OpenGL context or Vulkan surface/swapchain
+		//! if true, will not create a window and will not create a Vulkan surface/swapchain
 		bool console_only { false };
 		
 		//! renderer backend that should be used and initialized
 		RENDERER renderer { RENDERER::DEFAULT };
 		
-		//! if true and using the OpenGL renderer, this will try to create a OpenGL 3.3+ context
-		//! NOTE: will create a 3.3+ *core* context on macOS
-		bool use_opengl_33 { true };
-		
 		//! min Vulkan API version that should be used
-		uint3 vulkan_api_version { 1, 3, 205 };
+		uint3 vulkan_api_version { 1, 3, 231 };
 		
 		//! SDL window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
-		//! NOTE: SDL_WINDOW_OPENGL will be set automatically if use_opengl is true
 		uint32_t window_flags {
 #if !defined(FLOOR_IOS)
 			SDL_WINDOW_RESIZABLE
@@ -122,14 +112,6 @@ public:
 	//! NOTE: this returns the same context as "get_compute_context" if Metal/Vulkan are used as the compute backend as well
 	static shared_ptr<compute_context> get_render_context();
 	
-	// OpenGL-only
-	static SDL_GLContext get_opengl_context();
-	static void init_gl();
-	static void resize_gl_window();
-	static bool has_opengl_extension(const char* ext_name);
-	static bool is_gl_version(const uint32_t& major, const uint32_t& minor);
-	static const string& get_gl_vendor();
-	
 	// Vulkan-only
 	static shared_ptr<vulkan_compute> get_vulkan_context();
 	static const uint3& get_vulkan_api_version();
@@ -162,14 +144,7 @@ public:
 	
 	static void reload_kernels();
 	
-	static void acquire_context();
-	static void release_context();
-	
 	static bool is_x11_forwarding();
-	
-	// set to false to not acquire/release the gl context in acquire/release_context()
-	static void set_use_gl_context(const bool& state);
-	static const bool& get_use_gl_context();
 	
 	// fps functions
 	static uint32_t get_fps();
@@ -220,15 +195,6 @@ public:
 	static bool get_vr_trackers();
 	static bool get_vr_hand_tracking();
 	
-	// audio
-	static void set_audio_disabled(const bool& state);
-	static bool is_audio_disabled();
-	static void set_music_volume(const float& volume);
-	static const float& get_music_volume();
-	static void set_sound_volume(const float& volume);
-	static const float& get_sound_volume();
-	static const string& get_audio_device_name();
-	
 	// projection
 	static const float& get_fov();
 	static const float2& get_near_far_plane();
@@ -245,7 +211,6 @@ public:
 	
 	// toolchain
 	static const string& get_toolchain_backend();
-	static bool get_toolchain_gl_sharing();
 	static bool get_toolchain_debug();
 	static bool get_toolchain_profiling();
 	static bool get_toolchain_log_binaries();
@@ -369,11 +334,6 @@ protected:
 		bool vr_trackers = true;
 		bool vr_hand_tracking = true;
 		
-		// audio
-		bool audio_disabled = true;
-		float music_volume = 1.0f, sound_volume = 1.0f;
-		string audio_device_name;
-		
 		// logging
 		uint32_t verbosity = (uint32_t)logger::LOG_TYPE::UNDECORATED;
 		bool separate_msg_file = false;
@@ -396,7 +356,6 @@ protected:
 		
 		// compute
 		string backend;
-		bool gl_sharing = false;
 		bool debug = false;
 		bool profiling = false;
 		bool log_binaries = false;
@@ -502,23 +461,12 @@ protected:
 	// VR
 	static shared_ptr<vr_context> vr_ctx;
 	
-	// OpenGL
-	static SDL_GLContext opengl_ctx;
-	static unordered_set<string> gl_extensions;
-	static bool use_gl_context;
-	static uint32_t global_vao;
-	static string gl_vendor;
-	
 	// Metal
 	static shared_ptr<metal_compute> metal_ctx;
 	
 	// Vulkan
 	static shared_ptr<vulkan_compute> vulkan_ctx;
 	static uint3 vulkan_api_version;
-	
-	// for use with acquire_context/release_context
-	static recursive_mutex ctx_lock;
-	static atomic<uint32_t> ctx_active_locks;
 	
 	// path variables
 	static string datapath;
@@ -550,5 +498,3 @@ protected:
 	static atomic<bool> reload_kernels_flag;
 
 };
-
-#endif

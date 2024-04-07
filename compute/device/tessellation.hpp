@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_TESSELLATION_HPP__
-#define __FLOOR_COMPUTE_DEVICE_TESSELLATION_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 
@@ -49,7 +48,5 @@ host_patch_control_point<T>
 #error "unhandled backend"
 #endif
 ;
-
-#endif
 
 #endif

@@ -21,7 +21,6 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/compute/host/host_compute.hpp>
 #include <floor/core/platform.hpp>
-#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
@@ -51,7 +50,7 @@
 #include <floor/core/essentials.hpp> // cleanup
 #endif
 
-// provided by SDL2
+// provided by SDL3
 extern "C" DECLSPEC int SDLCALL SDL_GetSystemRAM();
 
 host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_context(ctx_flags) {
@@ -277,39 +276,14 @@ unique_ptr<compute_fence> host_compute::create_fence(const compute_queue&) const
 }
 
 shared_ptr<compute_buffer> host_compute::create_buffer(const compute_queue& cqueue,
-													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<host_buffer>(cqueue, size, flags, opengl_type));
+													   const size_t& size, const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<host_buffer>(cqueue, size, flags));
 }
 
 shared_ptr<compute_buffer> host_compute::create_buffer(const compute_queue& cqueue,
 													   std::span<uint8_t> data,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<host_buffer>(cqueue, data.size_bytes(), data, flags, opengl_type));
-}
-
-shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<host_buffer>(cqueue, info.size, std::span<uint8_t> {},
-												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												 opengl_type, opengl_buffer));
-}
-
-shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<host_buffer>(cqueue, info.size, std::span<uint8_t> { (uint8_t*)data, info.size },
-												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												 opengl_type, opengl_buffer));
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<host_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue,
@@ -317,7 +291,7 @@ shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_METAL)
 	return add_resource(make_shared<host_buffer>(cqueue, ((const compute_buffer&)mtl_buffer).get_size(), std::span<uint8_t> {},
-												 flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, 0, 0, (compute_buffer*)&mtl_buffer));
+												 flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, (compute_buffer*)&mtl_buffer));
 #else
 	return compute_context::wrap_buffer(cqueue, mtl_buffer, flags);
 #endif
@@ -328,7 +302,7 @@ shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(make_shared<host_buffer>(cqueue, ((const compute_buffer&)vk_buffer).get_size(), std::span<uint8_t> {},
-												 flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, (compute_buffer*)&vk_buffer));
+												 flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, (compute_buffer*)&vk_buffer));
 #else
 	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
 #endif
@@ -337,46 +311,16 @@ shared_ptr<compute_buffer> host_compute::wrap_buffer(const compute_queue& cqueue
 shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
-													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) const {
-	return add_resource(make_shared<host_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, opengl_type));
+													 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<host_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
 }
 
 shared_ptr<compute_image> host_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 std::span<uint8_t> data,
-													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) const {
-	return add_resource(make_shared<host_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
-}
-
-shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<host_image>(cqueue, info.image_dim, info.image_type, std::span<uint8_t> {},
-												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												opengl_target, opengl_image, &info));
-}
-
-shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	const auto actual_img_type = compute_image::handle_image_type(info.image_dim, info.image_type);
-	const auto img_size = image_data_size_from_types(info.image_dim, actual_img_type,
-													 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
-													 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
-	return add_resource(make_shared<host_image>(cqueue, info.image_dim, info.image_type,
-												std::span<uint8_t> { (uint8_t*)data, img_size },
-												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												opengl_target, opengl_image, &info));
+													 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<host_image>(cqueue, image_dim, image_type, data, flags));
 }
 
 shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
@@ -385,7 +329,7 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 #if !defined(FLOOR_NO_METAL)
 	return add_resource(make_shared<host_image>(cqueue, ((const compute_image&)mtl_image).get_image_dim(),
 												((const compute_image&)mtl_image).get_image_type(), std::span<uint8_t> {},
-												flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, 0, 0, nullptr, (compute_image*)&mtl_image));
+												flags | COMPUTE_MEMORY_FLAG::METAL_SHARING, (compute_image*)&mtl_image));
 #else
 	return compute_context::wrap_image(cqueue, mtl_image, flags);
 #endif
@@ -397,7 +341,7 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(make_shared<host_image>(cqueue, ((const compute_image&)vk_image).get_image_dim(),
 												((const compute_image&)vk_image).get_image_type(), std::span<uint8_t> {},
-												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image));
+												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, (compute_image*)&vk_image));
 #else
 	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif

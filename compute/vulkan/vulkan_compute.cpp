@@ -38,15 +38,16 @@
 #include <floor/vr/vr_context.hpp>
 #include <floor/vr/openxr_context.hpp>
 #include <regex>
+#include <filesystem>
 
 #include <floor/core/platform_windows.hpp>
 
-#include <SDL2/SDL_syswm.h>
-
-#if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(__WINDOWS__)
+#if defined(SDL_PLATFORM_WIN32) || defined(__WINDOWS__)
 #include <vulkan/vulkan_win32.h>
 #endif
-#if defined(SDL_VIDEO_DRIVER_X11)
+#if defined(SDL_PLATFORM_LINUX)
+#include <X11/Xlib.h>
+#include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xlib.h>
 #endif
 
@@ -411,14 +412,17 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #endif
 	if(enable_renderer && !screen.x11_forwarding) {
 		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+#if defined(SDL_PLATFORM_WIN32)
 		instance_extensions.emplace(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#elif defined(SDL_VIDEO_DRIVER_X11)
-		// SDL only supports xlib
-		instance_extensions.emplace(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#elif defined(SDL_PLATFORM_LINUX)
+		if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
+			instance_extensions.emplace(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		} else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
+			instance_extensions.emplace(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+		}
 #endif
 
-#if defined(SDL_VIDEO_DRIVER_WINDOWS) // seems to only exist on windows (and android) right now
+#if defined(SDL_PLATFORM_WIN32) // seems to only exist on windows (and android) right now
 		instance_extensions.emplace(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
 #endif
 	}
@@ -1751,10 +1755,13 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	fastest_device = devices[0].get();
 	
 	// init renderer
-	if(enable_renderer) {
-		if(!init_renderer()) {
+	if (enable_renderer) {
+		if (!reinit_renderer(floor::get_physical_screen_size())) {
 			return;
 		}
+		
+		resize_handler_fnctr = bind(&vulkan_compute::resize_handler, this, placeholders::_1, placeholders::_2);
+		floor::get_event()->add_internal_event_handler(resize_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE);
 	}
 	
 	// successfully initialized everything and we have at least one device
@@ -1764,6 +1771,10 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 FLOOR_POP_WARNINGS()
 
 vulkan_compute::~vulkan_compute() {
+	if (resize_handler_fnctr) {
+		floor::get_event()->remove_event_handler(resize_handler_fnctr);
+	}
+	
 	// destroy internal vulkan_queue structures
 	vulkan_queue::destroy();
 	
@@ -1773,31 +1784,52 @@ vulkan_compute::~vulkan_compute() {
 	}
 #endif
 	
-	if(!screen.x11_forwarding) {
-		if(!screen.swapchain_image_views.empty()) {
-			for(auto& image_view : screen.swapchain_image_views) {
-				vkDestroyImageView(screen.render_device->device, image_view, nullptr);
-			}
-		}
-		
-		if(screen.swapchain != nullptr) {
-			vkDestroySwapchainKHR(screen.render_device->device, screen.swapchain, nullptr);
-		}
-		
-		if(screen.surface != nullptr) {
-			vkDestroySurfaceKHR(ctx, screen.surface, nullptr);
-		}
-	}
-	else {
-		screen.x11_screen = nullptr;
-	}
+	destroy_renderer_swapchain();
 	
 	// TODO: destroy all else
 }
 
-bool vulkan_compute::init_renderer() {
-	// TODO: support window resizing
-	screen.size = floor::get_physical_screen_size();
+void vulkan_compute::destroy_renderer_swapchain() {
+	if (!screen.x11_forwarding) {
+		if (!screen.swapchain_image_views.empty()) {
+			for (auto& image_view : screen.swapchain_image_views) {
+				vkDestroyImageView(screen.render_device->device, image_view, nullptr);
+			}
+		}
+		
+		if (screen.swapchain != nullptr) {
+			vkDestroySwapchainKHR(screen.render_device->device, screen.swapchain, nullptr);
+		}
+		
+		if (screen.surface != nullptr) {
+			vkDestroySurfaceKHR(ctx, screen.surface, nullptr);
+		}
+	}
+	
+	screen = {};
+}
+
+bool vulkan_compute::resize_handler(EVENT_TYPE type, shared_ptr<event_object>) {
+	if (type == EVENT_TYPE::WINDOW_RESIZE) {
+		if (!reinit_renderer(floor::get_physical_screen_size())) {
+			log_error("failed to reinit Vulkan renderer after window resize");
+		}
+		return true;
+	}
+	return false;
+}
+
+bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
+	if ((screen.size == screen_size).all()) {
+		// skip if the size is the same
+		return true;
+	}
+	
+	// clear previous
+	destroy_renderer_swapchain();
+	
+	// -> init
+	screen.size = screen_size;
 	
 	// will always use the "fastest" device for now
 	// TODO: config option to select the rendering device
@@ -1806,7 +1838,7 @@ bool vulkan_compute::init_renderer() {
 	
 	// with X11 forwarding we can't do any of this, because DRI* is not available
 	// -> emulate the behavior
-	if(screen.x11_forwarding) {
+	if (screen.x11_forwarding) {
 		screen.image_count = 1;
 		screen.format = VK_FORMAT_B8G8R8A8_UNORM;
 		screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -1835,37 +1867,62 @@ bool vulkan_compute::init_renderer() {
 		return true;
 	}
 	
-	// query SDL window / video driver info that we need to create a vulkan surface
-	SDL_SysWMinfo wm_info;
-	SDL_VERSION(&wm_info.version)
-	if(!SDL_GetWindowWMInfo(floor::get_window(), &wm_info)) {
-		log_error("failed to retrieve window info: $", SDL_GetError());
+	[[maybe_unused]] auto wnd = floor::get_window();
+#if defined(SDL_PLATFORM_WIN32)
+	auto hwnd = (HWND)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+	if (!hwnd) {
+		log_error("failed to retrieve HWND");
 		return false;
 	}
-	
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
 	const VkWin32SurfaceCreateInfoKHR surf_create_info {
 		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 		.pNext = nullptr,
 		.flags = 0,
 		.hinstance = GetModuleHandle(nullptr),
-		.hwnd = wm_info.info.win.window,
+		.hwnd = hwnd,
 	};
 	VK_CALL_RET(vkCreateWin32SurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
 				"failed to create win32 surface", false)
-#elif defined(SDL_VIDEO_DRIVER_X11)
-	const VkXlibSurfaceCreateInfoKHR surf_create_info {
-		.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-		.pNext = nullptr,
-		.flags = 0,
-		.dpy = wm_info.info.x11.display,
-		.window = wm_info.info.x11.window,
-	};
-	VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
-				"failed to create xlib surface", false)
+#elif defined(SDL_PLATFORM_LINUX)
+	if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
+		Display* x11_display = (Display*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+		Window x11_window = (Window)SDL_GetNumberProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+		if (!x11_display || !x11_window) {
+			log_error("failed to retrieve X11 display/window");
+			return false;
+		}
+		const VkXlibSurfaceCreateInfoKHR surf_create_info {
+			.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+			.pNext = nullptr,
+			.flags = 0,
+			.dpy = x11_display,
+			.window = x11_window,
+		};
+		VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
+					"failed to create X11 xlib surface", false)
+	} else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
+		auto way_display = (struct wl_display*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		auto way_surface = (struct wl_surface*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+		if (!way_display || !way_surface) {
+			log_error("failed to retrieve Wayland display/surface");
+			return false;
+		}
+		const VkWaylandSurfaceCreateInfoKHR surf_create_info {
+			.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+			.pNext = nullptr,
+			.flags = 0,
+			.display = way_display,
+			.surface = way_surface,
+		};
+		VK_CALL_RET(vkCreateWaylandSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
+					"failed to create Wayland surface", false)
+	} else {
+		log_error("unknown SDL video driver: $", SDL_GetCurrentVideoDriver());
+		return false;
+	}
 #endif
 	
-#if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(SDL_VIDEO_DRIVER_X11)
+#if defined(SDL_PLATFORM_WIN32) || defined(SDL_PLATFORM_LINUX)
 	// TODO: vkGetPhysicalDeviceXlibPresentationSupportKHR/vkGetPhysicalDeviceWin32PresentationSupportKHR
 	
 	// verify if surface is actually usable
@@ -2617,57 +2674,29 @@ unique_ptr<compute_fence> vulkan_compute::create_fence(const compute_queue& cque
 }
 
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
-														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_buffer>(cqueue, size, flags, opengl_type));
+														 const size_t& size, const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<vulkan_buffer>(cqueue, size, flags));
 }
 
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cqueue,
 														 std::span<uint8_t> data,
-														 const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags, opengl_type));
-}
-
-shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(const compute_queue&, const uint32_t, const uint32_t,
-													   const COMPUTE_MEMORY_FLAG) const {
-	log_error("not supported by vulkan_compute!");
-	return {};
-}
-
-shared_ptr<compute_buffer> vulkan_compute::wrap_buffer(const compute_queue&, const uint32_t, const uint32_t,
-													   void*, const COMPUTE_MEMORY_FLAG) const {
-	log_error("not supported by vulkan_compute!");
-	return {};
+														 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, opengl_type));
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
 }
 
 shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   std::span<uint8_t> data,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
-}
-
-shared_ptr<compute_image> vulkan_compute::wrap_image(const compute_queue&, const uint32_t, const uint32_t,
-													 const COMPUTE_MEMORY_FLAG) const {
-	log_error("not supported by vulkan_compute!");
-	return {};
-}
-
-shared_ptr<compute_image> vulkan_compute::wrap_image(const compute_queue&, const uint32_t, const uint32_t,
-													 void*, const COMPUTE_MEMORY_FLAG) const {
-	log_error("not supported by vulkan_compute!");
-	return {};
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags));
 }
 
 shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
@@ -2755,7 +2784,8 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(const
 	auto container = spirv_handler::load_container(program.data_or_filename);
 	if(!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
 		// cleanup if file exists
-		core::system("rm " + program.data_or_filename);
+		error_code ec {};
+		(void)filesystem::remove(program.data_or_filename, ec);
 	}
 	if(!container.valid) return {}; // already prints an error
 	

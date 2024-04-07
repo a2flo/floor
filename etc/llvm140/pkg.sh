@@ -28,7 +28,7 @@ cp -R ../llvm/libcxx/include libcxx
 cp ../llvm/libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
 mkdir -p floor/floor
-FLOOR_SUB_DIRS="audio compute compute/device compute/cuda compute/host compute/metal compute/opencl compute/vulkan constexpr core floor lang math net threading"
+FLOOR_SUB_DIRS="compute compute/device compute/cuda compute/host compute/metal compute/opencl compute/vulkan constexpr core floor lang math threading"
 for dir in ${FLOOR_SUB_DIRS}; do
 	# create resp. folder
 	mkdir -p floor/floor/${dir}

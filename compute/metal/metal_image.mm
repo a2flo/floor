@@ -33,12 +33,8 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
 						 std::span<uint8_t> host_data_,
-						 const COMPUTE_MEMORY_FLAG flags_,
-						 const uint32_t opengl_type_,
-						 const uint32_t external_gl_object_,
-						 const opengl_image_info* floor_nullable gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, nullptr, true /* may need shim type */) {
+						 const COMPUTE_MEMORY_FLAG flags_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			usage_options = MTLTextureUsageShaderRead;
@@ -79,11 +75,9 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		bool is_memory_less = false;
 		if (is_render_target && is_transient) {
-			if (@available(macOS 11.0, iOS 10.0, *)) {
-				options |= MTLResourceStorageModeMemoryless;
-				storage_options = MTLStorageModeMemoryless;
-				is_memory_less = true;
-			}
+			options |= MTLResourceStorageModeMemoryless;
+			storage_options = MTLStorageModeMemoryless;
+			is_memory_less = true;
 		}
 		if (!is_memory_less) {
 			options |= MTLResourceStorageModePrivate;
@@ -148,12 +142,8 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull
 		case MTLTextureType3D: type = COMPUTE_IMAGE_TYPE::IMAGE_3D; break;
 		case MTLTextureTypeCube: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE; break;
 		case MTLTextureTypeCubeArray: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY; break;
-#if defined(__MAC_10_14) || defined(__IPHONE_14_0)
 		case MTLTextureType2DMultisampleArray: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY; break;
-#endif
-#if defined(__MAC_10_14) || defined(__IPHONE_12_0)
 		case MTLTextureTypeTextureBuffer: type = COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER; break;
-#endif
 		
 		// yay for forwards compatibility, or at least detecting that something is wrong(tm) ...
 FLOOR_PUSH_WARNINGS()
@@ -211,12 +201,10 @@ FLOOR_POP_WARNINGS()
 		// BGR(A)
 		{ MTLPixelFormatBGRA8Unorm, COMPUTE_IMAGE_TYPE::BGRA8UI_NORM },
 		{ MTLPixelFormatBGR10A2Unorm, COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM },
-#if defined(FLOOR_IOS)
 		{ MTLPixelFormatBGR10_XR, COMPUTE_IMAGE_TYPE::BGR10UI_NORM },
 		{ MTLPixelFormatBGR10_XR_sRGB, COMPUTE_IMAGE_TYPE::BGR10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB },
 		{ MTLPixelFormatBGRA10_XR, COMPUTE_IMAGE_TYPE::BGRA10UI_NORM },
 		{ MTLPixelFormatBGRA10_XR_sRGB, COMPUTE_IMAGE_TYPE::BGRA10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB },
-#endif
 		// sRGB
 		{ MTLPixelFormatR8Unorm_sRGB, COMPUTE_IMAGE_TYPE::R8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB },
 		{ MTLPixelFormatRG8Unorm_sRGB, COMPUTE_IMAGE_TYPE::RG8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB },
@@ -227,12 +215,10 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_13_0)
 		{ MTLPixelFormatDepth16Unorm, (COMPUTE_IMAGE_TYPE::UINT |
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
-#endif
 #if !defined(FLOOR_IOS) // macOS only
 		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
@@ -245,7 +231,7 @@ FLOOR_POP_WARNINGS()
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
-#if !defined(FLOOR_IOS) // macOS only
+#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4)
 		// BC formats
 		{ MTLPixelFormatBC1_RGBA, COMPUTE_IMAGE_TYPE::BC1_RGBA },
 		{ MTLPixelFormatBC1_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB },
@@ -277,7 +263,6 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatASTC_4x4_sRGB, COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB },
 		{ MTLPixelFormatASTC_4x4_LDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR },
 		{ MTLPixelFormatASTC_4x4_HDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR },
-#if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ MTLPixelFormatPVRTC_RGB_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB2 },
 		{ MTLPixelFormatPVRTC_RGB_4BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB4 },
@@ -287,7 +272,6 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB },
-#endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
 	if(metal_format == end(format_lut)) {
@@ -325,7 +309,7 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
-			  host_data_, flags_, 0, 0, nullptr, nullptr, false /* no shim type here */), image(external_image), is_external(true) {
+			  host_data_, flags_, nullptr, false /* no shim type here */), image(external_image), is_external(true) {
 	// device must match
 	if(((const metal_device&)dev).device != [external_image device]) {
 		log_error("specified metal device does not match the device set in the external image");
@@ -372,7 +356,6 @@ FLOOR_POP_WARNINGS()
 }
 
 bool metal_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
-	// NOTE: opengl sharing flag is ignored, because there is no metal/opengl sharing and metal can interop with itself w/o explicit sharing
 	const auto& mtl_dev = (const metal_device&)cqueue.get_device();
 	
 	// should not be called under that condition, but just to be safe
@@ -423,14 +406,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			} else if (is_array && !is_buffer) {
 				tex_type = MTLTextureType1DArray;
 			} else if (!is_array && is_buffer) {
-#if defined(__MAC_10_14) || defined(__IPHONE_12_0)
-				if (@available(macOS 10.14, iOS 12.0, *)) {
-					tex_type = MTLTextureTypeTextureBuffer;
-					break;
-				}
-#endif
-				log_error("1D buffer image is not supported");
-				return false;
+				tex_type = MTLTextureTypeTextureBuffer;
 			} else if (is_array && is_buffer) {
 				log_error("1D array buffer image is not supported");
 				return false;
@@ -446,14 +422,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 				if (!is_msaa && !is_array) {
 					tex_type = MTLTextureType2D;
 				} else if (is_msaa && is_array) {
-#if defined(__MAC_10_14) || defined(__IPHONE_14_0)
-					if (@available(macOS 10.14, iOS 14.0, *)) {
-						tex_type = MTLTextureType2DMultisampleArray;
-						break;
-					}
-#endif
-					log_error("2D MSAA array image is not supported");
-					return false;
+					tex_type = MTLTextureType2DMultisampleArray;
 				} else if (is_msaa) {
 					tex_type = MTLTextureType2DMultisample;
 				} else if (is_array) {
@@ -640,9 +609,7 @@ bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
 	}, shim_image_type);
 	
 	// always optimize for GPU use
-	if (@available(iOS 12.0, macOS 10.14, *)) {
-		[blit_encoder optimizeContentsForGPUAccess:image];
-	}
+	[blit_encoder optimizeContentsForGPUAccess:image];
 	
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
@@ -886,30 +853,6 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 	return success;
 }
 
-bool metal_image::acquire_opengl_object(const compute_queue* floor_nullable cqueue floor_unused) {
-	if(image == nil) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("image has already been acquired!");
-#endif
-		return true;
-	}
-	gl_object_state = true;
-	return true;
-}
-
-bool metal_image::release_opengl_object(const compute_queue* floor_nullable cqueue floor_unused) {
-	if(image == nil) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("image has already been released!");
-#endif
-		return true;
-	}
-	gl_object_state = false;
-	return true;
-}
-
 void metal_image::generate_mip_map_chain(const compute_queue& cqueue) {
 	// nothing to do here
 	if([image mipmapLevelCount] == 1) return;
@@ -982,12 +925,10 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		// BGR(A)
 		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
 		{ COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM, MTLPixelFormatBGR10A2Unorm },
-#if defined(FLOOR_IOS)
 		{ COMPUTE_IMAGE_TYPE::BGR10UI_NORM, MTLPixelFormatBGR10_XR },
 		{ COMPUTE_IMAGE_TYPE::BGR10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGR10_XR_sRGB },
 		{ COMPUTE_IMAGE_TYPE::BGRA10UI_NORM, MTLPixelFormatBGRA10_XR },
 		{ COMPUTE_IMAGE_TYPE::BGRA10UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA10_XR_sRGB },
-#endif
 		// sRGB
 		{ COMPUTE_IMAGE_TYPE::R8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatR8Unorm_sRGB },
 		{ COMPUTE_IMAGE_TYPE::RG8UI_NORM | COMPUTE_IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRG8Unorm_sRGB },
@@ -999,12 +940,10 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_13_0)
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
-#endif
 #if !defined(FLOOR_IOS) // macOS only
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
@@ -1017,7 +956,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-#if !defined(FLOOR_IOS) // macOS only
+#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4)
 		// BC formats
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
@@ -1049,7 +988,6 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB, MTLPixelFormatASTC_4x4_sRGB },
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
-#if defined(FLOOR_IOS)
 		// PVRTC formats
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
@@ -1059,7 +997,6 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
-#endif
 		// TODO: special image formats, these are partially supported
 	};
 	const auto masked_image_type = (image_type_ & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |

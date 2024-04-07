@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_SOFT_PRINTF_HPP__
-#define __FLOOR_COMPUTE_DEVICE_SOFT_PRINTF_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST_DEVICE)
 
@@ -208,7 +207,5 @@ static void printf_impl(constant const char (&format)[format_N], const Args&... 
 #endif
 
 } // soft_printf
-
-#endif
 
 #endif

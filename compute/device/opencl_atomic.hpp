@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_ATOMIC_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPENCL_ATOMIC_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
@@ -417,8 +416,6 @@ floor_inline_always float atom_max(local float* p, float val) {
 		cur_max = old_max;
 	}
 }
-#endif
-
 #endif
 
 #endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_BUFFER_HPP__
-#define __FLOOR_COMPUTE_BUFFER_HPP__
+#pragma once
 
 #include <floor/compute/compute_memory.hpp>
 
@@ -109,16 +108,6 @@ public:
 	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }
 	
-	//! return struct of get_opengl_buffer_info
-	struct opengl_buffer_info {
-		uint32_t size { 0u };
-		bool valid { false };
-	};
-	//! helper function to retrieve information from a pre-existing opengl buffer
-	static opengl_buffer_info get_opengl_buffer_info(const uint32_t& opengl_buffer,
-													 const uint32_t& opengl_type,
-													 const COMPUTE_MEMORY_FLAG& flags);
-	
 	//! returns the internal shared Metal buffer if there is one, returns nullptr otherwise
 	const metal_buffer* get_shared_metal_buffer() const {
 		return shared_mtl_buffer;
@@ -188,8 +177,6 @@ protected:
 				   std::span<uint8_t> host_data_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0,
-				   const uint32_t external_gl_object_ = 0,
 				   compute_buffer* shared_buffer_ = nullptr);
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
@@ -197,25 +184,18 @@ protected:
 				   std::span<uint8_t> host_data_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
-				   const uint32_t external_gl_object_ = 0,
 				   compute_buffer* shared_buffer_ = nullptr) :
-	compute_buffer(cqueue, host_data_.size_bytes(), host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {}
+	compute_buffer(cqueue, host_data_.size_bytes(), host_data_, flags_, shared_buffer_) {}
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const compute_queue& cqueue,
 				   const size_t& size_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0,
 				   compute_buffer* shared_buffer_ = nullptr) :
-	compute_buffer(cqueue, size_, {}, flags_, opengl_type_, 0, shared_buffer_) {}
+	compute_buffer(cqueue, size_, {}, flags_, shared_buffer_) {}
 	
 	size_t size { 0u };
-	
-	// internal function to create/delete an opengl buffer if compute/opengl sharing is used
-	bool create_gl_buffer(const bool copy_host_data);
-	void delete_gl_buffer();
 	
 	// NOTE: only one of these can be active at a time
 	union {
@@ -409,5 +389,3 @@ protected:
 };
 
 FLOOR_POP_WARNINGS()
-
-#endif

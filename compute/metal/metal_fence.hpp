@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_FENCE_HPP__
-#define __FLOOR_METAL_FENCE_HPP__
+#pragma once
 
 #include <floor/compute/compute_fence.hpp>
 
@@ -40,7 +39,5 @@ protected:
 	id <MTLFence> mtl_fence { nil };
 	
 };
-
-#endif
 
 #endif

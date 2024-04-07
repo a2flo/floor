@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPTION_HANDLER_HPP__
-#define __FLOOR_OPTION_HANDLER_HPP__
+#pragma once
 
 #include <string>
 #include <functional>
@@ -96,5 +95,3 @@ protected:
 	static vector<pair<string, option_handler<option_context>::option_function>> options;
 	
 };
-
-#endif

@@ -21,10 +21,10 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/core/platform.hpp>
-#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
+#include <filesystem>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -127,19 +127,32 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	
 	// go through all found devices (for ios, this should be one)
 	uint32_t device_num = 0;
-	for(id <MTLDevice> dev in mtl_devices) {
+	for (id <MTLDevice> dev in mtl_devices) {
 		// check whitelist
-		if(!whitelist.empty()) {
+		if (!whitelist.empty()) {
 			const auto lc_dev_name = core::str_to_lower([[dev name] UTF8String]);
 			bool found = false;
-			for(const auto& entry : whitelist) {
-				if(lc_dev_name.find(entry) != string::npos) {
+			for (const auto& entry : whitelist) {
+				if (lc_dev_name.find(entry) != string::npos) {
 					found = true;
 					break;
 				}
 			}
-			if(!found) continue;
+			if (!found) {
+				continue;
+			}
 		}
+		
+		// device must support Metal 3
+		if (![dev supportsFamily:MTLGPUFamilyMetal3]) {
+			continue;
+		}
+#if !defined(FLOOR_IOS)
+		// should be included in Metal 3 support, but just in case also require this
+		if (![dev supportsFamily:MTLGPUFamilyMac2]) {
+			continue;
+		}
+#endif
 		
 		// add device
 		devices.emplace_back(make_unique<metal_device>());
@@ -149,8 +162,6 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.name = [[dev name] UTF8String];
 		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
 		++device_num;
-		
-		// TODO: eval MTLGPUFamily and MTLSoftwareVersion with macOS 10.15 and iOS 13.0
 		
 		// query device info that is a bit more complicated to get (not via direct device query)
 		const auto device_info = metal_device_query::query(dev);
@@ -168,150 +179,29 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		device.family_type = metal_device::FAMILY_TYPE::APPLE;
 		
-		if (@available(iOS 13.0, *)) {
-			// find max supported Apple* family
-			static constexpr const auto max_gpu_family = MTLGPUFamilyApple9;
-			device.family_tier = 0;
-			for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
-				if ([dev supportsFamily:family]) {
-					device.family_tier = (uint32_t(family) - uint32_t(MTLGPUFamilyApple1)) + 1u;
-				}
-			}
-		} else {
-			// old method for iOS 12.x compat
-			
-			// hard to make this forward compatible, there is no direct "get family" call
-			// -> just try the first 17 types, good enough for now
-			uint32_t feature_set = 0;
-			for(uint32_t i = 17; i > 0; --i) {
-				if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
-					feature_set = i - 1;
-					break;
-				}
-			}
-			
-			switch (feature_set) {
-				default:
-				case 0: // MTLFeatureSet_iOS_GPUFamily1_v1
-				case 2: // MTLFeatureSet_iOS_GPUFamily1_v2
-				case 5: // MTLFeatureSet_iOS_GPUFamily1_v3
-				case 8: // MTLFeatureSet_iOS_GPUFamily1_v4
-				case 12: // MTLFeatureSet_iOS_GPUFamily1_v5
-					device.family_tier = 1;
-					break;
-				case 1: // MTLFeatureSet_iOS_GPUFamily2_v1
-				case 3: // MTLFeatureSet_iOS_GPUFamily2_v2
-				case 6: // MTLFeatureSet_iOS_GPUFamily2_v3
-				case 9: // MTLFeatureSet_iOS_GPUFamily2_v4
-				case 13: // MTLFeatureSet_iOS_GPUFamily2_v5
-					device.family_tier = 2;
-					break;
-				case 4: // MTLFeatureSet_iOS_GPUFamily3_v1
-				case 7: // MTLFeatureSet_iOS_GPUFamily3_v2
-				case 10: // MTLFeatureSet_iOS_GPUFamily3_v3
-				case 14: // MTLFeatureSet_iOS_GPUFamily3_v4
-					device.family_tier = 3;
-					break;
-				case 11: // MTLFeatureSet_iOS_GPUFamily4_v1
-				case 15: // MTLFeatureSet_iOS_GPUFamily4_v2
-					device.family_tier = 4;
-					break;
-				case 16: // MTLFeatureSet_iOS_GPUFamily5_v1
-					device.family_tier = 5;
-					break;
+		// find max supported Apple* family
+		static constexpr const auto max_gpu_family = MTLGPUFamilyApple9;
+		device.family_tier = 0;
+		for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
+			if ([dev supportsFamily:family]) {
+				device.family_tier = (uint32_t(family) - uint32_t(MTLGPUFamilyApple1)) + 1u;
 			}
 		}
+		assert(device.family_tier >= 7);
 		
 		// figure out which metal version we can use
 		if (darwin_helper::get_system_version() >= 170000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_1;
-			device.metal_language_version = (device.family_tier >= 6 ? METAL_VERSION::METAL_3_1 : METAL_VERSION::METAL_2_4);
+			device.metal_language_version = METAL_VERSION::METAL_3_1;
 		} else if (darwin_helper::get_system_version() >= 160000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = (device.family_tier >= 6 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
-		} else if (darwin_helper::get_system_version() >= 150000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_4;
-			device.metal_language_version = METAL_VERSION::METAL_2_4;
-		} else if (darwin_helper::get_system_version() >= 140000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_3;
-			device.metal_language_version = METAL_VERSION::METAL_2_3;
-		} else if (darwin_helper::get_system_version() >= 130000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_2;
-			device.metal_language_version = METAL_VERSION::METAL_2_2;
-		} else if (darwin_helper::get_system_version() >= 120000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_1;
-			device.metal_language_version = METAL_VERSION::METAL_2_1;
+			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
 		switch (device.family_tier) {
-			// A7/A7X
-			default:
-			case 1:
-				device.units = 4; // G6430
-				device.mem_clock = 1600; // ram clock
-				device.max_image_1d_dim = { 8192 };
-				device.max_image_2d_dim = { 8192, 8192 };
-				device.max_total_local_size = 512;
-				break;
-			
-			// A8/A8X
-			case 2:
-				if(device.name.find("A8X") != string::npos) {
-					device.units = 8; // GXA6850
-				}
-				else {
-					device.units = 4; // GX6450
-				}
-				device.mem_clock = 1600; // ram clock
-				device.max_image_1d_dim = { 8192 };
-				device.max_image_2d_dim = { 8192, 8192 };
-				device.max_total_local_size = 512;
-				break;
-			
-			// A9/A9X and A10/A10X
-			case 3:
-				if(device.name.find("A9X") != string::npos ||
-				   device.name.find("A10X") != string::npos) {
-					device.units = 12; // GT7800/7900?
-				}
-				else {
-					device.units = 6; // GT7600 / GT7600 Plus
-				}
-				device.mem_clock = 3200; // TODO: ram clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
-				device.max_total_local_size = 512;
-				break;
-			
-			// A11
-			case 4:
-				device.units = 3; // Apple custom
-				device.mem_clock = 4233; // TODO: ram clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
-				device.max_total_local_size = 1024;
-				break;
-			
-			// A12/A12X/A12Z
-			case 5:
-				device.units = 4; // Apple custom
-				device.mem_clock = 4233; // TODO: ram clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
-				device.max_total_local_size = 1024;
-				break;
-				
-			// A13
-			case 6:
-				device.units = 4; // Apple custom
-				device.mem_clock = 4233; // TODO: ram clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
-				device.max_total_local_size = 1024;
-				break;
-				
 			// A14 / M1
+			default:
 			case 7:
 				device.units = ([dev supportsFamily:MTLGPUFamilyMac2] ? 8 /* M2 */ : 4);
 				device.mem_clock = 4233;
@@ -338,7 +228,7 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				device.max_total_local_size = 1024;
 				break;
 		}
-		device.local_mem_size = std::max(uint32_t([dev maxThreadgroupMemoryLength]), 16384u /* fallback */);
+		device.local_mem_size = std::max(uint32_t([dev maxThreadgroupMemoryLength]), 32768u /* fallback */);
 		device.max_global_size = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true; // always true
@@ -348,49 +238,13 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.simd_width = 32; // always 32 for powervr 6/7 series and apple A* series
 			device.simd_range = { device.simd_width, device.simd_width };
 		}
-		device.image_cube_write_support = false;
-		
-		// check for indirect command support
-		// NOTE: while initially supported in iOS 12.0, we do require iOS 13.0 functionality
-		if (@available(iOS 13.0, *)) {
-			if ([dev supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v4]) {
-				device.indirect_command_support = true;
-				device.indirect_render_command_support = true;
-				device.indirect_compute_command_support = true;
-			}
-		}
-		
-		// tessellation is supported since A9
-		if (device.family_tier >= 3) {
-			device.tessellation_support = true;
-			// 64 since A12, 16 before that
-			device.max_tessellation_factor = (device.family_tier >= 5 ? 64u : 16u);
-		}
-		
-		// Apple7+ with Metal 3.0+ supports 32-bit float atomics
-		device.basic_32_bit_float_atomics_support = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
-		
-		// Apple7+ with Metal 2.3+ supports SIMD reduction
-		device.simd_reduction = (device.family_tier >= 7 && device.metal_language_version >= METAL_VERSION::METAL_2_3);
-		
-		// Metal 3.0+ supports/requires sub-group/SIMD support
-		if (device.metal_language_version >= METAL_VERSION::METAL_3_0) {
-			device.sub_group_support = true;
-			device.sub_group_shuffle_support = true;
-		}
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
 		// on macOS, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev_spi vendorName] UTF8String];
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
-		if (lc_vendor_name.find("nvidia") != string::npos) {
-			device.vendor = COMPUTE_VENDOR::NVIDIA;
-			if (device.simd_width == 0) {
-				device.simd_width = 32;
-				device.simd_range = { device.simd_width, device.simd_width };
-			}
-		} else if (lc_vendor_name.find("intel") != string::npos) {
+		if (lc_vendor_name.find("intel") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::INTEL;
 			if (device.simd_width == 0) {
 				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
@@ -408,39 +262,14 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 			device.global_mem_size = [dev_spi dedicatedMemorySize];
 		}
 		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
-		if ([dev_spi respondsToSelector:@selector(hasUnifiedMemory)]) {
-			device.unified_memory = [dev_spi hasUnifiedMemory];
-		}
+		device.unified_memory = [dev_spi hasUnifiedMemory];
 		
 		// there is no direct way of querying the highest available feature set
 		// -> find the highest (currently known) version
 		device.family_type = metal_device::FAMILY_TYPE::MAC;
-		uint32_t feature_set = 10000;
-		for (uint32_t fs_version = 10005; fs_version >= 10000; --fs_version) {
-			if ([dev supportsFeatureSet:(MTLFeatureSet)(fs_version)]) {
-				feature_set = fs_version;
-				break;
-			}
-		}
-		
-		switch (feature_set) {
-			default:
-			case 10000: // MTLFeatureSet_macOS_GPUFamily1_v1
-			case 10001: // MTLFeatureSet_macOS_GPUFamily1_v2
-			case 10002: // MTLFeatureSet_macOS_ReadWriteTextureTier2
-			case 10003: // MTLFeatureSet_macOS_GPUFamily1_v3
-			case 10004: // MTLFeatureSet_macOS_GPUFamily1_v4
-				device.family_tier = 1;
-				break;
-			case 10005: // MTLFeatureSet_macOS_GPUFamily2_v1
-				device.family_tier = 2;
-				break;
-		}
-		
-		if ([dev supportsFeatureSet:(MTLFeatureSet)10002]) {
-			// NOTE: MTLFeatureSet_macOS_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
-			//device.image_read_write_support = true; // TODO: enable this when supported by the compiler
-		}
+		// always family tier 2 / Mac2 right now
+		device.family_tier = 2;
+		//device.image_read_write_support = true; // TODO: enable this when supported by the compiler
 
 		device.local_mem_size = [dev maxThreadgroupMemoryLength];
 		device.max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
@@ -455,61 +284,20 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 		device.max_image_1d_dim = { (uint32_t)[dev_spi maxTextureWidth1D] };
 		device.max_image_2d_dim = { (uint32_t)[dev_spi maxTextureWidth2D], (uint32_t)[dev_spi maxTextureHeight2D] };
 		device.max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
-		device.image_cube_write_support = true;
-		device.image_cube_array_support = true;
-		device.image_cube_array_write_support = true;
 		
 		// figure out which metal version we can use
 		if (darwin_helper::get_system_version() >= 140000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_1;
-			device.metal_language_version = (device.family_tier >= 2 ? METAL_VERSION::METAL_3_1 : METAL_VERSION::METAL_2_4);
+			device.metal_language_version = METAL_VERSION::METAL_3_1;
 		} else if (darwin_helper::get_system_version() >= 130000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = (device.family_tier >= 2 ? METAL_VERSION::METAL_3_0 : METAL_VERSION::METAL_2_4);
-		} else if (darwin_helper::get_system_version() >= 120000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_4;
-			device.metal_language_version = METAL_VERSION::METAL_2_4;
-		} else if (darwin_helper::get_system_version() >= 110000) {
-			device.metal_software_version = METAL_VERSION::METAL_2_3;
-			device.metal_language_version = METAL_VERSION::METAL_2_3;
-		} else if (darwin_helper::get_system_version() >= 101500) {
-			device.metal_software_version = METAL_VERSION::METAL_2_2;
-			device.metal_language_version = METAL_VERSION::METAL_2_2;
-		} else if (darwin_helper::get_system_version() >= 101400) {
-			device.metal_software_version = METAL_VERSION::METAL_2_1;
-			device.metal_language_version = METAL_VERSION::METAL_2_1;
-		} else if (darwin_helper::get_system_version() >= 101300) {
-			device.metal_software_version = METAL_VERSION::METAL_2_0;
-			device.metal_language_version = METAL_VERSION::METAL_2_0;
+			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
-		
-		// Metal 2.0+ on macOS supports sub-groups and shuffle
-		device.sub_group_support = true;
-		device.sub_group_shuffle_support = true;
-		
-		// check for indirect command support
-		// NOTE: while initially supported in macOS 10.14, we do require macOS 11.0 functionality
-		if (@available(macOS 11.0, *)) {
-			if ([dev supportsFeatureSet:MTLFeatureSet_macOS_GPUFamily2_v1]) {
-				device.indirect_command_support = true;
-				device.indirect_render_command_support = true;
-				device.indirect_compute_command_support = true;
-			}
-		}
-		
-		// tessellation is always supported on macOS with 64 max factor
-		device.tessellation_support = true;
-		device.max_tessellation_factor = 64u;
-		
-		// Mac2 with Metal 3.0+ supports 32-bit float atomics
-		device.basic_32_bit_float_atomics_support = (device.family_tier >= 2 && device.metal_language_version >= METAL_VERSION::METAL_3_0);
-		// Mac2 with Metal 2.1+ supports SIMD reduction
-		device.simd_reduction = (device.family_tier >= 2 && device.metal_language_version >= METAL_VERSION::METAL_2_1);
 #endif
-		device.max_mem_alloc = 1024ull * 1024ull * 1024ull; // fixed 1GiB since 10.12
-		if ([dev respondsToSelector:@selector(maxBufferLength)]) {
-			device.max_mem_alloc = [dev maxBufferLength]; // iOS 12.0+ / macOS 10.14+
-		}
+		assert(device.max_total_local_size == 1024u); // should always be the case with Metal3
+		assert(device.local_mem_size >= 32768u);
+		
+		device.max_mem_alloc = [dev maxBufferLength];
 		// adjust global memory size (might have been invalid)
 		device.global_mem_size = max(device.global_mem_size, device.max_mem_alloc);
 		device.max_group_size = { 0xFFFFFFFFu };
@@ -529,9 +317,12 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 																					 device.max_image_3d_dim.max_element()),
 																			device.max_image_1d_dim));
 		
-		if ([dev respondsToSelector:@selector(supportsShaderBarycentricCoordinates)]) {
-			device.barycentric_coord_support = [dev supportsShaderBarycentricCoordinates];
-			device.primitive_id_support = device.barycentric_coord_support;
+		device.barycentric_coord_support = [dev supportsShaderBarycentricCoordinates];
+		
+		if ([dev respondsToSelector:@selector(architecture)]) {
+			if (const auto arch_str = [[[dev architecture] name] UTF8String]; arch_str) {
+				log_msg("architecture: $", arch_str);
+			}
 		}
 		
 		// done
@@ -561,14 +352,12 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #else
 	// on macOS, this is tricky, because we don't get the compute units count and clock speed
 	// -> assume devices are returned in order of their speed
-	// -> assume that nvidia and amd cards are faster than intel cards
+	// -> assume that amd cards are faster than intel cards
 	fastest_gpu_device = devices[0].get(); // start off with the first device
-	if(fastest_gpu_device->vendor != COMPUTE_VENDOR::NVIDIA &&
-	   fastest_gpu_device->vendor != COMPUTE_VENDOR::AMD) { // if this is false, we already have a nvidia/amd device
-		for(size_t i = 1; i < devices.size(); ++i) {
-			if(devices[i]->vendor == COMPUTE_VENDOR::NVIDIA ||
-			   devices[i]->vendor == COMPUTE_VENDOR::AMD) {
-				// found a nvidia or amd device, consider it the fastest
+	if (fastest_gpu_device->vendor != COMPUTE_VENDOR::AMD) { // if this is false, we already have an amd device
+		for (size_t i = 1; i < devices.size(); ++i) {
+			if (devices[i]->vendor == COMPUTE_VENDOR::AMD) {
+				// found an amd device, consider it the fastest
 				fastest_gpu_device = devices[i].get();
 				break;
 			}
@@ -673,79 +462,37 @@ void metal_compute::release_soft_printf_buffer(const compute_device& dev, const 
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,
-														const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														const uint32_t opengl_type) const {
+														const size_t& size, const COMPUTE_MEMORY_FLAG flags) const {
 	return add_resource(make_shared<metal_buffer>(cqueue, size,
 												  flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
-												  opengl_type));
+														   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqueue,
 														std::span<uint8_t> data,
-														const COMPUTE_MEMORY_FLAG flags,
-														const uint32_t opengl_type) const {
+														const COMPUTE_MEMORY_FLAG flags) const {
 	return add_resource(make_shared<metal_buffer>(cqueue, data.size_bytes(), data,
 												  flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
-												  opengl_type));
-}
-
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(const compute_queue& cqueue floor_unused,
-													  const uint32_t opengl_buffer floor_unused,
-													  const uint32_t opengl_type floor_unused,
-													  const COMPUTE_MEMORY_FLAG flags floor_unused) const {
-	log_error("opengl buffer sharing not supported by metal!");
-	return {};
-}
-
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(const compute_queue& cqueue floor_unused,
-													  const uint32_t opengl_buffer floor_unused,
-													  const uint32_t opengl_type floor_unused,
-													  void* data floor_unused,
-													  const COMPUTE_MEMORY_FLAG flags floor_unused) const {
-	log_error("opengl buffer sharing not supported by metal!");
-	return {};
+														   COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
 }
 
 shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
 													  const uint4 image_dim,
 													  const COMPUTE_IMAGE_TYPE image_type,
-													  const COMPUTE_MEMORY_FLAG flags,
-													  const uint32_t opengl_type) const {
+													  const COMPUTE_MEMORY_FLAG flags) const {
 	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, std::span<uint8_t> {},
 												 flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
-												 opengl_type));
+														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
 }
 
 shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
 													  const uint4 image_dim,
 													  const COMPUTE_IMAGE_TYPE image_type,
 													  std::span<uint8_t> data,
-													  const COMPUTE_MEMORY_FLAG flags,
-													  const uint32_t opengl_type) const {
+													  const COMPUTE_MEMORY_FLAG flags) const {
 	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, data,
 												 flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
-												 opengl_type));
-}
-
-shared_ptr<compute_image> metal_compute::wrap_image(const compute_queue& cqueue floor_unused,
-													const uint32_t opengl_image floor_unused,
-													const uint32_t opengl_target floor_unused,
-													const COMPUTE_MEMORY_FLAG flags floor_unused) const {
-	log_error("opengl image sharing not supported by metal!");
-	return {};
-}
-
-shared_ptr<compute_image> metal_compute::wrap_image(const compute_queue& cqueue floor_unused,
-													const uint32_t opengl_image floor_unused,
-													const uint32_t opengl_target floor_unused,
-													void* data floor_unused,
-													const COMPUTE_MEMORY_FLAG flags floor_unused) const {
-	log_error("opengl image sharing not supported by metal!");
-	return {};
+														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
 }
 
 static shared_ptr<metal_program> add_metal_program(metal_program::program_map_type&& prog_map,
@@ -819,12 +566,14 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 		log_error("invalid library file name: $", program.data_or_filename);
 		return ret;
 	}
-	ret.program = [device.device newLibraryWithFile:floor_force_nonnull(lib_file_name)
-											  error:&err];
+	auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
+	ret.program = [device.device newLibraryWithURL:lib_url
+											 error:&err];
 	if(!floor::get_toolchain_keep_temp()) {
 		// cleanup
 		if(!floor::get_toolchain_debug()) {
-			core::system("rm "s + program.data_or_filename);
+			error_code ec {};
+			(void)filesystem::remove(program.data_or_filename, ec);
 		}
 	}
 	if(!ret.program) {
@@ -897,8 +646,9 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 			log_error("invalid library file name: $", file_name);
 			continue;
 		}
-		entry.program = [((const metal_device&)*dev).device newLibraryWithFile:floor_force_nonnull(lib_file_name)
-																		 error:&err];
+		auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
+		entry.program = [((const metal_device&)*dev).device newLibraryWithURL:lib_url
+																		error:&err];
 		if(!entry.program) {
 			log_error("failed to create metal program/library for device $: $",
 					  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
@@ -1128,52 +878,42 @@ float metal_compute::get_hdr_display_max_nits() const {
 }
 
 bool metal_compute::start_metal_capture(const compute_device& dev, const string& file_name) const {
-#if defined(__MAC_10_15) || defined(__IPHONE_13_0)
-	if (@available(macOS 10.15, iOS 13.0, *)) {
-		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-		if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
-			log_error("can't capture GPU trace to file");
-			return false;
-		}
-		
-		MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
-		capture_manager.defaultCaptureScope =
-		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
-		capture_desc.captureObject = capture_manager.defaultCaptureScope;
-		auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
-		if (!file_name_nsstr) {
-			log_error("invalid capture file name: $", file_name);
-			return false;
-		}
-		capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
-		capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
-		
-		NSError* err { nil };
-		if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
-			log_error("failed to start GPU trace capture: $",
-					  (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-			return false;
-		}
-		
-		[capture_manager.defaultCaptureScope beginScope];
-		
-		return true;
+	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+	if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
+		log_error("can't capture GPU trace to file");
+		return false;
 	}
-#endif
-	return false;
+	
+	MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
+	capture_manager.defaultCaptureScope =
+	[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
+	capture_desc.captureObject = capture_manager.defaultCaptureScope;
+	auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
+	if (!file_name_nsstr) {
+		log_error("invalid capture file name: $", file_name);
+		return false;
+	}
+	capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
+	capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
+	
+	NSError* err { nil };
+	if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
+		log_error("failed to start GPU trace capture: $",
+				  (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+		return false;
+	}
+	
+	[capture_manager.defaultCaptureScope beginScope];
+	
+	return true;
 }
 
 bool metal_compute::stop_metal_capture() const {
-#if defined(__MAC_10_15) || defined(__IPHONE_13_0)
-	if (@available(macOS 10.15, iOS 13.0, *)) {
-		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-		[capture_manager.defaultCaptureScope endScope];
-		[capture_manager stopCapture];
-		capture_manager.defaultCaptureScope = nil;
-		return true;
-	}
-#endif
-	return false;
+	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+	[capture_manager.defaultCaptureScope endScope];
+	[capture_manager stopCapture];
+	capture_manager.defaultCaptureScope = nil;
+	return true;
 }
 
 #endif

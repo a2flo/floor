@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VULKAN_BUFFER_HPP__
-#define __FLOOR_VULKAN_BUFFER_HPP__
+#pragma once
 
 #include <floor/compute/vulkan/vulkan_common.hpp>
 
@@ -33,16 +32,13 @@ public:
 				  const size_t& size_,
 				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0,
-				  const uint32_t external_gl_object_ = 0);
+													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
 	vulkan_buffer(const compute_queue& cqueue,
 				  const size_t& size_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	vulkan_buffer(cqueue, size_, {}, flags_, opengl_type_) {}
+													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) :
+	vulkan_buffer(cqueue, size_, {}, flags_) {}
 	
 	~vulkan_buffer() override;
 
@@ -66,9 +62,6 @@ public:
 											const size_t size = 0, const size_t offset = 0) override;
 	
 	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
-	
-	bool acquire_opengl_object(const compute_queue* cqueue) override;
-	bool release_opengl_object(const compute_queue* cqueue) override;
 	
 	//! returns the vulkan specific buffer object/pointer
 	const VkBuffer& get_vulkan_buffer() const { return buffer; }
@@ -125,7 +118,5 @@ protected:
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 };
-
-#endif
 
 #endif

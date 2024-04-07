@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_ALIGNED_PTR_HPP__
-#define __FLOOR_ALIGNED_PTR_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <memory>
@@ -28,6 +27,7 @@
 #include <tuple>
 #include <span>
 #if defined(__WINDOWS__)
+#include <string>
 #include <floor/core/platform_windows.hpp>
 #include <memoryapi.h>
 #include <errhandlingapi.h>
@@ -283,5 +283,3 @@ aligned_ptr<T> make_aligned_ptr(const size_t count = 1u) {
 #endif
 	return aligned_ptr<T> { ptr, size };
 }
-
-#endif

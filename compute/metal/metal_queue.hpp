@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_QUEUE_HPP__
-#define __FLOOR_METAL_QUEUE_HPP__
+#pragma once
 
 #include <floor/compute/metal/metal_common.hpp>
 
@@ -74,12 +73,9 @@ protected:
 	mutable vector<pair<void*, bool>> cmd_buffers;
 #endif
 	
-	bool can_do_profiling { false };
 	mutable atomic<bool> is_profiling { false };
 	mutable atomic<uint64_t> profiling_sum { 0 };
 	
 };
-
-#endif
 
 #endif

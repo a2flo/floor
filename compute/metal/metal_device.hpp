@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_DEVICE_HPP__
-#define __FLOOR_METAL_DEVICE_HPP__
+#pragma once
 
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/metal/metal_common.hpp>
@@ -35,10 +34,10 @@ public:
 	metal_device();
 	
 	// Metal software version (Metal API) which this device supports
-	METAL_VERSION metal_software_version { METAL_VERSION::METAL_2_0 };
+	METAL_VERSION metal_software_version { METAL_VERSION::METAL_3_0 };
 	
 	// Metal language version (kernels/shaders) which this device supports
-	METAL_VERSION metal_language_version { METAL_VERSION::METAL_2_0 };
+	METAL_VERSION metal_language_version { METAL_VERSION::METAL_3_0 };
 	
 	enum class FAMILY_TYPE : uint32_t {
 		APPLE, //!< iOS, tvOS, ...
@@ -60,7 +59,7 @@ public:
 	FAMILY_TYPE family_type { FAMILY_TYPE::COMMON };
 	
 	// device family tier
-	uint32_t family_tier { 1u };
+	uint32_t family_tier { 2u };
 
 	//! true if the device has support for SIMD reduction operations
 	bool simd_reduction { false };
@@ -83,5 +82,3 @@ public:
 };
 
 FLOOR_POP_WARNINGS()
-
-#endif

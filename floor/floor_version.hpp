@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VERSION_HPP__
-#define __FLOOR_VERSION_HPP__
+#pragma once
 
 // floor version and build/compiler info
 #include <floor/floor/build_version.hpp>
@@ -28,10 +27,10 @@
 
 // <major>.<minor>.<revision><dev_stage>-<build>
 #define FLOOR_MAJOR_VERSION 0
-#define FLOOR_MINOR_VERSION 3
+#define FLOOR_MINOR_VERSION 4
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xf1
-#define FLOOR_DEV_STAGE_VERSION_STR "f1"
+#define FLOOR_DEV_STAGE_VERSION 0xa1
+#define FLOOR_DEV_STAGE_VERSION_STR "a1"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -101,13 +100,13 @@
 #elif defined(__clang__)
 #if !defined(__APPLE__)
 // official version
-#if (__clang_major__ < 13)
-#error "Sorry, but you need Clang 13.0+ to compile floor"
+#if (__clang_major__ < 16)
+#error "Sorry, but you need clang 16.0+ to compile floor"
 #endif
 #else
 // Apple version
-#if (__clang_major__ < 13) || (__clang_major__ == 13 && __clang_minor__ < 1)
-#error "Sorry, but you need Clang 13.0+ to compile floor"
+#if (__clang_major__ < 15)
+#error "Sorry, but you need Apple clang 15.0+ to compile floor"
 #endif
 #endif
 
@@ -119,19 +118,10 @@
 // library checks:
 #include <floor/core/platform.hpp>
 
-#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 12000)
-#error "You need to install libc++ 12.0+ to compile floor"
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 16000)
+#error "You need to install libc++ 16.0+ to compile floor"
 #endif
 
-#if !SDL_VERSION_ATLEAST(2, 0, 18)
-#error "You need to install SDL 2.0.18+ to compile floor"
-#endif
-
-#if !defined(FLOOR_NO_NET)
-#include <openssl/opensslv.h>
-#if (OPENSSL_VERSION_NUMBER < 0x1000105fL)
-#error "You need to install OpenSSL 1.0.1e+ to compile floor"
-#endif
-#endif
-
+#if !SDL_VERSION_ATLEAST(3, 1, 1)
+#error "You need to install SDL 3.1.1+ to compile floor"
 #endif

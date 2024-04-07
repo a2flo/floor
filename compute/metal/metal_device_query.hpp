@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_DEVICE_QUERY_HPP__
-#define __FLOOR_METAL_DEVICE_QUERY_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 
@@ -40,7 +39,5 @@ struct device_info_t {
 std::optional<device_info_t> query(id <MTLDevice> device);
 
 } // namespace metal_device_query
-
-#endif
 
 #endif

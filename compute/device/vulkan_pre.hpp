@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_VULKAN_PRE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_VULKAN_PRE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_VULKAN)
 
@@ -45,7 +44,5 @@ int32_t floor_bitcast_f32_to_i32(float) asm("floor.bitcast.f32.i32");
 uint32_t floor_bitcast_f32_to_u32(float) asm("floor.bitcast.f32.u32");
 float floor_bitcast_i32_to_f32(int32_t) asm("floor.bitcast.i32.f32");
 float floor_bitcast_u32_to_f32(uint32_t) asm("floor.bitcast.u32.f32");
-
-#endif
 
 #endif

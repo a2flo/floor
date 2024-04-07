@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_JSON_HPP__
-#define __FLOOR_JSON_HPP__
+#pragma once
 
 #include <floor/core/cpp_headers.hpp>
 #include <floor/core/flat_map.hpp>
@@ -248,5 +247,3 @@ template<> int32_t json::document::get<int32_t>(const string& path, const int32_
 template<> bool json::document::get<bool>(const string& path, const bool default_value) const;
 template<> json::json_object json::document::get<json::json_object>(const string& path, const json::json_object default_value) const;
 template<> json::json_array json::document::get<json::json_array>(const string& path, const json::json_array default_value) const;
-
-#endif

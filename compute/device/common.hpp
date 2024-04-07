@@ -16,8 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
-#define __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
+// NOTE: can't use #pragma once here, because we're using it for pch and CLI include purposes
+#ifndef LIBFLOOR_COMPUTE_DEVICE_COMMON_HPP
+#define LIBFLOOR_COMPUTE_DEVICE_COMMON_HPP
 
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
@@ -179,7 +180,6 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 // c++ stl "extensions"
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
-#include <floor/core/cpp_consteval.hpp>
 
 // parallel group ops
 #include <floor/compute/device/group.hpp>
@@ -305,11 +305,8 @@ static constexpr inline half operator""_h (long double val) {
 #if !defined(FLOOR_COMPUTE_METAL)
 #define buffer __restrict compute_global_buffer
 #else // align is not supported with metal
-#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1) // all global buffers are noalias/restrict with Metal 2.1+
+// all global buffers are noalias/restrict with Metal 2.1+
 #define buffer __restrict compute_global_buffer
-#else
-#define buffer compute_global_buffer
-#endif
 #endif
 template <typename T> using compute_global_buffer = global T*;
 

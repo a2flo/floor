@@ -37,7 +37,7 @@ host_device::host_device() : compute_device() {
 	max_global_size = { 0xFFFFFFFFu };
 	
 	// can technically use any dim as long as it fits into memory
-	// TODO: should actually check for these when creating an image (also: dependent on opengl when using sharing)
+	// TODO: should actually check for these when creating an image
 	max_image_1d_dim = { host_limits::max_image_dim };
 	max_image_2d_dim = { host_limits::max_image_dim };
 	max_image_3d_dim = { host_limits::max_image_dim };
@@ -51,7 +51,7 @@ host_device::host_device() : compute_device() {
 	image_support = true;
 	image_depth_support = true;
 	image_depth_write_support = true;
-	image_msaa_support = false; // not implementable with opengl
+	image_msaa_support = false; // TODO: implement this
 	image_msaa_write_support = false;
 	image_msaa_array_support = false;
 	image_msaa_array_write_support = false;

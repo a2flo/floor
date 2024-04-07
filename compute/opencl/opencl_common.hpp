@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_COMMON_HPP__
-#define __FLOOR_OPENCL_COMMON_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/constexpr/ext_traits.hpp>
@@ -139,7 +138,6 @@ constexpr SPIRV_VERSION spirv_version_from_uint(const uint32_t major, const uint
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
 #include <CL/cl_ext.h>
-#include <CL/cl_gl.h>
 
 // cl_khr_spir
 #if !defined(CL_DEVICE_SPIR_VERSIONS)
@@ -625,5 +623,3 @@ vector<string> cl_get_info(const cl_program& program) {
 #endif // FLOOR_OPENCL_INFO_FUNCS
 
 #endif // FLOOR_NO_OPENCL
-
-#endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_THREADING_SAFE_RESOURCE_CONTAINER_HPP__
-#define __FLOOR_THREADING_SAFE_RESOURCE_CONTAINER_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/threading/thread_safety.hpp>
@@ -121,5 +120,3 @@ protected:
 	bitset<resource_count> resources_in_use GUARDED_BY(resource_lock) {};
 	
 };
-
-#endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
@@ -74,8 +73,6 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 #define fragment extern "C" __attribute__((fragment_shader))
 #define tessellation_control extern "C" __attribute__((tessellation_control_shader, kernel_dim(1)))
 #define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader))
-#endif
-
 #endif
 
 #endif

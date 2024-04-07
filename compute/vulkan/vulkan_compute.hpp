@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VULKAN_COMPUTE_HPP__
-#define __FLOOR_VULKAN_COMPUTE_HPP__
+#pragma once
 
 #include <floor/compute/vulkan/vulkan_common.hpp>
 
@@ -31,6 +30,7 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/spirv_handler.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
+#include <floor/core/event_objects.hpp>
 
 #if defined(__WINDOWS__) // we don't want to globally include vulkan_win32.h (and windows.h), so forward declare this instead
 struct VkMemoryGetWin32HandleInfoKHR;
@@ -81,27 +81,12 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const override;
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 std::span<uint8_t> data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const override;
-	
-	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-										   const uint32_t opengl_buffer,
-										   const uint32_t opengl_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
-	
-	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-										   const uint32_t opengl_buffer,
-										   const uint32_t opengl_type,
-										   void* data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation
@@ -109,28 +94,13 @@ public:
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const override;
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   std::span<uint8_t> data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const override;
-	
-	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-										 const uint32_t opengl_image,
-										 const uint32_t opengl_target,
-										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
-	
-	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-										 const uint32_t opengl_image,
-										 const uint32_t opengl_target,
-										 void* data,
-										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
@@ -214,18 +184,6 @@ public:
 	//! returns true if the screen image has HDR support and HDR metadata has been set
 	bool is_screen_hdr() const {
 		return screen.hdr_metadata.has_value();
-	}
-	
-	//! returns the allocated swapchain image count
-	//! TODO: remove this
-	uint32_t get_swapchain_image_count() const {
-		return screen.image_count;
-	}
-	
-	//! returns the swapchain image-view at the specified index
-	//! TODO: remove this
-	const VkImageView& get_swapchain_image_view(const uint32_t& idx) const {
-		return screen.swapchain_image_views[idx];
 	}
 	
 	struct drawable_image_info {
@@ -369,6 +327,7 @@ protected:
 		VkFormat format { VK_FORMAT_UNDEFINED };
 		COMPUTE_IMAGE_TYPE image_type { COMPUTE_IMAGE_TYPE::NONE };
 		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+		//! NOTE: owned by the swapchain, not this
 		vector<VkImage> swapchain_images;
 		vector<VkImageView> swapchain_image_views;
 		uint32_t next_fence_index { 0 };
@@ -394,8 +353,12 @@ protected:
 		bool has_wide_gamut { false };
 	} vr_screen;
 	safe_mutex acquisition_lock;
-	bool init_renderer();
+	bool reinit_renderer(const uint2 screen_size);
+	void destroy_renderer_swapchain();
 	bool init_vr_renderer();
+	
+	function<bool(EVENT_TYPE, shared_ptr<event_object>)> resize_handler_fnctr;
+	bool resize_handler(EVENT_TYPE type, shared_ptr<event_object>);
 	
 	// sets screen.hdr_metadata from current compute_context::hdr_metadata if screen.hdr_metadata is not empty
 	void set_vk_screen_hdr_metadata();
@@ -457,7 +420,5 @@ protected:
 													uint32_t& queue_index) const;
 	
 };
-
-#endif
 
 #endif

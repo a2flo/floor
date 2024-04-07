@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
-#define __FLOOR_COMPUTE_VULKAN_VULKAN_ENCODER_HPP__
+#pragma once
 
 // NOTE: only included from vulkan_kernel and vulkan_shader
 
@@ -39,5 +38,3 @@ struct vulkan_encoder {
 	//! NOTE: this is created automatically right before setting/handling all args
 	vector<const vulkan_args::constant_buffer_wrapper_t*> constant_buffer_wrappers_ptr;
 };
-
-#endif

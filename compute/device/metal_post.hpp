@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_POST_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_POST_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_METAL)
 
@@ -126,12 +125,8 @@ const_func clang_float2 get_point_coord_cf2() asm("floor.get_point_coord.float2"
 //! returns the normalized (in [0, 1]) point coordinate
 floor_inline_always const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
 
-#if defined(FLOOR_COMPUTE_INFO_HAS_PRIMITIVE_ID_1)
 //! returns the primitive id inside a fragment shader
 const_func uint32_t get_primitive_id() asm("floor.get_primitive_id.i32");
-#else
-const_func uint32_t get_primitive_id() __attribute__((unavailable("not supported on this target")));
-#endif
 
 #if defined(FLOOR_COMPUTE_INFO_HAS_BARYCENTRIC_COORD_1)
 const_func clang_float3 get_barycentric_coord_cf3() asm("floor.get_barycentric_coord.float3");
@@ -176,7 +171,5 @@ const_func clang_float3 get_position_in_patch_cf3() asm("floor.get_position_in_p
 floor_inline_always const_func float3 get_position_in_patch() { return float3::from_clang_vector(get_position_in_patch_cf3()); }
 
 // NOTE: for tessellation evaluation shader instance_id, see vertex shader
-
-#endif
 
 #endif

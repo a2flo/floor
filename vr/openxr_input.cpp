@@ -20,6 +20,8 @@
 
 #if !defined(FLOOR_NO_OPENXR) && !defined(FLOOR_NO_VULKAN)
 
+#include <SDL3/SDL_timer.h>
+
 #if !defined(__WINDOWS__)
 #include <string.h>
 #define strcpy_s(dst, len, src) strncpy(dst, src, len)
@@ -1122,13 +1124,13 @@ uint64_t openxr_context::convert_time_to_ticks(XrTime time) {
 #if defined(__WINDOWS__)
 	int64_t perf_counter = 0;
 	XR_CALL_RET(ConvertTimeToWin32PerformanceCounterKHR(instance, time, &perf_counter),
-				"failed to convert OpenXR time to Win32 perf counter", SDL_GetTicks64());
+				"failed to convert OpenXR time to Win32 perf counter", SDL_GetTicks());
 	const auto perf_since_start = uint64_t(perf_counter) - win_start_perf_counter;
 	return (perf_since_start * 1000ull) / win_perf_counter_freq;
 #elif defined(__linux__)
 	timespec timespec_time {};
 	XR_CALL_RET(ConvertTimeToTimespecTimeKHR(instance, time, &timespec_time),
-				"failed to convert OpenXR time to timespec time", SDL_GetTicks64());
+				"failed to convert OpenXR time to timespec time", SDL_GetTicks());
 	const auto time_in_ns = uint64_t(timespec_time.tv_sec) * unix_perf_counter_freq + uint64_t(timespec_time.tv_nsec);
 	const auto time_since_start_in_ns = time_in_ns - unix_start_time;
 	return time_since_start_in_ns / 1'000'000ull; // ns -> ms

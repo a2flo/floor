@@ -24,7 +24,12 @@ metal_device::metal_device() : compute_device() {
 	platform_vendor = COMPUTE_VENDOR::APPLE;
 	
 	local_mem_dedicated = true;
-	local_mem_size = 16u * 1024u; // at least 16KiB
+	local_mem_size = 32u * 1024u; // at least 32KiB
+	
+	sub_group_support = true;
+	sub_group_shuffle_support = true;
+	basic_32_bit_float_atomics_support = true;
+	simd_reduction = true;
 	
 	image_support = true;
 	image_depth_support = true;
@@ -34,7 +39,9 @@ metal_device::metal_device() : compute_device() {
 	image_msaa_array_support = false; // doesn't exist
 	image_msaa_array_write_support = false;
 	image_cube_support = true;
-	// image_cube_write_support, image_cube_array* decided later
+	image_cube_write_support = true;
+	image_cube_array_support = true;
+	image_cube_array_write_support = true;
 	image_mipmap_support = true;
 	image_mipmap_write_support = true;
 	image_offset_read_support = true;
@@ -43,15 +50,22 @@ metal_device::metal_device() : compute_device() {
 	image_gather_support = true;
 	max_anisotropy = 16u;
 	
+	// tessellation is always supported with 64 max factor
+	tessellation_support = true;
+	max_tessellation_factor = 64u;
+	
+	primitive_id_support = true;
+	
 	argument_buffer_support = true;
 	argument_buffer_image_support = true;
 	
-	// good default
-#if !defined(FLOOR_IOS)
+	// we always have indirect command support
+	indirect_command_support = true;
+	indirect_render_command_support = true;
+	indirect_compute_command_support = true;
+	
+	// always the case on Metal3 GPUs
 	max_total_local_size = 1024;
-#else
-	max_total_local_size = 512;
-#endif
 	
 	driver_version_str = "";
 }

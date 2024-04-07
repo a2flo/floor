@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
@@ -43,7 +42,5 @@ namespace opencl_image {
 	};
 	
 }
-
-#endif
 
 #endif

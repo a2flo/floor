@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_BUFFER_HPP__
-#define __FLOOR_OPENCL_BUFFER_HPP__
+#pragma once
 
 #include <floor/compute/opencl/opencl_common.hpp>
 
@@ -32,16 +31,13 @@ public:
 				  const size_t& size_,
 				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0,
-				  const uint32_t external_gl_object_ = 0);
+													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
 	opencl_buffer(const compute_queue& cqueue,
 				  const size_t& size_,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0) :
-	opencl_buffer(cqueue, size_, {}, flags_, opengl_type_) {}
+													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) :
+	opencl_buffer(cqueue, size_, {}, flags_) {}
 	
 	~opencl_buffer() override;
 
@@ -66,9 +62,6 @@ public:
 	
 	bool unmap(const compute_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
-	bool acquire_opengl_object(const compute_queue* cqueue) override;
-	bool release_opengl_object(const compute_queue* cqueue) override;
-	
 	//! returns the opencl specific buffer object/pointer
 	const cl_mem& get_cl_buffer() const { return buffer; }
 	
@@ -83,7 +76,5 @@ protected:
 	cl_command_queue queue_or_default_queue(const compute_queue* cqueue) const;
 	
 };
-
-#endif
 
 #endif

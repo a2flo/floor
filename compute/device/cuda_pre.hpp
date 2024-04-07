@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_PRE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_PRE_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
@@ -47,7 +46,5 @@ typedef int64_t ssize_t;
 typedef __SIZE_TYPE__ uintptr_t;
 typedef __PTRDIFF_TYPE__ intptr_t;
 typedef __PTRDIFF_TYPE__ ptrdiff_t;
-
-#endif
 
 #endif

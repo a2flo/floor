@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_ID_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_ID_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
@@ -223,7 +222,5 @@ const_func constexpr static uint32_t get_sub_group_size() {
 const_func static uint32_t get_num_sub_groups() {
 	return __nvvm_read_ptx_sreg_nwarpid();
 }
-
-#endif
 
 #endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_SAMPLER_HPP__
-#define __FLOOR_COMPUTE_DEVICE_SAMPLER_HPP__
+#pragma once
 
 //! depth compare functions
 //! NOTE: this is the order used by CUDA, host-side Metal and Vulkan
@@ -36,5 +35,3 @@ enum class COMPARE_FUNCTION : uint32_t {
 struct sampler {
 	COMPARE_FUNCTION compare_function;
 };
-
-#endif

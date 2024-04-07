@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_INDIRECT_COMMAND_HPP__
-#define __FLOOR_METAL_INDIRECT_COMMAND_HPP__
+#pragma once
 
 #include <floor/compute/indirect_command.hpp>
 
@@ -146,7 +145,5 @@ protected:
 											  const uint3& local_work_size) override;
 	
 };
-
-#endif
 
 #endif

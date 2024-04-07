@@ -13,8 +13,7 @@
  * Original:  https://github.com/B-Con/crypto-algorithms
 *********************************************************************/
 
-#ifndef __FLOOR_CONSTEXPR_SHA_256_HPP__
-#define __FLOOR_CONSTEXPR_SHA_256_HPP__
+#pragma once
 
 #include <cstddef>
 #include <cstdlib>
@@ -232,7 +231,7 @@ namespace sha_256 {
 		return ret;
 	}
 
-} // sha_ 256
+} // sha_256
 
 // cleanup
 #undef SHA_256_ROTLEFT
@@ -243,5 +242,3 @@ namespace sha_256 {
 #undef SHA_256_EP1
 #undef SHA_256_SIG0
 #undef SHA_256_SIG1
-
-#endif

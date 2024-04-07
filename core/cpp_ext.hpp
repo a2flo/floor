@@ -16,10 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CPP_EXT_HPP__
-#define __FLOOR_CPP_EXT_HPP__
+#pragma once
 
-#include <floor/core/cpp_bitcast.hpp>
+#include <bit>
 #include <cstdint>
 
 // NOTE: this header adds misc base c++ functionality that either will be part of a future c++ standard, or should be part of it
@@ -67,6 +66,4 @@ template <auto> constexpr bool instantiation_trap_dependent_value_helper = false
 #define instantiation_trap(msg) static_assert(false, msg)
 #define instantiation_trap_dependent_type(dep_type, msg) static_assert(false, msg)
 #define instantiation_trap_dependent_value(dep_value, msg) static_assert(false, msg)
-#endif
-
 #endif

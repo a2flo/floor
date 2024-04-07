@@ -16,11 +16,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_SOFT_PACK_HPP__
-#define __FLOOR_COMPUTE_DEVICE_SOFT_PACK_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_OPENCL)
-#include <floor/core/cpp_bitcast.hpp>
+#include <bit>
 
 //! clamps the input vector to [-1, 1], then converts and scales each component to an 8-bit signed integer in [-127, 127],
 //! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
@@ -114,7 +113,5 @@ floor_inline_always __attribute__((const)) uint2 unpack_double_2x32(const double
 	} conversion { .f64_val = val };
 	return uint2 { uint32_t(conversion.ui64_val) & 0xFFFFFFFFu, uint32_t(conversion.ui64_val >> uint64_t(32)) & 0xFFFFFFFFu };
 }
-
-#endif
 
 #endif

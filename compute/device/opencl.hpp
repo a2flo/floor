@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
@@ -155,8 +154,6 @@ SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_min)
 SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_max)
 #undef SUB_GROUP_TYPES
 #undef SUB_GROUP_FUNC
-
-#endif
 
 #endif
 

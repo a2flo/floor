@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_GRAPHICS_VULKAN_VULKAN_DESCRIPTOR_SET_HPP__
-#define __FLOOR_GRAPHICS_VULKAN_VULKAN_DESCRIPTOR_SET_HPP__
+#pragma once
 
 #include <floor/compute/vulkan/vulkan_common.hpp>
 
@@ -119,7 +118,5 @@ struct vulkan_descriptor_set_layout_t {
 	vector<VkDescriptorSetLayoutBinding> bindings;
 	floor_core::flat_map<uint32_t, vulkan_constant_buffer_info_t> constant_buffer_info;
 };
-
-#endif
 
 #endif

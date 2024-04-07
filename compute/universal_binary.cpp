@@ -30,15 +30,15 @@
 #include <floor/floor/floor.hpp>
 
 namespace std {
-	template <> struct std::hash<universal_binary::target_v2> : public std::hash<uint64_t> {
-		size_t operator()(universal_binary::target_v2 target) const noexcept {
+	template <> struct std::hash<universal_binary::target_v3> : public std::hash<uint64_t> {
+		size_t operator()(universal_binary::target_v3 target) const noexcept {
 			return std::hash<uint64_t>::operator()(target.value);
 		}
 	};
 }
 
 namespace universal_binary {
-	static constexpr const uint32_t min_required_toolchain_version_v2 { 140000u };
+	static constexpr const uint32_t min_required_toolchain_version_v3 { 140000u };
 	
 	unique_ptr<archive> load_archive(const string& file_name) {
 		string data;
@@ -52,14 +52,14 @@ namespace universal_binary {
 		auto ar = make_unique<archive>();
 		
 		// parse header
-		cur_size += sizeof(header_v2);
+		cur_size += sizeof(header_v3);
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid header size, expected $, got $",
 					  file_name, cur_size, data_size);
 			return {};
 		}
-		const header_v2& header = *(const header_v2*)data_ptr;
-		data_ptr += sizeof(header_v2);
+		const header_v3& header = *(const header_v3*)data_ptr;
+		data_ptr += sizeof(header_v3);
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
 			log_error("universal binary $: invalid header magic", file_name);
@@ -69,7 +69,7 @@ namespace universal_binary {
 			log_error("universal binary $: unsupported binary version $", file_name, header.binary_format_version);
 			return {};
 		}
-		memcpy(&ar->header.static_header, &header, sizeof(header_v2));
+		memcpy(&ar->header.static_header, &header, sizeof(header_v3));
 		
 		const auto& bin_count = ar->header.static_header.binary_count;
 		if (bin_count == 0) {
@@ -83,10 +83,10 @@ namespace universal_binary {
 		ar->header.toolchain_versions.resize(bin_count);
 		ar->header.hashes.resize(bin_count);
 		
-		const auto targets_size = sizeof(target_v2) * bin_count;
-		const auto offsets_size = sizeof(typename decltype(header_dynamic_v2::offsets)::value_type) * bin_count;
-		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v2::toolchain_versions)::value_type) * bin_count;
-		const auto hashes_size = sizeof(typename decltype(header_dynamic_v2::hashes)::value_type) * bin_count;
+		const auto targets_size = sizeof(target_v3) * bin_count;
+		const auto offsets_size = sizeof(typename decltype(header_dynamic_v3::offsets)::value_type) * bin_count;
+		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v3::toolchain_versions)::value_type) * bin_count;
+		const auto hashes_size = sizeof(typename decltype(header_dynamic_v3::hashes)::value_type) * bin_count;
 		const auto dyn_header_size = targets_size + offsets_size + toolchain_versions_size + hashes_size;
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
@@ -118,16 +118,16 @@ namespace universal_binary {
 		
 		// verify toolchain versions
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
-			if (toolchain_version < min_required_toolchain_version_v2) {
+			if (toolchain_version < min_required_toolchain_version_v3) {
 				log_error("universal binary $: unsupported toolchain version, expected $, got $",
-						  file_name, min_required_toolchain_version_v2, toolchain_version);
+						  file_name, min_required_toolchain_version_v3, toolchain_version);
 				return {};
 			}
 		}
 		
 		// parse binaries
 		for (uint32_t bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
-			binary_dynamic_v2 bin;
+			binary_dynamic_v3 bin;
 			
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
@@ -137,14 +137,14 @@ namespace universal_binary {
 			}
 			
 			// static binary header
-			cur_size += sizeof(binary_v2);
+			cur_size += sizeof(binary_v3);
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid static binary header size, expected $, got $",
 						  file_name, cur_size, data_size);
 				return {};
 			}
-			memcpy(&bin.static_binary_header, data_ptr, sizeof(binary_v2));
-			data_ptr += sizeof(binary_v2);
+			memcpy(&bin.static_binary_header, data_ptr, sizeof(binary_v3));
+			data_ptr += sizeof(binary_v3);
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
@@ -165,17 +165,17 @@ namespace universal_binary {
 			// function info
 			const auto func_info_start_size = cur_size;
 			for (uint32_t func_idx = 0; func_idx < bin.static_binary_header.function_count; ++func_idx) {
-				function_info_dynamic_v2 func_info;
+				function_info_dynamic_v3 func_info;
 				
 				// static function info
-				cur_size += sizeof(function_info_v2);
+				cur_size += sizeof(function_info_v3);
 				if (cur_size > data_size) {
 					log_error("universal binary $: invalid static function info size, expected $, got $",
 							  file_name, cur_size, data_size);
 					return {};
 				}
-				memcpy(&func_info.static_function_info, data_ptr, sizeof(function_info_v2));
-				data_ptr += sizeof(function_info_v2);
+				memcpy(&func_info.static_function_info, data_ptr, sizeof(function_info_v3));
+				data_ptr += sizeof(function_info_v3);
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
 					log_error("universal binary $: unsupported function info version $",
@@ -201,16 +201,16 @@ namespace universal_binary {
 				}
 				
 				for (uint32_t arg_idx = 0; arg_idx < func_info.static_function_info.arg_count; ++arg_idx) {
-					function_info_dynamic_v2::arg_info arg;
+					function_info_dynamic_v3::arg_info arg;
 					
-					cur_size += sizeof(function_info_dynamic_v2::arg_info);
+					cur_size += sizeof(function_info_dynamic_v3::arg_info);
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info arg size, expected $, got $",
 								  file_name, cur_size, data_size);
 						return {};
 					}
-					memcpy(&arg, data_ptr, sizeof(function_info_dynamic_v2::arg_info));
-					data_ptr += sizeof(function_info_dynamic_v2::arg_info);
+					memcpy(&arg, data_ptr, sizeof(function_info_dynamic_v3::arg_info));
+					data_ptr += sizeof(function_info_dynamic_v3::arg_info);
 					
 					func_info.args.emplace_back(arg);
 				}
@@ -366,16 +366,10 @@ namespace universal_binary {
 				cuda_dev.sm = { cuda_target.sm_major, cuda_target.sm_minor };
 				
 				// handle PTX ISA version
-				if ((cuda_dev.sm.x == 7 && cuda_dev.sm.y >= 5 && (cuda_target.ptx_isa_major == 6 && cuda_target.ptx_isa_minor < 3)) ||
-					(cuda_dev.sm.x == 8 && cuda_dev.sm.y < 6 && cuda_target.ptx_isa_major < 7) ||
-					(cuda_dev.sm.x == 8 && cuda_dev.sm.y > 0 && cuda_dev.sm.y <= 6 && (cuda_target.ptx_isa_major < 7 ||
-																					   (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 1))) ||
-					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 7 && cuda_dev.sm.y <= 8 && (cuda_target.ptx_isa_major < 7 ||
-																						(cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 6))) ||
-					(cuda_dev.sm.x == 8 && cuda_dev.sm.y >= 9 && (cuda_target.ptx_isa_major < 7 ||
-																  (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 8))) ||
-					(cuda_dev.sm.x > 8 && (cuda_target.ptx_isa_major < 7 ||
-										   (cuda_target.ptx_isa_major == 7 && cuda_target.ptx_isa_minor < 8)))) {
+				if ((cuda_dev.sm.x < 9 && cuda_target.ptx_isa_major < 8) ||
+					(cuda_dev.sm.x == 9 && cuda_dev.sm.y == 0 && cuda_target.ptx_isa_major < 8) ||
+					((cuda_dev.sm.x > 9 || (cuda_dev.sm.x == 9 && cuda_dev.sm.y > 0)) &&
+					 (cuda_target.ptx_isa_major < 8 || (cuda_target.ptx_isa_major == 8 && cuda_target.ptx_isa_minor < 4)))) {
 					log_error("invalid PTX version $.$ for target $",
 							  cuda_target.ptx_isa_major, cuda_target.ptx_isa_minor, cuda_dev.sm);
 					return {};
@@ -390,7 +384,6 @@ namespace universal_binary {
 				// NOTE: other fixed device info is already set in the cuda_device constructor
 				
 				// TODO: handle CUBIN output
-				// TODO: -> need multiple CUDA toolchains (sm_7x requires 9.0+, sm_8x requires 11.0+)
 				if (!cuda_target.is_ptx) {
 					log_error("CUBIN building not supported yet");
 				}
@@ -407,39 +400,26 @@ namespace universal_binary {
 					options.metal.soft_printf = true;
 				}
 				mtl_dev.metal_language_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
-				mtl_dev.family_type = (mtl_target.is_ios ? metal_device::FAMILY_TYPE::APPLE : metal_device::FAMILY_TYPE::MAC);
-				mtl_dev.family_tier = 1; // can't be overwritten right now
+				mtl_dev.family_type = (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ?
+									   metal_device::FAMILY_TYPE::APPLE : metal_device::FAMILY_TYPE::MAC);
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
 				mtl_dev.double_support = false; // always disabled for now
-				mtl_dev.primitive_id_support = mtl_target.primitive_id_support;
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
-				mtl_dev.tessellation_support = mtl_target.tessellation_support;
-				mtl_dev.max_tessellation_factor = (mtl_target.tessellation_max_factor_tier == 0 ? 16u : 64u);
-				mtl_dev.basic_32_bit_float_atomics_support = mtl_target.basic_32_bit_float_atomics_support;
-				mtl_dev.simd_reduction = mtl_target.simd_reduction;
 				
 				// overwrite compute_device/metal_device defaults
-				if (mtl_target.is_ios) {
+				if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS) {
+					mtl_dev.family_tier = 7; // can't be overwritten right now
 					mtl_dev.vendor = COMPUTE_VENDOR::APPLE;
 					mtl_dev.unified_memory = true;
-					mtl_dev.image_cube_write_support = false;
 					mtl_dev.simd_width = 32;
 					mtl_dev.simd_range = { mtl_dev.simd_width, mtl_dev.simd_width };
-					mtl_dev.max_total_local_size = 512; // family 1 - 3 (only 4+ supports 1024)
 				} else {
-					mtl_dev.image_cube_write_support = true;
-					mtl_dev.image_cube_array_support = true;
-					mtl_dev.image_cube_array_write_support = true;
+					mtl_dev.family_tier = 2; // can't be overwritten right now
 					
 					// special vendor workarounds/settings + SIMD handling
 					switch (mtl_target.device_target) {
 						default:
 							mtl_dev.simd_width = mtl_target.simd_width;
-							break;
-						case decltype(mtl_target.device_target)::NVIDIA:
-							options.cli += " -Xclang -metal-nvidia-workarounds";
-							mtl_dev.vendor = COMPUTE_VENDOR::NVIDIA;
-							mtl_dev.simd_width = 32;
 							break;
 						case decltype(mtl_target.device_target)::INTEL:
 							options.cli += " -Xclang -metal-intel-workarounds";
@@ -459,11 +439,6 @@ namespace universal_binary {
 							mtl_dev.vendor = COMPUTE_VENDOR::APPLE;
 							mtl_dev.simd_width = 32;
 							break;
-					}
-					// sub-group/shuffle support if SIMD width is known as well
-					if (mtl_dev.simd_width > 0) {
-						mtl_dev.sub_group_support = true;
-						mtl_dev.sub_group_shuffle_support = true;
 					}
 					if (mtl_target.device_target != decltype(mtl_target.device_target)::GENERIC) {
 						// fixed SIMD width must match requested one
@@ -543,7 +518,7 @@ namespace universal_binary {
 				vlk_dev.double_support = vlk_target.double_support;
 				vlk_dev.basic_64_bit_atomics_support = vlk_target.basic_64_bit_atomics_support;
 				vlk_dev.extended_64_bit_atomics_support = vlk_target.extended_64_bit_atomics_support;
-				vlk_dev.basic_32_bit_float_atomics_support = vlk_target.basic_32_bit_float_atomics_support;
+				vlk_dev.basic_32_bit_float_atomics_support = true;
 				vlk_dev.primitive_id_support = vlk_target.primitive_id_support;
 				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;
@@ -681,7 +656,7 @@ namespace universal_binary {
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;
-		vector<target_v2> targets;
+		vector<target_v3> targets;
 		deque<pair<size_t, target>> remaining_targets;
 		auto unique_target_iter = unique_targets_in.begin();
 		for (size_t i = 0; i < target_count; ++i, ++unique_target_iter) {
@@ -793,7 +768,7 @@ namespace universal_binary {
 		}
 		
 		// write binary
-		header_dynamic_v2 header {
+		header_dynamic_v3 header {
 			.static_header = {
 				.binary_format_version = binary_format_version,
 				.binary_count = uint32_t(targets_prog_data.size()),
@@ -807,7 +782,7 @@ namespace universal_binary {
 		
 		// header
 		auto& ar_stream = *archive.get_filestream();
-		archive.write_block(&header.static_header, sizeof(header_v2));
+		archive.write_block(&header.static_header, sizeof(header_v3));
 		archive.write_block(header.targets.data(), target_count * sizeof(typename decltype(header.targets)::value_type));
 		const auto header_offsets_pos = ar_stream.tellp();
 		archive.write_block(header.offsets.data(), header.offsets.size() * sizeof(typename decltype(header.offsets)::value_type));
@@ -823,7 +798,7 @@ namespace universal_binary {
 			header.offsets[i] = uint64_t(ar_stream.tellp());
 			
 			// static header
-			binary_dynamic_v2 bin_data {
+			binary_dynamic_v3 bin_data {
 				.static_binary_header = {
 					.function_count = 0u, // -> will be incremented below
 					.function_info_size = 0, // N/A yet
@@ -836,7 +811,7 @@ namespace universal_binary {
 			bin_data.functions.reserve(bin.functions.size());
 			const function<bool(const llvm_toolchain::function_info&, const uint32_t)> create_bin_function_info =
 			[&bin_data, &create_bin_function_info](const llvm_toolchain::function_info& func, const uint32_t argument_buffer_index) {
-				function_info_dynamic_v2 finfo {
+				function_info_dynamic_v3 finfo {
 					.static_function_info = {
 						.function_info_version = function_info_version,
 						.type = func.type,
@@ -858,7 +833,7 @@ namespace universal_binary {
 				vector<pair<const llvm_toolchain::function_info*, uint32_t>> arg_buffers;
 				for (uint32_t arg_idx = 0, arg_count = (uint32_t)func.args.size(); arg_idx < arg_count; ++arg_idx) {
 					const auto& arg = func.args[arg_idx];
-					finfo.args.emplace_back(function_info_dynamic_v2::arg_info {
+					finfo.args.emplace_back(function_info_dynamic_v3::arg_info {
 						.argument_size = arg.size,
 						.address_space = arg.address_space,
 						.image_type = arg.image_type,
@@ -875,7 +850,7 @@ namespace universal_binary {
 					}
 				}
 				++bin_data.static_binary_header.function_count;
-				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v2::arg_info) * finfo.args.size();
+				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v3::arg_info) * finfo.args.size();
 				bin_data.functions.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
@@ -926,7 +901,7 @@ namespace universal_binary {
 		return build_archive(src_code, false, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
-	pair<const binary_dynamic_v2*, const target_v2>
+	pair<const binary_dynamic_v3*, const target_v3>
 	find_best_match_for_device(const compute_device& dev, const archive& ar) {
 		if (dev.context == nullptr) return { nullptr, {} };
 		
@@ -943,7 +918,7 @@ namespace universal_binary {
 		for (size_t i = 0, count = ar.header.targets.size(); i < count; ++i) {
 			const auto& target = ar.header.targets[i];
 			if (target.common.type != type) continue;
-			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v2) continue;
+			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v3) continue;
 			
 			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE: continue;
@@ -1207,11 +1182,13 @@ namespace universal_binary {
 					const auto& mtl_target = target.metal;
 					
 					// iOS binary, macOS device?
-					if (mtl_target.is_ios && mtl_dev.family_type != metal_device::FAMILY_TYPE::APPLE) {
+					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS &&
+						mtl_dev.family_type != metal_device::FAMILY_TYPE::APPLE) {
 						continue;
 					}
 					// macOS binary, iOS device?
-					if (!mtl_target.is_ios && mtl_dev.family_type != metal_device::FAMILY_TYPE::MAC) {
+					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::MACOS &&
+						mtl_dev.family_type != metal_device::FAMILY_TYPE::MAC) {
 						continue;
 					}
 					
@@ -1225,11 +1202,6 @@ namespace universal_binary {
 					switch (mtl_target.device_target) {
 						case decltype(mtl_target.device_target)::GENERIC:
 							// assume support
-							break;
-						case decltype(mtl_target.device_target)::NVIDIA:
-							if (mtl_dev.vendor != COMPUTE_VENDOR::NVIDIA) {
-								continue;
-							}
 							break;
 						case decltype(mtl_target.device_target)::AMD:
 							if (mtl_dev.vendor != COMPUTE_VENDOR::AMD) {
@@ -1247,7 +1219,8 @@ namespace universal_binary {
 							}
 							break;
 					}
-					if (mtl_target.is_ios && mtl_target.device_target != decltype(mtl_target.device_target)::GENERIC) {
+					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS &&
+						mtl_target.device_target != decltype(mtl_target.device_target)::GENERIC) {
 						continue; // iOS must use GENERIC target
 					}
 					
@@ -1258,23 +1231,7 @@ namespace universal_binary {
 					}
 					
 					// check caps
-					if (mtl_target.primitive_id_support && !dev.primitive_id_support) {
-						continue;
-					}
 					if (mtl_target.barycentric_coord_support && !dev.barycentric_coord_support) {
-						continue;
-					}
-					if (mtl_target.tessellation_support && !dev.tessellation_support) {
-						continue;
-					}
-					if (mtl_target.tessellation_support &&
-						mtl_target.tessellation_max_factor_tier == 1 && dev.max_tessellation_factor < 64u) {
-						continue;
-					}
-					if (mtl_target.basic_32_bit_float_atomics_support && !dev.basic_32_bit_float_atomics_support) {
-						continue;
-					}
-					if (mtl_target.simd_reduction && !mtl_dev.simd_reduction) {
 						continue;
 					}
 					
@@ -1313,18 +1270,8 @@ namespace universal_binary {
 						}
 						
 						// more used/supported caps beats lower
-						const auto cap_sum = (mtl_target.primitive_id_support +
-											  mtl_target.barycentric_coord_support +
-											  mtl_target.tessellation_support +
-											  (mtl_target.tessellation_support && mtl_target.tessellation_max_factor_tier > 0 ? 1u : 0u) +
-											  mtl_target.basic_32_bit_float_atomics_support +
-											  mtl_target.simd_reduction);
-						const auto best_cap_sum = (best_mtl.primitive_id_support +
-												   best_mtl.barycentric_coord_support +
-												   best_mtl.tessellation_support +
-												   (best_mtl.tessellation_support && best_mtl.tessellation_max_factor_tier > 0 ? 1u : 0u) +
-												   best_mtl.basic_32_bit_float_atomics_support +
-												   best_mtl.simd_reduction);
+						const auto cap_sum = (mtl_target.barycentric_coord_support);
+						const auto best_cap_sum = (best_mtl.barycentric_coord_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
@@ -1537,7 +1484,7 @@ namespace universal_binary {
 		return { nullptr, {} };
 	}
 	
-	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v2>& functions) {
+	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v3>& functions) {
 		vector<llvm_toolchain::function_info> ret;
 		
 		for (const auto& func : functions) {
@@ -1604,7 +1551,7 @@ namespace universal_binary {
 		}
 		
 		// find the best matching binary for each device
-		vector<pair<const universal_binary::binary_dynamic_v2*, const universal_binary::target_v2>> dev_binaries;
+		vector<pair<const universal_binary::binary_dynamic_v3*, const universal_binary::target_v3>> dev_binaries;
 		dev_binaries.reserve(devices.size());
 		for (const auto& dev : devices) {
 			const auto best_bin = universal_binary::find_best_match_for_device(*dev, *ar);

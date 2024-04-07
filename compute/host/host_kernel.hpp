@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_HOST_KERNEL_HPP__
-#define __FLOOR_HOST_KERNEL_HPP__
+#pragma once
 
 #include <floor/compute/host/host_common.hpp>
 
@@ -122,7 +121,5 @@ extern uint3 floor_host_compute_global_work_size_get() FLOOR_HOST_COMPUTE_CC;
 extern uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC;
 //! host-compute (host) group size/dim retrieval
 extern uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC;
-
-#endif
 
 #endif

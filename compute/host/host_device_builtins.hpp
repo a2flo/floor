@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_HOST_HOST_DEVICE_BUILTINS_HPP__
-#define __FLOOR_HOST_HOST_DEVICE_BUILTINS_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <unordered_map>
@@ -30,7 +29,5 @@
 
 //! gets the map of supported "C function name" -> "builtin floor host device function name"
 const std::unordered_map<std::string, std::string>& floor_get_c_to_floor_builtin_map();
-
-#endif
 
 #endif

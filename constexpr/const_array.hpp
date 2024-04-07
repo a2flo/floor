@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONST_ARRAY_HPP__
-#define __FLOOR_CONST_ARRAY_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <iterator>
@@ -104,5 +103,3 @@ struct const_array {
 	constexpr auto crend() const { return rend(); }
 	
 };
-
-#endif

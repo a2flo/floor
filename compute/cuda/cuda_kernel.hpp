@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_KERNEL_HPP__
-#define __FLOOR_CUDA_KERNEL_HPP__
+#pragma once
 
 #include <floor/compute/cuda/cuda_common.hpp>
 
@@ -84,7 +83,5 @@ protected:
 																const COMPUTE_MEMORY_FLAG& add_mem_flags) const override;
 	
 };
-
-#endif
 
 #endif

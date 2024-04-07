@@ -39,12 +39,8 @@ host_image::host_image(const compute_queue& cqueue,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
-					   const uint32_t opengl_type_,
-					   const uint32_t external_gl_object_,
-					   const opengl_image_info* gl_image_info,
 					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, shared_image_, false) {
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false) {
 	// check Metal/Vulkan buffer sharing validity
 #if defined(FLOOR_NO_METAL)
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {
@@ -113,8 +109,7 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 #endif
 	
 	// -> normal host image
-	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) &&
+	if (!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) &&
 		!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data &&
@@ -155,32 +150,11 @@ bool host_image::create_internal(const bool copy_host_data, const compute_queue&
 		acquire_vulkan_image(&cqueue, (const vulkan_queue*)comp_vk_queue);
 	}
 #endif
-	// -> shared host/OpenGL image
-	else {
-#if !defined(FLOOR_IOS)
-		if (!create_gl_image(copy_host_data)) {
-			return false;
-		}
-#endif
-		
-		// acquire for use with the host
-		acquire_opengl_object(&cqueue);
-	}
 	
 	return true;
 }
 
 host_image::~host_image() {
-	// first, release and kill the opengl image
-	if(gl_object != 0) {
-		if(gl_object_state) {
-			log_warn("image still registered for opengl use - acquire before destructing a compute image!");
-		}
-		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
-#if !defined(FLOOR_IOS)
-		delete_gl_image();
-#endif
-	}
 }
 
 bool host_image::zero(const compute_queue& cqueue) {
@@ -212,97 +186,6 @@ bool host_image::unmap(const compute_queue& cqueue, void* __attribute__((aligned
 	}
 	
 	return true;
-}
-
-bool host_image::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
-#if !defined(FLOOR_IOS)
-	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been acquired for use with the host!");
-#endif
-		return true;
-	}
-	
-	// copy gl image data to host memory (if read access is set)
-	const auto dim_count = image_dim_count(image_type);
-	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
-	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
-	int4 mip_image_dim {
-		(int)image_dim.x,
-		dim_count >= 2 ? (int)image_dim.y : 0,
-		dim_count >= 3 ? (int)image_dim.z : 0,
-		0
-	};
-	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
-		glBindTexture(opengl_type, gl_object);
-		const uint8_t* level_data = image.get();
-		for(size_t level = 0; level < mip_level_count; ++level, mip_image_dim >>= 1) {
-			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type);
-			const auto level_data_size = slice_data_size * layer_count;
-			
-			if(!is_cube ||
-			   // contrary to GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_ARRAY can be copied directly
-			   (is_cube && is_array)) {
-				glGetTexImage(opengl_type, (int)level, gl_format, gl_type, (void*)level_data);
-			}
-			else {
-				// must copy cube faces individually
-				for(uint32_t i = 0; i < 6; ++i) {
-					glGetTexImage(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, (int)level, gl_format, gl_type, (void*)level_data);
-					level_data += slice_data_size;
-				}
-			}
-			
-			level_data += level_data_size;
-		}
-		glBindTexture(opengl_type, 0);
-		
-#if defined(FLOOR_DEBUG)
-		// check memory protection strip
-		for(size_t i = 0; i < protection_size; ++i) {
-			if(*(image.get() + image_data_size_mip_maps + i) != protection_byte) {
-				log_error("DO PANIC: opengl wrote too many bytes: image: $X, gl object: $, @ protection byte #$, expected data size $",
-						  this, gl_object, i, image_data_size_mip_maps);
-				logger::flush();
-				break;
-			}
-		}
-#endif
-	}
-	
-	gl_object_state = false;
-	return true;
-#else
-	log_error("this is not supported in iOS!");
-	return false;
-#endif
-}
-
-bool host_image::release_opengl_object(const compute_queue* cqueue floor_unused) {
-#if !defined(FLOOR_IOS)
-	if(gl_object == 0) return false;
-	if (!image) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	// copy the host data back to the gl image (if write access is set)
-	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
-		glBindTexture(opengl_type, gl_object);
-		update_gl_image_data(image.get());
-		glBindTexture(opengl_type, 0);
-	}
-	
-	gl_object_state = true;
-	return true;
-#else
-	log_error("this is not supported in iOS!");
-	return false;
-#endif
 }
 
 static bool needs_sync_to_host(const COMPUTE_MEMORY_FLAG& flags) {

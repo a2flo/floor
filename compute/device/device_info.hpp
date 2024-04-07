@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_DEVICE_INFO_HPP__
-#define __FLOOR_COMPUTE_DEVICE_DEVICE_INFO_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE)
 
@@ -101,7 +100,7 @@ namespace device_info {
 	//! note that if this is false, these functions are still supported, but implemented through a CAS loop
 	//! if the device has support for basic 64-bit atomics of course.
 	//! NOTE: for OpenCL this is true if cl_khr_int64_extended_atomics is supported
-	//! NOTE: for CUDA this is true for all sm_32+ devices
+	//! NOTE: for CUDA this is always true
 	//! NOTE: for Metal this is false for all devices
 	constexpr bool has_native_extended_64_bit_atomics() {
 		return (FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS != 0);
@@ -280,7 +279,7 @@ namespace device_info {
 #endif
 	}
 	
-	//! returns true if the device supports sub-group shuffle/swizzle (opencl with extension; cuda with sm_30+; metal 2.0+ on macOS)
+	//! returns true if the device supports sub-group shuffle/swizzle (opencl with extension; always with CUDA and macOS)
 	constexpr bool has_sub_group_shuffle() {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE != 0
 		return true;
@@ -289,7 +288,7 @@ namespace device_info {
 #endif
 	}
 	
-	//! returns true if the device supports cooperative kernel launchs (currently cuda 9.0+ with sm_60+)
+	//! returns true if the device supports cooperative kernel launchs (currently CUDA with sm_60+)
 	constexpr bool has_cooperative_kernel_support() {
 #if FLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL != 0
 		return true;
@@ -471,8 +470,6 @@ namespace device_info {
 #define FLOOR_SUB_GROUP_SIZE_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_SUB_GROUP_SIZE_RANGE_MIN, FLOOR_COMPUTE_INFO_SUB_GROUP_SIZE_RANGE_MAX)]]
 //! range attribute containing the number of sub-groups [min, max) range
 #define FLOOR_NUM_SUB_GROUPS_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MIN, FLOOR_COMPUTE_INFO_NUM_SUB_GROUPS_RANGE_MAX)]]
-#endif
-
 #endif
 
 #endif

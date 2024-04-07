@@ -16,17 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_COMMON_HPP__
-#define __FLOOR_CUDA_COMMON_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 
-// need at least cuda 9.0 to compile and run
-#define FLOOR_CUDA_API_VERSION_MIN 9000
+// need at least cuda 12.0 to compile and run
+#define FLOOR_CUDA_API_VERSION_MIN 12000
 
 #if !defined(FLOOR_NO_CUDA)
 
-#include <floor/core/gl_support.hpp>
 #include <floor/compute/cuda/cuda_api.hpp>
 
 // if FLOOR_COMPUTE_BREAK_ON_ERROR is set, create a debug breakpoint
@@ -60,7 +58,5 @@
 #define CU_CALL_IGNORE(call, ...) CU_CALL_FWD(call, "cuda error", __LINE__,)
 #define CU_CALL_NO_ACTION(call, error_msg, ...) CU_CALL_FWD(call, error_msg, __LINE__,)
 #define CU_CALL_ERROR_EXEC(call, error_msg, error_exec) CU_CALL_FWD(call, error_msg, __LINE__, error_exec)
-
-#endif
 
 #endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_SPIRV_HANDLER_HPP__
-#define __FLOOR_SPIRV_HANDLER_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
@@ -65,5 +64,3 @@ namespace spirv_handler {
 										 const string identifier = "");
 
 } // spirv_handler
-
-#endif

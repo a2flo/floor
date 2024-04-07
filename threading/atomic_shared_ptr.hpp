@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_ATOMIC_SHARED_PTR_HPP__
-#define __FLOOR_ATOMIC_SHARED_PTR_HPP__
+#pragma once
 
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/threading/thread_safety.hpp>
@@ -183,5 +182,3 @@ public:
 	}
 	
 };
-
-#endif

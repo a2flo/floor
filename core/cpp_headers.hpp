@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CPP_HEADERS_HPP__
-#define __FLOOR_CPP_HEADERS_HPP__
+#pragma once
 
 #if defined(MINGW)
 #include <stdlib.h>
@@ -71,5 +70,3 @@ using namespace std;
 
 // misc "enum class" additions/helpers
 #include <floor/core/enum_helpers.hpp>
-
-#endif

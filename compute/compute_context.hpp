@@ -16,11 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_CONTEXT_HPP__
-#define __FLOOR_COMPUTE_CONTEXT_HPP__
+#pragma once
 
 #include <unordered_set>
-
 #include <floor/core/logger.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/compute_common.hpp>
@@ -39,7 +37,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class cuda_compute;
 class host_compute;
 class metal_compute;
-class opengl_compute;
+class opencl_compute;
 class vulkan_compute;
 
 class vulkan_buffer;
@@ -140,25 +138,21 @@ public:
 	virtual shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 													 const size_t& size,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-													 const uint32_t opengl_type = 0) const = 0;
+																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	virtual shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 													 std::span<uint8_t> data,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-													 const uint32_t opengl_type = 0) const = 0;
+																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	template <typename data_type>
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 std::span<data_type> data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
-							 flags, opengl_type);
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
 	}
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
@@ -167,9 +161,8 @@ public:
 											 const size_t& size,
 											 void* data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, { (uint8_t*)data, size }, flags, opengl_type);
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_buffer(cqueue, { (uint8_t*)data, size }, flags);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
@@ -177,9 +170,8 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const vector<data_type>& data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags, opengl_type);
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
@@ -187,27 +179,9 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const array<data_type, n>& data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const {
-		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags, opengl_type);
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags);
 	}
-	
-	//! wraps an already existing opengl buffer, with the specified flags
-	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-												   const uint32_t opengl_buffer,
-												   const uint32_t opengl_type,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
-	
-	//! wraps an already existing opengl buffer, with the specified flags and backed by the specified host pointer
-	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-												   const uint32_t opengl_buffer,
-												   const uint32_t opengl_type,
-												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! wraps an already existing Vulkan buffer, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
@@ -230,16 +204,14 @@ public:
 	virtual shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-												   const uint32_t opengl_type = 0) const = 0;
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	virtual shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
 												   std::span<uint8_t> data,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-												   const uint32_t opengl_type = 0) const = 0;
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
@@ -247,10 +219,9 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   std::span<data_type> data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const {
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
 		return create_image(cqueue, image_dim, image_type,
-							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags, opengl_type);
+							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count on the specified device
@@ -259,13 +230,12 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   void* data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const {
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
 		const auto actual_img_type = compute_image::handle_image_type(image_dim, image_type);
 		const auto img_size = image_data_size_from_types(image_dim, actual_img_type,
 														 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
 														 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data, img_size }, flags, opengl_type);
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data, img_size }, flags);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -274,10 +244,8 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const vector<data_type>& data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) },
-							flags, opengl_type);
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) }, flags);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -286,27 +254,9 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const array<data_type, n>& data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const {
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) }, flags, opengl_type);
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) }, flags);
 	}
-	
-	//! wraps an already existing opengl image, with the specified flags
-	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-												 const uint32_t opengl_image,
-												 const uint32_t opengl_target,
-												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
-	
-	//! wraps an already existing opengl image, with the specified flags and backed by the specified host pointer
-	//! NOTE: OPENGL_SHARING flag is always implied
-	virtual shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-												 const uint32_t opengl_image,
-												 const uint32_t opengl_target,
-												 void* data,
-												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! wraps an already existing Vulkan image, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
@@ -483,5 +433,3 @@ protected:
 };
 
 FLOOR_POP_WARNINGS()
-
-#endif

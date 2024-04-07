@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_ATOMIC_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_ATOMIC_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_METAL)
 
@@ -32,64 +31,48 @@
 #define FLOOR_METAL_MEM_ORDER_ACQ_REL 4
 #define FLOOR_METAL_MEM_ORDER_SEQ_CST 5
 
-// -> from Metal 2.4 onwards: use acquire-release ordering by default
-#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 4)
+// -> use acquire-release ordering by default
 #define FLOOR_METAL_MEM_ORDER_DEFAULT FLOOR_METAL_MEM_ORDER_ACQ_REL
-#else
-#define FLOOR_METAL_MEM_ORDER_DEFAULT FLOOR_METAL_MEM_ORDER_RELAXED
-#endif
 
 metal_func void metal_atomic_store(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.store.i32");
 metal_func void metal_atomic_store(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.store.i32");
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func void metal_atomic_store(volatile global float* p, float desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.store.f32");
 metal_func void metal_atomic_store(volatile local float* p, float desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.store.f32");
-#endif
 
 metal_func uint32_t metal_atomic_load(const volatile global uint32_t* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.load.i32");
 metal_func uint32_t metal_atomic_load(const volatile local uint32_t* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.load.i32");
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func float metal_atomic_load(const volatile global float* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.load.f32");
 metal_func float metal_atomic_load(const volatile local float* p, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.load.f32");
-#endif
 
 metal_func uint32_t metal_atomic_xchg(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.xchg.i32");
 metal_func uint32_t metal_atomic_xchg(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.xchg.i32");
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func float metal_atomic_xchg(volatile global float* p, float desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.xchg.f32");
 metal_func float metal_atomic_xchg(volatile local float* p, float desired, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.xchg.f32");
-#endif
 
 metal_func uint32_t metal_atomic_cmpxchg(volatile global uint32_t* p, uint32_t* expected, uint32_t desired,
 										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.cmpxchg.weak.i32"); //!< weak
 metal_func uint32_t metal_atomic_cmpxchg(volatile local uint32_t* p, uint32_t* expected, uint32_t desired,
 										 uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.cmpxchg.weak.i32"); //!< weak
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func float metal_atomic_cmpxchg(volatile global float* p, float* expected, float desired,
 									  uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.cmpxchg.weak.f32"); //!< weak
 metal_func float metal_atomic_cmpxchg(volatile local float* p, float* expected, float desired,
 									  uint32_t mem_order_success, uint32_t mem_order_failure, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.cmpxchg.weak.f32"); //!< weak
-#endif
 
 metal_func uint32_t metal_atomic_add(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.add.u.i32");
 metal_func int32_t metal_atomic_add(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.add.s.i32");
 metal_func uint32_t metal_atomic_add(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.add.u.i32");
 metal_func int32_t metal_atomic_add(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.add.s.i32");
 
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func uint32_t metal_atomic_add(volatile global float* p, float val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.add.f32");
 metal_func uint32_t metal_atomic_add(volatile local float* p, float val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.add.f32");
-#endif
 
 metal_func uint32_t metal_atomic_sub(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.sub.u.i32");
 metal_func int32_t metal_atomic_sub(volatile global int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.sub.s.i32");
 metal_func uint32_t metal_atomic_sub(volatile local uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.sub.u.i32");
 metal_func int32_t metal_atomic_sub(volatile local int32_t* p, int32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.sub.s.i32");
 
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 metal_func uint32_t metal_atomic_sub(volatile global float* p, float val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.sub.f32");
 metal_func uint32_t metal_atomic_sub(volatile local float* p, float val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.local.sub.f32");
-#endif
 
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
 metal_func uint32_t metal_atomic_min(volatile global uint32_t* p, uint32_t val, uint32_t mem_order, uint32_t scope, bool is_volatile = false) asm("air.atomic.global.min.u.i32");
@@ -168,14 +151,12 @@ floor_inline_always int32_t atomic_add(volatile local int32_t* p, int32_t val) {
 floor_inline_always uint32_t atomic_add(volatile local uint32_t* p, uint32_t val) {
 	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_add(volatile global float* p, float val) {
 	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_add(volatile local float* p, float val) {
 	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#endif
 
 // sub
 floor_inline_always int32_t atomic_sub(volatile global int32_t* p, int32_t val) {
@@ -190,14 +171,12 @@ floor_inline_always int32_t atomic_sub(volatile local int32_t* p, int32_t val) {
 floor_inline_always uint32_t atomic_sub(volatile local uint32_t* p, uint32_t val) {
 	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_sub(volatile global float* p, float val) {
 	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_sub(volatile local float* p, float val) {
 	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#endif
 
 // inc
 floor_inline_always int32_t atomic_inc(volatile global int32_t* p) {
@@ -212,14 +191,12 @@ floor_inline_always int32_t atomic_inc(volatile local int32_t* p) {
 floor_inline_always uint32_t atomic_inc(volatile local uint32_t* p) {
 	return atomic_add(p, 1u);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_inc(volatile global float* p) {
 	return atomic_add(p, 1.0f);
 }
 floor_inline_always float atomic_inc(volatile local float* p) {
 	return atomic_add(p, 1.0f);
 }
-#endif
 
 // dec
 floor_inline_always int32_t atomic_dec(volatile global int32_t* p) {
@@ -234,14 +211,12 @@ floor_inline_always int32_t atomic_dec(volatile local int32_t* p) {
 floor_inline_always uint32_t atomic_dec(volatile local uint32_t* p) {
 	return atomic_sub(p, 1u);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_dec(volatile global float* p) {
 	return atomic_sub(p, 1.0f);
 }
 floor_inline_always float atomic_dec(volatile local float* p) {
 	return atomic_sub(p, 1.0f);
 }
-#endif
 
 // xchg
 floor_inline_always int32_t atomic_xchg(volatile global int32_t* p, int32_t val) {
@@ -258,23 +233,12 @@ floor_inline_always int32_t atomic_xchg(volatile local int32_t* p, int32_t val) 
 floor_inline_always uint32_t atomic_xchg(volatile local uint32_t* p, uint32_t val) {
 	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_xchg(volatile global float* p, float val) {
 	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_xchg(volatile local float* p, float val) {
 	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#else
-floor_inline_always float atomic_xchg(volatile global float* p, float val) {
-	const uint32_t ret = metal_atomic_xchg((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
-	return *(float*)&ret;
-}
-floor_inline_always float atomic_xchg(volatile local float* p, float val) {
-	const uint32_t ret = metal_atomic_xchg((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
-	return *(float*)&ret;
-}
-#endif
 
 // cmpxchg
 floor_inline_always int32_t atomic_cmpxchg(volatile global int32_t* p, int32_t cmp, int32_t val) {
@@ -291,14 +255,12 @@ floor_inline_always int32_t atomic_cmpxchg(volatile local int32_t* p, int32_t cm
 floor_inline_always uint32_t atomic_cmpxchg(volatile local uint32_t* p, uint32_t cmp, uint32_t val) {
 	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_cmpxchg(volatile global float* p, float cmp, float val) {
 	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_cmpxchg(volatile local float* p, float cmp, float val) {
 	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#endif
 
 // min
 floor_inline_always int32_t atomic_min(volatile global int32_t* p, int32_t val) {
@@ -383,21 +345,12 @@ floor_inline_always void atomic_store(volatile local int32_t* p, int32_t val) {
 floor_inline_always void atomic_store(volatile local uint32_t* p, uint32_t val) {
 	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always void atomic_store(volatile global float* p, float val) {
 	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always void atomic_store(volatile local float* p, float val) {
 	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#else
-floor_inline_always void atomic_store(volatile global float* p, float val) {
-	metal_atomic_store((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
-}
-floor_inline_always void atomic_store(volatile local float* p, float val) {
-	metal_atomic_store((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
-}
-#endif
 
 // load
 floor_inline_always int32_t atomic_load(const volatile global int32_t* p) {
@@ -414,43 +367,14 @@ floor_inline_always int32_t atomic_load(const volatile local int32_t* p) {
 floor_inline_always uint32_t atomic_load(const volatile local uint32_t* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#if defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atomic_load(const volatile global float* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_load(const volatile local float* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-#else
-floor_inline_always float atomic_load(const volatile global float* p) {
-	const uint32_t ret = metal_atomic_load((const volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
-	return *(float*)&ret;
-}
-floor_inline_always float atomic_load(const volatile local float* p) {
-	const uint32_t ret = metal_atomic_load((const volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
-	return *(float*)&ret;
-}
-#endif
 
 // fallback for non-natively supported float atomics
-#if !defined(FLOOR_COMPUTE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
-floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }
-floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, local, p, val) }
-floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, global, p, val) }
-floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, local, p, val) }
-floor_inline_always float atomic_inc(volatile global float* p) { return atomic_add(p, 1.0f); }
-floor_inline_always float atomic_inc(volatile local float* p) { return atomic_add(p, 1.0f); }
-floor_inline_always float atomic_dec(volatile global float* p) { return atomic_sub(p, 1.0f); }
-floor_inline_always float atomic_dec(volatile local float* p) { return atomic_sub(p, 1.0f); }
-floor_inline_always float atomic_cmpxchg(volatile global float* p, float cmp, float val) {
-	const auto ret = atomic_cmpxchg((volatile global uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
-	return *(float*)ret;
-}
-floor_inline_always float atomic_cmpxchg(volatile local float* p, float cmp, float val) {
-	const auto ret = atomic_cmpxchg((volatile local uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
-	return *(float*)ret;
-}
-#endif
 floor_inline_always float atomic_min(volatile global float* p, float val) {
 	if(val < 0.0f) {
 		return atomic_max((volatile global uint32_t*)p, *(uint32_t*)&val);
@@ -475,7 +399,5 @@ floor_inline_always float atomic_max(volatile local float* p, float val) {
 	}
 	return atomic_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
-
-#endif
 
 #endif

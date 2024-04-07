@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_ATOMIC_FALLBACK_HPP__
-#define __FLOOR_COMPUTE_DEVICE_ATOMIC_FALLBACK_HPP__
+#pragma once
 
 // 32-bit: <operation, address space, pointer, value>, use with binary op
 #define FLOOR_ATOMIC_FALLBACK_OP_32(op, as, ptr, val) for(;;) { \
@@ -58,5 +57,3 @@
 		return expected; \
 	} \
 }
-
-#endif

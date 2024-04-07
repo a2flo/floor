@@ -49,12 +49,8 @@ vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
-						   const COMPUTE_MEMORY_FLAG flags_,
-						   const uint32_t opengl_type_,
-						   const uint32_t external_gl_object_,
-						   const opengl_image_info* gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, nullptr, true /* may need shim type */),
+						   const COMPUTE_MEMORY_FLAG flags_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
@@ -547,7 +543,7 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 }
 
 vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, std::span<uint8_t> host_data_, const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_, 0, 0, nullptr,
+compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_,
 			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
@@ -849,16 +845,6 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 	
 	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, image_info.imageLayout,
 						   (uint32_t)regions.size(), regions.data());
-}
-
-bool vulkan_image::acquire_opengl_object(const compute_queue*) {
-	log_error("not supported by vulkan");
-	return false;
-}
-
-bool vulkan_image::release_opengl_object(const compute_queue*) {
-	log_error("not supported by vulkan");
-	return false;
 }
 
 static VkPipelineStageFlags2 stage_mask_from_access(const VkAccessFlags2& access_mask_in, const VkPipelineStageFlags2& stage_mask_in) {

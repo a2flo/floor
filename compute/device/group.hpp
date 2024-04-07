@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_GROUP_HPP__
-#define __FLOOR_COMPUTE_DEVICE_GROUP_HPP__
+#pragma once
 
 //! interface and support/query helpers for parallel group operations
 //! NOTE: the main intent of this is for backends to be able to provide specialized/optimized work-group/sub-group operations
@@ -85,5 +84,3 @@ template <OP op, typename data_type>
 [[maybe_unused]] static auto sub_group_exclusive_scan(const data_type& input_value);
 
 } // compute_algorithm::group
-
-#endif

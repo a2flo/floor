@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_SAMPLER_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_SAMPLER_HPP__
+#pragma once
 
 //! internal cuda sampler type
 struct cuda_sampler {
@@ -97,5 +96,3 @@ struct cuda_sampler {
 	static_assert(max_sampler_count == 96u, "invalid max sampler count");
 	
 };
-
-#endif

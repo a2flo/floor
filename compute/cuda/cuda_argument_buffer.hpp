@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_ARGUMENT_BUFFER_HPP__
-#define __FLOOR_CUDA_ARGUMENT_BUFFER_HPP__
+#pragma once
 
 #include <floor/compute/argument_buffer.hpp>
 
@@ -35,7 +34,5 @@ protected:
 	const llvm_toolchain::function_info& arg_info;
 	
 };
-
-#endif
 
 #endif

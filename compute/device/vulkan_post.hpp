@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_VULKAN_POST_HPP__
-#define __FLOOR_COMPUTE_DEVICE_VULKAN_POST_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_VULKAN)
 
@@ -202,7 +201,5 @@ const_func clang_float3 get_position_in_patch_cf3() asm("floor.builtin.position_
 floor_inline_always const_func float3 get_position_in_patch() { return float3::from_clang_vector(get_position_in_patch_cf3()); }
 
 // NOTE: for tessellation evaluation shader instance_id, see vertex shader
-
-#endif
 
 #endif

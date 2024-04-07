@@ -16,13 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_API_HPP__
-#define __FLOOR_CUDA_API_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA)
 
+#include <floor/core/enum_helpers.hpp>
 #include <floor/math/vector_lib.hpp>
 
 #if defined(__WINDOWS__)
@@ -233,44 +233,35 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	COOPERATIVE_LAUNCH_SUPPORTED = 95,
 	COOPERATIVE_MULTI_DEVICE_LAUNCH_SUPPORTED = 96,
 	MAX_SHARED_MEMORY_PER_BLOCK_OPTIN = 97,
-	// CUDA 9.2+
 	CAN_FLUSH_REMOTE_WRITES = 98,
 	HOST_REGISTER_SUPPORTED = 99,
 	PAGEABLE_MEMORY_ACCESS_USES_HOST_PAGE_TABLES = 100,
 	DIRECT_MANAGED_MEM_ACCESS_FROM_HOST = 101,
-	// CUDA 10.2+
 	VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED = 102,
 	HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED = 103,
 	HANDLE_TYPE_WIN32_HANDLE_SUPPORTED = 104,
 	HANDLE_TYPE_WIN32_KMT_HANDLE_SUPPORTED = 105,
-	// CUDA 11.0+
 	MAX_BLOCKS_PER_MULTIPROCESSOR = 106,
 	GENERIC_COMPRESSION_SUPPORTED = 107,
 	MAX_PERSISTING_L2_CACHE_SIZE = 108,
 	MAX_ACCESS_POLICY_WINDOW_SIZE = 109,
 	GPU_DIRECT_RDMA_WITH_CUDA_VMM_SUPPORTED = 110,
 	RESERVED_SHARED_MEMORY_PER_BLOCK = 111,
-	// CUDA 11.1+
 	SPARSE_CUDA_ARRAY_SUPPORTED = 112,
 	READ_ONLY_HOST_REGISTER_SUPPORTED = 113,
-	// CUDA 11.2+
 	TIMELINE_SEMAPHORE_INTEROP_SUPPORTED = 114,
 	MEMORY_POOLS_SUPPORTED = 115,
-	// CUDA 11.3+
 	GPU_DIRECT_RDMA_SUPPORTED = 116,
 	GPU_DIRECT_RDMA_FLUSH_WRITES_OPTIONS = 117,
 	GPU_DIRECT_RDMA_WRITES_ORDERING = 118,
 	MEMPOOL_SUPPORTED_HANDLE_TYPES = 119,
-	// CUDA 11.8+
 	CLUSTER_LAUNCH = 120,
-	// CUDA 11.7+
 	DEFERRED_MAPPING_CUDA_ARRAY_SUPPORTED = 121,
 	CAN_USE_64_BIT_STREAM_MEM_OPS_V2 = 122,
 	CAN_USE_64_BIT_STREAM_MEM_OPS = CAN_USE_64_BIT_STREAM_MEM_OPS_V2,
 	CAN_USE_STREAM_WAIT_VALUE_NOR_V2 = 123,
 	CAN_USE_STREAM_WAIT_VALUE_NOR = CAN_USE_STREAM_WAIT_VALUE_NOR_V2,
 	DMA_BUF_SUPPORTED = 124,
-	// CUDA 12.0+
 	IPC_EVENT_SUPPORTED = 125,
 	MEM_SYNC_DOMAIN_COUNT = 126,
 	TENSOR_MAP_ACCESS_SUPPORTED = 127,
@@ -328,7 +319,6 @@ enum class CU_JIT_OPTION : uint32_t {
 	CACHE_MODE = 14,
 	NEW_SM3X_OPT = 15,
 	FAST_COMPILE = 16,
-	// CUDA 11.7?
 	GLOBAL_SYMBOL_NAMES = 17,
 	GLOBAL_SYMBOL_ADDRESSES = 18,
 	GLOBAL_SYMBOL_COUNT = 19,
@@ -342,7 +332,6 @@ enum class CU_JIT_OPTION : uint32_t {
 	REFERENCED_VARIABLE_NAMES = 27,
 	REFERENCED_VARIABLE_COUNT = 28,
 	OPTIMIZE_UNUSED_DEVICE_VARIABLES = 29,
-	// CUDA 12.0+
 	POSITION_INDEPENDENT_CODE = 30,
 	// CUDA 12.3+
 	MIN_CTA_PER_SM = 31,
@@ -364,9 +353,7 @@ enum class CU_LIMIT : uint32_t {
 	MALLOC_HEAP_SIZE = 2,
 	DEV_RUNTIME_SYNC_DEPTH = 3,
 	DEV_RUNTIME_PENDING_LAUNCH_COUNT = 4,
-	// CUDA 10.0+
 	MAX_L2_FETCH_GRANULARITY = 5,
-	// CUDA 11.0+
 	PERSISTING_L2_CACHE_SIZE = 6,
 };
 
@@ -379,9 +366,7 @@ enum class CU_ARRAY_FORMAT : uint32_t {
 	SIGNED_INT32 = 0x0a,
 	HALF = 0x10,
 	FLOAT = 0x20,
-	// CUDA 11.2+
 	NV12 = 0xB0,
-	// CUDA 11.7+
 	UNORM_INT8X1 = 0xC0,
 	UNORM_INT8X2 = 0xC1,
 	UNORM_INT8X4 = 0xC2,
@@ -485,7 +470,6 @@ enum class CU_MEM_HOST_REGISTER : uint32_t {
 	PORTABLE = 1,
 	DEVICE_MAP = 2,
 	IO_MEMORY = 4,
-	// CUDA 11.1+
 	READ_ONLY = 8,
 };
 floor_global_enum_no_hash_ext(CU_MEM_HOST_REGISTER)
@@ -524,13 +508,11 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	SURFACE_LOAD_STORE = 2,
 	CUBE_MAP = 4,
 	TEXTURE_GATHER = 8,
-	//! NOTE: unsupported for standalone CUDA or OpenGL use, required for Vulkan
+	//! NOTE: unsupported for standalone CUDA use, required for Vulkan
 	DEPTH_TEXTURE = 16,
-	//! NOTE: unsupported for standalone CUDA or OpenGL use, required for Vulkan
+	//! NOTE: unsupported for standalone CUDA use, required for Vulkan
 	COLOR_ATTACHMENT = 32,
-	// CUDA 11.1+
 	SPARSE = 64,
-	// CUDA 11.7+
 	DEFERRED_MAPPING = 128,
 };
 floor_global_enum_no_hash_ext(CU_ARRAY_3D_FLAGS)
@@ -540,9 +522,7 @@ enum class CU_TEXTURE_FLAGS : uint32_t {
 	READ_AS_INTEGER = 1,
 	NORMALIZED_COORDINATES = 2,
 	SRGB = 16,
-	// CUDA 10.2+
 	DISABLE_TRILINEAR_OPTIMIZATION = 32,
-	// CUDA 11.7+
 	SEAMLESS_CUBEMAP = 64,
 };
 floor_global_enum_no_hash_ext(CU_TEXTURE_FLAGS)
@@ -705,12 +685,10 @@ struct cu_launch_params {
 	void** kernel_params;
 };
 
-// cuda 9.2+
 struct cu_uuid {
 	uint8_t bytes[16];
 };
 
-// cuda 10.0+
 struct _cu_external_memory;
 using cu_external_memory = _cu_external_memory*;
 using const_cu_external_memory = const _cu_external_memory*;
@@ -725,7 +703,6 @@ enum class CU_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t {
 	OPAQUE_WIN32_KMT = 3,
 	D3D12_HEAP __attribute__((unavailable("unsupported"))) = 4,
 	D3D12_RESOURCE __attribute__((unavailable("unsupported"))) = 5,
-	// CUDA 10.2+
 	D3D11_RESOURCE __attribute__((unavailable("unsupported"))) = 6,
 	D3D11_RESOURCE_KMT __attribute__((unavailable("unsupported"))) = 7,
 	NVSCIBUF = 8,
@@ -744,13 +721,11 @@ enum class CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE : uint32_t {
 	NVSCISYNC = 6,
 	D3D11_KEYED_MUTEX __attribute__((unavailable("unsupported"))) = 7,
 	D3D11_KEYED_MUTEX_KMT __attribute__((unavailable("unsupported"))) = 8,
-	// CUDA 11.2+
 	TIMELINE_SEMAPHORE_FD = 9,
 	TIMELINE_SEMAPHORE_WIN32 = 10,
 };
 
 enum class CU_EXTERNAL_SEMAPHORE_FLAGS : uint32_t {
-	// CUDA 10.2+
 	SIGNAL_SKIP_NVSCIBUF_MEMSYNC = 1,
 	WAIT_SKIP_NVSCIBUF_MEMSYNC = 2,
 };
@@ -763,7 +738,6 @@ struct cu_external_memory_handle_descriptor {
 			void* handle;
 			const void* name;
 		} win32;
-		// CUDA 10.2+
 		const void* nv_sci_buf_object;
 	} handle;
 	uint64_t size;
@@ -793,7 +767,6 @@ struct cu_external_semaphore_handle_descriptor {
 			void* handle;
 			const void* name;
 		} win32;
-		// CUDA 10.2+
 		const void* nv_sci_sync_object;
 	} handle;
 	uint32_t flags;
@@ -805,7 +778,6 @@ struct cu_external_semaphore_signal_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		// CUDA 10.2+
 		union {
 			void* fence;
 			uint64_t reserved;
@@ -824,7 +796,6 @@ struct cu_external_semaphore_wait_parameters {
 		struct {
 			uint64_t value;
 		} fence;
-		// CUDA 10.2+
 		union {
 			void* fence;
 			uint64_t reserved;
@@ -870,8 +841,6 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
-	CU_API CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
-	CU_API CU_RESULT (*graphics_gl_register_image)(cu_graphics_resource* p_cuda_resource, GLuint image, GLenum target, CU_GRAPHICS_REGISTER_FLAGS flags);
 	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, const_cu_stream h_stream);
 	CU_API CU_RESULT (*graphics_resource_get_mapped_mipmapped_array)(cu_mip_mapped_array* handle, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
@@ -962,8 +931,6 @@ extern bool cuda_can_use_external_memory();
 #define cu_function_get_attribute cuda_api.function_get_attribute
 #define cu_get_error_name cuda_api.get_error_name
 #define cu_get_error_string cuda_api.get_error_string
-#define cu_graphics_gl_register_buffer cuda_api.graphics_gl_register_buffer
-#define cu_graphics_gl_register_image cuda_api.graphics_gl_register_image
 #define cu_graphics_map_resources cuda_api.graphics_map_resources
 #define cu_graphics_resource_get_mapped_mipmapped_array cuda_api.graphics_resource_get_mapped_mipmapped_array
 #define cu_graphics_resource_get_mapped_pointer cuda_api.graphics_resource_get_mapped_pointer
@@ -1018,7 +985,5 @@ extern bool cuda_can_use_external_memory();
 #define cu_tex_object_destroy cuda_api.tex_object_destroy
 #define cu_tex_object_get_resource_desc cuda_api.tex_object_get_resource_desc
 #define cu_wait_external_semaphore_async cuda_api.wait_external_semaphore_async
-
-#endif
 
 #endif

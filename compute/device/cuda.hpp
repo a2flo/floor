@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
@@ -45,12 +44,8 @@
 #define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32 1
 #define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_64 1
 
-// sm_32+ has funnel shift instructions
-#if FLOOR_COMPUTE_INFO_CUDA_SM >= 32
+// we always have funnel shift instructions
 #define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 1
-#else
-#define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 0
-#endif
 
 // we always have a "find nth set" instruction
 #define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 1
@@ -99,7 +94,7 @@ namespace std {
 	}
 #endif
 
-#if FLOOR_COMPUTE_INFO_CUDA_SM < 75 || FLOOR_COMPUTE_INFO_CUDA_PTX < 70
+#if FLOOR_COMPUTE_INFO_CUDA_SM < 75
 	const_func floor_inline_always half exp2(half a) { return __nvvm_ex2_approx_ftz_f(a); }
 #else // natively supported since sm_75 and PTX 7.0
 	const_func floor_inline_always half exp2(half a) {
@@ -268,7 +263,6 @@ namespace std {
 		return __nvvm_prmt(low, high, select);
 	}
 	
-#if FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
 	const_func floor_inline_always uint32_t floor_rt_funnel_shift_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
 		uint32_t ret;
 		asm("shf.l.wrap.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
@@ -292,7 +286,6 @@ namespace std {
 		asm("shf.r.clamp.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
 		return ret;
 	}
-#endif
 	
 	const_func floor_inline_always uint32_t floor_rt_find_nth_set(const uint32_t value, const uint32_t base, const int32_t offset) {
 		uint32_t ret = 0;
@@ -787,7 +780,5 @@ static auto sub_group_exclusive_scan(const data_type& input_value) {
 #undef FLOOR_CUDA_DIM2
 #undef FLOOR_CUDA_INVALID
 #undef FLOOR_CUDA_DIM_RT
-
-#endif
 
 #endif

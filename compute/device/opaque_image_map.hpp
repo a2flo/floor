@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPAQUE_IMAGE_MAP_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPAQUE_IMAGE_MAP_HPP__
+#pragma once
 
 // COMPUTE_IMAGE_TYPE -> opencl/metal image*d_*t type mapping
 #define OPAQUE_IMAGE_MASK ( \
@@ -81,16 +80,7 @@ struct opaque_image_type<image_type> {
 template <COMPUTE_IMAGE_TYPE image_type>
 requires((image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY)
 struct opaque_image_type<image_type> {
-#if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_t type;
-#else
-#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1)
-	// supported since Metal 2.1
-	typedef image2d_array_msaa_t type;
-#else
-	typedef unavailable_metal_image_type type;
-#endif
-#endif
 };
 
 // NOTE: also applies to combined stencil format
@@ -115,16 +105,7 @@ struct opaque_image_type<image_type> {
 template <COMPUTE_IMAGE_TYPE image_type>
 requires((image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH))
 struct opaque_image_type<image_type> {
-#if !defined(FLOOR_COMPUTE_METAL)
 	typedef image2d_array_msaa_depth_t type;
-#else
-#if FLOOR_COMPUTE_METAL_MAJOR > 2 || (FLOOR_COMPUTE_METAL_MAJOR == 2 && FLOOR_COMPUTE_METAL_MINOR >= 1)
-	// supported since Metal 2.1
-	typedef image2d_array_msaa_depth_t type;
-#else
-	typedef unavailable_metal_image_type type;
-#endif
-#endif
 };
 
 template <COMPUTE_IMAGE_TYPE image_type>
@@ -174,5 +155,3 @@ struct opaque_image_type<image_type> {
 };
 
 #undef OPAQUE_IMAGE_MASK
-
-#endif

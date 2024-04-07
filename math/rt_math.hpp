@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_RT_MATH_HPP__
-#define __FLOOR_RT_MATH_HPP__
+#pragma once
 
 // NOTE: this is a (partial) counterpart to const_math for math functions that are non-standard and
 //       faster at run-time when using run-time math functions instead of doing cumbersome constexpr math
@@ -566,6 +565,4 @@ FLOOR_HALF_SW_FUNC_2(copysign)
 #undef FLOOR_HALF_SW_FUNC_1
 #undef FLOOR_HALF_SW_FUNC_2
 #undef FLOOR_HALF_SW_FUNC_3
-#endif
-
 #endif

@@ -40,12 +40,7 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
 												const metal_kernel::metal_kernel_entry& entry,
 												const char* debug_label) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLComputeCommandEncoder> encoder;
-	if (@available(macOS 10.14, iOS 12.0, *)) {
-		encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
-	} else {
-		encoder = [cmd_buffer computeCommandEncoder];
-	}
+	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
 	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, encoder });
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
 	if (debug_label) {
@@ -257,7 +252,6 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeRenderPipeline: return "RenderPipeline";
 		case MTLDataTypeComputePipeline: return "ComputePipeline";
 		case MTLDataTypeIndirectCommandBuffer: return "IndirectCommandBuffer";
-#if defined(__MAC_12_0) || defined(__IPHONE_15_0)
 		case MTLDataTypeLong: return "Long";
 		case MTLDataTypeLong2: return "Long2";
 		case MTLDataTypeLong3: return "Long3";
@@ -266,7 +260,6 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeULong2: return "ULong2";
 		case MTLDataTypeULong3: return "ULong3";
 		case MTLDataTypeULong4: return "ULong4";
-#endif
 		case MTLDataTypeVisibleFunctionTable: return "VisibleFunctionTable";
 		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
 		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";

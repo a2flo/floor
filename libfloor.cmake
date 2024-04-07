@@ -63,12 +63,13 @@ endif (WITH_LIBCXX)
 target_compile_options(${PROJECT_NAME} PUBLIC -Weverything)
 # in case we're using warning options that aren't supported by other clang versions
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unknown-warning-option)
-# remove std compat warnings (c++20 with gnu and clang extensions is required)
+# remove std compat warnings (c++23 with gnu and clang extensions is required)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++98-compat -Wno-c++98-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++11-compat -Wno-c++11-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++14-compat -Wno-c++14-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++17-compat -Wno-c++17-compat-pedantic -Wno-c++17-extensions)
-target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++2a-compat -Wno-c++2a-compat-pedantic -Wno-c++2a-extensions)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c99-extensions -Wno-c11-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-gnu -Wno-gcc-compat)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
@@ -80,8 +81,8 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-header-hygiene -Wno-documenta
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-system-headers)
 # these two are only useful in certain situations, but are quite noisy
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-packed -Wno-padded)
-# this conflicts with the other switch/case warning
-target_compile_options(${PROJECT_NAME} PUBLIC -Wno-switch-enum)
+# these conflict with the other switch/case warning
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-switch-enum -Wno-switch-default)
 # quite useful feature/extension
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nested-anon-types)
 # this should be taken care of in a different way
@@ -93,6 +94,15 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-return-std-move-in-c++11)
 # ignore unsafe pointer/buffer access warnings
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unsafe-buffer-usage)
+# ignore UD NaN/infinity due to fast-math
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nan-infinity-disabled)
+# ignore warnings about missing designated initializer when they are default-initialized
+# on clang < 19: disable missing field initializer warnings altogether
+if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "19.0.0")
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-field-initializers)
+else ()
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-designated-field-initializers)
+endif ()
 # diagnostics
 target_compile_options(${PROJECT_NAME} PUBLIC -fmacro-backtrace-limit=0)
 
@@ -135,18 +145,18 @@ if (MINGW)
 endif (MINGW)
 
 ## dependencies/libraries/packages
-find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 if (LIBFLOOR_LIBRARY)
 	if (MSVC)
-		target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2)
+		target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)
 	else ()
-		target_link_libraries(${PROJECT_NAME} PRIVATE SDL2)
+		target_link_libraries(${PROJECT_NAME} PRIVATE SDL3)
 	endif (MSVC)
 else ()
 	if (MSVC)
-		target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main)
+		target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)
 	else ()
-		target_link_libraries(${PROJECT_NAME} PRIVATE SDL2 SDL2main)
+		target_link_libraries(${PROJECT_NAME} PRIVATE SDL3)
 		if (MINGW)
 			# MinGW: use the normal main instead of the SDL one
 			target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -154,27 +164,9 @@ else ()
 	endif ()
 endif (LIBFLOOR_LIBRARY)
 
-find_package(OpenGL REQUIRED)
-find_path(OPENGL_ARB_INCLUDE_DIR GL/glcorearb.h PATH_SUFFIXES mesa)
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OPENGL_ARB_INCLUDE_DIR})
-if (WIN32)
-	target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL32)
-else ()
-	target_link_libraries(${PROJECT_NAME} PRIVATE GL)
-endif (WIN32)
-
 find_package(OpenCL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCL_LIBRARIES})
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OpenCL_INCLUDE_DIRS})
-
-find_package(OpenSSL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-
-find_path(ASIO_INCLUDE_DIR asio.hpp)
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${ASIO_INCLUDE_DIR})
-
-find_package(OpenAL CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenAL::OpenAL)
+target_include_directories(${PROJECT_NAME} SYSTEM AFTER PRIVATE ${OpenCL_INCLUDE_DIRS})
 
 if (MSVC)
 	target_link_directories(${PROJECT_NAME} PRIVATE $ENV{VK_SDK_PATH}/Lib)
@@ -193,13 +185,13 @@ if (UNIX)
 	target_link_options(${PROJECT_NAME} PRIVATE -lvulkan)
 endif (UNIX)
 if (Vulkan_FOUND)
-	target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${Vulkan_INCLUDE_DIRS})
+	target_include_directories(${PROJECT_NAME} SYSTEM AFTER PRIVATE ${Vulkan_INCLUDE_DIRS})
 else ()
-	target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE $ENV{VK_SDK_PATH}/include)
+	target_include_directories(${PROJECT_NAME} SYSTEM AFTER PRIVATE $ENV{VK_SDK_PATH}/include)
 endif (Vulkan_FOUND)
 
 find_path(OPENVR_INCLUDE_DIR openvr.h PATH_SUFFIXES openvr)
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OPENVR_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} SYSTEM AFTER PRIVATE ${OPENVR_INCLUDE_DIR})
 if (MSVC)
 	target_link_directories(${PROJECT_NAME} PRIVATE ${OPENVR_INCLUDE_DIR}/../lib)
 endif (MSVC)
@@ -207,7 +199,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE openvr_api)
 
 find_package(OpenXR REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenXR::openxr_loader)
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OpenXR_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} SYSTEM AFTER PRIVATE ${OpenXR_INCLUDE_DIR})
 
 if (UNIX)
 	target_link_libraries(${PROJECT_NAME} PRIVATE pthread)
@@ -216,9 +208,9 @@ endif (UNIX)
 ## add libfloor
 if (LIBFLOOR_USER)
 	if (WIN32)
-		target_include_directories(${PROJECT_NAME} PRIVATE $ENV{ProgramW6432}/floor/include)
+		target_include_directories(${PROJECT_NAME} AFTER PRIVATE $ENV{ProgramW6432}/floor/include)
 	else ()
-		target_include_directories(${PROJECT_NAME} PRIVATE /opt/floor/include)
+		target_include_directories(${PROJECT_NAME} AFTER PRIVATE /opt/floor/include)
 	endif (WIN32)
 	if (MSVC)
 		target_link_directories(${PROJECT_NAME} PRIVATE $ENV{ProgramW6432}/floor/lib)

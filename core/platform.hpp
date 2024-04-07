@@ -20,8 +20,7 @@
  *  do/include platform specific stuff here
  */
 
-#ifndef __FLOOR_PLATFORM_HPP__
-#define __FLOOR_PLATFORM_HPP__
+#pragma once
 
 ///////////////////////////////////////////////////////////////
 // Windows
@@ -79,9 +78,9 @@
 #define SDL_cpuinfo_h_
 
 // general includes
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_thread.h>
-#include <SDL2/SDL_platform.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_thread.h>
+#include <SDL3/SDL_platform.h>
 #if !defined(__WINDOWS__)
 #include <sys/types.h>
 #include <pwd.h>
@@ -111,5 +110,3 @@
 
 // clang thread safety analysis
 #include <floor/threading/thread_safety.hpp>
-
-#endif

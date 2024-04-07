@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VECTOR_LIB_HPP__
-#define __FLOOR_VECTOR_LIB_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 
@@ -169,5 +168,3 @@ struct is_floor_vector<vec_type> : public true_type {};
 
 // reenable warnings
 FLOOR_POP_WARNINGS()
-
-#endif

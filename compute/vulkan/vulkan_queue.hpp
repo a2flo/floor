@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_VULKAN_QUEUE_HPP__
-#define __FLOOR_VULKAN_QUEUE_HPP__
+#pragma once
 
 #include <floor/compute/vulkan/vulkan_common.hpp>
 
@@ -189,7 +188,5 @@ do { \
 } while (false)
 //! creates a "command block", i.e. creates a command buffer, starts it, runs the code specified as "...", and finally submits the buffer
 #define VK_CMD_BLOCK(vk_queue, name, code, is_blocking, ...) VK_CMD_BLOCK_RET(vk_queue, name, code, {}, is_blocking, ##__VA_ARGS__)
-
-#endif
 
 #endif

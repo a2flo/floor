@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_LLVM_TOOLCHAIN_HPP__
-#define __FLOOR_LLVM_TOOLCHAIN_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_device.hpp>
@@ -29,9 +28,9 @@ namespace llvm_toolchain {
 	enum class TARGET {
 		//! OpenCL SPIR 1.2
 		SPIR,
-		//! Nvidia CUDA PTX 6.0+
+		//! Nvidia CUDA PTX 8.0+
 		PTX,
-		//! Metal Apple-IR 2.0+
+		//! Metal Apple-IR 3.0+
 		AIR,
 		//! Vulkan SPIR-V 1.6+
 		SPIRV_VULKAN,
@@ -259,8 +258,8 @@ namespace llvm_toolchain {
 		
 		//! CUDA specific options
 		struct {
-			//! sets the PTX version that should be used (6.0 by default)
-			uint32_t ptx_version { 60 };
+			//! sets the PTX version that should be used (8.0 by default)
+			uint32_t ptx_version { 80 };
 			
 			//! sets the maximum amount of registers that may be used
 			//! if 0, the global config setting is used
@@ -332,5 +331,3 @@ namespace llvm_toolchain {
 									const uint32_t toolchain_version);
 
 } // llvm_toolchain
-
-#endif

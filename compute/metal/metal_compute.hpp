@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_COMPUTE_HPP__
-#define __FLOOR_METAL_COMPUTE_HPP__
+#pragma once
 
 #include <floor/compute/metal/metal_common.hpp>
 
@@ -73,27 +72,12 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 const size_t& size,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const override;
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
 											 std::span<uint8_t> data,
 											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) const override;
-	
-	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-										   const uint32_t opengl_buffer,
-										   const uint32_t opengl_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
-	
-	shared_ptr<compute_buffer> wrap_buffer(const compute_queue& cqueue,
-										   const uint32_t opengl_buffer,
-										   const uint32_t opengl_type,
-										   void* data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation
@@ -101,28 +85,13 @@ public:
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const override;
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   std::span<uint8_t> data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t opengl_type = 0) const override;
-	
-	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-										 const uint32_t opengl_image,
-										 const uint32_t opengl_target,
-										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
-	
-	shared_ptr<compute_image> wrap_image(const compute_queue& cqueue,
-										 const uint32_t opengl_image,
-										 const uint32_t opengl_target,
-										 void* data,
-										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
@@ -248,7 +217,5 @@ protected:
 	floor_core::flat_map<const compute_device&, unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
 	
 };
-
-#endif
 
 #endif

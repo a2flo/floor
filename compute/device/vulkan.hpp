@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_VULKAN_HPP__
-#define __FLOOR_COMPUTE_DEVICE_VULKAN_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_VULKAN)
 
@@ -244,7 +243,5 @@ static auto sub_group_exclusive_scan(const data_type& input_value) {
 }
 
 } // namespace compute_algorithm::group
-
-#endif
 
 #endif

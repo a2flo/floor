@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_METAL)
 
@@ -294,11 +293,10 @@ protected:
 	
 };
 
-#if FLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION != 0 || FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 //! Metal parallel group operation implementations / support
 namespace compute_algorithm::group {
 
-#if FLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION != 0 // -> AIR backend functions
+// -> AIR backend functions
 int32_t sub_group_reduce_add(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.s.i32");
 uint32_t sub_group_reduce_add(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.u.i32");
 float sub_group_reduce_add(float value) __attribute__((noduplicate, convergent)) asm("air.simd_sum.f32");
@@ -318,72 +316,6 @@ float sub_group_inclusive_scan_add(float value) __attribute__((noduplicate, conv
 int32_t sub_group_exclusive_scan_add(int32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.s.i32");
 uint32_t sub_group_exclusive_scan_add(uint32_t value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.u.i32");
 float sub_group_exclusive_scan_add(float value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum.f32");
-
-#elif FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0 // -> fallback to manual sub-group implementation
-//! performs a butterfly reduction inside the sub-group using the specific operation/function
-template <typename T, typename F> requires(is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
-floor_inline_always static T metal_sub_group_reduce(T lane_var, F&& op) {
-	// on Metal we only have a fixed+known SIMD-width at compile-time when we're specifically compiling for a device
-	if constexpr (device_info::has_fixed_known_simd_width()) {
-		T shfled_var;
-#pragma unroll
-		for (uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-			shfled_var = simd_shuffle_xor(lane_var, lane);
-			lane_var = op(lane_var, shfled_var);
-		}
-		return lane_var;
-	} else {
-		// dynamic version
-		T shfled_var;
-		for (uint32_t lane = get_sub_group_size() / 2; lane > 0; lane >>= 1) {
-			shfled_var = simd_shuffle_xor(lane_var, lane);
-			lane_var = op(lane_var, shfled_var);
-		}
-		return lane_var;
-	}
-}
-
-template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
-	return metal_sub_group_reduce(lane_var, plus<T> {});
-}
-template <typename T> floor_inline_always static T sub_group_reduce_min(T lane_var) {
-	return metal_sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::min(lhs, rhs); });
-}
-template <typename T> floor_inline_always static T sub_group_reduce_max(T lane_var) {
-	return metal_sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
-}
-
-template <bool is_exclusive, typename T, typename F> requires (is_same_v<T, int32_t> || is_same_v<T, uint32_t> || is_same_v<T, float>)
-floor_inline_always static T metal_sub_group_scan(T lane_var, F&& op) {
-	const auto lane_idx = get_sub_group_local_id();
-	
-	T shfled_var;
-#pragma unroll
-	for (uint32_t delta = 1u; delta <= (device_info::simd_width() / 2u); delta <<= 1u) {
-		shfled_var = simd_shuffle_up(lane_var, delta);
-		if (lane_idx >= delta) {
-			lane_var = op(lane_var, shfled_var);
-		}
-	}
-	
-	if constexpr (is_exclusive) {
-		// if this is an exclusive scan: shift one up
-		const auto incl_result = lane_var;
-		lane_var = simd_shuffle_up(incl_result, 1u);
-		return (lane_idx == 0 ? T(0) : lane_var);
-	} else {
-		return lane_var;
-	}
-}
-
-template <typename T> floor_inline_always static T sub_group_inclusive_scan_add(T lane_var) {
-	return metal_sub_group_scan<false>(lane_var, plus<T> {});
-}
-
-template <typename T> floor_inline_always static T sub_group_exclusive_scan_add(T lane_var) {
-	return metal_sub_group_scan<true>(lane_var, plus<T> {});
-}
-#endif
 
 // specialize for all supported operations
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint32_t> : public std::true_type {};
@@ -432,8 +364,5 @@ static auto sub_group_exclusive_scan(const data_type& input_value) {
 }
 
 } // namespace compute_algorithm::group
-#endif
-
-#endif
 
 #endif

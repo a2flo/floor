@@ -16,14 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONST_MATH_HPP__
-#define __FLOOR_CONST_MATH_HPP__
+#pragma once
 
 // misc c++ headers
 #include <type_traits>
 #include <utility>
 #include <limits>
 #include <algorithm>
+#include <bit>
 #if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
 #include <cmath>
 #include <cstdint>
@@ -36,8 +36,6 @@
 #include <floor/constexpr/ext_traits.hpp>
 #include <floor/math/constants.hpp>
 using namespace std;
-
-#include <floor/core/cpp_bitcast.hpp>
 
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons
@@ -339,7 +337,7 @@ namespace const_math {
 	
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: only safe to call up to n = 67, after this results may no longer fit into 64-bit
-	__attribute__((pure, const)) constexpr uint64_t binomial(const uint64_t n, uint64_t k)
+	__attribute__((pure)) constexpr uint64_t binomial(const uint64_t n, uint64_t k)
 	__attribute__((enable_if(!__builtin_constant_p(&n) || (__builtin_constant_p(&n) && n <= 67), "64-bit range"))) {
 		if(k > n) return 0u;
 		if(k == 0u || k == n) return 1u;
@@ -364,7 +362,7 @@ namespace const_math {
 #if (!defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))) // no 128-bit types
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
-	__attribute__((pure, const)) constexpr __uint128_t binomial_128(const __uint128_t n, __uint128_t k) {
+	__attribute__((pure)) constexpr __uint128_t binomial_128(const __uint128_t n, __uint128_t k) {
 		if(k > n) return 0u;
 		if(k == 0u || k == n) return 1u;
 		
@@ -1767,5 +1765,3 @@ namespace math {
 
 // reenable -Wunused-function
 FLOOR_POP_WARNINGS()
-
-#endif

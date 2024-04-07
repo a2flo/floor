@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_HOST_IMAGE_HPP__
-#define __FLOOR_HOST_IMAGE_HPP__
+#pragma once
 
 #include <floor/compute/host/host_common.hpp>
 
@@ -35,15 +34,9 @@ public:
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   std::span<uint8_t> host_data_ = {},
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-			   const uint32_t opengl_type = 0,
-			   const uint32_t external_gl_object_ = 0,
-			   const opengl_image_info* gl_image_info = nullptr,
 			   compute_image* shared_image_ = nullptr);
 	
 	~host_image() override;
-	
-	bool acquire_opengl_object(const compute_queue* cqueue) override;
-	bool release_opengl_object(const compute_queue* cqueue) override;
 	
 	bool zero(const compute_queue& cqueue) override;
 	
@@ -106,7 +99,5 @@ protected:
 	bool create_shared_image(const bool copy_host_data);
 	
 };
-
-#endif
 
 #endif

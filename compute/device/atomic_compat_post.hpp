@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_ATOMIC_COMPAT_POST_HPP__
-#define __FLOOR_COMPUTE_DEVICE_ATOMIC_COMPAT_POST_HPP__
+#pragma once
 
 // NOTE: need to be defined after all backend specific atomic_* functions
 
@@ -55,6 +54,4 @@ template <typename T> bool floor_atomic_compare_exchange_strong(local T* addr, c
 	const auto old = *expected;
 	return (atomic_cmpxchg(addr, *expected, desired) == old);
 }
-#endif
-
 #endif

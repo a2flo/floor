@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_TASK_HPP__
-#define __FLOOR_TASK_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <thread>
@@ -93,5 +92,3 @@ static inline void spawn(std::function<void()> op, const string task_name = "tas
 }
 
 } // namespace task
-
-#endif

@@ -464,7 +464,7 @@ openxr_context::openxr_context() : vr_context() {
 #if defined(__WINDOWS__)
 	// we need to be able to convert the Windows perf counter value into SDL ticks
 	// -> query current values from SDL and then solve for the start time/perf-counter
-	const auto sdl_ticks = SDL_GetTicks64();
+	const auto sdl_ticks = SDL_GetTicks();
 	const auto sdl_perf_counter = SDL_GetPerformanceCounter();
 	win_perf_counter_freq = SDL_GetPerformanceFrequency();
 	win_start_perf_counter = sdl_perf_counter - (sdl_ticks * win_perf_counter_freq) / 1000ull;
@@ -480,9 +480,7 @@ openxr_context::openxr_context() : vr_context() {
 #if defined(__linux__)
 	// we need to be able to convert the timespec into SDL ticks
 	// -> query current values from SDL and then solve for the start time
-	// NOTE: this is set by SDL (supported by glibc and musl) -> must have support for this
-	static_assert(HAVE_CLOCK_GETTIME, "must have clock_gettime support");
-	const auto sdl_ticks = SDL_GetTicks64(); // -> in ms
+	const auto sdl_ticks = SDL_GetTicks(); // -> in ms
 	const auto sdl_perf_counter = SDL_GetPerformanceCounter(); // -> in ns
 	assert(SDL_GetPerformanceFrequency() == unix_perf_counter_freq);
 	unix_start_time = sdl_perf_counter - sdl_ticks * 1000ull; // -> in ns

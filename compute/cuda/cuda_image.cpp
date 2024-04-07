@@ -26,7 +26,6 @@
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/compute/cuda/cuda_buffer.hpp>
-#include <floor/core/gl_shader.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/floor/floor.hpp>
@@ -35,63 +34,6 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_semaphore.hpp>
 #endif
-
-// internal shaders for copying/blitting opengl textures
-static const char blit_vs_text[] {
-	"out vec2 tex_coord;\n"
-	"void main() {\n"
-	"	const vec2 fullscreen_triangle[3] = vec2[](vec2(1.0, 1.0), vec2(-3.0, 1.0), vec2(1.0, -3.0));\n"
-	"	tex_coord = fullscreen_triangle[gl_VertexID] * 0.5 + 0.5;\n"
-	"	gl_Position = vec4(fullscreen_triangle[gl_VertexID], 0.0, 1.0);\n"
-	"}\n"
-};
-static const char blit_to_color_fs_text[] {
-	"uniform sampler2D in_tex;\n"
-	"in vec2 tex_coord;\n"
-	"out float out_depth;\n"
-	"void main() {\n"
-	"	out_depth = texture(in_tex, tex_coord).x;\n"
-	"}\n"
-};
-static const char blit_to_depth_fs_text[] {
-	"uniform sampler2D in_tex;\n"
-	"in vec2 tex_coord;\n"
-	"void main() {\n"
-	"	gl_FragDepth = texture(in_tex, tex_coord).x;\n"
-	"}\n"
-};
-
-namespace cuda_image_support {
-	enum class CUDA_SHADER : uint32_t {
-		BLIT_DEPTH_TO_COLOR,
-		BLIT_COLOR_TO_DEPTH,
-		__MAX_CUDA_SHADER
-	};
-	static array<floor_shader_object, (uint32_t)CUDA_SHADER::__MAX_CUDA_SHADER> shaders;
-	
-	static void init() {
-		static bool did_init = false;
-		if(did_init) return;
-		did_init = true;
-		if (floor::get_renderer() != floor::RENDERER::OPENGL) {
-			// don't do anything when we've not actually created an opengl context
-			return;
-		}
-		
-		// compile internal shaders
-		const auto depth_to_color_shd = floor_compile_shader("BLIT_DEPTH_TO_COLOR", blit_vs_text, blit_to_color_fs_text);
-		if(!depth_to_color_shd.first) {
-			log_error("failed to compile internal shader: $", depth_to_color_shd.second.name);
-		}
-		else shaders[(uint32_t)CUDA_SHADER::BLIT_DEPTH_TO_COLOR] = depth_to_color_shd.second;
-		
-		const auto color_to_depth_shd = floor_compile_shader("BLIT_COLOR_TO_DEPTH", blit_vs_text, blit_to_depth_fs_text);
-		if(!color_to_depth_shd.first) {
-			log_error("failed to compile internal shader: $", color_to_depth_shd.second.name);
-		}
-		else shaders[(uint32_t)CUDA_SHADER::BLIT_COLOR_TO_DEPTH] = color_to_depth_shd.second;
-	}
-}
 
 template <CU_MEMORY_TYPE src, CU_MEMORY_TYPE dst>
 static bool cuda_memcpy(const void* host,
@@ -139,13 +81,8 @@ static bool cuda_memcpy(const void* host,
 	return true;
 }
 
-static uint32_t cuda_driver_version { 9000 };
+static uint32_t cuda_driver_version { 12000 };
 void cuda_image::init_internal(cuda_compute* ctx) {
-	// only need to (can) init gl shaders when there's a window / gl context
-	if(!floor::is_console_only()) {
-		cuda_image_support::init();
-	}
-	
 	// need to know the driver version when using internal cuda functionality later on
 	cuda_driver_version = ctx->get_cuda_driver_version();
 }
@@ -181,12 +118,8 @@ cuda_image::cuda_image(const compute_queue& cqueue,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
-					   const uint32_t opengl_type_,
-					   const uint32_t external_gl_object_,
-					   const opengl_image_info* gl_image_info,
 					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, shared_image_, false),
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false),
 is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 	// TODO: handle the remaining flags + host ptr
 	
@@ -236,13 +169,10 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	auto channel_count = image_channel_count(image_type);
 	if(channel_count == 3 && !is_compressed) {
-		log_error("3-channel images are unsupported with cuda!");
+		log_error("3-channel images are unsupported with CUDA!");
 		// TODO: make this work transparently by using an empty alpha channel (pun not intended ;)),
 		// this will certainly segfault when using a host pointer that only points to 3-channel data
 		// -> on the device: can also make sure it only returns a <type>3 vector
-		// NOTE: explicitly fail when trying to use an external opengl image (this would require a copy
-		// every time it's used by cuda, which is almost certainly not wanted). also signal this is creating
-		// an RGBA image when this is creating the opengl image (warning?).
 		//channel_count = 4;
 		return false;
 	}
@@ -369,8 +299,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 				  (need_surf ? CU_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CU_ARRAY_3D_FLAGS::NONE)
 		)
 	};
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		log_debug("surf/tex $/$; dim $: $; channels $; flags $; format: $X",
 				  need_surf, need_tex, dim_count, array_desc.dim, array_desc.channel_count, array_desc.flags, array_desc.format);
 		if(!is_mip_mapped) {
@@ -451,13 +380,6 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 			.array_desc = array_desc,
 			.num_levels = mip_level_count,
 		};
-		// NOTE: this used to be necessary at some point, but it's no longer needed and will actually result in an error if used
-		//       -> only enable this for CUDA < 12.0
-		if (cuda_driver_version < 12000) {
-			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-				ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE;
-			}
-		}
 		if (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
 			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 			ext_array_desc.array_desc.flags |= CU_ARRAY_3D_FLAGS::COLOR_ATTACHMENT;
@@ -474,117 +396,6 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 #else
 		return false; // no Vulkan support
 #endif
-	}
-	// -> OpenGL image
-	else {
-		if(!create_gl_image(copy_host_data)) return false;
-		log_debug("surf/tex $/$", need_surf, need_tex);
-		
-		// cuda doesn't support depth textures
-		// -> need to create a compatible texture and copy it on the gpu
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-			// remove old
-			if(depth_compat_tex != 0) {
-				glDeleteTextures(1, &depth_compat_tex);
-			}
-			
-			// check if the format can be used
-			switch(gl_internal_format) {
-				case GL_DEPTH_COMPONENT16:
-					depth_compat_format = GL_R16UI;
-					break;
-				case GL_DEPTH_COMPONENT24:
-				case GL_DEPTH_COMPONENT32:
-					depth_compat_format = GL_R32UI;
-					break;
-				case GL_DEPTH_COMPONENT32F:
-					depth_compat_format = GL_R32F;
-					break;
-				case GL_DEPTH32F_STENCIL8:
-					depth_compat_format = GL_R32F;
-					
-					// correct view format, since stencil isn't supported
-					rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::FLOAT_1X32;
-					break;
-				default:
-					log_error("can't share opengl depth format $X with cuda", gl_internal_format);
-					return false;
-			}
-			
-			//
-			glGenTextures(1, &depth_compat_tex);
-			glBindTexture(opengl_type, depth_compat_tex);
-			glTexParameteri(opengl_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(opengl_type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(opengl_type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(opengl_type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			if(dim_count == 2) {
-				glTexImage2D(opengl_type, 0, (GLint)depth_compat_format, (int)image_dim.x, (int)image_dim.y,
-							 0, GL_RED, gl_type, nullptr);
-			}
-			else {
-				glTexParameteri(opengl_type, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-				glTexImage3D(opengl_type, 0, (GLint)depth_compat_format, (int)image_dim.x, (int)image_dim.y, (int)image_dim.z,
-							 0, GL_RED, gl_type, nullptr);
-			}
-			
-			// need a copy fbo when ARB_copy_image is not available
-			if(!floor::has_opengl_extension("GL_ARB_copy_image")) {
-				// check if depth 2D image, others are not supported (stencil should work by simply being dropped)
-				if(is_array || is_cube ||
-				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					log_error("unsupported depth image format ($X), only 2D depth or depth+stencil is supported!",
-							  image_type);
-					return false;
-				}
-				
-				// cleanup
-				if(depth_copy_fbo != 0) {
-					glDeleteFramebuffers(1, &depth_copy_fbo);
-				}
-				
-				glGenFramebuffers(1, &depth_copy_fbo);
-				glBindFramebuffer(GL_FRAMEBUFFER, depth_copy_fbo);
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, depth_compat_tex, 0);
-				
-				// check for gl/fbo errors
-				const auto err = glGetError();
-				const auto fbo_err = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-				if(err != 0 || fbo_err != GL_FRAMEBUFFER_COMPLETE) {
-					log_error("depth compat fbo/tex error: $X $X", err, fbo_err);
-					return false;
-				}
-				
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			}
-			glBindTexture(opengl_type, 0);
-		}
-		
-		// register the cuda object
-		CU_GRAPHICS_REGISTER_FLAGS cuda_gl_flags;
-		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-			case COMPUTE_MEMORY_FLAG::READ:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::READ_ONLY;
-				break;
-			case COMPUTE_MEMORY_FLAG::WRITE:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::WRITE_DISCARD;
-				break;
-			default:
-			case COMPUTE_MEMORY_FLAG::READ_WRITE:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::NONE;
-				break;
-		}
-		if(need_surf) cuda_gl_flags |= CU_GRAPHICS_REGISTER_FLAGS::SURFACE_LOAD_STORE;
-		CU_CALL_RET(cu_graphics_gl_register_image(&rsrc,
-												  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
-												  opengl_type, cuda_gl_flags),
-					"failed to register opengl image with cuda", false)
-		if(rsrc == nullptr) {
-			log_error("created cuda gl graphics resource is invalid!");
-			return false;
-		}
-		// acquire for use with cuda
-		acquire_opengl_object(&cqueue);
 	}
 	
 	// create texture/surface objects, depending on read/write flags and sampler support
@@ -720,9 +531,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 	}
 	
 	// manually create mip-map chain
-	if(generate_mip_maps &&
-	   // when using gl sharing: just acquired the opengl image, so no need to do this
-	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+	if (generate_mip_maps) {
 		generate_mip_map_chain(cqueue);
 	}
 	
@@ -746,8 +555,7 @@ cuda_image::~cuda_image() {
 	}
 	
 	// -> cuda array
-	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		if (image_array != nullptr) {
 			CU_CALL_RET(cu_array_destroy(image_array),
 						"failed to free device memory")
@@ -775,27 +583,6 @@ cuda_image::~cuda_image() {
 		cuda_vk_sema = nullptr;
 	}
 #endif
-	// -> OpenGL image
-	else {
-		if (gl_object == 0) {
-			log_error("invalid opengl image!");
-		} else {
-			if (image == nullptr || gl_object_state) {
-				log_warn("image still registered for opengl use - acquire before destructing a compute image!");
-			}
-			// kill opengl image
-			if (!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
-			delete_gl_image();
-		}
-	}
-	
-	// clean up depth compat objects
-	if (depth_copy_fbo != 0) {
-		glDeleteFramebuffers(1, &depth_copy_fbo);
-	}
-	if (depth_compat_tex != 0) {
-		glDeleteTextures(1, &depth_compat_tex);
-	}
 }
 
 bool cuda_image::zero(const compute_queue& cqueue) {
@@ -936,137 +723,6 @@ bool cuda_image::unmap(const compute_queue& cqueue,
 	mappings.erase(mapped_ptr);
 	
 	return success;
-}
-
-template <bool depth_to_color /* or color_to_depth if false */>
-floor_inline_always static void copy_depth_texture(const uint32_t& depth_copy_fbo,
-												   const uint32_t& input_tex,
-												   const uint32_t& output_tex,
-												   const uint32_t& opengl_type,
-												   const uint4& image_dim) {
-	// get current state
-	GLint cur_fbo = 0, front_face = 0, cull_face_mode = 0;
-	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fbo);
-	glGetIntegerv(GL_FRONT_FACE, &front_face);
-	glGetIntegerv(GL_CULL_FACE_MODE, &cull_face_mode);
-	
-	// bind our copy fbo and draw / copy the image using a shader
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, depth_copy_fbo);
-	if(depth_to_color) {
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, output_tex, 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, opengl_type, 0, 0);
-	}
-	else {
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, 0, 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, opengl_type, output_tex, 0);
-	}
-	glViewport(0, 0, int(image_dim.x), int(image_dim.y));
-	
-	// cull the right side (geometry in shader is CCW)
-	glEnable(GL_CULL_FACE);
-	glCullFace(front_face == GL_CCW ? GL_BACK : GL_FRONT);
-	
-	glUseProgram(cuda_image_support::shaders[(uint32_t)(depth_to_color ?
-														cuda_image_support::CUDA_SHADER::BLIT_DEPTH_TO_COLOR :
-														cuda_image_support::CUDA_SHADER::BLIT_COLOR_TO_DEPTH)].program.program);
-	glUniform1i(0, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(opengl_type, input_tex);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-	glUseProgram(0);
-	
-	// restore (note: not goind to store/restore shader state, this is assumed to be unsafe)
-	glCullFace((GLuint)cull_face_mode);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)cur_fbo);
-}
-
-bool cuda_image::acquire_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(rsrc == nullptr) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been acquired for use with cuda!");
-#endif
-		return true;
-	}
-	
-	// if a depth compat texture is used, the original opengl texture must by copied into it
-	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
-		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
-			glCopyImageSubData(gl_object, opengl_type, 0, 0, 0, 0,
-							   depth_compat_tex, opengl_type, 0, 0, 0, 0,
-							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
-		}
-		else {
-			copy_depth_texture<true /* depth to color */>(depth_copy_fbo, gl_object, depth_compat_tex, opengl_type, image_dim);
-		}
-	}
-	
-	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc,
-										  (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to acquire opengl image - cuda resource mapping failed!", false)
-	gl_object_state = false;
-	
-	// TODO: handle opengl array/layers
-	if(is_mip_mapped) {
-		CU_CALL_RET(cu_graphics_resource_get_mapped_mipmapped_array(&image_mipmap_array, rsrc),
-					"failed to retrieve mapped cuda mip-map image from opengl image!", false)
-		image = image_mipmap_array;
-		
-		image_mipmap_arrays.resize(mip_level_count);
-		for(uint32_t level = 0; level < mip_level_count; ++level) {
-			CU_CALL_RET(cu_graphics_sub_resource_get_mapped_array(&image_mipmap_arrays[level], rsrc, 0, level),
-						"failed to retrieve mip-map level #" + to_string(level) + " from mapped opengl image!", false)
-		}
-	}
-	else {
-		CU_CALL_RET(cu_graphics_sub_resource_get_mapped_array(&image_array, rsrc, 0, 0),
-					"failed to retrieve mapped cuda image from opengl image!", false)
-		image = image_array;
-	}
-	
-	if(image == nullptr) {
-		log_error("mapped cuda image (from a graphics resource) is invalid!");
-		return false;
-	}
-	
-	return true;
-}
-
-bool cuda_image::release_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(image == nullptr) return false;
-	if(rsrc == nullptr) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	// if a depth compat texture is used, the cuda image must be copied to the opengl depth texture
-	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
-		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
-			glCopyImageSubData(depth_compat_tex, opengl_type, 0, 0, 0, 0,
-							   gl_object, opengl_type, 0, 0, 0, 0,
-							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
-		}
-		else {
-			copy_depth_texture<false /* color to depth */>(depth_copy_fbo, depth_compat_tex, gl_object, opengl_type, image_dim);
-		}
-	}
-	
-	// reset array pointers (these are no longer valid) + unmap resource
-	image = nullptr;
-	image_array = nullptr;
-	image_mipmap_array = nullptr;
-	image_mipmap_arrays.clear();
-	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc,
-											(cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to release opengl image - cuda resource unmapping failed!", false)
-	gl_object_state = true;
-	
-	return true;
 }
 	
 #if !defined(FLOOR_NO_VULKAN)

@@ -23,21 +23,7 @@
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/core/logger.hpp>
 
-static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
-	// opengl sharing handling
-	if(has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		// check if specified opengl type is valid
-		if(opengl_type == 0) {
-			log_error("OpenGL sharing has been set, but no OpenGL object type has been specified!");
-		}
-		// TODO: check for known opengl types? how to deal with unknown ones?
-		
-		// clear out USE_HOST_MEMORY flag if it is set
-		if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-			flags &= ~COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY;
-		}
-	}
-	
+static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags) {
 	// Vulkan sharing handling
 	if(has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		// clear out USE_HOST_MEMORY flag if it is set
@@ -110,18 +96,10 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 
 compute_memory::compute_memory(const compute_queue& cqueue,
 							   std::span<uint8_t> host_data_,
-							   const COMPUTE_MEMORY_FLAG flags_,
-							   const uint32_t opengl_type_,
-							   const uint32_t external_gl_object_) :
-dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_, opengl_type_)),
-has_external_gl_object(external_gl_object_ != 0), opengl_type(opengl_type_),
-gl_object(has_external_gl_object ? external_gl_object_ : 0) {
+							   const COMPUTE_MEMORY_FLAG flags_) :
+dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_)) {
 	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		log_error("memory must be read-only, write-only or read-write!");
-	}
-	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
-	   has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags_)) {
-		log_error("USE_HOST_MEMORY and OPENGL_SHARING are mutually exclusive!");
 	}
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
 	   has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags_)) {

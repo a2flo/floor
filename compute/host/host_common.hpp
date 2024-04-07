@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_HOST_COMMON_HPP__
-#define __FLOOR_HOST_COMMON_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <cstdint>
@@ -92,6 +91,4 @@ constexpr const char* host_cpu_tier_to_string(const HOST_CPU_TIER& tier) {
 #endif
 #else
 #error "unhandled arch"
-#endif
-
 #endif

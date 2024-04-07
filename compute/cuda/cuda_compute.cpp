@@ -41,7 +41,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 	// init cuda itself
 	CU_CALL_RET(cu_init(0), "failed to initialize CUDA")
 	
-	// need at least 9.0 right now
+	// need at least 12.0 right now
 	const auto to_driver_major = [](const uint32_t& version) { return version / 1000; };
 	const auto to_driver_minor = [](const uint32_t& version) { return (version % 100) / 10; };
 	cu_driver_get_version((int*)&driver_version);
@@ -99,11 +99,11 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 			if(!found) continue;
 		}
 		
-		// need at least sm_30 capability (Kepler)
+		// need at least sm_50 capability (Maxwell)
 		int2 cc;
 		CU_CALL_IGNORE(cu_device_compute_capability(&cc.x, &cc.y, cuda_dev))
-		if(cc.x < 3) {
-			log_error("unsupported cuda device \"$\": at least compute capability 3.0 is required (has $.$)!",
+		if (cc.x < 5) {
+			log_error("unsupported cuda device \"$\": at least compute capability 5.0 is required (has $.$)!",
 					  dev_name, cc.x, cc.y);
 			continue;
 		}
@@ -201,17 +201,11 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 		device.unified_memory = (unified_memory != 0);
 		device.cooperative_kernel_support = (coop_launch != 0);
 		
-		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
-		
-		// get UUID if CUDA 9.2+
-		if (driver_version >= 9020 && cu_device_get_uuid != nullptr) {
-			do {
-				cu_uuid uuid;
-				CU_CALL_CONT(cu_device_get_uuid(&uuid, cuda_dev), "failed to retrieve device UUID")
-				copy_n(begin(uuid.bytes), device.uuid.size(), begin(device.uuid));
-				device.has_uuid = true;
-			} while (false);
-		}
+		// get UUID
+		cu_uuid uuid;
+		CU_CALL_IGNORE(cu_device_get_uuid(&uuid, cuda_dev), "failed to retrieve device UUID")
+		copy_n(begin(uuid.bytes), device.uuid.size(), begin(device.uuid));
+		device.has_uuid = true;
 		
 		// enable h/w depth compare when using the internal api and everything is alright
 		if(cuda_can_use_internal_api()) {
@@ -226,37 +220,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 		}
 		
 		// set max supported PTX version and min required PTX version
-		if (driver_version >= 9000 && driver_version < 9010) {
-			device.ptx = { 6, 0 };
-		} else if (driver_version < 9020) {
-			device.ptx = { 6, 1 };
-		} else if (driver_version < 10000) {
-			device.ptx = { 6, 2 };
-		} else if (driver_version < 10010) {
-			device.ptx = { 6, 3 };
-		} else if (driver_version < 10020) {
-			device.ptx = { 6, 4 };
-		} else if (driver_version < 11000) {
-			device.ptx = { 6, 5 };
-		} else if (driver_version < 11010) {
-			device.ptx = { 7, 0 };
-		} else if (driver_version < 11020) {
-			device.ptx = { 7, 1 };
-		} else if (driver_version < 11030) {
-			device.ptx = { 7, 2 };
-		} else if (driver_version < 11040) {
-			device.ptx = { 7, 3 };
-		} else if (driver_version < 11050) {
-			device.ptx = { 7, 4 };
-		} else if (driver_version < 11060) {
-			device.ptx = { 7, 5 };
-		} else if (driver_version < 11070) {
-			device.ptx = { 7, 6 };
-		} else if (driver_version < 11080) {
-			device.ptx = { 7, 7 };
-		} else if (driver_version < 12000) {
-			device.ptx = { 7, 8 };
-		} else if (driver_version < 12010) {
+		if (driver_version < 12010) {
 			device.ptx = { 8, 0 };
 		} else if (driver_version < 12020) {
 			device.ptx = { 8, 1 };
@@ -268,21 +232,8 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 			device.ptx = { 8, 4 };
 		}
 		
-		device.min_req_ptx = { 6, 0 };
-		if (device.sm.x == 7 && device.sm.x >= 5) {
-			device.min_req_ptx = { 6, 3 };
-		} else if (device.sm.x == 8) {
-			if (device.sm.y < 6) {
-				device.min_req_ptx = { 7, 0 };
-			} else if (device.sm.y < 7) {
-				device.min_req_ptx = { 7, 1 };
-			} else if (device.sm.y < 8) {
-				device.min_req_ptx = { 7, 6 };
-			} else {
-				device.min_req_ptx = { 7, 8 };
-			}
-		} else if (device.sm.x == 9 && device.sm.y == 0) {
-			device.min_req_ptx = { 7, 8 };
+		if (device.sm.x < 9 || (device.sm.x == 9 && device.sm.y == 0)) {
+			device.min_req_ptx = { 8, 0 };
 		} else {
 			device.min_req_ptx = { 8, 4 };
 		}
@@ -330,10 +281,6 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const vector<s
 		const auto compute_gpu_score = [](const cuda_device& dev) -> uint32_t {
 			uint32_t multiplier = 1;
 			switch(dev.sm.x) {
-				case 3:
-					// sm_3x: 192 cores/sm
-					multiplier = 192;
-					break;
 				case 5:
 					// sm_5x: 128 cores/sm
 					multiplier = 128;
@@ -427,39 +374,14 @@ unique_ptr<compute_fence> cuda_compute::create_fence(const compute_queue&) const
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
-													   const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<cuda_buffer>(cqueue, size, flags, opengl_type));
+													   const size_t& size, const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<cuda_buffer>(cqueue, size, flags));
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const compute_queue& cqueue,
 													   std::span<uint8_t> data,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<cuda_buffer>(cqueue, data.size_bytes(), data, flags, opengl_type));
-}
-
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<cuda_buffer>(cqueue, info.size, std::span<uint8_t> {},
-												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												 opengl_type, opengl_buffer));
-}
-
-shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<cuda_buffer>(cqueue, info.size, std::span<uint8_t> { (uint8_t*)data, info.size },
-												 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												 opengl_type, opengl_buffer));
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<cuda_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue,
@@ -467,7 +389,7 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 													 const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), std::span<uint8_t> {},
-												 flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, &vk_buffer));
+												 flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, &vk_buffer));
 #else
 	return compute_context::wrap_buffer(cqueue, vk_buffer, flags);
 #endif
@@ -476,46 +398,16 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
-													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) const {
-	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, opengl_type));
+													 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
 }
 
 shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
 													 std::span<uint8_t> data,
-													 const COMPUTE_MEMORY_FLAG flags,
-													 const uint32_t opengl_type) const {
-	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
-}
-
-shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<cuda_image>(cqueue, info.image_dim, info.image_type, std::span<uint8_t> {},
-												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												opengl_target, opengl_image, &info));
-}
-
-shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	const auto actual_img_type = compute_image::handle_image_type(info.image_dim, info.image_type);
-	const auto img_size = image_data_size_from_types(info.image_dim, actual_img_type,
-													 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
-													 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
-	return add_resource(make_shared<cuda_image>(cqueue, info.image_dim, info.image_type,
-												std::span<uint8_t> { (uint8_t*)data, img_size },
-												flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												opengl_target, opengl_image, &info));
+													 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags));
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
@@ -523,7 +415,7 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 												   const COMPUTE_MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), std::span<uint8_t> {},
-												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, 0, 0, nullptr, (compute_image*)&vk_image));
+												flags | COMPUTE_MEMORY_FLAG::VULKAN_SHARING, (compute_image*)&vk_image));
 #else
 	return compute_context::wrap_image(cqueue, vk_image, flags);
 #endif

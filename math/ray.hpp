@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_RAY_HPP__
-#define __FLOOR_RAY_HPP__
+#pragma once
 
 #include <floor/math/vector_lib.hpp>
 
@@ -53,5 +52,3 @@ public:
 #endif
 	
 };
-
-#endif

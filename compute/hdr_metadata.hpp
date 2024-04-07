@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_HDR_METADATA_HPP__
-#define __FLOOR_COMPUTE_HDR_METADATA_HPP__
+#pragma once
 
 #include <array>
 #include <floor/math/vector_lib.hpp>
@@ -44,5 +43,3 @@ struct hdr_metadata_t {
 	//! i.e. the average brightness of all pixels does not exceed this light level
 	float max_average_light_level { 500.0f };
 };
-
-#endif

@@ -23,29 +23,22 @@
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/compute/spirv_handler.hpp>
 #include <floor/core/platform.hpp>
-#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/universal_binary.hpp>
 #include <floor/floor/floor.hpp>
+#include <filesystem>
 
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp> // cleanup
 
 opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 							   const uint32_t platform_index_,
-							   const bool gl_sharing_,
 							   const vector<string> whitelist) : compute_context(ctx_flags) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
-	
-	// disable gl sharing if the opengl renderer isn't used
-	bool gl_sharing = gl_sharing_;
-	if(gl_sharing && floor::get_renderer() != floor::RENDERER::OPENGL) {
-		gl_sharing = false;
-	}
 	
 	// get platforms
 	cl_uint platform_count = 0;
@@ -129,26 +122,10 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 			continue;
 		}
 		
-		// context with gl share group (cl/gl interop)
-#if defined(__WINDOWS__)
 		cl_context_properties cl_properties[] {
 			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
-			gl_sharing ? CL_GL_CONTEXT_KHR : 0,
-			gl_sharing ? (cl_context_properties)wglGetCurrentContext() : 0,
-			gl_sharing ? CL_WGL_HDC_KHR : 0,
-			gl_sharing ? (cl_context_properties)wglGetCurrentDC() : 0,
 			0
 		};
-#else // Linux and *BSD
-		cl_context_properties cl_properties[] {
-			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
-			gl_sharing ? CL_GL_CONTEXT_KHR : 0,
-			gl_sharing ? (cl_context_properties)glXGetCurrentContext() : 0,
-			gl_sharing ? CL_GLX_DISPLAY_KHR : 0,
-			gl_sharing ? (cl_context_properties)glXGetCurrentDisplay() : 0,
-			0
-		};
-#endif
 		
 		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
 													 nullptr, nullptr, &ctx_error),
@@ -830,84 +807,29 @@ unique_ptr<compute_fence> opencl_compute::create_fence(const compute_queue&) con
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
-														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) const {
-	return add_resource(make_shared<opencl_buffer>(cqueue, size, flags, opengl_type));
+														 const size_t& size, const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<opencl_buffer>(cqueue, size, flags));
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const compute_queue& cqueue,
 														 std::span<uint8_t> data,
-														 const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) const {
-	return add_resource(make_shared<opencl_buffer>(cqueue, data.size_bytes(), data, flags, opengl_type));
-}
-
-shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
-													   const uint32_t opengl_buffer,
-													   const uint32_t opengl_type,
-													   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<opencl_buffer>(cqueue, info.size, std::span<uint8_t> {},
-												   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												   opengl_type, opengl_buffer));
-}
-
-shared_ptr<compute_buffer> opencl_compute::wrap_buffer(const compute_queue& cqueue,
-													   const uint32_t opengl_buffer,
-													   const uint32_t opengl_type,
-													   void* data,
-													   const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<opencl_buffer>(cqueue, info.size, std::span<uint8_t> { (uint8_t*)data, info.size },
-												   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												   opengl_type, opengl_buffer));
+														 const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<opencl_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, opengl_type));
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
 }
 
 shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
 													   std::span<uint8_t> data,
-													   const COMPUTE_MEMORY_FLAG flags,
-													   const uint32_t opengl_type) const {
-	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags, opengl_type));
-}
-
-shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
-													 const uint32_t opengl_image,
-													 const uint32_t opengl_target,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	return add_resource(make_shared<opencl_image>(cqueue, info.image_dim, info.image_type, std::span<uint8_t> {},
-												  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												  opengl_target, opengl_image, &info));
-}
-
-shared_ptr<compute_image> opencl_compute::wrap_image(const compute_queue& cqueue,
-													 const uint32_t opengl_image,
-													 const uint32_t opengl_target,
-													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	const auto actual_img_type = compute_image::handle_image_type(info.image_dim, info.image_type);
-	const auto img_size = image_data_size_from_types(info.image_dim, actual_img_type,
-													 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
-													 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
-	return add_resource(make_shared<opencl_image>(cqueue, info.image_dim, info.image_type,
-												  std::span<uint8_t> { (uint8_t*)data, img_size },
-												  flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-												  opengl_target, opengl_image, &info));
+													   const COMPUTE_MEMORY_FLAG flags) const {
+	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags));
 }
 
 shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
@@ -1005,7 +927,8 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(const
 		auto spirv_binary = spirv_handler::load_binary(program.data_or_filename, spirv_binary_size);
 		if (!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
 			// cleanup if file exists
-			core::system("rm " + program.data_or_filename);
+			error_code ec {};
+			(void)filesystem::remove(program.data_or_filename, ec);
 		}
 		if (spirv_binary == nullptr) return {}; // already prints an error
 		

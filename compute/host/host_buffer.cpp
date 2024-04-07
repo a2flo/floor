@@ -31,10 +31,8 @@ host_buffer::host_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_,
-						 const uint32_t opengl_type_,
-						 const uint32_t external_gl_object_,
 						 compute_buffer* shared_buffer_) :
-compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
+compute_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// check Metal/Vulkan buffer sharing validity
@@ -61,12 +59,11 @@ compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_obje
 bool host_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
 	// TODO: handle the remaining flags + host ptr
 	
-	// always allocate host memory (even with OpenGL/Metal/Vulkan, memory needs to be copied somewhere)
+	// always allocate host memory (even with Metal/Vulkan, memory needs to be copied somewhere)
 	buffer = make_aligned_ptr<uint8_t>(size);
 
 	// -> normal host buffer
-	if (!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) &&
+	if (!has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags) &&
 		!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data &&
@@ -99,28 +96,11 @@ bool host_buffer::create_internal(const bool copy_host_data, const compute_queue
 		acquire_vulkan_buffer(&cqueue, (const vulkan_queue*)comp_vk_queue);
 	}
 #endif
-	// -> shared host/OpenGL buffer
-	else {
-		if (!create_gl_buffer(copy_host_data)) {
-			return false;
-		}
-		
-		// acquire for use with the host
-		acquire_opengl_object(&cqueue);
-	}
 
 	return true;
 }
 
 host_buffer::~host_buffer() {
-	// first, release and kill the opengl buffer
-	if(gl_object != 0) {
-		if(gl_object_state) {
-			log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
-		}
-		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
-		delete_gl_buffer();
-	}
 }
 
 void host_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
@@ -242,57 +222,6 @@ bool host_buffer::unmap(const compute_queue& cqueue floor_unused, void* __attrib
 	if (mapped_ptr == nullptr) return false;
 
 	// nop
-	return true;
-}
-
-bool host_buffer::acquire_opengl_object(const compute_queue* cqueue floor_unused) {
-	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been acquired for use with the host!");
-#endif
-		return true;
-	}
-	
-	// copy gl buffer data to host memory (through r/o map)
-	glBindBuffer(opengl_type, gl_object);
-#if !defined(FLOOR_IOS)
-	void* gl_data = glMapBuffer(opengl_type, GL_READ_ONLY);
-#else
-	void* gl_data = glMapBufferRange(opengl_type, 0, (GLsizeiptr)size, GL_MAP_READ_BIT);
-#endif
-	if(gl_data == nullptr) {
-		log_error("failed to acquire opengl buffer - opengl buffer mapping failed");
-		return false;
-	}
-	
-	memcpy(buffer.get(), gl_data, size);
-	
-	if(!glUnmapBuffer(opengl_type)) {
-		log_error("opengl buffer unmapping failed");
-	}
-	glBindBuffer(opengl_type, 0);
-	
-	gl_object_state = false;
-	return true;
-}
-
-bool host_buffer::release_opengl_object(const compute_queue* cqueue floor_unused) {
-	if(gl_object == 0) return false;
-	if (!buffer) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	// copy the host data to the gl buffer
-	glBindBuffer(opengl_type, gl_object);
-	glBufferSubData(opengl_type, 0, (GLsizeiptr)size, buffer.get());
-	glBindBuffer(opengl_type, 0);
-	
-	gl_object_state = true;
 	return true;
 }
 

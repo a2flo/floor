@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_THREAD_BASE_HPP__
-#define __FLOOR_THREAD_BASE_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <thread>
@@ -120,5 +119,3 @@ protected:
 	thread_base(const thread_base& tb);
 	void operator=(const thread_base& tb);
 };
-
-#endif

@@ -18,8 +18,6 @@
 
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
-#include <floor/core/gl_support.hpp>
-#include <floor/audio/audio_controller.hpp>
 #include <floor/core/sig_handler.hpp>
 #include <floor/core/json.hpp>
 #include <floor/core/aligned_ptr.hpp>
@@ -39,18 +37,16 @@
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
 #include <memoryapi.h>
-#include <SDL2/SDL_syswm.h>
 #include <floor/core/essentials.hpp> // cleanup
 
 #if defined(_MSC_VER)
 #include <direct.h>
 #endif
-#else
-#include <SDL2/SDL_syswm.h>
 #endif
 
 #if defined(__linux__)
 #include <sys/resource.h>
+#include <X11/Xlib.h>
 #endif
 
 //// init statics
@@ -74,23 +70,12 @@ SDL_Window* floor::window { nullptr };
 // VR
 shared_ptr<vr_context> floor::vr_ctx;
 
-// OpenGL
-SDL_GLContext floor::opengl_ctx { nullptr };
-unordered_set<string> floor::gl_extensions;
-bool floor::use_gl_context { false };
-uint32_t floor::global_vao { 0u };
-string floor::gl_vendor { "" };
-
 // Metal
 shared_ptr<metal_compute> floor::metal_ctx;
 
 // Vulkan
 shared_ptr<vulkan_compute> floor::vulkan_ctx;
 uint3 floor::vulkan_api_version;
-
-// for use with acquire_context/release_context
-recursive_mutex floor::ctx_lock;
-atomic<uint32_t> floor::ctx_active_locks { 0 };
 
 // path variables
 string floor::datapath {};
@@ -119,11 +104,6 @@ bool floor::console_only = false;
 bool floor::cursor_visible = true;
 bool floor::x11_forwarding = false;
 atomic<bool> floor::reload_kernels_flag { false };
-
-#if defined(__WINDOWS__)
-bool enable_windows_hidpi();
-static double windows_dpi_scaler{ 1.0 };
-#endif
 
 bool floor::init(const init_state& state) {
 	// return if already initialized
@@ -345,11 +325,6 @@ bool floor::init(const init_state& state) {
 		config.vr_trackers = config_doc.get<bool>("screen.vr.trackers", true);
 		config.vr_hand_tracking = config_doc.get<bool>("screen.vr.hand_tracking", true);
 		
-		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
-		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
-		config.sound_volume = const_math::clamp(config_doc.get<float>("audio.sound", 1.0f), 0.0f, 1.0f);
-		config.audio_device_name = config_doc.get<string>("audio.device", "");
-		
 		config.verbosity = config_doc.get<uint32_t>("logging.verbosity", (uint32_t)logger::LOG_TYPE::UNDECORATED);
 		config.separate_msg_file = config_doc.get<bool>("logging.separate_msg_file", false);
 		config.append_mode = config_doc.get<bool>("logging.append_mode", false);
@@ -361,7 +336,7 @@ bool floor::init(const init_state& state) {
 		config.fov = config_doc.get<float>("projection.fov", 72.0f);
 		config.near_far_plane.x = config_doc.get<float>("projection.near", 1.0f);
 		config.near_far_plane.y = config_doc.get<float>("projection.far", 1000.0f);
-		config.upscaling = config_doc.get<float>("projection.upscaling", 1.0f);
+		config.upscaling = config_doc.get<float>("projection.upscaling", -1.0f);
 		
 		config.key_repeat = config_doc.get<uint32_t>("input.key_repeat", 200);
 		config.ldouble_click_time = config_doc.get<uint32_t>("input.ldouble_click_time", 200);
@@ -369,7 +344,6 @@ bool floor::init(const init_state& state) {
 		config.rdouble_click_time = config_doc.get<uint32_t>("input.rdouble_click_time", 200);
 		
 		config.backend = config_doc.get<string>("toolchain.backend", "");
-		config.gl_sharing = config_doc.get<bool>("toolchain.gl_sharing", false);
 		config.debug = config_doc.get<bool>("toolchain.debug", false);
 		config.profiling = config_doc.get<bool>("toolchain.profiling", false);
 		config.log_binaries = config_doc.get<bool>("toolchain.log_binaries", false);
@@ -724,81 +698,47 @@ bool floor::init(const init_state& state) {
 #endif
 	
 	// choose the renderer
-	if(state.renderer == RENDERER::DEFAULT) {
+	if (state.renderer == RENDERER::DEFAULT) {
 #if !defined(__APPLE__)
-		// try to use Vulkan if the backend is Vulkan and the toolchain exists
-		if (config.backend == "vulkan") {
-			if (!config.vulkan_toolchain_exists) {
-				log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
-				renderer = RENDERER::OPENGL;
-			} else {
-				renderer = RENDERER::VULKAN;
-			}
-		}
-		// also try to use Vulkan if the backend is CUDA/Host-Compute and a Vulkan toolchain exists
-		else if (config.backend == "cuda" || config.backend == "host") {
-			renderer = (config.vulkan_toolchain_exists ? RENDERER::VULKAN : RENDERER::OPENGL);
-		} else {
-			renderer = RENDERER::OPENGL;
-		}
+		// always use Vulkan
+		renderer = RENDERER::VULKAN;
 #else
-#if !defined(FLOOR_IOS)
-		// default to Metal on macOS if a toolchaing exists
-		if (config.metal_toolchain_exists) {
-			renderer = RENDERER::METAL;
-		} else {
-			renderer = RENDERER::OPENGL;
-		}
-#else
-		// always use Metal on iOS
+		// always use Metal
 		renderer = RENDERER::METAL;
 #endif
-#endif
-	}
-	else if(state.renderer == RENDERER::OPENGL) {
-		renderer = RENDERER::OPENGL;
-	}
-	else if(state.renderer == RENDERER::VULKAN) {
-		// Vulkan was explicitly requested, still need to check if the toolchain exists
+	} else if (state.renderer == RENDERER::VULKAN) {
 #if !defined(__APPLE__)
-		if(!config.vulkan_toolchain_exists) {
-			log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
-			renderer = RENDERER::OPENGL;
-		}
-		else {
-			renderer = RENDERER::VULKAN;
-		}
+		renderer = RENDERER::VULKAN;
 #else
 		// obviously can't use Vulkan on macOS / iOS
-		log_error("Vulkan renderer is not available on macOS / iOS - using OpenGL now");
-		renderer = RENDERER::OPENGL;
+		log_error("Vulkan renderer is not available on macOS / iOS - using Metal now");
+		renderer = RENDERER::METAL;
 #endif
-	}
-	else if(state.renderer == RENDERER::METAL) {
-		// Metal was explicitly requested, still need to check if the toolchain exists
+	} else if (state.renderer == RENDERER::METAL) {
 #if !defined(FLOOR_NO_METAL)
-		if(!config.metal_toolchain_exists) {
-			log_error("tried to use the Metal renderer, but toolchain doesn't exist - using OpenGL now");
-			renderer = RENDERER::OPENGL;
-		}
-		else {
-			renderer = RENDERER::METAL;
-		}
+		renderer = RENDERER::METAL;
 #else
 		// obviously can't use Metal
-		log_error("Metal renderer is not available - using OpenGL now");
-		renderer = RENDERER::OPENGL;
+		log_error("Metal renderer is not available - using VULKAN now");
+		renderer = RENDERER::VULKAN;
 #endif
-	}
-	else {
+	} else {
 		renderer = RENDERER::NONE;
 	}
 	assert(renderer != RENDERER::DEFAULT && "must have selected a renderer");
-	use_gl_context = (renderer == RENDERER::OPENGL);
+	
+	if (renderer == RENDERER::VULKAN && !config.vulkan_toolchain_exists) {
+		log_error("tried to use the Vulkan renderer, but toolchain doesn't exist");
+		return false;
+	}
+	if (renderer == RENDERER::METAL && !config.metal_toolchain_exists) {
+		log_error("tried to use the Metal renderer, but toolchain doesn't exist");
+		return false;
+	}
 	
 	//
 	evt = make_unique<event>();
-	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
+	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE);
 	
 	//
 	const auto successful_init = init_internal(state);
@@ -825,17 +765,6 @@ void floor::destroy() {
 	}
 	log_debug("destroying floor ...");
 	
-	if(!console_only) {
-		use_gl_context = false;
-		acquire_context();
-	}
-	
-#if !defined(FLOOR_NO_OPENAL)
-	if(!config.audio_disabled) {
-		audio_controller::destroy();
-	}
-#endif
-	
 	compute_image::destroy_minify_programs();
 
 	evt->set_vr_context(nullptr);
@@ -851,12 +780,6 @@ void floor::destroy() {
 	}
 	
 	if(!console_only) {
-		release_context();
-		
-		if(opengl_ctx != nullptr) {
-			SDL_GL_DeleteContext(opengl_ctx);
-			opengl_ctx = nullptr;
-		}
 		if(window != nullptr) {
 			SDL_DestroyWindow(window);
 			window = nullptr;
@@ -871,22 +794,27 @@ void floor::destroy() {
 bool floor::init_internal(const init_state& state) {
 	log_debug("initializing floor");
 
-	// initialize sdl
-	if(SDL_Init(console_only ? 0 : SDL_INIT_VIDEO) == -1) {
+	// initialize SDL (with all sub-systems if !console-only)
+	if (!console_only) {
+		// enable Windows DPI awareness *before* we init the SDL video sub-system
+		if (!SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system")) {
+			log_error("failed to set Windows DPI awareness");
+		}
+	}
+	if (SDL_Init(console_only ? 0 : (SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK |
+									 SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_SENSOR)) == -1) {
 		log_error("failed to initialize SDL: $", SDL_GetError());
 		return false;
-	}
-	else {
+	} else {
 		log_debug("SDL initialized");
 	}
 	atexit(SDL_Quit);
 
-	// only initialize opengl/opencl and create a window when not in console-only mode
-	if(!console_only) {
+	// only initialize compute/graphics backends and create a window when not in console-only mode
+	if (!console_only) {
 		// detect x11 forwarding
 #if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
-		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
-		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
+		if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
 			const auto display = getenv("DISPLAY");
 			if (display != nullptr && strlen(display) > 1 && display[0] != ':') {
 				if (getenv("SSH_CONNECTION") != nullptr) {
@@ -899,9 +827,6 @@ bool floor::init_internal(const init_state& state) {
 		
 		// set window creation flags
 		config.flags = state.window_flags;
-		if(renderer == RENDERER::OPENGL) {
-			config.flags |= SDL_WINDOW_OPENGL;
-		}
 		
 #if !defined(FLOOR_IOS)
 		auto window_pos = state.window_position;
@@ -921,37 +846,15 @@ bool floor::init_internal(const init_state& state) {
 		else {
 			log_debug("fullscreen disabled");
 		}
-#else
-		// always set shown
-		// NOTE: init_state::window_flags defaults to fullscreen/borderless/resizable on iOS,
-		//       but let the user decide if those should be used
-		config.flags |= SDL_WINDOW_SHOWN;
 #endif
 		
 		log_debug("vsync $", config.vsync ? "enabled" : "disabled");
 		
 		// handle hidpi
-		int2 init_screen_size{ (int)config.width, (int)config.height };
 		if (config.hidpi) {
-			config.flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+			config.flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
 		}
-		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
-		SDL_SetHint("SDL_HINT_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi $", config.hidpi ? "enabled" : "disabled");
-
-#if defined(__WINDOWS__)
-		if (config.hidpi) {
-			if (!enable_windows_hidpi()) {
-				log_error("failed to set Windows DPI awareness");
-			} else {
-				// update wanted window size based on DPI scaler
-				if (!config.fullscreen) {
-					init_screen_size = (init_screen_size.cast<double>() * windows_dpi_scaler).cast<int>();
-					log_debug("DPI-scaled window size: ($, $) -> $", config.width, config.height, init_screen_size);
-				}
-			}
-		}
-#endif
 		
 		if (renderer == RENDERER::METAL || renderer == RENDERER::VULKAN) {
 			if (config.wide_gamut) {
@@ -959,41 +862,7 @@ bool floor::init_internal(const init_state& state) {
 			}
 		}
 		
-		if(renderer == RENDERER::OPENGL) {
-			// gl attributes
-			SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-			SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-			SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-			SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-			SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-		}
-		
-#if !defined(FLOOR_IOS)
-		// if x11 forwarding, don't set/request any specific opengl version,
-		// otherwise try to use opengl 3.3+ (core) or 2.0
-		if(!x11_forwarding && renderer == RENDERER::OPENGL) {
-			if(state.use_opengl_33) {
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-#if defined(__APPLE__) // must request a core context on macOS, doesn't matter on other platforms
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-#endif
-			}
-			else {
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-				SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
-			}
-		}
-#else
-		if(renderer == RENDERER::OPENGL) {
-			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles3");
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-		}
-		
-		//
+#if defined(FLOOR_IOS)
 		SDL_DisplayMode fullscreen_mode;
 		SDL_zero(fullscreen_mode);
 		fullscreen_mode.format = SDL_PIXELFORMAT_RGBA8888;
@@ -1012,39 +881,45 @@ bool floor::init_internal(const init_state& state) {
 #endif
 		
 		// create screen
+		SDL_PropertiesID wnd_props = SDL_CreateProperties();
+		SDL_SetStringProperty(wnd_props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, app_name.c_str());
 #if !defined(FLOOR_IOS)
-		window = SDL_CreateWindow(app_name.c_str(), window_pos.x, window_pos.y, init_screen_size.x, init_screen_size.y, config.flags);
-#else
-		window = SDL_CreateWindow(app_name.c_str(), 0, 0, (int)config.width, (int)config.height, config.flags);
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_X_NUMBER, window_pos.x);
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, window_pos.y);
 #endif
-		if(window == nullptr) {
-			log_error("can't create window: $", SDL_GetError());
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.width);
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.height);
+		SDL_SetNumberProperty(wnd_props, "flags", config.flags);
+		window = SDL_CreateWindowWithProperties(wnd_props);
+		if (window == nullptr) {
+			log_error("couldn't create window: $", SDL_GetError());
 			return false;
 		}
-		else {
+
 #if defined(FLOOR_IOS)
-			// on iOS, be more insistent on the window size
-			SDL_SetWindowSize(window, (int)config.width, (int)config.height);
+		// on iOS, be more insistent on the window size
+		SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 #endif
-			
-			int2 wnd_size;
-			SDL_GetWindowSize(window, (int*)&wnd_size.x, (int*)&wnd_size.y);
-			config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
-			config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
-			log_debug("video mode set: w$ h$", config.width, config.height);
-			
+
+		int2 wnd_size;
+		SDL_GetWindowSizeInPixels(window, (int*)&wnd_size.x, (int*)&wnd_size.y);
+		config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
+		config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
+		log_debug("video mode set: w$ h$", config.width, config.height);
+
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
-			darwin_helper::create_app_delegate();
+		darwin_helper::create_app_delegate();
 #endif
-			
-			// cache window scale factor while we're on the main thread
-			(void)darwin_helper::get_scale_factor(window, true /* force query */);
+
+		// cache window scale factor while we're on the main thread
+		(void)darwin_helper::get_scale_factor(window, true /* force query */);
 #endif
-		}
+
+		log_debug("scale factor: $", get_scale_factor());
 		
 #if defined(FLOOR_IOS)
-		if(SDL_SetWindowDisplayMode(window, &fullscreen_mode) < 0) {
+		if(SDL_SetWindowFullscreenMode(window, &fullscreen_mode) < 0) {
 			log_error("can't set up fullscreen display mode: $", SDL_GetError());
 			return false;
 		}
@@ -1090,74 +965,34 @@ bool floor::init_internal(const init_state& state) {
 		}
 #endif
 		
-		// 1st pass: try to create the renderer that was specified
-		// 2nd pass: if this fails, try to create an OpenGL renderer (or break if failed renderer was OpenGL)
-		for (uint32_t pass = 0; pass < 2; ++pass) {
-			if (renderer == RENDERER::OPENGL) {
-				opengl_ctx = SDL_GL_CreateContext(window);
-				if (opengl_ctx == nullptr) {
-					log_error("can't create OpenGL context: $", SDL_GetError());
-					renderer = RENDERER::NONE;
-					break;
-				}
-				
-#if !defined(FLOOR_IOS)
-				// has to be set after context creation
-				if (SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-					log_error("error setting the OpenGL swap interval to $ (vsync): $", config.vsync, SDL_GetError());
-					SDL_ClearError();
-				}
-				
-				// enable multi-threaded opengl context when on macOS
-				// TODO: did this ever actually work?
-#if defined(__APPLE__) && 0
-				CGLContextObj cgl_ctx = CGLGetCurrentContext();
-				CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
-				if (cgl_err != kCGLNoError) {
-					log_error("unable to set multi-threaded opengl context ($X: $X): $!",
-							  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
-				} else {
-					log_debug("multi-threaded opengl context enabled!");
-				}
-#endif
-#endif
-				break;
-			}
+		// try to create the renderer that was specified
 #if !defined(FLOOR_NO_METAL)
-			else if (renderer == RENDERER::METAL) {
-				// create the metal context
-				metal_ctx = make_shared<metal_compute>(state.context_flags, true, vr_ctx.get(), config.metal_whitelist);
-				if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
-					log_error("failed to create the Metal renderer context");
-					metal_ctx = nullptr;
-					renderer = RENDERER::OPENGL; // try OpenGL next
-					continue;
-				}
-				break;
+		if (renderer == RENDERER::METAL) {
+			// create the metal context
+			metal_ctx = make_shared<metal_compute>(state.context_flags, true, vr_ctx.get(), config.metal_whitelist);
+			if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
+				log_error("failed to create the Metal renderer context");
+				metal_ctx = nullptr;
+				return false;
 			}
+		}
 #endif
 #if !defined(FLOOR_NO_VULKAN)
-			else if (renderer == RENDERER::VULKAN) {
-				// create the vulkan context
-				vulkan_ctx = make_shared<vulkan_compute>(state.context_flags, true, vr_ctx.get(), config.vulkan_whitelist);
-				if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
-					log_error("failed to create the Vulkan renderer context");
-					vulkan_ctx = nullptr;
-					renderer = RENDERER::OPENGL; // try OpenGL next
-					continue;
-				}
-				break;
+		if (renderer == RENDERER::VULKAN) {
+			// create the vulkan context
+			vulkan_ctx = make_shared<vulkan_compute>(state.context_flags, true, vr_ctx.get(), config.vulkan_whitelist);
+			if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
+				log_error("failed to create the Vulkan renderer context");
+				vulkan_ctx = nullptr;
+				return false;
 			}
+		}
 #endif
-			else if (renderer == RENDERER::NONE) {
-				// no renderer at all
-				break;
-			}
-			// if we got here, Metal and Vulkan are disabled -> use OpenGL
-			renderer = RENDERER::OPENGL;
+		if (renderer == RENDERER::NONE) {
+			// no renderer at all
+			return false;
 		}
 	}
-	acquire_context();
 	
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	// kill the VR context if we couldn't create a supported renderer
@@ -1169,7 +1004,6 @@ bool floor::init_internal(const init_state& state) {
 	
 	if(!console_only) {
 		log_debug("window $created and acquired!",
-				  renderer == RENDERER::OPENGL ? "and OpenGL context " :
 				  renderer == RENDERER::METAL ? "and Metal context " :
 				  renderer == RENDERER::VULKAN ? "and Vulkan context " : "");
 		
@@ -1178,68 +1012,6 @@ bool floor::init_internal(const init_state& state) {
 		}
 		else log_debug("video driver: $", SDL_GetCurrentVideoDriver());
 		
-		if(renderer == RENDERER::OPENGL) {
-			// initialize opengl functions (get function pointers) on non-apple platforms
-#if !defined(__APPLE__)
-			init_gl_funcs();
-#endif
-			
-			if(is_gl_version(3, 0)) {
-				// create and bind vao
-				glGenVertexArrays(1, &global_vao);
-				glBindVertexArray(global_vao);
-			}
-			
-			// get supported opengl extensions
-#if !defined(__APPLE__)
-			if(glGetStringi != nullptr)
-#endif
-			{
-				int ext_count = 0;
-				glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
-				for(int i = 0; i < ext_count; ++i) {
-					gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
-				}
-			}
-			
-			// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
-			const char* gl_version = (const char*)glGetString(GL_VERSION);
-			if(gl_version != nullptr) {
-				if(gl_version[0] > '4' || (gl_version[0] == '4' && gl_version[2] >= '3')) {
-					gl_extensions.emplace("GL_ARB_copy_image");
-				}
-			}
-			
-			// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
-#if defined(FLOOR_IOS)
-			darwin_helper::compile_shaders();
-			log_debug("iOS blit shader compiled");
-#endif
-			
-			// make an early clear
-			glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			swap();
-			evt->handle_events(); // this will effectively create/open the window on some platforms
-			
-			//
-			int tmp = 0;
-			SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
-			log_debug("double buffering $", tmp == 1 ? "enabled" : "disabled");
-			
-			// print out some opengl informations
-			gl_vendor = (const char*)glGetString(GL_VENDOR);
-			log_debug("vendor: $", gl_vendor);
-			log_debug("renderer: $", glGetString(GL_RENDERER));
-			log_debug("version: $", glGetString(GL_VERSION));
-			
-			// initialize ogl
-			init_gl();
-			log_debug("OpenGL initialized");
-			
-			// resize stuff
-			resize_gl_window();
-		}
 		// NOTE: vulkan has already been initialized at this point
 		
 		evt->set_ldouble_click_time(config.ldouble_click_time);
@@ -1251,22 +1023,28 @@ bool floor::init_internal(const init_state& state) {
 #if defined(__APPLE__)
 			config.dpi = darwin_helper::get_dpi(window);
 #else
-			SDL_SysWMinfo wm_info;
-			SDL_VERSION(&wm_info.version)
-			if(SDL_GetWindowWMInfo(window, &wm_info) == 1) {
+			size2 display_res { 1.0f, 1.0f };
+			float2 display_phys_size { 1.0f, 1.0f };
 #if defined(__WINDOWS__)
-				HDC hdc = wm_info.info.win.hdc;
-				const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
-				const float2 display_phys_size = int2(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE)).cast<float>();
-#else // x11
-				Display* display = wm_info.info.x11.display;
-				const size2 display_res((size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0));
-				const float2 display_phys_size(float(DisplayWidthMM(display, 0)), float(DisplayHeightMM(display, 0)));
-#endif
-				const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
-										 (float(display_res.y) / display_phys_size.y) * 25.4f);
-				config.dpi = (uint32_t)floorf(std::max(display_dpi.x, display_dpi.y));
+			auto hdc = (HDC)SDL_GetProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HDC_POINTER, nullptr);
+			if (hdc) {
+				display_res = { (size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES) };
+				display_phys_size = int2(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE)).cast<float>();
 			}
+#else // x11
+			if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
+				Display* display = (Display*)SDL_GetProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+				if (display) {
+					display_res = { (size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0) };
+					display_phys_size = { float(DisplayWidthMM(display, 0)), float(DisplayHeightMM(display, 0)) };
+				}
+			} else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
+				// TODO: implement this
+			}
+#endif
+			const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
+									 (float(display_res.y) / display_phys_size.y) * 25.4f);
+			config.dpi = (uint32_t)floorf(std::max(display_dpi.x, display_dpi.y));
 #endif
 		}
 		
@@ -1323,7 +1101,6 @@ bool floor::init_internal(const init_state& state) {
 					log_debug("initializing OpenCL ...");
 					compute_ctx = make_shared<opencl_compute>(state.context_flags,
 															  config.opencl_platform,
-															  config.gl_sharing & !console_only,
 															  config.opencl_whitelist);
 #endif
 					break;
@@ -1375,17 +1152,6 @@ bool floor::init_internal(const init_state& state) {
 		}
 	}
 	
-	// also always init openal/audio
-#if !defined(FLOOR_NO_OPENAL)
-	if(!config.audio_disabled) {
-		// check if openal functions have been correctly initialized and initialize openal
-		floor_audio::check_openal_efx_funcs();
-		audio_controller::init();
-	}
-#endif
-	
-	release_context();
-	
 	return true;
 }
 
@@ -1414,7 +1180,7 @@ void floor::set_fullscreen(const bool& state) {
 				  (state ? "enable" : "disable"), SDL_GetError());
 	}
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks64(),
+				   make_shared<window_resize_event>(SDL_GetTicks(),
 													uint2(config.width, config.height)));
 	// TODO: border?
 }
@@ -1422,71 +1188,39 @@ void floor::set_fullscreen(const bool& state) {
 void floor::set_vsync(const bool& state) {
 	if(state == config.vsync) return;
 	config.vsync = state;
-#if !defined(FLOOR_IOS)
-	if(opengl_ctx != nullptr) {
-		SDL_GL_SetSwapInterval(config.vsync ? 1 : 0);
-	}
-#endif
 }
 
 void floor::start_frame() {
-	acquire_context();
 }
 
 void floor::end_frame(const bool window_swap) {
-	if(renderer == RENDERER::OPENGL) {
-		GLenum error = glGetError();
-		switch(error) {
-			case GL_NO_ERROR:
-				break;
-			case GL_INVALID_ENUM:
-				log_error("OpenGL error: invalid enum!");
-				break;
-			case GL_INVALID_VALUE:
-				log_error("OpenGL error: invalid value!");
-				break;
-			case GL_INVALID_OPERATION:
-				log_error("OpenGL error: invalid operation!");
-				break;
-			case GL_OUT_OF_MEMORY:
-				log_error("OpenGL error: out of memory!");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				log_error("OpenGL error: invalid framebuffer operation!");
-				break;
-			default:
-				log_error("unknown OpenGL error: $!", error);
-				break;
-		}
+	// optional window swap (client code might want to swap the window by itself)
+	if (window_swap) {
+		swap();
 	}
 	
-	// optional window swap (client code might want to swap the window by itself)
-	if(window_swap) swap();
-	
-	frame_time_sum += SDL_GetTicks64() - frame_time_counter;
+	frame_time_sum += SDL_GetTicks() - frame_time_counter;
 
 	// handle fps count
 	fps_counter++;
-	if(SDL_GetTicks64() - fps_time > 1000u) {
+	if (SDL_GetTicks() - fps_time > 1000u) {
 		fps = fps_counter;
 		new_fps_count = true;
 		fps_counter = 0;
-		fps_time = SDL_GetTicks64();
+		fps_time = SDL_GetTicks();
 		
 		frame_time = (float)frame_time_sum / (float)fps;
 		frame_time_sum = 0;
 	}
-	frame_time_counter = SDL_GetTicks64();
+	frame_time_counter = SDL_GetTicks();
 	
 	// check for kernel reload (this is safe to do here)
-	if(reload_kernels_flag) {
+	if (reload_kernels_flag) {
 		reload_kernels_flag = false;
 		if(compute_ctx != nullptr) {
 			//compute_ctx->reload_kernels(); // TODO: !
 		}
 	}
-	
-	release_context();
 }
 
 /*! sets the window caption
@@ -1502,38 +1236,16 @@ string floor::get_caption() {
 	return SDL_GetWindowTitle(window);
 }
 
-/*! opengl initialization function
- */
-void floor::init_gl() {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	
-	glClearDepth(1.0);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	
-	glDisable(GL_STENCIL_TEST);
-	
-	glFrontFace(GL_CW);
-	glCullFace(GL_BACK);
-	glEnable(GL_CULL_FACE);
-}
-
-/* function to reset our viewport after a window resize
- */
-void floor::resize_gl_window() {
-	if(renderer == RENDERER::OPENGL) {
-		// set the viewport
-		const auto phys_size = get_physical_screen_size();
-		glViewport(0, 0, (GLsizei)phys_size.x, (GLsizei)phys_size.y);
-	}
-}
-
 /*! sets the cursors visibility to state
  *  @param state the cursor visibility state
  */
 void floor::set_cursor_visible(const bool& state) {
 	floor::cursor_visible = state;
-	SDL_ShowCursor(floor::cursor_visible);
+	if (floor::cursor_visible) {
+		SDL_ShowCursor();
+	} else {
+		SDL_HideCursor();
+	}
 }
 
 /*! returns the cursor visibility stateo
@@ -1631,32 +1343,41 @@ uint2 floor::get_screen_size() {
 }
 
 uint32_t floor::get_physical_width() {
-	uint32_t ret = config.width;
-#if defined(__APPLE__) // only supported on macOS and iOS right now
-	ret = uint32_t(double(ret) *
-				   (config.hidpi ?
-					double(darwin_helper::get_scale_factor(window)) : 1.0));
-#endif
-	return ret;
+	uint32_t width = config.width;
+	if (floor::window) {
+		int2 wnd_size;
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.x > 0) {
+			width = uint32_t(wnd_size.x);
+		}
+	} else {
+		width = uint32_t(double(width) * double(get_scale_factor()));
+	}
+	return width;
 }
 
 uint32_t floor::get_physical_height() {
-	uint32_t ret = config.height;
-#if defined(__APPLE__) // only supported on macOS and iOS right now
-	ret = uint32_t(double(ret) *
-				   (config.hidpi ?
-					double(darwin_helper::get_scale_factor(window)) : 1.0));
-#endif
-	return ret;
+	uint32_t height = config.height;
+	if (floor::window) {
+		int2 wnd_size;
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.y > 0) {
+			height = uint32_t(wnd_size.y);
+		}
+	} else {
+		height = uint32_t(double(height) * double(get_scale_factor()));
+	}
+	return height;
 }
 
 uint2 floor::get_physical_screen_size() {
 	uint2 ret { config.width, config.height };
-#if defined(__APPLE__) // only supported on macOS and iOS right now
-	ret = uint2(double2(ret) *
-				(config.hidpi ?
-				 double(darwin_helper::get_scale_factor(window)) : 1.0));
-#endif
+	if (floor::window) {
+		int2 wnd_size;
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.x > 0 && wnd_size.y > 0) {
+			ret = { uint32_t(wnd_size.x), uint32_t(wnd_size.y) };
+		}
+	} else {
+		ret = (ret.cast<double>() * double(get_scale_factor())).cast<uint32_t>();
+	}
 	return ret;
 }
 
@@ -1685,19 +1406,18 @@ uint32_t floor::get_window_flags() {
 }
 
 uint32_t floor::get_window_refresh_rate() {
-	// SDL_GetWindowDisplayMode is useless/broken, so get the display index + retrieve the mode that way instead
-	const auto display_index = SDL_GetWindowDisplayIndex(window);
-	if(display_index < 0) {
+	// SDL_GetWindowFullscreenMode is useless/broken, so get the display index + retrieve the mode that way instead
+	const auto display_index = SDL_GetDisplayForWindow(window);
+	if (display_index == 0) {
 		log_error("failed to retrieve window display index");
 		return 60;
-	}
-	else {
-		SDL_DisplayMode mode;
-		if(SDL_GetCurrentDisplayMode(display_index, &mode) < 0) {
+	} else {
+		const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display_index);
+		if (!mode) {
 			log_error("failed to retrieve current display mode (for display #$)", display_index);
 			return 60;
 		}
-		return (mode.refresh_rate < 0 ? 60 : uint32_t(mode.refresh_rate));
+		return (mode->refresh_rate < 0 ? 60 : uint32_t(mode->refresh_rate));
 	}
 }
 
@@ -1717,10 +1437,6 @@ shared_ptr<compute_context> floor::get_render_context() {
 #endif
 }
 
-SDL_GLContext floor::get_opengl_context() {
-	return opengl_ctx;
-}
-
 shared_ptr<vulkan_compute> floor::get_vulkan_context() {
 	return vulkan_ctx;
 }
@@ -1734,9 +1450,6 @@ const string floor::get_version() {
 }
 
 void floor::swap() {
-	if(opengl_ctx != nullptr) {
-		SDL_GL_SwapWindow(window);
-	}
 }
 
 void floor::reload_kernels() {
@@ -1751,7 +1464,7 @@ void floor::set_fov(const float& fov) {
 	if(const_math::is_equal(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks64(), uint2(config.width, config.height)));
+				   make_shared<window_resize_event>(SDL_GetTicks(), uint2(config.width, config.height)));
 }
 
 const float2& floor::get_near_far_plane() {
@@ -1818,60 +1531,17 @@ json::document& floor::get_config_doc() {
 	return config_doc;
 }
 
-void floor::acquire_context() {
-	// note: the context lock is recursive, so one thread can lock
-	// it multiple times. however, SDL_GL_MakeCurrent should only
-	// be called once (this is the purpose of ctx_active_locks).
-	ctx_lock.lock();
-	// note: not a race, since there can only be one active gl thread
-	const uint32_t cur_active_locks = ctx_active_locks++;
-	if(use_gl_context && opengl_ctx != nullptr) {
-		if(cur_active_locks == 0) {
-			if(SDL_GL_MakeCurrent(window, opengl_ctx) != 0) {
-				log_error("couldn't make gl context current: $!", SDL_GetError());
-				return;
-			}
-		}
-#if defined(FLOOR_IOS)
-		glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
-#endif
-	}
-}
-
-void floor::release_context() {
-	// only call SDL_GL_MakeCurrent with nullptr, when this is the last lock
-	const uint32_t cur_active_locks = --ctx_active_locks;
-	if(use_gl_context && opengl_ctx != nullptr && cur_active_locks == 0) {
-		if(SDL_GL_MakeCurrent(window, nullptr) != 0) {
-			log_error("couldn't release current gl context: $!", SDL_GetError());
-			return;
-		}
-	}
-	ctx_lock.unlock();
-}
-void floor::set_use_gl_context(const bool& state) {
-	use_gl_context = state;
-}
-
-const bool& floor::get_use_gl_context() {
-	return use_gl_context;
-}
-
 bool floor::event_handler(EVENT_TYPE type, shared_ptr<event_object> obj) {
-	if(type == EVENT_TYPE::WINDOW_RESIZE) {
-		const window_resize_event& wnd_evt = (const window_resize_event&)*obj;
+	if (type == EVENT_TYPE::WINDOW_RESIZE) {
+		const auto& wnd_evt = (const window_resize_event&)*obj;
 		config.width = wnd_evt.size.x;
 		config.height = wnd_evt.size.y;
-		resize_gl_window();
 		
 #if defined(__APPLE__)
 		// cache window scale factor while we're on the main thread
 		(void)darwin_helper::get_scale_factor(window, true /* force query */);
 #endif
 		
-		return true;
-	}
-	else if(type == EVENT_TYPE::KERNEL_RELOAD) {
 		return true;
 	}
 	return false;
@@ -1889,7 +1559,7 @@ float floor::get_scale_factor() {
 #if defined(__APPLE__)
 	return darwin_helper::get_scale_factor(window);
 #else
-	return config.upscaling; // TODO: get this from somewhere ...
+	return (config.upscaling <= 0.0f ? SDL_GetWindowDisplayScale(floor::window) : config.upscaling);
 #endif
 }
 
@@ -1897,47 +1567,8 @@ string floor::get_absolute_path() {
 	return abs_bin_path;
 }
 
-void floor::set_audio_disabled(const bool& state) {
-	config.audio_disabled = state;
-}
-
-bool floor::is_audio_disabled() {
-	return config.audio_disabled;
-}
-
-void floor::set_music_volume(const float& volume) {
-	if(config.audio_disabled) return;
-	config.music_volume = volume;
-#if !defined(FLOOR_NO_OPENAL)
-	audio_controller::update_music_volumes();
-#endif
-}
-
-const float& floor::get_music_volume() {
-	return config.music_volume;
-}
-
-void floor::set_sound_volume(const float& volume) {
-	if(config.audio_disabled) return;
-	config.sound_volume = volume;
-#if !defined(FLOOR_NO_OPENAL)
-	audio_controller::update_sound_volumes();
-#endif
-}
-
-const float& floor::get_sound_volume() {
-	return config.sound_volume;
-}
-
-const string& floor::get_audio_device_name() {
-	return config.audio_device_name;
-}
-
 const string& floor::get_toolchain_backend() {
 	return config.backend;
-}
-bool floor::get_toolchain_gl_sharing() {
-	return config.gl_sharing;
 }
 bool floor::get_toolchain_debug() {
 	return config.debug;
@@ -2164,23 +1795,8 @@ shared_ptr<compute_context> floor::get_compute_context() {
 	return compute_ctx;
 }
 
-bool floor::has_opengl_extension(const char* name) {
-	return (gl_extensions.count(name) > 0);
-}
-
 bool floor::is_console_only() {
 	return console_only;
-}
-
-bool floor::is_gl_version(const uint32_t& major, const uint32_t& minor) {
-	const char* version = (const char*)glGetString(GL_VERSION);
-	if(uint32_t(version[0] - '0') > major) return true;
-	else if(uint32_t(version[0] - '0') == major && uint32_t(version[2] - '0') >= minor) return true;
-	return false;
-}
-
-const string& floor::get_gl_vendor() {
-	return gl_vendor;
 }
 
 const uint3& floor::get_vulkan_api_version() {
@@ -2202,44 +1818,3 @@ floor::RENDERER floor::get_renderer() {
 bool floor::is_x11_forwarding() {
 	return x11_forwarding;
 }
-
-#if defined(__WINDOWS__)
-bool enable_windows_hidpi() {
-	auto shcore_handle = LoadLibrary("Shcore.dll");
-	const auto fail = [&shcore_handle]() {
-		if (shcore_handle != nullptr) {
-			FreeLibrary(shcore_handle);
-		}
-		return false;
-	};
-	if (!shcore_handle) {
-		return fail();
-	}
-
-	// get SetProcessDpiAwareness function pointer
-	using set_process_dpi_awareness_fptr = long (*)(int /* process_dpi_awareness */);
-	auto set_process_dpi_awareness = (set_process_dpi_awareness_fptr)(void*)GetProcAddress(shcore_handle, "SetProcessDpiAwareness");
-	if (set_process_dpi_awareness == nullptr) {
-		return fail();
-	}
-
-	// set process dpi awareness
-	enum WINDOWS_PROCESS_DPI_AWARENESS : int {
-		WINDOWS_PROCESS_DPI_UNAWARE = 0,
-		WINDOWS_PROCESS_SYSTEM_DPI_AWARE = 1,
-		WINDOWS_PROCESS_PER_MONITOR_DPI_AWARE = 2,
-	};
-	if (set_process_dpi_awareness(WINDOWS_PROCESS_SYSTEM_DPI_AWARE) != 0l) {
-		return false;
-	}
-
-	// compute DPI scaler
-	float ddpi = 0.0f, hdpi = 0.0f, vdpi = 0.0;
-	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
-	const auto max_dpi = max(max(max(hdpi, vdpi), ddpi), 96.0f);
-	windows_dpi_scaler = double(max_dpi) / 96.0;
-	log_debug("DPI scaler: $", windows_dpi_scaler);
-
-	return true;
-}
-#endif

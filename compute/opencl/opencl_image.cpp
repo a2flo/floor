@@ -31,12 +31,8 @@ opencl_image::opencl_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
-						   const COMPUTE_MEMORY_FLAG flags_,
-						   const uint32_t opengl_type_,
-						   const uint32_t external_gl_object_,
-						   const opengl_image_info* gl_image_info) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info, nullptr, false),
+						   const COMPUTE_MEMORY_FLAG flags_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, false),
 mip_origin_idx(!is_mip_mapped ? 0 :
 			   (image_dim_count(image_type) + (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? 1 : 0))) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -82,12 +78,15 @@ mip_origin_idx(!is_mip_mapped ? 0 :
 }
 
 bool opencl_image::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+	if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+		throw std::runtime_error("stencil images are not supported");
+	}
+	
 	const auto& cl_dev = (const opencl_device&)cqueue.get_device();
 	cl_int create_err = CL_SUCCESS;
 	
 	cl_image_format cl_img_format;
 	const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
-	const bool is_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type);
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	// TODO: handle other channel orders (CL_*x formats if supported/prefered, reverse order)
 	switch(image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) {
@@ -95,7 +94,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 			cl_img_format.image_channel_order = (is_depth ? CL_DEPTH : CL_R);
 			break;
 		case COMPUTE_IMAGE_TYPE::CHANNELS_2:
-			cl_img_format.image_channel_order = (is_depth && is_stencil ? CL_DEPTH_STENCIL : CL_RG);
+			cl_img_format.image_channel_order = CL_RG;
 			break;
 		case COMPUTE_IMAGE_TYPE::CHANNELS_3:
 			cl_img_format.image_channel_order = CL_RGB;
@@ -173,63 +172,38 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 	// NOTE: image_row_pitch, image_slice_pitch are optional, but should be set when constructing from an image descriptor (which is TODO)
 	
 	// -> normal opencl image
-	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		image = clCreateImage(cl_dev.ctx, cl_flags, &cl_img_format, &cl_img_desc,
-							  (copy_host_data && !is_mip_mapped ? host_data.data() : nullptr), &create_err);
-		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image: $", cl_error_to_string(create_err));
-			image = nullptr;
-			return false;
-		}
-		
-		// host_ptr must be nullptr in clCreateImage when using mip-mapping
-		// -> must copy/write this afterwards
-		if (is_mip_mapped && copy_host_data && host_data.data() != nullptr &&
-			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			auto cpy_host_data = host_data;
-			apply_on_levels([this, &cpy_host_data, &cqueue](const uint32_t& level,
-															const uint4& mip_image_dim,
-															const uint32_t&,
-															const uint32_t& level_data_size) {
-				const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
-				size4 level_origin;
-				level_origin[mip_origin_idx] = level;
-				CL_CALL_RET(clEnqueueWriteImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, false,
-												level_origin.data(), level_region.data(), 0, 0, cpy_host_data.data(),
-												0, nullptr, nullptr),
-							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false)
-				cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
-				return true;
-			});
-			cqueue.finish();
-		}
+	image = clCreateImage(cl_dev.ctx, cl_flags, &cl_img_format, &cl_img_desc,
+						  (copy_host_data && !is_mip_mapped ? host_data.data() : nullptr), &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create image: $", cl_error_to_string(create_err));
+		image = nullptr;
+		return false;
 	}
-	// -> shared opencl/opengl image
-	else {
-		if(!create_gl_image(copy_host_data)) return false;
-		
-		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
-		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-			image = clCreateFromGLTexture(cl_dev.ctx, cl_flags, opengl_type,
-										  is_mip_mapped ? -1 : 0, gl_object, &create_err);
-		}
-		else {
-			image = clCreateFromGLRenderbuffer(cl_dev.ctx, cl_flags, gl_object, &create_err);
-		}
-		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image from opengl object: $", cl_error_to_string(create_err));
-			image = nullptr;
-			return false;
-		}
-		// acquire for use with opencl
-		acquire_opengl_object(&cqueue);
+	
+	// host_ptr must be nullptr in clCreateImage when using mip-mapping
+	// -> must copy/write this afterwards
+	if (is_mip_mapped && copy_host_data && host_data.data() != nullptr &&
+		!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		auto cpy_host_data = host_data;
+		apply_on_levels([this, &cpy_host_data, &cqueue](const uint32_t& level,
+														const uint4& mip_image_dim,
+														const uint32_t&,
+														const uint32_t& level_data_size) {
+			const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
+			size4 level_origin;
+			level_origin[mip_origin_idx] = level;
+			CL_CALL_RET(clEnqueueWriteImage((cl_command_queue)const_cast<void*>(cqueue.get_queue_ptr()), image, false,
+											level_origin.data(), level_region.data(), 0, 0, cpy_host_data.data(),
+											0, nullptr, nullptr),
+						"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false)
+			cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
+			return true;
+		});
+		cqueue.finish();
 	}
 	
 	// manually create mip-map chain
-	if(generate_mip_maps &&
-	   // when using gl sharing: just acquired the opengl image, so no need to do this
-	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+	if(generate_mip_maps) {
 		generate_mip_map_chain(cqueue);
 	}
 	
@@ -237,16 +211,7 @@ bool opencl_image::create_internal(const bool copy_host_data, const compute_queu
 }
 
 opencl_image::~opencl_image() {
-	// first, release and kill the opengl image
-	if(gl_object != 0) {
-		if(gl_object_state) {
-			log_warn("image still registered for opengl use - acquire before destructing a compute image!");
-		}
-		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
-		delete_gl_image();
-	}
-	// then, also kill the opencl image
-	if(image != nullptr) {
+	if (image != nullptr) {
 		clReleaseMemObject(image);
 	}
 }
@@ -417,43 +382,6 @@ bool opencl_image::unmap(const compute_queue& cqueue, void* __attribute__((align
 		generate_mip_map_chain(cqueue);
 	}
 	
-	return true;
-}
-
-bool opencl_image::acquire_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been acquired for use with opencl!");
-#endif
-		return true;
-	}
-	
-	cl_event wait_evt;
-	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, &wait_evt),
-				"failed to acquire opengl image - opencl gl object acquire failed", false)
-	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl image acquire failed", false)
-	gl_object_state = false;
-	return true;
-}
-
-bool opencl_image::release_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(image == nullptr) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl image has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	cl_event wait_evt;
-	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, &wait_evt),
-				"failed to release opengl image - opencl gl object release failed", false)
-	CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-				"wait for opengl image release failed", false)
-	gl_object_state = true;
 	return true;
 }
 

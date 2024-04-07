@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_ATOMIC_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_ATOMIC_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
@@ -460,7 +459,5 @@ floor_inline_always double atomic_load(const volatile double* addr) {
 	return *(double*)&u64;
 #endif
 }
-
-#endif
 
 #endif

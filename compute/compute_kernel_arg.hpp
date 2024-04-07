@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_KERNEL_ARG_HPP__
-#define __FLOOR_COMPUTE_KERNEL_ARG_HPP__
+#pragma once
 
 #include <variant>
 #include <memory>
@@ -105,5 +104,3 @@ struct compute_kernel_arg {
 	size_t size { 0 };
 	
 };
-
-#endif

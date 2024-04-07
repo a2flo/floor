@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_EXT_TRAITS_HPP__
-#define __FLOOR_EXT_TRAITS_HPP__
+#pragma once
 
 #include <type_traits>
 #include <limits>
@@ -171,5 +170,3 @@ namespace ext {
 	template <typename T> using integral_eqv_t = typename integral_eqv<T>::type;
 
 }
-
-#endif

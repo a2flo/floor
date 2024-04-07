@@ -18,8 +18,7 @@
 
 // thread macros source: http://clang.llvm.org/docs/ThreadSafetyAnalysis.html#mutexheader
 
-#ifndef __FLOOR_THREAD_SAFETY_HPP__
-#define __FLOOR_THREAD_SAFETY_HPP__
+#pragma once
 
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
@@ -262,5 +261,3 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 #define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
 #define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
 #define MULTI_GUARD(...) floor_multi_guard::safe_multi_guard<decltype(floor_multi_guard::make_refs_tuple(__VA_ARGS__))> MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { __VA_ARGS__ }
-
-#endif

@@ -39,10 +39,8 @@ cuda_buffer::cuda_buffer(const compute_queue& cqueue,
 						 const size_t& size_,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_,
-						 const uint32_t opengl_type_,
-						 const uint32_t external_gl_object_,
 						 compute_buffer* shared_buffer_) :
-compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_, shared_buffer_) {
+compute_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
@@ -97,7 +95,7 @@ compute_buffer(cqueue, size_, host_data_, flags_, opengl_type_, external_gl_obje
 	}
 }
 
-bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue& cqueue) {
+bool cuda_buffer::create_internal(const bool copy_host_data, [[maybe_unused]] const compute_queue& cqueue) {
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cu_mem_host_register(host_data.data(), size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
@@ -108,8 +106,7 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 	// -> alloc and use device memory
 	else {
 		// -> plain old cuda buffer
-		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 			CU_CALL_RET(cu_mem_alloc(&buffer, size),
 						"failed to allocate device memory", false)
 			
@@ -166,33 +163,6 @@ bool cuda_buffer::create_internal(const bool copy_host_data, const compute_queue
 			return false; // no Vulkan support
 #endif
 		}
-		// -> OpenGL buffer
-		else {
-			if(!create_gl_buffer(copy_host_data)) return false;
-			
-			// register the cuda object
-			CU_GRAPHICS_REGISTER_FLAGS cuda_gl_flags;
-			switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-				case COMPUTE_MEMORY_FLAG::READ:
-					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::READ_ONLY;
-					break;
-				case COMPUTE_MEMORY_FLAG::WRITE:
-					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::WRITE_DISCARD;
-					break;
-				default:
-				case COMPUTE_MEMORY_FLAG::READ_WRITE:
-					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::NONE;
-					break;
-			}
-			CU_CALL_RET(cu_graphics_gl_register_buffer(&rsrc, gl_object, cuda_gl_flags),
-						"failed to register opengl buffer with cuda", false)
-			if(rsrc == nullptr) {
-				log_error("created cuda gl graphics resource is invalid!");
-				return false;
-			}
-			// acquire for use with cuda
-			acquire_opengl_object(&cqueue);
-		}
 	}
 	return true;
 }
@@ -208,8 +178,7 @@ cuda_buffer::~cuda_buffer() {
 	// -> device memory
 	else {
 		// -> plain old cuda buffer
-		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
-		   !has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+		if (!has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 			if (buffer != 0) {
 				CU_CALL_RET(cu_mem_free(buffer), "failed to free device memory")
 			}
@@ -231,21 +200,6 @@ cuda_buffer::~cuda_buffer() {
 			cuda_vk_sema = nullptr;
 		}
 #endif
-		// -> OpenGL buffer
-		else {
-			if (gl_object == 0) {
-				log_error("invalid opengl buffer!");
-			} else {
-				if (buffer == 0 || gl_object_state) {
-					log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
-				}
-				// kill opengl buffer
-				if (!gl_object_state) {
-					release_opengl_object(nullptr); // -> release to opengl
-				}
-				delete_gl_buffer();
-			}
-		}
 	}
 }
 
@@ -420,55 +374,6 @@ bool cuda_buffer::unmap(const compute_queue& cqueue floor_unused,
 	mappings.erase(iter);
 	
 	return success;
-}
-
-bool cuda_buffer::acquire_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(rsrc == nullptr) return false;
-	if(!gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been acquired for use with cuda!");
-#endif
-		return true;
-	}
-	
-	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc, (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to acquire opengl buffer - cuda resource mapping failed!", false)
-	gl_object_state = false;
-	
-	size_t ret_size { 0u };
-	CU_CALL_RET(cu_graphics_resource_get_mapped_pointer(&buffer, &ret_size, rsrc),
-				"failed to retrieve mapped cuda buffer pointer from opengl buffer!", false)
-	
-	if(ret_size != size) {
-		log_warn("size mismatch between shared opengl buffer and mapped cuda buffer: expected $, got $!",
-				 size, ret_size);
-	}
-	if(buffer == 0) {
-		log_error("mapped cuda buffer pointer (from a graphics resource) is invalid!");
-		return false;
-	}
-	
-	return true;
-}
-
-bool cuda_buffer::release_opengl_object(const compute_queue* cqueue) {
-	if(gl_object == 0) return false;
-	if(buffer == 0) return false;
-	if(rsrc == nullptr) return false;
-	if(gl_object_state) {
-#if defined(FLOOR_DEBUG) && 0
-		log_warn("opengl buffer has already been released for opengl use!");
-#endif
-		return true;
-	}
-	
-	buffer = 0; // reset buffer pointer, this is no longer valid
-	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc, (cqueue != nullptr ? (const_cu_stream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to release opengl buffer - cuda resource unmapping failed!", false)
-	gl_object_state = true;
-	
-	return true;
 }
 
 #if !defined(FLOOR_NO_VULKAN)

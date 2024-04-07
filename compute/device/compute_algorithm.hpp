@@ -16,23 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_COMPUTE_ALGORITHM_HPP__
-#define __FLOOR_COMPUTE_DEVICE_COMPUTE_ALGORITHM_HPP__
+#pragma once
 
 //! misc compute algorithms, specialized for each backend/hardware
 namespace compute_algorithm {
 	// TODO: broadcast, radix/bitonic sort, histogram
 
 	//! enforce correct work-group size types
-	#if defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE) && __clang_major__ < 15
-	template <auto work_group_size>
-	concept supported_work_group_size_type = is_same_v<decltype(work_group_size), uint32_t>;
-	#else
 	template <auto work_group_size>
 	concept supported_work_group_size_type = (is_same_v<decltype(work_group_size), uint32_t> ||
 											  is_same_v<decltype(work_group_size), uint2> ||
 											  is_same_v<decltype(work_group_size), uint3>);
-	#endif
 
 	//! computes the linear/1D work group size from the specified 1D, 2D or 3D work group size
 	template <auto work_group_size>
@@ -573,5 +567,3 @@ namespace compute_algorithm {
 	}
 	
 }
-
-#endif

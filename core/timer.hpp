@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_TIMER_HPP__
-#define __FLOOR_TIMER_HPP__
+#pragma once
 
 #include <floor/core/platform.hpp>
 
@@ -105,5 +104,3 @@ protected:
 	
 };
 using floor_multi_timer = floor_multi_timer_t<>;
-
-#endif

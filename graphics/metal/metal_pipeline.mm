@@ -112,22 +112,20 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		mtl_pipeline_desc.stencilAttachmentPixelFormat = MTLPixelFormatInvalid;
 		
 		// set primitive type
-		if ([mtl_pipeline_desc respondsToSelector:@selector(inputPrimitiveTopology)]) { // macOS 10.11+ or iOS 12.0+
-			MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
-			switch (pipeline_desc.primitive) {
-				case PRIMITIVE::POINT:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
-					break;
-				case PRIMITIVE::LINE:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
-					break;
-				case PRIMITIVE::TRIANGLE:
-				case PRIMITIVE::TRIANGLE_STRIP:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
-					break;
-			}
-			mtl_pipeline_desc.inputPrimitiveTopology = primitive;
+		MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
+		switch (pipeline_desc.primitive) {
+			case PRIMITIVE::POINT:
+				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
+				break;
+			case PRIMITIVE::LINE:
+				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
+				break;
+			case PRIMITIVE::TRIANGLE:
+			case PRIMITIVE::TRIANGLE_STRIP:
+				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
+				break;
 		}
+		mtl_pipeline_desc.inputPrimitiveTopology = primitive;
 		
 		// tessellation
 		MTLVertexDescriptor* mtl_vertex_desc = [MTLVertexDescriptor vertexDescriptor];

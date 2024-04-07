@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_METAL_BUFFER_HPP__
-#define __FLOOR_METAL_BUFFER_HPP__
+#pragma once
 
 #include <floor/compute/metal/metal_common.hpp>
 
@@ -38,17 +37,14 @@ public:
 				 const size_t& size_,
 				 std::span<uint8_t> host_data_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				 const uint32_t opengl_type_ = 0,
-				 const uint32_t external_gl_object_ = 0) :
-	metal_buffer(false, cqueue, size_, host_data_, flags_, opengl_type_, external_gl_object_) {}
+													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) :
+	metal_buffer(false, cqueue, size_, host_data_, flags_) {}
 	
 	metal_buffer(const compute_queue& cqueue,
 				 const size_t& size_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				 const uint32_t opengl_type_ = 0) :
-	metal_buffer(false, cqueue, size_, {}, flags_, opengl_type_) {}
+													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) :
+	metal_buffer(false, cqueue, size_, {}, flags_) {}
 	
 #if defined(__OBJC__)
 	//! wraps an already existing metal buffer, with the specified flags and backed by the specified host pointer
@@ -83,9 +79,6 @@ public:
 	
 	bool unmap(const compute_queue& cqueue, void* floor_nonnull __attribute__((aligned(128))) mapped_ptr) override;
 	
-	bool acquire_opengl_object(const compute_queue* floor_nullable cqueue) override;
-	bool release_opengl_object(const compute_queue* floor_nullable cqueue) override;
-	
 	void set_debug_label(const string& label) override;
 	
 #if defined(__OBJC__)
@@ -117,9 +110,7 @@ public:
 				 const compute_queue& cqueue,
 				 const size_t& size_,
 				 std::span<uint8_t> host_data_,
-				 const COMPUTE_MEMORY_FLAG flags_,
-				 const uint32_t opengl_type_,
-				 const uint32_t external_gl_object_ = 0);
+				 const COMPUTE_MEMORY_FLAG flags_);
 	
 protected:
 #if defined(__OBJC__)
@@ -150,7 +141,5 @@ protected:
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
 };
-
-#endif
 
 #endif

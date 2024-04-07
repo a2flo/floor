@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_MATRIX4_HPP__
-#define __FLOOR_MATRIX4_HPP__
+#pragma once
 
 #include <utility>
 #include <tuple>
@@ -737,6 +736,4 @@ extern template class matrix4<long double>;
 #endif
 extern template class matrix4<int32_t>;
 extern template class matrix4<uint32_t>;
-#endif
-
 #endif

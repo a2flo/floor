@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_MIP_MAP_MINIFY_HPP__
-#define __FLOOR_COMPUTE_MIP_MAP_MINIFY_HPP__
+#pragma once
 
 // only add depth image types if these are supported (both read and write)
 #if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT_1) && \
@@ -117,7 +116,5 @@ kernel_type() void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (i
 }
 
 FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_KERNEL)
-
-#endif
 
 #endif

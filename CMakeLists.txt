@@ -1,5 +1,5 @@
-# VS/vcpkg/clang/CMake project for libfloor
-cmake_minimum_required(VERSION 3.11)
+# CMake project for libfloor
+cmake_minimum_required(VERSION 3.20)
 # NOTE: "lib" prefix is automatically added by CMake when not targeting VS/CMake
 # also: can't use "if (MSVC)" before project(...), so use VCPKG_TARGET_TRIPLET instead
 if (VCPKG_TARGET_TRIPLET)
@@ -7,7 +7,7 @@ if (VCPKG_TARGET_TRIPLET)
 else (VCPKG_TARGET_TRIPLET)
 	project(floor)
 endif (VCPKG_TARGET_TRIPLET)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
@@ -34,14 +34,6 @@ set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> ruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
 ## source files
 include_directories("../")
 add_library(${PROJECT_NAME} SHARED
-	audio/audio_controller.cpp
-	audio/audio_controller.hpp
-	audio/audio_headers.cpp
-	audio/audio_headers.hpp
-	audio/audio_source.cpp
-	audio/audio_source.hpp
-	audio/audio_store.cpp
-	audio/audio_store.hpp
 	compute/argument_buffer.cpp
 	compute/argument_buffer.hpp
 	compute/compute_buffer.cpp
@@ -168,7 +160,6 @@ add_library(${PROJECT_NAME} SHARED
 	compute/metal/metal_image.mm
 	compute/metal/metal_kernel.hpp
 	compute/metal/metal_kernel.mm
-	compute/metal/metal_args.hpp
 	compute/metal/metal_program.hpp
 	compute/metal/metal_program.mm
 	compute/metal/metal_queue.hpp
@@ -188,6 +179,7 @@ add_library(${PROJECT_NAME} SHARED
 	compute/opencl/opencl_program.hpp
 	compute/opencl/opencl_queue.cpp
 	compute/opencl/opencl_queue.hpp
+	compute/vulkan/vulkan_args.hpp
 	compute/vulkan/vulkan_argument_buffer.cpp
 	compute/vulkan/vulkan_argument_buffer.hpp
 	compute/vulkan/vulkan_buffer.cpp
@@ -260,10 +252,6 @@ add_library(${PROJECT_NAME} SHARED
 	core/file_io.cpp
 	core/file_io.hpp
 	core/flat_map.hpp
-	core/gl_shader.cpp
-	core/gl_shader.hpp
-	core/gl_support.cpp
-	core/gl_support.hpp
 	core/json.cpp
 	core/json.hpp
 	core/logger.cpp
@@ -315,13 +303,6 @@ add_library(${PROJECT_NAME} SHARED
 	math/vector_lib_checks.hpp
 	math/vector_ops.hpp
 	math/vector_ops_cleanup.hpp
-	net/asio_error_handler.cpp
-	net/asio_error_handler.hpp
-	net/http_net.hpp
-	net/irc_net.hpp
-	net/net.hpp
-	net/net_protocol.hpp
-	net/net_tcp.hpp
 	threading/atomics.hpp
 	threading/atomic_shared_ptr.hpp
 	threading/atomic_spin_lock.hpp

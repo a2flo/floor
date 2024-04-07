@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_ATOMIC_COMPAT_HPP__
-#define __FLOOR_COMPUTE_DEVICE_ATOMIC_COMPAT_HPP__
+#pragma once
 
 // provide compatibility/alias functions for libc++s <atomic> header (replacing the non-functional __c11_* builtins)
 
@@ -70,5 +69,3 @@ __attribute__((deprecated("not supported"))) floor_inline_always static void flo
 
 // this is a compiler instruction, try using it (no guarantees though)
 #define floor_atomic_signal_fence(mem_order) __c11_atomic_signal_fence(mem_order)
-
-#endif

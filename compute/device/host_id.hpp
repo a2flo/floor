@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_HOST_ID_HPP__
-#define __FLOOR_COMPUTE_DEVICE_HOST_ID_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_HOST)
 
@@ -65,5 +64,3 @@ static constexpr const uint32_t floor_thread_local_memory_offset { 0u };
 #endif // !FLOOR_COMPUTE_HOST_DEVICE
 
 #endif // FLOOR_COMPUTE_HOST
-
-#endif

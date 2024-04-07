@@ -16,14 +16,11 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_DARWIN_HELPER_HPP__
-#define __FLOOR_DARWIN_HELPER_HPP__
+#pragma once
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <floor/core/platform.hpp>
-#include <floor/core/gl_support.hpp>
 #include <floor/core/cpp_headers.hpp>
-#include <floor/core/gl_shader.hpp>
 
 #if !defined(FLOOR_IOS)
 #define floor_unused_on_ios
@@ -63,17 +60,6 @@ public:
 	// macOS specific
 	static void create_app_delegate();
 	static float get_menu_bar_height();
-#else
-	// iOS specific
-	static void* get_eagl_sharegroup();
-	static void compile_shaders();
-	static floor_shader_object* get_shader(const string& name);
-#endif
-	
-protected:
-#if defined(FLOOR_IOS)
-	// iOS specific
-	static unordered_map<string, floor_shader_object> shader_objects;
 #endif
 	
 public:
@@ -90,5 +76,3 @@ public:
 #endif
 	
 };
-
-#endif

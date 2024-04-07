@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_COMMON_HPP__
-#define __FLOOR_COMPUTE_COMMON_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <cstdint>
@@ -71,5 +70,3 @@ floor_inline_always static constexpr const char* compute_vendor_to_string(const 
 
 //! user-definable kernel completion handler
 using kernel_completion_handler_f = std::function<void()>;
-
-#endif

@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_CUDA_COOP_HPP__
-#define __FLOOR_COMPUTE_DEVICE_CUDA_COOP_HPP__
+#pragma once
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
@@ -69,7 +68,5 @@ namespace coop {
 	};
 	
 }
-
-#endif
 
 #endif

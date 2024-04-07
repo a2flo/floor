@@ -338,30 +338,36 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 	// declare all used resources
 	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
 	const auto& resources = mtl_indirect_pipeline_entry->get_resources();
+	const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
 	if (!resources.read_only.empty()) {
 		[encoder useResources:resources.read_only.data()
 						count:resources.read_only.size()
-						usage:MTLResourceUsageRead];
+						usage:MTLResourceUsageRead
+					   stages:stages];
 	}
 	if (!resources.write_only.empty()) {
 		[encoder useResources:resources.write_only.data()
 						count:resources.write_only.size()
-						usage:MTLResourceUsageWrite];
+						usage:MTLResourceUsageWrite
+					   stages:stages];
 	}
 	if (!resources.read_write.empty()) {
 		[encoder useResources:resources.read_write.data()
 						count:resources.read_write.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
+					   stages:stages];
 	}
 	if (!resources.read_only_images.empty()) {
 		[encoder useResources:resources.read_only_images.data()
 						count:resources.read_only_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageSample)];
+						usage:MTLResourceUsageRead
+					   stages:stages];
 	}
 	if (!resources.read_write_images.empty()) {
 		[encoder useResources:resources.read_write_images.data()
 						count:resources.read_write_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite | MTLResourceUsageSample)];
+						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
+					   stages:stages];
 	}
 	
 	if (mtl_indirect_pipeline_entry->printf_buffer) {

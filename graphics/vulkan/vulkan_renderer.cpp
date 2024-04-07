@@ -199,7 +199,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	if (!dynamic_render_state.scissor) {
 		cur_render_area = {
-			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually allows it to be < 0
 			.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
 			.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
 		};

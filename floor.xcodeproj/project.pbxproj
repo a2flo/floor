@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -33,21 +33,13 @@
 		5C1091B617D1153E007F536E /* unicode.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10917D17D1153E007F536E /* unicode.hpp */; };
 		5C1091B717D1153E007F536E /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
 		5C1091B817D1153E007F536E /* util.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10917F17D1153E007F536E /* util.hpp */; };
-		5C1091CA17D1153E007F536E /* http_net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919617D1153E007F536E /* http_net.hpp */; };
-		5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919717D1153E007F536E /* irc_net.hpp */; };
-		5C1091CC17D1153E007F536E /* net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919817D1153E007F536E /* net.hpp */; };
-		5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919917D1153E007F536E /* net_protocol.hpp */; };
-		5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919A17D1153E007F536E /* net_tcp.hpp */; };
 		5C1091D017D1153E007F536E /* task.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919D17D1153E007F536E /* task.hpp */; };
 		5C1091D117D1153E007F536E /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
 		5C1091D217D1153E007F536E /* thread_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919F17D1153E007F536E /* thread_base.hpp */; };
-		5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F317D148B8007F536E /* OpenGL.framework */; };
 		5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F617D148C5007F536E /* Cocoa.framework */; };
 		5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F817D148CB007F536E /* AppKit.framework */; };
 		5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FA17D148D0007F536E /* ApplicationServices.framework */; };
 		5C10920017D14C95007F536E /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
-		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
-		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
 		5C1496D8279D68DC00194181 /* indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496D6279D68DC00194181 /* indirect_command.cpp */; };
 		5C1496D9279D68DC00194181 /* indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496D6279D68DC00194181 /* indirect_command.cpp */; };
@@ -119,9 +111,6 @@
 		5C3BBC6827A4C25C0084094A /* metal_resource_tracking.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3BBC6727A4C25C0084094A /* metal_resource_tracking.hpp */; };
 		5C3D13B223B67784000BB608 /* vr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3D13B023B67784000BB608 /* vr_context.hpp */; };
 		5C3D13B323B67784000BB608 /* vr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3D13B123B67784000BB608 /* vr_context.cpp */; };
-		5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
-		5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
-		5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */; };
 		5C3EA9D91D89632000EC932F /* vulkan_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9D81D89632000EC932F /* vulkan_image.hpp */; };
 		5C3EA9DF1D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
 		5C3EA9E01D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
@@ -199,18 +188,6 @@
 		5C6C6B1E22D0D8A200AEE5F3 /* vulkan_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6C6B1B22D0D8A200AEE5F3 /* vulkan_shader.hpp */; };
 		5C6C6B2022D0EF9F00AEE5F3 /* vulkan_encoder.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6C6B1F22D0EF9C00AEE5F3 /* vulkan_encoder.hpp */; };
 		5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6E10F61B8CD71D00D58BFB /* constants.hpp */; };
-		5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
-		5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
-		5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173AC18D717EB00DDF097 /* audio_headers.hpp */; };
-		5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AD18D717EB00DDF097 /* audio_store.cpp */; };
-		5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AD18D717EB00DDF097 /* audio_store.cpp */; };
-		5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173AE18D717EB00DDF097 /* audio_store.hpp */; };
-		5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
-		5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
-		5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173C218D7288900DDF097 /* audio_controller.hpp */; };
-		5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173CA18D8AE0700DDF097 /* audio_source.hpp */; };
-		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
-		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */; };
 		5C7C6F122348B76D00E6CEFF /* vulkan_semaphore.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */; };
 		5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
@@ -299,7 +276,6 @@
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
-		5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917617D1153E007F536E /* logger.cpp */; };
 		5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917C17D1153E007F536E /* unicode.cpp */; };
 		5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
@@ -319,9 +295,6 @@
 		5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */; };
 		5CC063BA1B85A06600F5979A /* cuda_api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC063B91B85A06600F5979A /* cuda_api.cpp */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
-		5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
-		5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
-		5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */; };
 		5CC3993129E785C10015DBBB /* vulkan_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC3992F29E785C00015DBBB /* vulkan_fence.cpp */; };
 		5CC3993229E785C10015DBBB /* vulkan_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC3992F29E785C00015DBBB /* vulkan_fence.cpp */; };
 		5CC3993329E785C10015DBBB /* vulkan_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC3993029E785C00015DBBB /* vulkan_fence.hpp */; };
@@ -453,11 +426,6 @@
 		5C10917D17D1153E007F536E /* unicode.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = unicode.hpp; sourceTree = "<group>"; };
 		5C10917E17D1153E007F536E /* util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = util.cpp; sourceTree = "<group>"; };
 		5C10917F17D1153E007F536E /* util.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = util.hpp; sourceTree = "<group>"; };
-		5C10919617D1153E007F536E /* http_net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_net.hpp; sourceTree = "<group>"; };
-		5C10919717D1153E007F536E /* irc_net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = irc_net.hpp; sourceTree = "<group>"; };
-		5C10919817D1153E007F536E /* net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = net.hpp; sourceTree = "<group>"; };
-		5C10919917D1153E007F536E /* net_protocol.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = net_protocol.hpp; sourceTree = "<group>"; };
-		5C10919A17D1153E007F536E /* net_tcp.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = net_tcp.hpp; sourceTree = "<group>"; };
 		5C10919D17D1153E007F536E /* task.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = task.hpp; sourceTree = "<group>"; };
 		5C10919E17D1153E007F536E /* thread_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = thread_base.cpp; sourceTree = "<group>"; };
 		5C10919F17D1153E007F536E /* thread_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = thread_base.hpp; sourceTree = "<group>"; };
@@ -468,8 +436,6 @@
 		5C1091F817D148CB007F536E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		5C1091FA17D148D0007F536E /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
 		5C1091FF17D14C95007F536E /* floor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = floor.cpp; sourceTree = "<group>"; };
-		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
-		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
 		5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_pre.hpp; path = device/cuda_pre.hpp; sourceTree = "<group>"; };
 		5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_pre.hpp; path = device/metal_pre.hpp; sourceTree = "<group>"; };
@@ -537,8 +503,6 @@
 		5C3BBC6727A4C25C0084094A /* metal_resource_tracking.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_resource_tracking.hpp; path = metal/metal_resource_tracking.hpp; sourceTree = "<group>"; };
 		5C3D13B023B67784000BB608 /* vr_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vr_context.hpp; path = vr/vr_context.hpp; sourceTree = "<group>"; };
 		5C3D13B123B67784000BB608 /* vr_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vr_context.cpp; path = vr/vr_context.cpp; sourceTree = "<group>"; };
-		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
-		5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = asio_error_handler.hpp; sourceTree = "<group>"; };
 		5C3EA9D81D89632000EC932F /* vulkan_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_image.hpp; path = device/vulkan_image.hpp; sourceTree = "<group>"; };
 		5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_toolchain.cpp; sourceTree = "<group>"; };
 		5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_toolchain.hpp; sourceTree = "<group>"; };
@@ -546,8 +510,6 @@
 		5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = spirv_handler.hpp; sourceTree = "<group>"; };
 		5C41AC192A3DF4AA00D77AC7 /* openxr_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = openxr_common.hpp; path = vr/openxr_common.hpp; sourceTree = "<group>"; };
 		5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = openxr_input.cpp; path = vr/openxr_input.cpp; sourceTree = "<group>"; };
-		5C43F88D2738414F0031510E /* cpp_bitcast.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_bitcast.hpp; sourceTree = "<group>"; };
-		5C43F88E273842480031510E /* cpp_consteval.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cpp_consteval.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A718F953590039BFD4 /* lang_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = lang_context.hpp; sourceTree = "<group>"; };
@@ -587,21 +549,12 @@
 		5C6C6B1B22D0D8A200AEE5F3 /* vulkan_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vulkan_shader.hpp; sourceTree = "<group>"; };
 		5C6C6B1F22D0EF9C00AEE5F3 /* vulkan_encoder.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_encoder.hpp; path = vulkan/vulkan_encoder.hpp; sourceTree = "<group>"; };
 		5C6E10F61B8CD71D00D58BFB /* constants.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = constants.hpp; sourceTree = "<group>"; };
-		5C7173AB18D717EB00DDF097 /* audio_headers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_headers.cpp; path = audio/audio_headers.cpp; sourceTree = "<group>"; };
-		5C7173AC18D717EB00DDF097 /* audio_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_headers.hpp; path = audio/audio_headers.hpp; sourceTree = "<group>"; };
-		5C7173AD18D717EB00DDF097 /* audio_store.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_store.cpp; path = audio/audio_store.cpp; sourceTree = "<group>"; };
-		5C7173AE18D717EB00DDF097 /* audio_store.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_store.hpp; path = audio/audio_store.hpp; sourceTree = "<group>"; };
-		5C7173C118D7288900DDF097 /* audio_controller.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_controller.cpp; path = audio/audio_controller.cpp; sourceTree = "<group>"; };
-		5C7173C218D7288900DDF097 /* audio_controller.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_controller.hpp; path = audio/audio_controller.hpp; sourceTree = "<group>"; };
-		5C7173CA18D8AE0700DDF097 /* audio_source.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_source.hpp; path = audio/audio_source.hpp; sourceTree = "<group>"; };
-		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_pre.hpp; path = device/vulkan_pre.hpp; sourceTree = "<group>"; };
 		5C7C6F102348B76A00E6CEFF /* vulkan_semaphore.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_semaphore.hpp; path = vulkan/vulkan_semaphore.hpp; sourceTree = "<group>"; };
 		5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_semaphore.cpp; path = vulkan/vulkan_semaphore.cpp; sourceTree = "<group>"; };
 		5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dual_quaternion.cpp; sourceTree = "<group>"; };
 		5C8010792AF2BFDF00CFF6B6 /* dual_quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = dual_quaternion.hpp; sourceTree = "<group>"; };
-		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = graphics_pipeline.cpp; sourceTree = "<group>"; };
 		5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_pipeline.hpp; sourceTree = "<group>"; };
 		5C8452FF22B1A64C0014AECF /* graphics_pass.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = graphics_pass.hpp; sourceTree = "<group>"; };
@@ -693,8 +646,6 @@
 		5CC063B91B85A06600F5979A /* cuda_api.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_api.cpp; sourceTree = "<group>"; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
-		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
-		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC3992F29E785C00015DBBB /* vulkan_fence.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_fence.cpp; path = vulkan/vulkan_fence.cpp; sourceTree = "<group>"; };
 		5CC3993029E785C00015DBBB /* vulkan_fence.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_fence.hpp; path = vulkan/vulkan_fence.hpp; sourceTree = "<group>"; };
 		5CC59809201E724400D8D19F /* vector_2d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_2d.cpp; sourceTree = "<group>"; };
@@ -780,7 +731,6 @@
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
-				5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -850,8 +800,6 @@
 				5CAD574024D764BF0022D36D /* aligned_ptr.hpp */,
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
-				5C43F88D2738414F0031510E /* cpp_bitcast.hpp */,
-				5C43F88E273842480031510E /* cpp_consteval.hpp */,
 				5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */,
 				5C10916F17D1153E007F536E /* cpp_headers.hpp */,
 				5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */,
@@ -862,10 +810,6 @@
 				5C10917317D1153E007F536E /* file_io.cpp */,
 				5C10917417D1153E007F536E /* file_io.hpp */,
 				5C8B4A6A1BE603C000987CAD /* flat_map.hpp */,
-				5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */,
-				5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */,
-				5C10920117D1F80E007F536E /* gl_support.cpp */,
-				5C10920517D1F81B007F536E /* gl_support.hpp */,
 				5C0416F71B60048100370253 /* json.cpp */,
 				5C0416F81B60048100370253 /* json.hpp */,
 				5C10917617D1153E007F536E /* logger.cpp */,
@@ -887,20 +831,6 @@
 			path = core;
 			sourceTree = "<group>";
 		};
-		5C10919117D1153E007F536E /* net */ = {
-			isa = PBXGroup;
-			children = (
-				5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */,
-				5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */,
-				5C10919617D1153E007F536E /* http_net.hpp */,
-				5C10919717D1153E007F536E /* irc_net.hpp */,
-				5C10919817D1153E007F536E /* net.hpp */,
-				5C10919917D1153E007F536E /* net_protocol.hpp */,
-				5C10919A17D1153E007F536E /* net_tcp.hpp */,
-			);
-			path = net;
-			sourceTree = "<group>";
-		};
 		5C10919B17D1153E007F536E /* threading */ = {
 			isa = PBXGroup;
 			children = (
@@ -919,7 +849,6 @@
 		5C1091D317D11547007F536E /* src */ = {
 			isa = PBXGroup;
 			children = (
-				5C7173AA18D7147F00DDF097 /* audio */,
 				5C7800FD19D5BC4000853135 /* compute */,
 				5C8452F922B1A0990014AECF /* graphics */,
 				5C366DD919A64FF2006D1D09 /* constexpr */,
@@ -928,7 +857,6 @@
 				5C1091D617D14095007F536E /* floor */,
 				5C4A85A018F9527E0039BFD4 /* lang */,
 				5C0DF00719B8C79200331AAC /* math */,
-				5C10919117D1153E007F536E /* net */,
 				5C10919B17D1153E007F536E /* threading */,
 				5C3D13B523B6778E000BB608 /* vr */,
 			);
@@ -1139,21 +1067,6 @@
 			name = device;
 			sourceTree = "<group>";
 		};
-		5C7173AA18D7147F00DDF097 /* audio */ = {
-			isa = PBXGroup;
-			children = (
-				5C7173C118D7288900DDF097 /* audio_controller.cpp */,
-				5C7173C218D7288900DDF097 /* audio_controller.hpp */,
-				5C7173AB18D717EB00DDF097 /* audio_headers.cpp */,
-				5C7173AC18D717EB00DDF097 /* audio_headers.hpp */,
-				5C7173CB18D8AE0700DDF097 /* audio_source.cpp */,
-				5C7173CA18D8AE0700DDF097 /* audio_source.hpp */,
-				5C7173AD18D717EB00DDF097 /* audio_store.cpp */,
-				5C7173AE18D717EB00DDF097 /* audio_store.hpp */,
-			);
-			name = audio;
-			sourceTree = "<group>";
-		};
 		5C7800FD19D5BC4000853135 /* compute */ = {
 			isa = PBXGroup;
 			children = (
@@ -1203,7 +1116,6 @@
 		5C803E0D1A7CB145009B40DF /* etc */ = {
 			isa = PBXGroup;
 			children = (
-				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
 				5C3B3771272F51F000FD708D /* llvm140 */,
 			);
 			name = etc;
@@ -1371,7 +1283,6 @@
 				5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */,
 				5CD1A37E21DE3767002D5CB1 /* vector_lib_checks.hpp in Headers */,
 				5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */,
-				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C2A907E243B7CDF00C82150 /* hdr_metadata.hpp in Headers */,
 				5C5383ED1A641B1E007AEDD7 /* cuda_program.hpp in Headers */,
 				5CA2ADE027B192310061D07E /* graphics_vertex_format.hpp in Headers */,
@@ -1379,8 +1290,6 @@
 				5CE0BDDC19BB2A75000B28B3 /* matrix4.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
-				5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */,
-				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5CEEA6DD1A4EE1A5005239DA /* opencl_program.hpp in Headers */,
 				5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */,
 				5C5383EF1A641B1E007AEDD7 /* cuda_queue.hpp in Headers */,
@@ -1400,13 +1309,11 @@
 				5C1091B817D1153E007F536E /* util.hpp in Headers */,
 				5CD6448E1A51BF5B00716FE8 /* compute_common.hpp in Headers */,
 				5C8452FE22B1A09C0014AECF /* graphics_pipeline.hpp in Headers */,
-				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C84531822B1A6D80014AECF /* vulkan_pipeline.hpp in Headers */,
 				5C3D13B223B67784000BB608 /* vr_context.hpp in Headers */,
 				5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */,
 				5C9C1379209E3C38005C516C /* universal_binary.hpp in Headers */,
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
-				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5CD4E87122B444AE00AE0385 /* vulkan_renderer.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
 				5CC3993329E785C10015DBBB /* vulkan_fence.hpp in Headers */,
@@ -1455,12 +1362,10 @@
 				5C20C8CB1B4139260005F5EA /* host_image.hpp in Headers */,
 				5C2815DC2A310CA9005F964C /* openxr_context.hpp in Headers */,
 				5C4E30EB1B428B120034E536 /* host_image.hpp in Headers */,
-				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
 				5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */,
 				5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */,
 				5C2B87D71C73893E00F11EA5 /* vulkan_buffer.hpp in Headers */,
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
-				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,
 				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
@@ -1477,10 +1382,8 @@
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5CAD573524D70EAC0022D36D /* argument_buffer.hpp in Headers */,
 				5CF974C824E87F6600014CDC /* elf_binary.hpp in Headers */,
-				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
 				5C80107C2AF2BFE000CFF6B6 /* dual_quaternion.hpp in Headers */,
-				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
 				5C8F323526347403008144CF /* metal_device_query.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
 				5C2B87DA1C73893E00F11EA5 /* vulkan_program.hpp in Headers */,
@@ -1492,7 +1395,6 @@
 				5C5FF22C22515775007457AF /* soft_printf.hpp in Headers */,
 				5CBA3EF71D9D6973001BEDEC /* host_post.hpp in Headers */,
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
-				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C20C8D11B4139260005F5EA /* host_queue.hpp in Headers */,
 				5C60A54F29E387CD00AA58D1 /* vulkan_args.hpp in Headers */,
 				5C8EDFCD2A192C1500DB1EEF /* vulkan.hpp in Headers */,
@@ -1514,7 +1416,6 @@
 				5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */,
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
-				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5CFC65A32471C331005E3128 /* compute_memory_flags.hpp in Headers */,
 				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
 				5CE2D907209FDA5F00180D47 /* sha_256.hpp in Headers */,
@@ -1533,7 +1434,6 @@
 				5C84531922B1A6D80014AECF /* vulkan_pass.hpp in Headers */,
 				5C8FEF5F1AFE3BF4001D47BF /* opencl_image.hpp in Headers */,
 				5C4B89BF25576830001CB537 /* host_argument_buffer.hpp in Headers */,
-				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
 				5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */,
 				5C4E30EC1B428B120034E536 /* host_pre.hpp in Headers */,
 				5CBE41DA1B31B48600AE0E5F /* darwin_helper.hpp in Headers */,
@@ -1570,7 +1470,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5C10916217D114BC007F536E /* Build configuration list for PBXNativeTarget "floor" */;
 			buildPhases = (
-				5C10920917D1FB91007F536E /* ShellScript */,
+				5C10920917D1FB91007F536E /* Run Script */,
 				5C10915A17D114BC007F536E /* Sources */,
 				5C10915B17D114BC007F536E /* Frameworks */,
 				5C10915C17D114BC007F536E /* Headers */,
@@ -1618,7 +1518,7 @@
 				};
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
-			compatibilityVersion = "Xcode 12.0";
+			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1638,7 +1538,7 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		5C10920917D1FB91007F536E /* ShellScript */ = {
+		5C10920917D1FB91007F536E /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -1646,6 +1546,7 @@
 			);
 			inputPaths = (
 			);
+			name = "Run Script";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1704,7 +1605,6 @@
 				5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */,
 				5C3D13B323B67784000BB608 /* vr_context.cpp in Sources */,
 				5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */,
-				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C20C8D01B4139260005F5EA /* host_queue.cpp in Sources */,
 				5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */,
 				5C9AAEFD281A14D00049ABA6 /* metal_fence.mm in Sources */,
@@ -1715,8 +1615,6 @@
 				5C2B87D81C73893E00F11EA5 /* vulkan_kernel.cpp in Sources */,
 				5CD4E86622B4448E00AE0385 /* graphics_renderer.cpp in Sources */,
 				5C20C8CE1B4139260005F5EA /* host_program.cpp in Sources */,
-				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
-				5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CAD573E24D73B1A0022D36D /* metal_argument_buffer.mm in Sources */,
 				5C9C137A209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5C4B89BD25576830001CB537 /* host_argument_buffer.cpp in Sources */,
@@ -1749,7 +1647,6 @@
 				5CC5980F201E724600D8D19F /* vector_3d.cpp in Sources */,
 				5C41AC1C2A3DF4AB00D77AC7 /* openxr_input.cpp in Sources */,
 				5C84531C22B1A99C0014AECF /* metal_pass.mm in Sources */,
-				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C0416F91B60048100370253 /* json.cpp in Sources */,
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C20C8C61B4139260005F5EA /* host_compute.cpp in Sources */,
@@ -1759,12 +1656,10 @@
 				5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */,
 				5C3EA9DF1D8B151300EC932F /* llvm_toolchain.cpp in Sources */,
 				5C5383E81A641B1E007AEDD7 /* cuda_device.cpp in Sources */,
-				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C6B6D8E1EC7381C00342E50 /* serializer.cpp in Sources */,
 				5C8FD0C71AD38F9700215230 /* opencl_image.cpp in Sources */,
 				5C7C6F132348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
 				5C1E6FBB25EF0E510030786F /* vulkan_descriptor_set.cpp in Sources */,
-				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
 				5C8F323626347403008144CF /* metal_device_query.mm in Sources */,
 				5C97EAD52999220A00D4C680 /* vulkan_indirect_command.cpp in Sources */,
@@ -1783,7 +1678,6 @@
 				5C678CF3262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
-				5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1835,7 +1729,6 @@
 				5C3EA9E51D8B373000EC932F /* spirv_handler.cpp in Sources */,
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CD4E86722B4448E00AE0385 /* graphics_renderer.cpp in Sources */,
-				5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5C9AAEFE281A14D00049ABA6 /* metal_fence.mm in Sources */,
 				5C8FD0D11AD3944F00215230 /* metal_image.mm in Sources */,
@@ -1843,11 +1736,9 @@
 				5C8461491A914759004D4745 /* metal_compute.mm in Sources */,
 				5C9C137B209E3C38005C516C /* universal_binary.cpp in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
-				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CD4E86C22B4449B00AE0385 /* metal_renderer.mm in Sources */,
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
 				5CE0BDDB19BB2A75000B28B3 /* matrix4.cpp in Sources */,
-				5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
 				5C97EAD62999220A00D4C680 /* vulkan_indirect_command.cpp in Sources */,
 				5C9AAF03281A18CB0049ABA6 /* compute_fence.cpp in Sources */,
 				5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */,
@@ -1863,7 +1754,6 @@
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
 				5C80107B2AF2BFE000CFF6B6 /* dual_quaternion.cpp in Sources */,
 				5CD4E87422B444CA00AE0385 /* vulkan_renderer.cpp in Sources */,
-				5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5C4A85B018F953590039BFD4 /* lexer.cpp in Sources */,
 				5C6B6D8F1EC7381C00342E50 /* serializer.cpp in Sources */,
 				5C8F323B2635BA88008144CF /* vulkan_argument_buffer.cpp in Sources */,
@@ -1875,7 +1765,6 @@
 				5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */,
 				5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */,
 				5C8FD0C31AD38F8B00215230 /* compute_image.cpp in Sources */,
-				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
 				5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
@@ -1884,14 +1773,12 @@
 				5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5CAD573724D70EAC0022D36D /* argument_buffer.cpp in Sources */,
-				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
 				5C7C6F142348B76D00E6CEFF /* vulkan_semaphore.cpp in Sources */,
 				5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */,
 				5CEEA6E11A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
 				5C84614B1A914759004D4745 /* metal_program.mm in Sources */,
 				5C8FD0D61AD3983000215230 /* compute_memory.cpp in Sources */,
-				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1496D9279D68DC00194181 /* indirect_command.cpp in Sources */,
 				5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
@@ -1919,8 +1806,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++2a";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -1947,17 +1833,17 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = bin;
+				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.3.0;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
-				DYLIB_CURRENT_VERSION = 0.3.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
+				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_PASCAL_STRINGS = NO;
@@ -1997,7 +1883,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2007,27 +1893,23 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++2a",
-					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
-					SDL2,
-					"-lcrypto",
-					"-lssl",
+					SDL3,
 				);
 				PRODUCT_NAME = libfloord;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				VALID_ARCHS = x86_64;
+				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
 					"-Wthread-safety",
@@ -2043,9 +1925,12 @@
 					"-Wno-c++17-compat",
 					"-Wno-c++17-compat-pedantic",
 					"-Wno-c++17-extensions",
-					"-Wno-c++2a-compat",
-					"-Wno-c++2a-compat-pedantic",
-					"-Wno-c++2a-extensions",
+					"-Wno-c++20-compat",
+					"-Wno-c++20-compat-pedantic",
+					"-Wno-c++20-extensions",
+					"-Wno-c++23-compat",
+					"-Wno-c++23-compat-pedantic",
+					"-Wno-c++23-extensions",
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
@@ -2057,6 +1942,7 @@
 					"-Wno-padded",
 					"-Wno-packed",
 					"-Wno-switch-enum",
+					"-Wno-switch-default",
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
@@ -2068,6 +1954,7 @@
 					"-Wno-return-std-move-in-c++11",
 					"-Wno-c11-extensions",
 					"-Wno-poison-system-directories",
+					"-Wno-nan-infinity-disabled",
 				);
 			};
 			name = Debug;
@@ -2081,8 +1968,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++2a";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -2109,17 +1995,17 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = bin;
+				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.3.0;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
-				DYLIB_CURRENT_VERSION = 0.3.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
+				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_PASCAL_STRINGS = NO;
 				GCC_FAST_MATH = YES;
@@ -2154,7 +2040,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2164,26 +2050,22 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++2a",
-					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
-					SDL2,
-					"-lcrypto",
-					"-lssl",
+					SDL3,
 				);
 				PRODUCT_NAME = libfloor;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				VALID_ARCHS = x86_64;
+				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
 					"-Wthread-safety",
@@ -2199,9 +2081,12 @@
 					"-Wno-c++17-compat",
 					"-Wno-c++17-compat-pedantic",
 					"-Wno-c++17-extensions",
-					"-Wno-c++2a-compat",
-					"-Wno-c++2a-compat-pedantic",
-					"-Wno-c++2a-extensions",
+					"-Wno-c++20-compat",
+					"-Wno-c++20-compat-pedantic",
+					"-Wno-c++20-extensions",
+					"-Wno-c++23-compat",
+					"-Wno-c++23-compat-pedantic",
+					"-Wno-c++23-extensions",
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
@@ -2213,6 +2098,7 @@
 					"-Wno-padded",
 					"-Wno-packed",
 					"-Wno-switch-enum",
+					"-Wno-switch-default",
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
@@ -2224,6 +2110,7 @@
 					"-Wno-return-std-move-in-c++11",
 					"-Wno-c11-extensions",
 					"-Wno-poison-system-directories",
+					"-Wno-nan-infinity-disabled",
 				);
 			};
 			name = Release;
@@ -2237,19 +2124,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
 				);
 				GCC_PREPROCESSOR_DEFINITIONS = "FLOOR_DEBUG=1";
-				HEADER_SEARCH_PATHS = (
-					../,
-					"/usr/local/opt/openal-soft/include",
-				);
+				HEADER_SEARCH_PATHS = ../;
 				LIBRARY_SEARCH_PATHS = (
-					/usr/local/opt/openssl/lib,
-					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
 					/opt/homebrew/lib,
-					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2257,23 +2138,15 @@
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-isystem",
 					/opt/homebrew/include,
-					"-isystem",
-					"/opt/homebrew/opt/openssl@1.1/include",
-					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lopenal",
 					"-w",
 				);
-				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Debug;
 		};
@@ -2286,18 +2159,12 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
 				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					"/usr/local/opt/openal-soft/include",
-				);
+				HEADER_SEARCH_PATHS = ../;
 				LIBRARY_SEARCH_PATHS = (
-					/usr/local/opt/openssl/lib,
-					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
 					/opt/homebrew/lib,
-					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2305,22 +2172,11 @@
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-isystem",
 					/opt/homebrew/include,
-					"-isystem",
-					"/opt/homebrew/opt/openssl@1.1/include",
-					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lopenal",
-				);
-				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Release;
 		};
@@ -2333,8 +2189,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++2a";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -2361,17 +2216,17 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = bin;
+				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.3.0;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
-				DYLIB_CURRENT_VERSION = 0.3.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
+				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_PASCAL_STRINGS = NO;
@@ -2411,7 +2266,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2421,29 +2276,25 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++2a",
-					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
-					SDL2,
-					"-lcrypto",
-					"-lssl",
+					SDL3,
 					"-framework",
 					vulkan,
 				);
 				PRODUCT_NAME = libfloord;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				VALID_ARCHS = x86_64;
+				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
 					"-Wthread-safety",
@@ -2459,9 +2310,12 @@
 					"-Wno-c++17-compat",
 					"-Wno-c++17-compat-pedantic",
 					"-Wno-c++17-extensions",
-					"-Wno-c++2a-compat",
-					"-Wno-c++2a-compat-pedantic",
-					"-Wno-c++2a-extensions",
+					"-Wno-c++20-compat",
+					"-Wno-c++20-compat-pedantic",
+					"-Wno-c++20-extensions",
+					"-Wno-c++23-compat",
+					"-Wno-c++23-compat-pedantic",
+					"-Wno-c++23-extensions",
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
@@ -2473,6 +2327,7 @@
 					"-Wno-padded",
 					"-Wno-packed",
 					"-Wno-switch-enum",
+					"-Wno-switch-default",
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
@@ -2484,6 +2339,7 @@
 					"-Wno-return-std-move-in-c++11",
 					"-Wno-c11-extensions",
 					"-Wno-poison-system-directories",
+					"-Wno-nan-infinity-disabled",
 				);
 			};
 			name = Debug_vulkan;
@@ -2497,19 +2353,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
 				);
 				GCC_PREPROCESSOR_DEFINITIONS = "FLOOR_DEBUG=1";
-				HEADER_SEARCH_PATHS = (
-					../,
-					"/usr/local/opt/openal-soft/include",
-				);
+				HEADER_SEARCH_PATHS = ../;
 				LIBRARY_SEARCH_PATHS = (
-					/usr/local/opt/openssl/lib,
-					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
 					/opt/homebrew/lib,
-					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2517,23 +2367,15 @@
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-isystem",
 					/opt/homebrew/include,
-					"-isystem",
-					"/opt/homebrew/opt/openssl@1.1/include",
-					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lopenal",
 					"-w",
 				);
-				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Debug_vulkan;
 		};
@@ -2543,13 +2385,19 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
-					FLOOR_NO_OPENAL,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,
@@ -2564,7 +2412,6 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
-					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2573,7 +2420,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = arm64;
 			};
 			name = Debug_vulkan;
 		};
@@ -2612,8 +2458,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++2a";
-				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -2640,17 +2485,17 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = bin;
+				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.3.0;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
-				DYLIB_CURRENT_VERSION = 0.3.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
+				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_PASCAL_STRINGS = NO;
 				GCC_FAST_MATH = YES;
@@ -2685,7 +2530,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2695,28 +2540,24 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=gnu++2a",
-					"-fno-aligned-allocation",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 					"-ftemplate-backtrace-limit=0",
 				);
 				OTHER_LDFLAGS = (
 					"-framework",
-					SDL2,
-					"-lcrypto",
-					"-lssl",
+					SDL3,
 					"-framework",
 					vulkan,
 				);
 				PRODUCT_NAME = libfloor;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				VALID_ARCHS = x86_64;
+				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
 					"-Wthread-safety",
@@ -2732,9 +2573,12 @@
 					"-Wno-c++17-compat",
 					"-Wno-c++17-compat-pedantic",
 					"-Wno-c++17-extensions",
-					"-Wno-c++2a-compat",
-					"-Wno-c++2a-compat-pedantic",
-					"-Wno-c++2a-extensions",
+					"-Wno-c++20-compat",
+					"-Wno-c++20-compat-pedantic",
+					"-Wno-c++20-extensions",
+					"-Wno-c++23-compat",
+					"-Wno-c++23-compat-pedantic",
+					"-Wno-c++23-extensions",
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
@@ -2746,6 +2590,7 @@
 					"-Wno-padded",
 					"-Wno-packed",
 					"-Wno-switch-enum",
+					"-Wno-switch-default",
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
@@ -2757,6 +2602,7 @@
 					"-Wno-return-std-move-in-c++11",
 					"-Wno-c11-extensions",
 					"-Wno-poison-system-directories",
+					"-Wno-nan-infinity-disabled",
 				);
 			};
 			name = Release_vulkan;
@@ -2770,18 +2616,12 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
 				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					"/usr/local/opt/openal-soft/include",
-				);
+				HEADER_SEARCH_PATHS = ../;
 				LIBRARY_SEARCH_PATHS = (
-					/usr/local/opt/openssl/lib,
-					"/usr/local/opt/openal-soft/lib",
 					/usr/local/lib,
 					/opt/homebrew/lib,
-					"/opt/homebrew/opt/openssl@1.1/lib",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/lib",
 				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -2789,22 +2629,11 @@
 					"-isystem",
 					/usr/local/include,
 					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-isystem",
 					/opt/homebrew/include,
-					"-isystem",
-					"/opt/homebrew/opt/openssl@1.1/include",
-					"-isystem",
-					"/opt/homebrew/Cellar/openal-soft/1.23.1/include",
 					"-iframework",
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lopenal",
-				);
-				VALID_ARCHS = "x86_64 arm64";
 			};
 			name = Release_vulkan;
 		};
@@ -2814,13 +2643,19 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
-					FLOOR_NO_OPENAL,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,
@@ -2835,7 +2670,6 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
-					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2844,7 +2678,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = arm64;
 			};
 			name = Release_vulkan;
 		};
@@ -2920,13 +2753,19 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
-					FLOOR_NO_OPENAL,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,
@@ -2941,7 +2780,6 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
-					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2950,7 +2788,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = arm64;
 			};
 			name = Debug;
 		};
@@ -2960,13 +2797,19 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
-					FLOOR_NO_OPENAL,
 				);
 				HEADER_SEARCH_PATHS = (
 					../,
@@ -2981,7 +2824,6 @@
 					"$(inherited)",
 					"-isystem",
 					ios/deps/include,
-					"-DGLES_SILENCE_DEPRECATION=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
@@ -2990,7 +2832,6 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = arm64;
 			};
 			name = Release;
 		};

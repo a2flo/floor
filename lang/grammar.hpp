@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_GRAMMAR_HPP__
-#define __FLOOR_GRAMMAR_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <floor/core/util.hpp>
@@ -803,5 +802,3 @@ struct grammar_rule : public parser_node_base<grammar_rule> {
 	}
 	
 };
-
-#endif

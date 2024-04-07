@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDA_IMAGE_HPP__
-#define __FLOOR_CUDA_IMAGE_HPP__
+#pragma once
 
 #include <floor/compute/cuda/cuda_common.hpp>
 
@@ -39,15 +38,9 @@ public:
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   std::span<uint8_t> host_data_ = {},
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-			   const uint32_t opengl_type = 0,
-			   const uint32_t external_gl_object_ = 0,
-			   const opengl_image_info* gl_image_info = nullptr,
 			   compute_image* shared_image_ = nullptr);
 	
 	~cuda_image() override;
-	
-	bool acquire_opengl_object(const compute_queue* cqueue) override;
-	bool release_opengl_object(const compute_queue* cqueue) override;
 	
 	bool acquire_vulkan_image(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
 	bool release_vulkan_image(const compute_queue* cqueue, const vulkan_queue* vk_queue) const override;
@@ -118,11 +111,6 @@ protected:
 	//! separate create image function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
 	
-	//
-	uint32_t depth_compat_tex { 0u };
-	uint32_t depth_compat_format { 0u };
-	uint32_t depth_copy_fbo { 0u };
-	
 #if !defined(FLOOR_NO_VULKAN)
 	// external (Vulkan) memory
 	cu_external_memory ext_memory { nullptr };
@@ -139,7 +127,5 @@ protected:
 	const bool is_mip_mapped_or_vulkan { false };
 	
 };
-
-#endif
 
 #endif

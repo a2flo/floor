@@ -16,12 +16,12 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_EVENT_HPP__
-#define __FLOOR_EVENT_HPP__
+#pragma once
 
 #include <floor/core/core.hpp>
 #include <floor/threading/thread_base.hpp>
 #include <floor/core/event_objects.hpp>
+#include <SDL3/SDL_events.h>
 
 class vr_context;
 
@@ -56,7 +56,7 @@ public:
 	void remove_event_types_from_handler(const handler& handler_, const set<EVENT_TYPE>& types);
 
 	//! returns the mouse position
-	uint2 get_mouse_pos() const;
+	float2 get_mouse_pos() const;
 	
 	void set_ldouble_click_time(uint32_t dctime);
 	void set_rdouble_click_time(uint32_t dctime);
@@ -113,5 +113,3 @@ protected:
 	}
 
 };
-
-#endif

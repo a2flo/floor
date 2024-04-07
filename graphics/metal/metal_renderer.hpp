@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_GRAPHICS_METAL_METAL_RENDERER_HPP__
-#define __FLOOR_GRAPHICS_METAL_METAL_RENDERER_HPP__
+#pragma once
 
 #include <floor/compute/metal/metal_common.hpp>
 
@@ -97,7 +96,5 @@ protected:
 						 completion_handler_f&& renderer_compl_handler = {});
 	
 };
-
-#endif
 
 #endif

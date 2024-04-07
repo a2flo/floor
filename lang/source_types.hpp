@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_SOURCE_TYPES_HPP__
-#define __FLOOR_SOURCE_TYPES_HPP__
+#pragma once
 
 #include <floor/core/essentials.hpp>
 #include <string>
@@ -207,5 +206,3 @@ typedef token_container::const_iterator token_iterator;
 
 //! inclusive token range in the source code: [first, second]
 typedef pair<token_iterator, token_iterator> token_range;
-
-#endif
