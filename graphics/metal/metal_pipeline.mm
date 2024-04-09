@@ -24,6 +24,7 @@
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_image.hpp>
+#include <floor/floor/floor.hpp>
 
 metal_pipeline::metal_pipeline(const render_pipeline_description& pipeline_desc_,
 							   const vector<unique_ptr<compute_device>>& devices,
@@ -33,6 +34,8 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 	
 	const auto mtl_vs = (const metal_kernel*)pipeline_desc.vertex_shader;
 	const auto mtl_fs = (const metal_kernel*)pipeline_desc.fragment_shader;
+	
+	static const bool dump_reflection_info = floor::get_metal_dump_reflection_info();
 	
 	for (const auto& dev : devices) {
 		const auto& mtl_dev = ((const metal_device&)*dev).device;
@@ -178,7 +181,23 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		// finally create the pipeline object
 		metal_pipeline_entry entry;
 		NSError* error = nullptr;
-		entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc error:&error];
+		if (dump_reflection_info) {
+			MTLAutoreleasedRenderPipelineReflection refl_data { nil };
+			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
+																		 options:(MTLPipelineOptionArgumentInfo |
+																				  MTLPipelineOptionBufferTypeInfo)
+																	  reflection:&refl_data
+																		   error:&error];
+			if (refl_data) {
+				metal_program::dump_bindings_reflection("vertex shader \"" + mtl_vs_entry->info->name + "\"", [refl_data vertexBindings]);
+				if (mtl_fs_entry) {
+					metal_program::dump_bindings_reflection("fragment shader \"" + mtl_vs_entry->info->name + "\"", [refl_data fragmentBindings]);
+				}
+			}
+		} else {
+			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
+																		   error:&error];
+		}
 		if (!entry.pipeline_state) {
 			log_error("failed to create pipeline state for device $: $", dev->name,
 					  (error != nullptr ? [[error localizedDescription] UTF8String] : "unknown error"));

@@ -420,6 +420,7 @@ bool floor::init(const init_state& state) {
 		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
 		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
 		config.metal_soft_printf = config_doc.get<bool>("toolchain.metal.soft_printf", false);
+		config.metal_dump_reflection_info = config_doc.get<bool>("toolchain.metal.dump_reflection_info", false);
 		
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
 		config.vulkan_validation = config_doc.get<bool>("toolchain.vulkan.validation", true);
@@ -1690,6 +1691,9 @@ const uint32_t& floor::get_metal_force_version() {
 }
 const bool& floor::get_metal_soft_printf() {
 	return config.metal_soft_printf;
+}
+const bool& floor::get_metal_dump_reflection_info() {
+	return config.metal_dump_reflection_info;
 }
 
 const string& floor::get_vulkan_base_path() {

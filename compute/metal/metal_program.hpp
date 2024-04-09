@@ -49,6 +49,11 @@ public:
 	
 	metal_program(program_map_type&& programs);
 	
+#if defined(__OBJC__)
+	//! dumps the specified reflection info (bindings) to console
+	static void dump_bindings_reflection(const string& reflection_info_name, NSArray<id<MTLBinding>>* bindings);
+#endif
+	
 protected:
 	program_map_type programs;
 	

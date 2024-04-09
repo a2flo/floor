@@ -262,6 +262,7 @@ public:
 	static const string& get_metal_dis();
 	static const uint32_t& get_metal_force_version();
 	static const bool& get_metal_soft_printf();
+	static const bool& get_metal_dump_reflection_info();
 	
 	// vulkan
 	static const string& get_vulkan_base_path();
@@ -412,6 +413,7 @@ protected:
 		string metal_dis = default_dis;
 		uint32_t metal_force_version = 0;
 		bool metal_soft_printf = false;
+		bool metal_dump_reflection_info = false;
 		
 		// host
 		bool host_toolchain_exists = false;
