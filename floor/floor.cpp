@@ -103,7 +103,6 @@ uint32_t floor::app_version { 1 };
 bool floor::console_only = false;
 bool floor::cursor_visible = true;
 bool floor::x11_forwarding = false;
-atomic<bool> floor::reload_kernels_flag { false };
 
 bool floor::init(const init_state& state) {
 	// return if already initialized
@@ -1190,15 +1189,7 @@ void floor::set_vsync(const bool& state) {
 	config.vsync = state;
 }
 
-void floor::start_frame() {
-}
-
-void floor::end_frame(const bool window_swap) {
-	// optional window swap (client code might want to swap the window by itself)
-	if (window_swap) {
-		swap();
-	}
-	
+void floor::end_frame() {
 	frame_time_sum += SDL_GetTicks() - frame_time_counter;
 
 	// handle fps count
@@ -1213,14 +1204,6 @@ void floor::end_frame(const bool window_swap) {
 		frame_time_sum = 0;
 	}
 	frame_time_counter = SDL_GetTicks();
-	
-	// check for kernel reload (this is safe to do here)
-	if (reload_kernels_flag) {
-		reload_kernels_flag = false;
-		if(compute_ctx != nullptr) {
-			//compute_ctx->reload_kernels(); // TODO: !
-		}
-	}
 }
 
 /*! sets the window caption
@@ -1447,13 +1430,6 @@ shared_ptr<metal_compute> floor::get_metal_context() {
 
 const string floor::get_version() {
 	return FLOOR_VERSION_STRING;
-}
-
-void floor::swap() {
-}
-
-void floor::reload_kernels() {
-	reload_kernels_flag = true;
 }
 
 const float& floor::get_fov() {

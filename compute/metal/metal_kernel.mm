@@ -383,9 +383,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	}
 	
 	// create a dummy encoder so that we can retrieve the necessary buffer length (and do some validity checking)
-	MTLAutoreleasedArgument reflection_data { nil };
-	id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx
-																		   reflection:&reflection_data];
+	id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx];
 	if (!arg_encoder) {
 		log_error("failed to create argument encoder");
 		return {};
@@ -411,16 +409,26 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 	
 	// figure out the top level arg indices (we don't need to go deeper, since non-constant/buffer vars in nested structs are not supported right now)
 	vector<uint32_t> arg_indices;
-	if (reflection_data && [reflection_data bufferStructType]) {
-		MTLStructType* top_level_struct = [reflection_data bufferStructType];
-		for (MTLStructMember* member in [top_level_struct members]) {
-			arg_indices.emplace_back([member argumentIndex]);
+	uint32_t arg_idx_counter = 0;
+	for (const auto& arg_buffer_arg : arg_info->args) {
+		arg_indices.emplace_back(arg_idx_counter);
+		switch (arg_buffer_arg.special_type) {
+			case llvm_toolchain::SPECIAL_TYPE::NONE:
+				// normal arg
+				++arg_idx_counter;
+				break;
+			case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
+			case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
+				arg_idx_counter += arg_buffer_arg.size; // #elements
+				break;
+			case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
+			case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
+			case llvm_toolchain::SPECIAL_TYPE::SSBO:
+			case llvm_toolchain::SPECIAL_TYPE::IUB:
+				throw runtime_error("invalid argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+			case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
+				throw runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
 		}
-		if (arg_indices.empty()) {
-			log_warn("no members in struct of arg buffer - falling back to simple indices (this might not work)");
-		}
-	} else {
-		log_warn("invalid arg buffer reflection data - falling back to simple indices (this might not work)");
 	}
 	
 	// create the argument buffer

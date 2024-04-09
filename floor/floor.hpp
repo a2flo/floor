@@ -104,9 +104,7 @@ public:
 	
 	// graphic control functions
 	static RENDERER get_renderer();
-	static void start_frame();
-	static void end_frame(const bool window_swap = true);
-	static void swap();
+	static void end_frame();
 	static bool is_console_only();
 	//! returns the default render/graphics context if Metal or Vulkan is used, or nullptr otherwise
 	//! NOTE: this returns the same context as "get_compute_context" if Metal/Vulkan are used as the compute backend as well
@@ -141,8 +139,6 @@ public:
 	static string kernel_path(const string& str);
 	static string strip_data_path(const string& str);
 	static string get_absolute_path();
-	
-	static void reload_kernels();
 	
 	static bool is_x11_forwarding();
 	
@@ -495,6 +491,5 @@ protected:
 	static bool console_only;
 	static bool cursor_visible;
 	static bool x11_forwarding;
-	static atomic<bool> reload_kernels_flag;
 
 };

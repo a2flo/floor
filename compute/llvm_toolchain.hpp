@@ -122,8 +122,8 @@ namespace llvm_toolchain {
 		IUB								= (5u),
 		//! argument/indirect buffer
 		ARGUMENT_BUFFER					= (6u),
-		//! array of buffers
-		//! NOTE: practically Vulkan-only, Metal handles this differently
+		//! Vulkan/Metal only: array of buffers
+		//! NOTE: Vulkan: always used, Metal: only used for buffer arrays in argument buffers
 		BUFFER_ARRAY					= (7u),
 	};
 
