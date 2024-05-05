@@ -244,7 +244,7 @@ static void dump_refl_struct(MTLStructType* struct_type, stringstream& sstr, con
 static void dump_refl_struct_member(MTLStructMember* member_type, stringstream& sstr, const uint32_t level);
 static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const uint32_t level);
 
-[[maybe_unused]] void dump_refl_array(MTLArrayType* arr_type, stringstream& sstr, const uint32_t level) {
+void dump_refl_array(MTLArrayType* arr_type, stringstream& sstr, const uint32_t level) {
 	const string indent(level * 2, ' ');
 	sstr << indent << "<array>" << endl;
 	sstr << indent << "element type: " << metal_data_type_to_string([arr_type elementType]) << endl;
@@ -262,7 +262,7 @@ static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const ui
 	}
 }
 
-[[maybe_unused]] void dump_refl_struct(MTLStructType* struct_type, stringstream& sstr, const uint32_t level) {
+void dump_refl_struct(MTLStructType* struct_type, stringstream& sstr, const uint32_t level) {
 	const string indent(level * 2, ' ');
 	sstr << indent << "<struct>" << endl;
 	sstr << indent << "#members: " << [struct_type members].count << endl;
@@ -271,7 +271,7 @@ static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const ui
 	}
 }
 
-[[maybe_unused]] void dump_refl_struct_member(MTLStructMember* member_type, stringstream& sstr, const uint32_t level) {
+void dump_refl_struct_member(MTLStructMember* member_type, stringstream& sstr, const uint32_t level) {
 	const string indent(level * 2, ' ');
 	sstr << indent << "<member> " << endl;
 	sstr << indent << "name: " << [[member_type name] UTF8String] << endl;
@@ -289,7 +289,7 @@ static void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const ui
 	}
 }
 
-[[maybe_unused]] void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const uint32_t level) {
+void dump_refl_ptr(MTLPointerType* ptr_type, stringstream& sstr, const uint32_t level) {
 	const string indent(level * 2, ' ');
 	sstr << indent << "<pointer>" << endl;
 	sstr << indent << "element type: " << metal_data_type_to_string([ptr_type elementType]) << endl;
