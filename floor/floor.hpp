@@ -221,6 +221,7 @@ public:
 	static const string& get_toolchain_default_dis();
 	
 	// opencl
+	static bool has_opencl_toolchain();
 	static const string& get_opencl_base_path();
 	static const uint32_t& get_opencl_toolchain_version();
 	static const vector<string>& get_opencl_whitelist();
@@ -239,6 +240,7 @@ public:
 	static const string& get_opencl_spirv_validator();
 	
 	// cuda
+	static bool has_cuda_toolchain();
 	static const string& get_cuda_base_path();
 	static const uint32_t& get_cuda_toolchain_version();
 	static const vector<string>& get_cuda_whitelist();
@@ -254,6 +256,7 @@ public:
 	static const bool& get_cuda_use_internal_api();
 	
 	// metal
+	static bool has_metal_toolchain();
 	static const string& get_metal_base_path();
 	static const uint32_t& get_metal_toolchain_version();
 	static const vector<string>& get_metal_whitelist();
@@ -265,6 +268,7 @@ public:
 	static const bool& get_metal_dump_reflection_info();
 	
 	// vulkan
+	static bool has_vulkan_toolchain();
 	static const string& get_vulkan_base_path();
 	static const uint32_t& get_vulkan_toolchain_version();
 	static const vector<string>& get_vulkan_whitelist();
@@ -284,6 +288,7 @@ public:
 	static const bool& get_vulkan_fence_wait_polling();
 	
 	// host
+	static bool has_host_toolchain();
 	static const string& get_host_base_path();
 	static const uint32_t& get_host_toolchain_version();
 	static const string& get_host_compiler();

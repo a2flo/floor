@@ -35,8 +35,9 @@
 #include <floor/core/essentials.hpp> // cleanup
 
 opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
+							   const bool has_toolchain_,
 							   const uint32_t platform_index_,
-							   const vector<string> whitelist) : compute_context(ctx_flags) {
+							   const vector<string> whitelist) : compute_context(ctx_flags, has_toolchain_) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
 	
@@ -284,17 +285,9 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 			device.image_depth_support = core::contains(device.extensions, "cl_khr_depth_images");
 			device.image_depth_write_support = device.image_depth_support;
 			device.image_msaa_support = core::contains(device.extensions, "cl_khr_gl_msaa_sharing");
-			device.image_msaa_write_support = false; // always false
 			device.image_msaa_array_support = device.image_msaa_support;
-			device.image_msaa_array_write_support = false; // always false
-			device.image_cube_support = false; // nope
-			device.image_cube_write_support = false;
-			device.image_cube_array_support = false;
-			device.image_cube_array_write_support = false;
 			device.image_mipmap_support = core::contains(device.extensions, "cl_khr_mipmap_image");
 			device.image_mipmap_write_support = core::contains(device.extensions, "cl_khr_mipmap_image_writes");
-			device.image_offset_read_support = false; // never
-			device.image_offset_write_support = false;
 			const auto read_write_images = cl_get_info<CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS>(cl_dev);
 			device.image_read_write_support = (read_write_images > 0);
 			log_msg("read/write images: $", read_write_images);
@@ -832,13 +825,7 @@ shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cque
 	return add_resource(make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags));
 }
 
-shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
-	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: $", file_name);
-		return {};
-	}
-	
+shared_ptr<compute_program> opencl_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// create the program
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
@@ -857,8 +844,25 @@ shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& f
 																 llvm_toolchain::TARGET::SPIRV_OPENCL,
 																 false /* TODO: true? */));
 	}
-	
 	return add_program(std::move(prog_map));
+}
+
+shared_ptr<compute_program> opencl_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: $", file_name);
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
+}
+
+shared_ptr<compute_program> opencl_compute::add_universal_binary(const span<const uint8_t> data) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(data, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary (in-memory data)");
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
 }
 
 shared_ptr<opencl_program> opencl_compute::add_program(opencl_program::program_map_type&& prog_map) {

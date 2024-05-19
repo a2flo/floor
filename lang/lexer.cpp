@@ -128,8 +128,7 @@ void lexer::print_tokens(const translation_unit& tu) {
 		tmp.append(token_type_to_string(token.first));
 		tmp.append(" ");
 		tmp.append(token.second.begin, token.second.end);
-		tmp.append("\n");
-		fwrite(tmp.data(), 1, tmp.size(), stdout);
+		puts(tmp.data());
 	}
 }
 

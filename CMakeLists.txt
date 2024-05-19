@@ -1,5 +1,5 @@
 # CMake project for libfloor
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 # NOTE: "lib" prefix is automatically added by CMake when not targeting VS/CMake
 # also: can't use "if (MSVC)" before project(...), so use VCPKG_TARGET_TRIPLET instead
 if (VCPKG_TARGET_TRIPLET)
@@ -12,28 +12,37 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 ## build options
-set(WITH_ASAN false CACHE BOOL "build with address sanitizer")
-set(WITH_LIBCXX false CACHE BOOL "build with libc++")
+option(BUILD_SHARED_LIBS "build libfloor as a shared library (otherwise builds as a static library)" ON)
+option(WITH_ASAN "build with address sanitizer" OFF)
+option(WITH_LIBCXX "build with libc++" OFF)
+
+if (BUILD_SHARED_LIBS)
+	message(">> building libfloor as a shared library")
+else ()
+	message(">> building libfloor as a static library")
+endif (BUILD_SHARED_LIBS)
 
 ## compile flags
 add_compile_definitions(FLOOR_DLL_EXPORT)
 add_compile_options(-march=corei7-avx -mf16c)
 
-if (WIN32)
+if (WIN32 AND BUILD_SHARED_LIBS)
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif (WIN32)
+endif (WIN32 AND BUILD_SHARED_LIBS)
 
 ## build output
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> cruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
-set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> ruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
+if (BUILD_SHARED_LIBS)
+	set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> cruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
+	set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> ruvST <TARGET> <LINK_FLAGS> <OBJECTS>")
+endif (BUILD_SHARED_LIBS)
 
 ## source files
 include_directories("../")
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME}
 	compute/argument_buffer.cpp
 	compute/argument_buffer.hpp
 	compute/compute_buffer.cpp
@@ -184,6 +193,7 @@ add_library(${PROJECT_NAME} SHARED
 	compute/vulkan/vulkan_argument_buffer.hpp
 	compute/vulkan/vulkan_buffer.cpp
 	compute/vulkan/vulkan_buffer.hpp
+	compute/vulkan/vulkan_common.cpp
 	compute/vulkan/vulkan_common.hpp
 	compute/vulkan/vulkan_compute.cpp
 	compute/vulkan/vulkan_compute.hpp

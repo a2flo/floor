@@ -510,11 +510,6 @@ if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
-	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
-		if [ $BUILD_OS != "mingw" ]; then
-			UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan"
-		fi
-	fi
 
 	# add os specific libs
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
@@ -562,14 +557,10 @@ if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 		
 		if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
 			if [ "$(pkg-config --exists vulkan && echo $?)" == "0" ]; then
-				# use MSYS2/MinGW package
-				LIBS="${LIBS} $(pkg-config --libs vulkan)"
-				COMMON_FLAGS="${COMMON_FLAGS} $(pkg-config --cflags vulkan)"
+				# -> use MSYS2/MinGW package includes
+				:
 			elif [ ! -z "${VK_SDK_PATH}" ]; then
-				# use official SDK
-				UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan-1"
-				VK_SDK_PATH_FIXED=$(echo ${VK_SDK_PATH} | sed -E "s/\\\\/\//g")
-				LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin\""
+				# -> use official SDK includes
 				INCLUDES="${INCLUDES} -isystem \"${VK_SDK_PATH_FIXED}/Include\""
 			else
 				error "Vulkan SDK not installed (install official SDK or mingw-w64-x86_64-vulkan)"

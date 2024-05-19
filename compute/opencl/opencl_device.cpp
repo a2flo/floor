@@ -20,4 +20,14 @@
 
 opencl_device::opencl_device() : compute_device() {
 	local_mem_size = 16u * 1024u; // at least 16KiB
+	
+	// these are never supported
+	image_msaa_write_support = false;
+	image_msaa_array_write_support = false;
+	image_cube_support = false;
+	image_cube_write_support = false;
+	image_cube_array_support = false;
+	image_cube_array_write_support = false;
+	image_offset_read_support = false;
+	image_offset_write_support = false;
 }

@@ -293,6 +293,10 @@ public:
 		return image_layout_argb(image_type);
 	}
 	
+	//! this can be used to provide a pre-compiled minify program,
+	//! rather than compiling the minify program at run-time
+	static void provide_minify_program(compute_context& ctx, shared_ptr<compute_program> prog);
+	
 	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
 	//! NOTE: each value will printed in one line (terminated by \n)
 	template <typename value_type>
@@ -339,8 +343,9 @@ protected:
 		
 		// can't be both mip-mapped and a render target
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
-			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-			throw std::runtime_error("image can't be both mip-mapped and a render target!");
+			(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) ||
+			 has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type))) {
+			throw std::runtime_error("image can't be both mip-mapped and a render and/or transient target!");
 		}
 		// can't be both mip-mapped and a multi-sampled image
 		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&

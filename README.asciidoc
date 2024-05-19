@@ -2722,12 +2722,14 @@ function void simplified_nbody ( %void() ) {
 ** (opt) CUDA: requires sm_50+/Maxwell+ GPU and CUDA 12.0+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 16.0+ or macOS 13.0+, and a Metal 3.0 capable GPU
 ** (opt) Host-Compute: requires just the compiler/toolchain that is stated above
-** (opt) Vulkan: requires 1.3.231+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
+** (opt) Vulkan: requires 1.3.231+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK], link:https://github.com/zeux/volk[volk] included as submodule
 ** (opt) OpenVR: requires link:https://github.com/ValveSoftware/openvr[OpenVR]
 ** (opt) OpenXR: requires link:https://www.khronos.org/OpenXR[OpenXR]
 
 == Build Instructions ==
-=== Build Instructions (General / CLI) ===
+* ensure git submodules are cloned and up-to-date: `git submodule update --init --recursive`
+
+=== General / CLI ===
 * run `./build.sh` (use `./build.sh help` to get a list of all options)
 * configuration of optional parts:
 ** to disable OpenCL:
@@ -2747,7 +2749,17 @@ function void simplified_nbody ( %void() ) {
 ** to build with pass:[libstdc++] (GCC 13.0+) instead of pass:[libc++]:
    `./build.sh libstdc++`
 
-=== Build Instructions (Xcode / macOS / iOS) ===
+=== CMake / ninja / CLI ===
+* this is provided as an alternative to build.sh and Xcode
+* create a build folder and `cd` into it
+* run `cmake -G "Ninja" -S "<path-to-libfloor>" <options>`
+* options:
+** to build a static library instead of a shared/dynamic one: `-DBUILD_SHARED_LIBS=OFF`
+** to explicitly use libc++: `-DWITH_LIBCXX=ON`
+** to build with address sanitizer: `-DWITH_ASAN=ON`
+* run `ninja`
+
+=== Xcode (macOS / iOS) ===
 * open `floor.xcodeproj` and build
 * some notes:
 ** almost all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
@@ -2761,7 +2773,7 @@ function void simplified_nbody ( %void() ) {
 ** on iOS, either copy dependencies into your iPhoneOS and iPhoneSimulator SDK, or `floor/ios/deps/{include,lib}`
 ** iOS linker flags for a depending project: `-lSDL3 -lfloor`
 
-=== Build Instructions (Visual Studio / CMake / vcpkg / Windows) ===
+=== Visual Studio (Windows / CMake / vcpkg) ===
 * install link:https://visualstudio.microsoft.com/vs[Visual Studio 2022]
 * in "Workloads" select "Desktop development with C++", in "Individual components" search for and select all clang packages
 * install and wait
@@ -2837,6 +2849,6 @@ function void simplified_nbody ( %void() ) {
 == Projects and Examples using libfloor ==
 * link:https://github.com/a2flo/floor_examples[floor_examples] (dnn, nbody, warp, hlbvh, path tracer, other)
 * link:https://github.com/a2flo/libwarp[libwarp] (image-space warping library)
-* link:https://github.com/a2flo/oclraster[oclraster] (Flexible Rasterizer in OpenCL)
-* link:https://github.com/a2flo/a2elight[a2elight] (Albion 2 Engine)
-* link:https://github.com/a2flo/unibot[unibot] (IRC bot)
+* obsolete: link:https://github.com/a2flo/oclraster[oclraster] (Flexible Rasterizer in OpenCL)
+* obsolete: link:https://github.com/a2flo/a2elight[a2elight] (Albion 2 Engine)
+* obsolete: link:https://github.com/a2flo/unibot[unibot] (IRC bot)

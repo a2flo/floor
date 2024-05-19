@@ -48,6 +48,7 @@ public:
 	// init / context creation
 	
 	explicit vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE,
+							const bool has_toolchain_ = false,
 							const bool enable_renderer = false,
 							vr_context* vr_ctx_ = nullptr,
 							const vector<string> whitelist = {});
@@ -106,6 +107,8 @@ public:
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
+	shared_ptr<compute_program> add_universal_binary(const span<const uint8_t> data) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
@@ -418,6 +421,9 @@ protected:
 	shared_ptr<compute_queue> create_queue_internal(const compute_device& dev, const uint32_t family_index,
 													const compute_queue::QUEUE_TYPE queue_type,
 													uint32_t& queue_index) const;
+	
+	shared_ptr<compute_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins,
+																	 const string& identifier) REQUIRES(!programs_lock);
 	
 };
 

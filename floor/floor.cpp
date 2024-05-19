@@ -347,7 +347,7 @@ bool floor::init(const init_state& state) {
 		config.profiling = config_doc.get<bool>("toolchain.profiling", false);
 		config.log_binaries = config_doc.get<bool>("toolchain.log_binaries", false);
 		config.keep_temp = config_doc.get<bool>("toolchain.keep_temp", false);
-		config.keep_binaries = config_doc.get<bool>("toolchain.keep_binaries", true);
+		config.keep_binaries = config_doc.get<bool>("toolchain.keep_binaries", false);
 		config.use_cache = config_doc.get<bool>("toolchain.use_cache", true);
 		config.log_commands = config_doc.get<bool>("toolchain.log_commands", false);
 		config.internal_skip_toolchain_check = config_doc.get<bool>("toolchain._skip_toolchain_check", false);
@@ -548,7 +548,7 @@ bool floor::init(const init_state& state) {
 															});
 		if(config.opencl_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
-			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+			log_error("OpenCL toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		}
 		else {
@@ -569,7 +569,7 @@ bool floor::init(const init_state& state) {
 														  config.cuda_as, config.cuda_dis);
 		if(config.cuda_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
-			log_error("cuda toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+			log_error("CUDA toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		}
 		else {
@@ -591,7 +591,7 @@ bool floor::init(const init_state& state) {
 		}
 #else
 		if(config.metal_base_path == "") {
-			log_error("metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+			log_error("Metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else
 #endif
@@ -615,7 +615,7 @@ bool floor::init(const init_state& state) {
 															});
 		if(config.vulkan_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
-			log_error("vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+			log_error("Vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		}
 		else {
@@ -636,7 +636,7 @@ bool floor::init(const init_state& state) {
 														  config.host_as, config.host_dis);
 		if(config.host_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
-			log_error("host toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+			log_error("Host-Compute toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		} else {
 			config.host_toolchain_exists = true;
@@ -726,15 +726,6 @@ bool floor::init(const init_state& state) {
 		renderer = RENDERER::NONE;
 	}
 	assert(renderer != RENDERER::DEFAULT && "must have selected a renderer");
-	
-	if (renderer == RENDERER::VULKAN && !config.vulkan_toolchain_exists) {
-		log_error("tried to use the Vulkan renderer, but toolchain doesn't exist");
-		return false;
-	}
-	if (renderer == RENDERER::METAL && !config.metal_toolchain_exists) {
-		log_error("tried to use the Metal renderer, but toolchain doesn't exist");
-		return false;
-	}
 	
 	//
 	evt = make_unique<event>();
@@ -969,7 +960,8 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_METAL)
 		if (renderer == RENDERER::METAL) {
 			// create the metal context
-			metal_ctx = make_shared<metal_compute>(state.context_flags, true, vr_ctx.get(), config.metal_whitelist);
+			metal_ctx = make_shared<metal_compute>(state.context_flags, config.metal_toolchain_exists, true,
+												   vr_ctx.get(), config.metal_whitelist);
 			if (metal_ctx == nullptr || !metal_ctx->is_supported()) {
 				log_error("failed to create the Metal renderer context");
 				metal_ctx = nullptr;
@@ -980,7 +972,8 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_NO_VULKAN)
 		if (renderer == RENDERER::VULKAN) {
 			// create the vulkan context
-			vulkan_ctx = make_shared<vulkan_compute>(state.context_flags, true, vr_ctx.get(), config.vulkan_whitelist);
+			vulkan_ctx = make_shared<vulkan_compute>(state.context_flags, config.vulkan_toolchain_exists, true,
+													 vr_ctx.get(), config.vulkan_whitelist);
 			if (vulkan_ctx == nullptr || !vulkan_ctx->is_supported()) {
 				log_error("failed to create the Vulkan renderer context");
 				vulkan_ctx = nullptr;
@@ -1071,7 +1064,7 @@ bool floor::init_internal(const init_state& state) {
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
 #endif
 #else // linux, windows, ...
-		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::CUDA, COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::VULKAN };
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::CUDA, COMPUTE_TYPE::VULKAN, COMPUTE_TYPE::OPENCL };
 #endif
 		// always start with the configured one (if one has been set)
 		if(config_compute_type != COMPUTE_TYPE::NONE) {
@@ -1090,16 +1083,15 @@ bool floor::init_internal(const init_state& state) {
 			switch(backend) {
 				case COMPUTE_TYPE::CUDA:
 #if !defined(FLOOR_NO_CUDA)
-					if(!config.cuda_toolchain_exists) break;
 					log_debug("initializing CUDA ...");
-					compute_ctx = make_shared<cuda_compute>(state.context_flags, config.cuda_whitelist);
+					compute_ctx = make_shared<cuda_compute>(state.context_flags, config.cuda_toolchain_exists, config.cuda_whitelist);
 #endif
 					break;
 				case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
-					if(!config.opencl_toolchain_exists) break;
 					log_debug("initializing OpenCL ...");
 					compute_ctx = make_shared<opencl_compute>(state.context_flags,
+															  config.opencl_toolchain_exists,
 															  config.opencl_platform,
 															  config.opencl_whitelist);
 #endif
@@ -1109,16 +1101,16 @@ bool floor::init_internal(const init_state& state) {
 					if (metal_ctx != nullptr) {
 						compute_ctx = metal_ctx;
 					} else {
-						if (!config.metal_toolchain_exists) break;
 						log_debug("initializing Metal ...");
-						compute_ctx = make_shared<metal_compute>(state.context_flags, false, vr_ctx.get(), config.metal_whitelist);
+						compute_ctx = make_shared<metal_compute>(state.context_flags, config.metal_toolchain_exists, false,
+																 vr_ctx.get(), config.metal_whitelist);
 					}
 #endif
 					break;
 				case COMPUTE_TYPE::HOST:
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 					log_debug("initializing Host Compute ...");
-					compute_ctx = make_shared<host_compute>(state.context_flags);
+					compute_ctx = make_shared<host_compute>(state.context_flags, config.host_toolchain_exists);
 #endif
 					break;
 				case COMPUTE_TYPE::VULKAN:
@@ -1126,9 +1118,9 @@ bool floor::init_internal(const init_state& state) {
 					if (vulkan_ctx != nullptr) {
 						compute_ctx = vulkan_ctx;
 					} else {
-						if (!config.vulkan_toolchain_exists) break;
 						log_debug("initializing Vulkan ...");
-						compute_ctx = make_shared<vulkan_compute>(state.context_flags, false, vr_ctx.get(), config.vulkan_whitelist);
+						compute_ctx = make_shared<vulkan_compute>(state.context_flags, config.vulkan_toolchain_exists, false,
+																  vr_ctx.get(), config.vulkan_whitelist);
 					}
 #endif
 					break;
@@ -1579,6 +1571,9 @@ const string& floor::get_toolchain_default_dis() {
 	return config.default_dis;
 }
 
+bool floor::has_opencl_toolchain() {
+	return config.opencl_toolchain_exists;
+}
 const string& floor::get_opencl_base_path() {
 	return config.opencl_base_path;
 }
@@ -1628,6 +1623,9 @@ const string& floor::get_opencl_spirv_validator() {
 	return config.opencl_spirv_validator;
 }
 
+bool floor::has_cuda_toolchain() {
+	return config.cuda_toolchain_exists;
+}
 const string& floor::get_cuda_base_path() {
 	return config.cuda_base_path;
 }
@@ -1668,6 +1666,9 @@ const bool& floor::get_cuda_use_internal_api() {
 	return config.cuda_use_internal_api;
 }
 
+bool floor::has_metal_toolchain() {
+	return config.metal_toolchain_exists;
+}
 const string& floor::get_metal_base_path() {
 	return config.metal_base_path;
 }
@@ -1696,6 +1697,9 @@ const bool& floor::get_metal_dump_reflection_info() {
 	return config.metal_dump_reflection_info;
 }
 
+bool floor::has_vulkan_toolchain() {
+	return config.vulkan_toolchain_exists;
+}
 const string& floor::get_vulkan_base_path() {
 	return config.vulkan_base_path;
 }
@@ -1748,7 +1752,9 @@ const bool& floor::get_vulkan_fence_wait_polling() {
 	return config.vulkan_fence_wait_polling;
 }
 
-
+bool floor::has_host_toolchain() {
+	return config.host_toolchain_exists;
+}
 const string& floor::get_host_base_path() {
 	return config.host_base_path;
 }

@@ -263,6 +263,9 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 		if (write_offset + desc_data.size_bytes() > host_desc_data.size_bytes()) {
 			throw runtime_error("out-of-bounds descriptor/argument buffer write");
 		}
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(vk_img->get_image_type())) {
+			throw runtime_error("transient image can not be used as an image parameter");
+		}
 #endif
 		memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
 	}
@@ -276,6 +279,9 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 #if defined(FLOOR_DEBUG)
 		if (write_offset + desc_data.size_bytes() > host_desc_data.size_bytes()) {
 			throw runtime_error("out-of-bounds descriptor/argument buffer write");
+		}
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(vk_img->get_image_type())) {
+			throw runtime_error("transient image can not be used as an image parameter");
 		}
 #endif
 		memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
@@ -365,6 +371,11 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 			continue;
 		}
 		const auto& desc_data = img_ptr->get_vulkan_descriptor_data_sampled();
+#if defined(FLOOR_DEBUG)
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(img_ptr->get_image_type())) {
+			throw runtime_error("transient image can not be used as an image parameter");
+		}
+#endif
 		memcpy(host_desc_data.data() + write_offset + desc_data_size * i, desc_data.data(), desc_data_size);
 	}
 }

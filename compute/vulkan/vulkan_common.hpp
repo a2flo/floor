@@ -38,7 +38,15 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 
 #if !defined(FLOOR_NO_VULKAN)
 
-#include <vulkan/vulkan.h>
+#if defined(SDL_PLATFORM_LINUX)
+#define VK_USE_PLATFORM_XLIB_KHR 1
+#define VK_USE_PLATFORM_WAYLAND_KHR 1
+#elif defined(SDL_PLATFORM_WIN32)
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#endif
+//#define VK_NO_PROTOTYPES 1
+//#include <vulkan/vulkan.h>
+#include <floor/external/volk/volk.h>
 
 #if VK_HEADER_VERSION < 235
 #error "Vulkan header version must at least be 235"

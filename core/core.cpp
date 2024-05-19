@@ -191,37 +191,43 @@ string str_to_upper(const string& str) {
 }
 
 string strip_path(const string& in_path) {
+	// TODO: use std::filesystem for this (canonical path?)
 	string path = in_path;
 	size_t pos = 0, erase_pos;
-	while((pos = path.find("../", 0)) != string::npos && pos != 0) {
-		erase_pos = path.rfind('/', pos-2);
+	while (path.size() >= 3 && (pos = path.find("../", 0)) != string::npos && pos > 1) {
+		erase_pos = path.rfind('/', pos - 2);
 #if defined(__WINDOWS__)
-		if(erase_pos == string::npos) erase_pos = path.rfind('\\', pos-2);
+		if (erase_pos == string::npos) {
+			erase_pos = path.rfind('\\', pos - 2);
+		}
 #endif
-		if(erase_pos != string::npos) {
-			path.erase(erase_pos+1, pos+2-erase_pos);
+		if (erase_pos != string::npos) {
+			path.erase(erase_pos + 1, pos + 2 - erase_pos);
 		}
 	}
 	
 #if defined(__WINDOWS__) // additional windows path handling
 	pos = 0;
-	while((pos = path.find("..\\", 0)) != string::npos && pos != 0) {
-		erase_pos = path.rfind('/', pos-2);
-		if(erase_pos == string::npos) erase_pos = path.rfind('\\', pos-2);
-		if(erase_pos != string::npos) {
-			path.erase(erase_pos+1, pos+2-erase_pos);
+	while (path.size() >= 3 && (pos = path.find("..\\", 0)) != string::npos && pos > 1) {
+		erase_pos = path.rfind('/', pos - 2);
+		if (erase_pos == string::npos) {
+			erase_pos = path.rfind('\\', pos - 2);
+		}
+		if (erase_pos != string::npos) {
+			path.erase(erase_pos + 1, pos + 2 - erase_pos);
 		}
 	}
 #endif
 	
-	if(path[path.length()-1] != '/' && path[path.length()-1] != '\\') {
+	if (!path.empty() && path[path.size() - 1] != '/' && path[path.size() - 1] != '\\') {
 		pos = path.rfind('/');
-		if(pos == string::npos) pos = path.rfind('\\');
-		if(pos == string::npos) {
-			path = "/"; // sth is wrong?
+		if (pos == string::npos) {
+			pos = path.rfind('\\');
 		}
-		else {
-			path = path.substr(0, pos+1);
+		if (pos == string::npos) {
+			path = "/"; // sth is wrong?
+		} else {
+			path = path.substr(0, pos + 1);
 		}
 	}
 	

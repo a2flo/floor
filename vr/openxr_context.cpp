@@ -585,7 +585,7 @@ VkResult openxr_context::create_vulkan_instance(const VkInstanceCreateInfo& vk_c
 		.next = nullptr,
 		.systemId = system_id,
 		.createFlags = 0,
-		.pfnGetInstanceProcAddr = &vkGetInstanceProcAddr,
+		.pfnGetInstanceProcAddr = vkGetInstanceProcAddr,
 		.vulkanCreateInfo = &vk_create_info,
 		.vulkanAllocator = nullptr,
 	};
@@ -617,7 +617,7 @@ VkResult openxr_context::create_vulkan_device(const VkDeviceCreateInfo& vk_creat
 		.next = nullptr,
 		.systemId = system_id,
 		.createFlags = 0,
-		.pfnGetInstanceProcAddr = &vkGetInstanceProcAddr,
+		.pfnGetInstanceProcAddr = vkGetInstanceProcAddr,
 		.vulkanPhysicalDevice = vk_phys_dev,
 		.vulkanCreateInfo = &vk_create_info,
 		.vulkanAllocator = nullptr,

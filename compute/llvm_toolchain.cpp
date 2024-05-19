@@ -233,6 +233,11 @@ program_data compile_input(const string& input,
 	bool barycentric_coord_support = device.barycentric_coord_support;
 	switch (options.target) {
 		case TARGET::SPIR:
+			if (!floor::has_opencl_toolchain()) {
+				log_error("can not compile OpenCL source code without a toolchain");
+				return {};
+			}
+			
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
@@ -261,6 +266,11 @@ program_data compile_input(const string& input,
 			floor_path += floor::get_opencl_base_path() + "floor";
 			break;
 		case TARGET::AIR: {
+			if (!floor::has_metal_toolchain()) {
+				log_error("can not compile Metal source code without a toolchain");
+				return {};
+			}
+			
 			toolchain_version = floor::get_metal_toolchain_version();
 			output_file_type = "metallib";
 			
@@ -361,6 +371,11 @@ program_data compile_input(const string& input,
 			clang_cmd += " -DFLOOR_COMPUTE_METAL_HAS_SIMD_REDUCTION_"s + has_simd_reduction_str;
 		} break;
 		case TARGET::PTX: {
+			if (!floor::has_cuda_toolchain()) {
+				log_error("can not compile CUDA source code without a toolchain");
+				return {};
+			}
+			
 			// handle sm version
 			const auto& cuda_dev = (const cuda_device&)device;
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
@@ -412,6 +427,11 @@ program_data compile_input(const string& input,
 			floor_path += floor::get_cuda_base_path() + "floor";
 		} break;
 		case TARGET::SPIRV_VULKAN: {
+			if (!floor::has_vulkan_toolchain()) {
+				log_error("can not compile Vulkan source code without a toolchain");
+				return {};
+			}
+			
 			toolchain_version = floor::get_vulkan_toolchain_version();
 			output_file_type = "spvc";
 			
@@ -461,6 +481,11 @@ program_data compile_input(const string& input,
 			floor_path += floor::get_vulkan_base_path() + "floor";
 		} break;
 		case TARGET::SPIRV_OPENCL: {
+			if (!floor::has_opencl_toolchain()) {
+				log_error("can not compile OpenCL source code without a toolchain");
+				return {};
+			}
+			
 			toolchain_version = floor::get_opencl_toolchain_version();
 			output_file_type = "spv";
 			const auto& cl_device = (const opencl_device&)device;
@@ -494,6 +519,11 @@ program_data compile_input(const string& input,
 			floor_path += floor::get_opencl_base_path() + "floor";
 		} break;
 		case TARGET::HOST_COMPUTE_CPU: {
+			if (!floor::has_host_toolchain()) {
+				log_error("can not compile Host-Compute source code without a toolchain");
+				return {};
+			}
+			
 			toolchain_version = floor::get_host_toolchain_version();
 			output_file_type = "bin";
 			const auto& cpu_device = (const host_device&)device;

@@ -35,7 +35,8 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE, const vector<string> whitelist = {});
+	cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE,
+				 const bool has_toolchain_ = false, const vector<string> whitelist = {});
 	
 	~cuda_compute() override {}
 	
@@ -96,6 +97,8 @@ public:
 	
 	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
 	
+	shared_ptr<compute_program> add_universal_binary(const span<const uint8_t> data) override REQUIRES(!programs_lock);
+	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
 	
@@ -155,6 +158,8 @@ protected:
 																  const vector<llvm_toolchain::function_info>& functions,
 																  const uint32_t& max_registers,
 																  const bool& silence_debug_output);
+	
+	shared_ptr<compute_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
 	
 };
 

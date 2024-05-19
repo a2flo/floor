@@ -111,10 +111,11 @@
 #endif
 
 metal_compute::metal_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
+							 const bool has_toolchain_,
 							 const bool enable_renderer_,
 							 vr_context* vr_ctx_,
 							 const vector<string> whitelist) :
-compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
+compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
@@ -508,13 +509,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 	return prog;
 }
 
-shared_ptr<compute_program> metal_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
-	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: $", file_name);
-		return {};
-	}
-	
+shared_ptr<compute_program> metal_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// move the archive memory to a shared_ptr
 	// NOTE: we need to do this because dispatch_data_t/newLibraryWithData will access the data after leaving this function,
 	//       when the archive will have been destructed already if kept in the local unique_ptr
@@ -547,6 +542,24 @@ shared_ptr<compute_program> metal_compute::add_universal_binary(const string& fi
 	}
 	
 	return add_metal_program(std::move(prog_map), &programs, programs_lock);
+}
+
+shared_ptr<compute_program> metal_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: $", file_name);
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
+}
+
+shared_ptr<compute_program> metal_compute::add_universal_binary(const span<const uint8_t> data) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(data, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary (in-memory data)");
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device& device floor_unused_on_ios,

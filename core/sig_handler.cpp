@@ -26,7 +26,7 @@
 using namespace std;
 
 // there is no support for this on mingw/windows
-#if !defined(__WINDOWS__)
+#if !defined(__WINDOWS__) && __has_include(<execinfo.h>)
 
 #include <cxxabi.h>
 #include <dlfcn.h>

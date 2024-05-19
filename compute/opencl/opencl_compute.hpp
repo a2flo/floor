@@ -36,6 +36,7 @@ public:
 	// init / context creation
 	
 	opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags = COMPUTE_CONTEXT_FLAGS::NONE,
+				   const bool has_toolchain_ = false,
 				   const uint32_t platform_index = ~0u,
 				   const vector<string> whitelist = {});
 	
@@ -87,6 +88,8 @@ public:
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
+	shared_ptr<compute_program> add_universal_binary(const span<const uint8_t> data) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
@@ -158,6 +161,8 @@ protected:
 								   const vector<llvm_toolchain::function_info>& functions,
 								   const llvm_toolchain::TARGET& target,
 								   const bool& silence_debug_output);
+	
+	shared_ptr<compute_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
 	
 	// either core clCreateProgramWithIL or extension clCreateProgramWithILKHR
 	CL_API_CALL cl_program (*cl_create_program_with_il)(cl_context context,

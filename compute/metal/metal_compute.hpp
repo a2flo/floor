@@ -43,6 +43,7 @@ public:
 	// init / context creation
 	
 	metal_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
+				  const bool has_toolchain_ = false,
 				  const bool enable_renderer = false,
 				  vr_context* vr_ctx_ = nullptr,
 				  const vector<string> whitelist = {});
@@ -97,6 +98,8 @@ public:
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_universal_binary(const string& file_name) override REQUIRES(!programs_lock);
+	
+	shared_ptr<compute_program> add_universal_binary(const span<const uint8_t> data) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options) override REQUIRES(!programs_lock);
@@ -200,6 +203,8 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
+	
+	shared_ptr<compute_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
 	
 	// VR handling
 	struct vr_image_t {

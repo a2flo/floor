@@ -278,23 +278,23 @@ public:
 		struct flags_t {
 			union {
 				struct {
-					uint32_t is_active : 1 { 0u };
+					uint32_t is_active : 1;
 					
-					uint32_t position_valid : 1 { 0u };
-					uint32_t orientation_valid : 1 { 0u };
-					uint32_t linear_velocity_valid : 1 { 0u };
-					uint32_t angular_velocity_valid : 1 { 0u };
+					uint32_t position_valid : 1;
+					uint32_t orientation_valid : 1;
+					uint32_t linear_velocity_valid : 1;
+					uint32_t angular_velocity_valid : 1;
 					
-					uint32_t position_tracked : 1 { 0u };
-					uint32_t orientation_tracked : 1 { 0u };
-					uint32_t linear_velocity_tracked : 1 { 0u };
-					uint32_t angular_velocity_tracked : 1 { 0u };
+					uint32_t position_tracked : 1;
+					uint32_t orientation_tracked : 1;
+					uint32_t linear_velocity_tracked : 1;
+					uint32_t angular_velocity_tracked : 1;
 					
-					uint32_t radius_valid : 1 { 0u };
+					uint32_t radius_valid : 1;
 					
-					uint32_t unused : 22 { 0u };
+					uint32_t unused : 22;
 				};
-				uint32_t all;
+				uint32_t all { 0u };
 			};
 			
 			constexpr std::strong_ordering operator<=>(const flags_t& rhs) const noexcept {

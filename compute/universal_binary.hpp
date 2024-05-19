@@ -384,6 +384,9 @@ namespace universal_binary {
 	//! loads a binary archive into memory and returns it if successful (nullptr if not)
 	unique_ptr<archive> load_archive(const string& file_name);
 	
+	//! loads a binary archive from in-memory data and returns it if successful (nullptr if not)
+	unique_ptr<archive> load_archive(span<const uint8_t> data, const string_view file_name_hint = ""sv);
+	
 	//! loads a binary archive into memory, finds the best matching binaries for the specified
 	//! devices and returns them
 	//! if an error occurred, ar will be nullptr and dev_binaries will be empty
@@ -395,6 +398,8 @@ namespace universal_binary {
 	};
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const vector<const compute_device*>& devices);
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const compute_context& ctx);
+	archive_binaries load_dev_binaries_from_archive(const span<const uint8_t> data, const vector<const compute_device*>& devices);
+	archive_binaries load_dev_binaries_from_archive(const span<const uint8_t> data, const compute_context& ctx);
 	
 	//! builds an archive from the given source file/code, with the specified options, for the specified targets,
 	//! writing the binary output to the specified destination if successful (returns false if not),

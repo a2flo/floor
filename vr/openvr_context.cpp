@@ -369,6 +369,7 @@ vector<shared_ptr<event_object>> openvr_context::handle_input() REQUIRES(!pose_s
 		.nPriority = 0,
 	};
 	array<array<pose_t, handled_bone_count>, 2> hand_bone_poses {};
+
 	bool2 hand_bone_poses_valid { false, false };
 	const auto update_act_err = input->UpdateActionState(&active_action_set, sizeof(vr::VRActiveActionSet_t), 1);
 	if (update_act_err != vr::EVRInputError::VRInputError_None) {

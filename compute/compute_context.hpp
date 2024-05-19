@@ -97,6 +97,11 @@ public:
 		return context_flags;
 	}
 	
+	//! returns true if this context can compile programs from source code at run-time
+	virtual bool can_compile_programs() const {
+		return has_toolchain;
+	}
+	
 	//////////////////////////////////////////
 	// device functions
 	
@@ -280,6 +285,9 @@ public:
 	//! adds a pre-compiled universal binary (loaded from a file)
 	virtual shared_ptr<compute_program> add_universal_binary(const string& file_name) = 0;
 	
+	//! adds a pre-compiled universal binary (provided as in-memory data)
+	virtual shared_ptr<compute_program> add_universal_binary(const span<const uint8_t> data) = 0;
+	
 	//! alias the llvm_toolchain compile_options (for now)
 	using compile_options = llvm_toolchain::compile_options;
 	
@@ -377,7 +385,8 @@ public:
 	virtual vector<string> get_resource_registry_keys() const REQUIRES(!resource_registry_lock);
 	
 protected:
-	compute_context(const COMPUTE_CONTEXT_FLAGS context_flags_) : context_flags(context_flags_) {}
+	compute_context(const COMPUTE_CONTEXT_FLAGS context_flags_, const bool has_toolchain_) :
+	context_flags(context_flags_), has_toolchain(has_toolchain_) {}
 	
 	//! platform vendor enum (set after initialization)
 	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };
@@ -387,6 +396,9 @@ protected:
 	
 	//! true if compute support (set after initialization)
 	bool supported { false };
+	
+	//! true if a toolchain for the specific backend exists
+	bool has_toolchain { false };
 	
 	//! all compute devices of the current compute context
 	vector<unique_ptr<compute_device>> devices;

@@ -266,6 +266,8 @@
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAC7FB91D91D14D00994062 /* ext_traits.hpp */; };
+		5CAD53382BE8227C00A1EF37 /* vulkan_common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD53372BE8227C00A1EF37 /* vulkan_common.cpp */; };
+		5CAD53392BE8227C00A1EF37 /* vulkan_common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD53372BE8227C00A1EF37 /* vulkan_common.cpp */; };
 		5CAD573524D70EAC0022D36D /* argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAD573324D70EAB0022D36D /* argument_buffer.hpp */; };
 		5CAD573624D70EAC0022D36D /* argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573424D70EAB0022D36D /* argument_buffer.cpp */; };
 		5CAD573724D70EAC0022D36D /* argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573424D70EAB0022D36D /* argument_buffer.cpp */; };
@@ -622,6 +624,7 @@
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
+		5CAD53372BE8227C00A1EF37 /* vulkan_common.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_common.cpp; path = vulkan/vulkan_common.cpp; sourceTree = "<group>"; };
 		5CAD573324D70EAB0022D36D /* argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = argument_buffer.hpp; sourceTree = "<group>"; };
 		5CAD573424D70EAB0022D36D /* argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = argument_buffer.cpp; sourceTree = "<group>"; };
 		5CAD573924D7282F0022D36D /* metal_argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_argument_buffer.hpp; path = metal/metal_argument_buffer.hpp; sourceTree = "<group>"; };
@@ -655,6 +658,25 @@
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
+		5CCB822A2BF970130037975D /* build.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = build.yml; sourceTree = "<group>"; };
+		5CCB822B2BF970130037975D /* update.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = update.yml; sourceTree = "<group>"; };
+		5CCB822E2BF970130037975D /* volkConfig.cmake.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = volkConfig.cmake.in; sourceTree = "<group>"; };
+		5CCB82302BF970130037975D /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		5CCB82312BF970130037975D /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		5CCB82332BF970130037975D /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		5CCB82342BF970130037975D /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		5CCB82362BF970130037975D /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		5CCB82372BF970130037975D /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		5CCB82392BF970130037975D /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		5CCB823A2BF970130037975D /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		5CCB823C2BF970130037975D /* run_tests.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = run_tests.sh; sourceTree = "<group>"; };
+		5CCB823E2BF970130037975D /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		5CCB823F2BF970130037975D /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		5CCB82402BF970130037975D /* generate.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = generate.py; sourceTree = "<group>"; };
+		5CCB82412BF970130037975D /* LICENSE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LICENSE.md; sourceTree = "<group>"; };
+		5CCB82422BF970130037975D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		5CCB82432BF970130037975D /* volk.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = volk.c; sourceTree = "<group>"; };
+		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vector_lib_checks.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
@@ -779,6 +801,7 @@
 			children = (
 				5C81C42C17E59A1A00FE6791 /* build */,
 				5C803E0D1A7CB145009B40DF /* etc */,
+				5CCB82462BF970130037975D /* external */,
 				5C1091D317D11547007F536E /* src */,
 				5C1091FE17D148EF007F536E /* libs */,
 				5C10915F17D114BC007F536E /* Products */,
@@ -926,6 +949,7 @@
 			children = (
 				5C8F32382635BA88008144CF /* vulkan_argument_buffer.cpp */,
 				5C8F32392635BA88008144CF /* vulkan_argument_buffer.hpp */,
+				5CAD53372BE8227C00A1EF37 /* vulkan_common.cpp */,
 				5C2B87CF1C73893E00F11EA5 /* vulkan_common.hpp */,
 				5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */,
 				5C2B87C61C73893E00F11EA5 /* vulkan_compute.hpp */,
@@ -1220,6 +1244,104 @@
 			name = darwin;
 			sourceTree = "<group>";
 		};
+		5CCB822C2BF970130037975D /* workflows */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB822A2BF970130037975D /* build.yml */,
+				5CCB822B2BF970130037975D /* update.yml */,
+			);
+			path = workflows;
+			sourceTree = "<group>";
+		};
+		5CCB822D2BF970130037975D /* .github */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB822C2BF970130037975D /* workflows */,
+			);
+			path = .github;
+			sourceTree = "<group>";
+		};
+		5CCB822F2BF970130037975D /* cmake */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB822E2BF970130037975D /* volkConfig.cmake.in */,
+			);
+			path = cmake;
+			sourceTree = "<group>";
+		};
+		5CCB82322BF970130037975D /* cmake_using_installed_headers */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82302BF970130037975D /* CMakeLists.txt */,
+				5CCB82312BF970130037975D /* main.c */,
+			);
+			path = cmake_using_installed_headers;
+			sourceTree = "<group>";
+		};
+		5CCB82352BF970130037975D /* cmake_using_source_directly */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82332BF970130037975D /* CMakeLists.txt */,
+				5CCB82342BF970130037975D /* main.c */,
+			);
+			path = cmake_using_source_directly;
+			sourceTree = "<group>";
+		};
+		5CCB82382BF970130037975D /* cmake_using_subdir_headers */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82362BF970130037975D /* CMakeLists.txt */,
+				5CCB82372BF970130037975D /* main.c */,
+			);
+			path = cmake_using_subdir_headers;
+			sourceTree = "<group>";
+		};
+		5CCB823B2BF970130037975D /* cmake_using_subdir_static */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82392BF970130037975D /* CMakeLists.txt */,
+				5CCB823A2BF970130037975D /* main.c */,
+			);
+			path = cmake_using_subdir_static;
+			sourceTree = "<group>";
+		};
+		5CCB823D2BF970130037975D /* test */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82322BF970130037975D /* cmake_using_installed_headers */,
+				5CCB82352BF970130037975D /* cmake_using_source_directly */,
+				5CCB82382BF970130037975D /* cmake_using_subdir_headers */,
+				5CCB823B2BF970130037975D /* cmake_using_subdir_static */,
+				5CCB823C2BF970130037975D /* run_tests.sh */,
+			);
+			path = test;
+			sourceTree = "<group>";
+		};
+		5CCB82452BF970130037975D /* volk */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB822D2BF970130037975D /* .github */,
+				5CCB822F2BF970130037975D /* cmake */,
+				5CCB823D2BF970130037975D /* test */,
+				5CCB823E2BF970130037975D /* .gitignore */,
+				5CCB823F2BF970130037975D /* CMakeLists.txt */,
+				5CCB82402BF970130037975D /* generate.py */,
+				5CCB82412BF970130037975D /* LICENSE.md */,
+				5CCB82422BF970130037975D /* README.md */,
+				5CCB82432BF970130037975D /* volk.c */,
+				5CCB82442BF970130037975D /* volk.h */,
+			);
+			path = volk;
+			sourceTree = "<group>";
+		};
+		5CCB82462BF970130037975D /* external */ = {
+			isa = PBXGroup;
+			children = (
+				5CCB82452BF970130037975D /* volk */,
+			);
+			path = external;
+			sourceTree = "<group>";
+		};
 		5CD2175219E985D80049D6AE /* cuda */ = {
 			isa = PBXGroup;
 			children = (
@@ -1508,7 +1630,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1530;
+				LastUpgradeCheck = 1540;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1651,6 +1773,7 @@
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C20C8C61B4139260005F5EA /* host_compute.cpp in Sources */,
 				5C34F17E1C29BB9300C8F645 /* metal_device.cpp in Sources */,
+				5CAD53382BE8227C00A1EF37 /* vulkan_common.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */,
@@ -1763,6 +1886,7 @@
 				5C84531D22B1A99C0014AECF /* metal_pass.mm in Sources */,
 				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,
 				5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */,
+				5CAD53392BE8227C00A1EF37 /* vulkan_common.cpp in Sources */,
 				5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */,
 				5C8FD0C31AD38F8B00215230 /* compute_image.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
@@ -1842,6 +1966,7 @@
 				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2004,6 +2129,7 @@
 				DYLIB_CURRENT_VERSION = 0.4.0;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
@@ -2180,527 +2306,6 @@
 			};
 			name = Release;
 		};
-		5C9D44B9226A7CD200D8E3E3 /* Debug_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
-				CLANG_ENABLE_MODULES = NO;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_ASSIGN_ENUM = YES;
-				CLANG_WARN_ATOMIC_IMPLICIT_SEQ_CST = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_SEMICOLON_BEFORE_METHOD_BODY = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.4.0;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
-				DYLIB_CURRENT_VERSION = 0.4.0;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_FAST_MATH = YES;
-				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
-				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = floor_prefix.pch;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					DEBUG,
-					"FLOOR_DEBUG=1",
-				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
-				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
-				GCC_UNROLL_LOOPS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
-				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
-				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
-				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
-				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
-				GCC_WARN_PEDANTIC = YES;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNKNOWN_PRAGMAS = YES;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_LABEL = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = ../;
-				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@loader_path/../Resources",
-					"@loader_path/../Frameworks",
-					/Library/Frameworks,
-					/usr/local/lib,
-					/usr/lib,
-					/opt/floor/lib,
-				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "-fparse-all-comments";
-				OTHER_CPLUSPLUSFLAGS = (
-					"$(OTHER_CFLAGS)",
-					"-fno-elide-type",
-					"-fdiagnostics-show-template-tree",
-					"-ftemplate-backtrace-limit=0",
-				);
-				OTHER_LDFLAGS = (
-					"-framework",
-					SDL3,
-					"-framework",
-					vulkan,
-				);
-				PRODUCT_NAME = libfloord;
-				SDKROOT = macosx;
-				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				SYMROOT = "${SRCROOT}/bin";
-				WARNING_CFLAGS = (
-					"-Weverything",
-					"-Wthread-safety",
-					"-Wthread-safety-negative",
-					"-Wthread-safety-beta",
-					"-Wthread-safety-verbose",
-					"-Wno-c++98-compat",
-					"-Wno-c++98-compat-pedantic",
-					"-Wno-c++11-compat",
-					"-Wno-c++11-compat-pedantic",
-					"-Wno-c++14-compat",
-					"-Wno-c++14-compat-pedantic",
-					"-Wno-c++17-compat",
-					"-Wno-c++17-compat-pedantic",
-					"-Wno-c++17-extensions",
-					"-Wno-c++20-compat",
-					"-Wno-c++20-compat-pedantic",
-					"-Wno-c++20-extensions",
-					"-Wno-c++23-compat",
-					"-Wno-c++23-compat-pedantic",
-					"-Wno-c++23-extensions",
-					"-Wno-gcc-compat",
-					"-Wno-gnu",
-					"-Wno-c99-extensions",
-					"-Wno-nullability-extension",
-					"-Wno-header-hygiene",
-					"-Wno-documentation",
-					"-Wno-system-headers",
-					"-Wno-global-constructors",
-					"-Wno-padded",
-					"-Wno-packed",
-					"-Wno-switch-enum",
-					"-Wno-switch-default",
-					"-Wno-exit-time-destructors",
-					"-Wno-unknown-warning-option",
-					"-Wno-nested-anon-types",
-					"-Wno-old-style-cast",
-					"-Wno-date-time",
-					"-Wno-reserved-id-macro",
-					"-Wno-documentation-unknown-command",
-					"-Wno-partial-availability",
-					"-Wno-return-std-move-in-c++11",
-					"-Wno-c11-extensions",
-					"-Wno-poison-system-directories",
-					"-Wno-nan-infinity-disabled",
-				);
-			};
-			name = Debug_vulkan;
-		};
-		5C9D44BA226A7CD200D8E3E3 /* Debug_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = default;
-				DEAD_CODE_STRIPPING = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = "FLOOR_DEBUG=1";
-				HEADER_SEARCH_PATHS = ../;
-				LIBRARY_SEARCH_PATHS = (
-					/usr/local/lib,
-					/opt/homebrew/lib,
-				);
-				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					/usr/local/include,
-					"-isystem",
-					/opt/homebrew/include,
-					"-iframework",
-					/Library/Frameworks,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-w",
-				);
-			};
-			name = Debug_vulkan;
-		};
-		5C9D44BB226A7CD200D8E3E3 /* Debug_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = default;
-				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					FLOOR_IOS,
-					FLOOR_NO_CUDA,
-					FLOOR_NO_OPENCL,
-				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					ios/deps/include,
-				);
-				INSTALL_PATH = /usr/lib/;
-				LD_DYLIB_INSTALL_NAME = "";
-				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = ios/deps/lib;
-				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					ios/deps/include,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = floord_static;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug_vulkan;
-		};
-		5C9D44BC226A7CD200D8E3E3 /* Debug_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUGGING_SYMBOLS = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug_vulkan;
-		};
-		5C9D44BD226A7CDE00D8E3E3 /* Release_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
-				CLANG_ENABLE_MODULES = NO;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_ASSIGN_ENUM = YES;
-				CLANG_WARN_ATOMIC_IMPLICIT_SEQ_CST = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_SEMICOLON_BEFORE_METHOD_BODY = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COMBINE_HIDPI_IMAGES = YES;
-				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
-				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.4.0;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.4.0;
-				DYLIB_CURRENT_VERSION = 0.4.0;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_FAST_MATH = YES;
-				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
-				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = fast;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = floor_prefix.pch;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
-				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
-				GCC_UNROLL_LOOPS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
-				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
-				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
-				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
-				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
-				GCC_WARN_PEDANTIC = YES;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNKNOWN_PRAGMAS = YES;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_LABEL = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = ../;
-				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@loader_path/../Resources",
-					"@loader_path/../Frameworks",
-					/Library/Frameworks,
-					/usr/local/lib,
-					/usr/lib,
-					/opt/floor/lib,
-				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				OTHER_CFLAGS = "-fparse-all-comments";
-				OTHER_CPLUSPLUSFLAGS = (
-					"$(OTHER_CFLAGS)",
-					"-fno-elide-type",
-					"-fdiagnostics-show-template-tree",
-					"-ftemplate-backtrace-limit=0",
-				);
-				OTHER_LDFLAGS = (
-					"-framework",
-					SDL3,
-					"-framework",
-					vulkan,
-				);
-				PRODUCT_NAME = libfloor;
-				SDKROOT = macosx;
-				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				SYMROOT = "${SRCROOT}/bin";
-				WARNING_CFLAGS = (
-					"-Weverything",
-					"-Wthread-safety",
-					"-Wthread-safety-negative",
-					"-Wthread-safety-beta",
-					"-Wthread-safety-verbose",
-					"-Wno-c++98-compat",
-					"-Wno-c++98-compat-pedantic",
-					"-Wno-c++11-compat",
-					"-Wno-c++11-compat-pedantic",
-					"-Wno-c++14-compat",
-					"-Wno-c++14-compat-pedantic",
-					"-Wno-c++17-compat",
-					"-Wno-c++17-compat-pedantic",
-					"-Wno-c++17-extensions",
-					"-Wno-c++20-compat",
-					"-Wno-c++20-compat-pedantic",
-					"-Wno-c++20-extensions",
-					"-Wno-c++23-compat",
-					"-Wno-c++23-compat-pedantic",
-					"-Wno-c++23-extensions",
-					"-Wno-gcc-compat",
-					"-Wno-gnu",
-					"-Wno-c99-extensions",
-					"-Wno-nullability-extension",
-					"-Wno-header-hygiene",
-					"-Wno-documentation",
-					"-Wno-system-headers",
-					"-Wno-global-constructors",
-					"-Wno-padded",
-					"-Wno-packed",
-					"-Wno-switch-enum",
-					"-Wno-switch-default",
-					"-Wno-exit-time-destructors",
-					"-Wno-unknown-warning-option",
-					"-Wno-nested-anon-types",
-					"-Wno-old-style-cast",
-					"-Wno-date-time",
-					"-Wno-reserved-id-macro",
-					"-Wno-documentation-unknown-command",
-					"-Wno-partial-availability",
-					"-Wno-return-std-move-in-c++11",
-					"-Wno-c11-extensions",
-					"-Wno-poison-system-directories",
-					"-Wno-nan-infinity-disabled",
-				);
-			};
-			name = Release_vulkan;
-		};
-		5C9D44BE226A7CDE00D8E3E3 /* Release_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = default;
-				DEAD_CODE_STRIPPING = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
-				);
-				HEADER_SEARCH_PATHS = ../;
-				LIBRARY_SEARCH_PATHS = (
-					/usr/local/lib,
-					/opt/homebrew/lib,
-				);
-				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					/usr/local/include,
-					"-isystem",
-					/opt/homebrew/include,
-					"-iframework",
-					/Library/Frameworks,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-			};
-			name = Release_vulkan;
-		};
-		5C9D44BF226A7CDE00D8E3E3 /* Release_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_X86_VECTOR_INSTRUCTIONS = default;
-				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					FLOOR_IOS,
-					FLOOR_NO_CUDA,
-					FLOOR_NO_OPENCL,
-				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					ios/deps/include,
-				);
-				INSTALL_PATH = /usr/lib/;
-				LD_DYLIB_INSTALL_NAME = "";
-				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = ios/deps/lib;
-				ONLY_ACTIVE_ARCH = NO;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					ios/deps/include,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = floor_static;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release_vulkan;
-		};
-		5C9D44C0226A7CDE00D8E3E3 /* Release_vulkan */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_SUSPICIOUS_MOVES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release_vulkan;
-		};
 		5CBB61251D6367A000B09EEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2842,9 +2447,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5C10916017D114BC007F536E /* Debug */,
-				5C9D44B9226A7CD200D8E3E3 /* Debug_vulkan */,
 				5C10916117D114BC007F536E /* Release */,
-				5C9D44BD226A7CDE00D8E3E3 /* Release_vulkan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -2853,9 +2456,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5C10916317D114BC007F536E /* Debug */,
-				5C9D44BA226A7CD200D8E3E3 /* Debug_vulkan */,
 				5C10916417D114BC007F536E /* Release */,
-				5C9D44BE226A7CDE00D8E3E3 /* Release_vulkan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -2864,9 +2465,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5CBB61251D6367A000B09EEE /* Debug */,
-				5C9D44BC226A7CD200D8E3E3 /* Debug_vulkan */,
 				5CBB61261D6367A000B09EEE /* Release */,
-				5C9D44C0226A7CDE00D8E3E3 /* Release_vulkan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -2875,9 +2474,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5CC2F79518678AAD0031E08D /* Debug */,
-				5C9D44BB226A7CD200D8E3E3 /* Debug_vulkan */,
 				5CC2F79618678AAD0031E08D /* Release */,
-				5C9D44BF226A7CDE00D8E3E3 /* Release_vulkan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

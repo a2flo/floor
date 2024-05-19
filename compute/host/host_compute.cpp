@@ -51,9 +51,13 @@
 #endif
 
 // provided by SDL3
+#if defined(SDL_DECLSPEC)
+extern "C" SDL_DECLSPEC int SDLCALL SDL_GetSystemRAM();
+#else // TODO: remove this (keep it for older SDL3 versions for now)
 extern "C" DECLSPEC int SDLCALL SDL_GetSystemRAM();
+#endif
 
-host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags) : compute_context(ctx_flags) {
+host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has_toolchain_) : compute_context(ctx_flags, has_toolchain_) {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//
@@ -347,13 +351,7 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 #endif
 }
 
-shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
-	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: $", file_name);
-		return {};
-	}
-	
+shared_ptr<compute_program> host_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// create the program
 	host_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
@@ -369,8 +367,25 @@ shared_ptr<compute_program> host_compute::add_universal_binary(const string& fil
 															   func_info,
 															   false /* TODO: true? */));
 	}
-	
 	return add_program(std::move(prog_map));
+}
+
+shared_ptr<compute_program> host_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: $", file_name);
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
+}
+
+shared_ptr<compute_program> host_compute::add_universal_binary(const span<const uint8_t> data) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(data, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary (in-memory data)");
+		return {};
+	}
+	return create_program_from_archive_binaries(bins);
 }
 
 shared_ptr<host_program> host_compute::add_program(host_program::program_map_type&& prog_map) {

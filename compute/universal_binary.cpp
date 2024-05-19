@@ -46,8 +46,13 @@ namespace universal_binary {
 			return {};
 		}
 		const auto data_size = data.size();
-		auto cur_size = (decltype(data_size))0;
-		const uint8_t* data_ptr = (const uint8_t*)data.data();
+		return load_archive(span<const uint8_t> { (const uint8_t*)data.data(), data_size }, file_name);
+	}
+		
+	unique_ptr<archive> load_archive(span<const uint8_t> data, const string_view filename_hint_) {
+		const auto filename_hint = (filename_hint_.empty() ? "<no-file-name>"sv : filename_hint_);
+		const auto data_size = data.size_bytes();
+		auto cur_size = 0uz;
 		
 		auto ar = make_unique<archive>();
 		
@@ -55,18 +60,18 @@ namespace universal_binary {
 		cur_size += sizeof(header_v3);
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid header size, expected $, got $",
-					  file_name, cur_size, data_size);
+					  filename_hint, cur_size, data_size);
 			return {};
 		}
-		const header_v3& header = *(const header_v3*)data_ptr;
-		data_ptr += sizeof(header_v3);
+		const header_v3& header = *(const header_v3*)data.data();
+		data = data.subspan(sizeof(header_v3));
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
-			log_error("universal binary $: invalid header magic", file_name);
+			log_error("universal binary $: invalid header magic", filename_hint);
 			return {};
 		}
 		if (header.binary_format_version != binary_format_version) {
-			log_error("universal binary $: unsupported binary version $", file_name, header.binary_format_version);
+			log_error("universal binary $: unsupported binary version $", filename_hint, header.binary_format_version);
 			return {};
 		}
 		memcpy(&ar->header.static_header, &header, sizeof(header_v3));
@@ -91,27 +96,27 @@ namespace universal_binary {
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid dynamic header size, expected $, got $",
-					  file_name, cur_size, data_size);
+					  filename_hint, cur_size, data_size);
 			return {};
 		}
 		
-		memcpy(ar->header.targets.data(), data_ptr, targets_size);
-		data_ptr += targets_size;
+		memcpy(ar->header.targets.data(), data.data(), targets_size);
+		data = data.subspan(targets_size);
 		
-		memcpy(ar->header.offsets.data(), data_ptr, offsets_size);
-		data_ptr += offsets_size;
+		memcpy(ar->header.offsets.data(), data.data(), offsets_size);
+		data = data.subspan(offsets_size);
 		
-		memcpy(ar->header.toolchain_versions.data(), data_ptr, toolchain_versions_size);
-		data_ptr += toolchain_versions_size;
+		memcpy(ar->header.toolchain_versions.data(), data.data(), toolchain_versions_size);
+		data = data.subspan(toolchain_versions_size);
 		
-		memcpy(ar->header.hashes.data(), data_ptr, hashes_size);
-		data_ptr += hashes_size;
+		memcpy(ar->header.hashes.data(), data.data(), hashes_size);
+		data = data.subspan(hashes_size);
 		
 		// verify targets
 		for (const auto& target : ar->header.targets) {
 			if (target.common.version != target_format_version) {
 				log_error("universal binary $: unsupported target version, expected $, got $",
-						  file_name, target_format_version, target.common.version);
+						  filename_hint, target_format_version, target.common.version);
 				return {};
 			}
 		}
@@ -120,7 +125,7 @@ namespace universal_binary {
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
 			if (toolchain_version < min_required_toolchain_version_v3) {
 				log_error("universal binary $: unsupported toolchain version, expected $, got $",
-						  file_name, min_required_toolchain_version_v3, toolchain_version);
+						  filename_hint, min_required_toolchain_version_v3, toolchain_version);
 				return {};
 			}
 		}
@@ -132,7 +137,7 @@ namespace universal_binary {
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
 				log_error("universal binary $: invalid binary offset, expected $, got $",
-						  file_name, ar->header.offsets[bin_idx], cur_size);
+						  filename_hint, ar->header.offsets[bin_idx], cur_size);
 				return {};
 			}
 			
@@ -140,21 +145,21 @@ namespace universal_binary {
 			cur_size += sizeof(binary_v3);
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid static binary header size, expected $, got $",
-						  file_name, cur_size, data_size);
+						  filename_hint, cur_size, data_size);
 				return {};
 			}
-			memcpy(&bin.static_binary_header, data_ptr, sizeof(binary_v3));
-			data_ptr += sizeof(binary_v3);
+			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v3));
+			data = data.subspan(sizeof(binary_v3));
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
 				log_error("universal binary $: invalid binary function info size (pre-check), expected $, got $",
-						  file_name, cur_size + bin.static_binary_header.function_info_size, data_size);
+						  filename_hint, cur_size + bin.static_binary_header.function_info_size, data_size);
 				return {};
 			}
 			if (cur_size + bin.static_binary_header.function_info_size + bin.static_binary_header.binary_size > data_size) {
 				log_error("universal binary $: invalid binary size (pre-check), expected $, got $",
-						  file_name,
+						  filename_hint,
 						  cur_size + bin.static_binary_header.function_info_size + bin.static_binary_header.binary_size,
 						  data_size);
 				return {};
@@ -171,15 +176,15 @@ namespace universal_binary {
 				cur_size += sizeof(function_info_v3);
 				if (cur_size > data_size) {
 					log_error("universal binary $: invalid static function info size, expected $, got $",
-							  file_name, cur_size, data_size);
+							  filename_hint, cur_size, data_size);
 					return {};
 				}
-				memcpy(&func_info.static_function_info, data_ptr, sizeof(function_info_v3));
-				data_ptr += sizeof(function_info_v3);
+				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v3));
+				data = data.subspan(sizeof(function_info_v3));
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
 					log_error("universal binary $: unsupported function info version $",
-							  file_name, func_info.static_function_info.function_info_version);
+							  filename_hint, func_info.static_function_info.function_info_version);
 					return {};
 				}
 				
@@ -189,11 +194,12 @@ namespace universal_binary {
 					++cur_size;
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info name size, expected $, got $",
-								  file_name, cur_size, data_size);
+								  filename_hint, cur_size, data_size);
 						return {};
 					}
 					
-					const auto ch = *data_ptr++;
+					const auto ch = data.front();
+					data = data.subspan(1);
 					if (ch == 0) {
 						break;
 					}
@@ -206,11 +212,11 @@ namespace universal_binary {
 					cur_size += sizeof(function_info_dynamic_v3::arg_info);
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info arg size, expected $, got $",
-								  file_name, cur_size, data_size);
+								  filename_hint, cur_size, data_size);
 						return {};
 					}
-					memcpy(&arg, data_ptr, sizeof(function_info_dynamic_v3::arg_info));
-					data_ptr += sizeof(function_info_dynamic_v3::arg_info);
+					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v3::arg_info));
+					data = data.subspan(sizeof(function_info_dynamic_v3::arg_info));
 					
 					func_info.args.emplace_back(arg);
 				}
@@ -221,7 +227,7 @@ namespace universal_binary {
 			const auto func_info_size = func_info_end_size - func_info_start_size;
 			if (func_info_size != size_t(bin.static_binary_header.function_info_size)) {
 				log_error("universal binary $: invalid binary function info size, expected $, got $",
-						  file_name, bin.static_binary_header.function_info_size, func_info_size);
+						  filename_hint, bin.static_binary_header.function_info_size, func_info_size);
 				return {};
 			}
 			
@@ -229,17 +235,17 @@ namespace universal_binary {
 			cur_size += bin.static_binary_header.binary_size;
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid binary size, expected $, got $",
-						  file_name, cur_size, data_size);
+						  filename_hint, cur_size, data_size);
 				return {};
 			}
 			bin.data.resize(bin.static_binary_header.binary_size);
-			memcpy(bin.data.data(), data_ptr, bin.static_binary_header.binary_size);
-			data_ptr += bin.static_binary_header.binary_size;
+			memcpy(bin.data.data(), data.data(), bin.static_binary_header.binary_size);
+			data = data.subspan(bin.static_binary_header.binary_size);
 			
 			// verify binary
 			const auto hash = sha_256::compute_hash(bin.data.data(), bin.data.size());
 			if (hash != ar->header.hashes[bin_idx]) {
-				log_error("universal binary $: invalid binary (hash mismatch)", file_name);
+				log_error("universal binary $: invalid binary (hash mismatch)", filename_hint);
 				return {};
 			}
 			
@@ -1543,13 +1549,7 @@ namespace universal_binary {
 		return ret;
 	}
 	
-	archive_binaries load_dev_binaries_from_archive(const string& file_name, const vector<const compute_device*>& devices) {
-		auto ar = universal_binary::load_archive(file_name);
-		if (ar == nullptr) {
-			log_error("failed to load universal binary: $", file_name);
-			return {};
-		}
-		
+	static archive_binaries make_device_binaries_from_archive(unique_ptr<archive>&& ar, const vector<const compute_device*>& devices) {
 		// find the best matching binary for each device
 		vector<pair<const universal_binary::binary_dynamic_v3*, const universal_binary::target_v3>> dev_binaries;
 		dev_binaries.reserve(devices.size());
@@ -1565,8 +1565,30 @@ namespace universal_binary {
 		return { std::move(ar), dev_binaries };
 	}
 	
+	archive_binaries load_dev_binaries_from_archive(const string& file_name, const vector<const compute_device*>& devices) {
+		auto ar = universal_binary::load_archive(file_name);
+		if (ar == nullptr) {
+			log_error("failed to load universal binary: $", file_name);
+			return {};
+		}
+		return make_device_binaries_from_archive(std::move(ar), devices);
+	}
+	
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const compute_context& ctx) {
 		return load_dev_binaries_from_archive(file_name, ctx.get_devices());
+	}
+	
+	archive_binaries load_dev_binaries_from_archive(const span<const uint8_t> data, const vector<const compute_device*>& devices) {
+		auto ar = universal_binary::load_archive(data);
+		if (ar == nullptr) {
+			log_error("failed to load universal binary from in-memory data (#bytes: $')", data.size_bytes());
+			return {};
+		}
+		return make_device_binaries_from_archive(std::move(ar), devices);
+	}
+	
+	archive_binaries load_dev_binaries_from_archive(const span<const uint8_t> data, const compute_context& ctx) {
+		return load_dev_binaries_from_archive(data, ctx.get_devices());
 	}
 	
 }

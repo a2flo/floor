@@ -368,8 +368,12 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-function-type-strict)
 
-vulkan_compute::vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
-compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
+extern bool floor_volk_init();
+extern void floor_volk_load_instance(VkInstance& instance);
+
+vulkan_compute::vulkan_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has_toolchain_,
+							   const bool enable_renderer_, vr_context* vr_ctx_, const vector<string> whitelist) :
+compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	if(enable_renderer) {
 		screen.x11_forwarding = floor::is_x11_forwarding();
 
@@ -379,6 +383,11 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 				return;
 			}
 		}
+	}
+	
+	// init Vulkan/volk
+	if (!floor_volk_init()) {
+		return;
 	}
 	
 	// create a vulkan instance (context)
@@ -500,6 +509,9 @@ compute_context(ctx_flags), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
 	{
 		VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create Vulkan instance")
 	}
+	
+	// load instance in volk
+	floor_volk_load_instance(ctx);
 	
 #if defined(FLOOR_DEBUG)
 	// debug label handling
@@ -2699,13 +2711,8 @@ shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cque
 	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags));
 }
 
-shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
-	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
-	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
-		log_error("failed to load universal binary: $", file_name);
-		return {};
-	}
-	
+shared_ptr<compute_program> vulkan_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins,
+																				 const string& identifier) {
 	// create the program
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
@@ -2716,14 +2723,31 @@ shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& f
 		
 		auto container = spirv_handler::load_container_from_memory(dev_best_bin.first->data.data(),
 																   dev_best_bin.first->data.size(),
-																   file_name);
+																   identifier);
 		if(!container.valid) return {}; // already prints an error
 		
 		prog_map.insert_or_assign(vlk_dev,
-								  create_vulkan_program_internal(vlk_dev, container, func_info, file_name));
+								  create_vulkan_program_internal(vlk_dev, container, func_info, identifier));
 	}
-	
 	return add_program(std::move(prog_map));
+}
+
+shared_ptr<compute_program> vulkan_compute::add_universal_binary(const string& file_name) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary: $", file_name);
+		return {};
+	}
+	return create_program_from_archive_binaries(bins, file_name);
+}
+
+shared_ptr<compute_program> vulkan_compute::add_universal_binary(const span<const uint8_t> data) {
+	auto bins = universal_binary::load_dev_binaries_from_archive(data, *this);
+	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
+		log_error("failed to load universal binary (in-memory data)");
+		return {};
+	}
+	return create_program_from_archive_binaries(bins, "<in-memory-data>");
 }
 
 shared_ptr<vulkan_program> vulkan_compute::add_program(vulkan_program::program_map_type&& prog_map) {
