@@ -19,6 +19,7 @@
 #pragma once
 
 #include <floor/core/platform.hpp>
+#include <floor/core/aligned_ptr.hpp>
 
 //! file input/output
 class file_io {
@@ -51,7 +52,8 @@ public:
 	
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
 	static pair<unique_ptr<uint8_t[]>, size_t> file_to_buffer(const string& filename);
-	static pair<unique_ptr<uint8_t[]>, size_t> file_to_buffer_uncached(const string& filename);
+	static pair<aligned_ptr<uint8_t>, size_t> file_to_buffer_aligned(const string& filename);
+	static pair<aligned_ptr<uint8_t>, size_t> file_to_buffer_uncached(const string& filename);
 	static bool file_to_string(const string& filename, string& str);
 	static string file_to_string(const string& filename);
 	

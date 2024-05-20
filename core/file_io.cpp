@@ -126,7 +126,8 @@ bool file_io::file_to_buffer(const string& filename, stringstream& buffer) {
 	return true;
 }
 
-pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filename) {
+template <typename F>
+static pair<decltype(declval<F>()(0u)), size_t> file_to_buffer_impl(const string& filename, F&& alloc_data_f) {
 	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
 	if (!file.is_open()) {
 		return {};
@@ -142,7 +143,7 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 	}
 	
 	const auto size = (size_t)size_ll;
-	auto data = make_unique<uint8_t[]>(size);
+	auto data = alloc_data_f(size);
 	if (!data) {
 		return {};
 	}
@@ -157,10 +158,18 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filena
 	return { std::move(data), size };
 }
 
-pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer_uncached(const string& filename) {
+pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer(const string& filename) {
+	return file_to_buffer_impl(filename, [](size_t size) { return make_unique<uint8_t[]>(size); });
+}
+
+pair<aligned_ptr<uint8_t>, size_t> file_io::file_to_buffer_aligned(const string& filename) {
+	return file_to_buffer_impl(filename, [](size_t size) { return make_aligned_ptr<uint8_t>(size); });
+}
+
+pair<aligned_ptr<uint8_t>, size_t> file_io::file_to_buffer_uncached(const string& filename) {
 #if defined(_WIN32)
 	// TODO: implement this on Windows
-	return file_io::file_to_buffer(filename);
+	return file_io::file_to_buffer_aligned(filename);
 #else
 	auto open_flags = O_RDONLY;
 	// try O_DIRECT for uncached file reads (but probably Linux only)
@@ -188,16 +197,21 @@ pair<unique_ptr<uint8_t[]>, size_t> file_io::file_to_buffer_uncached(const strin
 	}
 	const auto size = (uint64_t)size_ll;
 	
-	//
-	auto data = make_unique<uint8_t[]>(size);
+	// pread() requires data to be aligned to the block size
+	// -> just align it to a page, which should always be larger
+	static_assert(aligned_ptr<uint8_t>::page_size >= 4096);
+	auto data = make_aligned_ptr<uint8_t>(size);
 	if (!data) {
 		::close(fd);
 		return {};
 	}
+	const auto aligned_size = data.allocation_size();
+	assert(aligned_size >= size);
 	
 	uint64_t total_read_bytes = 0u;
 	off_t read_offset = 0u;
-	auto remaining_size = size;
+	// pread() requires the read size to also be aligned to the block size
+	auto remaining_size = aligned_size;
 	do {
 		const auto read_bytes = pread(fd, data.get(), remaining_size, read_offset);
 		if (read_bytes < 0) {
