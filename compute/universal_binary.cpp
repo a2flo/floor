@@ -41,12 +41,11 @@ namespace universal_binary {
 	static constexpr const uint32_t min_required_toolchain_version_v3 { 140000u };
 	
 	unique_ptr<archive> load_archive(const string& file_name) {
-		string data;
-		if (!file_io::file_to_string(file_name, data)) {
+		auto [data, data_size] = file_io::file_to_buffer(file_name);
+		if (!data || data_size == 0) {
 			return {};
 		}
-		const auto data_size = data.size();
-		return load_archive(span<const uint8_t> { (const uint8_t*)data.data(), data_size }, file_name);
+		return load_archive(span<const uint8_t> { data.get(), data.get() + data_size }, file_name);
 	}
 		
 	unique_ptr<archive> load_archive(span<const uint8_t> data, const string_view filename_hint_) {
@@ -524,7 +523,7 @@ namespace universal_binary {
 				vlk_dev.double_support = vlk_target.double_support;
 				vlk_dev.basic_64_bit_atomics_support = vlk_target.basic_64_bit_atomics_support;
 				vlk_dev.extended_64_bit_atomics_support = vlk_target.extended_64_bit_atomics_support;
-				vlk_dev.basic_32_bit_float_atomics_support = true;
+				vlk_dev.basic_32_bit_float_atomics_support = vlk_target.basic_32_bit_float_atomics_support;
 				vlk_dev.primitive_id_support = vlk_target.primitive_id_support;
 				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;

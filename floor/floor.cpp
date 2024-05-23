@@ -418,6 +418,7 @@ bool floor::init(const init_state& state) {
 		config.metal_compiler = config_doc.get<string>("toolchain.metal.compiler", config.default_compiler);
 		config.metal_as = config_doc.get<string>("toolchain.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
+		config.metallib_dis = config_doc.get<string>("toolchain.metal.metallib_dis", config.metallib_dis);
 		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
 		config.metal_soft_printf = config_doc.get<bool>("toolchain.metal.soft_printf", false);
 		config.metal_dump_reflection_info = config_doc.get<bool>("toolchain.metal.dump_reflection_info", false);
@@ -541,17 +542,16 @@ bool floor::init(const init_state& state) {
 															config.opencl_compiler,
 															config.opencl_as, config.opencl_dis,
 															vector<pair<uint2, string*>> {
-																{ { 80000u, ~0u }, &config.opencl_spirv_encoder },
-																{ { 80000u, ~0u }, &config.opencl_spirv_as },
-																{ { 80000u, ~0u }, &config.opencl_spirv_dis },
-																{ { 80000u, ~0u }, &config.opencl_spirv_validator },
+																{ { 140006u, ~0u }, &config.opencl_spirv_encoder },
+																{ { 140006u, ~0u }, &config.opencl_spirv_as },
+																{ { 140006u, ~0u }, &config.opencl_spirv_dis },
+																{ { 140006u, ~0u }, &config.opencl_spirv_validator },
 															});
-		if(config.opencl_base_path == "") {
+		if (config.opencl_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("OpenCL toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
-		}
-		else {
+		} else {
 			config.opencl_toolchain_exists = true;
 			config.opencl_compiler.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
@@ -567,12 +567,11 @@ bool floor::init(const init_state& state) {
 														  config.cuda_toolchain_version,
 														  config.cuda_compiler,
 														  config.cuda_as, config.cuda_dis);
-		if(config.cuda_base_path == "") {
+		if (config.cuda_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("CUDA toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
-		}
-		else {
+		} else {
 			config.cuda_toolchain_exists = true;
 			config.cuda_compiler.insert(0, config.cuda_base_path + "bin/");
 			config.cuda_as.insert(0, config.cuda_base_path + "bin/");
@@ -583,17 +582,19 @@ bool floor::init(const init_state& state) {
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
 														   config.metal_toolchain_version,
 														   config.metal_compiler,
-														   config.metal_as, config.metal_dis);
+														   config.metal_as, config.metal_dis,
+														   vector<pair<uint2, string*>> {
+															   { { 140006u, ~0u }, &config.metallib_dis },
+														   });
 #if defined(FLOOR_IOS)
 		// toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
-		if(config.metal_base_path == "") {
+		if (config.metal_base_path == "") {
 			config.metal_base_path = "/opt/floor/toolchain";
 		}
 #else
-		if(config.metal_base_path == "") {
+		if (config.metal_base_path == "") {
 			log_error("Metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
-		}
-		else
+		} else
 #endif
 		{
 			config.metal_toolchain_exists = true;
@@ -608,17 +609,16 @@ bool floor::init(const init_state& state) {
 															config.vulkan_compiler,
 															config.vulkan_as, config.vulkan_dis,
 															vector<pair<uint2, string*>> {
-																{ { 80000u, ~0u }, &config.vulkan_spirv_encoder },
-																{ { 80000u, ~0u }, &config.vulkan_spirv_as },
-																{ { 80000u, ~0u }, &config.vulkan_spirv_dis },
-																{ { 80000u, ~0u }, &config.vulkan_spirv_validator },
+																{ { 140006u, ~0u }, &config.vulkan_spirv_encoder },
+																{ { 140006u, ~0u }, &config.vulkan_spirv_as },
+																{ { 140006u, ~0u }, &config.vulkan_spirv_dis },
+																{ { 140006u, ~0u }, &config.vulkan_spirv_validator },
 															});
-		if(config.vulkan_base_path == "") {
+		if (config.vulkan_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("Vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
-		}
-		else {
+		} else {
 			config.vulkan_toolchain_exists = true;
 			config.vulkan_compiler.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_as.insert(0, config.vulkan_base_path + "bin/");
@@ -634,7 +634,7 @@ bool floor::init(const init_state& state) {
 														  config.host_toolchain_version,
 														  config.host_compiler,
 														  config.host_as, config.host_dis);
-		if(config.host_base_path == "") {
+		if (config.host_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("Host-Compute toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
@@ -1686,6 +1686,9 @@ const string& floor::get_metal_as() {
 }
 const string& floor::get_metal_dis() {
 	return config.metal_dis;
+}
+const string& floor::get_metallib_dis() {
+	return config.metallib_dis;
 }
 const uint32_t& floor::get_metal_force_version() {
 	return config.metal_force_version;

@@ -263,6 +263,7 @@ public:
 	static const string& get_metal_compiler();
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
+	static const string& get_metallib_dis();
 	static const uint32_t& get_metal_force_version();
 	static const bool& get_metal_soft_printf();
 	static const bool& get_metal_dump_reflection_info();
@@ -416,6 +417,7 @@ protected:
 		string metal_compiler = default_compiler;
 		string metal_as = default_as;
 		string metal_dis = default_dis;
+		string metallib_dis = "metallib-dis";
 		uint32_t metal_force_version = 0;
 		bool metal_soft_printf = false;
 		bool metal_dump_reflection_info = false;
