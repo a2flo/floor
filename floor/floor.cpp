@@ -460,6 +460,7 @@ bool floor::init(const init_state& state) {
 											  string& compiler,
 											  string& as,
 											  string& dis,
+											  string& objdump,
 											  // <min/max required toolchain version, bin name>
 											  vector<pair<uint2, string*>> additional_bins = {}) {
 #if defined(__WINDOWS__)
@@ -467,6 +468,7 @@ bool floor::init(const init_state& state) {
 		compiler = core::expand_path_with_env(compiler + ".exe");
 		as = core::expand_path_with_env(as + ".exe");
 		dis = core::expand_path_with_env(dis + ".exe");
+		objdump = core::expand_path_with_env(objdump + ".exe");
 		for(auto& bin : additional_bins) {
 			*bin.second = core::expand_path_with_env(*bin.second + ".exe");
 		}
@@ -483,6 +485,7 @@ bool floor::init(const init_state& state) {
 			if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + as)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + dis)) continue;
+			if(!file_io::is_file(path_str + "/bin/" + objdump)) continue;
 			if(!file_io::is_directory(path_str + "/clang")) continue;
 			if(!file_io::is_directory(path_str + "/floor")) continue;
 			if(!file_io::is_directory(path_str + "/libcxx")) continue;
@@ -540,7 +543,7 @@ bool floor::init(const init_state& state) {
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
 															config.opencl_toolchain_version,
 															config.opencl_compiler,
-															config.opencl_as, config.opencl_dis,
+															config.opencl_as, config.opencl_dis, config.opencl_objdump,
 															vector<pair<uint2, string*>> {
 																{ { 140006u, ~0u }, &config.opencl_spirv_encoder },
 																{ { 140006u, ~0u }, &config.opencl_spirv_as },
@@ -566,7 +569,7 @@ bool floor::init(const init_state& state) {
 		config.cuda_base_path = get_viable_toolchain_path(cuda_toolchain_paths,
 														  config.cuda_toolchain_version,
 														  config.cuda_compiler,
-														  config.cuda_as, config.cuda_dis);
+														  config.cuda_as, config.cuda_dis, config.cuda_objdump);
 		if (config.cuda_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("CUDA toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
@@ -582,7 +585,7 @@ bool floor::init(const init_state& state) {
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
 														   config.metal_toolchain_version,
 														   config.metal_compiler,
-														   config.metal_as, config.metal_dis,
+														   config.metal_as, config.metal_dis, config.metal_objdump,
 														   vector<pair<uint2, string*>> {
 															   { { 140006u, ~0u }, &config.metallib_dis },
 														   });
@@ -607,7 +610,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_base_path = get_viable_toolchain_path(vulkan_toolchain_paths,
 															config.vulkan_toolchain_version,
 															config.vulkan_compiler,
-															config.vulkan_as, config.vulkan_dis,
+															config.vulkan_as, config.vulkan_dis, config.vulkan_objdump,
 															vector<pair<uint2, string*>> {
 																{ { 140006u, ~0u }, &config.vulkan_spirv_encoder },
 																{ { 140006u, ~0u }, &config.vulkan_spirv_as },
@@ -633,7 +636,7 @@ bool floor::init(const init_state& state) {
 		config.host_base_path = get_viable_toolchain_path(host_toolchain_paths,
 														  config.host_toolchain_version,
 														  config.host_compiler,
-														  config.host_as, config.host_dis);
+														  config.host_as, config.host_dis, config.host_objdump);
 		if (config.host_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("Host-Compute toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
@@ -1610,6 +1613,9 @@ const string& floor::get_opencl_as() {
 const string& floor::get_opencl_dis() {
 	return config.opencl_dis;
 }
+const string& floor::get_opencl_objdump() {
+	return config.opencl_objdump;
+}
 const string& floor::get_opencl_spirv_encoder() {
 	return config.opencl_spirv_encoder;
 }
@@ -1643,6 +1649,9 @@ const string& floor::get_cuda_as() {
 }
 const string& floor::get_cuda_dis() {
 	return config.cuda_dis;
+}
+const string& floor::get_cuda_objdump() {
+	return config.cuda_objdump;
 }
 const string& floor::get_cuda_force_driver_sm() {
 	return config.cuda_force_driver_sm;
@@ -1690,6 +1699,9 @@ const string& floor::get_metal_dis() {
 const string& floor::get_metallib_dis() {
 	return config.metallib_dis;
 }
+const string& floor::get_metal_objdump() {
+	return config.metal_objdump;
+}
 const uint32_t& floor::get_metal_force_version() {
 	return config.metal_force_version;
 }
@@ -1726,6 +1738,9 @@ const string& floor::get_vulkan_as() {
 }
 const string& floor::get_vulkan_dis() {
 	return config.vulkan_dis;
+}
+const string& floor::get_vulkan_objdump() {
+	return config.vulkan_objdump;
 }
 const string& floor::get_vulkan_spirv_encoder() {
 	return config.vulkan_spirv_encoder;
@@ -1772,6 +1787,9 @@ const string& floor::get_host_as() {
 }
 const string& floor::get_host_dis() {
 	return config.host_dis;
+}
+const string& floor::get_host_objdump() {
+	return config.host_objdump;
 }
 const bool& floor::get_host_run_on_device() {
 	return config.host_run_on_device;

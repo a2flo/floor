@@ -2719,7 +2719,7 @@ shared_ptr<compute_program> vulkan_compute::create_program_from_archive_binaries
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 		const auto& vlk_dev = (const vulkan_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		
 		auto container = spirv_handler::load_container_from_memory(dev_best_bin.first->data.data(),
 																   dev_best_bin.first->data.size(),
@@ -2813,7 +2813,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(const
 	}
 	if(!container.valid) return {}; // already prints an error
 	
-	return create_vulkan_program_internal((const vulkan_device&)device, container, program.functions,
+	return create_vulkan_program_internal((const vulkan_device&)device, container, program.function_info,
 										  program.data_or_filename);
 }
 

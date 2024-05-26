@@ -358,7 +358,7 @@ shared_ptr<compute_program> host_compute::create_program_from_archive_binaries(u
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 		const auto& host_dev = (const host_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		prog_map.insert_or_assign(host_dev,
 								  create_host_program_internal(host_dev,
 															   {},
@@ -460,17 +460,17 @@ host_program::host_program_entry host_compute::create_host_program(const host_de
 		return {};
 	}
 	return create_host_program_internal(device, program.data_or_filename.data(), nullptr, 0,
-										program.functions, program.options.silence_debug_output);
+										program.function_info, program.options.silence_debug_output);
 }
 
 host_program::host_program_entry host_compute::create_host_program_internal(const host_device& device floor_unused /* TODO: use device */,
 																			const optional<string> elf_bin_file_name,
 																			const uint8_t* elf_bin_data,
 																			const size_t elf_bin_size,
-																			const vector<llvm_toolchain::function_info>& functions,
+																			const vector<llvm_toolchain::function_info>& function_info,
 																			const bool& silence_debug_output) {
 	host_program::host_program_entry ret;
-	ret.functions = functions;
+	ret.functions = function_info;
 	
 	unique_ptr<elf_binary> bin;
 	if (elf_bin_file_name && !elf_bin_file_name->empty()) {
@@ -504,7 +504,7 @@ shared_ptr<compute_program> host_compute::add_precompiled_program_file(const str
 shared_ptr<compute_program::program_entry> host_compute::create_program_entry(const compute_device& device floor_unused,
 																			  llvm_toolchain::program_data program,
 																			  const llvm_toolchain::TARGET) {
-	return make_shared<compute_program::program_entry>(compute_program::program_entry { {}, program.functions, true });
+	return make_shared<compute_program::program_entry>(compute_program::program_entry { {}, program.function_info, true });
 }
 
 bool host_compute::has_host_device_support() const {

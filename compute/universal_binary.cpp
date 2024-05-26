@@ -220,7 +220,7 @@ namespace universal_binary {
 					func_info.args.emplace_back(arg);
 				}
 				
-				bin.functions.emplace_back(func_info);
+				bin.function_info.emplace_back(func_info);
 			}
 			const auto func_info_end_size = cur_size;
 			const auto func_info_size = func_info_end_size - func_info_start_size;
@@ -813,7 +813,7 @@ namespace universal_binary {
 			// NOTE: bin_data.data must not even be written/copied here
 			
 			// convert function info
-			bin_data.functions.reserve(bin.functions.size());
+			bin_data.function_info.reserve(bin.function_info.size());
 			const function<bool(const llvm_toolchain::function_info&, const uint32_t)> create_bin_function_info =
 			[&bin_data, &create_bin_function_info](const llvm_toolchain::function_info& func, const uint32_t argument_buffer_index) {
 				function_info_dynamic_v3 finfo {
@@ -856,7 +856,7 @@ namespace universal_binary {
 				}
 				++bin_data.static_binary_header.function_count;
 				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v3::arg_info) * finfo.args.size();
-				bin_data.functions.emplace_back(std::move(finfo));
+				bin_data.function_info.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
 				for (const auto& arg_buffer_info : arg_buffers) {
@@ -865,7 +865,7 @@ namespace universal_binary {
 				
 				return true;
 			};
-			for (const auto& func : bin.functions) {
+			for (const auto& func : bin.function_info) {
 				if (!create_bin_function_info(func, 0u)) {
 					return false;
 				}
@@ -875,7 +875,7 @@ namespace universal_binary {
 			archive.write_block(&bin_data.static_binary_header, sizeof(bin_data.static_binary_header));
 			
 			// write dynamic binary part
-			for (const auto& finfo : bin_data.functions) {
+			for (const auto& finfo : bin_data.function_info) {
 				archive.write_block(&finfo.static_function_info, sizeof(finfo.static_function_info));
 				archive.write_terminated_block(finfo.name, 0);
 				archive.write_block(finfo.args.data(), finfo.args.size() * sizeof(typename decltype(finfo.args)::value_type));

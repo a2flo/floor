@@ -429,7 +429,7 @@ shared_ptr<compute_program> cuda_compute::create_program_from_archive_binaries(u
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 		const auto& cuda_dev = (const cuda_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		// TODO: handle CUBIN
 		prog_map.insert_or_assign(cuda_dev,
 								  create_cuda_program_internal(cuda_dev,
@@ -518,7 +518,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 	}
 	return create_cuda_program_internal(device,
 										program.data_or_filename.data(), program.data_or_filename.size(),
-										program.functions, program.options.cuda.max_registers,
+										program.function_info, program.options.cuda.max_registers,
 										program.options.silence_debug_output);
 }
 

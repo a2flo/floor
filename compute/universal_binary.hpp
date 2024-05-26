@@ -361,7 +361,7 @@ namespace universal_binary {
 		//! static part of the binary header
 		binary_v3 static_binary_header;
 		//! function info for all contained functions
-		vector<function_info_dynamic_v3> functions;
+		vector<function_info_dynamic_v3> function_info;
 		//! binary data
 		vector<uint8_t> data;
 	};

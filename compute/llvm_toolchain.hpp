@@ -303,7 +303,7 @@ namespace llvm_toolchain {
 		string data_or_filename;
 		
 		//! contains the function-specific information for all functions in the program
-		vector<function_info> functions;
+		vector<function_info> function_info;
 		
 		//! the options that were used to compile this program
 		compile_options options;

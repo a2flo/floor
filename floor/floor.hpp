@@ -234,6 +234,7 @@ public:
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_as();
 	static const string& get_opencl_dis();
+	static const string& get_opencl_objdump();
 	static const string& get_opencl_spirv_encoder();
 	static const string& get_opencl_spirv_as();
 	static const string& get_opencl_spirv_dis();
@@ -247,6 +248,7 @@ public:
 	static const string& get_cuda_compiler();
 	static const string& get_cuda_as();
 	static const string& get_cuda_dis();
+	static const string& get_cuda_objdump();
 	static const string& get_cuda_force_driver_sm();
 	static const string& get_cuda_force_compile_sm();
 	static const string& get_cuda_force_ptx();
@@ -264,6 +266,7 @@ public:
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
 	static const string& get_metallib_dis();
+	static const string& get_metal_objdump();
 	static const uint32_t& get_metal_force_version();
 	static const bool& get_metal_soft_printf();
 	static const bool& get_metal_dump_reflection_info();
@@ -278,6 +281,7 @@ public:
 	static const string& get_vulkan_compiler();
 	static const string& get_vulkan_as();
 	static const string& get_vulkan_dis();
+	static const string& get_vulkan_objdump();
 	static const string& get_vulkan_spirv_encoder();
 	static const string& get_vulkan_spirv_as();
 	static const string& get_vulkan_spirv_dis();
@@ -295,6 +299,7 @@ public:
 	static const string& get_host_compiler();
 	static const string& get_host_as();
 	static const string& get_host_dis();
+	static const string& get_host_objdump();
 	static const bool& get_host_run_on_device();
 	static const uint32_t& get_host_max_core_count();
 	
@@ -373,6 +378,7 @@ protected:
 		string default_compiler = "clang";
 		string default_as = "llvm-as";
 		string default_dis = "llvm-dis";
+		string default_objdump = "llvm-objdump";
 		
 		// opencl
 		bool opencl_toolchain_exists = false;
@@ -388,6 +394,7 @@ protected:
 		string opencl_compiler = default_compiler;
 		string opencl_as = default_as;
 		string opencl_dis = default_dis;
+		string opencl_objdump = default_objdump;
 		string opencl_spirv_encoder = "llvm-spirv";
 		string opencl_spirv_as = "spirv-as";
 		string opencl_spirv_dis = "spirv-dis";
@@ -401,6 +408,7 @@ protected:
 		string cuda_compiler = default_compiler;
 		string cuda_as = default_as;
 		string cuda_dis = default_dis;
+		string cuda_objdump = default_objdump;
 		string cuda_force_driver_sm;
 		string cuda_force_compile_sm;
 		string cuda_force_ptx;
@@ -418,6 +426,7 @@ protected:
 		string metal_as = default_as;
 		string metal_dis = default_dis;
 		string metallib_dis = "metallib-dis";
+		string metal_objdump = default_objdump;
 		uint32_t metal_force_version = 0;
 		bool metal_soft_printf = false;
 		bool metal_dump_reflection_info = false;
@@ -429,6 +438,7 @@ protected:
 		string host_compiler = default_compiler;
 		string host_as = default_as;
 		string host_dis = default_dis;
+		string host_objdump = default_objdump;
 		bool host_run_on_device = true;
 		uint32_t host_max_core_count = 0;
 		
@@ -442,6 +452,7 @@ protected:
 		string vulkan_compiler = default_compiler;
 		string vulkan_as = default_as;
 		string vulkan_dis = default_dis;
+		string vulkan_objdump = default_objdump;
 		string vulkan_spirv_encoder = "llvm-spirv";
 		string vulkan_spirv_as = "spirv-as";
 		string vulkan_spirv_dis = "spirv-dis";

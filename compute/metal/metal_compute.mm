@@ -521,7 +521,7 @@ shared_ptr<compute_program> metal_compute::create_program_from_archive_binaries(
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 		const auto& mtl_dev = (const metal_device&)*devices[i];
 		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->functions);
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		
 		metal_program::metal_program_entry entry;
 		entry.archive = ar; // ensure we keep the archive memory
@@ -565,7 +565,7 @@ shared_ptr<compute_program> metal_compute::add_universal_binary(const span<const
 static metal_program::metal_program_entry create_metal_program(const metal_device& device floor_unused_on_ios,
 															   llvm_toolchain::program_data program) {
 	metal_program::metal_program_entry ret;
-	ret.functions = program.functions;
+	ret.functions = program.function_info;
 	
 	if(!program.valid) {
 		return ret;
