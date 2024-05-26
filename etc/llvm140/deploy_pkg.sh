@@ -167,6 +167,7 @@ deploy_folder() {
 deploy_file "clang" "bin" "bin"
 deploy_file "llvm-as" "bin" "bin"
 deploy_file "llvm-dis" "bin" "bin"
+deploy_file "llvm-objdump" "bin" "bin"
 deploy_file "llvm-spirv" "bin" "bin"
 deploy_file "metallib-dis" "bin" "bin"
 deploy_file "spirv-as" "bin" "bin"

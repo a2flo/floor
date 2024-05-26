@@ -54,8 +54,8 @@ done
 rm -Rf build 2>/dev/null
 
 # download src
-LLVM_REV=37880c9c72b02bba5c24a96030289f7d44a68c91
-LLVM_SPIRV_REV=239dfc9eb9e21403b121d4dce0d22983f613426e
+LLVM_REV=cb1e4e6edae0e462f74573d5a47034d9954ef0f5
+LLVM_SPIRV_REV=0c1467251aa87ccdf4f25098101ea5fd480e97a5
 if [ ! -d llvm ]; then
 	git clone -b floor_toolchain_1406 https://github.com/a2flo/floor_llvm.git llvm
 	cd llvm
@@ -203,7 +203,7 @@ if [ $CXX == "clang++" ]; then
 fi
 
 # only build what we need
-toolchain_binaries=(clang llvm-as llvm-dis llvm-spirv metallib-dis)
+toolchain_binaries=(clang llvm-as llvm-dis llvm-objdump llvm-spirv metallib-dis)
 
 CC=${CC} CXX=${CXX} cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 -DCMAKE_C_FLAGS_RELEASE="-Ofast -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion -Wno-unused-but-set-variable ${CPU_OPTIONS} ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -funroll-loops -DNDEBUG -Wno-unknown-warning-option -Wno-deprecated-anon-enum-enum-conversion -Wno-ambiguous-reversed-operator -Wno-deprecated-enum-enum-conversion -Wno-unused-but-set-variable ${CPU_OPTIONS} ${PLATFORM_OPTIONS} ${CLANG_OPTIONS}" -DLLVM_TARGETS_TO_BUILD="X86;AArch64;NVPTX" -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_ENABLE_FFI=OFF -DLLVM_BUILD_DOCS=OFF -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF -DLLVM_BINDINGS_LIST= -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR="include" ${APPLE_DEPLOYMENT_TARGET} ${APPLE_ARCHS} ../llvm/llvm
 make -j ${BUILD_JOB_COUNT} ${toolchain_binaries[@]}

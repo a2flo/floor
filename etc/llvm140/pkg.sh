@@ -15,6 +15,7 @@ mkdir bin
 cp ../build/bin/clang bin/
 cp ../build/bin/llvm-dis bin/
 cp ../build/bin/llvm-as bin/
+cp ../build/bin/llvm-objdump bin/
 cp ../build/bin/llvm-spirv bin/
 cp ../build/bin/metallib-dis bin/
 cp ../SPIRV-Tools/build/tools/spirv-as bin/

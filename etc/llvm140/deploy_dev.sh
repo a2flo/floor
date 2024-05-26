@@ -266,6 +266,7 @@ deploy_folder() {
 deploy_file "clang" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-as" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
+deploy_file "llvm-objdump" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "llvm-spirv" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "metallib-dis" "${DEPLOY_LLVM_BUILD_FOLDER}/bin" "bin" ${DEPLOY_SYMLINK}
 deploy_file "spirv-as" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLOY_SYMLINK}
