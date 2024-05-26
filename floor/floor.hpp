@@ -78,7 +78,7 @@ public:
 		
 		//! SDL window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
-		uint32_t window_flags {
+		int64_t window_flags {
 #if !defined(FLOOR_IOS)
 			SDL_WINDOW_RESIZABLE
 #else
@@ -90,7 +90,7 @@ public:
 		
 		//! the position the window should be created at
 		//! NOTE: this can be overwritten by the config
-		int2 window_position {
+		long2 window_position {
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED
 		};
@@ -152,7 +152,7 @@ public:
 	
 	// screen/window
 	static SDL_Window* get_window();
-	static uint32_t get_window_flags();
+	static int64_t get_window_flags();
 	static uint32_t get_window_refresh_rate();
 	static bool get_fullscreen();
 	static void set_fullscreen(const bool& state);
@@ -318,7 +318,7 @@ protected:
 	static struct floor_config {
 		// screen
 		uint32_t width = 1280, height = 720, dpi = 0;
-		int2 position { SDL_WINDOWPOS_UNDEFINED };
+		long2 position { SDL_WINDOWPOS_UNDEFINED };
 		bool fullscreen = false;
 		bool vsync = false;
 		bool hidpi = true;
@@ -464,7 +464,7 @@ protected:
 		bool vulkan_fence_wait_polling = false;
 
 		// sdl
-		uint32_t flags = 0;
+		int64_t flags = 0;
 	} config;
 	static json::document config_doc;
 	

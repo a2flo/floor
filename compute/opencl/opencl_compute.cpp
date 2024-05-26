@@ -938,14 +938,14 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(const
 		
 		return create_opencl_program_internal((const opencl_device&)device,
 											  (const void*)spirv_binary.get(), spirv_binary_size,
-											  program.functions, target,
+											  program.function_info, target,
 											  program.options.silence_debug_output);
 	} else {
 		// SPIR binary, alreay in memory
 		return create_opencl_program_internal((const opencl_device&)device,
 											  (const void*)program.data_or_filename.data(),
 											  program.data_or_filename.size(),
-											  program.functions, target,
+											  program.function_info, target,
 											  program.options.silence_debug_output);
 	}
 	

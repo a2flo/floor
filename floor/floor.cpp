@@ -295,8 +295,8 @@ bool floor::init(const init_state& state) {
 	if(config_doc.valid) {
 		config.width = config_doc.get<uint32_t>("screen.width", 1280);
 		config.height = config_doc.get<uint32_t>("screen.height", 720);
-		config.position.x = config_doc.get<int32_t>("screen.position.x", SDL_WINDOWPOS_UNDEFINED);
-		config.position.y = config_doc.get<int32_t>("screen.position.y", SDL_WINDOWPOS_UNDEFINED);
+		config.position.x = config_doc.get<int64_t>("screen.position.x", SDL_WINDOWPOS_UNDEFINED);
+		config.position.y = config_doc.get<int64_t>("screen.position.y", SDL_WINDOWPOS_UNDEFINED);
 		config.fullscreen = config_doc.get<bool>("screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
 		config.dpi = config_doc.get<uint32_t>("screen.dpi", 0);
@@ -824,20 +824,19 @@ bool floor::init_internal(const init_state& state) {
 		
 #if !defined(FLOOR_IOS)
 		auto window_pos = state.window_position;
-		if(config.position.x != SDL_WINDOWPOS_UNDEFINED) {
+		if (config.position.x != SDL_WINDOWPOS_UNDEFINED) {
 			window_pos.x = config.position.x;
 		}
-		if(config.position.y != SDL_WINDOWPOS_UNDEFINED) {
+		if (config.position.y != SDL_WINDOWPOS_UNDEFINED) {
 			window_pos.y = config.position.y;
 		}
 		
-		if(config.fullscreen) {
+		if (config.fullscreen) {
 			config.flags |= SDL_WINDOW_FULLSCREEN;
 			config.flags |= SDL_WINDOW_BORDERLESS;
 			window_pos = 0;
 			log_debug("fullscreen enabled");
-		}
-		else {
+		} else {
 			log_debug("fullscreen disabled");
 		}
 #endif
@@ -877,12 +876,12 @@ bool floor::init_internal(const init_state& state) {
 		// create screen
 		SDL_PropertiesID wnd_props = SDL_CreateProperties();
 		SDL_SetStringProperty(wnd_props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, app_name.c_str());
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.width);
+		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.height);
 #if !defined(FLOOR_IOS)
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_X_NUMBER, window_pos.x);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, window_pos.y);
 #endif
-		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.width);
-		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.height);
 		SDL_SetNumberProperty(wnd_props, "flags", config.flags);
 		window = SDL_CreateWindowWithProperties(wnd_props);
 		if (window == nullptr) {
@@ -1160,11 +1159,9 @@ void floor::set_screen_size(const uint2& screen_size) {
 	config.height = screen_size.y;
 	SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 	
-	SDL_Rect bounds;
-	SDL_GetDisplayBounds(0, &bounds);
-	SDL_SetWindowPosition(window,
-						  bounds.x + (bounds.w - int(config.width)) / 2,
-						  bounds.y + (bounds.h - int(config.height)) / 2);
+#if !defined(FLOOR_IOS)
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+#endif
 }
 
 void floor::set_fullscreen(const bool& state) {
@@ -1380,7 +1377,7 @@ SDL_Window* floor::get_window() {
 	return window;
 }
 
-uint32_t floor::get_window_flags() {
+int64_t floor::get_window_flags() {
 	return config.flags;
 }
 
