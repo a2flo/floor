@@ -76,7 +76,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
 # don't be too pedantic
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command
 	-Wno-old-style-cast -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro
-	-Wno-reserved-identifier -Wno-date-time)
+	-Wno-date-time -Wno-poison-system-directories)
 # suppress warnings in system headers
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-system-headers)
 # these two are only useful in certain situations, but are quite noisy
@@ -104,7 +104,8 @@ else ()
 	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-designated-field-initializers)
 endif ()
 # diagnostics
-target_compile_options(${PROJECT_NAME} PUBLIC -fmacro-backtrace-limit=0)
+target_compile_options(${PROJECT_NAME} PUBLIC -fdiagnostics-show-note-include-stack -fmessage-length=0 -fmacro-backtrace-limit=0)
+target_compile_options(${PROJECT_NAME} PUBLIC -fparse-all-comments -fno-elide-type -fdiagnostics-show-template-tree)
 
 ## output postfix
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
@@ -187,6 +188,9 @@ endif (UNIX)
 
 ## add libfloor
 if (LIBFLOOR_USER)
+	# add libfloor(d).so to rpath
+	set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_RPATH "/opt/floor/lib")
+	
 	if (WIN32)
 		target_include_directories(${PROJECT_NAME} AFTER PRIVATE $ENV{ProgramW6432}/floor/include)
 	else ()

@@ -799,7 +799,7 @@ WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
 WARNINGS="${WARNINGS} -Wno-nullability-extension"
 # don't be too pedantic
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast"
-WARNINGS="${WARNINGS} -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-reserved-identifier"
+WARNINGS="${WARNINGS} -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro"
 WARNINGS="${WARNINGS} -Wno-date-time -Wno-poison-system-directories"
 # suppress warnings in system headers
 WARNINGS="${WARNINGS} -Wno-system-headers"
