@@ -30,7 +30,7 @@
 #include <floor/floor/floor.hpp>
 
 namespace std {
-	template <> struct std::hash<universal_binary::target_v3> : public std::hash<uint64_t> {
+	template <> struct hash<universal_binary::target_v3> : public hash<uint64_t> {
 		size_t operator()(universal_binary::target_v3 target) const noexcept {
 			return std::hash<uint64_t>::operator()(target.value);
 		}

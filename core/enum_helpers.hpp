@@ -74,7 +74,7 @@ floor_inline_always constexpr enum_class operator~(const enum_class& e0) { \
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #define enum_class_hash(enum_class) \
 namespace std { \
-	template <> struct std::hash<enum_class> : public std::hash<std::underlying_type_t<enum_class>> { \
+	template <> struct hash<enum_class> : public hash<std::underlying_type_t<enum_class>> { \
 		size_t operator()(enum_class type) const noexcept { \
 			return std::hash<std::underlying_type_t<enum_class>>::operator()((std::underlying_type_t<enum_class>)type); \
 		} \
