@@ -617,7 +617,11 @@ bool file_io::read_file(stringstream& buffer) {
 bool file_io::read_file(string& str) {
 	const auto size = (size_t)get_filesize();
 	str.resize(size);
-	if(str.size() != size) return false;
+	if (str.size() != size) {
+		return false;
+	} else if (size == 0) {
+		return true;
+	}
 	filestream.read(&str.front(), (streamsize)size);
 	const auto read_size = filestream.gcount();
 	if(read_size != (decltype(read_size))size) {
