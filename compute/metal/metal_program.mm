@@ -92,7 +92,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(std::move(
 						if (dump_reflection_info) {
 							MTLAutoreleasedComputePipelineReflection refl_data { nil };
 							kernel_state = [[prog.second.program device] newComputePipelineStateWithDescriptor:mtl_pipeline_desc
-																									   options:(MTLPipelineOptionArgumentInfo |
+																									   options:(MTLPipelineOptionBindingInfo |
 																												MTLPipelineOptionBufferTypeInfo)
 																									reflection:&refl_data
 																										 error:&err];

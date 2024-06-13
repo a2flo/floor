@@ -816,7 +816,7 @@ WARNINGS="${WARNINGS} -Wthread-safety -Wthread-safety-negative -Wthread-safety-b
 # ignore "explicit move to avoid copying on older compilers" warning
 WARNINGS="${WARNINGS} -Wno-return-std-move-in-c++11"
 # ignore unsafe pointer/buffer access warnings
-WARNINGS="${WARNINGS} -Wno-unsafe-buffer-usage"
+WARNINGS="${WARNINGS} -Wno-unsafe-buffer-usage -Wno-unsafe-buffer-usage-in-container"
 # ignore reserved identifier warnings because of "__" prefixes
 WARNINGS="${WARNINGS} -Wno-reserved-identifier"
 # ignore UD NaN/infinity due to fast-math

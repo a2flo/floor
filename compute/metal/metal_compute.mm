@@ -191,7 +191,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		assert(device.family_tier >= 7);
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 170000) {
+		if (darwin_helper::get_system_version() >= 180000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_2;
+			device.metal_language_version = METAL_VERSION::METAL_3_2;
+		} else if (darwin_helper::get_system_version() >= 170000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_1;
 			device.metal_language_version = METAL_VERSION::METAL_3_1;
 		} else if (darwin_helper::get_system_version() >= 160000) {
@@ -220,7 +223,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				device.max_total_local_size = 1024;
 				break;
 				
-			// A17
+			// A17 / M3 / M4
 			case 9:
 				device.units = 6;
 				device.mem_clock = 3200; // TODO: ram clock
@@ -287,7 +290,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
 		
 		// figure out which metal version we can use
-		if (darwin_helper::get_system_version() >= 140000) {
+		if (darwin_helper::get_system_version() >= 150000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_2;
+			device.metal_language_version = METAL_VERSION::METAL_3_2;
+		} else if (darwin_helper::get_system_version() >= 140000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_1;
 			device.metal_language_version = METAL_VERSION::METAL_3_1;
 		} else if (darwin_helper::get_system_version() >= 130000) {

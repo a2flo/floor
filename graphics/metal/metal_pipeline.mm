@@ -184,7 +184,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		if (dump_reflection_info) {
 			MTLAutoreleasedRenderPipelineReflection refl_data { nil };
 			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
-																		 options:(MTLPipelineOptionArgumentInfo |
+																		 options:(MTLPipelineOptionBindingInfo |
 																				  MTLPipelineOptionBufferTypeInfo)
 																	  reflection:&refl_data
 																		   error:&error];

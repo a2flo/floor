@@ -93,7 +93,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 # ignore "explicit move to avoid copying on older compilers" warning
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-return-std-move-in-c++11)
 # ignore unsafe pointer/buffer access warnings
-target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unsafe-buffer-usage)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unsafe-buffer-usage -Wno-unsafe-buffer-usage-in-container)
 # ignore UD NaN/infinity due to fast-math
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nan-infinity-disabled)
 # ignore warnings about missing designated initializer when they are default-initialized
