@@ -92,7 +92,12 @@ metal_program::metal_program(program_map_type&& programs_) : programs(std::move(
 						if (dump_reflection_info) {
 							MTLAutoreleasedComputePipelineReflection refl_data { nil };
 							kernel_state = [[prog.second.program device] newComputePipelineStateWithDescriptor:mtl_pipeline_desc
-																									   options:(MTLPipelineOptionBindingInfo |
+																									   options:(
+#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
+																												MTLPipelineOptionBindingInfo |
+#else
+																												MTLPipelineOptionArgumentInfo |
+#endif
 																												MTLPipelineOptionBufferTypeInfo)
 																									reflection:&refl_data
 																										 error:&err];

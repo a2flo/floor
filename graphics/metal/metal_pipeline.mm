@@ -184,7 +184,12 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 		if (dump_reflection_info) {
 			MTLAutoreleasedRenderPipelineReflection refl_data { nil };
 			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
-																		 options:(MTLPipelineOptionBindingInfo |
+																		 options:(
+#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
+																				  MTLPipelineOptionBindingInfo |
+#else
+																				  MTLPipelineOptionArgumentInfo |
+#endif
 																				  MTLPipelineOptionBufferTypeInfo)
 																	  reflection:&refl_data
 																		   error:&error];
