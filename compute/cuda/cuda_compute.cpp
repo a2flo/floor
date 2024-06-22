@@ -229,14 +229,16 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 			device.ptx = { 8, 2 };
 		} else if (driver_version < 12040) {
 			device.ptx = { 8, 3 };
-		} else {
+		} else if (driver_version < 12050) {
 			device.ptx = { 8, 4 };
+		} else {
+			device.ptx = { 8, 5 };
 		}
 		
 		if (device.sm.x < 9 || (device.sm.x == 9 && device.sm.y == 0)) {
 			device.min_req_ptx = { 8, 0 };
 		} else {
-			device.min_req_ptx = { 8, 4 };
+			device.min_req_ptx = { 8, 5 };
 		}
 		
 		// additional info

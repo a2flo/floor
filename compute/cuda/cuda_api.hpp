@@ -278,6 +278,8 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	MPS_ENABLED = 133,
 	// CUDA 12.2+
 	HOST_NUMA_ID = 134,
+	// CUDA 12.5+
+	D3D12_CIG_SUPPORTED = 135,
 };
 enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
 	MAX_THREADS_PER_BLOCK = 0,
@@ -355,6 +357,10 @@ enum class CU_LIMIT : uint32_t {
 	DEV_RUNTIME_PENDING_LAUNCH_COUNT = 4,
 	MAX_L2_FETCH_GRANULARITY = 5,
 	PERSISTING_L2_CACHE_SIZE = 6,
+	// CUDA 12.5+
+	CIG_SHMEM_SIZE = 7,
+	CIG_ENABLED = 8,
+	CIG_SHMEM_FALLBACK_ENABLED = 9,
 };
 
 enum class CU_ARRAY_FORMAT : uint32_t {
@@ -393,6 +399,20 @@ enum class CU_ARRAY_FORMAT : uint32_t {
 	BC6H_SF16 = 0x9C,
 	BC7_UNORM = 0x9D,
 	BC7_UNORM_SRGB = 0x9E,
+	// CUDA 12.5+
+	P010 = 0x9F,
+	P016 = 0xA1,
+	NV16 = 0xA2,
+	P210 = 0xA3,
+	P216 = 0xA4,
+	YUY2 = 0xA5,
+	Y210 = 0xA6,
+	Y216 = 0xA7,
+	AYUV = 0xA8,
+	Y410 = 0xA9,
+	Y416 = 0xB1,
+	Y444_PLANAR8 = 0xB2,
+	Y444_PLANAR10 = 0xB3,
 };
 
 enum class CU_MEMORY_TYPE : uint32_t {
@@ -514,6 +534,8 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	COLOR_ATTACHMENT = 32,
 	SPARSE = 64,
 	DEFERRED_MAPPING = 128,
+	// CUDA 12.5+
+	VIDEO_ENCODE_DECODE = 256,
 };
 floor_global_enum_no_hash_ext(CU_ARRAY_3D_FLAGS)
 
