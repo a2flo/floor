@@ -32,9 +32,9 @@ using namespace std;
 //! correct type (the ostream operator<< is used and the %_ character is ignored - except
 //! for $x (lowercase), $X (uppercase) and $Y (uppercase + fill to width) which will print
 //! out an integer in hex format)
-#define log_error(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, str, ##__VA_ARGS__)
-#define log_warn(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::WARNING_MSG, __FILE__, __func__, str, ##__VA_ARGS__)
-#define log_debug(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::DEBUG_MSG, __FILE__, __func__, str, ##__VA_ARGS__)
+#define log_error(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::ERROR_MSG, __FILE_NAME__, __func__, str, ##__VA_ARGS__)
+#define log_warn(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::WARNING_MSG, __FILE_NAME__, __func__, str, ##__VA_ARGS__)
+#define log_debug(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::DEBUG_MSG, __FILE_NAME__, __func__, str, ##__VA_ARGS__)
 #define log_msg(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::SIMPLE_MSG, "", "", str, ##__VA_ARGS__)
 #define log_undecorated(str, ...) logger::log<logger::compute_arg_count(str)>(logger::LOG_TYPE::UNDECORATED, "", "", str, ##__VA_ARGS__)
 
@@ -73,6 +73,7 @@ public:
 					 const bool append_mode,
 					 const bool use_time,
 					 const bool use_color,
+					 const bool synchronous_logging,
 					 const string& log_filename = "",
 					 const string& msg_filename = "");
 	//! destroys the logger (also makes sure everything has been written to the console and log file)
@@ -83,20 +84,21 @@ public:
 	
 	//! log entry function, this will create a buffer and insert the log msgs start info (type, file name, ...) and
 	//! finally call the internal log function (that does the actual logging)
-	template<size_t computed_arg_count, typename... Args>
+	template <size_t computed_arg_count, typename... Args>
 	static void log(const LOG_TYPE type, const char* file, const char* func, const char* str,
 					Args&&... args) __attribute__((enable_if(computed_arg_count == sizeof...(Args), "valid"))) {
 		stringstream buffer;
-		if(!prepare_log(buffer, type, file, func)) return;
+		if (!prepare_log(buffer, type, file, func)) {
+			return;
+		}
 		log_internal(buffer, type, str, std::forward<Args>(args)...);
 	}
 	
 	//! fail function when the argument count is incorrect
-	template<size_t computed_arg_count, typename... Args>
+	template <size_t computed_arg_count, typename... Args>
 	static void log(const LOG_TYPE, const char*, const char*, const char*,
 					Args&&...) __attribute__((enable_if(computed_arg_count != sizeof...(Args), "invalid"),
-											  unavailable("invalid argument count"))) {
-	}
+											  unavailable("invalid argument count")));
 	
 	//! sets the logger verbosity to the specific LOG_TYPE verbosity level
 	static void set_verbosity(const LOG_TYPE& verbosity);
@@ -115,12 +117,11 @@ protected:
 	//! handles the formatting of log messages
 	static bool prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
 	
-	//
 	template <bool is_enum_flag, typename U> struct enum_helper_type {
-		typedef U type;
+		using type = U;
 	};
 	template <typename U> struct enum_helper_type<true, U> {
-		typedef underlying_type_t<U> type;
+		using type = underlying_type_t<U>;
 	};
 	
 	//! returns true if the specified character is a supported $ format character
@@ -130,7 +131,8 @@ protected:
 	
 	//! handles the log format
 	//! only $x, $X and $Y are supported at the moment, in all other cases the standard ostream operator<< is used!
-	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
+	template <typename T>
+	static void handle_format(stringstream& buffer, const char& format, T&& value) {
 		using decayed_type = decay_t<T>;
 		using print_type = conditional_t<is_enum_v<decayed_type>,
 										 typename enum_helper_type<is_enum_v<decayed_type>, decayed_type>::type,
@@ -199,10 +201,11 @@ protected:
 	//! internal logging function (will be called in the end when there are no more args)
 	static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str);
 	//! internal logging function (entry point and arg iteration)
-	template <typename T, typename... Args> static void log_internal(stringstream& buffer, const LOG_TYPE& type,
-																	 const char* str, T&& value, Args&&... args) {
+	template <typename T, typename... Args>
+	static void log_internal(stringstream& buffer, const LOG_TYPE& type,
+							 const char* str, T&& value, Args&&... args) {
 		for (size_t i = 0, len = __builtin_strlen(str); i < len; ++i) {
-			const auto& ch = str[i];
+			const auto ch = str[i];
 			if (ch == '$') {
 				if (i + 1 == len) {
 					// end of string with no format

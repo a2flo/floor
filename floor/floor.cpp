@@ -329,6 +329,7 @@ bool floor::init(const init_state& state) {
 		config.append_mode = config_doc.get<bool>("logging.append_mode", false);
 		config.log_use_time = config_doc.get<bool>("logging.use_time", true);
 		config.log_use_color = config_doc.get<bool>("logging.use_color", true);
+		config.log_synchronous = config_doc.get<bool>("logging.synchronous", false);
 		config.log_filename = config_doc.get<string>("logging.log_filename", "");
 		config.msg_filename = config_doc.get<string>("logging.msg_filename", "");
 		
@@ -651,7 +652,7 @@ bool floor::init(const init_state& state) {
 	
 	// init logger and print out floor info
 	logger::init((uint32_t)config.verbosity, config.separate_msg_file, config.append_mode,
-				 config.log_use_time, config.log_use_color,
+				 config.log_use_time, config.log_use_color, config.log_synchronous,
 				 config.log_filename, config.msg_filename);
 	log_debug("$", (FLOOR_VERSION_STRING).c_str());
 	

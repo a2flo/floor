@@ -348,6 +348,7 @@ protected:
 		bool append_mode = false;
 		bool log_use_time = true;
 		bool log_use_color = true;
+		bool log_synchronous = false;
 		string log_filename;
 		string msg_filename;
 		

@@ -21,6 +21,7 @@
 #endif
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_base.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/core/cpp_headers.hpp>
 #include <floor/constexpr/const_math.hpp>
 
@@ -33,25 +34,38 @@
 //! enable this to print the thread id in each log message
 #define FLOOR_LOG_THREAD_ID 0
 
-static string log_filename, msg_filename;
-static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
-static atomic<uint32_t> log_err_counter { 0u };
-static atomic<logger::LOG_TYPE> log_verbosity { logger::LOG_TYPE::UNDECORATED };
-static bool log_append_mode { false };
-static safe_mutex log_store_lock;
-static vector<pair<logger::LOG_TYPE, string>> log_store GUARDED_BY(log_store_lock), log_output_store;
-static bool log_use_time { true };
-static bool log_use_color { true };
-static bool log_use_unicode_color { false };
-static atomic<bool> log_initialized { false };
-static atomic<bool> log_destroying { false };
+using log_entry_t = pair<logger::LOG_TYPE, string>;
+static struct logger_state_t {
+	string log_filename;
+	string msg_filename;
+	unique_ptr<ofstream> log_file { nullptr };
+	unique_ptr<ofstream> msg_file { nullptr };
+	
+	atomic<uint32_t> err_counter { 0u };
+	
+	atomic_spin_lock store_lock;
+	vector<log_entry_t> store GUARDED_BY(store_lock);
+	vector<log_entry_t> output_store;
+	
+	atomic<logger::LOG_TYPE> verbosity { logger::LOG_TYPE::UNDECORATED };
+	bool append_mode { false };
+	bool use_time { true };
+	bool use_color { true };
+	bool use_unicode_color { false };
+	bool synchronous { false };
+	
+	mutex run_cv_lock;
+	condition_variable run_cv;
+	atomic<bool> initialized { false };
+	atomic<bool> destroying { false };
+} logger_state {};
 
 class logger_thread final : thread_base {
 public:
 	atomic<uint32_t> run_num { 0 };
 	
 	logger_thread() : thread_base("logger") {
-		this->set_thread_delay(20); // lower to 20ms
+		this->set_thread_delay(0); // never sleep in thread_base
 		this->start();
 	}
 	~logger_thread() override {
@@ -59,91 +73,103 @@ public:
 		finish();
 		run();
 		
-		if(log_file != nullptr) {
-			log_file->close();
-			log_file.reset();
+		if (logger_state.log_file) {
+			logger_state.log_file->close();
+			logger_state.log_file.reset();
 		}
-		if(msg_file != nullptr) {
-			msg_file->close();
-			msg_file.reset();
+		if (logger_state.msg_file) {
+			logger_state.msg_file->close();
+			logger_state.msg_file.reset();
 		}
 	}
 	
-	void run() override REQUIRES(!log_store_lock);
+	void run() override REQUIRES(!logger_state.store_lock);
 };
 static unique_ptr<logger_thread> log_thread;
 
+static inline void write_log_entry(log_entry_t&& entry) {
+	if (entry.first != logger::LOG_TYPE::ERROR_MSG) {
+		cout << entry.second;
+	} else {
+		cerr << entry.second;
+	}
+	
+	if (entry.second[0] == 0x1B) {
+		// strip the color information when writing to the log file
+		entry.second.erase(0, 5);
+		entry.second.erase(5, 3);
+	}
+	
+	// if "separate msg file logging" is enabled and the log type is "msg", log to the msg file
+	if (entry.first == logger::LOG_TYPE::SIMPLE_MSG && logger_state.msg_file) {
+		*logger_state.msg_file << entry.second;
+	}
+	// else: just output to the standard log file
+	else {
+		*logger_state.log_file << entry.second;
+	}
+}
+
 void logger_thread::run() {
+	{
+		// wait until work is triggered (notified) or timeout after 500ms
+		unique_lock<mutex> run_lock_guard(logger_state.run_cv_lock);
+		logger_state.run_cv.wait_for(run_lock_guard, 500ms);
+	}
+	
 	// swap the (empty) log output store/queue with the (probably non-empty) log output store
 	// note that this is a constant complexity operation, which makes log writing+output almost non-interrupting
-	while(!log_store_lock.try_lock()) {
-		this_thread::yield();
+	{
+		GUARD(logger_state.store_lock);
+		logger_state.output_store.swap(logger_state.store);
 	}
-	log_output_store.swap(log_store);
-	log_store_lock.unlock();
 	
-	if(log_output_store.empty()) {
+	if (logger_state.output_store.empty()) {
 		++run_num;
 		return;
 	}
 	
 	// in append mode, close the file and reopen it in append mode
-	if(log_append_mode) {
-		if(log_file->is_open()) {
-			log_file->close();
-			log_file->clear();
+	if (logger_state.append_mode) {
+		if (logger_state.log_file->is_open()) {
+			logger_state.log_file->close();
+			logger_state.log_file->clear();
 		}
-		log_file->open(log_filename, ofstream::app | ofstream::out);
+		logger_state.log_file->open(logger_state.log_filename, ofstream::app | ofstream::out);
 		
-		if(msg_file != nullptr) {
-			if(msg_file->is_open()) {
-				msg_file->close();
-				msg_file->clear();
+		if (logger_state.msg_file) {
+			if (logger_state.msg_file->is_open()) {
+				logger_state.msg_file->close();
+				logger_state.msg_file->clear();
 			}
-			msg_file->open(msg_filename, ofstream::app | ofstream::out);
+			logger_state.msg_file->open(logger_state.msg_filename, ofstream::app | ofstream::out);
 		}
 	}
 	
 	// write all log store entries
-	for(auto& entry : log_output_store) {
+	for (auto& entry : logger_state.output_store) {
 		// finally: output
-		if(entry.first != logger::LOG_TYPE::ERROR_MSG) {
-			cout << entry.second;
-		}
-		else cerr << entry.second;
-		
-		if(entry.second[0] == 0x1B) {
-			// strip the color information when writing to the log file
-			entry.second.erase(0, 5);
-			entry.second.erase(5, 3);
-		}
-		
-		// if "separate msg file logging" is enabled and the log type is "msg", log to the msg file
-		if(entry.first == logger::LOG_TYPE::SIMPLE_MSG && msg_file != nullptr) {
-			*msg_file << entry.second;
-		}
-		// else: just output to the standard log file
-		else *log_file << entry.second;
+		write_log_entry(std::move(entry));
 	}
 	cout.flush();
 	cerr.flush();
-	log_file->flush();
-	if(msg_file != nullptr) {
-		msg_file->flush();
+	logger_state.log_file->flush();
+	if (logger_state.msg_file) {
+		logger_state.msg_file->flush();
 	}
 	
 	// in append mode, always close the file after writing to it
-	if(log_append_mode) {
-		log_file->close();
-		log_file->clear();
-		if(msg_file != nullptr) {
-			msg_file->close();
-			msg_file->clear();
+	if (logger_state.append_mode) {
+		logger_state.log_file->close();
+		logger_state.log_file->clear();
+		if (logger_state.msg_file) {
+			logger_state.msg_file->close();
+			logger_state.msg_file->clear();
 		}
 	}
 	
 	// now that everything has been written, clear the output store
-	log_output_store.clear();
+	logger_state.output_store.clear();
 	
 	// update #runs counter
 	++run_num;
@@ -154,10 +180,11 @@ void logger::init(const size_t verbosity,
 				  const bool append_mode,
 				  const bool use_time,
 				  const bool use_color,
+				  const bool synchronous_logging,
 				  const string& log_filename_,
 				  const string& msg_filename_) {
 	// only allow single init
-	if(log_initialized.exchange(true)) {
+	if (logger_state.initialized.exchange(true)) {
 		return;
 	}
 	
@@ -165,57 +192,61 @@ void logger::init(const size_t verbosity,
 	atexit([] { logger::destroy(); });
 	
 	// if either is empty, use the default log/msg file name, with special treatment on iOS
-	if(log_filename_.empty() || msg_filename_.empty()) {
+	if (log_filename_.empty() || msg_filename_.empty()) {
 #if defined(FLOOR_IOS)
 		// we can/must store the log in a writable path (-> pref path)
 		const auto pref_path = darwin_helper::get_pref_path();
-		if(pref_path != "") {
-			log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
-			msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
+		if (pref_path != "") {
+			logger_state.log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
+			logger_state.msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
 		}
 		
 		// check if still empty and just try the default
-		if(log_filename.empty() && log_filename_.empty()) log_filename = "log.txt";
-		if(msg_filename.empty() && msg_filename_.empty()) msg_filename = "msg.txt";
+		if (logger_state.log_filename.empty() && log_filename_.empty()) {
+			logger_state.log_filename = "log.txt";
+		}
+		if (logger_state.msg_filename.empty() && msg_filename_.empty()) {
+			logger_state.msg_filename = "msg.txt";
+		}
 #else
-		log_filename = (log_filename_.empty() ? "log.txt" : log_filename_);
-		msg_filename = (msg_filename_.empty() ? "msg.txt" : msg_filename_);
+		logger_state.log_filename = (log_filename_.empty() ? "log.txt" : log_filename_);
+		logger_state.msg_filename = (msg_filename_.empty() ? "msg.txt" : msg_filename_);
 #endif
-	}
-	else {
+	} else {
 		// neither is empty, use the specified paths/names
-		log_filename = log_filename_;
-		msg_filename = msg_filename_;
+		logger_state.log_filename = log_filename_;
+		logger_state.msg_filename = msg_filename_;
 	}
 	
-	log_file = make_unique<ofstream>(log_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
-	if(!log_file->is_open()) {
-		cerr << "LOG ERROR: couldn't open log file (" << log_filename << ")!" << endl;
+	logger_state.log_file = make_unique<ofstream>(logger_state.log_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
+	if (!logger_state.log_file->is_open()) {
+		cerr << "LOG ERROR: couldn't open log file (" << logger_state.log_filename << ")!" << endl;
 	}
 	
-	if(separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
-		msg_file = make_unique<ofstream>(msg_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
-		if(!msg_file->is_open()) {
-			cerr << "LOG ERROR: couldn't open msg log file (" << msg_filename << ")!" << endl;
+	if (separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
+		logger_state.msg_file = make_unique<ofstream>(logger_state.msg_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
+		if (!logger_state.msg_file->is_open()) {
+			cerr << "LOG ERROR: couldn't open msg log file (" << logger_state.msg_filename << ")!" << endl;
 		}
 	}
 	
-	log_verbosity = (logger::LOG_TYPE)verbosity;
-	log_append_mode = append_mode;
-	log_use_time = use_time;
-	log_use_color = use_color;
+	logger_state.verbosity = (logger::LOG_TYPE)verbosity;
+	logger_state.append_mode = append_mode;
+	logger_state.use_time = use_time;
+	logger_state.use_color = use_color;
+	logger_state.synchronous = synchronous_logging;
 #if defined(__WINDOWS__)
-	if (log_use_color) {
+	if (logger_state.use_color) {
 		// disable color in Windows cmd/powershell
 		const auto session_name_cstr = SDL_getenv("SESSIONNAME");
 		const auto term_cstr = SDL_getenv("TERM");
 		const string session_name = (session_name_cstr ? session_name_cstr : "");
 		const string term = (term_cstr ? term_cstr : "");
-		log_use_color = !(session_name == "Console" && term.empty());
+		logger_state.use_color = !(session_name == "Console" && term.empty());
 	}
 #endif
 #if defined(__APPLE__)
-	log_use_unicode_color = darwin_helper::is_running_in_debugger();
+	logger_state.use_unicode_color = darwin_helper::is_running_in_debugger();
 #endif
 	
 	// create+start the logger thread
@@ -223,118 +254,119 @@ void logger::init(const size_t verbosity,
 }
 
 void logger::destroy() {
-	if(!log_initialized) return;
+	if (!logger_state.initialized) {
+		return;
+	}
 	
 	// only allow single destroy
-	if(log_destroying.exchange(true)) {
+	if (logger_state.destroying.exchange(true)) {
 		return;
 	}
 	
 	log_msg("killing logger ...");
 	log_thread = nullptr;
 	
-	log_initialized = false;
-	log_destroying = false;
+	logger_state.initialized = false;
+	logger_state.destroying = false;
 }
 
 void logger::flush() {
-	if(!log_thread) return;
+	if (!log_thread) {
+		return;
+	}
 	const uint32_t cur_run = log_thread->run_num;
-	while(cur_run == log_thread->run_num) {
+	while (cur_run == log_thread->run_num) {
 		this_thread::yield();
 	}
 }
 
 bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func) {
 	// check verbosity level and leave or continue accordingly
-	if(log_verbosity < type) {
+	if (logger_state.verbosity < type) {
 		return false;
 	}
 	
-	if(type != logger::LOG_TYPE::UNDECORATED) {
-		if (log_use_color && log_use_unicode_color) {
-			switch (type) {
-				case LOG_TYPE::ERROR_MSG:
-					buffer << "[🔴]";
-					break;
-				case LOG_TYPE::WARNING_MSG:
-					buffer << "[🟡]";
-					break;
-				case LOG_TYPE::DEBUG_MSG:
-					buffer << "[🟢]";
-					break;
-				case LOG_TYPE::SIMPLE_MSG:
-					buffer << "[🔵]";
-					break;
-				case LOG_TYPE::UNDECORATED: break;
-			}
-		} else {
-			switch (type) {
-				case LOG_TYPE::ERROR_MSG:
-					buffer << (log_use_color ? "\033[31m" : "") << "[ERR]";
-					break;
-				case LOG_TYPE::WARNING_MSG:
-					buffer << (log_use_color ? "\033[33m" : "") << "[WRN]";
-					break;
-				case LOG_TYPE::DEBUG_MSG:
-					buffer << (log_use_color ? "\033[32m" : "") << "[DBG]";
-					break;
-				case LOG_TYPE::SIMPLE_MSG:
-					buffer << (log_use_color ? "\033[34m" : "") << "[MSG]";
-					break;
-				case LOG_TYPE::UNDECORATED: break;
-			}
-			if (log_use_color && type != LOG_TYPE::UNDECORATED) {
-				buffer << "\033[m";
-			}
+	if (type == logger::LOG_TYPE::UNDECORATED) {
+		return true;
+	}
+	
+	if (logger_state.use_color && logger_state.use_unicode_color) {
+		switch (type) {
+			case LOG_TYPE::ERROR_MSG:
+				buffer << "[🔴]";
+				break;
+			case LOG_TYPE::WARNING_MSG:
+				buffer << "[🟡]";
+				break;
+			case LOG_TYPE::DEBUG_MSG:
+				buffer << "[🟢]";
+				break;
+			case LOG_TYPE::SIMPLE_MSG:
+				buffer << "[🔵]";
+				break;
+			case LOG_TYPE::UNDECORATED: break;
 		}
-		
-		if(log_use_time) {
-			buffer << "[";
-			char time_str[64];
-			const auto system_now = chrono::system_clock::now();
-			const auto cur_time = chrono::system_clock::to_time_t(system_now);
-#if !defined(_MSC_VER)
-			struct tm* local_time = localtime(&cur_time);
-			strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
-#else
-			struct tm local_time;
-			localtime_s(&local_time, &cur_time);
-			strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
-#endif
-			buffer << time_str;
-			buffer << ".";
-			buffer << setw(const_math::int_width(chrono::system_clock::period::den));
-			buffer << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
-			buffer << "]";
+	} else {
+		switch (type) {
+			case LOG_TYPE::ERROR_MSG:
+				buffer << (logger_state.use_color ? "\033[31m" : "") << "[ERR]";
+				break;
+			case LOG_TYPE::WARNING_MSG:
+				buffer << (logger_state.use_color ? "\033[33m" : "") << "[WRN]";
+				break;
+			case LOG_TYPE::DEBUG_MSG:
+				buffer << (logger_state.use_color ? "\033[32m" : "") << "[DBG]";
+				break;
+			case LOG_TYPE::SIMPLE_MSG:
+				buffer << (logger_state.use_color ? "\033[34m" : "") << "[MSG]";
+				break;
+			case LOG_TYPE::UNDECORATED: break;
 		}
-		
-#if FLOOR_LOG_THREAD_ID
-		buffer << "[" << this_thread::get_id() << "]";
-#endif
-		
-		buffer << " ";
-		
-		if(type == LOG_TYPE::ERROR_MSG) {
-			buffer << "#" << log_err_counter++ << ": ";
-		}
-		
-		if(type != logger::LOG_TYPE::SIMPLE_MSG) {
-			// prettify file string (aka strip path)
-			string file_str = file;
-			size_t slash_pos = string::npos;
-			if((slash_pos = file_str.rfind('/')) == string::npos) slash_pos = file_str.rfind('\\');
-			file_str = (slash_pos != string::npos ? file_str.substr(slash_pos+1, file_str.size()-slash_pos-1) : file_str);
-			buffer << file_str;
-			buffer << ": " << func << "(): ";
+		if (logger_state.use_color && type != LOG_TYPE::UNDECORATED) {
+			buffer << "\033[m";
 		}
 	}
+	
+	if (logger_state.use_time) {
+		buffer << "[";
+		char time_str[64];
+		const auto system_now = chrono::system_clock::now();
+		const auto cur_time = chrono::system_clock::to_time_t(system_now);
+#if !defined(_MSC_VER)
+		struct tm* local_time = localtime(&cur_time);
+		strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
+#else
+		struct tm local_time;
+		localtime_s(&local_time, &cur_time);
+		strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+#endif
+		buffer << time_str;
+		buffer << ".";
+		buffer << setw(const_math::int_width(chrono::system_clock::period::den));
+		buffer << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
+		buffer << "]";
+	}
+	
+#if FLOOR_LOG_THREAD_ID
+	buffer << "[" << this_thread::get_id() << "]";
+#endif
+	
+	buffer << " ";
+	
+	if (type == LOG_TYPE::ERROR_MSG) {
+		buffer << "#" << logger_state.err_counter++ << ": ";
+	}
+	
+	if (type != logger::LOG_TYPE::SIMPLE_MSG) {
+		buffer << (file ? file : "") << ": " << (func ? func : "") << "(): ";
+	}
+	
 	return true;
 }
 
-void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str) REQUIRES(!log_store_lock) {
+void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str) REQUIRES(!logger_state.store_lock) {
 	// this is the final log function
-	if (str != nullptr) {
+	if (str) {
 		while (*str) {
 			buffer << *str++;
 		}
@@ -342,21 +374,33 @@ void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char
 	buffer << endl;
 	
 	// add string to log store/queue
-	while(!log_store_lock.try_lock()) {
-		this_thread::yield();
+	uint32_t cur_run = 0;
+	{
+		GUARD(logger_state.store_lock);
+		logger_state.store.emplace_back(type, buffer.str());
+		if (logger_state.synchronous && log_thread) {
+			// similar to flush(): query current run number here ...
+			cur_run = log_thread->run_num;
+		}
 	}
-	log_store.emplace_back(type, buffer.str());
-	log_store_lock.unlock();
+	// trigger logger thread
+	logger_state.run_cv.notify_all();
+	if (logger_state.synchronous && log_thread) {
+		// ... then wait until it has changed
+		while (cur_run == log_thread->run_num) {
+			this_thread::yield();
+		}
+	}
 }
 
 void logger::set_verbosity(const LOG_TYPE& verbosity) {
-	log_verbosity = verbosity;
+	logger_state.verbosity = verbosity;
 }
 
 logger::LOG_TYPE logger::get_verbosity() {
-	return log_verbosity;
+	return logger_state.verbosity;
 }
 
 bool logger::is_initialized() {
-	return log_initialized;
+	return logger_state.initialized;
 }
