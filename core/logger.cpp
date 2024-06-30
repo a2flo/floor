@@ -19,6 +19,7 @@
 #if !defined(_MSC_VER)
 #include <sys/time.h>
 #endif
+#include <condition_variable>
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_base.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
