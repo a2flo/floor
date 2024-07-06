@@ -988,15 +988,15 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		}
 		
 		if (!vulkan12_features.shaderInt8) {
-			log_error("Int8 is not suppported by $", props.deviceName);
+			log_error("Int8 is not supported by $", props.deviceName);
 			continue;
 		}
 		if (!features_2.features.shaderInt16) {
-			log_error("Int16 is not suppported by $", props.deviceName);
+			log_error("Int16 is not supported by $", props.deviceName);
 			continue;
 		}
 		if (!features_2.features.shaderInt64) {
-			log_error("Int64 is not suppported by $", props.deviceName);
+			log_error("Int64 is not supported by $", props.deviceName);
 			continue;
 		}
 		

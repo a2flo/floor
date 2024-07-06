@@ -873,3 +873,96 @@ requires(image_channel_count(image_type) == 4)
 struct image_vec_ret_type<image_type, data_type> {
 	static constexpr floor_inline_always vector_n<data_type, 4> fit(const vector_n<data_type, 4>& color) { return color; }
 };
+
+//! mask used for image type checking helper functions
+//! NOTE: depth image type checks add __CHANNELS_MASK as well
+static constexpr const COMPUTE_IMAGE_TYPE image_type_checking_mask {
+	COMPUTE_IMAGE_TYPE::__DIM_MASK |
+	COMPUTE_IMAGE_TYPE::FLAG_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_BUFFER | COMPUTE_IMAGE_TYPE::FLAG_MSAA |
+	COMPUTE_IMAGE_TYPE::FLAG_CUBE | COMPUTE_IMAGE_TYPE::FLAG_DEPTH | COMPUTE_IMAGE_TYPE::FLAG_STENCIL
+};
+
+//! returns true if the specified image type is a 1D image
+static constexpr bool is_image_1d(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_1D);
+}
+
+//! returns true if the specified image type is a 1D image array
+static constexpr bool is_image_1d_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY);
+}
+
+//! returns true if the specified image type is a 1D image buffer
+static constexpr bool is_image_1d_buffer(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER);
+}
+
+//! returns true if the specified image type is a 2D image
+static constexpr bool is_image_2d(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_2D);
+}
+
+//! returns true if the specified image type is a 2D image array
+static constexpr bool is_image_2d_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY);
+}
+
+//! returns true if the specified image type is a 2D MSAA image
+static constexpr bool is_image_2d_msaa(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA);
+}
+
+//! returns true if the specified image type is a 2D MSAA image array
+static constexpr bool is_image_2d_msaa_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY);
+}
+
+//! returns true if the specified image type is a cube image
+static constexpr bool is_image_cube(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE);
+}
+
+//! returns true if the specified image type is a cube image array
+static constexpr bool is_image_cube_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY);
+}
+
+//! returns true if the specified image type is a 2D depth image
+static constexpr bool is_image_depth(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH);
+}
+
+//! returns true if the specified image type is a 2D depth/stencil image
+static constexpr bool is_image_depth_stencil(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL);
+}
+
+//! returns true if the specified image type is a 2D depth image array
+static constexpr bool is_image_depth_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY);
+}
+
+//! returns true if the specified image type is a cube depth image
+static constexpr bool is_image_depth_cube(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE);
+}
+
+//! returns true if the specified image type is a cube depth image array
+static constexpr bool is_image_depth_cube_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY);
+}
+
+//! returns true if the specified image type is a 2D MSAA depth image
+static constexpr bool is_image_depth_msaa(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA);
+}
+
+//! returns true if the specified image type is a 2D MSAA depth image array
+static constexpr bool is_image_depth_msaa_array(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & (image_type_checking_mask | COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY);
+}
+
+//! returns true if the specified image type is a 3D image
+static constexpr bool is_image_3d(COMPUTE_IMAGE_TYPE image_type) {
+	return ((image_type & image_type_checking_mask) == COMPUTE_IMAGE_TYPE::IMAGE_3D);
+}

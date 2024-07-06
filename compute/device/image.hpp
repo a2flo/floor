@@ -1160,6 +1160,92 @@ namespace floor_image {
 		
 		// TODO: msaa write functions (supported by vulkan)
 		
+	public: // image type checking
+		//! returns true if this is a 1D image
+		constexpr bool is_image_1d() const {
+			return ::is_image_1d(image_type);
+		}
+		
+		//! returns true if this is a 1D image array
+		constexpr bool is_image_1d_array() const {
+			return ::is_image_1d_array(image_type);
+		}
+		
+		//! returns true if this is a 1D image buffer
+		constexpr bool is_image_1d_buffer() const {
+			return ::is_image_1d_buffer(image_type);
+		}
+		
+		//! returns true if this is a 2D image
+		constexpr bool is_image_2d() const {
+			return ::is_image_2d(image_type);
+		}
+		
+		//! returns true if this is a 2D image array
+		constexpr bool is_image_2d_array() const {
+			return ::is_image_2d_array(image_type);
+		}
+		
+		//! returns true if this is a 2D MSAA image
+		constexpr bool is_image_2d_msaa() const {
+			return ::is_image_2d_msaa(image_type);
+		}
+		
+		//! returns true if this is a 2D MSAA image array
+		constexpr bool is_image_2d_msaa_array() const {
+			return ::is_image_2d_msaa_array(image_type);
+		}
+		
+		//! returns true if this is a cube image
+		constexpr bool is_image_cube() const {
+			return ::is_image_cube(image_type);
+		}
+		
+		//! returns true if this is a cube image array
+		constexpr bool is_image_cube_array() const {
+			return ::is_image_cube_array(image_type);
+		}
+		
+		//! returns true if this is a 2D depth image
+		constexpr bool is_image_depth() const {
+			return ::is_image_depth(image_type);
+		}
+		
+		//! returns true if this is a 2D depth/stencil image
+		constexpr bool is_image_depth_stencil() const {
+			return ::is_image_depth_stencil(image_type);
+		}
+		
+		//! returns true if this is a 2D depth image array
+		constexpr bool is_image_depth_array() const {
+			return ::is_image_depth_array(image_type);
+		}
+		
+		//! returns true if this is a cube depth image
+		constexpr bool is_image_depth_cube() const {
+			return ::is_image_depth_cube(image_type);
+		}
+		
+		//! returns true if this is a cube depth image array
+		constexpr bool is_image_depth_cube_array() const {
+			return ::is_image_depth_cube_array(image_type);
+		}
+		
+		//! returns true if this is a 2D MSAA depth image
+		constexpr bool is_image_depth_msaa() const {
+			return ::is_image_depth_msaa(image_type);
+		}
+		
+		//! returns true if this is a 2D MSAA depth image array
+		constexpr bool is_image_depth_msaa_array() const {
+			return ::is_image_depth_msaa_array(image_type);
+		}
+		
+		//! returns true if this is a 3D image
+		constexpr bool is_image_3d() const {
+			return ::is_image_3d(image_type);
+		}
+		
 	};
 	
 }
