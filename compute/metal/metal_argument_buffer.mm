@@ -43,7 +43,7 @@ bool metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe
 	}
 	sort_and_unique_all_resources();
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// signal buffer update if this is a managed buffer
 	if ((mtl_storage_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		const auto update_range = (uint64_t)[encoder encodedLength];

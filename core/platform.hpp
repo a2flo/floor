@@ -87,12 +87,6 @@
 #include <unistd.h>
 #endif
 
-#if !defined(FLOOR_IOS)
-#define FLOOR_DEFAULT_FRAMEBUFFER 0
-#else
-#define FLOOR_DEFAULT_FRAMEBUFFER 1
-#endif
-
 // c++ headers
 #include <floor/core/cpp_headers.hpp>
 

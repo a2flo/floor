@@ -45,8 +45,8 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 		else ret = { (uint32_t)entry.max_total_local_size, 1, 1 };
 		
 		if(do_warn) {
-			log_error("specified work-group size ($) too large for this device (max: $) - using $ now!",
-					  work_group_size, entry.max_total_local_size, ret);
+			log_error("$: specified work-group size ($) too large for this device (max: $) - using $ now!",
+					  (entry.info ? entry.info->name : "<unknown>"), work_group_size, entry.max_total_local_size, ret);
 		}
 	}
 	return ret;

@@ -238,7 +238,7 @@ bool floor::init(const init_state& state) {
 #endif
 	
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// check if datapath contains a 'MacOS' string (indicates that the binary is called from within an macOS .app or via complete path from the shell)
 	if(datapath.find("MacOS") != string::npos) {
 		// if so, add "../../../" to the datapath, since we have to relocate the datapath if the binary is inside an .app
@@ -552,7 +552,7 @@ bool floor::init(const init_state& state) {
 																{ { 140006u, ~0u }, &config.opencl_spirv_validator },
 															});
 		if (config.opencl_base_path == "") {
-#if !defined(FLOOR_IOS) // not available on iOS anyways
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not available on iOS/visionOS anyways
 			log_error("OpenCL toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		} else {
@@ -572,7 +572,7 @@ bool floor::init(const init_state& state) {
 														  config.cuda_compiler,
 														  config.cuda_as, config.cuda_dis, config.cuda_objdump);
 		if (config.cuda_base_path == "") {
-#if !defined(FLOOR_IOS) // not available on iOS anyways
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not available on iOS/visionOS anyways
 			log_error("CUDA toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		} else {
@@ -590,8 +590,8 @@ bool floor::init(const init_state& state) {
 														   vector<pair<uint2, string*>> {
 															   { { 140006u, ~0u }, &config.metallib_dis },
 														   });
-#if defined(FLOOR_IOS)
-		// toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+		// toolchain doesn't exist on an iOS/visionOS device (usually), so just pretend and don't fail
 		if (config.metal_base_path == "") {
 			config.metal_base_path = "/opt/floor/toolchain";
 		}
@@ -619,7 +619,7 @@ bool floor::init(const init_state& state) {
 																{ { 140006u, ~0u }, &config.vulkan_spirv_validator },
 															});
 		if (config.vulkan_base_path == "") {
-#if !defined(FLOOR_IOS) // not available on iOS anyways
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not available on iOS/visionOS anyways
 			log_error("Vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		} else {
@@ -639,7 +639,7 @@ bool floor::init(const init_state& state) {
 														  config.host_compiler,
 														  config.host_as, config.host_dis, config.host_objdump);
 		if (config.host_base_path == "") {
-#if !defined(FLOOR_IOS) // not available on iOS anyways
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not available on iOS/visionOS anyways
 			log_error("Host-Compute toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 #endif
 		} else {
@@ -808,7 +808,7 @@ bool floor::init_internal(const init_state& state) {
 	// only initialize compute/graphics backends and create a window when not in console-only mode
 	if (!console_only) {
 		// detect x11 forwarding
-#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
+#if !defined(__WINDOWS__) && !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
 			const auto display = getenv("DISPLAY");
 			if (display != nullptr && strlen(display) > 1 && display[0] != ':') {
@@ -823,7 +823,7 @@ bool floor::init_internal(const init_state& state) {
 		// set window creation flags
 		config.flags = state.window_flags;
 		
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		auto window_pos = state.window_position;
 		if (config.position.x != SDL_WINDOWPOS_UNDEFINED) {
 			window_pos.x = config.position.x;
@@ -856,7 +856,7 @@ bool floor::init_internal(const init_state& state) {
 			}
 		}
 		
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		SDL_DisplayMode fullscreen_mode;
 		SDL_zero(fullscreen_mode);
 		fullscreen_mode.format = SDL_PIXELFORMAT_RGBA8888;
@@ -879,7 +879,7 @@ bool floor::init_internal(const init_state& state) {
 		SDL_SetStringProperty(wnd_props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, app_name.c_str());
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.width);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.height);
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_X_NUMBER, window_pos.x);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, window_pos.y);
 #endif
@@ -890,8 +890,8 @@ bool floor::init_internal(const init_state& state) {
 			return false;
 		}
 
-#if defined(FLOOR_IOS)
-		// on iOS, be more insistent on the window size
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+		// on iOS/visionOS, be more insistent on the window size
 		SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 #endif
 
@@ -902,7 +902,7 @@ bool floor::init_internal(const init_state& state) {
 		log_debug("video mode set: w$ h$", config.width, config.height);
 
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		darwin_helper::create_app_delegate();
 #endif
 
@@ -912,7 +912,7 @@ bool floor::init_internal(const init_state& state) {
 
 		log_debug("scale factor: $", get_scale_factor());
 		
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		if(SDL_SetWindowFullscreenMode(window, &fullscreen_mode) < 0) {
 			log_error("can't set up fullscreen display mode: $", SDL_GetError());
 			return false;
@@ -1061,11 +1061,8 @@ bool floor::init_internal(const init_state& state) {
 		
 		// default compute backends (will try these in order, using the first working one)
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS) // macOS
-		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL, COMPUTE_TYPE::CUDA };
-#else // ios
+		// only Metal is available
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
-#endif
 #else // linux, windows, ...
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::CUDA, COMPUTE_TYPE::VULKAN, COMPUTE_TYPE::OPENCL };
 #endif
@@ -1160,7 +1157,7 @@ void floor::set_screen_size(const uint2& screen_size) {
 	config.height = screen_size.y;
 	SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 #endif
 }

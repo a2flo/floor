@@ -194,7 +194,7 @@ void logger::init(const size_t verbosity,
 	
 	// if either is empty, use the default log/msg file name, with special treatment on iOS
 	if (log_filename_.empty() || msg_filename_.empty()) {
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		// we can/must store the log in a writable path (-> pref path)
 		const auto pref_path = darwin_helper::get_pref_path();
 		if (pref_path != "") {

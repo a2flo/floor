@@ -151,7 +151,7 @@ public:
 	void execute_sync(const compute_kernel&, const work_size_type&, const work_size_type&, const Args&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	//! enqueues (and executes cooperatively) the specified kernel into this queue
 	//! NOTE: the device/backend this is executed on requires "cooperative_kernel_support"
 	template <typename... Args, class work_size_type>

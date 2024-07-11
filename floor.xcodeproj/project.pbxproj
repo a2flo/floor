@@ -177,6 +177,113 @@
 		5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AC1AB6D6D200BC7012 /* cuda.hpp */; };
 		5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AD1AB6D6D200BC7012 /* metal.hpp */; };
 		5C60A54F29E387CD00AA58D1 /* vulkan_args.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C60A54E29E387CD00AA58D1 /* vulkan_args.hpp */; };
+		5C62E0382C3E223200FF4E9A /* vr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3D13B123B67784000BB608 /* vr_context.cpp */; };
+		5C62E0392C3E223200FF4E9A /* cuda_api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC063B91B85A06600F5979A /* cuda_api.cpp */; };
+		5C62E03A2C3E223200FF4E9A /* cuda_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383DC1A641B1E007AEDD7 /* cuda_buffer.cpp */; };
+		5C62E03B2C3E223200FF4E9A /* host_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4B89BB2557682F001CB537 /* host_argument_buffer.cpp */; };
+		5C62E03C2C3E223200FF4E9A /* cuda_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383DE1A641B1E007AEDD7 /* cuda_device.cpp */; };
+		5C62E03D2C3E223200FF4E9A /* cuda_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0CC1AD38FAA00215230 /* cuda_image.cpp */; };
+		5C62E03E2C3E223200FF4E9A /* cuda_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E01A641B1E007AEDD7 /* cuda_kernel.cpp */; };
+		5C62E03F2C3E223200FF4E9A /* cuda_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E21A641B1E007AEDD7 /* cuda_program.cpp */; };
+		5C62E0402C3E223200FF4E9A /* cuda_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383E41A641B1E007AEDD7 /* cuda_queue.cpp */; };
+		5C62E0412C3E223200FF4E9A /* openxr_input.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C41AC1A2A3DF4AB00D77AC7 /* openxr_input.cpp */; };
+		5C62E0422C3E223200FF4E9A /* opencl_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C51AD38F9700215230 /* opencl_image.cpp */; };
+		5C62E0432C3E223200FF4E9A /* vulkan_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */; };
+		5C62E0442C3E223200FF4E9A /* vulkan_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */; };
+		5C62E0452C3E223200FF4E9A /* vulkan_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */; };
+		5C62E0462C3E223200FF4E9A /* openvr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF497162A2D136200F78B03 /* openvr_context.cpp */; };
+		5C62E0472C3E223200FF4E9A /* metal_device_query.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F323426347403008144CF /* metal_device_query.mm */; };
+		5C62E0482C3E223200FF4E9A /* vulkan_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */; };
+		5C62E0492C3E223200FF4E9A /* vulkan_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C84531122B1A6D80014AECF /* vulkan_pipeline.cpp */; };
+		5C62E04A2C3E223200FF4E9A /* vulkan_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */; };
+		5C62E04B2C3E223200FF4E9A /* vulkan_memory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CDEB85B1D81AC0200A8CD9B /* vulkan_memory.cpp */; };
+		5C62E04C2C3E223200FF4E9A /* vulkan_pass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C84531022B1A6D80014AECF /* vulkan_pass.cpp */; };
+		5C62E04D2C3E223200FF4E9A /* metal_shader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C0C3DC422BE554E00501B16 /* metal_shader.mm */; };
+		5C62E04E2C3E223200FF4E9A /* vulkan_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */; };
+		5C62E04F2C3E223200FF4E9A /* vulkan_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */; };
+		5C62E0502C3E223200FF4E9A /* vulkan_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6C6B1A22D0D89E00AEE5F3 /* vulkan_shader.cpp */; };
+		5C62E0512C3E223200FF4E9A /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
+		5C62E0522C3E223200FF4E9A /* vector_1d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980A201E724500D8D19F /* vector_1d.cpp */; };
+		5C62E0532C3E223200FF4E9A /* vector_2d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC59809201E724400D8D19F /* vector_2d.cpp */; };
+		5C62E0542C3E223200FF4E9A /* vector_3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980B201E724500D8D19F /* vector_3d.cpp */; };
+		5C62E0552C3E223200FF4E9A /* vector_4d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980C201E724500D8D19F /* vector_4d.cpp */; };
+		5C62E0562C3E223200FF4E9A /* host_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B71B4139260005F5EA /* host_compute.cpp */; };
+		5C62E0572C3E223200FF4E9A /* host_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B41B4139260005F5EA /* host_buffer.cpp */; };
+		5C62E0582C3E223200FF4E9A /* metal_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496E0279D769E00194181 /* metal_indirect_command.mm */; };
+		5C62E0592C3E223200FF4E9A /* host_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B91B4139260005F5EA /* host_device.cpp */; };
+		5C62E05A2C3E223200FF4E9A /* host_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BB1B4139260005F5EA /* host_image.cpp */; };
+		5C62E05B2C3E223200FF4E9A /* metal_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C34F17D1C29BB9300C8F645 /* metal_device.cpp */; };
+		5C62E05C2C3E223200FF4E9A /* host_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BD1B4139260005F5EA /* host_kernel.cpp */; };
+		5C62E05D2C3E223200FF4E9A /* metal_pipeline.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84531B22B1A99B0014AECF /* metal_pipeline.mm */; };
+		5C62E05E2C3E223200FF4E9A /* host_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BF1B4139260005F5EA /* host_program.cpp */; };
+		5C62E05F2C3E223200FF4E9A /* host_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8C11B4139260005F5EA /* host_queue.cpp */; };
+		5C62E0602C3E223200FF4E9A /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
+		5C62E0612C3E223200FF4E9A /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCE19BA46E3000B28B3 /* vector.cpp */; };
+		5C62E0622C3E223200FF4E9A /* graphics_renderer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD4E86422B4448E00AE0385 /* graphics_renderer.cpp */; };
+		5C62E0632C3E223200FF4E9A /* opencl_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D91A4EE1A5005239DA /* opencl_program.cpp */; };
+		5C62E0642C3E223200FF4E9A /* metal_fence.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAEFC281A14D00049ABA6 /* metal_fence.mm */; };
+		5C62E0652C3E223200FF4E9A /* metal_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0D01AD3944F00215230 /* metal_image.mm */; };
+		5C62E0662C3E223200FF4E9A /* host_device_builtins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF41D5F2B4E17EA004772C7 /* host_device_builtins.cpp */; };
+		5C62E0672C3E223200FF4E9A /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
+		5C62E0682C3E223200FF4E9A /* universal_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C1378209E3C35005C516C /* universal_binary.cpp */; };
+		5C62E0692C3E223200FF4E9A /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
+		5C62E06A2C3E223200FF4E9A /* metal_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CD4E86922B4449B00AE0385 /* metal_renderer.mm */; };
+		5C62E06B2C3E223200FF4E9A /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
+		5C62E06C2C3E223200FF4E9A /* matrix4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD319BB2A75000B28B3 /* matrix4.cpp */; };
+		5C62E06D2C3E223200FF4E9A /* vulkan_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C97EAD32999220A00D4C680 /* vulkan_indirect_command.cpp */; };
+		5C62E06E2C3E223200FF4E9A /* compute_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C9AAF00281A18CB0049ABA6 /* compute_fence.cpp */; };
+		5C62E06F2C3E223200FF4E9A /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
+		5C62E0702C3E223200FF4E9A /* vulkan_fence.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC3992F29E785C00015DBBB /* vulkan_fence.cpp */; };
+		5C62E0712C3E223200FF4E9A /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
+		5C62E0722C3E223200FF4E9A /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
+		5C62E0732C3E223200FF4E9A /* graphics_pipeline.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */; };
+		5C62E0742C3E223200FF4E9A /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C0416F71B60048100370253 /* json.cpp */; };
+		5C62E0752C3E223200FF4E9A /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
+		5C62E0762C3E223200FF4E9A /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
+		5C62E0772C3E223200FF4E9A /* openxr_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2815DB2A310CA9005F964C /* openxr_context.cpp */; };
+		5C62E0782C3E223200FF4E9A /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */; };
+		5C62E0792C3E223200FF4E9A /* source_types.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85AA18F953590039BFD4 /* source_types.cpp */; };
+		5C62E07A2C3E223200FF4E9A /* dual_quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8010782AF2BFDF00CFF6B6 /* dual_quaternion.cpp */; };
+		5C62E07B2C3E223200FF4E9A /* vulkan_renderer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD4E87222B444CA00AE0385 /* vulkan_renderer.cpp */; };
+		5C62E07C2C3E223200FF4E9A /* lexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A818F953590039BFD4 /* lexer.cpp */; };
+		5C62E07D2C3E223200FF4E9A /* serializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6B6D8C1EC7381C00342E50 /* serializer.cpp */; };
+		5C62E07E2C3E223200FF4E9A /* vulkan_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8F32382635BA88008144CF /* vulkan_argument_buffer.cpp */; };
+		5C62E07F2C3E223200FF4E9A /* graphics_pass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C84530022B1A64D0014AECF /* graphics_pass.cpp */; };
+		5C62E0802C3E223200FF4E9A /* elf_binary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CF974C424E87F6500014CDC /* elf_binary.cpp */; };
+		5C62E0812C3E223200FF4E9A /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
+		5C62E0822C3E223200FF4E9A /* metal_pass.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84531A22B1A99B0014AECF /* metal_pass.mm */; };
+		5C62E0832C3E223200FF4E9A /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
+		5C62E0842C3E223200FF4E9A /* opencl_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2176319EAA8800049D6AE /* opencl_device.cpp */; };
+		5C62E0852C3E223200FF4E9A /* vulkan_common.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD53372BE8227C00A1EF37 /* vulkan_common.cpp */; };
+		5C62E0862C3E223200FF4E9A /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
+		5C62E0872C3E223200FF4E9A /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
+		5C62E0882C3E223200FF4E9A /* logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917617D1153E007F536E /* logger.cpp */; };
+		5C62E0892C3E223200FF4E9A /* unicode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917C17D1153E007F536E /* unicode.cpp */; };
+		5C62E08A2C3E223200FF4E9A /* compute_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */; };
+		5C62E08B2C3E223200FF4E9A /* vulkan_disassembly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CA1C0512A15A60B00F0032A /* vulkan_disassembly.cpp */; };
+		5C62E08C2C3E223200FF4E9A /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
+		5C62E08D2C3E223200FF4E9A /* compute_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D41A4EE171005239DA /* compute_program.cpp */; };
+		5C62E08E2C3E223200FF4E9A /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
+		5C62E08F2C3E223200FF4E9A /* argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573424D70EAB0022D36D /* argument_buffer.cpp */; };
+		5C62E0902C3E223200FF4E9A /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
+		5C62E0912C3E223200FF4E9A /* vulkan_semaphore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7C6F112348B76D00E6CEFF /* vulkan_semaphore.cpp */; };
+		5C62E0922C3E223200FF4E9A /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
+		5C62E0932C3E223200FF4E9A /* opencl_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */; };
+		5C62E0942C3E223200FF4E9A /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
+		5C62E0952C3E223200FF4E9A /* compute_memory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0D41AD3983000215230 /* compute_memory.cpp */; };
+		5C62E0962C3E223200FF4E9A /* compute_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175F19EA9D620049D6AE /* compute_device.cpp */; };
+		5C62E0972C3E223200FF4E9A /* indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1496D6279D68DC00194181 /* indirect_command.cpp */; };
+		5C62E0982C3E223200FF4E9A /* darwin_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */; };
+		5C62E0992C3E223200FF4E9A /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
+		5C62E09A2C3E223200FF4E9A /* opencl_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */; };
+		5C62E09B2C3E223200FF4E9A /* vulkan_descriptor_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1E6FB925EF0E510030786F /* vulkan_descriptor_set.cpp */; };
+		5C62E09C2C3E223200FF4E9A /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */; };
+		5C62E09D2C3E223200FF4E9A /* opencl_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175619E985D80049D6AE /* opencl_compute.cpp */; };
+		5C62E09E2C3E223200FF4E9A /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
+		5C62E09F2C3E223200FF4E9A /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
+		5C62E0A02C3E223200FF4E9A /* metal_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CAD573D24D73B190022D36D /* metal_argument_buffer.mm */; };
+		5C62E0A12C3E223200FF4E9A /* vector_lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */; };
+		5C62E0A32C3E223200FF4E9A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 		5C678CF3262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */; };
 		5C678CF4262FA8D8001A1C1F /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */; };
 		5C678CF5262FA8D8001A1C1F /* cuda_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */; };
@@ -543,6 +650,7 @@
 		5C6008AC1AB6D6D200BC7012 /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda.hpp; path = device/cuda.hpp; sourceTree = "<group>"; };
 		5C6008AD1AB6D6D200BC7012 /* metal.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal.hpp; path = device/metal.hpp; sourceTree = "<group>"; };
 		5C60A54E29E387CD00AA58D1 /* vulkan_args.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_args.hpp; path = vulkan/vulkan_args.hpp; sourceTree = "<group>"; };
+		5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloor_visionos.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_argument_buffer.cpp; sourceTree = "<group>"; };
 		5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_argument_buffer.hpp; sourceTree = "<group>"; };
 		5C6B6D8C1EC7381C00342E50 /* serializer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = serializer.cpp; sourceTree = "<group>"; };
@@ -756,6 +864,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5C62E0A22C3E223200FF4E9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5C62E0A32C3E223200FF4E9A /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5CC2F77218678AAC0031E08D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -813,6 +929,7 @@
 			children = (
 				5C10915E17D114BC007F536E /* libfloord.dylib */,
 				5CC2F77518678AAC0031E08D /* libfloord_static.a */,
+				5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1606,6 +1723,23 @@
 			productReference = 5C10915E17D114BC007F536E /* libfloord.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		5C62E0352C3E223200FF4E9A /* floor_visionos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5C62E0A42C3E223200FF4E9A /* Build configuration list for PBXNativeTarget "floor_visionos" */;
+			buildPhases = (
+				5C62E0362C3E223200FF4E9A /* ShellScript */,
+				5C62E0372C3E223200FF4E9A /* Sources */,
+				5C62E0A22C3E223200FF4E9A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = floor_visionos;
+			productName = floor_ios;
+			productReference = 5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		5CC2F77418678AAC0031E08D /* floor_ios */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5CC2F79918678AAD0031E08D /* Build configuration list for PBXNativeTarget "floor_ios" */;
@@ -1654,6 +1788,7 @@
 			targets = (
 				5C10915D17D114BC007F536E /* floor */,
 				5CC2F77418678AAC0031E08D /* floor_ios */,
+				5C62E0352C3E223200FF4E9A /* floor_visionos */,
 				5CBB61241D6367A000B09EEE /* floor_remote */,
 			);
 		};
@@ -1676,6 +1811,20 @@
 			shellScript = "./floor/build_version.sh\n";
 		};
 		5C47A5D4186B435000BE743A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "./floor/build_version.sh\n";
+		};
+		5C62E0362C3E223200FF4E9A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -1802,6 +1951,119 @@
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C62E0372C3E223200FF4E9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5C62E0382C3E223200FF4E9A /* vr_context.cpp in Sources */,
+				5C62E0392C3E223200FF4E9A /* cuda_api.cpp in Sources */,
+				5C62E03A2C3E223200FF4E9A /* cuda_buffer.cpp in Sources */,
+				5C62E03B2C3E223200FF4E9A /* host_argument_buffer.cpp in Sources */,
+				5C62E03C2C3E223200FF4E9A /* cuda_device.cpp in Sources */,
+				5C62E03D2C3E223200FF4E9A /* cuda_image.cpp in Sources */,
+				5C62E03E2C3E223200FF4E9A /* cuda_kernel.cpp in Sources */,
+				5C62E03F2C3E223200FF4E9A /* cuda_program.cpp in Sources */,
+				5C62E0402C3E223200FF4E9A /* cuda_queue.cpp in Sources */,
+				5C62E0412C3E223200FF4E9A /* openxr_input.cpp in Sources */,
+				5C62E0422C3E223200FF4E9A /* opencl_image.cpp in Sources */,
+				5C62E0432C3E223200FF4E9A /* vulkan_compute.cpp in Sources */,
+				5C62E0442C3E223200FF4E9A /* vulkan_buffer.cpp in Sources */,
+				5C62E0452C3E223200FF4E9A /* vulkan_device.cpp in Sources */,
+				5C62E0462C3E223200FF4E9A /* openvr_context.cpp in Sources */,
+				5C62E0472C3E223200FF4E9A /* metal_device_query.mm in Sources */,
+				5C62E0482C3E223200FF4E9A /* vulkan_image.cpp in Sources */,
+				5C62E0492C3E223200FF4E9A /* vulkan_pipeline.cpp in Sources */,
+				5C62E04A2C3E223200FF4E9A /* vulkan_kernel.cpp in Sources */,
+				5C62E04B2C3E223200FF4E9A /* vulkan_memory.cpp in Sources */,
+				5C62E04C2C3E223200FF4E9A /* vulkan_pass.cpp in Sources */,
+				5C62E04D2C3E223200FF4E9A /* metal_shader.mm in Sources */,
+				5C62E04E2C3E223200FF4E9A /* vulkan_program.cpp in Sources */,
+				5C62E04F2C3E223200FF4E9A /* vulkan_queue.cpp in Sources */,
+				5C62E0502C3E223200FF4E9A /* vulkan_shader.cpp in Sources */,
+				5C62E0512C3E223200FF4E9A /* soft_f16.cpp in Sources */,
+				5C62E0522C3E223200FF4E9A /* vector_1d.cpp in Sources */,
+				5C62E0532C3E223200FF4E9A /* vector_2d.cpp in Sources */,
+				5C62E0542C3E223200FF4E9A /* vector_3d.cpp in Sources */,
+				5C62E0552C3E223200FF4E9A /* vector_4d.cpp in Sources */,
+				5C62E0562C3E223200FF4E9A /* host_compute.cpp in Sources */,
+				5C62E0572C3E223200FF4E9A /* host_buffer.cpp in Sources */,
+				5C62E0582C3E223200FF4E9A /* metal_indirect_command.mm in Sources */,
+				5C62E0592C3E223200FF4E9A /* host_device.cpp in Sources */,
+				5C62E05A2C3E223200FF4E9A /* host_image.cpp in Sources */,
+				5C62E05B2C3E223200FF4E9A /* metal_device.cpp in Sources */,
+				5C62E05C2C3E223200FF4E9A /* host_kernel.cpp in Sources */,
+				5C62E05D2C3E223200FF4E9A /* metal_pipeline.mm in Sources */,
+				5C62E05E2C3E223200FF4E9A /* host_program.cpp in Sources */,
+				5C62E05F2C3E223200FF4E9A /* host_queue.cpp in Sources */,
+				5C62E0602C3E223200FF4E9A /* spirv_handler.cpp in Sources */,
+				5C62E0612C3E223200FF4E9A /* vector.cpp in Sources */,
+				5C62E0622C3E223200FF4E9A /* graphics_renderer.cpp in Sources */,
+				5C62E0632C3E223200FF4E9A /* opencl_program.cpp in Sources */,
+				5C62E0642C3E223200FF4E9A /* metal_fence.mm in Sources */,
+				5C62E0652C3E223200FF4E9A /* metal_image.mm in Sources */,
+				5C62E0662C3E223200FF4E9A /* host_device_builtins.cpp in Sources */,
+				5C62E0672C3E223200FF4E9A /* metal_compute.mm in Sources */,
+				5C62E0682C3E223200FF4E9A /* universal_binary.cpp in Sources */,
+				5C62E0692C3E223200FF4E9A /* compute_queue.cpp in Sources */,
+				5C62E06A2C3E223200FF4E9A /* metal_renderer.mm in Sources */,
+				5C62E06B2C3E223200FF4E9A /* core.cpp in Sources */,
+				5C62E06C2C3E223200FF4E9A /* matrix4.cpp in Sources */,
+				5C62E06D2C3E223200FF4E9A /* vulkan_indirect_command.cpp in Sources */,
+				5C62E06E2C3E223200FF4E9A /* compute_fence.cpp in Sources */,
+				5C62E06F2C3E223200FF4E9A /* opencl_buffer.cpp in Sources */,
+				5C62E0702C3E223200FF4E9A /* vulkan_fence.cpp in Sources */,
+				5C62E0712C3E223200FF4E9A /* compute_context.cpp in Sources */,
+				5C62E0722C3E223200FF4E9A /* event.cpp in Sources */,
+				5C62E0732C3E223200FF4E9A /* graphics_pipeline.cpp in Sources */,
+				5C62E0742C3E223200FF4E9A /* json.cpp in Sources */,
+				5C62E0752C3E223200FF4E9A /* llvm_toolchain.cpp in Sources */,
+				5C62E0762C3E223200FF4E9A /* grammar.cpp in Sources */,
+				5C62E0772C3E223200FF4E9A /* openxr_context.cpp in Sources */,
+				5C62E0782C3E223200FF4E9A /* quaternion.cpp in Sources */,
+				5C62E0792C3E223200FF4E9A /* source_types.cpp in Sources */,
+				5C62E07A2C3E223200FF4E9A /* dual_quaternion.cpp in Sources */,
+				5C62E07B2C3E223200FF4E9A /* vulkan_renderer.cpp in Sources */,
+				5C62E07C2C3E223200FF4E9A /* lexer.cpp in Sources */,
+				5C62E07D2C3E223200FF4E9A /* serializer.cpp in Sources */,
+				5C62E07E2C3E223200FF4E9A /* vulkan_argument_buffer.cpp in Sources */,
+				5C62E07F2C3E223200FF4E9A /* graphics_pass.cpp in Sources */,
+				5C62E0802C3E223200FF4E9A /* elf_binary.cpp in Sources */,
+				5C62E0812C3E223200FF4E9A /* cuda_compute.cpp in Sources */,
+				5C62E0822C3E223200FF4E9A /* metal_pass.mm in Sources */,
+				5C62E0832C3E223200FF4E9A /* file_io.cpp in Sources */,
+				5C62E0842C3E223200FF4E9A /* opencl_device.cpp in Sources */,
+				5C62E0852C3E223200FF4E9A /* vulkan_common.cpp in Sources */,
+				5C62E0862C3E223200FF4E9A /* metal_kernel.mm in Sources */,
+				5C62E0872C3E223200FF4E9A /* compute_image.cpp in Sources */,
+				5C62E0882C3E223200FF4E9A /* logger.cpp in Sources */,
+				5C62E0892C3E223200FF4E9A /* unicode.cpp in Sources */,
+				5C62E08A2C3E223200FF4E9A /* compute_kernel.cpp in Sources */,
+				5C62E08B2C3E223200FF4E9A /* vulkan_disassembly.cpp in Sources */,
+				5C62E08C2C3E223200FF4E9A /* sig_handler.cpp in Sources */,
+				5C62E08D2C3E223200FF4E9A /* compute_program.cpp in Sources */,
+				5C62E08E2C3E223200FF4E9A /* util.cpp in Sources */,
+				5C62E08F2C3E223200FF4E9A /* argument_buffer.cpp in Sources */,
+				5C62E0902C3E223200FF4E9A /* floor.cpp in Sources */,
+				5C62E0912C3E223200FF4E9A /* vulkan_semaphore.cpp in Sources */,
+				5C62E0922C3E223200FF4E9A /* metal_buffer.mm in Sources */,
+				5C62E0932C3E223200FF4E9A /* opencl_queue.cpp in Sources */,
+				5C62E0942C3E223200FF4E9A /* metal_program.mm in Sources */,
+				5C62E0952C3E223200FF4E9A /* compute_memory.cpp in Sources */,
+				5C62E0962C3E223200FF4E9A /* compute_device.cpp in Sources */,
+				5C62E0972C3E223200FF4E9A /* indirect_command.cpp in Sources */,
+				5C62E0982C3E223200FF4E9A /* darwin_helper.mm in Sources */,
+				5C62E0992C3E223200FF4E9A /* compute_buffer.cpp in Sources */,
+				5C62E09A2C3E223200FF4E9A /* opencl_kernel.cpp in Sources */,
+				5C62E09B2C3E223200FF4E9A /* vulkan_descriptor_set.cpp in Sources */,
+				5C62E09C2C3E223200FF4E9A /* cuda_argument_buffer.cpp in Sources */,
+				5C62E09D2C3E223200FF4E9A /* opencl_compute.cpp in Sources */,
+				5C62E09E2C3E223200FF4E9A /* thread_base.cpp in Sources */,
+				5C62E09F2C3E223200FF4E9A /* metal_queue.mm in Sources */,
+				5C62E0A02C3E223200FF4E9A /* metal_argument_buffer.mm in Sources */,
+				5C62E0A12C3E223200FF4E9A /* vector_lib.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2308,6 +2570,76 @@
 			};
 			name = Release;
 		};
+		5C62E0A52C3E223200FF4E9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_visionos.dst;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_VISIONOS,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
+				);
+				INSTALL_PATH = /usr/lib/;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		5C62E0A62C3E223200FF4E9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_visionos.dst;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_VISIONOS,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
+				);
+				INSTALL_PATH = /usr/lib/;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
+		};
 		5CBB61251D6367A000B09EEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2374,21 +2706,10 @@
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
 				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					ios/deps/include,
-				);
 				INSTALL_PATH = /usr/lib/;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = ios/deps/lib;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					ios/deps/include,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = floord_static;
 				SDKROOT = iphoneos;
@@ -2418,21 +2739,10 @@
 					FLOOR_NO_CUDA,
 					FLOOR_NO_OPENCL,
 				);
-				HEADER_SEARCH_PATHS = (
-					../,
-					ios/deps/include,
-				);
 				INSTALL_PATH = /usr/lib/;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = ios/deps/lib;
 				ONLY_ACTIVE_ARCH = NO;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-isystem",
-					ios/deps/include,
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = floor_static;
 				SDKROOT = iphoneos;
@@ -2459,6 +2769,15 @@
 			buildConfigurations = (
 				5C10916317D114BC007F536E /* Debug */,
 				5C10916417D114BC007F536E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5C62E0A42C3E223200FF4E9A /* Build configuration list for PBXNativeTarget "floor_visionos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5C62E0A52C3E223200FF4E9A /* Debug */,
+				5C62E0A62C3E223200FF4E9A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

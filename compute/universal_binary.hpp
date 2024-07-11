@@ -163,16 +163,18 @@ namespace universal_binary {
 				MACOS		= 0u,
 				//! target iOS/iPadOS
 				IOS			= 1u,
-				// TODO: tvOS, visionOS, ...
+				//! target visionOS
+				VISIONOS	= 2u,
+				// TODO: tvOS, ...
 			};
 			PLATFORM_TARGET platform_target : 4u;
 			
 			//! special device target to enable special workarounds/features
 			enum DEVICE_TARGET : uint64_t {
 				//! fully generic target
-				//! NOTE: iOS is always GENERIC
 				GENERIC		= 0u,
 				//! target Apple GPUs
+				//! NOTE: iOS/visionOS are always APPLE
 				APPLE		= 1u,
 				//! target AMD GPUs
 				AMD			= 2u,

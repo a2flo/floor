@@ -57,7 +57,7 @@ compute_buffer(cqueue, size_, host_data_, flags_), is_staging_buffer(is_staging_
 		// note that this disables pretty much all functionality of this class!
 		options |= MTLResourceStorageModePrivate;
 	} else {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if (!dev.unified_memory) {
 			if (!is_staging_buffer && !has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 				// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
@@ -123,7 +123,7 @@ compute_buffer(cqueue, [external_buffer length], host_data_, flags_), buffer(ext
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 	FLOOR_PUSH_WARNINGS()
 	FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
 #endif
@@ -136,14 +136,14 @@ compute_buffer(cqueue, [external_buffer length], host_data_, flags_), buffer(ext
 		case MTLStorageModePrivate:
 			options |= MTLResourceStorageModePrivate;
 			break;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		case MTLStorageModeManaged:
 			options |= MTLResourceStorageModeManaged;
 			break;
 #endif
 	}
 	
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 FLOOR_POP_WARNINGS()
 #endif
 }
@@ -175,7 +175,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 				buffer = [mtl_dev.device newBufferWithLength:size options:options];
 				if (staging_buffer == nullptr) {
 					MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 					if (!dev.unified_memory) {
 						host_mem_storage = MTLResourceStorageModeManaged;
 					}
@@ -238,7 +238,7 @@ void metal_buffer::read(const compute_queue& cqueue, void* dst, const size_t siz
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	if (staging_buffer != nullptr) {
 		staging_buffer->copy(cqueue, *this, read_size, offset, offset);
 		staging_buffer->read(cqueue, dst, read_size, offset);
@@ -258,7 +258,7 @@ void metal_buffer::write(const compute_queue& cqueue, const size_t size_, const 
 	write(cqueue, host_data.data(), size_, offset);
 }
 
-void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const void* src,
+void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios_and_visionos, const void* src,
 						 const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
@@ -269,7 +269,7 @@ void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios, const 
 	id <MTLBuffer> write_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
 	memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
 		staging_buffer != nullptr) {
 		[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
@@ -294,7 +294,7 @@ void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 	
 	GUARD(lock);
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// if either source or destination uses private storage, we need to perform a blit copy
 	if((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
 	   (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
@@ -323,7 +323,7 @@ void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 		   (uint8_t*)[src_mtl_buffer.get_metal_buffer() contents] + src_offset,
 		   copy_size);
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		[buffer didModifyRange:NSRange { dst_offset, dst_offset + copy_size }];
 	}
@@ -391,7 +391,7 @@ bool metal_buffer::fill(const compute_queue& cqueue,
 		}
 	}
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
 		staging_buffer != nullptr) {
 		[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
@@ -448,7 +448,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 	
 	// NOTE: MTLResourceStorageModePrivate handled by map_check (-> no host access is handled)
 	const bool write_only = (!does_read && does_write);
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	const bool read_only = (does_read && !does_write);
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 		aligned_ptr<uint8_t> alloc_host_buffer;
@@ -495,7 +495,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(const compute_queue& cqueu
 		}
 		// can just return the cpu mapped pointer
 		return (void*)(((uint8_t*)[buffer contents]) + offset);
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	}
 #endif
 }
@@ -505,7 +505,7 @@ bool metal_buffer::unmap(const compute_queue& cqueue, void* __attribute__((align
 	if(mapped_ptr == nullptr) return false;
 	
 	bool success = true;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	const bool is_managed = ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
 	const bool has_staging_buffer = (staging_buffer != nullptr);
 	if (is_managed || has_staging_buffer) {
@@ -566,7 +566,7 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResou
 		return;
 	}
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	[blit_encoder synchronizeResource:rsrc];

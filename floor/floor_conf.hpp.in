@@ -22,7 +22,7 @@
 // for Vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
 // highlighting/completion when vulkan headers are installed (will build, but won't link though)
 #if defined(__APPLE__)
-#if !__has_include(<floor/floor/vulkan_testing.hpp>)
+#if !__has_include(<floor/floor/vulkan_testing.hpp>) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 #define FLOOR_NO_VULKAN 1
 #else
 #define FLOOR_VULKAN_TESTING 1

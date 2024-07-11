@@ -63,6 +63,7 @@ namespace device_info {
 	//! operating systems
 	enum class OS : uint32_t {
 		IOS,
+		VISIONOS,
 		OSX,
 		WINDOWS,
 		LINUX,

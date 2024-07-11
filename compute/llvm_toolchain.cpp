@@ -299,7 +299,7 @@ program_data compile_input(const string& input,
 			}
 			
 			string os_target;
-			if (mtl_dev.family_type == metal_device::FAMILY_TYPE::APPLE) {
+			if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS) {
 				// -> iOS 16.0+
 				switch (metal_version) {
 					default:
@@ -313,7 +313,15 @@ program_data compile_input(const string& input,
 						os_target = "ios18.0.0";
 						break;
 				}
-			} else if (mtl_dev.family_type == metal_device::FAMILY_TYPE::MAC) {
+			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS) {
+				// -> visionOS/XROS 2.0+
+				switch (metal_version) {
+					default:
+					case METAL_VERSION::METAL_3_2:
+						os_target = "xros2.0.0";
+						break;
+				}
+			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::MACOS) {
 				// -> macOS 13.0+
 				switch (metal_version) {
 					default:
@@ -650,6 +658,8 @@ program_data compile_input(const string& input,
 #if defined(__APPLE__)
 #if defined(FLOOR_IOS)
 				  "IOS"
+#elif defined(FLOOR_VISIONOS)
+				  "VISIONOS"
 #else
 				  "OSX"
 #endif

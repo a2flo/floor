@@ -79,7 +79,7 @@ public:
 		//! SDL window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
 		int64_t window_flags {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 			SDL_WINDOW_RESIZABLE
 #else
 			SDL_WINDOW_RESIZABLE |

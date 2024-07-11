@@ -40,7 +40,7 @@ public:
 	METAL_VERSION metal_language_version { METAL_VERSION::METAL_3_0 };
 	
 	enum class FAMILY_TYPE : uint32_t {
-		APPLE, //!< iOS, tvOS, ...
+		APPLE, //!< iOS, tvOS, visionOS, ...
 		MAC,
 		COMMON,
 		IOS_MAC,
@@ -60,6 +60,31 @@ public:
 	
 	// device family tier
 	uint32_t family_tier { 2u };
+	
+	//! support Apple platforms
+	enum class PLATFORM_TYPE {
+		MACOS,
+		IOS,
+		VISIONOS,
+	};
+	// device platform type
+	PLATFORM_TYPE platform_type {
+#if defined(FLOOR_IOS)
+		PLATFORM_TYPE::IOS
+#elif defined(FLOOR_VISIONOS)
+		PLATFORM_TYPE::VISIONOS
+#else
+		PLATFORM_TYPE::MACOS
+#endif
+	};
+	static constexpr const char* platform_type_to_string(const PLATFORM_TYPE& pltfrm_type) {
+		switch (pltfrm_type) {
+			case PLATFORM_TYPE::IOS: return "iOS";
+			case PLATFORM_TYPE::VISIONOS: return "visionOS";
+			case PLATFORM_TYPE::MACOS: return "macOS";
+		}
+		floor_unreachable();
+	}
 
 	//! true if the device has support for SIMD reduction operations
 	bool simd_reduction { false };

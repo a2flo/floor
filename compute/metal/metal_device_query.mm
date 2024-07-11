@@ -57,7 +57,7 @@ std::optional<device_info_t> query(id <MTLDevice> device) {
 	
 	info.simd_width = (uint32_t)[kernel_state threadExecutionWidth];
 	
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// we can figure out the compute unit count for AMD and Apple devices on macOS
 	const auto query_and_parse_gpu_config = [](unordered_map<string, function<void(uint32_t)>>&& property_cbs) {
 		string ioreg_query;

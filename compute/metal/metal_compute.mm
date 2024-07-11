@@ -53,7 +53,7 @@
 #include <floor/core/essentials.hpp>
 
 // only need this on macOS right now
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 
 @protocol MTLDeviceSPI <MTLDevice>
 @property(readonly) unsigned long long dedicatedMemorySize;
@@ -116,7 +116,7 @@ metal_compute::metal_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 							 vr_context* vr_ctx_,
 							 const vector<string> whitelist) :
 compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
 	if(!mtl_device) return;
@@ -148,7 +148,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		if (![dev supportsFamily:MTLGPUFamilyMetal3]) {
 			continue;
 		}
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		// should be included in Metal 3 support, but just in case also require this
 		if (![dev supportsFamily:MTLGPUFamilyMac2]) {
 			continue;
@@ -171,7 +171,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			device.simd_range = { device.simd_width, device.simd_width };
 		}
 		
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
 		device.vendor_name = "Apple";
 		device.vendor = COMPUTE_VENDOR::APPLE;
@@ -179,9 +179,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		device.family_type = metal_device::FAMILY_TYPE::APPLE;
+#if defined(FLOOR_VISIONOS)
+		device.platform_type = metal_device::PLATFORM_TYPE::VISIONOS;
+#else
+		device.platform_type = metal_device::PLATFORM_TYPE::IOS;
+#endif
 		
 		// find max supported Apple* family
-		static constexpr const auto max_gpu_family = MTLGPUFamilyApple9;
+		static constexpr const auto max_gpu_family = MTLGPUFamily(1009) /* MTLGPUFamilyApple9 */;
 		device.family_tier = 0;
 		for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
 			if ([dev supportsFamily:family]) {
@@ -191,6 +196,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		assert(device.family_tier >= 7);
 		
 		// figure out which metal version we can use
+#if defined(FLOOR_IOS)
 		if (darwin_helper::get_system_version() >= 180000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
@@ -201,6 +207,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			device.metal_software_version = METAL_VERSION::METAL_3_0;
 			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
+#elif defined(FLOOR_VISIONOS)
+		if (darwin_helper::get_system_version() >= 20000) {
+			device.metal_software_version = METAL_VERSION::METAL_3_2;
+			device.metal_language_version = METAL_VERSION::METAL_3_2;
+		}
+#else
+#error "unhandled OS"
+#endif
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
 		switch (device.family_tier) {
@@ -216,7 +230,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				
 			// A15 / A16 / M2
 			case 8:
+#if defined(FLOOR_VISIONOS)
+				device.units = 10;
+#else
 				device.units = ([dev supportsFamily:MTLGPUFamilyMac2] ? 8 /* M2 */ : 5);
+#endif
 				device.mem_clock = 3200; // or 2133, ...
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
@@ -239,7 +257,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_3d_dim = { 2048, 2048, 2048 };
 		if (device.simd_width == 0) {
-			device.simd_width = 32; // always 32 for powervr 6/7 series and apple A* series
+			device.simd_width = 32; // always 32 for Apple A* series
 			device.simd_range = { device.simd_width, device.simd_width };
 		}
 #else
@@ -274,6 +292,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		// always family tier 2 / Mac2 right now
 		device.family_tier = 2;
 		//device.image_read_write_support = true; // TODO: enable this when supported by the compiler
+		device.platform_type = metal_device::PLATFORM_TYPE::MACOS;
 
 		device.local_mem_size = [dev maxThreadgroupMemoryLength];
 		device.max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
@@ -352,8 +371,8 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 	}
 	
 	// figure out the fastest device
-#if defined(FLOOR_IOS)
-	// only one device on ios
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+	// only one device on iOS/visionOS
 	fastest_gpu_device = devices[0].get();
 	fastest_device = fastest_gpu_device;
 #else
@@ -568,7 +587,7 @@ shared_ptr<compute_program> metal_compute::add_universal_binary(const span<const
 	return create_program_from_archive_binaries(bins);
 }
 
-static metal_program::metal_program_entry create_metal_program(const metal_device& device floor_unused_on_ios,
+static metal_program::metal_program_entry create_metal_program(const metal_device& device floor_unused_on_ios_and_visionos,
 															   llvm_toolchain::program_data program) {
 	metal_program::metal_program_entry ret;
 	ret.functions = program.function_info;
@@ -577,7 +596,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 		return ret;
 	}
 	
-#if !defined(FLOOR_IOS) // can only do this on macOS
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // can only do this on macOS
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
 	const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
@@ -834,7 +853,7 @@ COMPUTE_IMAGE_TYPE metal_compute::get_renderer_image_type() const {
 			return COMPUTE_IMAGE_TYPE::A2BGR10UI_NORM;
 		case MTLPixelFormatRGBA16Float:
 			return COMPUTE_IMAGE_TYPE::RGBA16F;
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		case MTLPixelFormatBGR10_XR:
 			return COMPUTE_IMAGE_TYPE::BGR10UI_NORM;
 		case MTLPixelFormatBGR10_XR_sRGB:

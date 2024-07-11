@@ -90,7 +90,7 @@ public:
 	
 	//! returns true if the specified resource type/options requires CPU/GPU sync
 	static bool metal_resource_type_needs_sync(const MTLResourceOptions& opts) {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		return ((opts & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
 				(opts & MTLResourceStorageModeMask) == MTLResourceStorageModeShared);
 #else

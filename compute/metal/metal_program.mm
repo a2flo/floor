@@ -116,7 +116,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(std::move(
 							continue;
 						}
 						supports_indirect_compute = [kernel_state supportIndirectCommandBuffers];
-#if defined(FLOOR_DEBUG) || defined(FLOOR_IOS)
+#if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 						log_debug("$ ($): max work-items: $, simd width: $, local mem: $",
 								  info.name, prog.first.get().name,
 								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);

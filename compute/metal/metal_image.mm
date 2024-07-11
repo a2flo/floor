@@ -84,7 +84,7 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 			storage_options = MTLStorageModePrivate;
 		}
 	} else {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if (!dev.unified_memory) {
 			options |= MTLResourceStorageModeManaged;
 			storage_options = MTLStorageModeManaged;
@@ -117,12 +117,9 @@ static uint4 compute_metal_image_dim(id <MTLTexture> floor_nonnull img) {
 	// set layer count for array formats
 	const auto texture_type = [img textureType];
 	const auto layer_count = (uint32_t)[img arrayLength];
-	if(texture_type == MTLTextureType1DArray) dim.y = layer_count;
-	else if(texture_type == MTLTextureType2DArray
-#if !defined(FLOOR_IOS)
-			|| texture_type == MTLTextureTypeCubeArray
-#endif
-			) {
+	if (texture_type == MTLTextureType1DArray) {
+		dim.y = layer_count;
+	} else if (texture_type == MTLTextureType2DArray || texture_type == MTLTextureTypeCubeArray) {
 		dim.z = layer_count;
 	}
 	
@@ -219,7 +216,7 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
-#if !defined(FLOOR_IOS) // macOS only
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
 		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 												COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
@@ -231,7 +228,7 @@ FLOOR_POP_WARNINGS()
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4)
+#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4) || defined(FLOOR_VISIONOS)
 		// BC formats
 		{ MTLPixelFormatBC1_RGBA, COMPUTE_IMAGE_TYPE::BC1_RGBA },
 		{ MTLPixelFormatBC1_RGBA_sRGB, COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB },
@@ -263,6 +260,7 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatASTC_4x4_sRGB, COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB },
 		{ MTLPixelFormatASTC_4x4_LDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR },
 		{ MTLPixelFormatASTC_4x4_HDR, COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR },
+#if !defined(FLOOR_VISIONOS)
 		// PVRTC formats
 		{ MTLPixelFormatPVRTC_RGB_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB2 },
 		{ MTLPixelFormatPVRTC_RGB_4BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB4 },
@@ -272,6 +270,7 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB },
+#endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
 	if(metal_format == end(format_lut)) {
@@ -324,7 +323,7 @@ compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_ima
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
 #endif
@@ -337,14 +336,14 @@ FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
 		case MTLStorageModePrivate:
 			options |= MTLResourceStorageModePrivate;
 			break;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		case MTLStorageModeManaged:
 			options |= MTLResourceStorageModeManaged;
 			break;
 #endif
 	}
 	
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 FLOOR_POP_WARNINGS()
 #endif
 	
@@ -535,7 +534,7 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 			return true;
 		}, shim_image_type);
 		
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 			[blit_encoder synchronizeResource:image];
 		}
@@ -829,7 +828,7 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 			return true;
 		}, shim_image_type);
 		
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
 			[blit_encoder synchronizeResource:image];
 		}
@@ -944,7 +943,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_16 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
-#if !defined(FLOOR_IOS) // macOS only
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
@@ -956,7 +955,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4)
+#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4) || defined(FLOOR_VISIONOS)
 		// BC formats
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
 		{ COMPUTE_IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
@@ -988,6 +987,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_SRGB, MTLPixelFormatASTC_4x4_sRGB },
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
 		{ COMPUTE_IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
+#if !defined(FLOOR_VISIONOS)
 		// PVRTC formats
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
@@ -997,6 +997,7 @@ optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const C
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
 		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
+#endif
 		// TODO: special image formats, these are partially supported
 	};
 	const auto masked_image_type = (image_type_ & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |

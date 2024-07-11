@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 #include <Cocoa/Cocoa.h>
 #endif
 #include <SDL3/SDL.h>
@@ -33,7 +33,7 @@
 #include <floor/constexpr/const_math.hpp>
 #include <floor/compute/hdr_metadata.hpp>
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 #import <AppKit/AppKit.h>
 #import <AppKit/NSApplication.h>
 #define UI_VIEW_CLASS NSView
@@ -45,13 +45,13 @@
 #import <Foundation/NSData.h>
 
 // cocoa or uikit window type
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 typedef NSWindow* wnd_type_ptr;
 #else
 typedef UIWindow* wnd_type_ptr;
 #endif
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 // we need to create an app delegate to disable applicationSupportsSecureRestorableState warnings ...
 // however, if we do this, we also need to handle SDL things (https://wiki.libsdl.org/SDL3/README/macos/raw)
 @interface libfloor_app_delegate : NSObject <NSApplicationDelegate>
@@ -101,7 +101,7 @@ void darwin_helper::create_app_delegate() {
 
 // returns the underlying native NSWindow/UIWindow window
 static auto get_native_window(SDL_Window* wnd) {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	if (NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 		cocoa_wnd) {
 		return cocoa_wnd;
@@ -171,7 +171,7 @@ FLOOR_POP_WARNINGS()
 
 - (CGRect)create_frame {
 	const CGRect wnd_frame = {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		[self.wnd contentRectForFrameRect:[self.wnd frame]]
 #else
 		[self.wnd frame]
@@ -184,10 +184,12 @@ FLOOR_POP_WARNINGS()
 - (CGFloat)get_scale_factor {
 	return (
 		self.is_hidpi ?
-#if !defined(FLOOR_IOS)
-		[self.wnd backingScaleFactor]
-#else
+#if defined(FLOOR_IOS)
 		[[self.wnd screen] scale]
+#elif defined(FLOOR_VISIONOS)
+		2.0 // TODO: can we query this somehow? does it make sense?
+#else
+		[self.wnd backingScaleFactor]
 #endif
 		: 1.0
 	);
@@ -324,18 +326,18 @@ FLOOR_POP_WARNINGS()
 	
 	self = [super initWithFrame:frame];
 	if(self) {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		[self setWantsLayer:true];
 #endif
 		self.metal_layer = (CAMetalLayer*)self.layer;
 		self.metal_layer.device = device;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		self.metal_layer.displaySyncEnabled = self.is_vsync;
 #endif
 		if (!self.is_wide_gamut) {
 			self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 		} else {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 			// NOTE: float (-> non-normalized) won't do any scaling for wide-gamut or HDR (-> luminance is linear)
 			//       normalized uint will do scaling by itself, but rather intransparently
 			// -> use float format
@@ -369,7 +371,7 @@ FLOOR_POP_WARNINGS()
 			self.metal_layer.colorspace = colorspace_ref;
 #endif
 		}
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 		self.metal_layer.opaque = true;
 		self.metal_layer.backgroundColor = nil;
 #endif
@@ -379,18 +381,21 @@ FLOOR_POP_WARNINGS()
 		max_scheduled_frames = max_drawables_in_flight;
 		tp_prev_frame = chrono::high_resolution_clock::now();
 		
-#if !defined(FLOOR_IOS)
+#if defined(FLOOR_IOS)
+		// need to listen for device orientation change events on iOS (won't happen for macOS)
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												 selector:@selector(orientationChanged:)
+													 name:UIDeviceOrientationDidChangeNotification
+												   object:[UIDevice currentDevice]];
+		
+#elif defined(FLOOR_VISIONOS)
+		// nothing to listen to?
+#else
 		// need to listen for window resize events on macOS (won't happen for iOS)
 		[[NSNotificationCenter defaultCenter] addObserver:self
 												 selector:@selector(windowDidResize:)
 													 name:NSWindowDidResizeNotification
 												   object:self.wnd];
-#else
-		// need to listen for device orientation change events on ios (won't happen for macOS)
-		[[NSNotificationCenter defaultCenter] addObserver:self
-												 selector:@selector(orientationChanged:)
-													 name:UIDeviceOrientationDidChangeNotification
-												   object:[UIDevice currentDevice]];
 #endif
 		
 		// force reshape after init
@@ -404,7 +409,7 @@ FLOOR_POP_WARNINGS()
 	CGColorSpaceRelease(colorspace_ref);
 }
 
-#if !defined(FLOOR_IOS) // not applicable to ios
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not applicable to iOS/visionOS
 - (void)viewDidChangeBackingProperties {
 	[super viewDidChangeBackingProperties];
 	[self reshape];
@@ -462,24 +467,28 @@ FLOOR_POP_WARNINGS()
 
 metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata) {
 	// we always create our own Metal view
-#if !defined(FLOOR_IOS)
-	NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-	if (!cocoa_wnd) {
-		log_error("failed to retrieve window: $", SDL_GetError());
-		return nullptr;
-	}
-	const bool can_do_hdr = ([[cocoa_wnd screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
-#else
+#if defined(FLOOR_IOS)
 	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
 	if (!uikit_wnd) {
 		log_error("failed to retrieve window: $", SDL_GetError());
 		return nullptr;
 	}
 	const bool can_do_hdr = ([[uikit_wnd screen] potentialEDRHeadroom] > 1.0);
+#elif defined(FLOOR_VISIONOS)
+	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+	// no way to query this, but we can always query this
+	const bool can_do_hdr = true;
+#else
+	NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+	if (!cocoa_wnd) {
+		log_error("failed to retrieve window: $", SDL_GetError());
+		return nullptr;
+	}
+	const bool can_do_hdr = ([[cocoa_wnd screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
 #endif
 	
 	metal_view* view = [[metal_view alloc]
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 						initWithWindow:cocoa_wnd
 #else
 						initWithWindow:uikit_wnd
@@ -491,7 +500,7 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 						withHDR:(floor::get_hdr() && can_do_hdr)
 						withHDRLinear:floor::get_hdr_linear()
 						withHDRMetadata:hdr_metadata];
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	[[cocoa_wnd contentView] addSubview:view];
 #else
 	[uikit_wnd addSubview:view];
@@ -544,15 +553,18 @@ void darwin_helper::set_metal_view_hdr_metadata(metal_view* view, const hdr_meta
 }
 
 float darwin_helper::get_metal_view_edr_max(metal_view* view) {
-#if !defined(FLOOR_IOS)
-	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
-#else
+#if defined(FLOOR_IOS)
 	return (float)[[[view window] screen] potentialEDRHeadroom];
+#elif defined(FLOOR_VISIONOS)
+	(void)view;
+	return 1.0f; // TODO: how to query this?
+#else
+	return (float)[[[view window] screen] maximumExtendedDynamicRangeColorComponentValue];
 #endif
 }
 
 float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view) {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	using get_nominal_pixel_nits_func_type = float (*)(int32_t);
 	static const auto get_nominal_pixel_nits = []() -> get_nominal_pixel_nits_func_type {
 		static const auto core_display_lib = dlopen("/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay", RTLD_NOW);
@@ -581,12 +593,8 @@ float darwin_helper::get_metal_view_hdr_max_nits(metal_view* view) {
 #endif
 }
 
-uint32_t darwin_helper::get_dpi(SDL_Window* wnd
-#if defined(FLOOR_IOS)
-							  floor_unused
-#endif
-							  ) {
-#if !defined(FLOOR_IOS) // on macOS this can be done properly through querying CoreGraphics
+uint32_t darwin_helper::get_dpi(SDL_Window* wnd floor_unused_on_ios_and_visionos) {
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // on macOS this can be done properly through querying CoreGraphics
 	float2 display_res(float2(CGDisplayPixelsWide(CGMainDisplayID()),
 							  CGDisplayPixelsHigh(CGMainDisplayID())) * get_scale_factor(wnd));
 	const CGSize display_phys_size(CGDisplayScreenSize(CGMainDisplayID()));
@@ -630,10 +638,12 @@ float darwin_helper::get_scale_factor(SDL_Window* wnd, const bool force_query) {
 	static atomic<bool> is_set { false };
 	if (!is_set || force_query || window_did_resize) {
 		scale_factor = (
-#if !defined(FLOOR_IOS)
-						(float)[native_wnd backingScaleFactor]
-#else
+#if defined(FLOOR_IOS)
 						(float)[[native_wnd screen] scale]
+#elif defined(FLOOR_VISIONOS)
+						2.0f // TODO: again, how to query this?
+#else
+						(float)[native_wnd backingScaleFactor]
 #endif
 						);
 		is_set = true;
@@ -642,7 +652,7 @@ float darwin_helper::get_scale_factor(SDL_Window* wnd, const bool force_query) {
 	return scale_factor;
 }
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 float darwin_helper::get_menu_bar_height() {
 	return (float)[[[NSApplication sharedApplication] mainMenu] menuBarHeight];
 }
@@ -660,7 +670,7 @@ size_t darwin_helper::get_system_version() {
 		const size_t major_version = stosize(osrelease.substr(0, major_dot));
 		size_t os_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
 		
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		// osrelease = kernel version
 		// * <= 10.15: not macOS version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
 		// * >= 11.0: 110000 + x * 10000
@@ -689,7 +699,7 @@ size_t darwin_helper::get_system_version() {
 		// macOS >= 11.00             :  1xxyyy, x = major, y = minor
 		// iOS                        :  xxyy00, x = major, y = minor
 		size_t condensed_version;
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		if (major_version < 20) { // 101000+
 			condensed_version = 100000;
 			condensed_version += os_major_version * 100;
@@ -706,30 +716,35 @@ size_t darwin_helper::get_system_version() {
 	}
 	
 	// just return lowest supported version
-#if !defined(FLOOR_IOS)
-	log_error("unable to retrieve macOS version!");
-	return __MAC_13_0;
-#else
+#if defined(FLOOR_IOS)
 	log_error("unable to retrieve iOS version!");
 	return __IPHONE_16_0;
+#elif defined(FLOOR_VISIONOS)
+	log_error("unable to retrieve visionOS version!");
+	return __VISIONOS_2_0;
+#else
+	log_error("unable to retrieve macOS version!");
+	return __MAC_13_0;
 #endif
 }
 
 size_t darwin_helper::get_compiled_system_version() {
-#if !defined(FLOOR_IOS)
-	// this is a number: 101000 (10.10), 1090 (10.9), 1080 (10.8), ...
-	return MAC_OS_X_VERSION_MAX_ALLOWED;
-#else
+#if defined(FLOOR_IOS)
 	// this is a number: 70000 (7.0), 60100 (6.1), ...
 	return __IPHONE_OS_VERSION_MAX_ALLOWED;
+#elif defined(FLOOR_VISIONOS)
+	return __VISION_OS_VERSION_MAX_ALLOWED;
+#else
+	// this is a number: 101000 (10.10), 1090 (10.9), 1080 (10.8), ...
+	return MAC_OS_X_VERSION_MAX_ALLOWED;
 #endif
 }
 
 string darwin_helper::get_computer_name() {
-#if !defined(FLOOR_IOS)
-	return [[[NSHost currentHost] localizedName] UTF8String];
-#else
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 	return [[[UIDevice currentDevice] name] UTF8String];
+#else
+	return [[[NSHost currentHost] localizedName] UTF8String];
 #endif
 }
 

@@ -22,16 +22,21 @@
 #include <floor/core/platform.hpp>
 #include <floor/core/cpp_headers.hpp>
 
-#if !defined(FLOOR_IOS)
-#define floor_unused_on_ios
-#else
+#if defined(FLOOR_IOS)
 #define floor_unused_on_ios floor_unused
-#endif
-
-#if !defined(FLOOR_IOS)
-#define floor_unused_on_macos floor_unused
-#else
+#define floor_unused_on_ios_and_visionos floor_unused
+#define floor_unused_on_visionos
 #define floor_unused_on_macos
+#elif defined(FLOOR_VISIONOS)
+#define floor_unused_on_ios
+#define floor_unused_on_ios_and_visionos floor_unused
+#define floor_unused_on_visionos floor_unused
+#define floor_unused_on_macos
+#else
+#define floor_unused_on_ios
+#define floor_unused_on_ios_and_visionos
+#define floor_unused_on_visionos
+#define floor_unused_on_macos floor_unused
 #endif
 
 #if defined(__OBJC__)
@@ -56,7 +61,7 @@ public:
 	static string get_pref_path();
 	static bool is_running_in_debugger();
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// macOS specific
 	static void create_app_delegate();
 	static float get_menu_bar_height();
