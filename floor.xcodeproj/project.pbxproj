@@ -650,7 +650,7 @@
 		5C6008AC1AB6D6D200BC7012 /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda.hpp; path = device/cuda.hpp; sourceTree = "<group>"; };
 		5C6008AD1AB6D6D200BC7012 /* metal.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal.hpp; path = device/metal.hpp; sourceTree = "<group>"; };
 		5C60A54E29E387CD00AA58D1 /* vulkan_args.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_args.hpp; path = vulkan/vulkan_args.hpp; sourceTree = "<group>"; };
-		5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloor_visionos.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C62E0A72C3E223200FF4E9A /* libfloord_visionos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_visionos.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C678CF1262FA8D7001A1C1F /* cuda_argument_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_argument_buffer.cpp; sourceTree = "<group>"; };
 		5C678CF2262FA8D8001A1C1F /* cuda_argument_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_argument_buffer.hpp; sourceTree = "<group>"; };
 		5C6B6D8C1EC7381C00342E50 /* serializer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = serializer.cpp; sourceTree = "<group>"; };
@@ -929,7 +929,7 @@
 			children = (
 				5C10915E17D114BC007F536E /* libfloord.dylib */,
 				5CC2F77518678AAC0031E08D /* libfloord_static.a */,
-				5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */,
+				5C62E0A72C3E223200FF4E9A /* libfloord_visionos.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1737,7 +1737,7 @@
 			);
 			name = floor_visionos;
 			productName = floor_ios;
-			productReference = 5C62E0A72C3E223200FF4E9A /* libfloor_visionos.a */;
+			productReference = 5C62E0A72C3E223200FF4E9A /* libfloord_visionos.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		5CC2F77418678AAC0031E08D /* floor_ios */ = {
@@ -2344,6 +2344,7 @@
 					"-Wno-nan-infinity-disabled",
 					"-Wno-unsafe-buffer-usage-in-container",
 				);
+				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Debug;
 		};
@@ -2502,6 +2503,7 @@
 					"-Wno-nan-infinity-disabled",
 					"-Wno-unsafe-buffer-usage-in-container",
 				);
+				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Release;
 		};
@@ -2576,14 +2578,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_visionos.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_VISIONOS,
@@ -2596,7 +2592,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = floord_visionos;
 				SDKROOT = xros;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -2611,14 +2607,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_visionos.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_VISIONOS,
@@ -2631,7 +2621,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = floor_visionos;
 				SDKROOT = xros;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -2692,14 +2682,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
@@ -2725,14 +2709,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64",
-				);
-				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator",
-				);
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,

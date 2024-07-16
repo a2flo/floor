@@ -66,6 +66,8 @@ public:
 		MACOS,
 		IOS,
 		VISIONOS,
+		IOS_SIMULATOR,
+		VISIONOS_SIMULATOR,
 	};
 	// device platform type
 	PLATFORM_TYPE platform_type {
@@ -80,7 +82,9 @@ public:
 	static constexpr const char* platform_type_to_string(const PLATFORM_TYPE& pltfrm_type) {
 		switch (pltfrm_type) {
 			case PLATFORM_TYPE::IOS: return "iOS";
+			case PLATFORM_TYPE::IOS_SIMULATOR: return "iOS simulator";
 			case PLATFORM_TYPE::VISIONOS: return "visionOS";
+			case PLATFORM_TYPE::VISIONOS_SIMULATOR: return "visionOS simulator";
 			case PLATFORM_TYPE::MACOS: return "macOS";
 		}
 		floor_unreachable();

@@ -299,7 +299,8 @@ program_data compile_input(const string& input,
 			}
 			
 			string os_target;
-			if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS) {
+			if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS ||
+				mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS_SIMULATOR) {
 				// -> iOS 16.0+
 				switch (metal_version) {
 					default:
@@ -313,7 +314,8 @@ program_data compile_input(const string& input,
 						os_target = "ios18.0.0";
 						break;
 				}
-			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS) {
+			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS ||
+					   mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR) {
 				// -> visionOS/XROS 2.0+
 				switch (metal_version) {
 					default:
@@ -338,6 +340,10 @@ program_data compile_input(const string& input,
 			} else {
 				log_error("unsupported Metal device family type: $", uint32_t(mtl_dev.family_type));
 				return {};
+			}
+			if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS_SIMULATOR ||
+				mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR) {
+				os_target += "-simulator";
 			}
 			
 			string metal_std = "metal3.0";

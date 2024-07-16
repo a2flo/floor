@@ -406,22 +406,28 @@ namespace universal_binary {
 				}
 				mtl_dev.metal_language_version = metal_version_from_uint(mtl_target.major, mtl_target.minor);
 				mtl_dev.family_type = (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ||
-									   mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS ?
+									   mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS ||
+									   mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR ||
+									   mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS_SIMULATOR ?
 									   metal_device::FAMILY_TYPE::APPLE : metal_device::FAMILY_TYPE::MAC);
 				mtl_dev.platform_vendor = COMPUTE_VENDOR::APPLE;
 				mtl_dev.double_support = false; // always disabled for now
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
 				
 				// overwrite compute_device/metal_device defaults
-				if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS) {
-					mtl_dev.platform_type = metal_device::PLATFORM_TYPE::IOS;
+				if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ||
+					mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR) {
+					mtl_dev.platform_type = (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR ?
+											 metal_device::PLATFORM_TYPE::IOS_SIMULATOR : metal_device::PLATFORM_TYPE::IOS);
 					mtl_dev.family_tier = 7; // can't be overwritten right now
 					mtl_dev.vendor = COMPUTE_VENDOR::APPLE;
 					mtl_dev.unified_memory = true;
 					mtl_dev.simd_width = 32;
 					mtl_dev.simd_range = { mtl_dev.simd_width, mtl_dev.simd_width };
-				} else if (mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS) {
-					mtl_dev.platform_type = metal_device::PLATFORM_TYPE::VISIONOS;
+				} else if (mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS ||
+						   mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS_SIMULATOR) {
+					mtl_dev.platform_type = (mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS_SIMULATOR ?
+											 metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR : metal_device::PLATFORM_TYPE::VISIONOS);
 					mtl_dev.family_tier = 8; // can't be overwritten right now
 					mtl_dev.vendor = COMPUTE_VENDOR::APPLE;
 					mtl_dev.unified_memory = true;
@@ -1206,9 +1212,17 @@ namespace universal_binary {
 						mtl_dev.platform_type != metal_device::PLATFORM_TYPE::IOS) {
 						continue;
 					}
+					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR &&
+						mtl_dev.platform_type != metal_device::PLATFORM_TYPE::IOS_SIMULATOR) {
+						continue;
+					}
 					// visionOS binary, but not visionOS device?
 					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS &&
 						mtl_dev.platform_type != metal_device::PLATFORM_TYPE::VISIONOS) {
+						continue;
+					}
+					if (mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS_SIMULATOR &&
+						mtl_dev.platform_type != metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR) {
 						continue;
 					}
 					
@@ -1240,7 +1254,9 @@ namespace universal_binary {
 							break;
 					}
 					if ((mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ||
-						 mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS) &&
+						 mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS ||
+						 mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR ||
+						 mtl_target.platform_target == decltype(mtl_target.platform_target)::VISIONOS_SIMULATOR) &&
 						mtl_target.device_target != decltype(mtl_target.device_target)::APPLE) {
 						continue; // iOS/visionOS must use APPLE target
 					}

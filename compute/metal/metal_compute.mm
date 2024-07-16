@@ -144,10 +144,12 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			}
 		}
 		
+#if !TARGET_OS_SIMULATOR
 		// device must support Metal 3
 		if (![dev supportsFamily:MTLGPUFamilyMetal3]) {
 			continue;
 		}
+#endif
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		// should be included in Metal 3 support, but just in case also require this
 		if (![dev supportsFamily:MTLGPUFamilyMac2]) {
@@ -180,9 +182,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		device.family_type = metal_device::FAMILY_TYPE::APPLE;
 #if defined(FLOOR_VISIONOS)
+#if !TARGET_OS_SIMULATOR
 		device.platform_type = metal_device::PLATFORM_TYPE::VISIONOS;
 #else
+		device.platform_type = metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR;
+#endif
+#else
+#if !TARGET_OS_SIMULATOR
 		device.platform_type = metal_device::PLATFORM_TYPE::IOS;
+#else
+		device.platform_type = metal_device::PLATFORM_TYPE::IOS_SIMULATOR;
+#endif
 #endif
 		
 		// find max supported Apple* family
@@ -193,7 +203,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				device.family_tier = (uint32_t(family) - uint32_t(MTLGPUFamilyApple1)) + 1u;
 			}
 		}
-		assert(device.family_tier >= 7);
+		assert(device.family_tier >= 7 || TARGET_OS_SIMULATOR);
 		
 		// figure out which metal version we can use
 #if defined(FLOOR_IOS)

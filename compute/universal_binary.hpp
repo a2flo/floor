@@ -160,11 +160,15 @@ namespace universal_binary {
 			//! Apple platform target
 			enum PLATFORM_TARGET : uint64_t {
 				//! target macOS
-				MACOS		= 0u,
+				MACOS				= 0u,
 				//! target iOS/iPadOS
-				IOS			= 1u,
+				IOS					= 1u,
 				//! target visionOS
-				VISIONOS	= 2u,
+				VISIONOS			= 2u,
+				//! target iOS/iPadOS simulator
+				IOS_SIMULATOR		= 3u,
+				//! target visionOS simulator
+				VISIONOS_SIMULATOR	= 4u,
 				// TODO: tvOS, ...
 			};
 			PLATFORM_TARGET platform_target : 4u;

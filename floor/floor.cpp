@@ -310,6 +310,7 @@ bool floor::init(const init_state& state) {
 												 false
 #endif
 												 );
+		config.prefer_native_device_resolution = config_doc.get<bool>("screen.prefer_native_device_resolution", true);
 		
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		config.vr = config_doc.get<bool>("screen.vr.enabled", false);
@@ -900,7 +901,25 @@ bool floor::init_internal(const init_state& state) {
 		config.width = (wnd_size.x > 0 ? uint32_t(wnd_size.x) : 1u);
 		config.height = (wnd_size.y > 0 ? uint32_t(wnd_size.y) : 1u);
 		log_debug("video mode set: w$ h$", config.width, config.height);
-
+		
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+		if (config.prefer_native_device_resolution) {
+			const auto primary_display = SDL_GetPrimaryDisplay();
+			if (const auto desktop_display_mode = SDL_GetDesktopDisplayMode(primary_display); desktop_display_mode) {
+				log_msg("using desktop display mode: $*$px $Hz, fmt: $, density: $", desktop_display_mode->w, desktop_display_mode->h,
+						desktop_display_mode->refresh_rate, desktop_display_mode->format, desktop_display_mode->pixel_density);
+				memcpy(&fullscreen_mode, desktop_display_mode, sizeof(SDL_DisplayMode));
+			}
+		}
+		if (SDL_SetWindowFullscreenMode(window, &fullscreen_mode) < 0) {
+			log_error("can't set up fullscreen display mode: $", SDL_GetError());
+			return false;
+		}
+		SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
+		log_debug("fullscreen mode set: w$ h$", config.width, config.height);
+		SDL_ShowWindow(window);
+#endif
+		
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		darwin_helper::create_app_delegate();
@@ -911,16 +930,6 @@ bool floor::init_internal(const init_state& state) {
 #endif
 
 		log_debug("scale factor: $", get_scale_factor());
-		
-#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-		if(SDL_SetWindowFullscreenMode(window, &fullscreen_mode) < 0) {
-			log_error("can't set up fullscreen display mode: $", SDL_GetError());
-			return false;
-		}
-		SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
-		log_debug("fullscreen mode set: w$ h$", config.width, config.height);
-		SDL_ShowWindow(window);
-#endif
 		
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		// create a VR context if this is enabled and we want to create a supported renderer

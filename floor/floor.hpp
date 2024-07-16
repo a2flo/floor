@@ -331,6 +331,7 @@ protected:
 			false
 #endif
 		};
+		bool prefer_native_device_resolution = true;
 
 		// VR
 		bool vr = false;
