@@ -37,192 +37,194 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 	
 	static const bool dump_reflection_info = floor::get_metal_dump_reflection_info();
 	
-	for (const auto& dev : devices) {
-		const auto& mtl_dev = ((const metal_device&)*dev).device;
-		const auto mtl_vs_entry = (const metal_kernel::metal_kernel_entry*)mtl_vs->get_kernel_entry(*dev);
-		const auto mtl_fs_entry = (mtl_fs != nullptr ? (const metal_kernel::metal_kernel_entry*)mtl_fs->get_kernel_entry(*dev) : nullptr);
-	
-		MTLRenderPipelineDescriptor* mtl_pipeline_desc = [[MTLRenderPipelineDescriptor alloc] init];
-		mtl_pipeline_desc.label = @"metal pipeline";
-		// NOTE: there is no difference here between a pre- and post-tessallation vertex shader
-		mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
-		mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
-		mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
-		
-		// multi-sampling
-		if (pipeline_desc.sample_count > 1) {
-			mtl_pipeline_desc.rasterSampleCount = pipeline_desc.sample_count;
-		}
-		
-		// set color attachments
-		for (size_t i = 0, count = pipeline_desc.color_attachments.size(); i < count; ++i) {
-			const auto& color_att = pipeline_desc.color_attachments[i];
-			if (color_att.format == COMPUTE_IMAGE_TYPE::NONE) {
-				log_error("color attachment image type must not be NONE!");
-				return;
+	@autoreleasepool {
+		for (const auto& dev : devices) {
+			const auto& mtl_dev = ((const metal_device&)*dev).device;
+			const auto mtl_vs_entry = (const metal_kernel::metal_kernel_entry*)mtl_vs->get_kernel_entry(*dev);
+			const auto mtl_fs_entry = (mtl_fs != nullptr ? (const metal_kernel::metal_kernel_entry*)mtl_fs->get_kernel_entry(*dev) : nullptr);
+			
+			MTLRenderPipelineDescriptor* mtl_pipeline_desc = [[MTLRenderPipelineDescriptor alloc] init];
+			mtl_pipeline_desc.label = @"metal pipeline";
+			// NOTE: there is no difference here between a pre- and post-tessallation vertex shader
+			mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
+			mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
+			mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
+			
+			// multi-sampling
+			if (pipeline_desc.sample_count > 1) {
+				mtl_pipeline_desc.rasterSampleCount = pipeline_desc.sample_count;
 			}
 			
-			const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(color_att.format);
-			if (!metal_pixel_format) {
-				log_error("no matching Metal pixel format found for color image type $X", color_att.format);
-				return;
-			}
-			mtl_pipeline_desc.colorAttachments[i].pixelFormat = *metal_pixel_format;
-			
-			// handle blending
-			if (color_att.blend.enable) {
-				mtl_pipeline_desc.colorAttachments[i].blendingEnabled = true;
-				mtl_pipeline_desc.colorAttachments[i].sourceRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_color_factor);
-				mtl_pipeline_desc.colorAttachments[i].sourceAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_alpha_factor);
-				mtl_pipeline_desc.colorAttachments[i].destinationRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_color_factor);
-				mtl_pipeline_desc.colorAttachments[i].destinationAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_alpha_factor);
-				mtl_pipeline_desc.colorAttachments[i].rgbBlendOperation = metal_blend_op_from_blend_op(color_att.blend.color_blend_op);
-				mtl_pipeline_desc.colorAttachments[i].alphaBlendOperation = metal_blend_op_from_blend_op(color_att.blend.alpha_blend_op);
-				
-				if (!color_att.blend.write_mask.all()) {
-					// actually need to compute/set a mask when not everything is written
-					MTLColorWriteMask mask = MTLColorWriteMaskNone;
-					if (color_att.blend.write_mask.x) {
-						mask |= MTLColorWriteMaskRed;
-					}
-					if (color_att.blend.write_mask.y) {
-						mask |= MTLColorWriteMaskGreen;
-					}
-					if (color_att.blend.write_mask.z) {
-						mask |= MTLColorWriteMaskBlue;
-					}
-					if (color_att.blend.write_mask.w) {
-						mask |= MTLColorWriteMaskAlpha;
-					}
-					mtl_pipeline_desc.colorAttachments[i].writeMask = mask;
-				}
-			} else {
-				mtl_pipeline_desc.colorAttachments[i].blendingEnabled = false;
-			}
-		}
-		
-		// set optional depth attachment
-		if (pipeline_desc.depth_attachment.format != COMPUTE_IMAGE_TYPE::NONE) {
-			const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
-			if (!metal_pixel_format) {
-				log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
-				return;
-			}
-			mtl_pipeline_desc.depthAttachmentPixelFormat = *metal_pixel_format;
-		}
-		
-		// stencil is not supported yet
-		mtl_pipeline_desc.stencilAttachmentPixelFormat = MTLPixelFormatInvalid;
-		
-		// set primitive type
-		MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
-		switch (pipeline_desc.primitive) {
-			case PRIMITIVE::POINT:
-				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
-				break;
-			case PRIMITIVE::LINE:
-				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
-				break;
-			case PRIMITIVE::TRIANGLE:
-			case PRIMITIVE::TRIANGLE_STRIP:
-				primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
-				break;
-		}
-		mtl_pipeline_desc.inputPrimitiveTopology = primitive;
-		
-		// tessellation
-		MTLVertexDescriptor* mtl_vertex_desc = [MTLVertexDescriptor vertexDescriptor];
-		if (pipeline_desc.tessellation.max_factor > 0u) {
-			if (pipeline_desc.tessellation.max_factor > 64u) {
-				log_error("max tessellation factor is out-of-range: $!", pipeline_desc.tessellation.max_factor);
-				return;
-			}
-			if (pipeline_desc.primitive != PRIMITIVE::TRIANGLE) {
-				log_error("when using tessellation, pipeline primitive type must be triangle");
-				return;
-			}
-			mtl_pipeline_desc.maxTessellationFactor = pipeline_desc.tessellation.max_factor;
-			mtl_pipeline_desc.tessellationFactorScaleEnabled = false; // never
-			mtl_pipeline_desc.tessellationFactorFormat = MTLTessellationFactorFormatHalf;
-			mtl_pipeline_desc.tessellationControlPointIndexType = (pipeline_desc.tessellation.is_indexed_draw ?
-																   MTLTessellationControlPointIndexTypeUInt32 :
-																   MTLTessellationControlPointIndexTypeNone);
-			mtl_pipeline_desc.tessellationFactorStepFunction = MTLTessellationFactorStepFunctionPerPatch;
-			mtl_pipeline_desc.tessellationPartitionMode = metal_tessellation_partition_mode_from_spacing(pipeline_desc.tessellation.spacing);
-			mtl_pipeline_desc.tessellationOutputWindingOrder = metal_winding_from_winding(pipeline_desc.tessellation.winding);
-			
-			// when using tessellation, we *must* also specify the vertex attributes that are being used,
-			// since vertices / control points will be fetched by fixed-function hardware and not a shader
-			if (pipeline_desc.tessellation.vertex_attributes.empty()) {
-				log_error("must specify vertex attributes when using tessellation");
-				return;
-			}
-			uint32_t vattr_idx = 0;
-			for (const auto& vattr : pipeline_desc.tessellation.vertex_attributes) {
-				mtl_vertex_desc.attributes[vattr_idx].format = metal_vertex_format_from_vertex_format(vattr);
-				if (mtl_vertex_desc.attributes[vattr_idx].format == MTLVertexFormatInvalid) {
-					log_error("invalid or incompatible vertex attribute format: $X", vattr);
+			// set color attachments
+			for (size_t i = 0, count = pipeline_desc.color_attachments.size(); i < count; ++i) {
+				const auto& color_att = pipeline_desc.color_attachments[i];
+				if (color_att.format == COMPUTE_IMAGE_TYPE::NONE) {
+					log_error("color attachment image type must not be NONE!");
 					return;
 				}
-				mtl_vertex_desc.attributes[vattr_idx].offset = 0u;
-				mtl_vertex_desc.attributes[vattr_idx].bufferIndex = vattr_idx; // contiguous (ensured on the compiler side)
-				mtl_vertex_desc.layouts[vattr_idx].stepFunction = MTLVertexStepFunctionPerPatchControlPoint;
-				mtl_vertex_desc.layouts[vattr_idx].stepRate = 1u;
-				mtl_vertex_desc.layouts[vattr_idx].stride = vertex_bytes(vattr);
-				++vattr_idx;
-			}
-			mtl_pipeline_desc.vertexDescriptor = mtl_vertex_desc;
-		}
-		
-		// TODO: set per-buffer mutability
-		//mtl_pipeline_desc.vertexBuffers[0].mutability = MTLMutability::MTLMutabilityMutable;
-		//mtl_pipeline_desc.fragmentBuffers[0].mutability = MTLMutability::MTLMutabilityImmutable;
-		
-		// finally create the pipeline object
-		metal_pipeline_entry entry;
-		NSError* error = nullptr;
-		if (dump_reflection_info) {
-			MTLAutoreleasedRenderPipelineReflection refl_data { nil };
-			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
-																		 options:(
-#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
-																				  MTLPipelineOptionBindingInfo |
-#else
-																				  MTLPipelineOptionArgumentInfo |
-#endif
-																				  MTLPipelineOptionBufferTypeInfo)
-																	  reflection:&refl_data
-																		   error:&error];
-			if (refl_data) {
-				metal_program::dump_bindings_reflection("vertex shader \"" + mtl_vs_entry->info->name + "\"", [refl_data vertexBindings]);
-				if (mtl_fs_entry) {
-					metal_program::dump_bindings_reflection("fragment shader \"" + mtl_vs_entry->info->name + "\"", [refl_data fragmentBindings]);
+				
+				const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(color_att.format);
+				if (!metal_pixel_format) {
+					log_error("no matching Metal pixel format found for color image type $X", color_att.format);
+					return;
+				}
+				mtl_pipeline_desc.colorAttachments[i].pixelFormat = *metal_pixel_format;
+				
+				// handle blending
+				if (color_att.blend.enable) {
+					mtl_pipeline_desc.colorAttachments[i].blendingEnabled = true;
+					mtl_pipeline_desc.colorAttachments[i].sourceRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_color_factor);
+					mtl_pipeline_desc.colorAttachments[i].sourceAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_alpha_factor);
+					mtl_pipeline_desc.colorAttachments[i].destinationRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_color_factor);
+					mtl_pipeline_desc.colorAttachments[i].destinationAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_alpha_factor);
+					mtl_pipeline_desc.colorAttachments[i].rgbBlendOperation = metal_blend_op_from_blend_op(color_att.blend.color_blend_op);
+					mtl_pipeline_desc.colorAttachments[i].alphaBlendOperation = metal_blend_op_from_blend_op(color_att.blend.alpha_blend_op);
+					
+					if (!color_att.blend.write_mask.all()) {
+						// actually need to compute/set a mask when not everything is written
+						MTLColorWriteMask mask = MTLColorWriteMaskNone;
+						if (color_att.blend.write_mask.x) {
+							mask |= MTLColorWriteMaskRed;
+						}
+						if (color_att.blend.write_mask.y) {
+							mask |= MTLColorWriteMaskGreen;
+						}
+						if (color_att.blend.write_mask.z) {
+							mask |= MTLColorWriteMaskBlue;
+						}
+						if (color_att.blend.write_mask.w) {
+							mask |= MTLColorWriteMaskAlpha;
+						}
+						mtl_pipeline_desc.colorAttachments[i].writeMask = mask;
+					}
+				} else {
+					mtl_pipeline_desc.colorAttachments[i].blendingEnabled = false;
 				}
 			}
-		} else {
-			entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
-																		   error:&error];
+			
+			// set optional depth attachment
+			if (pipeline_desc.depth_attachment.format != COMPUTE_IMAGE_TYPE::NONE) {
+				const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
+				if (!metal_pixel_format) {
+					log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
+					return;
+				}
+				mtl_pipeline_desc.depthAttachmentPixelFormat = *metal_pixel_format;
+			}
+			
+			// stencil is not supported yet
+			mtl_pipeline_desc.stencilAttachmentPixelFormat = MTLPixelFormatInvalid;
+			
+			// set primitive type
+			MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
+			switch (pipeline_desc.primitive) {
+				case PRIMITIVE::POINT:
+					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
+					break;
+				case PRIMITIVE::LINE:
+					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
+					break;
+				case PRIMITIVE::TRIANGLE:
+				case PRIMITIVE::TRIANGLE_STRIP:
+					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
+					break;
+			}
+			mtl_pipeline_desc.inputPrimitiveTopology = primitive;
+			
+			// tessellation
+			MTLVertexDescriptor* mtl_vertex_desc = [MTLVertexDescriptor vertexDescriptor];
+			if (pipeline_desc.tessellation.max_factor > 0u) {
+				if (pipeline_desc.tessellation.max_factor > 64u) {
+					log_error("max tessellation factor is out-of-range: $!", pipeline_desc.tessellation.max_factor);
+					return;
+				}
+				if (pipeline_desc.primitive != PRIMITIVE::TRIANGLE) {
+					log_error("when using tessellation, pipeline primitive type must be triangle");
+					return;
+				}
+				mtl_pipeline_desc.maxTessellationFactor = pipeline_desc.tessellation.max_factor;
+				mtl_pipeline_desc.tessellationFactorScaleEnabled = false; // never
+				mtl_pipeline_desc.tessellationFactorFormat = MTLTessellationFactorFormatHalf;
+				mtl_pipeline_desc.tessellationControlPointIndexType = (pipeline_desc.tessellation.is_indexed_draw ?
+																	   MTLTessellationControlPointIndexTypeUInt32 :
+																	   MTLTessellationControlPointIndexTypeNone);
+				mtl_pipeline_desc.tessellationFactorStepFunction = MTLTessellationFactorStepFunctionPerPatch;
+				mtl_pipeline_desc.tessellationPartitionMode = metal_tessellation_partition_mode_from_spacing(pipeline_desc.tessellation.spacing);
+				mtl_pipeline_desc.tessellationOutputWindingOrder = metal_winding_from_winding(pipeline_desc.tessellation.winding);
+				
+				// when using tessellation, we *must* also specify the vertex attributes that are being used,
+				// since vertices / control points will be fetched by fixed-function hardware and not a shader
+				if (pipeline_desc.tessellation.vertex_attributes.empty()) {
+					log_error("must specify vertex attributes when using tessellation");
+					return;
+				}
+				uint32_t vattr_idx = 0;
+				for (const auto& vattr : pipeline_desc.tessellation.vertex_attributes) {
+					mtl_vertex_desc.attributes[vattr_idx].format = metal_vertex_format_from_vertex_format(vattr);
+					if (mtl_vertex_desc.attributes[vattr_idx].format == MTLVertexFormatInvalid) {
+						log_error("invalid or incompatible vertex attribute format: $X", vattr);
+						return;
+					}
+					mtl_vertex_desc.attributes[vattr_idx].offset = 0u;
+					mtl_vertex_desc.attributes[vattr_idx].bufferIndex = vattr_idx; // contiguous (ensured on the compiler side)
+					mtl_vertex_desc.layouts[vattr_idx].stepFunction = MTLVertexStepFunctionPerPatchControlPoint;
+					mtl_vertex_desc.layouts[vattr_idx].stepRate = 1u;
+					mtl_vertex_desc.layouts[vattr_idx].stride = vertex_bytes(vattr);
+					++vattr_idx;
+				}
+				mtl_pipeline_desc.vertexDescriptor = mtl_vertex_desc;
+			}
+			
+			// TODO: set per-buffer mutability
+			//mtl_pipeline_desc.vertexBuffers[0].mutability = MTLMutability::MTLMutabilityMutable;
+			//mtl_pipeline_desc.fragmentBuffers[0].mutability = MTLMutability::MTLMutabilityImmutable;
+			
+			// finally create the pipeline object
+			metal_pipeline_entry entry;
+			NSError* error = nullptr;
+			if (dump_reflection_info) {
+				MTLAutoreleasedRenderPipelineReflection refl_data { nil };
+				entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
+																			 options:(
+#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
+																					  MTLPipelineOptionBindingInfo |
+#else
+																					  MTLPipelineOptionArgumentInfo |
+#endif
+																					  MTLPipelineOptionBufferTypeInfo)
+																		  reflection:&refl_data
+																			   error:&error];
+				if (refl_data) {
+					metal_program::dump_bindings_reflection("vertex shader \"" + mtl_vs_entry->info->name + "\"", [refl_data vertexBindings]);
+					if (mtl_fs_entry) {
+						metal_program::dump_bindings_reflection("fragment shader \"" + mtl_vs_entry->info->name + "\"", [refl_data fragmentBindings]);
+					}
+				}
+			} else {
+				entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
+																			   error:&error];
+			}
+			if (!entry.pipeline_state) {
+				log_error("failed to create pipeline state for device $: $", dev->name,
+						  (error != nullptr ? [[error localizedDescription] UTF8String] : "unknown error"));
+				return;
+			}
+			entry.vs_entry = mtl_vs_entry;
+			entry.fs_entry = mtl_fs_entry;
+			
+			// create depth/stencil state
+			// TODO: depth range?
+			auto depth_stencil_desc = [[MTLDepthStencilDescriptor alloc] init];
+			depth_stencil_desc.depthWriteEnabled = pipeline_desc.depth.write;
+			depth_stencil_desc.depthCompareFunction = metal_compare_func_from_depth_compare(pipeline_desc.depth.compare);
+			entry.depth_stencil_state = [mtl_dev newDepthStencilStateWithDescriptor:depth_stencil_desc];
+			if (!entry.depth_stencil_state) {
+				log_error("failed to create depth/stencil state for device $", dev->name);
+				return;
+			}
+			
+			pipelines.insert(*dev, entry);
 		}
-		if (!entry.pipeline_state) {
-			log_error("failed to create pipeline state for device $: $", dev->name,
-					  (error != nullptr ? [[error localizedDescription] UTF8String] : "unknown error"));
-			return;
-		}
-		entry.vs_entry = mtl_vs_entry;
-		entry.fs_entry = mtl_fs_entry;
-		
-		// create depth/stencil state
-		// TODO: depth range?
-		auto depth_stencil_desc = [[MTLDepthStencilDescriptor alloc] init];
-		depth_stencil_desc.depthWriteEnabled = pipeline_desc.depth.write;
-		depth_stencil_desc.depthCompareFunction = metal_compare_func_from_depth_compare(pipeline_desc.depth.compare);
-		entry.depth_stencil_state = [mtl_dev newDepthStencilStateWithDescriptor:depth_stencil_desc];
-		if (!entry.depth_stencil_state) {
-			log_error("failed to create depth/stencil state for device $", dev->name);
-			return;
-		}
-		
-		pipelines.insert(*dev, entry);
 	}
 	
 	// success
@@ -230,6 +232,9 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 }
 
 metal_pipeline::~metal_pipeline() {
+	@autoreleasepool {
+		pipelines.clear();
+	}
 }
 
 MTLPrimitiveType metal_pipeline::metal_primitive_type_from_primitive(const PRIMITIVE& primitive) {

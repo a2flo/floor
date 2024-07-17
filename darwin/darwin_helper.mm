@@ -533,8 +533,10 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 		view->available_frame_cv.notify_one();
 	}];
 	auto drawable = [[view metal_layer] nextDrawable];
+#if !TARGET_OS_SIMULATOR // in the simulator, doing this will lead to issues
 	// since macOS 13.0: must manually set this to non-volatile
 	[[drawable texture] setPurgeableState:MTLPurgeableStateNonVolatile];
+#endif
 	return drawable;
 FLOOR_POP_WARNINGS()
 }

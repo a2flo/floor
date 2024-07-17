@@ -174,34 +174,36 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 				//    if available), then blit from the host memory buffer
 				buffer = [mtl_dev.device newBufferWithLength:size options:options];
 				if (staging_buffer == nullptr) {
-					MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
+					@autoreleasepool {
+						MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-					if (!dev.unified_memory) {
-						host_mem_storage = MTLResourceStorageModeManaged;
-					}
+						if (!dev.unified_memory) {
+							host_mem_storage = MTLResourceStorageModeManaged;
+						}
 #endif
-					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_data.data()
-																			length:host_data.size_bytes()
-																		   options:(host_mem_storage |
-																					MTLResourceCPUCacheModeWriteCombined)];
-					if (!buffer_with_host_mem) {
-						log_error("failed to allocate memory of size $'", size);
-						return false;
+						auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_data.data()
+																				length:host_data.size_bytes()
+																			   options:(host_mem_storage |
+																						MTLResourceCPUCacheModeWriteCombined)];
+						if (!buffer_with_host_mem) {
+							log_error("failed to allocate memory of size $'", size);
+							return false;
+						}
+						
+						id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+						id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+						[blit_encoder copyFromBuffer:floor_force_nonnull(buffer_with_host_mem)
+										sourceOffset:0
+											toBuffer:buffer
+								   destinationOffset:0
+												size:size];
+						[blit_encoder endEncoding];
+						[cmd_buffer commit];
+						[cmd_buffer waitUntilCompleted];
+						
+						[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
+						buffer_with_host_mem = nil;
 					}
-					
-					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-					[blit_encoder copyFromBuffer:floor_force_nonnull(buffer_with_host_mem)
-									sourceOffset:0
-										toBuffer:buffer
-							   destinationOffset:0
-											size:size];
-					[blit_encoder endEncoding];
-					[cmd_buffer commit];
-					[cmd_buffer waitUntilCompleted];
-					
-					[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
-					buffer_with_host_mem = nil;
 				} else {
 					staging_buffer->write(cqueue, host_data.data(), size);
 					copy(cqueue, *staging_buffer);
@@ -220,12 +222,14 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 }
 
 metal_buffer::~metal_buffer() {
-	// kill the buffer / auto-release
-	if (buffer) {
-		[buffer removeAllDebugMarkers];
-		[buffer setPurgeableState:MTLPurgeableStateEmpty];
+	@autoreleasepool {
+		// kill the buffer / auto-release
+		if (buffer) {
+			[buffer removeAllDebugMarkers];
+			[buffer setPurgeableState:MTLPurgeableStateEmpty];
+		}
+		buffer = nil;
 	}
-	buffer = nil;
 }
 
 void metal_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
@@ -265,22 +269,24 @@ void metal_buffer::write(const compute_queue& cqueue floor_unused_on_ios_and_vis
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset, flags)) return;
 	
-	GUARD(lock);
-	id <MTLBuffer> write_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
-	memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
-	
+	@autoreleasepool {
+		GUARD(lock);
+		id <MTLBuffer> write_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
+		memcpy((uint8_t*)[write_buffer contents] + offset, src, write_size);
+		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
-		staging_buffer != nullptr) {
-		[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
-	}
-	
-	if (staging_buffer != nullptr) {
-		copy(cqueue, *staging_buffer, write_size, offset, offset);
-	}
+		if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+			staging_buffer != nullptr) {
+			[write_buffer didModifyRange:NSRange { offset, offset + write_size }];
+		}
+		
+		if (staging_buffer != nullptr) {
+			copy(cqueue, *staging_buffer, write_size, offset, offset);
+		}
 #endif
-	
-	write_buffer = nil;
+		
+		write_buffer = nil;
+	}
 }
 
 void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
@@ -296,19 +302,21 @@ void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 	
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// if either source or destination uses private storage, we need to perform a blit copy
-	if((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
-	   (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		[blit_encoder copyFromBuffer:src_mtl_buffer.get_metal_buffer()
-						sourceOffset:src_offset
-							toBuffer:buffer
-				   destinationOffset:dst_offset
-								size:copy_size];
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
-		return;
+	if ((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+		(options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+		@autoreleasepool {
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			[blit_encoder copyFromBuffer:src_mtl_buffer.get_metal_buffer()
+							sourceOffset:src_offset
+								toBuffer:buffer
+					   destinationOffset:dst_offset
+									size:copy_size];
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
+			return;
+		}
 	}
 #endif
 	
@@ -338,71 +346,73 @@ bool metal_buffer::fill(const compute_queue& cqueue,
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
-	GUARD(lock);
-	
-	id <MTLBuffer> fill_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
-	const size_t pattern_count = fill_size / pattern_size;
-	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-		switch (pattern_size) {
-			case 1: {
-				// can use fillBuffer directly on the private storage buffer
-				id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-				id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-				[blit_encoder fillBuffer:buffer
-								   range:NSRange { offset, offset + fill_size }
-								   value:*(const uint8_t*)pattern];
-				[blit_encoder endEncoding];
-				[cmd_buffer commit];
-				[cmd_buffer waitUntilCompleted];
-				return true;
-			}
-			default: {
-				// there is no fast path -> create a host buffer with the pattern and upload it
-				const size_t pattern_fill_size = pattern_size * pattern_count;
-				auto pattern_buffer = make_unique<uint8_t[]>(pattern_fill_size);
-				uint8_t* write_ptr = pattern_buffer.get();
-				for (size_t i = 0; i < pattern_count; i++) {
-					memcpy(write_ptr, pattern, pattern_size);
-					write_ptr += pattern_size;
+	@autoreleasepool {
+		GUARD(lock);
+		
+		id <MTLBuffer> fill_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
+		const size_t pattern_count = fill_size / pattern_size;
+		if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+			switch (pattern_size) {
+				case 1: {
+					// can use fillBuffer directly on the private storage buffer
+					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+					[blit_encoder fillBuffer:buffer
+									   range:NSRange { offset, offset + fill_size }
+									   value:*(const uint8_t*)pattern];
+					[blit_encoder endEncoding];
+					[cmd_buffer commit];
+					[cmd_buffer waitUntilCompleted];
+					return true;
 				}
-				write(cqueue, pattern_buffer.get(), pattern_fill_size, offset);
-				return true;
+				default: {
+					// there is no fast path -> create a host buffer with the pattern and upload it
+					const size_t pattern_fill_size = pattern_size * pattern_count;
+					auto pattern_buffer = make_unique<uint8_t[]>(pattern_fill_size);
+					uint8_t* write_ptr = pattern_buffer.get();
+					for (size_t i = 0; i < pattern_count; i++) {
+						memcpy(write_ptr, pattern, pattern_size);
+						write_ptr += pattern_size;
+					}
+					write(cqueue, pattern_buffer.get(), pattern_fill_size, offset);
+					return true;
+				}
+			}
+		} else {
+			switch(pattern_size) {
+				case 1:
+					fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
+					break;
+				case 2:
+					fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
+					break;
+				case 4:
+					fill_n((uint32_t*)[fill_buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
+					break;
+				default:
+					// not a pattern size that allows a fast memset
+					uint8_t* write_ptr = ((uint8_t*)[fill_buffer contents]) + offset;
+					for(size_t i = 0; i < pattern_count; i++) {
+						memcpy(write_ptr, pattern, pattern_size);
+						write_ptr += pattern_size;
+					}
+					break;
 			}
 		}
-	} else {
-		switch(pattern_size) {
-			case 1:
-				fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
-				break;
-			case 2:
-				fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
-				break;
-			case 4:
-				fill_n((uint32_t*)[fill_buffer contents] + offset / 4u, pattern_count, *(const uint32_t*)pattern);
-				break;
-			default:
-				// not a pattern size that allows a fast memset
-				uint8_t* write_ptr = ((uint8_t*)[fill_buffer contents]) + offset;
-				for(size_t i = 0; i < pattern_count; i++) {
-					memcpy(write_ptr, pattern, pattern_size);
-					write_ptr += pattern_size;
-				}
-				break;
-		}
-	}
-	
+		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
-		staging_buffer != nullptr) {
-		[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
-	}
-	
-	if (staging_buffer != nullptr) {
-		copy(cqueue, *staging_buffer, fill_size, offset, offset);
-	}
+		if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged ||
+			staging_buffer != nullptr) {
+			[fill_buffer didModifyRange:NSRange { offset, offset + fill_size }];
+		}
+		
+		if (staging_buffer != nullptr) {
+			copy(cqueue, *staging_buffer, fill_size, offset, offset);
+		}
 #endif
-	
-	fill_buffer = nil;
+		
+		fill_buffer = nil;
+	}
 	
 	return true;
 }
@@ -553,29 +563,31 @@ bool metal_buffer::unmap(const compute_queue& cqueue, void* __attribute__((align
 }
 
 void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc) {
+	@autoreleasepool {
 #if defined(FLOOR_DEBUG)
-	if (!metal_resource_type_needs_sync([rsrc storageMode])) {
-		log_error("only call this with managed/shared memory");
-		return;
-	}
+		if (!metal_resource_type_needs_sync([rsrc storageMode])) {
+			log_error("only call this with managed/shared memory");
+			return;
+		}
 #endif
-	if (([rsrc storageMode] & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
-		// for shared storage: just wait until all previously queued command buffers have executed
-		cqueue.finish();
-		rsrc = nil;
-		return;
-	}
-	
+		if (([rsrc storageMode] & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
+			// for shared storage: just wait until all previously queued command buffers have executed
+			cqueue.finish();
+			rsrc = nil;
+			return;
+		}
+		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	[blit_encoder synchronizeResource:rsrc];
-	[blit_encoder endEncoding];
-	[cmd_buffer commit];
-	[cmd_buffer waitUntilCompleted];
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		[blit_encoder synchronizeResource:rsrc];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
 #endif
-	
-	rsrc = nil;
+		
+		rsrc = nil;
+	}
 }
 
 void metal_buffer::set_debug_label(const string& label) {

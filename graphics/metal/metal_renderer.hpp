@@ -34,7 +34,7 @@ public:
 				   const graphics_pass& pass_,
 				   const graphics_pipeline& pipeline_,
 				   const bool multi_view_ = false);
-	~metal_renderer() override = default;
+	~metal_renderer() override;
 	
 	bool begin(const dynamic_render_state_t dynamic_render_state = {}) override;
 	bool end() override;
@@ -48,7 +48,7 @@ public:
 		metal_drawable_t() : drawable_t() {}
 		~metal_drawable_t() override;
 		
-		id <CAMetalDrawable> metal_drawable;
+		id <CAMetalDrawable> metal_drawable { nil };
 		shared_ptr<compute_image> metal_image;
 		bool is_multi_view_drawable { false };
 		

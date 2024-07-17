@@ -27,30 +27,34 @@
 metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {}
 
 void metal_queue::finish() const {
-	// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
-	decltype(cmd_buffers) cur_cmd_buffers;
-	{
-		GUARD(cmd_buffers_lock);
-		cur_cmd_buffers = cmd_buffers;
-	}
-	for (const auto& cmd_buffer : cur_cmd_buffers) {
-		// we may only call "waitUntilCompleted" once the command buffer has been committed
-		while ([cmd_buffer.first status] < MTLCommandBufferStatusCommitted) {
-			this_thread::yield();
+	@autoreleasepool {
+		// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
+		decltype(cmd_buffers) cur_cmd_buffers;
+		{
+			GUARD(cmd_buffers_lock);
+			cur_cmd_buffers = cmd_buffers;
 		}
-		[cmd_buffer.first waitUntilCompleted];
+		for (const auto& cmd_buffer : cur_cmd_buffers) {
+			// we may only call "waitUntilCompleted" once the command buffer has been committed
+			while ([cmd_buffer.first status] < MTLCommandBufferStatusCommitted) {
+				this_thread::yield();
+			}
+			[cmd_buffer.first waitUntilCompleted];
+		}
 	}
 }
 
 void metal_queue::flush() const {
-	// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
-	decltype(cmd_buffers) cur_cmd_buffers;
-	{
-		GUARD(cmd_buffers_lock);
-		cur_cmd_buffers = cmd_buffers;
-	}
-	for(const auto& cmd_buffer : cur_cmd_buffers) {
-		[cmd_buffer.first waitUntilScheduled];
+	@autoreleasepool {
+		// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
+		decltype(cmd_buffers) cur_cmd_buffers;
+		{
+			GUARD(cmd_buffers_lock);
+			cur_cmd_buffers = cmd_buffers;
+		}
+		for(const auto& cmd_buffer : cur_cmd_buffers) {
+			[cmd_buffer.first waitUntilScheduled];
+		}
 	}
 }
 
@@ -71,86 +75,88 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	}
 #endif
 	
-	const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
-	const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(device);
-	if (!mtl_indirect_pipeline_entry) {
-		log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
-				  device.name, indirect_cmd.get_description().debug_label);
-		return;
-	}
-	
-	const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-	if (!range) {
-		return;
-	}
-	
-	// create and setup the compute encoder
-	id <MTLCommandBuffer> cmd_buffer = make_command_buffer();
-	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
-	if (params.debug_label) {
-		[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
-	}
-	
-	for (const auto& fence : params.wait_fences) {
-		[encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
-	}
-	
-	// declare all used resources
-	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
-	const auto& resources = mtl_indirect_pipeline_entry->get_resources();
-	if (!resources.read_only.empty()) {
-		[encoder useResources:resources.read_only.data()
-						count:resources.read_only.size()
-						usage:MTLResourceUsageRead];
-	}
-	if (!resources.write_only.empty()) {
-		[encoder useResources:resources.write_only.data()
-						count:resources.write_only.size()
-						usage:MTLResourceUsageWrite];
-	}
-	if (!resources.read_write.empty()) {
-		[encoder useResources:resources.read_write.data()
-						count:resources.read_write.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
-	}
-	if (!resources.read_only_images.empty()) {
-		[encoder useResources:resources.read_only_images.data()
-						count:resources.read_only_images.size()
-						usage:MTLResourceUsageRead];
-	}
-	if (!resources.read_write_images.empty()) {
-		[encoder useResources:resources.read_write_images.data()
-						count:resources.read_write_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
-	}
-	
-	if (mtl_indirect_pipeline_entry->printf_buffer) {
-		mtl_indirect_pipeline_entry->printf_init(*this);
-	}
-	
-	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
-						   withRange:*range];
-	
-	for (const auto& fence : params.signal_fences) {
-		[encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
-	}
-	[encoder endEncoding];
-	
-	if (mtl_indirect_pipeline_entry->printf_buffer) {
-		mtl_indirect_pipeline_entry->printf_completion(*this, cmd_buffer);
-	}
-	
-	if (completion_handler) {
-		auto local_completion_handler = std::move(completion_handler);
-		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
-			local_completion_handler();
-		}];
-	}
-	
-	[cmd_buffer commit];
-	
-	if (params.wait_until_completion) {
-		[cmd_buffer waitUntilCompleted];
+	@autoreleasepool {
+		const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
+		const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(device);
+		if (!mtl_indirect_pipeline_entry) {
+			log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
+					  device.name, indirect_cmd.get_description().debug_label);
+			return;
+		}
+		
+		const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
+		if (!range) {
+			return;
+		}
+		
+		// create and setup the compute encoder
+		id <MTLCommandBuffer> cmd_buffer = make_command_buffer();
+		id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
+		if (params.debug_label) {
+			[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
+		}
+		
+		for (const auto& fence : params.wait_fences) {
+			[encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
+		}
+		
+		// declare all used resources
+		// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
+		const auto& resources = mtl_indirect_pipeline_entry->get_resources();
+		if (!resources.read_only.empty()) {
+			[encoder useResources:resources.read_only.data()
+							count:resources.read_only.size()
+							usage:MTLResourceUsageRead];
+		}
+		if (!resources.write_only.empty()) {
+			[encoder useResources:resources.write_only.data()
+							count:resources.write_only.size()
+							usage:MTLResourceUsageWrite];
+		}
+		if (!resources.read_write.empty()) {
+			[encoder useResources:resources.read_write.data()
+							count:resources.read_write.size()
+							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+		}
+		if (!resources.read_only_images.empty()) {
+			[encoder useResources:resources.read_only_images.data()
+							count:resources.read_only_images.size()
+							usage:MTLResourceUsageRead];
+		}
+		if (!resources.read_write_images.empty()) {
+			[encoder useResources:resources.read_write_images.data()
+							count:resources.read_write_images.size()
+							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+		}
+		
+		if (mtl_indirect_pipeline_entry->printf_buffer) {
+			mtl_indirect_pipeline_entry->printf_init(*this);
+		}
+		
+		[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
+							   withRange:*range];
+		
+		for (const auto& fence : params.signal_fences) {
+			[encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
+		}
+		[encoder endEncoding];
+		
+		if (mtl_indirect_pipeline_entry->printf_buffer) {
+			mtl_indirect_pipeline_entry->printf_completion(*this, cmd_buffer);
+		}
+		
+		if (completion_handler) {
+			auto local_completion_handler = std::move(completion_handler);
+			[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+				local_completion_handler();
+			}];
+		}
+		
+		[cmd_buffer commit];
+		
+		if (params.wait_until_completion) {
+			[cmd_buffer waitUntilCompleted];
+		}
 	}
 }
 

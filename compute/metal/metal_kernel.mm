@@ -96,69 +96,70 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	}
 	
 	
-	//
-	auto encoder = create_encoder(cqueue, kernel_iter->second, debug_label);
-	for (const auto& fence : wait_fences) {
-		[encoder->encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
-	}
-	
-	// create implicit args
-	vector<compute_kernel_arg> implicit_args;
-
-	// create + init printf buffer if this function uses soft-printf
-	pair<compute_buffer*, uint32_t> printf_buffer_rsrc;
-	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		printf_buffer_rsrc = ctx->acquire_soft_printf_buffer(*dev);
-		if (printf_buffer_rsrc.first) {
-			initialize_printf_buffer(cqueue, *printf_buffer_rsrc.first);
-			implicit_args.emplace_back(*printf_buffer_rsrc.first);
+	@autoreleasepool {
+		auto encoder = create_encoder(cqueue, kernel_iter->second, debug_label);
+		for (const auto& fence : wait_fences) {
+			[encoder->encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
 		}
-	}
-
-	// set and handle kernel arguments
-	const kernel_entry& entry = kernel_iter->second;
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
-	
-	// compute sizes
-	auto [grid_dim, block_dim] = compute_grid_and_block_dim(kernel_iter->second, dim, global_work_size, local_work_size);
-	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
-	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
-	
-	// run
-	[encoder->encoder dispatchThreadgroups:metal_grid_dim threadsPerThreadgroup:metal_block_dim];
-	for (const auto& fence : signal_fences) {
-		[encoder->encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
-	}
-	[encoder->encoder endEncoding];
-	
-	// if soft-printf is being used, block/wait for completion here and read-back results
-	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
-		auto internal_dev_queue = ctx->get_device_default_queue(*dev);
-		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
-			auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
-			printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
-			handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
-			ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
-		}];
-	}
-	
-	if (completion_handler) {
-		auto local_completion_handler = std::move(completion_handler);
-		[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
-			local_completion_handler();
-		}];
-	}
-
-	[encoder->cmd_buffer commit];
-	
-	if (wait_until_completion) {
-		[encoder->cmd_buffer waitUntilCompleted];
+		
+		// create implicit args
+		vector<compute_kernel_arg> implicit_args;
+		
+		// create + init printf buffer if this function uses soft-printf
+		pair<compute_buffer*, uint32_t> printf_buffer_rsrc;
+		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
+			printf_buffer_rsrc = ctx->acquire_soft_printf_buffer(*dev);
+			if (printf_buffer_rsrc.first) {
+				initialize_printf_buffer(cqueue, *printf_buffer_rsrc.first);
+				implicit_args.emplace_back(*printf_buffer_rsrc.first);
+			}
+		}
+		
+		// set and handle kernel arguments
+		const kernel_entry& entry = kernel_iter->second;
+		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
+		
+		// compute sizes
+		auto [grid_dim, block_dim] = compute_grid_and_block_dim(kernel_iter->second, dim, global_work_size, local_work_size);
+		const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
+		const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
+		
+		// run
+		[encoder->encoder dispatchThreadgroups:metal_grid_dim threadsPerThreadgroup:metal_block_dim];
+		for (const auto& fence : signal_fences) {
+			[encoder->encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
+		}
+		[encoder->encoder endEncoding];
+		
+		// if soft-printf is being used, block/wait for completion here and read-back results
+		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(kernel_iter->second.info->flags)) {
+			auto internal_dev_queue = ctx->get_device_default_queue(*dev);
+			[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+				auto cpu_printf_buffer = make_unique<uint32_t[]>(printf_buffer_size / 4);
+				printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
+				handle_printf_buffer(span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
+				ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+			}];
+		}
+		
+		if (completion_handler) {
+			auto local_completion_handler = std::move(completion_handler);
+			[encoder->cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+				local_completion_handler();
+			}];
+		}
+		
+		[encoder->cmd_buffer commit];
+		
+		if (wait_until_completion) {
+			[encoder->cmd_buffer waitUntilCompleted];
 #if defined(FLOOR_DEBUG)
-		if ([encoder->cmd_buffer status] == MTLCommandBufferStatus::MTLCommandBufferStatusError && [encoder->cmd_buffer error]) {
-			const string err_str = [[[encoder->cmd_buffer error] localizedDescription] UTF8String];
-			log_error("failed to execute kernel: $: $", entry.info->name, err_str);
-		}
+			if ([encoder->cmd_buffer status] == MTLCommandBufferStatus::MTLCommandBufferStatusError && [encoder->cmd_buffer error]) {
+				const string err_str = [[[encoder->cmd_buffer error] localizedDescription] UTF8String];
+				log_error("failed to execute kernel: $: $", entry.info->name, err_str);
+			}
 #endif
+		}
 	}
 }
 

@@ -363,206 +363,214 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 		return false;
 	}
 	
-	// create an appropriate texture descriptor
-	desc = [[MTLTextureDescriptor alloc] init];
-	
-	const auto dim_count = image_dim_count(image_type);
-	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
-	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
-	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
-	const bool is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type);
-	const bool is_compressed = image_compressed(image_type);
-	auto mtl_device = mtl_dev.device;
-	if (is_msaa && is_cube) {
-		log_error("MSAA cube image is not supported");
-		return false;
-	}
-	
-	const MTLRegion region {
-		.origin = { 0, 0, 0 },
-		.size = {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 1,
-			dim_count >= 3 ? image_dim.z : 1,
-		}
-	};
-	[desc setWidth:region.size.width];
-	[desc setHeight:region.size.height];
-	[desc setDepth:region.size.depth];
-	[desc setArrayLength:(!is_cube ? layer_count : layer_count / 6)];
-	
-	// type + nD handling
-	MTLTextureType tex_type { MTLTextureType2D };
-	switch (dim_count) {
-		case 1:
-			if (is_cube || is_msaa) {
-				log_error("cube/MSAA is not supported for 1D images");
-				return false;
-			}
-			
-			if (!is_array && !is_buffer) {
-				tex_type = MTLTextureType1D;
-			} else if (is_array && !is_buffer) {
-				tex_type = MTLTextureType1DArray;
-			} else if (!is_array && is_buffer) {
-				tex_type = MTLTextureTypeTextureBuffer;
-			} else if (is_array && is_buffer) {
-				log_error("1D array buffer image is not supported");
-				return false;
-			}
-			break;
-		case 2:
-			if (is_buffer) {
-				log_error("buffer is not supported for 2D images");
-				return false;
-			}
-			
-			if (!is_cube) {
-				if (!is_msaa && !is_array) {
-					tex_type = MTLTextureType2D;
-				} else if (is_msaa && is_array) {
-					tex_type = MTLTextureType2DMultisampleArray;
-				} else if (is_msaa) {
-					tex_type = MTLTextureType2DMultisample;
-				} else if (is_array) {
-					tex_type = MTLTextureType2DArray;
-				}
-			} else {
-				if (!is_array) {
-					tex_type = MTLTextureTypeCube;
-				} else {
-					tex_type = MTLTextureTypeCubeArray;
-				}
-			}
-			break;
-		case 3:
-			if (is_array || is_cube || is_msaa || is_buffer) {
-				log_error("array/cube/MSAA/buffer is not supported for 3D images");
-				return false;
-			}
-			tex_type = MTLTextureType3D;
-			break;
-		default:
-			log_error("invalid dim count: $", dim_count);
+	@autoreleasepool {
+		// create an appropriate texture descriptor
+		desc = [[MTLTextureDescriptor alloc] init];
+		
+		const auto dim_count = image_dim_count(image_type);
+		const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
+		const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+		const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
+		const bool is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type);
+		const bool is_compressed = image_compressed(image_type);
+		auto mtl_device = mtl_dev.device;
+		if (is_msaa && is_cube) {
+			log_error("MSAA cube image is not supported");
 			return false;
-	}
-	[desc setTextureType:tex_type];
-	
-	// and now for the fun bit: pixel format conversion ...
-	const auto metal_format = metal_pixel_format_from_image_type(image_type);
-	if (!metal_format) {
-		log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
-		return false;
-	}
-	[desc setPixelFormat:*metal_format];
-	
-	// misc options
-	[desc setMipmapLevelCount:mip_level_count];
-	[desc setSampleCount:image_sample_count(image_type)];
-	
-	// usage/access options
-	[desc setResourceOptions:options];
-	[desc setStorageMode:storage_options]; // don't know why this needs to be set twice
-	[desc setUsage:usage_options];
-	
-	// create the actual metal image with the just created descriptor
-	image = [mtl_device newTextureWithDescriptor:desc];
-	
-	// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-	if(copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		// copy to device memory must go through a blit command
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		}
 		
-		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
-		const size_t slice_count = layer_count;
+		const MTLRegion region {
+			.origin = { 0, 0, 0 },
+			.size = {
+				image_dim.x,
+				dim_count >= 2 ? image_dim.y : 1,
+				dim_count >= 3 ? image_dim.z : 1,
+			}
+		};
+		[desc setWidth:region.size.width];
+		[desc setHeight:region.size.height];
+		[desc setDepth:region.size.depth];
+		[desc setArrayLength:(!is_cube ? layer_count : layer_count / 6)];
 		
-		auto cpy_host_data = host_data;
-		apply_on_levels([this, &cpy_host_data, &slice_count,
-						 &is_compressed, &dim_count](const uint32_t& level,
-													 const uint4& mip_image_dim,
-													 const uint32_t& slice_data_size,
-													 const uint32_t& level_data_size) {
-			// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-			uint32_t bytes_per_row = max(mip_image_dim.x, 1u);
-			if (is_compressed) {
-				// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
-				const auto block_size = image_compression_block_size(shim_image_type);
-				// at small mip levels (< block size), we need to ensure that we actually upload the full block
-				bytes_per_row = max(block_size.x, bytes_per_row);
-				assert((bytes_per_row % block_size.x) == 0u && "image width must be a multiple of the underlying block size");
-				bytes_per_row *= image_bits_per_pixel(shim_image_type) * block_size.y;
-				bytes_per_row = (bytes_per_row + 7u) / 8u;
-			} else {
-				bytes_per_row *= image_bytes_per_pixel(shim_image_type);
-			}
-			
-			auto data = cpy_host_data;
-			unique_ptr<uint8_t[]> conv_data;
-			if (image_type != shim_image_type) {
-				// need to copy/convert the RGB host data to RGBA
-				size_t conv_data_size = 0;
-				std::tie(conv_data, conv_data_size) = rgb_to_rgba(image_type, shim_image_type, cpy_host_data, true /* ignore mip levels as we do this manually */);
-				data = { conv_data.get(), conv_data_size };
-			} else {
-				assert(cpy_host_data.size_bytes() >= level_data_size);
-			}
-			
-			const MTLRegion mipmap_region {
-				.origin = { 0, 0, 0 },
-				.size = {
-					max(mip_image_dim.x, 1u),
-					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
-					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+		// type + nD handling
+		MTLTextureType tex_type { MTLTextureType2D };
+		switch (dim_count) {
+			case 1:
+				if (is_cube || is_msaa) {
+					log_error("cube/MSAA is not supported for 1D images");
+					return false;
 				}
-			};
-			for (size_t slice = 0; slice < slice_count; ++slice) {
-				auto slice_data = data.subspan(slice * slice_data_size, slice_data_size);
-				[image replaceRegion:mipmap_region
-						 mipmapLevel:level
-							   slice:slice
-						   withBytes:slice_data.data()
-						 bytesPerRow:bytes_per_row
-					   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
-			}
-			
-			// mip-level image data provided by user, advance pointer
-			if (!generate_mip_maps) {
-				cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
-			}
-			
-			return true;
-		}, shim_image_type);
+				
+				if (!is_array && !is_buffer) {
+					tex_type = MTLTextureType1D;
+				} else if (is_array && !is_buffer) {
+					tex_type = MTLTextureType1DArray;
+				} else if (!is_array && is_buffer) {
+					tex_type = MTLTextureTypeTextureBuffer;
+				} else if (is_array && is_buffer) {
+					log_error("1D array buffer image is not supported");
+					return false;
+				}
+				break;
+			case 2:
+				if (is_buffer) {
+					log_error("buffer is not supported for 2D images");
+					return false;
+				}
+				
+				if (!is_cube) {
+					if (!is_msaa && !is_array) {
+						tex_type = MTLTextureType2D;
+					} else if (is_msaa && is_array) {
+						tex_type = MTLTextureType2DMultisampleArray;
+					} else if (is_msaa) {
+						tex_type = MTLTextureType2DMultisample;
+					} else if (is_array) {
+						tex_type = MTLTextureType2DArray;
+					}
+				} else {
+					if (!is_array) {
+						tex_type = MTLTextureTypeCube;
+					} else {
+						tex_type = MTLTextureTypeCubeArray;
+					}
+				}
+				break;
+			case 3:
+				if (is_array || is_cube || is_msaa || is_buffer) {
+					log_error("array/cube/MSAA/buffer is not supported for 3D images");
+					return false;
+				}
+				tex_type = MTLTextureType3D;
+				break;
+			default:
+				log_error("invalid dim count: $", dim_count);
+				return false;
+		}
+		[desc setTextureType:tex_type];
 		
+		// and now for the fun bit: pixel format conversion ...
+		const auto metal_format = metal_pixel_format_from_image_type(image_type);
+		if (!metal_format) {
+			log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
+			return false;
+		}
+		[desc setPixelFormat:*metal_format];
+		
+		// misc options
+		[desc setMipmapLevelCount:mip_level_count];
+		[desc setSampleCount:image_sample_count(image_type)];
+		
+		// usage/access options
+		[desc setResourceOptions:options];
+		[desc setStorageMode:storage_options]; // don't know why this needs to be set twice
+		[desc setUsage:usage_options];
+		
+		// create the actual metal image with the just created descriptor
+		image = [mtl_device newTextureWithDescriptor:desc];
+		
+		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
+		if (copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			// copy to device memory must go through a blit command
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			
+			// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
+			const size_t slice_count = layer_count;
+			
+			auto cpy_host_data = host_data;
+			apply_on_levels([this, &cpy_host_data, &slice_count,
+							 &is_compressed, &dim_count](const uint32_t& level,
+														 const uint4& mip_image_dim,
+														 const uint32_t& slice_data_size,
+														 const uint32_t& level_data_size) {
+				// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
+				uint32_t bytes_per_row = max(mip_image_dim.x, 1u);
+				if (is_compressed) {
+					// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
+					const auto block_size = image_compression_block_size(shim_image_type);
+					// at small mip levels (< block size), we need to ensure that we actually upload the full block
+					bytes_per_row = max(block_size.x, bytes_per_row);
+					assert((bytes_per_row % block_size.x) == 0u && "image width must be a multiple of the underlying block size");
+					bytes_per_row *= image_bits_per_pixel(shim_image_type) * block_size.y;
+					bytes_per_row = (bytes_per_row + 7u) / 8u;
+				} else {
+					bytes_per_row *= image_bytes_per_pixel(shim_image_type);
+				}
+				
+				auto data = cpy_host_data;
+				unique_ptr<uint8_t[]> conv_data;
+				if (image_type != shim_image_type) {
+					// need to copy/convert the RGB host data to RGBA
+					size_t conv_data_size = 0;
+					std::tie(conv_data, conv_data_size) = rgb_to_rgba(image_type, shim_image_type, cpy_host_data, true /* ignore mip levels as we do this manually */);
+					data = { conv_data.get(), conv_data_size };
+				} else {
+					assert(cpy_host_data.size_bytes() >= level_data_size);
+				}
+				
+				const MTLRegion mipmap_region {
+					.origin = { 0, 0, 0 },
+					.size = {
+						max(mip_image_dim.x, 1u),
+						dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+						dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+					}
+				};
+				for (size_t slice = 0; slice < slice_count; ++slice) {
+					auto slice_data = data.subspan(slice * slice_data_size, slice_data_size);
+					[image replaceRegion:mipmap_region
+							 mipmapLevel:level
+								   slice:slice
+							   withBytes:slice_data.data()
+							 bytesPerRow:bytes_per_row
+						   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
+				}
+				
+				// mip-level image data provided by user, advance pointer
+				if (!generate_mip_maps) {
+					cpy_host_data = cpy_host_data.subspan(level_data_size, cpy_host_data.size_bytes() - level_data_size);
+				}
+				
+				return true;
+			}, shim_image_type);
+			
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-			[blit_encoder synchronizeResource:image];
-		}
+			if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+				[blit_encoder synchronizeResource:image];
+			}
 #endif
-		
-		// manually create the mip-map chain if this was specified
-		if(is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
-			// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
-			//       -> compressed + generate_mip_maps already fails at image creation
-			[blit_encoder generateMipmapsForTexture:image];
+			
+			// manually create the mip-map chain if this was specified
+			if (is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
+				// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
+				//       -> compressed + generate_mip_maps already fails at image creation
+				[blit_encoder generateMipmapsForTexture:image];
+			}
+			
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
 		}
 		
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
+		return true;
 	}
-	
-	return true;
 }
 
 metal_image::~metal_image() {
-	// kill the image
-	if (image) {
-		[image setPurgeableState:MTLPurgeableStateEmpty];
-	}
-	image = nil;
-	if (desc != nil) {
-		desc = nil;
+	@autoreleasepool {
+		// kill the image
+		if (image
+#if TARGET_OS_SIMULATOR // in the simulator, doing this may lead to issues with external images
+			&& !is_external
+#endif
+			) {
+			[image setPurgeableState:MTLPurgeableStateEmpty];
+		}
+		image = nil;
+		if (desc != nil) {
+			desc = nil;
+		}
 	}
 }
 
@@ -579,92 +587,97 @@ bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
 		return false;
 	}
 	
-	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	const auto dim_count = image_dim_count(image_type);
-	
-	apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,
-																							  const uint4& mip_image_dim,
-																							  const uint32_t&,
-																							  const uint32_t&) {
-		const MTLSize mipmap_size {
-			max(mip_image_dim.x, 1u),
-			dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1u,
-			dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1u,
-		};
-		for (size_t slice = 0; slice < layer_count; ++slice) {
-			[blit_encoder copyFromTexture:floor_force_nonnull(src_image)
-							  sourceSlice:slice
-							  sourceLevel:level
-							 sourceOrigin:{ 0, 0, 0 }
-							   sourceSize:mipmap_size
-								toTexture:image
-						 destinationSlice:slice
-						 destinationLevel:level
-						destinationOrigin:{ 0, 0, 0 }];
-		}
+	@autoreleasepool {
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		const auto dim_count = image_dim_count(image_type);
+		
+		apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,
+																								  const uint4& mip_image_dim,
+																								  const uint32_t&,
+																								  const uint32_t&) {
+			const MTLSize mipmap_size {
+				max(mip_image_dim.x, 1u),
+				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1u,
+				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1u,
+			};
+			for (size_t slice = 0; slice < layer_count; ++slice) {
+				[blit_encoder copyFromTexture:floor_force_nonnull(src_image)
+								  sourceSlice:slice
+								  sourceLevel:level
+								 sourceOrigin:{ 0, 0, 0 }
+								   sourceSize:mipmap_size
+									toTexture:image
+							 destinationSlice:slice
+							 destinationLevel:level
+							destinationOrigin:{ 0, 0, 0 }];
+			}
+			
+			return true;
+		}, shim_image_type);
+		
+		// always optimize for GPU use
+		[blit_encoder optimizeContentsForGPUAccess:image];
+		
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
 		
 		return true;
-	}, shim_image_type);
-	
-	// always optimize for GPU use
-	[blit_encoder optimizeContentsForGPUAccess:image];
-	
-	[blit_encoder endEncoding];
-	[cmd_buffer commit];
-	[cmd_buffer waitUntilCompleted];
-	
-	return true;
+	}
 }
 
 bool metal_image::zero(const compute_queue& cqueue) {
 	if(image == nil) return false;
 	
-	const bool is_compressed = image_compressed(image_type);
-	const auto dim_count = image_dim_count(image_type);
-	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
-	
-	auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
-	zero_buffer->set_debug_label("zero_buffer");
-	auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
-	
-	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	
-	[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
-	
-	const auto success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
-																												   const uint4& mip_image_dim,
-																												   const uint32_t& slice_data_size,
-																												   const uint32_t&) {
-		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
-		for (size_t slice = 0; slice < layer_count; ++slice) {
-			const MTLSize copy_size {
-				max(mip_image_dim.x, 1u),
-				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
-				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
-			};
-			[blit_encoder copyFromBuffer:mtl_zero_buffer
-							sourceOffset:0
-					   sourceBytesPerRow:(is_compressed ? 0 : bytes_per_row)
-					 sourceBytesPerImage:slice_data_size
-							  sourceSize:copy_size
-							   toTexture:image
-						destinationSlice:slice
-						destinationLevel:level
-					   destinationOrigin:MTLOrigin { 0, 0, 0 }];
-		}
-		return true;
-	}, shim_image_type);
-	
-	[blit_encoder endEncoding];
-	[cmd_buffer commit];
-	[cmd_buffer waitUntilCompleted];
-	
-	[mtl_zero_buffer removeAllDebugMarkers];
-	[mtl_zero_buffer setPurgeableState:MTLPurgeableStateEmpty];
-	mtl_zero_buffer = nil;
+	bool success = false;
+	@autoreleasepool {
+		const bool is_compressed = image_compressed(image_type);
+		const auto dim_count = image_dim_count(image_type);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		
+		auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
+																	  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
+		zero_buffer->set_debug_label("zero_buffer");
+		auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
+		
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		
+		[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
+		
+		success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
+																											const uint4& mip_image_dim,
+																											const uint32_t& slice_data_size,
+																											const uint32_t&) {
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+			for (size_t slice = 0; slice < layer_count; ++slice) {
+				const MTLSize copy_size {
+					max(mip_image_dim.x, 1u),
+					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+				};
+				[blit_encoder copyFromBuffer:mtl_zero_buffer
+								sourceOffset:0
+						   sourceBytesPerRow:(is_compressed ? 0 : bytes_per_row)
+						 sourceBytesPerImage:slice_data_size
+								  sourceSize:copy_size
+								   toTexture:image
+							destinationSlice:slice
+							destinationLevel:level
+						   destinationOrigin:MTLOrigin { 0, 0, 0 }];
+			}
+			return true;
+		}, shim_image_type);
+		
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+		
+		[mtl_zero_buffer removeAllDebugMarkers];
+		[mtl_zero_buffer setPurgeableState:MTLPurgeableStateEmpty];
+		mtl_zero_buffer = nil;
+	}
 	
 	return success;
 }
@@ -783,66 +796,68 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 	bool success = true;
 	if (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		// copy host memory to device memory
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const bool is_compressed = image_compressed(image_type);
-		const auto dim_count = image_dim_count(image_type);
-		
-		// again, need to convert RGB to RGBA if necessary
-		assert(iter->second.ptr.allocation_size() == image_data_size);
-		span<const uint8_t> host_buffer { (const uint8_t*)mapped_ptr, image_data_size };
-		unique_ptr<uint8_t[]> host_shim_buffer;
-		size_t host_shim_buffer_size = 0;
-		if (image_type != shim_image_type) {
-			std::tie(host_shim_buffer, host_shim_buffer_size) = rgb_to_rgba(image_type, shim_image_type, host_buffer);
-		}
-		
-		auto cpy_host_data = (image_type != shim_image_type ?
-							  span<const uint8_t> { host_shim_buffer.get(), host_shim_buffer_size } :
-							  host_buffer);
-		success = apply_on_levels([this, &cpy_host_data,
-								   &dim_count, &is_compressed](const uint32_t& level,
-															   const uint4& mip_image_dim,
-															   const uint32_t& slice_data_size,
-															   const uint32_t&) {
-			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
-			const MTLRegion mipmap_region {
-				.origin = { 0, 0, 0 },
-				.size = {
-					max(mip_image_dim.x, 1u),
-					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
-					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
-				}
-			};
-			for (size_t slice = 0; slice < layer_count; ++slice) {
-				assert(cpy_host_data.size_bytes() >= slice_data_size);
-				[image replaceRegion:mipmap_region
-						 mipmapLevel:level
-							   slice:slice
-						   withBytes:cpy_host_data.data()
-						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-					   bytesPerImage:slice_data_size];
-				cpy_host_data = cpy_host_data.subspan(slice_data_size, cpy_host_data.size_bytes() - slice_data_size);
+		@autoreleasepool {
+			// copy host memory to device memory
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			const bool is_compressed = image_compressed(image_type);
+			const auto dim_count = image_dim_count(image_type);
+			
+			// again, need to convert RGB to RGBA if necessary
+			assert(iter->second.ptr.allocation_size() == image_data_size);
+			span<const uint8_t> host_buffer { (const uint8_t*)mapped_ptr, image_data_size };
+			unique_ptr<uint8_t[]> host_shim_buffer;
+			size_t host_shim_buffer_size = 0;
+			if (image_type != shim_image_type) {
+				std::tie(host_shim_buffer, host_shim_buffer_size) = rgb_to_rgba(image_type, shim_image_type, host_buffer);
 			}
-			return true;
-		}, shim_image_type);
-		
+			
+			auto cpy_host_data = (image_type != shim_image_type ?
+								  span<const uint8_t> { host_shim_buffer.get(), host_shim_buffer_size } :
+								  host_buffer);
+			success = apply_on_levels([this, &cpy_host_data,
+									   &dim_count, &is_compressed](const uint32_t& level,
+																   const uint4& mip_image_dim,
+																   const uint32_t& slice_data_size,
+																   const uint32_t&) {
+				const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+				const MTLRegion mipmap_region {
+					.origin = { 0, 0, 0 },
+					.size = {
+						max(mip_image_dim.x, 1u),
+						dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+						dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+					}
+				};
+				for (size_t slice = 0; slice < layer_count; ++slice) {
+					assert(cpy_host_data.size_bytes() >= slice_data_size);
+					[image replaceRegion:mipmap_region
+							 mipmapLevel:level
+								   slice:slice
+							   withBytes:cpy_host_data.data()
+							 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+						   bytesPerImage:slice_data_size];
+					cpy_host_data = cpy_host_data.subspan(slice_data_size, cpy_host_data.size_bytes() - slice_data_size);
+				}
+				return true;
+			}, shim_image_type);
+			
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-			[blit_encoder synchronizeResource:image];
-		}
+			if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+				[blit_encoder synchronizeResource:image];
+			}
 #endif
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
-		
-		// cleanup
-		host_shim_buffer = nullptr;
-		
-		// update mip-map chain
-		if(generate_mip_maps) {
-			generate_mip_map_chain(cqueue);
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
+			
+			// cleanup
+			host_shim_buffer = nullptr;
+			
+			// update mip-map chain
+			if (generate_mip_maps) {
+				generate_mip_map_chain(cqueue);
+			}
 		}
 	}
 	
@@ -853,15 +868,17 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 }
 
 void metal_image::generate_mip_map_chain(const compute_queue& cqueue) {
-	// nothing to do here
-	if([image mipmapLevelCount] == 1) return;
-	
-	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	[blit_encoder generateMipmapsForTexture:image];
-	[blit_encoder endEncoding];
-	[cmd_buffer commit];
-	[cmd_buffer waitUntilCompleted];
+	@autoreleasepool {
+		// nothing to do here
+		if([image mipmapLevelCount] == 1) return;
+		
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		[blit_encoder generateMipmapsForTexture:image];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+	}
 }
 
 optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const COMPUTE_IMAGE_TYPE& image_type_) {

@@ -926,42 +926,46 @@ float metal_compute::get_hdr_display_max_nits() const {
 }
 
 bool metal_compute::start_metal_capture(const compute_device& dev, const string& file_name) const {
-	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-	if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
-		log_error("can't capture GPU trace to file");
-		return false;
+	@autoreleasepool {
+		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+		if (![capture_manager supportsDestination:MTLCaptureDestinationGPUTraceDocument]) {
+			log_error("can't capture GPU trace to file");
+			return false;
+		}
+		
+		MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
+		capture_manager.defaultCaptureScope =
+		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
+		capture_desc.captureObject = capture_manager.defaultCaptureScope;
+		auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
+		if (!file_name_nsstr) {
+			log_error("invalid capture file name: $", file_name);
+			return false;
+		}
+		capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
+		capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
+		
+		NSError* err { nil };
+		if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
+			log_error("failed to start GPU trace capture: $",
+					  (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+			return false;
+		}
+		
+		[capture_manager.defaultCaptureScope beginScope];
+		
+		return true;
 	}
-	
-	MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
-	capture_manager.defaultCaptureScope =
-	[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
-	capture_desc.captureObject = capture_manager.defaultCaptureScope;
-	auto file_name_nsstr = [NSString stringWithUTF8String:file_name.c_str()];
-	if (!file_name_nsstr) {
-		log_error("invalid capture file name: $", file_name);
-		return false;
-	}
-	capture_desc.outputURL = [NSURL fileURLWithPath:floor_force_nonnull(file_name_nsstr)];
-	capture_desc.destination = MTLCaptureDestinationGPUTraceDocument;
-	
-	NSError* err { nil };
-	if (![capture_manager startCaptureWithDescriptor:capture_desc error:&err]) {
-		log_error("failed to start GPU trace capture: $",
-				  (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-		return false;
-	}
-	
-	[capture_manager.defaultCaptureScope beginScope];
-	
-	return true;
 }
 
 bool metal_compute::stop_metal_capture() const {
-	MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
-	[capture_manager.defaultCaptureScope endScope];
-	[capture_manager stopCapture];
-	capture_manager.defaultCaptureScope = nil;
-	return true;
+	@autoreleasepool {
+		MTLCaptureManager* capture_manager = [MTLCaptureManager sharedCaptureManager];
+		[capture_manager.defaultCaptureScope endScope];
+		[capture_manager stopCapture];
+		capture_manager.defaultCaptureScope = nil;
+		return true;
+	}
 }
 
 #endif

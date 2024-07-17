@@ -80,8 +80,10 @@ graphics_pass(pass_desc_, with_multi_view_support) {
 }
 
 metal_pass::~metal_pass() {
-	sv_mtl_pass_desc = nil;
-	mv_mtl_pass_desc = nil;
+	@autoreleasepool {
+		sv_mtl_pass_desc = nil;
+		mv_mtl_pass_desc = nil;
+	}
 }
 
 MTLLoadAction metal_pass::metal_load_action_from_load_op(const LOAD_OP& load_op) {

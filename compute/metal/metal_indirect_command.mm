@@ -62,50 +62,52 @@ indirect_command_pipeline(desc_) {
 		return;
 	}
 	
-	// init descriptor from indirect_command_description
-	MTLIndirectCommandBufferDescriptor* icb_desc = [[MTLIndirectCommandBufferDescriptor alloc] init];
-	
-	icb_desc.commandTypes = 0;
-	if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
-		icb_desc.commandTypes |= (MTLIndirectCommandTypeDraw |
-								  MTLIndirectCommandTypeDrawIndexed);
-		if (tessellation_support) {
-			icb_desc.commandTypes |= (MTLIndirectCommandTypeDrawPatches |
-									  MTLIndirectCommandTypeDrawIndexedPatches);
-		}
-		icb_desc.maxVertexBufferBindCount = desc.max_vertex_buffer_count;
-		icb_desc.maxFragmentBufferBindCount = desc.max_fragment_buffer_count;
-		icb_desc.maxKernelBufferBindCount = 0;
-	} else if (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE) {
-		// NOTE: will only ever dispatch/execute equal-sized threadgroups
-		icb_desc.commandTypes |= MTLIndirectCommandTypeConcurrentDispatch;
-		icb_desc.maxKernelBufferBindCount = desc.max_kernel_buffer_count;
-		icb_desc.maxVertexBufferBindCount = 0;
-		icb_desc.maxFragmentBufferBindCount = 0;
-	}
-	
-	// we never want to inherit anything
-	icb_desc.inheritPipelineState = NO;
-	icb_desc.inheritBuffers = NO;
-	
-	for (const auto& dev : devices) {
-		const auto& mtl_dev = ((const metal_device&)*dev).device;
+	@autoreleasepool {
+		// init descriptor from indirect_command_description
+		MTLIndirectCommandBufferDescriptor* icb_desc = [[MTLIndirectCommandBufferDescriptor alloc] init];
 		
-		// create the actual indirect command buffer for this device
-		metal_pipeline_entry entry;
-		entry.icb = [mtl_dev newIndirectCommandBufferWithDescriptor:icb_desc
-													maxCommandCount:desc.max_command_count
-															options:0];
-		if (entry.icb == nil) {
-			log_error("failed to create indirect command buffer for device \"$\" in indirect command pipeline \"$\"",
-					  dev->name, desc.debug_label);
-			return;
+		icb_desc.commandTypes = 0;
+		if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
+			icb_desc.commandTypes |= (MTLIndirectCommandTypeDraw |
+									  MTLIndirectCommandTypeDrawIndexed);
+			if (tessellation_support) {
+				icb_desc.commandTypes |= (MTLIndirectCommandTypeDrawPatches |
+										  MTLIndirectCommandTypeDrawIndexedPatches);
+			}
+			icb_desc.maxVertexBufferBindCount = desc.max_vertex_buffer_count;
+			icb_desc.maxFragmentBufferBindCount = desc.max_fragment_buffer_count;
+			icb_desc.maxKernelBufferBindCount = 0;
+		} else if (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE) {
+			// NOTE: will only ever dispatch/execute equal-sized threadgroups
+			icb_desc.commandTypes |= MTLIndirectCommandTypeConcurrentDispatch;
+			icb_desc.maxKernelBufferBindCount = desc.max_kernel_buffer_count;
+			icb_desc.maxVertexBufferBindCount = 0;
+			icb_desc.maxFragmentBufferBindCount = 0;
 		}
 		
-		entry.icb.label = (desc.debug_label.empty() ? @"metal_icb" :
-						   [NSString stringWithUTF8String:(desc.debug_label).c_str()]);
+		// we never want to inherit anything
+		icb_desc.inheritPipelineState = NO;
+		icb_desc.inheritBuffers = NO;
 		
-		pipelines.emplace_or_assign(*dev, std::move(entry));
+		for (const auto& dev : devices) {
+			const auto& mtl_dev = ((const metal_device&)*dev).device;
+			
+			// create the actual indirect command buffer for this device
+			metal_pipeline_entry entry;
+			entry.icb = [mtl_dev newIndirectCommandBufferWithDescriptor:icb_desc
+														maxCommandCount:desc.max_command_count
+																options:0];
+			if (entry.icb == nil) {
+				log_error("failed to create indirect command buffer for device \"$\" in indirect command pipeline \"$\"",
+						  dev->name, desc.debug_label);
+				return;
+			}
+			
+			entry.icb.label = (desc.debug_label.empty() ? @"metal_icb" :
+							   [NSString stringWithUTF8String:(desc.debug_label).c_str()]);
+			
+			pipelines.emplace_or_assign(*dev, std::move(entry));
+		}
 	}
 }
 
@@ -192,11 +194,13 @@ void metal_indirect_command_pipeline::complete_pipeline(const compute_device& de
 }
 
 void metal_indirect_command_pipeline::reset() {
-	for (auto& pipeline : pipelines) {
-		[pipeline.second.icb resetWithRange:NSRange { 0, desc.max_command_count }];
-		pipeline.second.clear_resources();
+	@autoreleasepool {
+		for (auto& pipeline : pipelines) {
+			[pipeline.second.icb resetWithRange:NSRange { 0, desc.max_command_count }];
+			pipeline.second.clear_resources();
+		}
+		indirect_command_pipeline::reset();
 	}
-	indirect_command_pipeline::reset();
 }
 
 optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
@@ -246,23 +250,29 @@ optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_
 
 metal_indirect_command_pipeline::metal_pipeline_entry::metal_pipeline_entry(metal_pipeline_entry&& entry) :
 icb(entry.icb), printf_buffer(entry.printf_buffer) {
-	entry.icb = nil;
-	entry.printf_buffer = nullptr;
+	@autoreleasepool {
+		entry.icb = nil;
+		entry.printf_buffer = nullptr;
+	}
 }
 
 metal_indirect_command_pipeline::metal_pipeline_entry& metal_indirect_command_pipeline::metal_pipeline_entry::operator=(metal_pipeline_entry&& entry) {
-	icb = entry.icb;
-	printf_buffer = entry.printf_buffer;
-	entry.icb = nil;
-	entry.printf_buffer = nullptr;
-	return *this;
+	@autoreleasepool {
+		icb = entry.icb;
+		printf_buffer = entry.printf_buffer;
+		entry.icb = nil;
+		entry.printf_buffer = nullptr;
+		return *this;
+	}
 }
 
 metal_indirect_command_pipeline::metal_pipeline_entry::~metal_pipeline_entry() {
-	if (icb) {
-		[icb setPurgeableState:MTLPurgeableStateEmpty];
+	@autoreleasepool {
+		if (icb) {
+			[icb setPurgeableState:MTLPurgeableStateEmpty];
+		}
+		icb = nil;
 	}
-	icb = nil;
 }
 
 void metal_indirect_command_pipeline::metal_pipeline_entry::printf_init(const compute_queue& dev_queue) const {
