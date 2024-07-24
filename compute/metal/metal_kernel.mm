@@ -34,7 +34,6 @@
 struct metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer { nil };
 	id <MTLComputeCommandEncoder> encoder { nil };
-	metal_encoder& operator=(metal_encoder&&) = default;
 	~metal_encoder() {
 		@autoreleasepool {
 			encoder = nil;
