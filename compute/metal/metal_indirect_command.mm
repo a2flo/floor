@@ -327,7 +327,9 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry
 }
 
 metal_indirect_render_command_encoder::~metal_indirect_render_command_encoder() {
-	// nop
+	@autoreleasepool {
+		command = nil;
+	}
 }
 
 void metal_indirect_render_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {
@@ -469,7 +471,7 @@ indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_ent
 	}
 #endif
 	command = [pipeline_entry.icb indirectComputeCommandAtIndex:command_idx];
-	[command setComputePipelineState:(__bridge id <MTLComputePipelineState>)mtl_kernel_entry->kernel_state];
+	[command setComputePipelineState:(__bridge __unsafe_unretained id <MTLComputePipelineState>)mtl_kernel_entry->kernel_state];
 	
 	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(mtl_kernel_entry->info->flags)) {
 		if (!pipeline_entry.printf_buffer) {
@@ -480,7 +482,9 @@ indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_ent
 }
 
 metal_indirect_compute_command_encoder::~metal_indirect_compute_command_encoder() {
-	// nop
+	@autoreleasepool {
+		command = nil;
+	}
 }
 
 void metal_indirect_compute_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {

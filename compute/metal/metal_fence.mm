@@ -26,6 +26,12 @@
 metal_fence::metal_fence(id <MTLFence> mtl_fence_) : compute_fence(), mtl_fence(mtl_fence_) {
 }
 
+metal_fence::~metal_fence() {
+	@autoreleasepool {
+		mtl_fence = nil;
+	}
+}
+
 void metal_fence::set_debug_label(const string& label) {
 	compute_fence::set_debug_label(label);
 	if (mtl_fence) {

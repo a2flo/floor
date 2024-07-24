@@ -360,18 +360,18 @@ bool floor::init(const init_state& state) {
 			unordered_set<string> str_set;
 			const auto elems = config_doc.get<json::json_array>(config_entry_name);
 			for (const auto& elem : elems) {
-				if (elem.type != json::json_value::VALUE_TYPE::STRING) {
+				auto [is_str, str] = elem.get<string>();
+				if (!is_str) {
 					log_error("array element must be a string!");
 					continue;
 				}
-				if (elem.str == "") {
+				if (str == "") {
 					continue;
 				}
 				if constexpr (convert_to_lower) {
-					str_set.emplace(core::str_to_lower(elem.str));
-				} else {
-					str_set.emplace(elem.str);
+					core::str_to_lower_inplace(str);
 				}
+				str_set.emplace(std::move(str));
 			}
 			
 			for (const auto& elem : str_set) {
@@ -477,12 +477,13 @@ bool floor::init(const init_state& state) {
 #endif
 		
 		for(const auto& path : paths) {
-			if(path.type != json::json_value::VALUE_TYPE::STRING) {
+			auto [path_is_string, path_str_] = path.get<string>();
+			if (!path_is_string) {
 				log_error("toolchain path must be a string!");
 				continue;
 			}
 			
-			const auto path_str = core::expand_path_with_env(path.str);
+			const auto path_str = core::expand_path_with_env(path_str_);
 			
 			if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + as)) continue;

@@ -26,7 +26,7 @@
 class metal_fence final : public compute_fence {
 public:
 	metal_fence(id <MTLFence> mtl_fence_);
-	~metal_fence() override = default;
+	~metal_fence() override;
 	
 	//! returns the metal specific fence object
 	id <MTLFence> get_metal_fence() const {

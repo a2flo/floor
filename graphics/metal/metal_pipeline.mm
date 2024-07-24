@@ -46,8 +46,9 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			MTLRenderPipelineDescriptor* mtl_pipeline_desc = [[MTLRenderPipelineDescriptor alloc] init];
 			mtl_pipeline_desc.label = @"metal pipeline";
 			// NOTE: there is no difference here between a pre- and post-tessallation vertex shader
-			mtl_pipeline_desc.vertexFunction = (__bridge id<MTLFunction>)mtl_vs_entry->kernel;
-			mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ? (__bridge id<MTLFunction>)mtl_fs_entry->kernel : nil);
+			mtl_pipeline_desc.vertexFunction = (__bridge __unsafe_unretained id<MTLFunction>)mtl_vs_entry->kernel;
+			mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ?
+												  (__bridge __unsafe_unretained id<MTLFunction>)mtl_fs_entry->kernel : nil);
 			mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
 			
 			// multi-sampling

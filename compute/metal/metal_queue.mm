@@ -26,6 +26,12 @@
 
 metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {}
 
+metal_queue::~metal_queue() {
+	@autoreleasepool {
+		queue = nil;
+	}
+}
+
 void metal_queue::finish() const {
 	@autoreleasepool {
 		// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers

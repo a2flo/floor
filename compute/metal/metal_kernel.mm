@@ -34,6 +34,13 @@
 struct metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer { nil };
 	id <MTLComputeCommandEncoder> encoder { nil };
+	metal_encoder& operator=(metal_encoder&&) = default;
+	~metal_encoder() {
+		@autoreleasepool {
+			encoder = nil;
+			cmd_buffer = nil;
+		}
+	}
 };
 
 static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
@@ -41,8 +48,8 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
 												const char* debug_label) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
-	auto ret = make_unique<metal_encoder>(metal_encoder { cmd_buffer, encoder });
-	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
+	auto ret = make_unique<metal_encoder>(cmd_buffer, encoder);
+	[ret->encoder setComputePipelineState:(__bridge __unsafe_unretained id <MTLComputePipelineState>)entry.kernel_state];
 	if (debug_label) {
 		[ret->encoder setLabel:[NSString stringWithUTF8String:debug_label]];
 	}
@@ -178,82 +185,84 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 																		  const uint32_t& user_arg_index,
 																		  const uint32_t& ll_arg_index,
 																		  const COMPUTE_MEMORY_FLAG& add_mem_flags) const {
-	const auto& dev = cqueue.get_device();
-	const auto& mtl_entry = (const metal_kernel_entry&)entry;
-	auto mtl_func = (__bridge id<MTLFunction>)mtl_entry.kernel;
-	
-	// check if info exists
-	const auto& arg_info = mtl_entry.info->args[ll_arg_index].argument_buffer_info;
-	if (!arg_info) {
-		log_error("no argument buffer info for arg at index #$", user_arg_index);
-		return {};
-	}
-	
-	// find the metal buffer index
-	uint32_t buffer_idx = 0;
-	for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
-		if (mtl_entry.info->args[i].special_type == SPECIAL_TYPE::STAGE_INPUT) {
-			// only tessellation evaluation shaders may contain buffers in stage_input
-			if (mtl_entry.info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
-				buffer_idx += mtl_entry.info->args[i].size;
+	@autoreleasepool {
+		const auto& dev = cqueue.get_device();
+		const auto& mtl_entry = (const metal_kernel_entry&)entry;
+		auto mtl_func = (__bridge __unsafe_unretained id<MTLFunction>)mtl_entry.kernel;
+		
+		// check if info exists
+		const auto& arg_info = mtl_entry.info->args[ll_arg_index].argument_buffer_info;
+		if (!arg_info) {
+			log_error("no argument buffer info for arg at index #$", user_arg_index);
+			return {};
+		}
+		
+		// find the metal buffer index
+		uint32_t buffer_idx = 0;
+		for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
+			if (mtl_entry.info->args[i].special_type == SPECIAL_TYPE::STAGE_INPUT) {
+				// only tessellation evaluation shaders may contain buffers in stage_input
+				if (mtl_entry.info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					buffer_idx += mtl_entry.info->args[i].size;
+				}
+			} else if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE) {
+				// all args except for images are buffers
+				++buffer_idx;
 			}
-		} else if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE) {
-			// all args except for images are buffers
-			++buffer_idx;
 		}
-	}
-	
-	// create a dummy encoder so that we can retrieve the necessary buffer length (and do some validity checking)
-	id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx];
-	if (!arg_encoder) {
-		log_error("failed to create argument encoder");
-		return {};
-	}
-	
-	const auto arg_buffer_size = (uint64_t)[arg_encoder encodedLength];
-	if (arg_buffer_size == 0) {
-		log_error("computed argument buffer size is 0");
-		return {};
-	}
-	// round up to next multiple of page size
-	const auto arg_buffer_size_page = arg_buffer_size + (arg_buffer_size % aligned_ptr<int>::page_size != 0u ?
-														 (aligned_ptr<int>::page_size - (arg_buffer_size % aligned_ptr<int>::page_size)) : 0u);
-	
-	// figure out the top level arg indices (we don't need to go deeper, since non-constant/buffer vars in nested structs are not supported right now)
-	vector<uint32_t> arg_indices;
-	uint32_t arg_idx_counter = 0;
-	for (const auto& arg_buffer_arg : arg_info->args) {
-		arg_indices.emplace_back(arg_idx_counter);
-		switch (arg_buffer_arg.special_type) {
-			case llvm_toolchain::SPECIAL_TYPE::NONE:
-				// normal arg
-				++arg_idx_counter;
-				break;
-			case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
-			case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
-				arg_idx_counter += arg_buffer_arg.size; // #elements
-				break;
-			case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
-			case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
-			case llvm_toolchain::SPECIAL_TYPE::SSBO:
-			case llvm_toolchain::SPECIAL_TYPE::IUB:
-				throw runtime_error("invalid argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
-			case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
-				throw runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+		
+		// create a dummy encoder so that we can retrieve the necessary buffer length (and do some validity checking)
+		id <MTLArgumentEncoder> arg_encoder = [mtl_func newArgumentEncoderWithBufferIndex:buffer_idx];
+		if (!arg_encoder) {
+			log_error("failed to create argument encoder");
+			return {};
 		}
+		
+		const auto arg_buffer_size = (uint64_t)[arg_encoder encodedLength];
+		if (arg_buffer_size == 0) {
+			log_error("computed argument buffer size is 0");
+			return {};
+		}
+		// round up to next multiple of page size
+		const auto arg_buffer_size_page = arg_buffer_size + (arg_buffer_size % aligned_ptr<int>::page_size != 0u ?
+															 (aligned_ptr<int>::page_size - (arg_buffer_size % aligned_ptr<int>::page_size)) : 0u);
+		
+		// figure out the top level arg indices (we don't need to go deeper, since non-constant/buffer vars in nested structs are not supported right now)
+		vector<uint32_t> arg_indices;
+		uint32_t arg_idx_counter = 0;
+		for (const auto& arg_buffer_arg : arg_info->args) {
+			arg_indices.emplace_back(arg_idx_counter);
+			switch (arg_buffer_arg.special_type) {
+				case llvm_toolchain::SPECIAL_TYPE::NONE:
+					// normal arg
+					++arg_idx_counter;
+					break;
+				case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
+				case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
+					arg_idx_counter += arg_buffer_arg.size; // #elements
+					break;
+				case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
+				case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
+				case llvm_toolchain::SPECIAL_TYPE::SSBO:
+				case llvm_toolchain::SPECIAL_TYPE::IUB:
+					throw runtime_error("invalid argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+				case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
+					throw runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+			}
+		}
+		
+		// create the argument buffer
+		// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
+		auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
+		memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
+		auto buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),
+											  COMPUTE_MEMORY_FLAG::READ |
+											  COMPUTE_MEMORY_FLAG::HOST_WRITE |
+											  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
+											  add_mem_flags);
+		buf->set_debug_label(entry.info->name + "_arg_buffer");
+		return make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));
 	}
-	
-	// create the argument buffer
-	// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
-	auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
-	memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
-	auto buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),
-										  COMPUTE_MEMORY_FLAG::READ |
-										  COMPUTE_MEMORY_FLAG::HOST_WRITE |
-										  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
-										  add_mem_flags);
-	buf->set_debug_label(entry.info->name + "_arg_buffer");
-	return make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));
 }
 
 #endif

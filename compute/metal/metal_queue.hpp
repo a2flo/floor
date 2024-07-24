@@ -32,6 +32,7 @@ class metal_queue final : public compute_queue {
 public:
 #if defined(__OBJC__)
 	explicit metal_queue(const compute_device& device, id <MTLCommandQueue> floor_nonnull queue);
+	~metal_queue() override;
 #endif
 	
 	void finish() const override REQUIRES(!cmd_buffers_lock);

@@ -676,7 +676,6 @@ bool metal_image::zero(const compute_queue& cqueue) {
 		
 		[mtl_zero_buffer removeAllDebugMarkers];
 		[mtl_zero_buffer setPurgeableState:MTLPurgeableStateEmpty];
-		mtl_zero_buffer = nil;
 	}
 	
 	return success;
@@ -1040,7 +1039,9 @@ void* floor_nullable metal_image::get_metal_image_void_ptr() const {
 void metal_image::set_debug_label(const string& label) {
 	compute_memory::set_debug_label(label);
 	if (image) {
-		image.label = [NSString stringWithUTF8String:debug_label.c_str()];
+		@autoreleasepool {
+			image.label = [NSString stringWithUTF8String:debug_label.c_str()];
+		}
 	}
 }
 

@@ -20,9 +20,9 @@
 
 void move_matches(parser_context::match_list& dst_matches,
 				  parser_context::match_list& src_matches) {
-	for(auto& match : src_matches.list) {
-		dst_matches.list.emplace_back(std::move(match));
-	}
+	dst_matches.list.reserve(dst_matches.list.size() + src_matches.size());
+	std::move(std::begin(src_matches.list), std::end(src_matches.list), std::back_inserter(dst_matches.list));
+	src_matches.list.clear();
 }
 
 parser_node_wrapper_base::~parser_node_wrapper_base() noexcept {}

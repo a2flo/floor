@@ -27,6 +27,11 @@
 class metal_resource_tracking {
 public:
 	metal_resource_tracking() = default;
+	~metal_resource_tracking() {
+		@autoreleasepool {
+			resources = {};
+		}
+	}
 	
 	//! contains the state of multiple/all tracked resources
 	//! TODO/NOTE: right now, all buffers are considered read+write, images may be read-only or read+write (TODO: handle write-only/read-only buffers)
@@ -39,11 +44,13 @@ public:
 		
 		//! adds resources from another resource tracking object state
 		void add_resources(const resource_info_t& other) {
-			read_only.insert(read_only.end(), other.read_only.begin(), other.read_only.end());
-			write_only.insert(write_only.end(), other.write_only.begin(), other.write_only.end());
-			read_write.insert(read_write.end(), other.read_write.begin(), other.read_write.end());
-			read_only_images.insert(read_only_images.end(), other.read_only_images.begin(), other.read_only_images.end());
-			read_write_images.insert(read_write_images.end(), other.read_write_images.begin(), other.read_write_images.end());
+			@autoreleasepool {
+				read_only.insert(read_only.end(), other.read_only.begin(), other.read_only.end());
+				write_only.insert(write_only.end(), other.write_only.begin(), other.write_only.end());
+				read_write.insert(read_write.end(), other.read_write.begin(), other.read_write.end());
+				read_only_images.insert(read_only_images.end(), other.read_only_images.begin(), other.read_only_images.end());
+				read_write_images.insert(read_write_images.end(), other.read_write_images.begin(), other.read_write_images.end());
+			}
 		}
 	};
 	
@@ -54,7 +61,9 @@ public:
 	
 	//! clears all currently tracked resources
 	void clear_resources() {
-		resources = {};
+		@autoreleasepool {
+			resources = {};
+		}
 	}
 	
 	//! adds resources from another resource tracking object
@@ -85,11 +94,13 @@ protected:
 	
 	//! sorts + uniques all resources
 	void sort_and_unique_all_resources() {
-		sort_and_unique_resources(resources.read_only);
-		sort_and_unique_resources(resources.write_only);
-		sort_and_unique_resources(resources.read_write);
-		sort_and_unique_resources(resources.read_only_images);
-		sort_and_unique_resources(resources.read_write_images);
+		@autoreleasepool {
+			sort_and_unique_resources(resources.read_only);
+			sort_and_unique_resources(resources.write_only);
+			sort_and_unique_resources(resources.read_write);
+			sort_and_unique_resources(resources.read_only_images);
+			sort_and_unique_resources(resources.read_write_images);
+		}
 	}
 };
 

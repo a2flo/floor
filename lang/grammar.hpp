@@ -93,11 +93,11 @@ struct parser_context {
 	struct match {
 		MATCH_TYPE type { MATCH_TYPE::AST_NODE };
 		token_iterator token;
-		unique_ptr<ast_node_base> ast_node;
+		shared_ptr<ast_node_base> ast_node;
 		
 		match() noexcept {}
 		match(const token_iterator& token_) noexcept : type(MATCH_TYPE::TOKEN), token(token_) {}
-		match(unique_ptr<ast_node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(std::move(ast_node_)) {
+		match(shared_ptr<ast_node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(std::move(ast_node_)) {
 #if defined(FLOOR_DEBUG)
 			if(ast_node == nullptr) {
 				assert(ast_node != nullptr);
@@ -122,14 +122,14 @@ struct parser_context {
 	//! container type for all matches inside a grammar_rules object level
 	struct match_list {
 		vector<match> list;
-		match_list() noexcept {}
-		match_list(vector<match>&& vec) noexcept : list(std::move(vec)) {}
-		match_list(match_list&& ml) noexcept : list(std::move(ml.list)) {}
+		match_list() noexcept = default;
+		match_list(match_list&& ml) noexcept = default;
+		match_list(vector<match>&& vec) noexcept : list(std::forward<vector<match>>(vec)) {}
 		match_list(match&& m) noexcept {
-			list.emplace_back(std::move(m));
+			list.emplace_back(std::forward<match>(m));
 		}
-		match_list(unique_ptr<ast_node_base> ast_node) noexcept {
-			list.emplace_back(std::move(ast_node));
+		match_list(shared_ptr<ast_node_base>&& ast_node) noexcept {
+			list.emplace_back(std::forward<shared_ptr<ast_node_base>>(ast_node));
 		}
 		size_t size() const { return list.size(); }
 		match& operator[](const size_t& idx) { return list[idx]; }
@@ -249,12 +249,12 @@ struct match_return_type {
 	
 	//! full constructor with a moved match_list
 	match_return_type(const bool successful_, const bool push_node_, parser_context::match_list&& matches_) noexcept :
-	successful(successful_), push_node(push_node_), matches(std::move(matches_)) {}
+	successful(successful_), push_node(push_node_), matches(std::forward<parser_context::match_list>(matches_)) {}
 	
 	//! construct from a single match (this implies "successful" and "push_node")
 	match_return_type(parser_context::match&& match) noexcept :
 	successful(true), push_node(true) {
-		matches.list.emplace_back(std::move(match));
+		matches.list.emplace_back(std::forward<parser_context::match>(match));
 	}
 };
 
@@ -269,11 +269,13 @@ template <typename T> struct parser_node_base {
 	
 	//! use this to access the enclosed object
 	const T& get_enclosed() const { return *(const enclosed_type*)this; }
-	
+
+#if 0
 	//! NOTE: only for demonstration purposes - any derived class should implement this
 	match_return_type match(parser_context&) const {
 		return { false, false, {} };
 	}
+#endif
 };
 
 //! (empty) base class for all literal matchers.
@@ -514,7 +516,7 @@ struct grammar_rule_ ## name : public parser_unary<node_rule, parser_node_base<g
 	using base_type::node; /* we would have to use this->node everywhere otherwise */ \
 	match_return_type match(parser_context& ctx) const /* impl by user */
 
-//! properly end the grammar operator defintion (close the struct)
+//! properly end the grammar operator definition (close the struct)
 #define grammar_rule_end };
 
 void move_matches(parser_context::match_list& dst_matches, parser_context::match_list& src_matches);

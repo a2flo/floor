@@ -35,27 +35,29 @@ metal_renderer::metal_renderer(const compute_queue& cqueue_,
 							   const graphics_pipeline& pipeline_,
 							   const bool multi_view_) :
 graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
-	if (!valid) {
-		// already marked invalid, no point in continuing
-		return;
+	@autoreleasepool {
+		if (!valid) {
+			// already marked invalid, no point in continuing
+			return;
+		}
+		
+		// TODO: check any metal related validity
+		
+		// create a command buffer from the specified queue (this will be used throughout until commit)
+		const auto mtl_queue = ((const metal_queue&)cqueue).get_queue();
+		cmd_buffer = [mtl_queue commandBufferWithUnretainedReferences];
+		const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
+		cmd_buffer.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer" :
+							[NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
+		
+		if (!update_metal_pipeline()) {
+			valid = false;
+			return;
+		}
+		
+		// all successful
+		valid = true;
 	}
-	
-	// TODO: check any metal related validity
-	
-	// create a command buffer from the specified queue (this will be used throughout until commit)
-	const auto mtl_queue = ((const metal_queue&)cqueue).get_queue();
-	cmd_buffer = [mtl_queue commandBufferWithUnretainedReferences];
-	const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
-	cmd_buffer.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer" :
-						[NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
-	
-	if (!update_metal_pipeline()) {
-		valid = false;
-		return;
-	}
-	
-	// all successful
-	valid = true;
 }
 
 metal_renderer::~metal_renderer() {

@@ -99,7 +99,7 @@ public:
 	}
 	
 	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
-	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> floor_nonnull rsrc);
+	static void sync_metal_resource(const compute_queue& cqueue, id <MTLResource> __unsafe_unretained floor_nonnull rsrc);
 #endif
 	
 	//! returns the null-buffer for the specified device

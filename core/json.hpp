@@ -20,131 +20,128 @@
 
 #include <floor/core/cpp_headers.hpp>
 #include <floor/core/flat_map.hpp>
+#include <variant>
 
 namespace json {
 	struct json_value;
-	typedef floor_core::flat_map<string, json_value> json_object;
-	typedef vector<json_value> json_array;
+	using json_object = floor_core::flat_map<string, json_value>;
+	using json_array = vector<json_value>;
 	
 	//! json value (keyword, object, array, number or string)
 	struct json_value {
+		//! variant of all possible value types
+		using value_container_t = std::variant<nullptr_t, json_object, json_array, int64_t, double, std::string, bool>;
+		
+		//! each value type as an enum
+		//! NOTE: order in here matches the order in value_container_t
 		enum class VALUE_TYPE : uint32_t {
 			NULL_VALUE,
-			TRUE_VALUE,
-			FALSE_VALUE,
 			OBJECT,
 			ARRAY,
 			INT_NUMBER,
 			FP_NUMBER,
 			STRING,
+			BOOL_VALUE,
 		};
-		VALUE_TYPE type;
 		
-		union {
-			struct {
-				json_object members;
-			} object;
-			struct {
-				json_array values;
-			} array;
-			struct {
-				int64_t int_number{ 0 };
-			};
-			struct {
-				double fp_number;
-			};
-			struct {
-				string str;
-			};
-		};
+		//! the actual value storage
+		value_container_t value;
+		
+		//! returns the active/underlying type of "value"
+		constexpr VALUE_TYPE get_type() const {
+			if (auto idx = value.index(); idx != std::variant_npos) {
+				return (VALUE_TYPE)idx;
+			}
+			return VALUE_TYPE::NULL_VALUE;
+		}
 		
 		//! returns the value of this value if its type matches the specified type T,
 		//! returning it as <true, value>, or returning <false, 0> if the type doesn't match
 		template <typename T> requires is_same_v<T, nullptr_t>
 		pair<bool, nullptr_t> get() const {
-			if(type != VALUE_TYPE::NULL_VALUE) {
-				return { false, nullptr };
+			if (auto val_ptr = std::get_if<nullptr_t>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, nullptr };
+			return { false, nullptr };
 		}
 		template <typename T> requires is_same_v<T, bool>
 		pair<bool, bool> get() const {
-			if(type != VALUE_TYPE::TRUE_VALUE &&
-			   type != VALUE_TYPE::FALSE_VALUE) {
-				return { false, 0 };
+			if (auto val_ptr = std::get_if<bool>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, (type == VALUE_TYPE::TRUE_VALUE) };
+			return { false, false };
 		}
 		template <typename T> requires is_same_v<T, int64_t>
 		pair<bool, int64_t> get() const {
-			if(type != VALUE_TYPE::INT_NUMBER) {
-				return { false, 0 };
+			if (auto val_ptr = std::get_if<int64_t>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, int_number };
+			return { false, 0 };
 		}
 		template <typename T> requires is_same_v<T, uint64_t>
 		pair<bool, uint64_t> get() const {
-			if(type != VALUE_TYPE::INT_NUMBER) {
-				return { false, 0 };
+			if (auto val_ptr = std::get_if<int64_t>(&value); val_ptr) {
+				return { true, std::bit_cast<uint64_t>(*val_ptr) };
 			}
-			return { true, *(const uint64_t*)&int_number };
+			return { false, 0u };
 		}
 		template <typename T> requires is_same_v<T, int32_t>
 		pair<bool, int32_t> get() const {
-			if(type != VALUE_TYPE::INT_NUMBER) {
-				return { false, 0 };
+			if (auto val_ptr = std::get_if<int64_t>(&value); val_ptr) {
+				const auto int_number = *val_ptr;
+				return { true, int32_t(int_number < 0 ?
+									   std::max(int_number, int64_t(INT32_MIN)) :
+									   std::min(int_number, int64_t(INT32_MAX))) };
 			}
-			return { true, int32_t(int_number < 0 ?
-								   std::max(int_number, int64_t(INT32_MIN)) :
-								   std::min(int_number, int64_t(INT32_MAX))) };
+			return { false, 0 };
 		}
 		template <typename T> requires is_same_v<T, uint32_t>
 		pair<bool, uint32_t> get() const {
-			if(type != VALUE_TYPE::INT_NUMBER) {
-				return { false, 0 };
+			if (auto val_ptr = std::get_if<int64_t>(&value); val_ptr) {
+				return { true, uint32_t(std::min(std::bit_cast<uint64_t>(*val_ptr), uint64_t(UINT32_MAX))) };
 			}
-			return { true, uint32_t(std::min(*(const uint64_t*)&int_number, uint64_t(UINT32_MAX))) };
+			return { false, 0u };
 		}
 		template <typename T> requires is_same_v<T, float>
 		pair<bool, float> get() const {
-			if(type != VALUE_TYPE::FP_NUMBER) {
-				return { false, 0.0f };
+			if (auto val_ptr = std::get_if<double>(&value); val_ptr) {
+				return { true, float(*val_ptr) };
 			}
-			return { true, (float)fp_number };
+			return { false, 0.0f };
 		}
 		template <typename T> requires is_same_v<T, double>
 		pair<bool, double> get() const {
-			if(type != VALUE_TYPE::FP_NUMBER) {
-				return { false, 0.0 };
+			if (auto val_ptr = std::get_if<double>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, fp_number };
+			return { false, 0.0 };
 		}
 		template <typename T> requires is_same_v<T, string>
 		pair<bool, string> get() const {
-			if(type != VALUE_TYPE::STRING) {
-				return { false, "" };
+			if (auto val_ptr = std::get_if<std::string>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, str };
+			return { false, "" };
 		}
 		template <typename T> requires is_same_v<T, json_object>
 		pair<bool, json_object> get() const {
-			if(type != VALUE_TYPE::OBJECT) {
-				return { false, {} };
+			if (auto val_ptr = std::get_if<json_object>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, object.members };
+			return { false, {} };
 		}
 		template <typename T> requires is_same_v<T, json_array>
 		pair<bool, json_array> get() const {
-			if(type != VALUE_TYPE::ARRAY) {
-				return { false, {} };
+			if (auto val_ptr = std::get_if<json_array>(&value); val_ptr) {
+				return { true, *val_ptr };
 			}
-			return { true, array.values };
+			return { false, {} };
 		}
 		
 		//! gets this value as type "T" or throws if this value is not of the specified type
 		template <typename T>
 		T get_or_throw() const {
-			const auto ret = get<T>();
+			auto ret = get<T>();
 			if (!ret.first) {
 				throw runtime_error("json_value is not of type "s + typeid(T).name());
 			}
@@ -153,24 +150,34 @@ namespace json {
 		
 		void print(const uint32_t depth = 0) const;
 		
-		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
-		json_value(json_value&& val);
-		json_value& operator=(json_value&& val);
-		json_value(const json_value& val);
-		json_value& operator=(const json_value& val);
-		// init for null/true/false and default init + allocation for all else
-		explicit json_value(const VALUE_TYPE& value_type);
+		constexpr json_value() noexcept : value(0) {}
+		constexpr json_value(json_value&& val) = default;
+		json_value& operator=(json_value&& val) = default;
+		constexpr json_value(const json_value& val) = default;
+		json_value& operator=(const json_value& val) = default;
+		~json_value() = default;
+		// init as nullptr
+		explicit constexpr json_value(nullptr_t) : value(nullptr) {}
+		// init as object
+		explicit json_value(const json_object& obj_) : value(obj_) {}
+		explicit json_value(json_object&& obj_) : value(std::forward<json_object>(obj_)) {}
+		// init as array
+		explicit constexpr json_value(const json_array& arr_) : value(arr_) {}
+		explicit constexpr json_value(json_array&& arr_) : value(std::forward<json_array>(arr_)) {}
 		// init as string
-		explicit json_value(const string& str_) : json_value(VALUE_TYPE::STRING) { str = str_; }
+		explicit constexpr json_value(const std::string& str_) : value(str_) {}
+		explicit constexpr json_value(std::string&& str_) : value(std::forward<std::string>(str_)) {}
+		explicit constexpr json_value(const char* str_) : value(str_) {}
 		// init as signed integer
-		explicit json_value(const int64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = val; }
+		explicit constexpr json_value(const int64_t& val) : value(val) {}
 		// init as unsigned integer
-		explicit json_value(const uint64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = *(const int64_t*)&val; }
+		explicit constexpr json_value(const uint64_t& val) : value(std::bit_cast<int64_t>(val)) {}
 		// init as single precision floating point
-		explicit json_value(const float& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = (double)val; }
+		explicit constexpr json_value(const float& val) : value(double(val)) {}
 		// init as double precision floating point
-		explicit json_value(const double& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
-		~json_value();
+		explicit constexpr json_value(const double& val) : value(val) {}
+		// init as bool
+		explicit constexpr json_value(const bool& flag_) : value(flag_) {}
 	};
 	
 	//! json document, root is always a json value

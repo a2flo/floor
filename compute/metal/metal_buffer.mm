@@ -157,24 +157,24 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 		return false;
 	}
 	
-	// -> use host memory
-	if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_data.data() length:host_data.size_bytes() options:options
-											  deallocator:^(void*, NSUInteger) { /* nop */ }];
-	}
-	// -> alloc and use device memory
-	else {
-		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-		if (copy_host_data &&
-			host_data.data() != nullptr &&
-			!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			// can't use "newBufferWithBytes" with private storage memory
-			if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-				// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
-				//    if available), then blit from the host memory buffer
-				buffer = [mtl_dev.device newBufferWithLength:size options:options];
-				if (staging_buffer == nullptr) {
-					@autoreleasepool {
+	@autoreleasepool {
+		// -> use host memory
+		if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+			buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_data.data() length:host_data.size_bytes() options:options
+												  deallocator:nil /* opt-out */];
+		}
+		// -> alloc and use device memory
+		else {
+			// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
+			if (copy_host_data &&
+				host_data.data() != nullptr &&
+				!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+				// can't use "newBufferWithBytes" with private storage memory
+				if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+					// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
+					//    if available), then blit from the host memory buffer
+					buffer = [mtl_dev.device newBufferWithLength:size options:options];
+					if (staging_buffer == nullptr) {
 						MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 						if (!dev.unified_memory) {
@@ -203,22 +203,22 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 						
 						[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
 						buffer_with_host_mem = nil;
+					} else {
+						staging_buffer->write(cqueue, host_data.data(), size);
+						copy(cqueue, *staging_buffer);
 					}
 				} else {
-					staging_buffer->write(cqueue, host_data.data(), size);
-					copy(cqueue, *staging_buffer);
+					// all other storage modes can just use it
+					buffer = [mtl_dev.device newBufferWithBytes:host_data.data() length:host_data.size_bytes() options:options];
 				}
-			} else {
-				// all other storage modes can just use it
-				buffer = [mtl_dev.device newBufferWithBytes:host_data.data() length:host_data.size_bytes() options:options];
+			}
+			// else: just create a buffer of the specified size
+			else {
+				buffer = [mtl_dev.device newBufferWithLength:size options:options];
 			}
 		}
-		// else: just create a buffer of the specified size
-		else {
-			buffer = [mtl_dev.device newBufferWithLength:size options:options];
-		}
+		return true;
 	}
-	return true;
 }
 
 metal_buffer::~metal_buffer() {
@@ -562,7 +562,7 @@ bool metal_buffer::unmap(const compute_queue& cqueue, void* __attribute__((align
 	return success;
 }
 
-void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> rsrc) {
+void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResource> __unsafe_unretained floor_nonnull rsrc) {
 	@autoreleasepool {
 #if defined(FLOOR_DEBUG)
 		if (!metal_resource_type_needs_sync([rsrc storageMode])) {
@@ -573,7 +573,6 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResou
 		if (([rsrc storageMode] & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
 			// for shared storage: just wait until all previously queued command buffers have executed
 			cqueue.finish();
-			rsrc = nil;
 			return;
 		}
 		
@@ -585,15 +584,15 @@ void metal_buffer::sync_metal_resource(const compute_queue& cqueue, id <MTLResou
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
 #endif
-		
-		rsrc = nil;
 	}
 }
 
 void metal_buffer::set_debug_label(const string& label) {
 	compute_memory::set_debug_label(label);
 	if (buffer) {
-		buffer.label = [NSString stringWithUTF8String:debug_label.c_str()];
+		@autoreleasepool {
+			buffer.label = [NSString stringWithUTF8String:debug_label.c_str()];
+		}
 	}
 }
 

@@ -30,154 +30,54 @@
 
 namespace json {
 
-json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
-	switch(value_type) {
-		case VALUE_TYPE::NULL_VALUE:
-		case VALUE_TYPE::TRUE_VALUE:
-		case VALUE_TYPE::FALSE_VALUE:
-		case VALUE_TYPE::INT_NUMBER:
-		case VALUE_TYPE::FP_NUMBER:
-			// nop
-			break;
-		case VALUE_TYPE::OBJECT:
-			new (&this->object) json_object();
-			break;
-		case VALUE_TYPE::ARRAY:
-			new (&this->array) json_array();
-			break;
-		case VALUE_TYPE::STRING:
-			new (&this->str) string();
-			break;
-	}
-}
-json_value::json_value(json_value&& val) {
-	*this = std::move(val);
-}
-json_value& json_value::operator=(json_value&& val) {
-	type = val.type;
-	switch(type) {
-		case VALUE_TYPE::NULL_VALUE:
-		case VALUE_TYPE::TRUE_VALUE:
-		case VALUE_TYPE::FALSE_VALUE:
-			// nop
-			break;
-		case VALUE_TYPE::INT_NUMBER:
-			int_number = val.int_number;
-			break;
-		case VALUE_TYPE::FP_NUMBER:
-			fp_number = val.fp_number;
-			break;
-		case VALUE_TYPE::OBJECT:
-			new (&this->object) json_object(std::move(val.object.members));
-			break;
-		case VALUE_TYPE::ARRAY:
-			new (&this->array) json_array(std::move(val.array.values));
-			break;
-		case VALUE_TYPE::STRING:
-			new (&this->str) string(std::move(val.str));
-			break;
-	}
-	return *this;
-}
-json_value::json_value(const json_value& val) {
-	*this = val;
-}
-json_value& json_value::operator=(const json_value& val) {
-	type = val.type;
-	switch(type) {
-		case VALUE_TYPE::NULL_VALUE:
-		case VALUE_TYPE::TRUE_VALUE:
-		case VALUE_TYPE::FALSE_VALUE:
-			// nop
-			break;
-		case VALUE_TYPE::INT_NUMBER:
-			int_number = val.int_number;
-			break;
-		case VALUE_TYPE::FP_NUMBER:
-			fp_number = val.fp_number;
-			break;
-		case VALUE_TYPE::OBJECT:
-			new (&this->object) json_object(val.object.members);
-			break;
-		case VALUE_TYPE::ARRAY:
-			new (&this->array) json_array(val.array.values);
-			break;
-		case VALUE_TYPE::STRING:
-			new (&this->str) string(val.str);
-			break;
-	}
-	return *this;
-}
-json_value::~json_value() {
-	switch(type) {
-		case VALUE_TYPE::NULL_VALUE:
-		case VALUE_TYPE::TRUE_VALUE:
-		case VALUE_TYPE::FALSE_VALUE:
-		case VALUE_TYPE::INT_NUMBER:
-		case VALUE_TYPE::FP_NUMBER:
-			// nop
-			break;
-		case VALUE_TYPE::OBJECT:
-			object.members.~flat_map();
-			break;
-		case VALUE_TYPE::ARRAY:
-			array.values.~vector();
-			break;
-		case VALUE_TYPE::STRING:
-			str.~string();
-			break;
-	}
-}
 void json_value::print(const uint32_t depth) const {
-	switch(type) {
-		case VALUE_TYPE::NULL_VALUE:
+	std::visit([&depth](const auto& arg) {
+		using value_type = std::decay_t<decltype(arg)>;
+		if constexpr (std::is_same_v<value_type, nullptr_t>) {
 			cout << "null";
-			break;
-		case VALUE_TYPE::TRUE_VALUE:
-			cout << "true";
-			break;
-		case VALUE_TYPE::FALSE_VALUE:
-			cout << "false";
-			break;
-		case VALUE_TYPE::INT_NUMBER:
-			cout << int_number;
-			break;
-		case VALUE_TYPE::FP_NUMBER:
-			cout << fp_number;
-			break;
-		case VALUE_TYPE::STRING:
-			cout << '\"' << str << '\"';
-			break;
-		case VALUE_TYPE::OBJECT: {
+		} else if constexpr (std::is_same_v<value_type, int64_t>) {
+			cout << arg;
+		} else if constexpr (std::is_same_v<value_type, double>) {
+			cout << arg;
+		} else if constexpr (std::is_same_v<value_type, std::string>) {
+			cout << '\"' << arg << '\"';
+		} else if constexpr (std::is_same_v<value_type, bool>) {
+			cout << (arg ? "true" : "false");
+		} else if constexpr (std::is_same_v<value_type, json_object>) {
 			const string space_string((depth + 1) * 4, ' ');
 			cout << "{" << endl;
-			size_t i = 0, count = size(object.members);
-			for (const auto& entry : object.members) {
+			size_t i = 0, count = size(arg);
+			for (const auto& entry : arg) {
 				cout << space_string << '\"' << entry.first << "\": ";
 				entry.second.print(depth + 1);
-				if (i < count - 1) cout << ",";
+				if (i < count - 1) {
+					cout << ",";
+				}
 				cout << endl;
 				++i;
 			}
 			cout << string(depth * 4, ' ') << "}";
-			break;
-		}
-		case VALUE_TYPE::ARRAY: {
+		} else if constexpr (std::is_same_v<value_type, json_array>) {
 			const string space_string((depth + 1) * 4, ' ');
 			cout << "[" << endl;
-			for(size_t i = 0, count = size(array.values); i < count; ++i) {
+			for (size_t i = 0, count = size(arg); i < count; ++i) {
 				cout << space_string;
-				array.values[i].print(depth + 1);
-				if(i < count - 1) cout << ",";
+				arg[i].print(depth + 1);
+				if (i < count - 1) {
+					cout << ",";
+				}
 				cout << endl;
 			}
 			cout << string(depth * 4, ' ') << "]";
-			break;
+		} else {
+			instantiation_trap_dependent_type(value_type, "unhandled value type");
 		}
-	}
+	}, value);
 	
 	// one last newline if this is @ depth 0
-	if(depth == 0) cout << endl;
+	if (depth == 0) {
+		cout << endl;
+	}
 }
 
 class json_lexer final : public lexer {
@@ -655,24 +555,26 @@ struct json_grammar {
 	};
 	struct value_node : json_node {
 		json_value value;
-		value_node(json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(std::move(value_)) {}
-		value_node(nullptr_t) : json_node(JSON_NODE_TYPE::VALUE), value(json_value::VALUE_TYPE::NULL_VALUE) {}
+		value_node(json_value&& value_) : json_node(JSON_NODE_TYPE::VALUE), value(std::forward<json_value>(value_)) {}
+		value_node(nullptr_t) : json_node(JSON_NODE_TYPE::VALUE), value(nullptr) {}
 	};
 	struct member_node : json_node {
 		string name;
-		unique_ptr<ast_node_base> value;
-		member_node(string&& name_, unique_ptr<ast_node_base>&& value_) :
-		json_node(JSON_NODE_TYPE::MEMBER), name(std::move(name_)), value(std::move(value_)) {}
+		shared_ptr<ast_node_base> value;
+		member_node(string&& name_, shared_ptr<ast_node_base>&& value_) :
+		json_node(JSON_NODE_TYPE::MEMBER), name(std::forward<std::string>(name_)), value(std::forward<shared_ptr<ast_node_base>>(value_)) {}
 		member_node(nullptr_t) : json_node(JSON_NODE_TYPE::MEMBER), name("INVALID"), value(nullptr) {}
 	};
 	struct object_node : json_node {
-		vector<unique_ptr<ast_node_base>> objects;
-		object_node(vector<unique_ptr<ast_node_base>>&& objects_) : json_node(JSON_NODE_TYPE::OBJECT), objects(std::move(objects_)) {}
+		vector<shared_ptr<ast_node_base>> objects;
+		object_node(vector<shared_ptr<ast_node_base>>&& objects_) : json_node(JSON_NODE_TYPE::OBJECT),
+		objects(std::forward<vector<shared_ptr<ast_node_base>>>(objects_)) {}
 		object_node(nullptr_t) : json_node(JSON_NODE_TYPE::OBJECT), objects() {}
 	};
 	struct array_node : json_node {
-		vector<unique_ptr<ast_node_base>> values;
-		array_node(vector<unique_ptr<ast_node_base>>&& values_) : json_node(JSON_NODE_TYPE::ARRAY), values(std::move(values_)) {}
+		vector<shared_ptr<ast_node_base>> values;
+		array_node(vector<shared_ptr<ast_node_base>>&& values_) : json_node(JSON_NODE_TYPE::ARRAY),
+		values(std::forward<vector<shared_ptr<ast_node_base>>>(values_)) {}
 		array_node(nullptr_t) : json_node(JSON_NODE_TYPE::ARRAY), values() {}
 	};
 	
@@ -715,7 +617,7 @@ struct json_grammar {
 			for(size_t i = 0, count = matches.size(); i < count; i += 2) {
 				ret.emplace_back(std::move(matches[i].ast_node));
 			}
-			return { std::move(ret) };
+			return ret;
 		};
 		
 		json_text.on_match([this](auto& matches) -> parser_context::match_list {
@@ -733,7 +635,7 @@ struct json_grammar {
 		value_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.empty()) {
 				log_error("value match list should not be empty!");
-				return { make_unique<value_node>(nullptr) };
+				return { make_shared<value_node>(nullptr) };
 			}
 			else {
 				if(matches[0].type == parser_context::MATCH_TYPE::TOKEN) {
@@ -742,68 +644,64 @@ struct json_grammar {
 					switch(token_type) {
 						case SOURCE_TOKEN_TYPE::CONSTANT: {
 							const auto token_str = token->second.to_string();
-							if(token_str.find('.') != string::npos ||
-							   token_str.find('e') != string::npos ||
-							   token_str.find('E') != string::npos) {
+							if (token_str.find('.') != string::npos ||
+								token_str.find('e') != string::npos ||
+								token_str.find('E') != string::npos) {
 								// floating point value
-								json_value val { json_value::VALUE_TYPE::FP_NUMBER };
-								val.fp_number = stod(token_str);
-								return { make_unique<value_node>(std::move(val)) };
-							}
-							else {
+								return { make_shared<value_node>(json_value { stod(token_str) }) };
+							} else {
 								// integer value
-								json_value val { json_value::VALUE_TYPE::INT_NUMBER };
-								val.int_number = stoll(token_str);
-								return { make_unique<value_node>(std::move(val)) };
+								return { make_shared<value_node>(json_value { int64_t(stoll(token_str)) }) };
 							}
 						}
 						case SOURCE_TOKEN_TYPE::IDENTIFIER: {
 							const auto token_str = token->second.to_string();
-							json_value::VALUE_TYPE type;
-							if(token_str == "null") type = json_value::VALUE_TYPE::NULL_VALUE;
-							else if(token_str == "true") type = json_value::VALUE_TYPE::TRUE_VALUE;
-							else if(token_str == "false") type = json_value::VALUE_TYPE::FALSE_VALUE;
-							else {
+							if (token_str == "null") {
+								return { make_shared<value_node>(json_value { nullptr }) };
+							} else if (token_str == "true") {
+								return { make_shared<value_node>(json_value { true }) };
+							} else if (token_str == "false") {
+								return { make_shared<value_node>(json_value { false }) };
+							} else {
 								log_error("invalid IDENTIFIER: $", token_str);
-								return { make_unique<value_node>(nullptr) };
+								return { make_shared<value_node>(nullptr) };
 							}
-							json_value val { type };
-							return { make_unique<value_node>(std::move(val)) };
 						}
 						case SOURCE_TOKEN_TYPE::STRING_LITERAL: {
-							json_value val { json_value::VALUE_TYPE::STRING };
-							val.str = token->second.to_string();
+							auto str = token->second.to_string();
 							// remove " from front and back
-							val.str.erase(val.str.begin());
-							val.str.pop_back();
-							return { make_unique<value_node>(std::move(val)) };
+							str.erase(str.begin());
+							str.pop_back();
+							return { make_shared<value_node>(json_value { std::move(str) }) };
 						}
 						default:
 							log_error("invalid token type: $X!", token_type);
-							return { make_unique<value_node>(nullptr) };
+							return { make_shared<value_node>(nullptr) };
 					}
 				}
 				else { // ast node
 					auto jnode = (json_node*)matches[0].ast_node.get();
 					switch(jnode->type) {
 						case json_node::JSON_NODE_TYPE::OBJECT: {
-							json_value val { json_value::VALUE_TYPE::OBJECT };
 							auto onode = (object_node*)jnode;
-							for(auto& obj : onode->objects) {
-								val.object.members.emplace(std::move(((member_node*)obj.get())->name),
-														   std::move(((value_node*)((member_node*)obj.get())->value.get())->value));
+							json_object obj;
+							obj.reserve(onode->objects.size());
+							for (auto& object : onode->objects) {
+								obj.emplace(std::move(((member_node*)object.get())->name),
+											std::move(((value_node*)((member_node*)object.get())->value.get())->value));
 							}
 							onode->objects.clear();
-							return { make_unique<value_node>(std::move(val)) };
+							return { make_shared<value_node>(json_value { std::move(obj) }) };
 						}
 						case json_node::JSON_NODE_TYPE::ARRAY: {
-							json_value val { json_value::VALUE_TYPE::ARRAY };
 							auto anode = (array_node*)jnode;
-							for(auto& elem : anode->values) {
-								val.array.values.emplace_back(std::move(((value_node*)elem.get())->value));
+							json_array arr;
+							arr.reserve(anode->values.size());
+							for (auto& elem : anode->values) {
+								arr.emplace_back(std::move(((value_node*)elem.get())->value));
 							}
 							anode->values.clear();
-							return { make_unique<value_node>(std::move(val)) };
+							return { make_shared<value_node>(json_value { std::move(arr) }) };
 						}
 						case json_node::JSON_NODE_TYPE::MEMBER:
 							log_error("value matched a MEMBER json node (not allowed)!");
@@ -816,24 +714,24 @@ struct json_grammar {
 							break;
 					}
 				}
-				return { make_unique<value_node>(nullptr) }; // in case of an error
+				return { make_shared<value_node>(nullptr) }; // in case of an error
 			}
 		});
 		object_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.size() >= 3) {
 				// non-empty
-				vector<unique_ptr<ast_node_base>> nodes;
+				vector<shared_ptr<ast_node_base>> nodes;
 				for(size_t i = 1, count = matches.size() - 1; i < count; ++i) {
 					nodes.emplace_back(std::move(matches[i].ast_node));
 				}
-				return { make_unique<object_node>(std::move(nodes)) };
+				return { make_shared<object_node>(std::move(nodes)) };
 			}
 			else if(matches.size() == 2) {
 				// empty
-				return { make_unique<object_node>(nullptr) };
+				return { make_shared<object_node>(nullptr) };
 			}
 			log_error("invalid object match size: $!", matches.size());
-			return { make_unique<object_node>(nullptr) };
+			return { make_shared<object_node>(nullptr) };
 		});
 		member_list.on_match(push_to_parent_even);
 		member.on_match([](auto& matches) -> parser_context::match_list {
@@ -842,26 +740,26 @@ struct json_grammar {
 				auto key = matches[0].token->second.to_string();
 				key.erase(key.begin());
 				key.pop_back();
-				return { make_unique<member_node>(std::move(key), std::move(matches[2].ast_node)) };
+				return { make_shared<member_node>(std::move(key), std::move(matches[2].ast_node)) };
 			}
 			log_error("invalid member match size: $!", matches.size());
-			return { make_unique<member_node>(nullptr) };
+			return { make_shared<member_node>(nullptr) };
 		});
 		array_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.size() >= 3) {
 				// non-empty
-				vector<unique_ptr<ast_node_base>> nodes;
+				vector<shared_ptr<ast_node_base>> nodes;
 				for(size_t i = 1, count = matches.size() - 1; i < count; ++i) {
 					nodes.emplace_back(std::move(matches[i].ast_node));
 				}
-				return { make_unique<array_node>(std::move(nodes)) };
+				return { make_shared<array_node>(std::move(nodes)) };
 			}
 			else if(matches.size() == 2) {
 				// empty
-				return { make_unique<array_node>(nullptr) };
+				return { make_shared<array_node>(nullptr) };
 			}
 			log_error("invalid array match size: $!", matches.size());
-			return { make_unique<array_node>(nullptr) };
+			return { make_shared<array_node>(nullptr) };
 		});
 		element_list.on_match(push_to_parent_even);
 	}
@@ -944,7 +842,7 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 	}
 	
 	// check if root is actually an object that we can traverse
-	if(doc.root.type != json_value::VALUE_TYPE::OBJECT) {
+	if (doc.root.value.index() != (size_t)json_value::VALUE_TYPE::OBJECT) {
 		log_error("root value is not an object!");
 		return { false, T {} };
 	}
@@ -952,10 +850,15 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 	// tokenize input path, then traverse
 	const auto path_stack = core::tokenize(path, '.');
 	const json_value* cur_node = &doc.root;
-	for(size_t i = 0, count = path_stack.size(); i < count; ++i) {
+	for (size_t i = 0, count = path_stack.size(); i < count; ++i) {
 		const auto& key = path_stack[i];
 		bool found = false;
-		for(const auto& member : cur_node->object.members) {
+		const auto object_ptr = std::get_if<json_object>(&cur_node->value);
+		assert(object_ptr);
+		if (!object_ptr) { // should never happen if we get here, but just in case ...
+			return { false, T {} };
+		}
+		for (const auto& member : *object_ptr) {
 			if(member.first == key) {
 				// is leaf?
 				if(i == count - 1) {
@@ -978,7 +881,7 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 		}
 		
 		// check if child node is actually a json object
-		if(cur_node->type != json_value::VALUE_TYPE::OBJECT) {
+		if (cur_node->value.index() != (size_t)json_value::VALUE_TYPE::OBJECT) {
 			log_error("found child node ($) is not a json object (path: $)!", key, path);
 			return { false, T {} };
 		}

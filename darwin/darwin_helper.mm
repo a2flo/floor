@@ -799,3 +799,9 @@ bool darwin_helper::is_running_in_debugger() {
 	return in_debugger;
 #endif
 }
+
+bool darwin_helper::sdl_poll_event_wrapper(SDL_Event& event_handle) {
+	@autoreleasepool {
+		return SDL_PollEvent(&event_handle);
+	}
+}

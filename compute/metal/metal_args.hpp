@@ -149,22 +149,24 @@ namespace metal_args {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
-		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
-		vector<NSUInteger> offsets(count, 0);
-		for (size_t i = 0; i < count; ++i) {
-			if (arg[i]) {
-				mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
-			} else {
-				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
-				assert(null_buffer);
-				mtl_buf_array[i] = null_buffer->get_metal_buffer();
+		@autoreleasepool {
+			vector<id <MTLBuffer>> mtl_buf_array(count, nil);
+			vector<NSUInteger> offsets(count, 0);
+			for (size_t i = 0; i < count; ++i) {
+				if (arg[i]) {
+					mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
+				} else {
+					const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
+					assert(null_buffer);
+					mtl_buf_array[i] = null_buffer->get_metal_buffer();
+				}
 			}
+			
+			[encoder setBuffers:mtl_buf_array.data()
+						offsets:offsets.data()
+					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 		}
-		
-		[encoder setBuffers:mtl_buf_array.data()
-					offsets:offsets.data()
-				  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
-		res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 	}
 	
 	template <ENCODER_TYPE enc_type> requires(enc_type == ENCODER_TYPE::ARGUMENT)
@@ -178,22 +180,24 @@ namespace metal_args {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
-		vector<id <MTLBuffer>> mtl_buf_array(count, nil);
-		vector<NSUInteger> offsets(count, 0);
-		for (size_t i = 0; i < count; ++i) {
-			if (arg[i]) {
-				mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
-			} else {
-				const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
-				assert(null_buffer);
-				mtl_buf_array[i] = null_buffer->get_metal_buffer();
+		@autoreleasepool {
+			vector<id <MTLBuffer>> mtl_buf_array(count, nil);
+			vector<NSUInteger> offsets(count, 0);
+			for (size_t i = 0; i < count; ++i) {
+				if (arg[i]) {
+					mtl_buf_array[i] = arg[i]->get_underlying_metal_buffer_safe()->get_metal_buffer();
+				} else {
+					const auto null_buffer = (const metal_buffer*)metal_buffer::get_null_buffer(dev);
+					assert(null_buffer);
+					mtl_buf_array[i] = null_buffer->get_metal_buffer();
+				}
 			}
+			
+			[encoder setBuffers:mtl_buf_array.data()
+						offsets:offsets.data()
+					  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
+			res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 		}
-		
-		[encoder setBuffers:mtl_buf_array.data()
-					offsets:offsets.data()
-				  withRange:NSRange { arg_buffer_index(idx, arg_buffer_indices), count }];
-		res_info->read_write.insert(res_info->read_write.end(), mtl_buf_array.begin(), mtl_buf_array.end());
 	}
 	
 	template <ENCODER_TYPE enc_type>
@@ -318,24 +322,26 @@ namespace metal_args {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
-		vector<id <MTLTexture>> mtl_img_array(count, nil);
-		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
-		}
-		
-		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setTextures:mtl_img_array.data()
-					   withRange:NSRange { idx.texture_idx, count }];
-			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+		@autoreleasepool {
+			vector<id <MTLTexture>> mtl_img_array(count, nil);
+			for (size_t i = 0; i < count; ++i) {
+				mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
 			}
-		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
-				[encoder setVertexTextures:mtl_img_array.data()
-								 withRange:NSRange { idx.texture_idx, count }];
-			} else {
-				[encoder setFragmentTextures:mtl_img_array.data()
-								   withRange:NSRange { idx.texture_idx, count }];
+			
+			if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
+				[encoder setTextures:mtl_img_array.data()
+						   withRange:NSRange { idx.texture_idx, count }];
+				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+					res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+				}
+			} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+				if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					[encoder setVertexTextures:mtl_img_array.data()
+									 withRange:NSRange { idx.texture_idx, count }];
+				} else {
+					[encoder setFragmentTextures:mtl_img_array.data()
+									   withRange:NSRange { idx.texture_idx, count }];
+				}
 			}
 		}
 	}
@@ -357,24 +363,26 @@ namespace metal_args {
 		const auto count = arg.size();
 		if (count < 1) return;
 		
-		vector<id <MTLTexture>> mtl_img_array(count, nil);
-		for (size_t i = 0; i < count; ++i) {
-			mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
-		}
-		
-		if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
-			[encoder setTextures:mtl_img_array.data()
-					   withRange:NSRange { idx.texture_idx, count }];
-			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-				res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+		@autoreleasepool {
+			vector<id <MTLTexture>> mtl_img_array(count, nil);
+			for (size_t i = 0; i < count; ++i) {
+				mtl_img_array[i] = (arg[i] ? arg[i]->get_underlying_metal_image_safe()->get_metal_image() : nil);
 			}
-		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
-				[encoder setVertexTextures:mtl_img_array.data()
-								 withRange:NSRange { idx.texture_idx, count }];
-			} else {
-				[encoder setFragmentTextures:mtl_img_array.data()
-								   withRange:NSRange { idx.texture_idx, count }];
+			
+			if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
+				[encoder setTextures:mtl_img_array.data()
+						   withRange:NSRange { idx.texture_idx, count }];
+				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
+					res_info->read_only_images.insert(res_info->read_only_images.end(), mtl_img_array.begin(), mtl_img_array.end());
+				}
+			} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+				if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					[encoder setVertexTextures:mtl_img_array.data()
+									 withRange:NSRange { idx.texture_idx, count }];
+				} else {
+					[encoder setFragmentTextures:mtl_img_array.data()
+									   withRange:NSRange { idx.texture_idx, count }];
+				}
 			}
 		}
 	}

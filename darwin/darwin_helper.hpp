@@ -60,6 +60,9 @@ public:
 	static string get_bundle_identifier();
 	static string get_pref_path();
 	static bool is_running_in_debugger();
+	
+	//! wrapper around SDL_PollEvent with an autoreleasepool
+	static bool sdl_poll_event_wrapper(SDL_Event& event_handle);
 
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 	// macOS specific

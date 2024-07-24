@@ -20,6 +20,9 @@
 #include <floor/floor/floor.hpp>
 #include <floor/core/unicode.hpp>
 #include <floor/vr/vr_context.hpp>
+#if defined(__APPLE__)
+#include <floor/darwin/darwin_helper.hpp>
+#endif
 
 event::event() : thread_base("event") {
 	const auto cur_time = SDL_GetTicks();
@@ -61,7 +64,13 @@ void event::handle_events() {
 	
 	// internal engine event handler
 	const auto coord_scale = (floor::get_hidpi() ? floor::get_scale_factor() : 1.0f);
-	while (SDL_PollEvent(&event_handle)) {
+	while (
+#if defined(__APPLE__)
+		   darwin_helper::sdl_poll_event_wrapper(event_handle)
+#else
+		   SDL_PollEvent(&event_handle)
+#endif
+		   ) {
 		const auto event_type = event_handle.type;
 		const auto cur_ticks = SDL_GetTicks();
 		

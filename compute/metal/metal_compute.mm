@@ -449,15 +449,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 }
 
 shared_ptr<compute_queue> metal_compute::create_queue(const compute_device& dev) const {
-	id <MTLCommandQueue> queue = [((const metal_device&)dev).device newCommandQueue];
-	if(queue == nullptr) {
-		log_error("failed to create command queue");
-		return {};
+	@autoreleasepool {
+		id <MTLCommandQueue> queue = [((const metal_device&)dev).device newCommandQueue];
+		if(queue == nullptr) {
+			log_error("failed to create command queue");
+			return {};
+		}
+		
+		auto ret = make_shared<metal_queue>(dev, queue);
+		queues.push_back(ret);
+		return ret;
 	}
-	
-	auto ret = make_shared<metal_queue>(dev, queue);
-	queues.push_back(ret);
-	return ret;
 }
 
 const compute_queue* metal_compute::get_device_default_queue(const compute_device& dev) const {
@@ -469,8 +471,10 @@ const compute_queue* metal_compute::get_device_default_queue(const compute_devic
 }
 
 unique_ptr<compute_fence> metal_compute::create_fence(const compute_queue& cqueue) const {
-	id <MTLFence> mtl_fence = [((const metal_device&)cqueue.get_device()).device newFence];
-	return make_unique<metal_fence>(mtl_fence);
+	@autoreleasepool {
+		id <MTLFence> mtl_fence = [((const metal_device&)cqueue.get_device()).device newFence];
+		return make_unique<metal_fence>(mtl_fence);
+	}
 }
 
 const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) const {
@@ -553,27 +557,29 @@ shared_ptr<compute_program> metal_compute::create_program_from_archive_binaries(
 	// create the program
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& mtl_dev = (const metal_device&)*devices[i];
-		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
-		
-		metal_program::metal_program_entry entry;
-		entry.archive = ar; // ensure we keep the archive memory
-		entry.functions = func_info;
-		
-		NSError* err { nil };
-		dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
-														dispatch_get_main_queue(), ^{} /* must be non-default */);
-		entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
-		if (!entry.program) {
-			log_error("failed to create metal program/library for device $: $",
-					  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-			return {};
+	@autoreleasepool {
+		for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+			const auto& mtl_dev = (const metal_device&)*devices[i];
+			const auto& dev_best_bin = bins.dev_binaries[i];
+			const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
+			
+			metal_program::metal_program_entry entry;
+			entry.archive = ar; // ensure we keep the archive memory
+			entry.functions = func_info;
+			
+			NSError* err { nil };
+			dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
+															dispatch_get_main_queue(), ^{} /* must be non-default */);
+			entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
+			if (!entry.program) {
+				log_error("failed to create metal program/library for device $: $",
+						  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+				return {};
+			}
+			entry.valid = true;
+			
+			prog_map.insert_or_assign(mtl_dev, entry);
 		}
-		entry.valid = true;
-		
-		prog_map.insert_or_assign(mtl_dev, entry);
 	}
 	
 	return add_metal_program(std::move(prog_map), &programs, programs_lock);
@@ -607,32 +613,34 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	}
 	
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // can only do this on macOS
-	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
-	NSError* err { nil };
-	const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
-	if (!lib_file_name) {
-		log_error("invalid library file name: $", program.data_or_filename);
-		return ret;
-	}
-	auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
-	ret.program = [device.device newLibraryWithURL:lib_url
-											 error:&err];
-	if(!floor::get_toolchain_keep_temp()) {
-		// cleanup
-		if(!floor::get_toolchain_debug()) {
-			error_code ec {};
-			(void)filesystem::remove(program.data_or_filename, ec);
+	@autoreleasepool {
+		// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
+		NSError* err { nil };
+		const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
+		if (!lib_file_name) {
+			log_error("invalid library file name: $", program.data_or_filename);
+			return ret;
 		}
-	}
-	if(!ret.program) {
-		log_error("failed to create metal program/library for device $: $",
-				  device.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+		auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
+		ret.program = [device.device newLibraryWithURL:lib_url
+												 error:&err];
+		if(!floor::get_toolchain_keep_temp()) {
+			// cleanup
+			if(!floor::get_toolchain_debug()) {
+				error_code ec {};
+				(void)filesystem::remove(program.data_or_filename, ec);
+			}
+		}
+		if(!ret.program) {
+			log_error("failed to create metal program/library for device $: $",
+					  device.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+			return ret;
+		}
+		
+		// TODO: print out the build log
+		ret.valid = true;
 		return ret;
 	}
-	
-	// TODO: print out the build log
-	ret.valid = true;
-	return ret;
 #else
 	log_error("this is not supported on iOS!");
 	return ret;
@@ -684,27 +692,29 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 	// assume pre-compiled program is the same for all devices
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	for(const auto& dev : devices) {
-		metal_program::metal_program_entry entry;
-		entry.functions = functions;
-		
-		NSError* err { nil };
-		const auto lib_file_name = [NSString stringWithUTF8String:file_name.c_str()];
-		if (!lib_file_name) {
-			log_error("invalid library file name: $", file_name);
-			continue;
+	@autoreleasepool {
+		for(const auto& dev : devices) {
+			metal_program::metal_program_entry entry;
+			entry.functions = functions;
+			
+			NSError* err { nil };
+			const auto lib_file_name = [NSString stringWithUTF8String:file_name.c_str()];
+			if (!lib_file_name) {
+				log_error("invalid library file name: $", file_name);
+				continue;
+			}
+			auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
+			entry.program = [((const metal_device&)*dev).device newLibraryWithURL:lib_url
+																			error:&err];
+			if(!entry.program) {
+				log_error("failed to create metal program/library for device $: $",
+						  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+				continue;
+			}
+			entry.valid = true;
+			
+			prog_map.insert_or_assign((const metal_device&)*dev, entry);
 		}
-		auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
-		entry.program = [((const metal_device&)*dev).device newLibraryWithURL:lib_url
-																		error:&err];
-		if(!entry.program) {
-			log_error("failed to create metal program/library for device $: $",
-					  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-			continue;
-		}
-		entry.valid = true;
-		
-		prog_map.insert_or_assign((const metal_device&)*dev, entry);
 	}
 	return add_metal_program(std::move(prog_map), &programs, programs_lock);
 }
@@ -753,10 +763,12 @@ MTLPixelFormat metal_compute::get_metal_renderer_pixel_format() const {
 }
 
 id <CAMetalDrawable> metal_compute::get_metal_next_drawable(id <MTLCommandBuffer> cmd_buffer) const {
-	if (view == nullptr) {
-		return nil;
+	@autoreleasepool {
+		if (view == nullptr) {
+			return nil;
+		}
+		return darwin_helper::get_metal_next_drawable(view, cmd_buffer);
 	}
-	return darwin_helper::get_metal_next_drawable(view, cmd_buffer);
 }
 
 bool metal_compute::init_vr_renderer() {
