@@ -67,10 +67,13 @@ public:
 	
 	logger_thread() : thread_base("logger") {
 		this->set_thread_delay(0); // never sleep in thread_base
+		this->set_yield_after_run(false); // never yield
 		this->start();
 	}
 	~logger_thread() override {
 		// finish (kill the logger thread) and run once more to make sure everything has been saved/printed
+		set_thread_should_finish();
+		logger_state.run_cv.notify_all();
 		finish();
 		run();
 		

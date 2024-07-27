@@ -1149,7 +1149,6 @@ program_data compile_input(const string& input,
 		if (metal_preprocess) {
 			log_debug("metal final cmd: $", metal_pp_compile_cmd);
 		}
-		logger::flush();
 	}
 	string compilation_output;
 	core::system(clang_cmd, compilation_output);

@@ -80,13 +80,13 @@ bool host_argument_buffer::set_arguments(const compute_queue& dev_queue floor_un
 			const auto ptr = ((const host_image*)(*img_ptr))->get_host_image_program_info_with_sync();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
-		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
 			return false;
-		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
 			return false;
-		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			log_error("nested argument buffers are not supported for Host-Compute");
 			return false;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {

@@ -109,13 +109,13 @@ bool cuda_argument_buffer::set_arguments(const compute_queue& dev_queue, const v
 			// set run-time image type
 			memcpy(copy_buffer_ptr, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
 			copy_buffer_ptr += sizeof(COMPUTE_IMAGE_TYPE);
-		} else if (auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const vector<compute_image*>*>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
 			return false;
-		} else if (auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const vector<shared_ptr<compute_image>>*>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
 			return false;
-		} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
+		} else if ([[maybe_unused]] auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			log_error("nested argument buffers are not supported for CUDA");
 			return false;
 		} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {

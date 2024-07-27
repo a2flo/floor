@@ -400,8 +400,6 @@ bool cuda_api_init(const bool use_internal_api) {
 			return false;
 		}
 	}
-
-	logger::flush();
 	
 	// done
 	init_success = true;

@@ -129,7 +129,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
-	log_debug("specializing $ for $ ...", info->name, work_group_size); logger::flush();
+	log_debug("specializing $ for $ ...", info->name, work_group_size);
 	VK_CALL_RET(vkCreateComputePipelines(device.device, cache, 1, &pipeline_info, nullptr, &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
 				nullptr)
