@@ -69,7 +69,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++14-compat -Wno-c++14-compa
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++17-compat -Wno-c++17-compat-pedantic -Wno-c++17-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions)
-target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c99-extensions -Wno-c11-extensions)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-gnu -Wno-gcc-compat)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
 # don't be too pedantic

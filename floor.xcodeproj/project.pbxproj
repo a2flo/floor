@@ -2321,6 +2321,9 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-c11-extensions",
+					"-Wno-c17-extensions",
+					"-Wno-c23-extensions",
 					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",
@@ -2402,7 +2405,7 @@
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = fast;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = floor_prefix.pch;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -2480,6 +2483,9 @@
 					"-Wno-gcc-compat",
 					"-Wno-gnu",
 					"-Wno-c99-extensions",
+					"-Wno-c11-extensions",
+					"-Wno-c17-extensions",
+					"-Wno-c23-extensions",
 					"-Wno-nullability-extension",
 					"-Wno-header-hygiene",
 					"-Wno-documentation",

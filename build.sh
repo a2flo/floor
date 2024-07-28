@@ -741,7 +741,7 @@ else
 fi
 
 # release mode flags/optimizations
-REL_FLAGS="-Ofast -funroll-loops"
+REL_FLAGS="-O3 -funroll-loops"
 # if we're building for the native/host cpu, the appropriate sse/avx flags will already be set/used
 if [ $BUILD_CONF_NATIVE -eq 0 ]; then
 	if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
@@ -794,7 +794,7 @@ WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++17-compat -Wno-c++17-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions"
 WARNINGS="${WARNINGS} -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions"
-WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions"
+WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions"
 WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
 WARNINGS="${WARNINGS} -Wno-nullability-extension"
 # don't be too pedantic
