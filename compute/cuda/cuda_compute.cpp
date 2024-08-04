@@ -232,6 +232,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 		} else if (driver_version < 12050) {
 			device.ptx = { 8, 4 };
 		} else {
+			// 12.5 and 12.6 both use PTX 8.5
 			device.ptx = { 8, 5 };
 		}
 		
