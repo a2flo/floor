@@ -316,7 +316,11 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		if (entry.constant_buffers) {
 			encoder->acquired_constant_buffers.emplace_back(entry.constant_buffers->acquire());
 			encoder->constant_buffer_mappings.emplace_back(entry.constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
-			encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {});
+			encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {
+				&entry.constant_buffer_info,
+				encoder->acquired_constant_buffers.back().first,
+				{ (uint8_t*)encoder->constant_buffer_mappings.back(), encoder->acquired_constant_buffers.back().first->get_size() }
+			});
 		} else {
 			encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {});
 		}
