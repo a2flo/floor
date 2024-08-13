@@ -1004,16 +1004,36 @@ namespace const_math {
 		return ((v1 * v2) / const_math::lcm(v1, v2));
 	}
 	
-	//! returns the nearest power of two value of num (only numerical upwards)
+	//! returns the nearest (greater or equal) power of two value of num (only numerical upwards)
 	template <typename int_type> requires(ext::is_integral_v<int_type>)
 	constexpr int_type next_pot(const int_type num) {
-		int_type tmp = 2;
-		for(size_t i = 0; i < ((sizeof(int_type) * 8) - 1); ++i) {
-			if(tmp >= num) return tmp;
+		int_type tmp = 1;
+		for (size_t i = 0; i < (sizeof(int_type) * 8u); ++i) {
+			if (tmp >= num) {
+				return tmp;
+			}
 			tmp <<= 1;
 		}
 		return 0;
 	}
+
+   //! returns the nearest (less or equal) power of two value of num (only numerical downwards)
+   template <typename int_type> requires(ext::is_integral_v<int_type>)
+   constexpr int_type prev_pot(const int_type num) {
+	   if (num <= 1) {
+		   return num;
+	   }
+	   
+	   int_type tmp = 1;
+	   for (size_t i = 0; i < (sizeof(int_type) * 8u); ++i) {
+		   auto next = tmp << 1;
+		   if (next > num) {
+			   return tmp;
+		   }
+		   tmp = next;
+	   }
+	   return 0;
+   }
 	
 	//! computes the width of an integer value (e.g. 7 = 1, 42 = 2, 987654 = 6)
 	template <typename int_type> requires(ext::is_integral_v<int_type>)

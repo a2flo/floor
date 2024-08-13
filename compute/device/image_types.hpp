@@ -691,9 +691,9 @@ static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
 //! returns the amount of mip-map levels required by the specified max image dimension (no flag checking)
 static constexpr uint32_t image_mip_level_count_from_max_dim(const uint32_t& max_dim) {
 	// each mip level is half the size of its upper/parent level, until dim == 1
-	// -> get the closest power-of-two, then "log2(2^N) + 1"
+	// -> get the closest lower power-of-two, then "log2(2^N) + 1"
 	// this can be done the fastest by counting the leading zeros in the 32-bit value
-	return uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
+	return uint32_t(32 - __builtin_clz((uint32_t)const_math::prev_pot(max_dim)));
 }
 
 //! returns the amount of mip-map levels required by the specified image dim and type, down to 1px
