@@ -327,9 +327,11 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 	return true;
 }
 
-vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::move(programs_)) {
-	if (programs.empty()) return;
-	retrieve_unique_kernel_names(programs);
+vulkan_program::vulkan_program(program_map_type&& programs_) :
+compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(programs_)) {
+	if (programs.empty()) {
+		return;
+	}
 	
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
@@ -423,9 +425,15 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 						const uint3 work_group_size = (info.has_valid_required_local_size() ?
 													   info.required_local_size :
 													   uint3 { entry.max_total_local_size, 1, 1 });
-						if ((work_group_size.x % entry.stage_sub_group_info.requiredSubgroupSize) != 0) {
-							log_error("work-group size X ($) must be a multiple of the sub-group size ($) in function \"$\"",
-									  work_group_size.x, entry.stage_sub_group_info.requiredSubgroupSize, func_name);
+						if (std::popcount(work_group_size.x) != 1u) {
+							log_error("work-group size X ($) must be a power-of-two in function \"$\"",
+									  work_group_size.x, func_name);
+							continue;
+						}
+						const auto work_group_size_extent = work_group_size.extent();
+						if ((work_group_size_extent % entry.stage_sub_group_info.requiredSubgroupSize) != 0) {
+							log_error("work-group size ($) must be a multiple of the sub-group size ($) in function \"$\"",
+									  work_group_size_extent, entry.stage_sub_group_info.requiredSubgroupSize, func_name);
 							continue;
 						}
 						if (entry.specialize(vk_dev, work_group_size) == nullptr) {
@@ -440,7 +448,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(std::mov
 			}
 		}
 		
-		kernels.emplace_back(make_shared<vulkan_kernel>(std::move(kernel_map)));
+		kernels.emplace_back(make_shared<vulkan_kernel>(func_name, std::move(kernel_map)));
 	}
 }
 

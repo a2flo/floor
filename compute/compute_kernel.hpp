@@ -19,6 +19,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_common.hpp>
@@ -39,6 +40,7 @@ class compute_image;
 
 class compute_kernel {
 public:
+	constexpr compute_kernel(const string_view kernel_name_) noexcept : kernel_name(kernel_name_) {}
 	virtual ~compute_kernel() = default;
 	
 	struct kernel_entry {
@@ -75,6 +77,9 @@ public:
 								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
 	
 protected:
+	//! function name of this kernel
+	const string_view kernel_name;
+	
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
 	

@@ -44,9 +44,9 @@ public:
 	using kernel_map_type = floor_core::flat_map<const host_device&, host_kernel_entry>;
 	
 	//! constructor for kernels built using the host compiler / vanilla toolchain
-	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
+	host_kernel(const string_view kernel_name_, const void* kernel, compute_kernel::kernel_entry&& entry);
 	//! constructor for kernels built using the floor host-compute device toolchain
-	host_kernel(kernel_map_type&& kernels);
+	host_kernel(const string_view kernel_name_, kernel_map_type&& kernels);
 	~host_kernel() override = default;
 	
 	void execute(const compute_queue& cqueue,
@@ -65,7 +65,6 @@ public:
 	
 protected:
 	const void* kernel { nullptr };
-	const string func_name;
 	const compute_kernel::kernel_entry entry;
 	
 	const kernel_map_type kernels {};

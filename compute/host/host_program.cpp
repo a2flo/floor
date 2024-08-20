@@ -34,11 +34,10 @@ static HMODULE exe_module { nullptr };
 #endif
 
 host_program::host_program(const compute_device& device_, program_map_type&& programs_) :
-device(device_), programs(programs_), has_device_binary(!programs.empty()) {
+compute_program(retrieve_unique_kernel_names(programs_)), device(device_), programs(std::move(programs_)), has_device_binary(!programs.empty()) {
 	if (programs.empty()) {
 		return;
 	}
-	retrieve_unique_kernel_names(programs);
 	
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
@@ -93,13 +92,20 @@ device(device_), programs(programs_), has_device_binary(!programs.empty()) {
 			}
 		}
 		
-		kernels.emplace_back(make_shared<host_kernel>(std::move(kernel_map)));
+		kernels.emplace_back(make_shared<host_kernel>(kernel_name, std::move(kernel_map)));
 	}
 }
 
 shared_ptr<compute_kernel> host_program::get_kernel(const string_view& func_name) const {
 	if (has_device_binary) {
 		return compute_program::get_kernel(func_name);
+	}
+	
+	const auto iter = find_if(cbegin(dynamic_kernel_names), cend(dynamic_kernel_names), [&func_name](const auto& name) {
+		return (*name == func_name);
+	});
+	if (iter != cend(dynamic_kernel_names)) {
+		return dynamic_kernels[(size_t)distance(cbegin(dynamic_kernel_names), iter)];
 	}
 	
 #if !defined(__WINDOWS__)
@@ -133,9 +139,11 @@ FLOOR_POP_WARNINGS()
 	entry.max_total_local_size = device.max_total_local_size;
 	entry.max_local_size = device.max_local_size;
 	
-	auto kernel = make_shared<host_kernel>((const void*)func_ptr, string(func_name), std::move(entry));
-	kernels.emplace_back(kernel);
-	kernel_names.emplace_back(func_name);
+	auto dyn_kernel_name = make_unique<string>(func_name); // needs to be owned by us
+	string_view dyn_kernel_name_sv(*dyn_kernel_name);
+	dynamic_kernel_names.emplace_back(std::move(dyn_kernel_name));
+	auto kernel = make_shared<host_kernel>(dyn_kernel_name_sv, (const void*)func_ptr, std::move(entry));
+	dynamic_kernels.emplace_back(kernel);
 	
 	return kernel;
 }

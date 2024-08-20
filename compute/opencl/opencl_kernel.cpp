@@ -26,7 +26,8 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/threading/task.hpp>
 
-opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
+opencl_kernel::opencl_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
+compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue& queue) const {
@@ -54,7 +55,7 @@ REQUIRES(!args_lock) {
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
-		log_error("no kernel for this compute queue/device exists!");
+		log_error("no kernel \"$\" for this compute queue/device exists!", kernel_name);
 		return;
 	}
 	

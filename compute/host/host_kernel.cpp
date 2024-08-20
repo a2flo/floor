@@ -562,11 +562,12 @@ static void floor_alloc_host_stack_memory() {
 }
 
 //
-host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
-kernel(kernel_), func_name(func_name_), entry(std::move(entry_)) {
+host_kernel::host_kernel(const string_view kernel_name_, const void* kernel_, compute_kernel::kernel_entry&& entry_) :
+compute_kernel(kernel_name_), kernel(kernel_), entry(std::move(entry_)) {
 }
 
-host_kernel::host_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
+host_kernel::host_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
+compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 const host_kernel::kernel_entry* host_kernel::get_kernel_entry(const compute_device& dev) const {
@@ -987,7 +988,7 @@ void host_kernel::execute_host(const kernel_func_wrapper& func,
 				// exit due to excessive local memory allocation?
 				if (local_memory_exceeded) {
 					log_error("exceeded local memory allocation in kernel \"$\" - requested $ bytes, limit is $ bytes",
-							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
+							  kernel_name, local_memory_alloc_offset, floor_local_memory_max_size);
 					break;
 				}
 				
@@ -996,7 +997,7 @@ void host_kernel::execute_host(const kernel_func_wrapper& func,
 #if defined(FLOOR_DEBUG)
 				if (exec_ctx.unfinished_items > 0) {
 					log_error("barrier misuse detected in kernel \"$\" - $ unfinished items in group $",
-							  func_name, exec_ctx.unfinished_items, group_id);
+							  kernel_name, exec_ctx.unfinished_items, group_id);
 					break;
 				}
 #endif
@@ -1070,7 +1071,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			// retrieve the instance for this CPU + reset/init it
 			auto instance = func_entry.program->get_instance(cpu_idx);
 			if (!instance) {
-				log_error("no instance for CPU #$ (for $)", cpu_idx, func_name);
+				log_error("no instance for CPU #$ (for $)", cpu_idx, kernel_name);
 				success = false;
 				return;
 			}
@@ -1085,13 +1086,13 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 			const auto& func_info = *func_entry.info;
 			const auto func_iter = instance->functions.find(func_info.name);
 			if (func_iter == instance->functions.end()) {
-				log_error("failed to find function \"$\" for CPU #$", func_name, cpu_idx);
+				log_error("failed to find function \"$\" for CPU #$", kernel_name, cpu_idx);
 				success = false;
 				return;
 			}
 			exec_ctx.kernel_func = make_callable_kernel_function(func_iter->second, vptr_args);
 			if (!exec_ctx.kernel_func) {
-				log_error("failed to create kernel function \"$\" for CPU #$", func_name, cpu_idx);
+				log_error("failed to create kernel function \"$\" for CPU #$", kernel_name, cpu_idx);
 				success = false;
 				return;
 			}
@@ -1143,7 +1144,7 @@ void host_kernel::execute_device(const host_kernel_entry& func_entry,
 #if defined(FLOOR_DEBUG)
 				if (exec_ctx.unfinished_items > 0) {
 					log_error("barrier misuse detected in kernel \"$\" - $ unfinished items in group $",
-							  func_name, exec_ctx.unfinished_items, group_id);
+							  kernel_name, exec_ctx.unfinished_items, group_id);
 					break;
 				}
 #endif

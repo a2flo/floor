@@ -1051,7 +1051,7 @@ program_data compile_input(const string& input,
 		// in case we're using warning options that aren't supported by other clang versions
 		" -Wno-unknown-warning-option"
 		// really don't want to be too pedantic
-		" -Wno-old-style-cast -Wno-date-time -Wno-system-headers -Wno-header-hygiene -Wno-documentation"
+		" -Wno-old-style-cast -Wno-date-time -Wno-system-headers -Wno-header-hygiene"
 		// again: not too pedantic, also useful language features
 		" -Wno-nested-anon-types -Wno-global-constructors -Wno-exit-time-destructors"
 		// usually conflicting with the other switch/case warning, so disable it
@@ -1060,6 +1060,8 @@ program_data compile_input(const string& input,
 		" -Wno-reserved-id-macro -Wno-reserved-identifier"
 		// ignore "explicit move to avoid copying on older compilers" warning
 		" -Wno-return-std-move-in-c++11"
+		// ignore documentation warnings
+		" -Wno-documentation -Wno-documentation-unknown-command"
 		// end
 		" "
 	};

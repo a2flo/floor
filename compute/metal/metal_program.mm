@@ -27,9 +27,11 @@
 #include <floor/core/core.hpp>
 #include <floor/floor/floor.hpp>
 
-metal_program::metal_program(program_map_type&& programs_) : programs(std::move(programs_)) {
-	if(programs.empty()) return;
-	retrieve_unique_kernel_names(programs);
+metal_program::metal_program(program_map_type&& programs_) :
+compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(programs_)) {
+	if (programs.empty()) {
+		return;
+	}
 	
 	@autoreleasepool {
 		// create all kernels of all device programs
@@ -138,7 +140,9 @@ metal_program::metal_program(program_map_type&& programs_) : programs(std::move(
 				}
 			}
 			
-			kernels.emplace_back(is_kernel ? make_shared<metal_kernel>(std::move(kernel_map)) : make_shared<metal_shader>(std::move(kernel_map)));
+			kernels.emplace_back(is_kernel ?
+								 make_shared<metal_kernel>(kernel_name, std::move(kernel_map)) :
+								 make_shared<metal_shader>(std::move(kernel_map)));
 		}
 	}
 }

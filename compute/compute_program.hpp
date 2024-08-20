@@ -28,6 +28,7 @@
 class compute_kernel;
 class compute_program {
 public:
+	compute_program(vector<string>&& kernel_names_) noexcept : kernel_names(std::move(kernel_names_)) {}
 	virtual ~compute_program() = 0;
 	
 	//! returns the kernel with the exact function name of "func_name", nullptr if not found
@@ -53,20 +54,21 @@ public:
 	};
 	
 protected:
-	mutable vector<shared_ptr<compute_kernel>> kernels;
-	mutable vector<string> kernel_names;
+	vector<shared_ptr<compute_kernel>> kernels;
+	const vector<string> kernel_names;
 	
 	template <typename device_type, typename program_entry_type>
-	void retrieve_unique_kernel_names(const floor_core::flat_map<device_type, program_entry_type>& programs) {
+	static vector<string> retrieve_unique_kernel_names(const floor_core::flat_map<device_type, program_entry_type>& programs) {
 		// go through all kernels in all device programs and create a unique list of all kernel names
-		kernel_names.clear(); // just in case
-		for(const auto& prog : programs) {
-			if(!prog.second.valid) continue;
-			for(const auto& info : prog.second.functions) {
-				kernel_names.push_back(info.name);
+		vector<string> names;
+		for (const auto& prog : programs) {
+			if (!prog.second.valid) continue;
+			for (const auto& info : prog.second.functions) {
+				names.push_back(info.name);
 			}
 		}
-		kernel_names.erase(unique(begin(kernel_names), end(kernel_names)), end(kernel_names));
+		names.erase(unique(begin(names), end(names)), end(names));
+		return names;
 	}
 	
 };

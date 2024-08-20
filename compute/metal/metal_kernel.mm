@@ -56,7 +56,8 @@ static unique_ptr<metal_encoder> create_encoder(const compute_queue& cqueue,
 	return ret;
 }
 
-metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
+metal_kernel::metal_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
+compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 pair<uint3, uint3> metal_kernel::compute_grid_and_block_dim(const kernel_entry& entry,
@@ -98,7 +99,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
-		log_error("no kernel for this compute queue/device exists!");
+		log_error("no kernel \"$\" for this compute queue/device exists!", kernel_name);
 		return;
 	}
 	

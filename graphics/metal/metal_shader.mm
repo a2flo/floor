@@ -27,7 +27,7 @@
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/compute/soft_printf.hpp>
 
-metal_shader::metal_shader(kernel_map_type&& kernels_) : metal_kernel(std::move(kernels_)) {
+metal_shader::metal_shader(kernel_map_type&& kernels_) : metal_kernel(""sv, std::move(kernels_)) {
 }
 
 void metal_shader::execute(const compute_queue& cqueue floor_unused,

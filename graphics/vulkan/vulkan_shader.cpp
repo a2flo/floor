@@ -32,7 +32,7 @@
 
 using namespace llvm_toolchain;
 
-vulkan_shader::vulkan_shader(kernel_map_type&& kernels_) : vulkan_kernel(std::move(kernels_)) {
+vulkan_shader::vulkan_shader(kernel_map_type&& kernels_) : vulkan_kernel(""sv, std::move(kernels_)) {
 }
 
 void vulkan_shader::execute(const compute_queue& cqueue floor_unused,

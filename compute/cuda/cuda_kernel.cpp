@@ -25,7 +25,8 @@
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/cuda/cuda_argument_buffer.hpp>
 
-cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
+cuda_kernel::cuda_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
+compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue& cqueue) const {
@@ -102,7 +103,7 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if(kernel_iter == kernels.cend()) {
-		log_error("no kernel for this compute queue/device exists!");
+		log_error("no kernel \"$\" for this compute queue/device exists!", kernel_name);
 		return;
 	}
 	

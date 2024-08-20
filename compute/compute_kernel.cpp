@@ -57,7 +57,7 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 	const auto& dev = cqueue.get_device();
 	const auto entry = get_kernel_entry(dev);
 	if (!entry || !entry->info) {
-		log_error("no kernel entry/info for device $", dev.name);
+		log_error("no kernel entry/info \"$\" for device $", kernel_name, dev.name);
 		return {};
 	}
 	

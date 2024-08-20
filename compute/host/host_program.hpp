@@ -38,12 +38,20 @@ public:
 	
 	host_program(const compute_device& device, program_map_type&& programs);
 	
+	//! NOTE: for non-host-device execution, this dynamically load / looks up "func_name" and adds it to "dynamic_kernel_names"
 	shared_ptr<compute_kernel> get_kernel(const string_view& func_name) const override;
+	
+	//! return the kernels that were loaded dynamically (non-host-device execution only)
+	const vector<unique_ptr<string>>& get_dynamic_kernel_names() const {
+		return dynamic_kernel_names;
+	}
 	
 protected:
 	const compute_device& device;
 	const program_map_type programs;
 	const bool has_device_binary { false };
+	mutable vector<unique_ptr<string>> dynamic_kernel_names;
+	mutable vector<shared_ptr<compute_kernel>> dynamic_kernels;
 	
 };
 

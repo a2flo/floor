@@ -147,7 +147,8 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 	return &spec_iter.second->second;
 }
 
-vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(std::move(kernels_)) {
+vulkan_kernel::vulkan_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
+compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue& cqueue) const {
@@ -258,7 +259,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	// find entry for queue device
 	const auto kernel_iter = get_kernel(cqueue);
 	if (kernel_iter == kernels.cend()) {
-		log_error("no kernel for this compute queue/device exists!");
+		log_error("no kernel \"$\" for this compute queue/device exists!", kernel_name);
 		return;
 	}
 	

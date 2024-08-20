@@ -24,9 +24,11 @@
 #include <floor/compute/opencl/opencl_kernel.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
 
-opencl_program::opencl_program(program_map_type&& programs_) : programs(std::move(programs_)) {
-	if(programs.empty()) return;
-	retrieve_unique_kernel_names(programs);
+opencl_program::opencl_program(program_map_type&& programs_) :
+compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(programs_)) {
+	if (programs.empty()) {
+		return;
+	}
 	
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
@@ -74,7 +76,7 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(std::mov
 			}
 		}
 		
-		kernels.emplace_back(make_shared<opencl_kernel>(std::move(kernel_map)));
+		kernels.emplace_back(make_shared<opencl_kernel>(kernel_name, std::move(kernel_map)));
 	}
 }
 

@@ -46,7 +46,7 @@ public:
 	};
 	typedef floor_core::flat_map<const opencl_device&, opencl_kernel_entry> kernel_map_type;
 	
-	opencl_kernel(kernel_map_type&& kernels);
+	opencl_kernel(const string_view kernel_name_, kernel_map_type&& kernels);
 	~opencl_kernel() override = default;
 	
 	void execute(const compute_queue& cqueue,
