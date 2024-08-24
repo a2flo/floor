@@ -854,11 +854,17 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 						   (uint32_t)regions.size(), regions.data());
 }
 
-static VkPipelineStageFlags2 stage_mask_from_access(const VkAccessFlags2& access_mask_in, const VkPipelineStageFlags2& stage_mask_in) {
+static VkPipelineStageFlags2 stage_mask_from_access(const VkAccessFlags2& access_mask_in, const VkPipelineStageFlags2& stage_mask_in,
+													const bool is_compute_only) {
 	switch (access_mask_in) {
 		case VK_PIPELINE_STAGE_2_TRANSFER_BIT:
 			return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
 		default: break;
+	}
+	if (is_compute_only && (stage_mask_in & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) != 0) {
+		return ((stage_mask_in & ~VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) |
+				VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+				VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
 	}
 	return stage_mask_in;
 }
@@ -871,8 +877,9 @@ pair<bool, VkImageMemoryBarrier2> vulkan_image::transition(const compute_queue* 
 														   const VkPipelineStageFlags2 dst_stage_mask_in,
 														   const bool soft_transition) {
 	VkImageAspectFlags aspect_mask = vk_aspect_flags_from_type(image_type);
-	VkPipelineStageFlags2 src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in);
-	VkPipelineStageFlags2 dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in);
+	const auto is_compute_only = (cqueue && cqueue->get_queue_type() == compute_queue::QUEUE_TYPE::COMPUTE);
+	VkPipelineStageFlags2 src_stage_mask = stage_mask_from_access(cur_access_mask, src_stage_mask_in, is_compute_only);
+	VkPipelineStageFlags2 dst_stage_mask = stage_mask_from_access(dst_access, dst_stage_mask_in, is_compute_only);
 	
 	const VkImageMemoryBarrier2 image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,

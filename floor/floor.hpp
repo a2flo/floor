@@ -154,6 +154,7 @@ public:
 	static SDL_Window* get_window();
 	static int64_t get_window_flags();
 	static uint32_t get_window_refresh_rate();
+	static void raise_main_window();
 	static bool get_fullscreen();
 	static void set_fullscreen(const bool& state);
 	static bool get_vsync();

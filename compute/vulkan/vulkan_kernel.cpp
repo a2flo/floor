@@ -346,6 +346,21 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 			.imageMemoryBarrierCount = uint32_t(transition_info.barriers.size()),
 			.pImageMemoryBarriers = &transition_info.barriers[0],
 		};
+		if (cqueue.get_queue_type() == compute_queue::QUEUE_TYPE::COMPUTE) {
+			// if this is a compute-only queue, we need to rewrite all VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT stage masks
+			for (auto& bar : transition_info.barriers) {
+				if ((bar.srcStageMask & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) != 0) {
+					bar.srcStageMask = ((bar.srcStageMask & ~VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) |
+										VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+										VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
+				}
+				if ((bar.dstStageMask & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) != 0) {
+					bar.dstStageMask = ((bar.dstStageMask & ~VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) |
+										VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+										VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
+				}
+			}
+		}
 		vkCmdPipelineBarrier2(encoder->cmd_buffer.cmd_buffer, &dep_info);
 	}
 	

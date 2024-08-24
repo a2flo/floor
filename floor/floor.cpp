@@ -1405,6 +1405,10 @@ uint32_t floor::get_window_refresh_rate() {
 	}
 }
 
+void floor::raise_main_window() {
+	(void)SDL_RaiseWindow(window);
+}
+
 shared_ptr<compute_context> floor::get_render_context() {
 #if defined(__APPLE__)
 #if !defined(FLOOR_NO_METAL)
