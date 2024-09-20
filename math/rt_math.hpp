@@ -148,6 +148,50 @@ namespace rt_math {
 		return (val % max);
 	}
 	
+	//! signed wrapping of val to the range [-max, max]
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
+	static floor_inline_always fp_type swrap(const fp_type val, const fp_type max) {
+		return rt_math::wrap(val + max, fp_type(2) * max) - max;
+	}
+	
+	//! signed wrapping of val to the range [-max, max]
+	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	static floor_inline_always int_type swrap(const int_type val, const int_type max) {
+		return int_type(rt_math::wrap(val + max, int_type(2) * max)) - max;
+	}
+
+	//! wraps val to the range [0, max]
+	//! NOTE: only exists for completeness, no actual purposes
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
+	static floor_inline_always uint_type swrap(const uint_type val, const uint_type max) {
+		return (val % max);
+	}
+	
+	//! signed mirrored/alternating wrapping of val to the range [-max, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
+	static floor_inline_always fp_type mswrap(const fp_type val, const fp_type max) {
+		const auto val_sign = (val < fp_type(0) ? fp_type(-1) : fp_type(1));
+		const auto sign = fp_type(2) * floor(fmod((val_sign * val + fp_type(3) * max) / (fp_type(2) * max), fp_type(2))) - fp_type(1);
+		return val_sign * sign * (fmod(val_sign * val + max, fp_type(2) * max) - max);
+	}
+	
+	//! signed mirrored/alternating wrapping of val to the range [-max, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	static floor_inline_always int_type mswrap(const int_type val, const int_type max) {
+		const auto val_sign = (val < int_type(0) ? int_type(-1) : int_type(1));
+		const auto sign = int_type(2) * (((val_sign * val + int_type(3) * max) / (int_type(2) * max)) % int_type(2)) - int_type(1);
+		return val_sign * int_type(sign * (((val_sign * val + max) % (int_type(2) * max)) - max));
+	}
+
+	//! wraps val to the range [0, max]
+	//! NOTE: only exists for completeness, no actual purposes
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
+	static floor_inline_always uint_type mswrap(const uint_type val, const uint_type max) {
+		return (val % max);
+	}
+	
 	//! returns the fractional part of val
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type fractional(const fp_type& val) {

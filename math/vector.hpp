@@ -872,6 +872,19 @@ public:
 						(const scalar_type& max),
 						max)
 	
+	//! signed wrapping of all components of this vector around/to [-max, max]
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	FLOOR_VEC_FUNC_ARGS(math::swrap, swrap, swrapped,
+						(const scalar_type& max),
+						max)
+	
+	//! signed mirrored/alternating wrapping of all components of this vector around/to [-max, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	FLOOR_VEC_FUNC_ARGS(math::mswrap, mswrap, mswrapped,
+						(const scalar_type& max),
+						max)
+	
 	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type& wrap(const vector_type& max) {
 		x = math::wrap(x, max.x);
@@ -889,6 +902,50 @@ public:
 	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type wrapped(const vector_type& max) const {
 		return vector_type(*this).wrap(max);
+	}
+	
+	//! signed wrapping of all components of this vector around/to [-max, max]
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type& swrap(const vector_type& max) {
+		x = math::swrap(x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = math::swrap(y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = math::swrap(z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = math::swrap(w, max.w);
+#endif
+		return *this;
+	}
+	//! signed wrapping of all components of this vector around/to [-max, max]
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type swrapped(const vector_type& max) const {
+		return vector_type(*this).swrap(max);
+	}
+	
+	//! signed mirrored/alternating wrapping of all components of this vector around/to [-max, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type& mswrap(const vector_type& max) {
+		x = math::mswrap(x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = math::mswrap(y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = math::mswrap(z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = math::mswrap(w, max.w);
+#endif
+		return *this;
+	}
+	//! signed mirrored/alternating wrapping of all components of this vector around/to [-max, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type mswrapped(const vector_type& max) const {
+		return vector_type(*this).mswrap(max);
 	}
 	
 	//! rounds the components of this vector to next multiple of "multiple"
