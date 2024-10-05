@@ -2717,7 +2717,7 @@ function void simplified_nbody ( %void() ) {
 ** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
 ** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 16.0+
 * libraries and optional requirements:
-** link:https://www.libsdl.org[SDL3] 3.1.1+
+** link:https://www.libsdl.org[SDL3] 3.1.3+
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_50+/Maxwell+ GPU and CUDA 12.0+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 16.0+ or macOS 13.0+, and a Metal 3.0 capable GPU

@@ -798,8 +798,8 @@ bool floor::init_internal(const init_state& state) {
 			log_error("failed to set Windows DPI awareness");
 		}
 	}
-	if (SDL_Init(console_only ? 0 : (SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK |
-									 SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_SENSOR)) == -1) {
+	if (!SDL_Init(console_only ? 0 : (SDL_INIT_VIDEO | SDL_INIT_JOYSTICK |
+									  SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_SENSOR))) {
 		log_error("failed to initialize SDL: $", SDL_GetError());
 		return false;
 	} else {
@@ -822,8 +822,21 @@ bool floor::init_internal(const init_state& state) {
 		}
 #endif
 		
-		// set window creation flags
-		config.flags = state.window_flags;
+		// set window creation properties
+		config.window_flags = state.window_flags;
+		SDL_PropertiesID wnd_props = SDL_CreateProperties();
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, state.window_flags.resizable);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, state.window_flags.borderless);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, state.window_flags.fullscreen);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_ALWAYS_ON_TOP_BOOLEAN, state.window_flags.always_on_top);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, state.window_flags.focusable);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, state.window_flags.hidden);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, state.window_flags.maximized);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_MINIMIZED_BOOLEAN, state.window_flags.minimized);
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_TRANSPARENT_BOOLEAN, state.window_flags.transparent);
+		
+		// we have our own Metal/Vulkan rendering
+		SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN, true);
 		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		auto window_pos = state.window_position;
@@ -835,8 +848,8 @@ bool floor::init_internal(const init_state& state) {
 		}
 		
 		if (config.fullscreen) {
-			config.flags |= SDL_WINDOW_FULLSCREEN;
-			config.flags |= SDL_WINDOW_BORDERLESS;
+			SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+			SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
 			window_pos = 0;
 			log_debug("fullscreen enabled");
 		} else {
@@ -848,7 +861,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// handle hidpi
 		if (config.hidpi) {
-			config.flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+			SDL_SetBooleanProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
 		}
 		log_debug("hidpi $", config.hidpi ? "enabled" : "disabled");
 		
@@ -877,7 +890,6 @@ bool floor::init_internal(const init_state& state) {
 #endif
 		
 		// create screen
-		SDL_PropertiesID wnd_props = SDL_CreateProperties();
 		SDL_SetStringProperty(wnd_props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, app_name.c_str());
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, config.width);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, config.height);
@@ -885,7 +897,6 @@ bool floor::init_internal(const init_state& state) {
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_X_NUMBER, window_pos.x);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, window_pos.y);
 #endif
-		SDL_SetNumberProperty(wnd_props, "flags", config.flags);
 		window = SDL_CreateWindowWithProperties(wnd_props);
 		if (window == nullptr) {
 			log_error("couldn't create window: $", SDL_GetError());
@@ -912,7 +923,7 @@ bool floor::init_internal(const init_state& state) {
 				memcpy(&fullscreen_mode, desktop_display_mode, sizeof(SDL_DisplayMode));
 			}
 		}
-		if (SDL_SetWindowFullscreenMode(window, &fullscreen_mode) < 0) {
+		if (!SDL_SetWindowFullscreenMode(window, &fullscreen_mode)) {
 			log_error("can't set up fullscreen display mode: $", SDL_GetError());
 			return false;
 		}
@@ -1032,14 +1043,14 @@ bool floor::init_internal(const init_state& state) {
 			size2 display_res { 1.0f, 1.0f };
 			float2 display_phys_size { 1.0f, 1.0f };
 #if defined(__WINDOWS__)
-			auto hdc = (HDC)SDL_GetProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HDC_POINTER, nullptr);
+			auto hdc = (HDC)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HDC_POINTER, nullptr);
 			if (hdc) {
 				display_res = { (size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES) };
 				display_phys_size = int2(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE)).cast<float>();
 			}
 #else // x11
 			if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
-				Display* display = (Display*)SDL_GetProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+				Display* display = (Display*)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
 				if (display) {
 					display_res = { (size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0) };
 					display_phys_size = { float(DisplayWidthMM(display, 0)), float(DisplayHeightMM(display, 0)) };
@@ -1175,7 +1186,7 @@ void floor::set_screen_size(const uint2& screen_size) {
 void floor::set_fullscreen(const bool& state) {
 	if(state == config.fullscreen) return;
 	config.fullscreen = state;
-	if(SDL_SetWindowFullscreen(window, (SDL_bool)state) != 0) {
+	if (!SDL_SetWindowFullscreen(window, state)) {
 		log_error("failed to $ fullscreen: $!",
 				  (state ? "enable" : "disable"), SDL_GetError());
 	}
@@ -1330,7 +1341,7 @@ uint32_t floor::get_physical_width() {
 	uint32_t width = config.width;
 	if (floor::window) {
 		int2 wnd_size;
-		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.x > 0) {
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) && wnd_size.x > 0) {
 			width = uint32_t(wnd_size.x);
 		}
 	} else {
@@ -1343,7 +1354,7 @@ uint32_t floor::get_physical_height() {
 	uint32_t height = config.height;
 	if (floor::window) {
 		int2 wnd_size;
-		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.y > 0) {
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) && wnd_size.y > 0) {
 			height = uint32_t(wnd_size.y);
 		}
 	} else {
@@ -1356,7 +1367,7 @@ uint2 floor::get_physical_screen_size() {
 	uint2 ret { config.width, config.height };
 	if (floor::window) {
 		int2 wnd_size;
-		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) == 0 && wnd_size.x > 0 && wnd_size.y > 0) {
+		if (SDL_GetWindowSizeInPixels(floor::window, &wnd_size.x, &wnd_size.y) && wnd_size.x > 0 && wnd_size.y > 0) {
 			ret = { uint32_t(wnd_size.x), uint32_t(wnd_size.y) };
 		}
 	} else {
@@ -1385,8 +1396,8 @@ SDL_Window* floor::get_window() {
 	return window;
 }
 
-int64_t floor::get_window_flags() {
-	return config.flags;
+floor::init_state::window_flags_t floor::get_window_flags() {
+	return config.window_flags;
 }
 
 uint32_t floor::get_window_refresh_rate() {

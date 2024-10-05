@@ -122,6 +122,6 @@
 #error "You need to install libc++ 16.0+ to compile floor"
 #endif
 
-#if !SDL_VERSION_ATLEAST(3, 1, 1)
-#error "You need to install SDL 3.1.1+ to compile floor"
+#if !SDL_VERSION_ATLEAST(3, 1, 3)
+#error "You need to install SDL 3.1.3+ to compile floor"
 #endif

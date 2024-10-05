@@ -179,7 +179,7 @@ openxr_context::openxr_context() : vr_context() {
 		}
 
 		// we don't want any console/file output from the validation layer, we have our own callback/logger
-		SDL_setenv("XR_CORE_VALIDATION_EXPORT_TYPE", "none", 1);
+		setenv("XR_CORE_VALIDATION_EXPORT_TYPE", "none", 1);
 	}
 #endif
 	if (floor::get_vr_hand_tracking() && supports_extension(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {

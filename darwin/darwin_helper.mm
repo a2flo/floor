@@ -63,7 +63,7 @@ typedef UIWindow* wnd_type_ptr;
 @implementation libfloor_app_delegate
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-	if (SDL_EventEnabled(SDL_EVENT_QUIT) == SDL_TRUE) {
+	if (SDL_EventEnabled(SDL_EVENT_QUIT)) {
 		SDL_Event event;
 		event.type = SDL_EVENT_QUIT;
 		SDL_PushEvent(&event);
@@ -73,11 +73,11 @@ typedef UIWindow* wnd_type_ptr;
 
 - (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
 {
-	if (SDL_EventEnabled(SDL_EVENT_DROP_FILE) == SDL_TRUE) {
+	if (SDL_EventEnabled(SDL_EVENT_DROP_FILE)) {
 		SDL_Event event;
 		event.type = SDL_EVENT_DROP_FILE;
 		event.drop.data = SDL_strdup([filename UTF8String]);
-		return (SDL_PushEvent(&event) > 0);
+		return SDL_PushEvent(&event);
 	}
 	return NO;
 }
@@ -102,14 +102,14 @@ void darwin_helper::create_app_delegate() {
 // returns the underlying native NSWindow/UIWindow window
 static auto get_native_window(SDL_Window* wnd) {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	if (NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+	if (NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 		cocoa_wnd) {
 		return cocoa_wnd;
 	}
 	log_error("failed to retrieve native window: $", SDL_GetError());
 	return (NSWindow*)nullptr;
 #else
-	if (UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+	if (UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
 		uikit_wnd) {
 		return uikit_wnd;
 	}
@@ -430,31 +430,34 @@ FLOOR_POP_WARNINGS()
 
 - (void)reshapeWithForceFrameChange:(bool)force_frame_change {
 	self.refresh_rate = floor::get_window_refresh_rate();
-	if(self.refresh_rate == 0) self.refresh_rate = 60; // sane fallback
+	if (self.refresh_rate == 0) {
+		// sane fallback
+		self.refresh_rate = 60;
+	}
 	
 	bool scale_change = false;
 	const auto new_scale = [self get_scale_factor];
-	if(const_math::is_unequal(self.metal_layer.contentsScale, new_scale)) {
+	if (const_math::is_unequal(self.metal_layer.contentsScale, new_scale)) {
 		scale_change = true;
 	}
 	
 	bool frame_change = force_frame_change;
 	auto frame = [self create_frame];
-	if(const_math::is_unequal(frame.size.width, self.frame.size.width) ||
-	   const_math::is_unequal(frame.size.height, self.frame.size.height)) {
+	if (const_math::is_unequal(frame.size.width, self.frame.size.width) ||
+		const_math::is_unequal(frame.size.height, self.frame.size.height)) {
 		frame_change = true;
 	}
 	
-	if(scale_change) {
+	if (scale_change) {
 		self.metal_layer.contentsScale = new_scale;
 	}
 	
-	if(frame_change) {
+	if (frame_change) {
 		self.frame = frame;
 		self.metal_layer.frame = frame;
 	}
 	
-	if(frame_change || scale_change) {
+	if (frame_change || scale_change) {
 		frame.size.width *= self.metal_layer.contentsScale;
 		frame.size.height *= self.metal_layer.contentsScale;
 		self.metal_layer.drawableSize = frame.size;
@@ -468,18 +471,18 @@ FLOOR_POP_WARNINGS()
 metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata) {
 	// we always create our own Metal view
 #if defined(FLOOR_IOS)
-	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
 	if (!uikit_wnd) {
 		log_error("failed to retrieve window: $", SDL_GetError());
 		return nullptr;
 	}
 	const bool can_do_hdr = ([[uikit_wnd screen] potentialEDRHeadroom] > 1.0);
 #elif defined(FLOOR_VISIONOS)
-	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
 	// no way to query this, but we can always query this
 	const bool can_do_hdr = true;
 #else
-	NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+	NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
 	if (!cocoa_wnd) {
 		log_error("failed to retrieve window: $", SDL_GetError());
 		return nullptr;

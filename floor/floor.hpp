@@ -76,17 +76,32 @@ public:
 		//! min Vulkan API version that should be used
 		uint3 vulkan_api_version { 1, 3, 231 };
 		
-		//! SDL window creation flags
-		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
-		int64_t window_flags {
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-			SDL_WINDOW_RESIZABLE
+		//! window creation flags
+		//! NOTE: fullscreen, borderless and hidpi flags will also be set automatically depending on the config
+		struct window_flags_t {
+			uint32_t resizable : 1 { 1u };
+			uint32_t borderless : 1 {
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+				1u
 #else
-			SDL_WINDOW_RESIZABLE |
-			SDL_WINDOW_BORDERLESS |
-			SDL_WINDOW_FULLSCREEN
+				0u
 #endif
-		};
+			};
+			uint32_t fullscreen : 1 {
+#if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+				1u
+#else
+				0u
+#endif
+			};
+			uint32_t always_on_top : 1 { 0u };
+			uint32_t focusable : 1 { 1u };
+			uint32_t hidden : 1 { 0u };
+			uint32_t maximized : 1 { 0u };
+			uint32_t minimized : 1 { 0u };
+			uint32_t transparent : 1 { 0u };
+			uint32_t _unused : 23 { 0u };
+		} window_flags;
 		
 		//! the position the window should be created at
 		//! NOTE: this can be overwritten by the config
@@ -152,7 +167,7 @@ public:
 	
 	// screen/window
 	static SDL_Window* get_window();
-	static int64_t get_window_flags();
+	static floor::init_state::window_flags_t get_window_flags();
 	static uint32_t get_window_refresh_rate();
 	static void raise_main_window();
 	static bool get_fullscreen();
@@ -466,8 +481,8 @@ protected:
 		bool vulkan_debug_labels = false;
 		bool vulkan_fence_wait_polling = false;
 
-		// sdl
-		int64_t flags = 0;
+		// initial window flags
+		floor::init_state::window_flags_t window_flags {};
 	} config;
 	static json::document config_doc;
 	

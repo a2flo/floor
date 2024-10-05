@@ -62,9 +62,9 @@ graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 
 metal_renderer::~metal_renderer() {
 	@autoreleasepool {
-		cur_drawable = nullptr;
 		encoder = nil;
 		cmd_buffer = nil;
+		cur_drawable = nullptr;
 	}
 }
 
@@ -84,9 +84,12 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		
 		// must set/update attachments (and drawable) before creating the encoder
 		uint32_t attachment_idx = 0;
+		uint2 min_attachment_dim { ~0u };
 		for (const auto& att : attachments_map) {
+			min_attachment_dim.min(att.second.image->get_image_dim().xy);
 			mtl_pass_desc.colorAttachments[att.first].texture = att.second.image->get_underlying_metal_image_safe()->get_metal_image();
 			if (att.second.resolve_image) {
+				min_attachment_dim.min(att.second.resolve_image->get_image_dim().xy);
 				mtl_pass_desc.colorAttachments[att.first].resolveTexture = att.second.resolve_image->get_underlying_metal_image_safe()->get_metal_image();
 			}
 			if (dynamic_render_state.clear_values) {
@@ -97,8 +100,10 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			++attachment_idx;
 		}
 		if (depth_attachment) {
+			min_attachment_dim.min(depth_attachment->image->get_image_dim().xy);
 			mtl_pass_desc.depthAttachment.texture = depth_attachment->image->get_underlying_metal_image_safe()->get_metal_image();
 			if (depth_attachment->resolve_image) {
+				min_attachment_dim.min(depth_attachment->resolve_image->get_image_dim().xy);
 				mtl_pass_desc.depthAttachment.resolveTexture = depth_attachment->resolve_image->get_underlying_metal_image_safe()->get_metal_image();
 			}
 			if (dynamic_render_state.clear_values) {
@@ -168,9 +173,18 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		}
 		if (scissor_rect.x + scissor_rect.width > (uint32_t)viewport.width ||
 			scissor_rect.y + scissor_rect.height > (uint32_t)-viewport.height) {
-			log_error("scissor rectangle is out-of-bounds: @$ + $ > $",
+			log_error("scissor rectangle is out-of-bounds (viewport): @$ + $ > $",
 					  ulong2 { scissor_rect.x, scissor_rect.y }, ulong2 { scissor_rect.width, scissor_rect.height },
 					  double2 { viewport.width, -viewport.height });
+			[encoder endEncoding];
+			return false;
+		}
+		if (scissor_rect.x + scissor_rect.width > min_attachment_dim.x ||
+			scissor_rect.y + scissor_rect.height > min_attachment_dim.y) {
+			log_error("scissor rectangle is out-of-bounds (attachment): @$ + $ > $",
+					  ulong2 { scissor_rect.x, scissor_rect.y }, ulong2 { scissor_rect.width, scissor_rect.height },
+					  min_attachment_dim);
+			[encoder endEncoding];
 			return false;
 		}
 		[encoder setScissorRect:scissor_rect];

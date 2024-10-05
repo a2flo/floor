@@ -61,7 +61,7 @@
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 // NOTE: don't enable this for compute (these won't compile the necessary .cpp files)
-#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
+#if !defined(FLOOR_EXPORT) && (!defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE)))
 #define FLOOR_EXPORT 1
 #endif
 

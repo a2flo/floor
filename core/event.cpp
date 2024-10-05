@@ -79,24 +79,24 @@ void event::handle_events() {
 			// mouse event handling
 			const float2 mouse_coord { event_handle.button.x * coord_scale, event_handle.button.y * coord_scale };
 			
-			switch(event_type) {
+			switch (event_type) {
 				default: break;
 				case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-					switch(event_handle.button.button) {
+					switch (event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
-							if(event_handle.button.state == SDL_PRESSED) {
+							if (event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_DOWN,
 											 make_shared<mouse_left_down_event>(cur_ticks, mouse_coord));
 							}
 							break;
 						case SDL_BUTTON_RIGHT:
-							if(event_handle.button.state == SDL_PRESSED) {
+							if (event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_DOWN,
 											 make_shared<mouse_right_down_event>(cur_ticks, mouse_coord));
 							}
 							break;
 						case SDL_BUTTON_MIDDLE:
-							if(event_handle.button.state == SDL_PRESSED) {
+							if (event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOWN,
 											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord));
 							}
@@ -106,21 +106,20 @@ void event::handle_events() {
 				}
 				break;
 				case SDL_EVENT_MOUSE_BUTTON_UP: {
-					switch(event_handle.button.button) {
+					switch (event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
-							if(event_handle.button.state == SDL_RELEASED) {
+							if (!event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_UP,
 											 make_shared<mouse_left_up_event>(cur_ticks, mouse_coord));
 								
-								if(cur_ticks - lm_double_click_timer < ldouble_click_time) {
+								if (cur_ticks - lm_double_click_timer < ldouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_LEFT_DOUBLE_CLICK,
 												 make_shared<mouse_left_double_click_event>(
 													cur_ticks,
 													prev_events[EVENT_TYPE::MOUSE_LEFT_DOWN],
 													prev_events[EVENT_TYPE::MOUSE_LEFT_UP]));
-								}
-								else {
+								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_LEFT_CLICK,
 												 make_shared<mouse_left_click_event>(
@@ -133,19 +132,18 @@ void event::handle_events() {
 							}
 							break;
 						case SDL_BUTTON_RIGHT:
-							if(event_handle.button.state == SDL_RELEASED) {
+							if (!event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_UP,
 											 make_shared<mouse_right_up_event>(cur_ticks, mouse_coord));
 								
-								if(cur_ticks - rm_double_click_timer < rdouble_click_time) {
+								if (cur_ticks - rm_double_click_timer < rdouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_RIGHT_DOUBLE_CLICK,
 												 make_shared<mouse_right_double_click_event>(
 													cur_ticks,
 													prev_events[EVENT_TYPE::MOUSE_RIGHT_DOWN],
 													prev_events[EVENT_TYPE::MOUSE_RIGHT_UP]));
-								}
-								else {
+								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_RIGHT_CLICK,
 												 make_shared<mouse_right_click_event>(
@@ -158,19 +156,18 @@ void event::handle_events() {
 							}
 							break;
 						case SDL_BUTTON_MIDDLE:
-							if(event_handle.button.state == SDL_RELEASED) {
+							if (!event_handle.button.down) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_UP,
 											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord));
 								
-								if(cur_ticks - mm_double_click_timer < mdouble_click_time) {
+								if (cur_ticks - mm_double_click_timer < mdouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOUBLE_CLICK,
 												 make_shared<mouse_middle_double_click_event>(
 													cur_ticks,
 													prev_events[EVENT_TYPE::MOUSE_MIDDLE_DOWN],
 													prev_events[EVENT_TYPE::MOUSE_MIDDLE_UP]));
-								}
-								else {
+								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_MIDDLE_CLICK,
 												 make_shared<mouse_middle_click_event>(
@@ -187,10 +184,9 @@ void event::handle_events() {
 				}
 				break;
 			}
-		}
-		else if(event_type == SDL_EVENT_MOUSE_MOTION ||
-				event_type == SDL_EVENT_MOUSE_WHEEL) {
-			switch(event_type) {
+		} else if (event_type == SDL_EVENT_MOUSE_MOTION ||
+				   event_type == SDL_EVENT_MOUSE_WHEEL) {
+			switch (event_type) {
 				case SDL_EVENT_MOUSE_MOTION: {
 					const float2 abs_pos { event_handle.motion.x * coord_scale, event_handle.motion.y * coord_scale };
 					const float2 rel_move { event_handle.motion.xrel * coord_scale, event_handle.motion.yrel * coord_scale };
@@ -202,13 +198,12 @@ void event::handle_events() {
 					// this sdl event contains no mouse button coordinate, so we need to get it ourselves
 					float2 mouse_coord;
 					SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
-					if(event_handle.wheel.y > 0) {
+					if (event_handle.wheel.y > 0) {
 						handle_event(EVENT_TYPE::MOUSE_WHEEL_UP,
 									 make_shared<mouse_wheel_up_event>(cur_ticks,
 																	   mouse_coord,
 																	   event_handle.wheel.y));
-					}
-					else if(event_handle.wheel.y < 0) {
+					} else if (event_handle.wheel.y < 0) {
 						const auto abs_wheel_move = abs(event_handle.wheel.y);
 						handle_event(EVENT_TYPE::MOUSE_WHEEL_DOWN,
 									 make_shared<mouse_wheel_down_event>(cur_ticks,
@@ -219,55 +214,52 @@ void event::handle_events() {
 				break;
 				default: break;
 			}
-		}
-		else if(event_type == SDL_EVENT_FINGER_DOWN ||
-				event_type == SDL_EVENT_FINGER_UP ||
-				event_type == SDL_EVENT_FINGER_MOTION) {
+		} else if (event_type == SDL_EVENT_FINGER_DOWN ||
+				   event_type == SDL_EVENT_FINGER_UP ||
+				   event_type == SDL_EVENT_FINGER_MOTION) {
 			// touch event handling
 			const float2 finger_coord { event_handle.tfinger.x * coord_scale, event_handle.tfinger.y * coord_scale };
 			const float pressure = event_handle.tfinger.pressure;
 			const auto finger_id = event_handle.tfinger.fingerID;
 			
-			if(event_type == SDL_EVENT_FINGER_DOWN) {
-				if(event_handle.tfinger.type == SDL_EVENT_FINGER_DOWN) {
+			if (event_type == SDL_EVENT_FINGER_DOWN) {
+				if (event_handle.tfinger.type == SDL_EVENT_FINGER_DOWN) {
 					handle_event(EVENT_TYPE::FINGER_DOWN,
 								 make_shared<finger_down_event>(cur_ticks, finger_coord, pressure, finger_id));
 				}
-			}
-			else if(event_type == SDL_EVENT_FINGER_UP) {
-				if(event_handle.tfinger.type == SDL_EVENT_FINGER_UP) {
+			} else if (event_type == SDL_EVENT_FINGER_UP) {
+				if (event_handle.tfinger.type == SDL_EVENT_FINGER_UP) {
 					handle_event(EVENT_TYPE::FINGER_UP,
 								 make_shared<finger_up_event>(cur_ticks, finger_coord, pressure, finger_id));
 				}
-			}
-			else if(event_type == SDL_EVENT_FINGER_MOTION) {
-				if(event_handle.tfinger.type == SDL_EVENT_FINGER_MOTION) {
+			} else if (event_type == SDL_EVENT_FINGER_MOTION) {
+				if (event_handle.tfinger.type == SDL_EVENT_FINGER_MOTION) {
 					const float2 rel_move { event_handle.tfinger.dx, event_handle.tfinger.dy };
 					handle_event(EVENT_TYPE::FINGER_MOVE,
 								 make_shared<finger_move_event>(cur_ticks, finger_coord, rel_move, pressure, finger_id));
 				}
 			}
-		}
-		else {
+		} else {
 			// key, etc. event handling
-			switch(event_type) {
+			switch (event_type) {
 				case SDL_EVENT_KEY_UP:
 					handle_event(EVENT_TYPE::KEY_UP,
-								 make_shared<key_up_event>(cur_ticks, event_handle.key.keysym.sym));
+								 make_shared<key_up_event>(cur_ticks, event_handle.key.key));
 					break;
 				case SDL_EVENT_KEY_DOWN:
 					handle_event(EVENT_TYPE::KEY_DOWN,
-								 make_shared<key_up_event>(cur_ticks, event_handle.key.keysym.sym));
+								 make_shared<key_up_event>(cur_ticks, event_handle.key.key));
 					break;
 				case SDL_EVENT_TEXT_INPUT: {
 					const auto codes = unicode::utf8_to_unicode(event_handle.text.text);
-					for(const auto& code : codes) {
+					for (const auto& code : codes) {
 						handle_event(EVENT_TYPE::UNICODE_INPUT,
 									 make_shared<unicode_input_event>(cur_ticks, code));
 					}
 				}
 				break;
-				case SDL_EVENT_WINDOW_RESIZED: {
+				case SDL_EVENT_WINDOW_RESIZED:
+				case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
 					const size2 new_size((size_t)event_handle.window.data1, (size_t)event_handle.window.data2);
 					handle_event(EVENT_TYPE::WINDOW_RESIZE,
 								 make_shared<window_resize_event>(cur_ticks, new_size));

@@ -85,13 +85,22 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	if (cb_data != nullptr) {
 		static const unordered_set<int32_t> ignore_msg_ids {
 			-602362517, // UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation
+			-40745094, // BestPractices-vkAllocateMemory-small-allocation
 			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
+			280337739, // BestPractices-vkBindBufferMemory-small-dedicated-allocation
+			1147161417, // BestPractices-vkBindImageMemory-small-dedicated-allocation
 			-2027362524, // UNASSIGNED-BestPractices-vkCreateCommandPool-command-buffer-reset
+			141128897, // BestPractices-vkCreateCommandPool-command-buffer-reset
 			1218486124, // UNASSIGNED-BestPractices-pipeline-stage-flags
+			561140764, // BestPractices-pipeline-stage-flags2-compute
+			-298369678, // BestPractices-pipeline-stage-flags2-graphics
 			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
+			-1265507290, // BestPractices-vkAllocateMemory-too-many-objects
 			-394667308, // UNASSIGNED-BestPractices-vkBeginCommandBuffer-simultaneous-use
+			1231549373, // BestPractices-vkBeginCommandBuffer-simultaneous-use
 			-1993010233, // UNASSIGNED-Descriptor uninitialized (NOTE/TODO: not updated for descriptor buffer use?)
 			67123586, // UNASSIGNED-BestPractices-vkCreateRenderPass-image-requires-memory
+			1016899250, // BestPractices-vkCreateRenderPass-image-requires-memory
 		};
 		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
 			// ignore and don't abort
@@ -1881,7 +1890,7 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 	
 	[[maybe_unused]] auto wnd = floor::get_window();
 #if defined(SDL_PLATFORM_WIN32)
-	auto hwnd = (HWND)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+	auto hwnd = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 	if (!hwnd) {
 		log_error("failed to retrieve HWND");
 		return false;
@@ -1897,7 +1906,7 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 				"failed to create win32 surface", false)
 #elif defined(SDL_PLATFORM_LINUX)
 	if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0) {
-		Display* x11_display = (Display*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+		Display* x11_display = (Display*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
 		Window x11_window = (Window)SDL_GetNumberProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
 		if (!x11_display || !x11_window) {
 			log_error("failed to retrieve X11 display/window");
@@ -1913,8 +1922,8 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 		VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
 					"failed to create X11 xlib surface", false)
 	} else if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0) {
-		auto way_display = (struct wl_display*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
-		auto way_surface = (struct wl_surface*)SDL_GetProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
+		auto way_display = (struct wl_display*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+		auto way_surface = (struct wl_surface*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
 		if (!way_display || !way_surface) {
 			log_error("failed to retrieve Wayland display/surface");
 			return false;
@@ -2500,11 +2509,12 @@ bool vulkan_compute::present_image(const compute_queue& dev_queue, const drawabl
 		SDL_LockSurface(wnd_surface);
 		const uint2 render_dim = screen.size.minned(floor::get_physical_screen_size());
 		const uint2 scale = render_dim / screen.size;
+		const auto px_format_details = SDL_GetPixelFormatDetails(wnd_surface->format);
 		for(uint32_t y = 0; y < screen.size.y; ++y) {
 			uint32_t* px_ptr = (uint32_t*)wnd_surface->pixels + ((size_t)wnd_surface->pitch / sizeof(uint32_t)) * y;
 			uint32_t img_idx = screen.size.x * y * scale.y;
 			for(uint32_t x = 0; x < screen.size.x; ++x, img_idx += scale.x) {
-				*px_ptr++ = SDL_MapRGB(wnd_surface->format, img_data[img_idx].z, img_data[img_idx].y, img_data[img_idx].x);
+				*px_ptr++ = SDL_MapRGB(px_format_details, nullptr, img_data[img_idx].z, img_data[img_idx].y, img_data[img_idx].x);
 			}
 		}
 		screen.x11_screen->unmap(dev_queue, img_data);
