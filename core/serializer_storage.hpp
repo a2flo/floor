@@ -36,13 +36,13 @@ struct serializer_storage_wrapper {
 							   const uint8_t* begin_ptr_,
 							   const uint8_t* end_ptr_) noexcept :
 	backing_storage(backing_storage_), begin_ptr(begin_ptr_), end_ptr(end_ptr_) {
-		if(begin_ptr < &backing_storage[0] ||
-		   begin_ptr > &backing_storage[backing_storage.empty() ? 0 : backing_storage.size() - 1]) {
+		if (begin_ptr < &backing_storage[0] ||
+			begin_ptr > &backing_storage[backing_storage.empty() ? 0 : backing_storage.size() - 1]) {
 			log_error("out-of-bounds begin_ptr");
 			begin_ptr = backing_storage.data();
 		}
-		if(end_ptr < &backing_storage[0] || end_ptr > &backing_storage[backing_storage.size()] ||
-		   end_ptr < begin_ptr) {
+		if (end_ptr < &backing_storage[0] || end_ptr > (&backing_storage[backing_storage.size() - 1] + 1) ||
+			end_ptr < begin_ptr) {
 			log_error("out-of-bounds end_ptr");
 			end_ptr = begin_ptr;
 		}
@@ -111,7 +111,7 @@ struct serializer_storage_wrapper {
 		
 		// must invalidate begin/end
 		begin_ptr = &backing_storage[0];
-		end_ptr = &backing_storage[backing_storage.size()];
+		end_ptr = &backing_storage[backing_storage.size() - 1] + 1;
 		
 		return &*ret_ptr;
 	}

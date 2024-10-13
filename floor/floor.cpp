@@ -1548,6 +1548,11 @@ const float& floor::get_upscaling() {
 }
 
 float floor::get_scale_factor() {
+	// don't call any window functions in console-only mode
+	if (console_only) {
+		return 1.0f;
+	}
+	
 #if defined(__APPLE__)
 	return darwin_helper::get_scale_factor(window);
 #else
