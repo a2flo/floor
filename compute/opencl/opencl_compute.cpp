@@ -199,6 +199,10 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 			log_error("invalid opencl platform version string: $", cl_version_str);
 		}
 		platform_cl_version = extracted_cl_version.second;
+		if (platform_cl_version < OPENCL_VERSION::OPENCL_1_2) {
+			log_error("OpenCL platform version must be 1.2+");
+			continue;
+		}
 		bool check_spirv_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		bool check_sub_group_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		
@@ -231,6 +235,13 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 		for(size_t j = 0; j < ctx_devices.size(); ++j) {
 			auto& cl_dev = ctx_devices[j];
 			
+			const auto dev_version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
+			const auto dev_cl_version = extract_cl_version(dev_version_str, "OpenCL ").second;
+			if (dev_cl_version < OPENCL_VERSION::OPENCL_1_2) {
+				log_error("ignoring device #$ with unsupported OpenCL version $ < 1.2", j, cl_version_to_string(dev_cl_version));
+				continue;
+			}
+			
 			devices.emplace_back(make_unique<opencl_device>());
 			auto& device = (opencl_device&)*devices.back();
 			dev_type_str = "";
@@ -247,8 +258,8 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 			device.constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
 			device.name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
 			device.vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
-			device.version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
-			device.cl_version = extract_cl_version(device.version_str, "OpenCL ").second;
+			device.version_str = dev_version_str;
+			device.cl_version = dev_cl_version;
 			device.driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
 			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			

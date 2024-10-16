@@ -1062,6 +1062,8 @@ program_data compile_input(const string& input,
 		" -Wno-return-std-move-in-c++11"
 		// ignore documentation warnings
 		" -Wno-documentation -Wno-documentation-unknown-command"
+		// don't complain "#pragma once" when compiling an .hpp as a main file
+		" -Wno-pragma-once-outside-header"
 		// end
 		" "
 	};
@@ -1248,10 +1250,35 @@ program_data compile_input(const string& input,
 			
 			// run spirv-val if specified
 			if (validate) {
+				string validator_opts;
+				if (options.target == TARGET::SPIRV_VULKAN) {
+					validator_opts = "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout";
+				} else {
+					assert(options.target == TARGET::SPIRV_OPENCL);
+					const auto& cl_device = (const opencl_device&)device;
+					switch (cl_device.cl_version) {
+						case OPENCL_VERSION::NONE:
+						case OPENCL_VERSION::OPENCL_1_0:
+						case OPENCL_VERSION::OPENCL_1_1:
+							log_error("unsupported OpenCL version");
+							return {};
+						case OPENCL_VERSION::OPENCL_1_2:
+							validator_opts = "--target-env opencl1.2";
+							break;
+						case OPENCL_VERSION::OPENCL_2_0:
+							validator_opts = "--target-env opencl2.0";
+							break;
+						case OPENCL_VERSION::OPENCL_2_1:
+							validator_opts = "--target-env opencl2.1";
+							break;
+						case OPENCL_VERSION::OPENCL_2_2:
+						case OPENCL_VERSION::OPENCL_3_0: // TODO: no 3.0 target env yet
+							validator_opts = "--target-env opencl2.2";
+							break;
+					}
+				}
 				const string spirv_validator_cmd {
-					"\"" + validator + "\" " +
-					(options.target == TARGET::SPIRV_VULKAN ? "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout " : "") +
-					compiled_file_or_code
+					"\"" + validator + "\" " + validator_opts + " " + compiled_file_or_code
 #if !defined(_MSC_VER)
 					+ " 2>&1"
 #endif
