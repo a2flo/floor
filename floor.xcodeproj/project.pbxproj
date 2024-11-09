@@ -413,6 +413,10 @@
 		5CC59810201E724600D8D19F /* vector_4d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC5980C201E724500D8D19F /* vector_4d.cpp */; };
 		5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
 		5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */; };
+		5CCC2F622CDFFC44006544E0 /* bcm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC2F612CDFFC44006544E0 /* bcm.cpp */; };
+		5CCC2F632CDFFC44006544E0 /* bcm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC2F612CDFFC44006544E0 /* bcm.cpp */; };
+		5CCC2F642CDFFC44006544E0 /* bcm.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCC2F602CDFFC44006544E0 /* bcm.hpp */; };
+		5CCC2F652CDFFC44006544E0 /* bcm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCC2F612CDFFC44006544E0 /* bcm.cpp */; };
 		5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCF37951C3D208D006D355B /* metal_post.hpp */; };
 		5CD1A37E21DE3767002D5CB1 /* vector_lib_checks.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */; };
 		5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
@@ -785,6 +789,8 @@
 		5CCB82422BF970130037975D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5CCB82432BF970130037975D /* volk.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = volk.c; sourceTree = "<group>"; };
 		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
+		5CCC2F602CDFFC44006544E0 /* bcm.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = bcm.hpp; sourceTree = "<group>"; };
+		5CCC2F612CDFFC44006544E0 /* bcm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bcm.cpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vector_lib_checks.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
@@ -938,6 +944,8 @@
 			isa = PBXGroup;
 			children = (
 				5CAD574024D764BF0022D36D /* aligned_ptr.hpp */,
+				5CCC2F612CDFFC44006544E0 /* bcm.cpp */,
+				5CCC2F602CDFFC44006544E0 /* bcm.hpp */,
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
 				5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */,
@@ -1650,6 +1658,7 @@
 				5CE843B11B28CE1E00D8B961 /* device_info.hpp in Headers */,
 				5C0416FB1B60048100370253 /* json.hpp in Headers */,
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
+				5CCC2F642CDFFC44006544E0 /* bcm.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */,
 				5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */,
@@ -1764,7 +1773,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 1620;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1906,6 +1915,7 @@
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5C20C8CA1B4139260005F5EA /* host_image.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
+				5CCC2F632CDFFC44006544E0 /* bcm.cpp in Sources */,
 				5CF974C624E87F6600014CDC /* elf_binary.cpp in Sources */,
 				5C2B87D21C73893E00F11EA5 /* vulkan_compute.cpp in Sources */,
 				5CF497182A2D136300F78B03 /* openvr_context.cpp in Sources */,
@@ -2019,6 +2029,7 @@
 				5C62E0722C3E223200FF4E9A /* event.cpp in Sources */,
 				5C62E0732C3E223200FF4E9A /* graphics_pipeline.cpp in Sources */,
 				5C62E0742C3E223200FF4E9A /* json.cpp in Sources */,
+				5CCC2F652CDFFC44006544E0 /* bcm.cpp in Sources */,
 				5C62E0752C3E223200FF4E9A /* llvm_toolchain.cpp in Sources */,
 				5C62E0762C3E223200FF4E9A /* grammar.cpp in Sources */,
 				5C62E0772C3E223200FF4E9A /* openxr_context.cpp in Sources */,
@@ -2132,6 +2143,7 @@
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
 				5C8452FD22B1A09C0014AECF /* graphics_pipeline.cpp in Sources */,
 				5C0416FA1B60048100370253 /* json.cpp in Sources */,
+				5CCC2F622CDFFC44006544E0 /* bcm.cpp in Sources */,
 				5C3EA9E01D8B151300EC932F /* llvm_toolchain.cpp in Sources */,
 				5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */,
 				5C2815DE2A310CA9005F964C /* openxr_context.cpp in Sources */,

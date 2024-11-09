@@ -250,6 +250,8 @@ add_library(${PROJECT_NAME}
 	graphics/vulkan/vulkan_shader.cpp
 	graphics/vulkan/vulkan_shader.hpp
 	core/aligned_ptr.hpp
+	core/bcm.cpp
+	core/bcm.hpp
 	core/core.cpp
 	core/core.hpp
 	core/cpp_ext.hpp
