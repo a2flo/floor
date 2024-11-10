@@ -378,10 +378,6 @@ public:
 		return ::is_image_3d(image_type);
 	}
 	
-	//! this can be used to provide a pre-compiled minify program,
-	//! rather than compiling the minify program at run-time
-	static void provide_minify_program(compute_context& ctx, shared_ptr<compute_program> prog);
-	
 	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
 	//! NOTE: each value will printed in one line (terminated by \n)
 	template <typename value_type>
@@ -552,6 +548,14 @@ protected:
 	//! builds the mip-map minification program for this context and its devices
 	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
 	void build_mip_map_minification_program() const;
+	
+	//! this is used to provide the underlying minify program,
+	//! returns true on success
+	static bool provide_minify_program(compute_context& ctx, shared_ptr<compute_program> prog);
+	
+	//! adds the embedded mip-map minify FUBAR program if one is available and compatible to "ctx",
+	//! returns true on success
+	bool add_embedded_minify_program(compute_context& ctx);
 	
 	//! returns true if "src" can be blitted onto this image, false if not (prints errors)
 	bool blit_check(const compute_queue& cqueue, const compute_image& src);

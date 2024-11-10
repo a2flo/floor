@@ -27,18 +27,21 @@
 //!
 //! binary format:
 //! [magic: char[4] = "FUBA"]
-//! [binary format version: uint32_t = 3]
+//! [binary format version: uint32_t = 4]
 //! [binary count: uint32_t]
-//! [binary targets: target_v3[binary count]]
+//! [FUBAR flags: uint32_t]
+//! [binary targets: target_v4[binary count]]
 //! [binary offsets: uint64_t[binary count]]
 //! [binary toolchain versions: uint32_t[binary count]]
 //! [binary SHA-256 hashes: sha_256::hash_t[binary count]]
 //! binaries[binary count]... (binary offset #0 points here):
+//! # all binaries data is BCM-compressed if FUBAR flags have "is_compressed" set
 //!     [function count: uint32_t]
 //!     [function info size: uint32_t]
 //!     [binary size: uint32_t]
+//!     [binary flags: uint32_t]
 //!     functions[function count]...:
-//!         [function info version: uint32_t = 2]
+//!         [function info version: uint32_t = 4]
 //!         [type: FUNCTION_TYPE (uint32_t)]
 //!         [argument count: uint32_t]
 //!         [local size: uint3]
@@ -48,16 +51,16 @@
 
 namespace universal_binary {
 	//! current version of the binary format
-	static constexpr const uint32_t binary_format_version { 3u };
+	static constexpr const uint32_t binary_format_version { 4u };
 	//! current version of the target format
-	static constexpr const uint32_t target_format_version { 3u };
+	static constexpr const uint32_t target_format_version { 4u };
 	//! current version of the function info
-	static constexpr const uint32_t function_info_version { 3u };
+	static constexpr const uint32_t function_info_version { 4u };
 	
 	//! target information (64-bit)
 	//! NOTE: right now this is still subject to change until said otherwise!
 	//!       -> can change without version update
-	union __attribute__((packed)) target_v3 {
+	union __attribute__((packed)) target_v4 {
 		
 		//! NOTE: due to bitfield and alignment restrictions/requirements, these common variables can't simply be
 		//!       put into a base struct or a surrounding union/struct -> put them into every struct manually
@@ -124,10 +127,12 @@ namespace universal_binary {
 		struct __attribute__((packed)) {
 			FLOOR_FUBAR_VERSION_AND_TYPE // see top
 
-			//! major sm/cc target version
+			//! major SM target version
 			uint64_t sm_major : 6;
-			//! minor sm/cc target version
+			//! minor SM target version
 			uint64_t sm_minor : 4;
+			//! is SM architecture-accelerated?
+			uint64_t sm_aa : 1;
 			
 			//! major PTX ISA target version
 			uint64_t ptx_isa_major : 6;
@@ -146,7 +151,7 @@ namespace universal_binary {
 			//! can be used when jitting the PTX code
 			uint64_t max_registers : 8;
 			
-			uint64_t _unused : 26;
+			uint64_t _unused : 25;
 		} cuda;
 		
 		struct __attribute__((packed)) {
@@ -272,41 +277,47 @@ namespace universal_binary {
 		//! packed value
 		uint64_t value { 0u };
 		
-		bool operator==(const target_v3& cmp) const {
+		bool operator==(const target_v4& cmp) const {
 			return (value == cmp.value);
 		}
 		
 #undef FLOOR_FUBAR_VERSION_AND_TYPE // cleanup
 	};
-	static_assert(sizeof(target_v3) == sizeof(uint64_t));
+	static_assert(sizeof(target_v4) == sizeof(uint64_t));
 	
 	//! static part of the universal binary archive header (these are the first bytes)
-	struct __attribute__((packed)) header_v3 {
+	struct __attribute__((packed)) header_v4 {
 		//! magic identifier
 		char magic[4] { 'F', 'U', 'B', 'A' }; // floor universal binary archive
 		//! == binary_format_version
 		uint32_t binary_format_version;
 		//! number of contained binaries
 		uint32_t binary_count;
+		//! FUBAR flags
+		struct __attribute__((packed)) flags_t {
+			//! are binaries compressed?
+			uint32_t is_compressed : 1 { 0u };
+			uint32_t _unused_flags : 31 { 0u };
+		} flags;
 	};
-	static_assert(sizeof(header_v3) == sizeof(uint32_t) * 3u);
+	static_assert(sizeof(header_v4) == sizeof(uint32_t) * 4u);
 	
 	//! extended/dynamic part of the header
-	struct header_dynamic_v3 {
+	struct header_dynamic_v4 {
 		//! static part of the header
-		header_v3 static_header;
+		header_v4 static_header;
 		//! binary targets
-		vector<target_v3> targets;
+		vector<target_v4> targets;
 		//! binary offsets inside the file
 		vector<uint64_t> offsets;
-		//! binary LLVM toolchain versions (currently 40000)
+		//! binary LLVM toolchain versions (currently 140000)
 		vector<uint32_t> toolchain_versions;
 		//! binary SHA2-256 hashes
 		vector<sha_256::hash_t> hashes;
 	};
 	
 	//! per-function information inside a binary (static part)
-	struct function_info_v3 {
+	struct function_info_v4 {
 		//! == function_info_version
 		uint32_t function_info_version;
 		//! function type (kernel, fragment, vertex, ...)
@@ -328,12 +339,12 @@ namespace universal_binary {
 			constexpr type_specific_data_t(type_specific_data_t&& details_) noexcept : local_size(details_.local_size) {}
 		} details {};
 	};
-	static_assert(sizeof(function_info_v3) == sizeof(uint32_t) * 7u);
+	static_assert(sizeof(function_info_v4) == sizeof(uint32_t) * 7u);
 	
 	//! per-function information inside a binary (dynamic part)
-	struct function_info_dynamic_v3 {
+	struct function_info_dynamic_v4 {
 		//! static part of the function info
-		function_info_v3 static_function_info;
+		function_info_v4 static_function_info;
 		//! function name
 		string name;
 		//! per-argument specific information
@@ -352,40 +363,44 @@ namespace universal_binary {
 	};
 	
 	//! per-binary header (static part)
-	struct __attribute__((packed)) binary_v3 {
+	struct __attribute__((packed)) binary_v4 {
 		//! count of all contained functions
 		uint32_t function_count;
 		//! size of the function info data
 		uint32_t function_info_size;
 		//! size of the binary data
 		uint32_t binary_size;
+		//! binary flags
+		struct __attribute__((packed)) flags_t {
+			uint32_t _unused_flags : 32 { 0u };
+		} flags;
 	};
-	static_assert(sizeof(binary_v3) == sizeof(uint32_t) * 3);
+	static_assert(sizeof(binary_v4) == sizeof(uint32_t) * 4);
 	
 	//! per-binary header (dynamic part)
-	struct binary_dynamic_v3 {
+	struct binary_dynamic_v4 {
 		//! static part of the binary header
-		binary_v3 static_binary_header;
+		binary_v4 static_binary_header;
 		//! function info for all contained functions
-		vector<function_info_dynamic_v3> function_info;
+		vector<function_info_dynamic_v4> function_info;
 		//! binary data
 		vector<uint8_t> data;
 	};
 	
 	//! in-memory floor universal binary archive
 	struct archive {
-		header_dynamic_v3 header;
-		vector<binary_dynamic_v3> binaries;
+		header_dynamic_v4 header;
+		vector<binary_dynamic_v4> binaries;
 	};
 	
 	//! aliases for current formats
-	using target = target_v3;
-	using header = header_v3;
-	using header_dynamic = header_dynamic_v3;
-	using function_info = function_info_v3;
-	using function_info_dynamic = function_info_dynamic_v3;
-	using binary = binary_v3;
-	using binary_dynamic = binary_dynamic_v3;
+	using target = target_v4;
+	using header = header_v4;
+	using header_dynamic = header_dynamic_v4;
+	using function_info = function_info_v4;
+	using function_info_dynamic = function_info_dynamic_v4;
+	using binary = binary_v4;
+	using binary_dynamic = binary_dynamic_v4;
 	
 	//! loads a binary archive into memory and returns it if successful (nullptr if not)
 	unique_ptr<archive> load_archive(const string& file_name);
@@ -400,7 +415,7 @@ namespace universal_binary {
 		//! loaded archive
 		unique_ptr<archive> ar;
 		//! matching binaries
-		vector<pair<const binary_dynamic_v3*, const target_v3>> dev_binaries;
+		vector<pair<const binary_dynamic_v4*, const target_v4>> dev_binaries;
 	};
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const vector<const compute_device*>& devices);
 	archive_binaries load_dev_binaries_from_archive(const string& file_name, const compute_context& ctx);
@@ -424,12 +439,12 @@ namespace universal_binary {
 	
 	//! finds the best matching binary for the specified device inside the specified archive,
 	//! returns nullptr if no compatible binary has been found at all
-	pair<const binary_dynamic_v3*, const target_v3>
+	pair<const binary_dynamic_v4*, const target_v4>
 	find_best_match_for_device(const compute_device& dev,
 							   const archive& ar);
 	
 	//! translates universal binary function info to LLVM toolchain function info
-	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v3>& functions);
+	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v4>& functions);
 	
 	
 }

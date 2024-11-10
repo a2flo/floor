@@ -237,6 +237,9 @@ namespace llvm_toolchain {
 		//! e.g. OS, CPU features, ...
 		bool ignore_runtime_info { false };
 		
+		//! when building a FUBAR archive: compress all binary data in the archive?
+		bool compress_binaries { false };
+		
 		//! debug options
 		struct {
 			//! if true, enables the emission of target dependent debug info,

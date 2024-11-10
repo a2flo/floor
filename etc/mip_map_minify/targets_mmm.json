@@ -1,0 +1,91 @@
+[
+	// CUDA 12.0+ for Maxwell+
+	{
+		"type": "CUDA",
+		"sm": [ 5, 0 ],
+		"ptx": [ 8, 0 ],
+		"is_ptx": true,
+		"image_depth_compare_support": false,
+		"max_registers": 0
+	},
+	// OpenCL SPIR
+	{
+		"type": "OpenCL",
+		"version": [ 1, 2 ],
+		"is_spir": true,
+		"target": "generic",
+		"image_depth_support": true,
+		"image_msaa_support": false,
+		"image_mipmap_support": true,
+		"image_mipmap_write_support": true,
+		"image_read_write_support": false,
+		"double_support": false,
+		"basic_64_bit_atomics_support": false,
+		"extended_64_bit_atomics_support": false,
+		"sub_group_support": false,
+		"simd_width": 0
+	},
+	// OpenCL SPIR-V
+	{
+		"type": "OpenCL",
+		"version": [ 1, 2 ],
+		"is_spir": false,
+		"target": "generic",
+		"image_depth_support": true,
+		"image_msaa_support": false,
+		"image_mipmap_support": true,
+		"image_mipmap_write_support": true,
+		"image_read_write_support": false,
+		"double_support": false,
+		"basic_64_bit_atomics_support": false,
+		"extended_64_bit_atomics_support": false,
+		"sub_group_support": false,
+		"simd_width": 0
+	},
+	// Metal 3.0+ macOS + iOS
+	{
+		"type": "Metal",
+		"version": [ 3, 0 ],
+		"platform": "macos",
+		"target": "generic",
+		"simd_width": 0,
+		"soft_printf": false,
+		"barycentric_coord_support": false
+	},
+	{
+		"type": "Metal",
+		"version": [ 3, 0 ],
+		"platform": "ios",
+		"target": "generic",
+		"simd_width": 0,
+		"soft_printf": false,
+		"barycentric_coord_support": false
+	},
+	// Vulkan 1.3+
+	{
+		"type": "Vulkan",
+		"version": [ 1, 3 ],
+		"spirv": [ 1, 6 ],
+		"target": "generic",
+		"double_support": false,
+		"basic_64_bit_atomics_support": false,
+		"extended_64_bit_atomics_support": false,
+		"soft_printf": false,
+		"basic_32_bit_float_atomics_support": false,
+		"primitive_id_support": false,
+		"barycentric_coord_support": false,
+		"tessellation_support": false,
+		"simd_width": 0
+	},
+	// Host-Compute x86 + ARM
+	{
+		"type": "Host",
+		"arch": "x86",
+		"tier": 1
+	},
+	{
+		"type": "Host",
+		"arch": "ARM",
+		"tier": 1
+	}
+]

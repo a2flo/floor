@@ -27,18 +27,19 @@
 #include <floor/core/file_io.hpp>
 #include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
+#include <floor/core/bcm.hpp>
 #include <floor/floor/floor.hpp>
 
 namespace std {
-	template <> struct hash<universal_binary::target_v3> : public hash<uint64_t> {
-		size_t operator()(universal_binary::target_v3 target) const noexcept {
+	template <> struct hash<universal_binary::target_v4> : public hash<uint64_t> {
+		size_t operator()(universal_binary::target_v4 target) const noexcept {
 			return std::hash<uint64_t>::operator()(target.value);
 		}
 	};
 }
 
 namespace universal_binary {
-	static constexpr const uint32_t min_required_toolchain_version_v3 { 140000u };
+	static constexpr const uint32_t min_required_toolchain_version_v4 { 140000u };
 	
 	unique_ptr<archive> load_archive(const string& file_name) {
 		auto [data, data_size] = file_io::file_to_buffer(file_name);
@@ -50,20 +51,20 @@ namespace universal_binary {
 		
 	unique_ptr<archive> load_archive(span<const uint8_t> data, const string_view filename_hint_) {
 		const auto filename_hint = (filename_hint_.empty() ? "<no-file-name>"sv : filename_hint_);
-		const auto data_size = data.size_bytes();
+		auto data_size = data.size_bytes();
 		auto cur_size = 0uz;
 		
 		auto ar = make_unique<archive>();
 		
 		// parse header
-		cur_size += sizeof(header_v3);
+		cur_size += sizeof(header_v4);
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid header size, expected $, got $",
 					  filename_hint, cur_size, data_size);
 			return {};
 		}
-		const header_v3& header = *(const header_v3*)data.data();
-		data = data.subspan(sizeof(header_v3));
+		const header_v4& header = *(const header_v4*)data.data();
+		data = data.subspan(sizeof(header_v4));
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
 			log_error("universal binary $: invalid header magic", filename_hint);
@@ -73,7 +74,7 @@ namespace universal_binary {
 			log_error("universal binary $: unsupported binary version $", filename_hint, header.binary_format_version);
 			return {};
 		}
-		memcpy(&ar->header.static_header, &header, sizeof(header_v3));
+		memcpy(&ar->header.static_header, &header, sizeof(header_v4));
 		
 		const auto& bin_count = ar->header.static_header.binary_count;
 		if (bin_count == 0) {
@@ -87,10 +88,10 @@ namespace universal_binary {
 		ar->header.toolchain_versions.resize(bin_count);
 		ar->header.hashes.resize(bin_count);
 		
-		const auto targets_size = sizeof(target_v3) * bin_count;
-		const auto offsets_size = sizeof(typename decltype(header_dynamic_v3::offsets)::value_type) * bin_count;
-		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v3::toolchain_versions)::value_type) * bin_count;
-		const auto hashes_size = sizeof(typename decltype(header_dynamic_v3::hashes)::value_type) * bin_count;
+		const auto targets_size = sizeof(target_v4) * bin_count;
+		const auto offsets_size = sizeof(typename decltype(header_dynamic_v4::offsets)::value_type) * bin_count;
+		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v4::toolchain_versions)::value_type) * bin_count;
+		const auto hashes_size = sizeof(typename decltype(header_dynamic_v4::hashes)::value_type) * bin_count;
 		const auto dyn_header_size = targets_size + offsets_size + toolchain_versions_size + hashes_size;
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
@@ -122,16 +123,31 @@ namespace universal_binary {
 		
 		// verify toolchain versions
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
-			if (toolchain_version < min_required_toolchain_version_v3) {
+			if (toolchain_version < min_required_toolchain_version_v4) {
 				log_error("universal binary $: unsupported toolchain version, expected $, got $",
-						  filename_hint, min_required_toolchain_version_v3, toolchain_version);
+						  filename_hint, min_required_toolchain_version_v4, toolchain_version);
 				return {};
 			}
 		}
 		
+		// decompress data if specific in the header flags
+		vector<uint8_t> decompressed_data;
+		if (ar->header.static_header.flags.is_compressed) {
+			decompressed_data = bcm::bcm_decompress(data);
+			if (decompressed_data.empty()) {
+				log_error("universal binary $: failed to decompress binaries data", filename_hint);
+				return {};
+			}
+			
+			// use decompressed data for the remainder of this function
+			data_size -= data.size_bytes();
+			data_size += decompressed_data.size();
+			data = decompressed_data;
+		}
+		
 		// parse binaries
 		for (uint32_t bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
-			binary_dynamic_v3 bin;
+			binary_dynamic_v4 bin;
 			
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
@@ -141,14 +157,14 @@ namespace universal_binary {
 			}
 			
 			// static binary header
-			cur_size += sizeof(binary_v3);
+			cur_size += sizeof(binary_v4);
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid static binary header size, expected $, got $",
 						  filename_hint, cur_size, data_size);
 				return {};
 			}
-			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v3));
-			data = data.subspan(sizeof(binary_v3));
+			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v4));
+			data = data.subspan(sizeof(binary_v4));
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
@@ -169,17 +185,17 @@ namespace universal_binary {
 			// function info
 			const auto func_info_start_size = cur_size;
 			for (uint32_t func_idx = 0; func_idx < bin.static_binary_header.function_count; ++func_idx) {
-				function_info_dynamic_v3 func_info;
+				function_info_dynamic_v4 func_info;
 				
 				// static function info
-				cur_size += sizeof(function_info_v3);
+				cur_size += sizeof(function_info_v4);
 				if (cur_size > data_size) {
 					log_error("universal binary $: invalid static function info size, expected $, got $",
 							  filename_hint, cur_size, data_size);
 					return {};
 				}
-				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v3));
-				data = data.subspan(sizeof(function_info_v3));
+				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v4));
+				data = data.subspan(sizeof(function_info_v4));
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
 					log_error("universal binary $: unsupported function info version $",
@@ -206,16 +222,16 @@ namespace universal_binary {
 				}
 				
 				for (uint32_t arg_idx = 0; arg_idx < func_info.static_function_info.arg_count; ++arg_idx) {
-					function_info_dynamic_v3::arg_info arg;
+					function_info_dynamic_v4::arg_info arg;
 					
-					cur_size += sizeof(function_info_dynamic_v3::arg_info);
+					cur_size += sizeof(function_info_dynamic_v4::arg_info);
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info arg size, expected $, got $",
 								  filename_hint, cur_size, data_size);
 						return {};
 					}
-					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v3::arg_info));
-					data = data.subspan(sizeof(function_info_dynamic_v3::arg_info));
+					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v4::arg_info));
+					data = data.subspan(sizeof(function_info_dynamic_v4::arg_info));
 					
 					func_info.args.emplace_back(arg);
 				}
@@ -677,7 +693,7 @@ namespace universal_binary {
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;
-		vector<target_v3> targets;
+		vector<target_v4> targets;
 		deque<pair<size_t, target>> remaining_targets;
 		auto unique_target_iter = unique_targets_in.begin();
 		for (size_t i = 0; i < target_count; ++i, ++unique_target_iter) {
@@ -789,10 +805,14 @@ namespace universal_binary {
 		}
 		
 		// write binary
-		header_dynamic_v3 header {
+		header_dynamic_v4 header {
 			.static_header = {
 				.binary_format_version = binary_format_version,
 				.binary_count = uint32_t(targets_prog_data.size()),
+				.flags = {
+					.is_compressed = options.compress_binaries ? 1u : 0u,
+					._unused_flags = 0u,
+				},
 			},
 			.targets = targets,
 			.toolchain_versions = std::move(targets_toolchain_version),
@@ -803,7 +823,7 @@ namespace universal_binary {
 		
 		// header
 		auto& ar_stream = *archive.get_filestream();
-		archive.write_block(&header.static_header, sizeof(header_v3));
+		archive.write_block(&header.static_header, sizeof(header_v4));
 		archive.write_block(header.targets.data(), target_count * sizeof(typename decltype(header.targets)::value_type));
 		const auto header_offsets_pos = ar_stream.tellp();
 		archive.write_block(header.offsets.data(), header.offsets.size() * sizeof(typename decltype(header.offsets)::value_type));
@@ -812,18 +832,24 @@ namespace universal_binary {
 		archive.write_block(header.hashes.data(), header.hashes.size() * sizeof(typename decltype(header.hashes)::value_type));
 		
 		// binaries
+		const auto binary_base_offset = uint64_t(ar_stream.tellp());
+		vector<uint8_t> binaries_data;
+		binaries_data.reserve(128u * 1024u);
 		for (size_t i = 0; i < target_count; ++i) {
 			const auto& bin = *targets_prog_data[i];
 			
 			// remember offset
-			header.offsets[i] = uint64_t(ar_stream.tellp());
+			header.offsets[i] = binary_base_offset + binaries_data.size();
 			
 			// static header
-			binary_dynamic_v3 bin_data {
+			binary_dynamic_v4 bin_data {
 				.static_binary_header = {
 					.function_count = 0u, // -> will be incremented below
 					.function_info_size = 0, // N/A yet
 					.binary_size = uint32_t(bin.data_or_filename.size()),
+					.flags = {
+						._unused_flags = 0u,
+					},
 				},
 			};
 			// NOTE: bin_data.data must not even be written/copied here
@@ -832,7 +858,7 @@ namespace universal_binary {
 			bin_data.function_info.reserve(bin.function_info.size());
 			const function<bool(const llvm_toolchain::function_info&, const uint32_t)> create_bin_function_info =
 			[&bin_data, &create_bin_function_info](const llvm_toolchain::function_info& func, const uint32_t argument_buffer_index) {
-				function_info_dynamic_v3 finfo {
+				function_info_dynamic_v4 finfo {
 					.static_function_info = {
 						.function_info_version = function_info_version,
 						.type = func.type,
@@ -854,7 +880,7 @@ namespace universal_binary {
 				vector<pair<const llvm_toolchain::function_info*, uint32_t>> arg_buffers;
 				for (uint32_t arg_idx = 0, arg_count = (uint32_t)func.args.size(); arg_idx < arg_count; ++arg_idx) {
 					const auto& arg = func.args[arg_idx];
-					finfo.args.emplace_back(function_info_dynamic_v3::arg_info {
+					finfo.args.emplace_back(function_info_dynamic_v4::arg_info {
 						.argument_size = arg.size,
 						.address_space = arg.address_space,
 						.image_type = arg.image_type,
@@ -871,7 +897,7 @@ namespace universal_binary {
 					}
 				}
 				++bin_data.static_binary_header.function_count;
-				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v3::arg_info) * finfo.args.size();
+				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v4::arg_info) * finfo.args.size();
 				bin_data.function_info.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
@@ -888,15 +914,32 @@ namespace universal_binary {
 			}
 			
 			// write static header
-			archive.write_block(&bin_data.static_binary_header, sizeof(bin_data.static_binary_header));
+			const span static_binary_header_data { (const uint8_t*)&bin_data.static_binary_header, sizeof(bin_data.static_binary_header) };
+			binaries_data.insert(binaries_data.end(), static_binary_header_data.begin(), static_binary_header_data.end());
 			
 			// write dynamic binary part
 			for (const auto& finfo : bin_data.function_info) {
-				archive.write_block(&finfo.static_function_info, sizeof(finfo.static_function_info));
-				archive.write_terminated_block(finfo.name, 0);
-				archive.write_block(finfo.args.data(), finfo.args.size() * sizeof(typename decltype(finfo.args)::value_type));
+				const span static_function_info_data { (const uint8_t*)&finfo.static_function_info, sizeof(finfo.static_function_info) };
+				binaries_data.insert(binaries_data.end(), static_function_info_data.begin(), static_function_info_data.end());
+				
+				binaries_data.insert(binaries_data.end(), finfo.name.begin(), finfo.name.end());
+				binaries_data.emplace_back(0 /* string zero terminator */);
+				
+				const span finfo_args_data {
+					(const uint8_t*)finfo.args.data(),
+					finfo.args.size() * sizeof(typename decltype(finfo.args)::value_type)
+				};
+				binaries_data.insert(binaries_data.end(), finfo_args_data.begin(), finfo_args_data.end());
 			}
-			archive.write_block(bin.data_or_filename.data(), bin.data_or_filename.size());
+			binaries_data.insert(binaries_data.end(), bin.data_or_filename.begin(), bin.data_or_filename.end());
+		}
+		
+		// write compressed binary data or raw binary data?
+		if (header.static_header.flags.is_compressed) {
+			auto compressed_data = bcm::bcm_compress(binaries_data);
+			archive.write_block(compressed_data.data(), compressed_data.size());
+		} else {
+			archive.write_block(binaries_data.data(), binaries_data.size());
 		}
 		
 		// update binary offsets now that we know them all
@@ -922,7 +965,7 @@ namespace universal_binary {
 		return build_archive(src_code, false, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
-	pair<const binary_dynamic_v3*, const target_v3>
+	pair<const binary_dynamic_v4*, const target_v4>
 	find_best_match_for_device(const compute_device& dev, const archive& ar) {
 		if (dev.context == nullptr) return { nullptr, {} };
 		
@@ -939,7 +982,7 @@ namespace universal_binary {
 		for (size_t i = 0, count = ar.header.targets.size(); i < count; ++i) {
 			const auto& target = ar.header.targets[i];
 			if (target.common.type != type) continue;
-			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v3) continue;
+			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v4) continue;
 			
 			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE: continue;
@@ -1114,9 +1157,9 @@ namespace universal_binary {
 				case COMPUTE_TYPE::CUDA: {
 					const auto& cuda_target = target.cuda;
 					
-					// check sm
-					// NOTE: if the binary is a CUBIN, the sm must exactly match
-					if (!cuda_target.is_ptx) {
+					// check SM version
+					// NOTE: if the binary is a CUBIN or "architecture-accelerated", the SM version must exactly match
+					if (!cuda_target.is_ptx || cuda_target.sm_aa) {
 						if (cuda_target.sm_major != cuda_dev.sm.x ||
 							cuda_target.sm_minor != cuda_dev.sm.y) {
 							continue;
@@ -1154,8 +1197,8 @@ namespace universal_binary {
 							continue; // ignore lower target
 						}
 						
-						// if PTX: higher sm beats lower sm
-						if (cuda_target.is_ptx) {
+						// if PTX: higher SM beats lower SM
+						if (cuda_target.is_ptx && !cuda_target.sm_aa) {
 							if (cuda_target.sm_major > best_cuda.sm_major ||
 								(cuda_target.sm_major == best_cuda.sm_major &&
 								 cuda_target.sm_minor > best_cuda.sm_minor)) {
@@ -1521,7 +1564,7 @@ namespace universal_binary {
 		return { nullptr, {} };
 	}
 	
-	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v3>& functions) {
+	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v4>& functions) {
 		vector<llvm_toolchain::function_info> ret;
 		
 		for (const auto& func : functions) {
@@ -1582,7 +1625,7 @@ namespace universal_binary {
 	
 	static archive_binaries make_device_binaries_from_archive(unique_ptr<archive>&& ar, const vector<const compute_device*>& devices) {
 		// find the best matching binary for each device
-		vector<pair<const universal_binary::binary_dynamic_v3*, const universal_binary::target_v3>> dev_binaries;
+		vector<pair<const universal_binary::binary_dynamic_v4*, const universal_binary::target_v4>> dev_binaries;
 		dev_binaries.reserve(devices.size());
 		for (const auto& dev : devices) {
 			const auto best_bin = universal_binary::find_best_match_for_device(*dev, *ar);

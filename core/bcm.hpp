@@ -17,7 +17,7 @@ namespace bcm {
 
 //! the max amount of storage we need for compressed data for the given "input_size"
 inline size_t bcm_estimate_max_compression_size(const size_t input_size) {
-	return std::max(input_size + input_size / 10u, 24zu);
+	return std::max(input_size + input_size / 10u, 24uz);
 }
 
 //! compresses the data in "input" and writes it to "output",

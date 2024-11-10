@@ -119,7 +119,34 @@ pair<unique_ptr<uint8_t[]>, size_t> compute_image::rgba_to_rgb(const COMPUTE_IMA
 #endif
 #include <floor/compute/device/mip_map_minify.hpp>
 
-void compute_image::provide_minify_program(compute_context& ctx, shared_ptr<compute_program> prog) {
+// embed the compiled mip-map-minify FUBAR file if it is available
+#if defined(__has_embed)
+#if __has_embed("../etc/mip_map_minify/mmm.fubar")
+static constexpr const uint8_t mmm_fubar[] {
+#embed "../etc/mip_map_minify/mmm.fubar"
+};
+#define FLOOR_HAS_EMBEDDED_MMM_FUBAR 1
+#endif
+#endif
+
+bool compute_image::add_embedded_minify_program([[maybe_unused]] compute_context& ctx) {
+#if defined(FLOOR_HAS_EMBEDDED_MMM_FUBAR)
+	// try to load embedded mip-map minify programs/kernels
+	const span<const uint8_t> mmm_fubar_data{ mmm_fubar, std::size(mmm_fubar) };
+	auto embedded_mmm_program = ctx.add_universal_binary(mmm_fubar_data);
+	if (!embedded_mmm_program) {
+		return false;
+	}
+	log_msg("using embedded mip-map minify FUBAR");
+	
+	// create the minify program for this context
+	return compute_image::provide_minify_program(ctx, embedded_mmm_program);
+#else
+	return false;
+#endif
+}
+
+bool compute_image::provide_minify_program(compute_context& ctx, shared_ptr<compute_program> prog) {
 	auto minify_prog = make_unique<minify_program>();
 	minify_prog->program = prog;
 	
@@ -149,7 +176,7 @@ void compute_image::provide_minify_program(compute_context& ctx, shared_ptr<comp
 		entry.second.second = minify_prog->program->get_kernel(entry.second.first);
 		if (entry.second.second == nullptr) {
 			log_error("failed to retrieve kernel \"$\" from minify program", entry.second.first);
-			return;
+			return false;
 		}
 	}
 	minify_kernels.swap(minify_prog->kernels);
@@ -157,12 +184,10 @@ void compute_image::provide_minify_program(compute_context& ctx, shared_ptr<comp
 	// done, set programs for this context and return
 	GUARD(minify_programs_mtx);
 	minify_programs[&ctx] = std::move(minify_prog);
+	return true;
 }
 
 void compute_image::build_mip_map_minification_program() const {
-	// TODO: it would be great if this could be done during the libfloor build process and then embedded as a
-	//       pre-compiled binary in here, but this will require more infrastructure
-	
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
 	task::spawn([ctx = dev.context]() {
 		const llvm_toolchain::compile_options options {
@@ -202,6 +227,20 @@ void compute_image::build_mip_map_minification_program() const {
 }
 
 void compute_image::generate_mip_map_chain(const compute_queue& cqueue) {
+#if defined(FLOOR_HAS_EMBEDDED_MMM_FUBAR)
+	// load the embedded mip-map minify program/FUBAR for each context that gets here
+	static safe_mutex did_add_embedded_program_lock;
+	// this signals whether we have already tried loading the FUBAR and if it was successful or not
+	static unordered_map<compute_context*, bool> did_add_embedded_program GUARDED_BY(did_add_embedded_program_lock);
+	{
+		auto ctx = cqueue.get_device().context;
+		GUARD(did_add_embedded_program_lock);
+		if (!did_add_embedded_program.contains(ctx)) {
+			did_add_embedded_program[ctx] = add_embedded_minify_program(*ctx);
+		}
+	}
+#endif
+	
 	const compute_kernel* minify_kernel = nullptr;
 	for (uint32_t try_out = 0; ; ++try_out) {
 		if (try_out == 100) {

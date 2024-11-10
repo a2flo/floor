@@ -6,6 +6,7 @@
 // Also uses sais-lite (v2.4.1) by Yuta Mori (license further down below).
 
 #include "bcm.hpp"
+#include "logger.hpp"
 #include <cassert>
 #include <iterator>
 #include <limits>
@@ -52,7 +53,7 @@ struct bcm_encoder {
 	counter_t<4> counter_1[256][256];
 	counter_t<6> counter_2[2][256][17];
 
-	bcm_encoder(std::span<uint8_t> output_) : output(output_) {
+	explicit bcm_encoder(std::span<uint8_t> output_) : output(output_) {
 		bcm_init_counter_2(counter_2);
 	}
 
@@ -140,7 +141,7 @@ struct bcm_decoder {
 	counter_t<4> counter_1[256][256];
 	counter_t<6> counter_2[2][256][17];
 
-	bcm_decoder(std::span<const uint8_t> input_) : input(input_) {
+	explicit bcm_decoder(std::span<const uint8_t> input_) : input(input_) {
 		bcm_init_counter_2(counter_2);
 #pragma unroll
 		for (uint32_t i = 0; i < 4; ++i) {
@@ -218,13 +219,13 @@ struct bcm_crc {
 	uint32_t crc { ~0u };
 	std::span<uint8_t> output;
 
-	bcm_crc(std::span<uint8_t> output_) : output(output_) {
+	explicit bcm_crc(std::span<uint8_t> output_) : output(output_) {
 #pragma clang loop vectorize(enable)
 		for (uint32_t i = 0u; i < 256u; ++i) {
 			uint32_t r = i;
 #pragma unroll
 			for (uint32_t j = 0; j < 8; ++j) {
-				r = (r >> 1) ^ (0xEDB88320u & (r & 1u ? ~0u : 0u));
+				r = (r >> 1u) ^ (0xEDB88320u & (r & 1u ? ~0u : 0u));
 			}
 			tab[i] = r;
 		}
@@ -331,14 +332,14 @@ std::optional<size_t> bcm_decompress(const std::span<const uint8_t> input, std::
 		}
 
 		for (uint32_t i = 0; i < idx; ++i) {
-			ptr[cnt[ptr[i] & 255]++] |= i << 8;
+			ptr[cnt[ptr[i] & 255u]++] |= i << 8u;
 		}
 		for (uint32_t i = idx + 1; i <= block_size; ++i) {
-			ptr[cnt[ptr[i - 1] & 255]++] |= i << 8;
+			ptr[cnt[ptr[i - 1] & 255u]++] |= i << 8u;
 		}
 
 		for (uint32_t p = idx; p;) {
-			p = ptr[p - 1] >> 8;
+			p = ptr[p - 1] >> 8u;
 			crc.put(ptr[p - (p >= idx)]);
 		}
 	}
@@ -462,9 +463,9 @@ template <typename string_type, typename sarray_type, typename index_type>
 index_type lms_post_proc_1(string_type T, sarray_type SA, index_type n, index_type m) {
 	index_type i, j, p, q, plen, qlen, name;
 	typename std::iterator_traits<string_type>::value_type c0, c1;
-	bool diff;
+	bool diff = false;
 
-	// compact all the sorted substrings into the first m items of SA 2*m must be not larger than n (proveable)
+	// compact all the sorted substrings into the first m items of SA 2*m must be not larger than n (provable)
 	assert(0 < n);
 	for (i = 0; (p = SA[i]) < 0; ++i) {
 		SA[i] = ~p;
@@ -775,10 +776,10 @@ std::pair<index_type, index_type> stage1_sort(string_type T, sarray_type SA, buc
 	SA[n - 1] = 0;
 
 	if (1 < m) {
-		if (flags & (16 | 32)) {
+		if (flags & (16u | 32u)) {
 			assert((j + 1) < n);
 			++B[T[j + 1]];
-			if (flags & 16) {
+			if (flags & 16u) {
 				auto D = make_unique<index_type[]>(uint32_t(k) * 2u);
 				for (i = 0, j = 0; i < k; ++i) {
 					j += C[i];
@@ -803,7 +804,7 @@ std::pair<index_type, index_type> stage1_sort(string_type T, sarray_type SA, buc
 			}
 			name = lms_post_proc_2(SA, n, m);
 		} else {
-			lms_sort_1(T, SA, C, B, n, k, (flags & (4 | 64)) != 0);
+			lms_sort_1(T, SA, C, B, n, k, (flags & (4u | 64u)) != 0u);
 			name = lms_post_proc_1(T, SA, n, m);
 		}
 	} else if (m == 1) {
@@ -819,7 +820,7 @@ uint32_t stage3_sort(string_type T, sarray_type SA, bucketC_type C, bucketB_type
 					 index_type k, unsigned flags, bool isbwt) {
 	index_type i, j, p, q;
 	typename std::iterator_traits<string_type>::value_type c0, c1;
-	if ((flags & 8) != 0) {
+	if ((flags & 8u) != 0) {
 		get_counts(T, C, n, k);
 	}
 	// put all left-most S characters into their buckets
@@ -844,10 +845,10 @@ uint32_t stage3_sort(string_type T, sarray_type SA, bucketC_type C, bucketB_type
 		}
 	}
 	if (!isbwt) {
-		induce_sa(T, SA, C, B, n, k, (flags & (4 | 64)) != 0);
+		induce_sa(T, SA, C, B, n, k, (flags & (4u | 64u)) != 0);
 		return 0;
 	}
-	return compute_bwt(T, SA, C, B, n, k, (flags & (4 | 64)) != 0);
+	return compute_bwt(T, SA, C, B, n, k, (flags & (4u | 64u)) != 0);
 }
 
 // find the suffix array SA of T[0..n-1] in {0..k}^n
@@ -868,33 +869,33 @@ uint32_t suffix_sort(string_type T, sarray_type SA, index_type fs, index_type n,
 		Cp = (Cp_storage = make_unique<index_type[]>(uint32_t(k))).get();
 		if (k <= fs) {
 			B = SA + (n + fs - k);
-			flags = 1;
+			flags = 1u;
 		} else {
 			Bp = (Bp_storage = make_unique<index_type[]>(uint32_t(k))).get();
-			flags = 3;
+			flags = 3u;
 		}
 	} else if (k <= fs) {
 		C = SA + (n + fs - k);
 		if (k <= (fs - k)) {
 			B = C - k;
-			flags = 0;
+			flags = 0u;
 		} else if (k <= 1024) {
 			Bp = (Bp_storage = make_unique<index_type[]>(uint32_t(k))).get();
-			flags = 2;
+			flags = 2u;
 		} else {
 			B = C;
-			flags = 64 | 8;
+			flags = 64u | 8u;
 		}
 	} else {
 		Cp = (Cp_storage = make_unique<index_type[]>(uint32_t(k))).get();
 		Bp = Cp;
-		flags = 4 | 8;
+		flags = 4u | 8u;
 	}
 	if ((n <= (std::numeric_limits<index_type>::max() / 2)) && (2 <= (n / k))) {
-		if (flags & 1) {
-			flags |= ((k * 2) <= (fs - k)) ? 32 : 16;
-		} else if ((flags == 0) && ((k * 2) <= (fs - k * 2))) {
-			flags |= 32;
+		if (flags & 1u) {
+			flags |= ((k * 2) <= (fs - k)) ? 32u : 16u;
+		} else if ((flags == 0u) && ((k * 2) <= (fs - k * 2))) {
+			flags |= 32u;
 		}
 	}
 	if (Cp) {
@@ -917,11 +918,11 @@ uint32_t suffix_sort(string_type T, sarray_type SA, index_type fs, index_type n,
 	// stage 2: solve the reduced problem recurse if names are not yet unique
 	if (name < m) {
 		newfs = (n + fs) - (m * 2);
-		if ((flags & (1 | 4 | 64)) == 0) {
+		if ((flags & (1u | 4u | 64u)) == 0u) {
 			if ((k + name) <= newfs) {
 				newfs -= k;
 			} else {
-				flags |= 8;
+				flags |= 8u;
 			}
 		}
 		assert((n >> 1) <= (newfs + m));
@@ -954,11 +955,11 @@ uint32_t suffix_sort(string_type T, sarray_type SA, index_type fs, index_type n,
 		for (i = 0; i < m; ++i) {
 			SA[i] = RA[SA[i]];
 		}
-		if (flags & 4) {
+		if (flags & 4u) {
 			Cp = (Cp_storage = make_unique<index_type[]>(uint32_t(k))).get();
 			Bp = Cp;
 		}
-		if (flags & 2) {
+		if (flags & 2u) {
 			Bp = (Bp_storage = make_unique<index_type[]>(uint32_t(k))).get();
 		}
 	}
@@ -972,9 +973,8 @@ uint32_t suffix_sort(string_type T, sarray_type SA, index_type fs, index_type n,
 	}
 	if (Bp) {
 		return stage3_sort(T, SA, C, Bp, n, m, k, flags, isbwt);
-	} else {
-		return stage3_sort(T, SA, C, B, n, m, k, flags, isbwt);
 	}
+	return stage3_sort(T, SA, C, B, n, m, k, flags, isbwt);
 }
 
 uint32_t saisxx_bwt(const std::span<const uint8_t>& input, std::span<uint8_t> U, std::span<int> A) {
