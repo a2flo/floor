@@ -346,7 +346,7 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 #endif
 		buffer << time_str;
 		buffer << ".";
-		buffer << setw(const_math::int_width(chrono::system_clock::period::den));
+		buffer << setw(const_math::int_width(chrono::system_clock::period::den) - 1);
 		buffer << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
 		buffer << "]";
 	}
