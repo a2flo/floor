@@ -405,6 +405,15 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		log_error("Vulkan version must at least be 1.3");
 		return;
 	}
+	
+	// query platform/instance version
+	uint32_t instance_vk_version = 0u;
+	if (vkEnumerateInstanceVersion(&instance_vk_version) == VK_SUCCESS) {
+		platform_version = vulkan_version_from_uint(VK_VERSION_MAJOR(instance_vk_version), VK_VERSION_MINOR(instance_vk_version));
+	}
+	// else: retain default
+	assert(platform_version >= VULKAN_VERSION::VULKAN_1_3);
+	
 	const VkApplicationInfo app_info {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.pNext = nullptr,
@@ -616,6 +625,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		// get device props and features
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(phys_dev, &props);
+		const auto device_vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
 		
 		// check whitelist
 		if(!whitelist.empty()) {
@@ -788,9 +798,40 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.shaderIntegerDotProduct = false,
 			.maintenance4 = false,
 		};
+#if defined(VK_VERSION_1_4)
+		VkPhysicalDeviceVulkan14Features vulkan14_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
+			.pNext = &vulkan13_features,
+			.globalPriorityQuery = false,
+			.shaderSubgroupRotate = false,
+			.shaderSubgroupRotateClustered = false,
+			.shaderFloatControls2 = false,
+			.shaderExpectAssume = false,
+			.rectangularLines = false,
+			.bresenhamLines = false,
+			.smoothLines = false,
+			.stippledRectangularLines = false,
+			.stippledBresenhamLines = false,
+			.stippledSmoothLines = false,
+			.vertexAttributeInstanceRateDivisor = false,
+			.vertexAttributeInstanceRateZeroDivisor = false,
+			.indexTypeUint8 = false,
+			.dynamicRenderingLocalRead = false,
+			.maintenance5 = false,
+			.maintenance6 = false,
+			.pipelineProtectedAccess = false,
+			.pipelineRobustness = false,
+			.hostImageCopy = false,
+			.pushDescriptor = false,
+		};
+#endif
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+#if defined(VK_VERSION_1_4)
+			.pNext = &vulkan14_features,
+#else
 			.pNext = &vulkan13_features,
+#endif
 			.features = {
 				.shaderInt64 = true,
 			},
@@ -964,9 +1005,44 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.uniformTexelBufferOffsetSingleTexelAlignment = 0,
 			.maxBufferSize = 0,
 		};
+#if defined(VK_VERSION_1_4)
+		VkPhysicalDeviceVulkan14Properties vulkan14_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_PROPERTIES,
+			.pNext = &vulkan13_props,
+			.lineSubPixelPrecisionBits = 0u,
+			.maxVertexAttribDivisor = 0u,
+			.supportsNonZeroFirstInstance = false,
+			.maxPushDescriptors = 0u,
+			.dynamicRenderingLocalReadDepthStencilAttachments = false,
+			.dynamicRenderingLocalReadMultisampledAttachments = false,
+			.earlyFragmentMultisampleCoverageAfterSampleCounting = false,
+			.earlyFragmentSampleMaskTestBeforeSampleCounting = false,
+			.depthStencilSwizzleOneSupport = false,
+			.polygonModePointSize = false,
+			.nonStrictSinglePixelWideLinesUseParallelogram = false,
+			.nonStrictWideLinesUseParallelogram = false,
+			.blockTexelViewCompatibleMultipleLayers = false,
+			.maxCombinedImageSamplerDescriptorCount = 0u,
+			.fragmentShadingRateClampCombinerInputs = false,
+			.defaultRobustnessStorageBuffers = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT,
+			.defaultRobustnessUniformBuffers = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT,
+			.defaultRobustnessVertexInputs = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DEVICE_DEFAULT,
+			.defaultRobustnessImages = VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DEVICE_DEFAULT,
+			.copySrcLayoutCount = 0u,
+			.pCopySrcLayouts = nullptr,
+			.copyDstLayoutCount = 0u,
+			.pCopyDstLayouts = nullptr,
+			.optimalTilingLayoutUUID = {},
+			.identicalMemoryTypeRequirements = false,
+		};
+#endif
 		VkPhysicalDeviceProperties2 props_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+#if defined(VK_VERSION_1_4)
+			.pNext = &vulkan14_props,
+#else
 			.pNext = &vulkan13_props,
+#endif
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
 		
@@ -1074,6 +1150,16 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			log_error("maintenance4 is not supported by $", props.deviceName);
 			continue;
 		}
+#if defined(VK_VERSION_1_4) // will be required in the future for 1.3 as well
+		if (!vulkan14_features.maintenance5) {
+			log_error("maintenance5 is not supported by $", props.deviceName);
+			continue;
+		}
+		if (!vulkan14_features.maintenance6) {
+			log_error("maintenance6 is not supported by $", props.deviceName);
+			continue;
+		}
+#endif
 		
 		// check IUB limits
 		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
@@ -1124,7 +1210,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, supported_dev_exts.data());
 		set<string> device_supported_extensions_set;
 		set<string> device_extensions_set;
-		static constexpr const array filtered_exts{
+		static constexpr const array filtered_exts {
 			// deprecated, now in core
 			"VK_KHR_16bit_storage",
 			"VK_KHR_8bit_storage",
@@ -1190,23 +1276,31 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_video_encode_h264",
 			"VK_KHR_video_encode_h265",
 			"VK_KHR_video_encode_av1",
+			"VK_KHR_video_encode_quantization_map",
 			"VK_KHR_map_memory2",
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
 			"VK_KHR_shared_presentable_image",
-			"VK_KHR_maintenance5",
 			"VK_KHR_cooperative_matrix",
-			"VK_KHR_maintenance6",
 			"VK_KHR_performance_query",
 			"VK_KHR_video_maintenance1",
+			"VK_KHR_shader_maximal_reconvergence",
+			"VK_KHR_shader_quad_control",
+		};
+		static constexpr const array filtered_exts_vk14 {
+			// deprecated, now in core 1.4
+			"VK_KHR_dynamic_rendering_local_read",
+			"VK_KHR_global_priority",
 			"VK_KHR_index_type_uint8",
 			"VK_KHR_line_rasterization",
 			"VK_KHR_load_store_op_none",
+			"VK_KHR_maintenance5",
+			"VK_KHR_maintenance6",
+			"VK_KHR_push_descriptor",
 			"VK_KHR_shader_expect_assume",
 			"VK_KHR_shader_float_controls2",
-			"VK_KHR_shader_maximal_reconvergence",
-			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_subgroup_rotate",
+			"VK_KHR_vertex_attribute_divisor",
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
@@ -1222,6 +1316,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				if (ext_name.find(filtered_ext) != string::npos) {
 					is_filtered = true;
 					break;
+				}
+			}
+			if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+				for (const auto& filtered_ext : filtered_exts_vk14) {
+					if (ext_name.find(filtered_ext) != string::npos) {
+						is_filtered = true;
+						break;
+					}
 				}
 			}
 			// also filter out any swapchain exts when no direct rendering is used
@@ -1422,6 +1524,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		vulkan13_features.inlineUniformBlock = true;
 		vulkan13_features.maintenance4 = true;
 		// NOTE: shaderFloat16 is optional
+#if defined(VK_VERSION_1_4)
+		vulkan14_features.maintenance5 = true;
+		vulkan14_features.maintenance6 = true;
+#endif
 		
 		// we only want the "null descriptor" feature from the robustness extension
 		robustness_features.robustBufferAccess2 = false;
@@ -1478,8 +1584,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.driver_version_str = to_string(props.driverVersion);
 		device.extensions = device_extensions;
 		
-		// TODO: determine context/platform vulkan version
-		device.vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
+		device.vulkan_version = device_vulkan_version;
 		// "A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, and 1.6 versions of SPIR-V"
 		device.spirv_version = SPIRV_VERSION::SPIRV_1_6;
 		

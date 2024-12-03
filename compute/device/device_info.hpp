@@ -447,6 +447,16 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_ARGUMENT_BUFFER_IMAGE_SUPPORT != 0);
 	}
 	
+	//! returns true if the device requires that the work-group size X is a power-of-two
+	//! NOTE: true for Vulkan, false for all other devices/backends
+	constexpr bool requires_work_group_size_x_is_pot() {
+#if defined(FLOOR_COMPUTE_VULKAN)
+		return true;
+#else
+		return false;
+#endif
+	}
+	
 }
 
 //! range attribute containing the global [min, max) id range

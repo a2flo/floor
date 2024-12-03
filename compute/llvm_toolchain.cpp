@@ -467,6 +467,9 @@ program_data compile_input(const string& input,
 				case VULKAN_VERSION::VULKAN_1_3:
 					vulkan_std = "vulkan1.3";
 					break;
+				case VULKAN_VERSION::VULKAN_1_4:
+					vulkan_std = "vulkan1.4";
+					break;
 				default: break;
 			}
 			
