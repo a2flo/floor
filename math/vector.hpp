@@ -639,6 +639,25 @@ public:
 #endif
 	}
 	
+#if FLOOR_VECTOR_WIDTH >= 3
+	//! additional combined X and Z component accessor (copy), since they are not directly accessible together
+	constexpr vector2<scalar_type> xz() const {
+		return { x, z };
+	}
+#endif
+	
+#if FLOOR_VECTOR_WIDTH >= 4
+	//! additional combined X and W component accessor (copy), since they are not directly accessible together
+	constexpr vector2<scalar_type> xw() const {
+		return { x, w };
+	}
+	
+	//! additional combined Y and W component accessor (copy), since they are not directly accessible together
+	constexpr vector2<scalar_type> yw() const {
+		return { y, w };
+	}
+#endif
+	
 	//////////////////////////////////////////
 	// basic ops
 #pragma mark basic ops
