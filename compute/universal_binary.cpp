@@ -385,6 +385,7 @@ namespace universal_binary {
 				toolchain_version = floor::get_cuda_toolchain_version();
 				options.target = llvm_toolchain::TARGET::PTX;
 				cuda_dev.sm = { cuda_target.sm_major, cuda_target.sm_minor };
+				cuda_dev.sm_aa = (cuda_target.sm_aa != 0u);
 				
 				// handle PTX ISA version
 				if ((cuda_dev.sm.x < 9 && cuda_target.ptx_isa_major < 8) ||

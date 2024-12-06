@@ -223,6 +223,7 @@ program_data compile_input(const string& input,
 	string clang_cmd = cmd_prefix;
 	string libcxx_path, clang_path, floor_path;
 	string sm_version = "50"; // handle cuda sm version (default to Maxwell/sm_50)
+	string sm_aa_enabled = "0";
 	uint32_t ptx_version = max(80u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 8.0)
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
@@ -407,12 +408,18 @@ program_data compile_input(const string& input,
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
 			const auto& sm = cuda_dev.sm;
 			sm_version = (force_sm.empty() || options.ignore_runtime_info ? to_string(sm.x * 10 + sm.y) : force_sm);
+			// enable architecture-accelerated codegen if specifically enabled (external or FUBAR compilation) or for run-time devices/compilation
+			const auto is_sm_aa = (cuda_dev.sm.x >= 9 && (cuda_dev.sm_aa || !options.ignore_runtime_info));
+			if (is_sm_aa) {
+				sm_aa_enabled = "1";
+			}
 			
 			output_file_type = "ptx";
 
 			// handle ptx version:
 			// * 8.0 is the minimum requirement for floor (sm_50 - sm_90)
-			// * 8.5 for anything else
+			// * 8.6 for sm_100/sm_101
+			// * 8.6 for anything else
 			switch (cuda_dev.sm.x) {
 				case 5:
 				case 6:
@@ -421,10 +428,13 @@ program_data compile_input(const string& input,
 					// already 80
 					break;
 				case 9:
-					ptx_version = max(cuda_dev.sm.y == 0 ? 80u : 85u, ptx_version);
+					ptx_version = max(cuda_dev.sm.y == 0 ? 80u : 86u, ptx_version);
+					break;
+				case 10:
+					ptx_version = max(86u, ptx_version);
 					break;
 				default:
-					ptx_version = max(85u, ptx_version);
+					ptx_version = max(86u, ptx_version);
 					break;
 			}
 			if (!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
@@ -440,7 +450,7 @@ program_data compile_input(const string& input,
 				" -x " + (!build_pch ? "cuda" : "cuda-header") +
 				" -std=cuda" \
 				" -target x86_64--" +
-				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
+				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version + (is_sm_aa ? "a" : "") +
 				" -Xclang -target-feature -Xclang +ptx" + to_string(ptx_version) +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
@@ -1006,6 +1016,7 @@ program_data compile_input(const string& input,
 		case TARGET::PTX:
 			// set cuda sm and ptx version
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM_AA=" + sm_aa_enabled;
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_PTX=" + to_string(ptx_version);
 			break;
 		case TARGET::SPIRV_VULKAN: {

@@ -32,6 +32,9 @@ public:
 	//! compute capability (aka sm_xx)
 	uint2 sm { 5, 0 };
 	
+	//! for sm_90+: is architecture-accelerated codegen enabled?
+	bool sm_aa { false };
+	
 	//! max supported PTX version
 	uint2 ptx { 8, 0 };
 	

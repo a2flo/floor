@@ -307,6 +307,15 @@ namespace device_info {
 #endif
 	}
 	
+	//! when using cuda, this returns true if architecture-accelerated codegen is enabled, returns false otherwise
+	constexpr bool cuda_sm_aa() {
+#if defined(FLOOR_COMPUTE_CUDA)
+		return (FLOOR_COMPUTE_INFO_CUDA_SM_AA != 0);
+#else
+		return false;
+#endif
+	}
+	
 	//! when using cuda, this returns the ptx version this is compiled for, returns 0 otherwise
 	constexpr uint32_t cuda_ptx() {
 #if defined(FLOOR_COMPUTE_CUDA)
