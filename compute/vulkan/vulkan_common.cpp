@@ -30,8 +30,14 @@
 #elif defined(SDL_PLATFORM_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #endif
+#if defined(__WINDOWS__)
+#define byte __windows_byte_workaround
+#endif
 #define VK_NO_PROTOTYPES 1
 #include <vulkan/vulkan.h>
+#if defined(__WINDOWS__)
+#undef byte
+#endif
 
 extern "C" {
 FLOOR_PUSH_WARNINGS()
