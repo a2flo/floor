@@ -896,6 +896,27 @@ namespace const_math {
 		return (val % max);
 	}
 	
+	//! mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
+	constexpr fp_type mwrap(const fp_type val, const fp_type max) {
+		return const_math::abs(const_math::swrap(val, max));
+	}
+	
+	//! mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	constexpr int_type mwrap(const int_type val, const int_type max) {
+		return const_math::abs(const_math::swrap(val, max));
+	}
+
+	//! wraps val to the range [0, max]
+	//! NOTE: only exists for completeness, no actual purposes
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
+	constexpr uint_type mwrap(const uint_type val, const uint_type max) {
+		return (val % max);
+	}
+	
 	//! signed mirrored/alternating wrapping of val to the range [-max, max],
 	//! i.e. creating a triangle/zigzag signal from a linear input
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
@@ -1567,6 +1588,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, float)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, float)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, float)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, float)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, float)
@@ -1581,6 +1603,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int8_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, int8_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, int8_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, int8_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int8_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int8_t)
@@ -1595,6 +1618,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int16_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, int16_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, int16_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, int16_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int16_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int16_t)
@@ -1609,6 +1633,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int32_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, int32_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, int32_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, int32_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int32_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int32_t)
@@ -1623,6 +1648,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int64_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, int64_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, int64_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, int64_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int64_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int64_t)
@@ -1637,6 +1663,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint8_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, uint8_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, uint8_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, uint8_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint8_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint8_t)
@@ -1651,6 +1678,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint16_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, uint16_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, uint16_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, uint16_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint16_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint16_t)
@@ -1665,6 +1693,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint32_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, uint32_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, uint32_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, uint32_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint32_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint32_t)
@@ -1679,6 +1708,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint64_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, uint64_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, uint64_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, uint64_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint64_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint64_t)
@@ -1693,6 +1723,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, bool)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, bool)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, bool)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, bool)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, bool)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, bool)
@@ -1707,6 +1738,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, __int128_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, __int128_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, __int128_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, __int128_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, __int128_t)
@@ -1721,6 +1753,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __uint128_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, __uint128_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, __uint128_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, __uint128_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, __uint128_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, __uint128_t)
@@ -1737,6 +1770,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, ssize_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, ssize_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, ssize_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, ssize_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, ssize_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, ssize_t)
@@ -1752,6 +1786,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, size_t)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, size_t)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, size_t)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, size_t)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, size_t)
 	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, size_t)
@@ -1769,6 +1804,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, double)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, double)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, double)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, double)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, double)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, double)
@@ -1786,6 +1822,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, long double)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, long double)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mwrap, rt_math::mwrap, long double)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, long double)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, long double)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, long double)
@@ -1833,6 +1870,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, half)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, half)
 	FLOOR_CONST_SELECT_2(swrap, const_math::swrap, rt_math::swrap, half)
+	FLOOR_CONST_SELECT_2(mwrap, const_math::mswrap, rt_math::mwrap, half)
 	FLOOR_CONST_SELECT_2(mswrap, const_math::mswrap, rt_math::mswrap, half)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, half)
 	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, half)

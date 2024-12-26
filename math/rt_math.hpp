@@ -128,9 +128,9 @@ namespace rt_math {
 			 !is_same_v<int_type, __int128_t>)
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
-		typedef conditional_t<sizeof(int_type) < 4, int32_t, int_type> cast_int_type;
+		using cast_int_type = conditional_t<sizeof(int_type) < 4, int32_t, int_type>;
 #else // still want native 8-bit/16-bit abs calls on compute platforms
-		typedef int_type cast_int_type;
+		using cast_int_type = int_type;
 #endif
 		return (val < (int_type)0 ? (max - (std::abs(cast_int_type(val)) % max)) : (val % max));
 	}
@@ -164,6 +164,43 @@ namespace rt_math {
 	//! NOTE: only exists for completeness, no actual purposes
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	static floor_inline_always uint_type swrap(const uint_type val, const uint_type max) {
+		return (val % max);
+	}
+	
+	//! mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
+	static floor_inline_always fp_type mwrap(const fp_type val, const fp_type max) {
+		return abs(rt_math::swrap(val, max));
+	}
+	
+	//! mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	template <typename int_type>
+	requires(ext::is_integral_v<int_type> &&
+			 ext::is_signed_v<int_type> &&
+			 !is_same_v<int_type, __int128_t>)
+	static floor_inline_always int_type mwrap(const int_type val, const int_type max) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
+		using cast_int_type = conditional_t<sizeof(int_type) < 4, int32_t, int_type>;
+#else // still want native 8-bit/16-bit abs calls on compute platforms
+		using cast_int_type = int_type;
+#endif
+		return int_type(std::abs(cast_int_type(rt_math::swrap(val, max))));
+	}
+	
+	//! wraps val to the range [0, max]
+	template <typename int_type> requires(is_same_v<int_type, __int128_t>)
+	static floor_inline_always constexpr int_type mwrap(const int_type& val, const int_type& max) {
+		// no std::abs or __builtin_abs for __int128_t
+		const auto swrap_val = rt_math::swrap(val, max);
+		return (swrap_val < (int_type)0 ? -swrap_val : swrap_val);
+	}
+
+	//! wraps val to the range [0, max]
+	//! NOTE: only exists for completeness, no actual purposes
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
+	static floor_inline_always uint_type mwrap(const uint_type val, const uint_type max) {
 		return (val % max);
 	}
 	

@@ -897,6 +897,13 @@ public:
 						(const scalar_type& max),
 						max)
 	
+	//! mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	FLOOR_VEC_FUNC_ARGS(math::mwrap, mwrap, mwrapped,
+						(const scalar_type& max),
+						max)
+	
 	//! signed mirrored/alternating wrapping of all components of this vector around/to [-max, max],
 	//! i.e. creating a triangle/zigzag signal from a linear input
 	//! NOTE: for unsigned types, this wraps around/to [0, max]
@@ -942,6 +949,29 @@ public:
 	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	constexpr vector_type swrapped(const vector_type& max) const {
 		return vector_type(*this).swrap(max);
+	}
+	
+	//! mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type& mwrap(const vector_type& max) {
+		x = math::mwrap(x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = math::mwrap(y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = math::mwrap(z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = math::mwrap(w, max.w);
+#endif
+		return *this;
+	}
+	//! signed mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input
+	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	constexpr vector_type mwrapped(const vector_type& max) const {
+		return vector_type(*this).mwrap(max);
 	}
 	
 	//! signed mirrored/alternating wrapping of all components of this vector around/to [-max, max],
