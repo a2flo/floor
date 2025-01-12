@@ -106,6 +106,8 @@ struct vulkan_constant_buffer_info_t {
 //! descriptor set layout definition
 struct vulkan_descriptor_set_layout_t {
 	VkDescriptorSetLayout desc_set_layout { nullptr };
+	//! reported (and potentially unaligned) layout size in bytes
+	VkDeviceSize layout_size { 0u };
 	
 	uint32_t ssbo_desc { 0u };
 	uint32_t iub_desc { 0u };

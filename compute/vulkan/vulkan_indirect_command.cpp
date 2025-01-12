@@ -693,13 +693,9 @@ indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_ent
 	
 #if defined(FLOOR_DEBUG)
 	// verify that the layout size is <= our pre-computed max per command size
-	VkDeviceSize layout_size_in_bytes = 0;
-	((const vulkan_compute*)dev.context)->vulkan_get_descriptor_set_layout_size(pipeline_entry.vk_dev,
-																				vk_kernel_entry->desc_set_layout,
-																				&layout_size_in_bytes);
-	if (pipeline_entry.per_cmd_size < layout_size_in_bytes) {
+	if (pipeline_entry.per_cmd_size < vk_kernel_entry->desc_buffer.layout_size_in_bytes) {
 		throw runtime_error("miscalculated per command size: " + to_string(pipeline_entry.per_cmd_size)
-							+ " < actual layout size " + to_string(layout_size_in_bytes));
+							+ " < actual layout size " + to_string(vk_kernel_entry->desc_buffer.layout_size_in_bytes));
 	}
 #endif
 	

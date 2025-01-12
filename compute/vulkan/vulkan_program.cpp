@@ -199,6 +199,9 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 				"failed to create descriptor set layout (" + func_name + ")", {})
 	// TODO: vkDestroyDescriptorSetLayout cleanup
 	
+	// retrieve and cache layout size
+	((const vulkan_compute*)dev.context)->vulkan_get_descriptor_set_layout_size(vk_dev.device, layout.desc_set_layout, &layout.layout_size);
+	
 	return layout;
 }
 
@@ -267,8 +270,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 	
 	if (!layout->bindings.empty()) {
 		// query required buffer size + ensure good alignment
-		entry.desc_buffer.layout_size_in_bytes = 0;
-		vk_ctx.vulkan_get_descriptor_set_layout_size(vk_dev.device, entry.desc_set_layout, &entry.desc_buffer.layout_size_in_bytes);
+		entry.desc_buffer.layout_size_in_bytes = layout->layout_size;
 		entry.desc_buffer.layout_size_in_bytes = const_math::round_next_multiple(entry.desc_buffer.layout_size_in_bytes,
 																				 uint64_t(max(256u, vk_dev.descriptor_buffer_offset_alignment)));
 		
