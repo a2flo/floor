@@ -628,26 +628,164 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		const auto device_vulkan_version = vulkan_version_from_uint(VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion));
 		
 		// check whitelist
-		if(!whitelist.empty()) {
+		if (!whitelist.empty()) {
 			const auto lc_dev_name = core::str_to_lower(props.deviceName);
 			bool found = false;
-			for(const auto& entry : whitelist) {
-				if(lc_dev_name.find(entry) != string::npos) {
+			for (const auto& entry : whitelist) {
+				if (lc_dev_name.find(entry) != string::npos) {
 					found = true;
 					break;
 				}
 			}
-			if(!found) continue;
+			if (!found) {
+				continue;
+			}
 		}
 		
 		// handle device queue info + create queue info, we're going to create as many queues as are allowed by the device
 		uint32_t queue_family_count = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, nullptr);
-		if(queue_family_count == 0) {
+		if (queue_family_count == 0) {
 			log_error("device $ supports no queue families", props.deviceName);
 			continue;
 		}
 		
+		// query and filter extensions
+		uint32_t dev_ext_count = 0;
+		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, nullptr);
+		vector<VkExtensionProperties> supported_dev_exts(dev_ext_count);
+		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, supported_dev_exts.data());
+		set<string> device_supported_extensions_set;
+		set<string> device_extensions_set;
+		static constexpr const array filtered_exts {
+			// deprecated, now in core
+			"VK_KHR_16bit_storage",
+			"VK_KHR_8bit_storage",
+			"VK_KHR_bind_memory2",
+			"VK_KHR_copy_commands2",
+			"VK_KHR_create_renderpass2",
+			"VK_KHR_dedicated_allocation",
+			"VK_KHR_depth_stencil_resolve",
+			"VK_KHR_descriptor_update_template",
+			"VK_KHR_draw_indirect_count",
+			"VK_KHR_driver_properties",
+			"VK_KHR_dynamic_rendering",
+			"VK_KHR_format_feature_flags2",
+			"VK_KHR_get_memory_requirements2",
+			"VK_KHR_image_format_list",
+			"VK_KHR_imageless_framebuffer",
+			"VK_KHR_maintenance1",
+			"VK_KHR_maintenance2",
+			"VK_KHR_maintenance3",
+			"VK_KHR_maintenance4",
+			"VK_KHR_multiview",
+			"VK_KHR_relaxed_block_layout",
+			"VK_KHR_sampler_mirror_clamp_to_edge",
+			"VK_KHR_sampler_ycbcr_conversion",
+			"VK_KHR_shader_atomic_int64",
+			"VK_KHR_shader_draw_parameters",
+			"VK_KHR_shader_float16_int8",
+			"VK_KHR_shader_float_controls",
+			"VK_KHR_shader_integer_dot_product",
+			"VK_KHR_shader_non_semantic_info",
+			"VK_KHR_shader_terminate_invocation",
+			"VK_KHR_storage_buffer_storage_class",
+			"VK_KHR_synchronization2",
+			"VK_KHR_uniform_buffer_standard_layout",
+			"VK_KHR_variable_pointers",
+			"VK_KHR_vulkan_memory_model",
+			"VK_KHR_zero_initialize_workgroup_memory",
+			// extensions we don't need/want
+			"VK_KHR_external_",
+			"VK_KHR_device_group",
+			"VK_KHR_win32_keyed_mutex",
+			"VK_KHR_shader_clock",
+			"VK_KHR_shader_subgroup_extended_types",
+			"VK_KHR_spirv_1_4",
+			"VK_KHR_timeline_semaphore",
+			"VK_KHR_buffer_device_address",
+			"VK_KHR_separate_depth_stencil_layouts",
+			"VK_KHR_acceleration_structure",
+			"VK_KHR_fragment_shading_rate",
+			"VK_KHR_ray_query",
+			"VK_KHR_ray_tracing_pipeline",
+			"VK_KHR_workgroup_memory_explicit_layout",
+			"VK_KHR_video_queue",
+			"VK_KHR_video_decode_queue",
+			"VK_KHR_video_encode_queue",
+			"VK_KHR_present_id",
+			"VK_KHR_present_wait",
+			"VK_KHR_ray_tracing_maintenance1",
+			"VK_KHR_incremental_present",
+			"VK_KHR_video_decode_h264",
+			"VK_KHR_video_decode_h265",
+			"VK_KHR_video_decode_av1",
+			"VK_KHR_video_encode_h264",
+			"VK_KHR_video_encode_h265",
+			"VK_KHR_video_encode_av1",
+			"VK_KHR_video_encode_quantization_map",
+			"VK_KHR_map_memory2",
+			"VK_KHR_ray_tracing_position_fetch",
+			"VK_KHR_pipeline_executable_properties",
+			"VK_KHR_shared_presentable_image",
+			"VK_KHR_cooperative_matrix",
+			"VK_KHR_performance_query",
+			"VK_KHR_video_maintenance1",
+			"VK_KHR_shader_maximal_reconvergence",
+			"VK_KHR_shader_quad_control",
+		};
+		static constexpr const array filtered_exts_vk14 {
+			// deprecated, now in core 1.4
+			"VK_KHR_dynamic_rendering_local_read",
+			"VK_KHR_global_priority",
+			"VK_KHR_index_type_uint8",
+			"VK_KHR_line_rasterization",
+			"VK_KHR_load_store_op_none",
+			"VK_KHR_maintenance5",
+			"VK_KHR_maintenance6",
+			"VK_KHR_push_descriptor",
+			"VK_KHR_shader_expect_assume",
+			"VK_KHR_shader_float_controls2",
+			"VK_KHR_shader_subgroup_rotate",
+			"VK_KHR_vertex_attribute_divisor",
+		};
+		for (const auto& ext : supported_dev_exts) {
+			string ext_name = ext.extensionName;
+			device_supported_extensions_set.emplace(ext_name);
+
+			// only add all KHR by default
+			if (ext_name.find("VK_KHR_") == string::npos) {
+				continue;
+			}
+			// filter out certain extensions that we don't want
+			bool is_filtered = false;
+			for (const auto& filtered_ext : filtered_exts) {
+				if (ext_name.find(filtered_ext) != string::npos) {
+					is_filtered = true;
+					break;
+				}
+			}
+			if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+				for (const auto& filtered_ext : filtered_exts_vk14) {
+					if (ext_name.find(filtered_ext) != string::npos) {
+						is_filtered = true;
+						break;
+					}
+				}
+			}
+			// also filter out any swapchain exts when no direct rendering is used
+			if (!enable_renderer || screen.x11_forwarding) {
+				if (ext_name.find("VK_KHR_swapchain" /* _* */) != string::npos) {
+					continue;
+				}
+			}
+			if (is_filtered) {
+				continue;
+			}
+			device_extensions_set.emplace(ext_name);
+		}
+		
+		//
 		vector<VkQueueFamilyProperties> dev_queue_family_props(queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, dev_queue_family_props.data());
 		
@@ -684,13 +822,22 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		};
 		// set this to the "pNext" of the last device features struct in the chain
 		void** feature_chain_end = &desc_buf_features.pNext;
+		VkPhysicalDeviceNestedCommandBufferFeaturesEXT nested_cmds_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_NESTED_COMMAND_BUFFER_FEATURES_EXT,
+			.pNext = &desc_buf_features,
+			.nestedCommandBuffer = false,
+			.nestedCommandBufferRendering = false,
+			.nestedCommandBufferSimultaneousUse = false,
+		};
 		VkPhysicalDeviceRobustness2FeaturesEXT robustness_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-			.pNext = &desc_buf_features,
+			.pNext = (device_supported_extensions_set.count(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME) ?
+					  (void*)&nested_cmds_features : (void*)&desc_buf_features),
 			.robustBufferAccess2 = false,
 			.robustImageAccess2 = false,
 			.nullDescriptor = false,
 		};
+		auto pre_nested_cmds_features = &robustness_features; // need this to rechain later
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
 			.pNext = &robustness_features,
@@ -828,7 +975,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
 #if defined(VK_VERSION_1_4)
-			.pNext = &vulkan14_features,
+			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_features : (void*)&vulkan13_features),
 #else
 			.pNext = &vulkan13_features,
 #endif
@@ -838,9 +985,15 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		};
 		vkGetPhysicalDeviceFeatures2(phys_dev, &features_2);
 		
+		VkPhysicalDeviceNestedCommandBufferPropertiesEXT nested_cmds_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_NESTED_COMMAND_BUFFER_PROPERTIES_EXT,
+			.pNext = nullptr,
+			.maxCommandBufferNestingLevel = 0,
+		};
 		VkPhysicalDeviceDescriptorBufferPropertiesEXT desc_buf_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
-			.pNext = nullptr,
+			.pNext = (device_supported_extensions_set.count(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME) ?
+					  &nested_cmds_props : nullptr),
 			.combinedImageSamplerDescriptorSingleArray = false,
 			.bufferlessPushDescriptors = false,
 			.allowSamplerImageViewPostSubmitCreation = false,
@@ -875,6 +1028,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.resourceDescriptorBufferAddressSpaceSize = {},
 			.descriptorBufferAddressSpaceSize = {},
 		};
+		auto pre_nested_cmds_props = &desc_buf_props; // need this to rechain later
 		VkPhysicalDeviceMultiviewProperties multiview_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES,
 			.pNext = &desc_buf_props,
@@ -1039,7 +1193,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		VkPhysicalDeviceProperties2 props_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
 #if defined(VK_VERSION_1_4)
-			.pNext = &vulkan14_props,
+			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_props : (void*)&vulkan13_props),
 #else
 			.pNext = &vulkan13_props,
 #endif
@@ -1151,13 +1305,15 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			continue;
 		}
 #if defined(VK_VERSION_1_4) // will be required in the future for 1.3 as well
-		if (!vulkan14_features.maintenance5) {
-			log_error("maintenance5 is not supported by $", props.deviceName);
-			continue;
-		}
-		if (!vulkan14_features.maintenance6) {
-			log_error("maintenance6 is not supported by $", props.deviceName);
-			continue;
+		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			if (!vulkan14_features.maintenance5) {
+				log_error("maintenance5 is not supported by $", props.deviceName);
+				continue;
+			}
+			if (!vulkan14_features.maintenance6) {
+				log_error("maintenance6 is not supported by $", props.deviceName);
+				continue;
+			}
 		}
 #endif
 		
@@ -1201,139 +1357,6 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		if (!dev_mem_info.valid) {
 			log_error("memory requirements not met by device $", props.deviceName);
 			continue;
-		}
-		
-		// create device
-		uint32_t dev_ext_count = 0;
-		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, nullptr);
-		vector<VkExtensionProperties> supported_dev_exts(dev_ext_count);
-		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &dev_ext_count, supported_dev_exts.data());
-		set<string> device_supported_extensions_set;
-		set<string> device_extensions_set;
-		static constexpr const array filtered_exts {
-			// deprecated, now in core
-			"VK_KHR_16bit_storage",
-			"VK_KHR_8bit_storage",
-			"VK_KHR_bind_memory2",
-			"VK_KHR_copy_commands2",
-			"VK_KHR_create_renderpass2",
-			"VK_KHR_dedicated_allocation",
-			"VK_KHR_depth_stencil_resolve",
-			"VK_KHR_descriptor_update_template",
-			"VK_KHR_draw_indirect_count",
-			"VK_KHR_driver_properties",
-			"VK_KHR_dynamic_rendering",
-			"VK_KHR_format_feature_flags2",
-			"VK_KHR_get_memory_requirements2",
-			"VK_KHR_image_format_list",
-			"VK_KHR_imageless_framebuffer",
-			"VK_KHR_maintenance1",
-			"VK_KHR_maintenance2",
-			"VK_KHR_maintenance3",
-			"VK_KHR_maintenance4",
-			"VK_KHR_multiview",
-			"VK_KHR_relaxed_block_layout",
-			"VK_KHR_sampler_mirror_clamp_to_edge",
-			"VK_KHR_sampler_ycbcr_conversion",
-			"VK_KHR_shader_atomic_int64",
-			"VK_KHR_shader_draw_parameters",
-			"VK_KHR_shader_float16_int8",
-			"VK_KHR_shader_float_controls",
-			"VK_KHR_shader_integer_dot_product",
-			"VK_KHR_shader_non_semantic_info",
-			"VK_KHR_shader_terminate_invocation",
-			"VK_KHR_storage_buffer_storage_class",
-			"VK_KHR_synchronization2",
-			"VK_KHR_uniform_buffer_standard_layout",
-			"VK_KHR_variable_pointers",
-			"VK_KHR_vulkan_memory_model",
-			"VK_KHR_zero_initialize_workgroup_memory",
-			// extensions we don't need/want
-			"VK_KHR_external_",
-			"VK_KHR_device_group",
-			"VK_KHR_win32_keyed_mutex",
-			"VK_KHR_shader_clock",
-			"VK_KHR_shader_subgroup_extended_types",
-			"VK_KHR_spirv_1_4",
-			"VK_KHR_timeline_semaphore",
-			"VK_KHR_buffer_device_address",
-			"VK_KHR_separate_depth_stencil_layouts",
-			"VK_KHR_acceleration_structure",
-			"VK_KHR_fragment_shading_rate",
-			"VK_KHR_ray_query",
-			"VK_KHR_ray_tracing_pipeline",
-			"VK_KHR_workgroup_memory_explicit_layout",
-			"VK_KHR_video_queue",
-			"VK_KHR_video_decode_queue",
-			"VK_KHR_video_encode_queue",
-			"VK_KHR_present_id",
-			"VK_KHR_present_wait",
-			"VK_KHR_ray_tracing_maintenance1",
-			"VK_KHR_incremental_present",
-			"VK_KHR_video_decode_h264",
-			"VK_KHR_video_decode_h265",
-			"VK_KHR_video_decode_av1",
-			"VK_KHR_video_encode_h264",
-			"VK_KHR_video_encode_h265",
-			"VK_KHR_video_encode_av1",
-			"VK_KHR_video_encode_quantization_map",
-			"VK_KHR_map_memory2",
-			"VK_KHR_ray_tracing_position_fetch",
-			"VK_KHR_pipeline_executable_properties",
-			"VK_KHR_shared_presentable_image",
-			"VK_KHR_cooperative_matrix",
-			"VK_KHR_performance_query",
-			"VK_KHR_video_maintenance1",
-			"VK_KHR_shader_maximal_reconvergence",
-			"VK_KHR_shader_quad_control",
-		};
-		static constexpr const array filtered_exts_vk14 {
-			// deprecated, now in core 1.4
-			"VK_KHR_dynamic_rendering_local_read",
-			"VK_KHR_global_priority",
-			"VK_KHR_index_type_uint8",
-			"VK_KHR_line_rasterization",
-			"VK_KHR_load_store_op_none",
-			"VK_KHR_maintenance5",
-			"VK_KHR_maintenance6",
-			"VK_KHR_push_descriptor",
-			"VK_KHR_shader_expect_assume",
-			"VK_KHR_shader_float_controls2",
-			"VK_KHR_shader_subgroup_rotate",
-			"VK_KHR_vertex_attribute_divisor",
-		};
-		for (const auto& ext : supported_dev_exts) {
-			string ext_name = ext.extensionName;
-			device_supported_extensions_set.emplace(ext_name);
-
-			// only add all KHR by default
-			if (ext_name.find("VK_KHR_") == string::npos) {
-				continue;
-			}
-			// filter out certain extensions that we don't want
-			bool is_filtered = false;
-			for (const auto& filtered_ext : filtered_exts) {
-				if (ext_name.find(filtered_ext) != string::npos) {
-					is_filtered = true;
-					break;
-				}
-			}
-			if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-				for (const auto& filtered_ext : filtered_exts_vk14) {
-					if (ext_name.find(filtered_ext) != string::npos) {
-						is_filtered = true;
-						break;
-					}
-				}
-			}
-			// also filter out any swapchain exts when no direct rendering is used
-			if (!enable_renderer || screen.x11_forwarding) {
-				if (ext_name.find("VK_KHR_swapchain" /* _* */) != string::npos) {
-					continue;
-				}
-			}
-			if (is_filtered) continue;
-			device_extensions_set.emplace(ext_name);
 		}
 		
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
@@ -1394,6 +1417,23 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		
 		if (floor::get_toolchain_log_binaries()) {
 			device_extensions_set.emplace(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
+		}
+		
+		// optionally enable VK_EXT_nested_command_buffer extension if *fully* supported
+		bool nested_cmd_buffers_support = false;
+		if (device_supported_extensions_set.count(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME)) {
+			if (nested_cmds_features.nestedCommandBuffer &&
+				nested_cmds_features.nestedCommandBufferRendering &&
+				nested_cmds_features.nestedCommandBufferSimultaneousUse &&
+				nested_cmds_props.maxCommandBufferNestingLevel >= 1) {
+				nested_cmd_buffers_support = true;
+				device_extensions_set.emplace(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME);
+			}
+		}
+		if (!nested_cmd_buffers_support) {
+			// removed nested cmd buffers features/props from resp. chains
+			pre_nested_cmds_props->pNext = nested_cmds_props.pNext;
+			pre_nested_cmds_features->pNext = nested_cmds_features.pNext;
 		}
 		
 		// add/use VK_NV_inherited_viewport_scissor if supported
@@ -1525,14 +1565,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		vulkan13_features.maintenance4 = true;
 		// NOTE: shaderFloat16 is optional
 #if defined(VK_VERSION_1_4)
-		vulkan14_features.maintenance5 = true;
-		vulkan14_features.maintenance6 = true;
+		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			vulkan14_features.maintenance5 = true;
+			vulkan14_features.maintenance6 = true;
+		}
 #endif
 		
 		// we only want the "null descriptor" feature from the robustness extension
 		robustness_features.robustBufferAccess2 = false;
 		robustness_features.robustImageAccess2 = false;
 		
+		// create device
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = &features_2,
@@ -1759,6 +1802,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		if (device_supported_extensions_set.contains(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME) &&
 			inherited_viewport_scissor.inheritedViewportScissor2D) {
 			device.inherited_viewport_scissor_support = true;
+		}
+		
+		if (nested_cmd_buffers_support) {
+			device.nested_cmd_buffers_support = true;
+			log_msg("nested cmd buffers are fully supported (max nesting level: $)", nested_cmds_props.maxCommandBufferNestingLevel);
 		}
 		
 		// descriptor buffer support handling
@@ -2794,6 +2842,46 @@ const compute_queue* vulkan_compute::get_device_default_compute_queue(const comp
 	// only happens if the context is invalid (the default compute queues haven't been created)
 	log_error("no default compute-only queue for this device exists yet!");
 	return nullptr;
+}
+
+std::optional<uint32_t> vulkan_compute::get_max_distinct_queue_count(const compute_device& dev) const {
+	const auto& vk_dev = (const vulkan_device&)dev;
+	return vk_dev.queue_counts[vk_dev.all_queue_family_index];
+}
+
+std::optional<uint32_t> vulkan_compute::get_max_distinct_compute_queue_count(const compute_device& dev) const {
+	const auto& vk_dev = (const vulkan_device&)dev;
+	return vk_dev.queue_counts[vk_dev.compute_queue_family_index];
+}
+
+vector<shared_ptr<compute_queue>> vulkan_compute::create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	if (wanted_count == 0) {
+		return {};
+	}
+	
+	const auto& vk_dev = (const vulkan_device&)dev;
+	const auto actual_count = std::min(wanted_count, get_max_distinct_queue_count(dev).value_or(1u));
+	vector<shared_ptr<compute_queue>> ret;
+	ret.reserve(actual_count);
+	for (uint32_t i = 0, queue_index = 0; i < actual_count; ++i) {
+		ret.emplace_back(create_queue_internal(dev, vk_dev.all_queue_family_index, compute_queue::QUEUE_TYPE::ALL, queue_index));
+	}
+	return ret;
+}
+
+vector<shared_ptr<compute_queue>> vulkan_compute::create_distinct_compute_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	if (wanted_count == 0) {
+		return {};
+	}
+	
+	const auto& vk_dev = (const vulkan_device&)dev;
+	const auto actual_count = std::min(wanted_count, get_max_distinct_compute_queue_count(dev).value_or(1u));
+	vector<shared_ptr<compute_queue>> ret;
+	ret.reserve(actual_count);
+	for (uint32_t i = 0, queue_index = 0; i < actual_count; ++i) {
+		ret.emplace_back(create_queue_internal(dev, vk_dev.compute_queue_family_index, compute_queue::QUEUE_TYPE::COMPUTE, queue_index));
+	}
+	return ret;
 }
 
 unique_ptr<compute_fence> vulkan_compute::create_fence(const compute_queue& cqueue) const {

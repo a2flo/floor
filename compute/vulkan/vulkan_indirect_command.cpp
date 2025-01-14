@@ -426,7 +426,9 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry
 	const VkCommandBufferBeginInfo begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
-		.flags = (VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* we need to be able to use this simultaneously */ |
+		.flags = ((((const vulkan_device&)dev).nested_cmd_buffers_support ?
+				   VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* must be enabled if properly supported */ :
+				   0 /* nop */) |
 				  VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT /* all commands are within the same render pass */),
 		.pInheritanceInfo = &inheritance_info,
 	};
@@ -715,7 +717,9 @@ indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_ent
 		const VkCommandBufferBeginInfo begin_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.pNext = nullptr,
-			.flags = (VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* we need to be able to use this simultaneously */),
+			.flags = (((const vulkan_device&)dev).nested_cmd_buffers_support ?
+					  VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT /* must be enabled if properly supported */ :
+					  0 /* nop */),
 			.pInheritanceInfo = &inheritance_info,
 		};
 		VK_CALL_ERR_EXEC(vkBeginCommandBuffer(cmd_buffers[per_queue_data_idx], &begin_info),

@@ -74,6 +74,14 @@ public:
 	
 	const compute_queue* get_device_default_compute_queue(const compute_device& dev) const override;
 	
+	optional<uint32_t> get_max_distinct_queue_count(const compute_device& dev) const override;
+	
+	optional<uint32_t> get_max_distinct_compute_queue_count(const compute_device& dev) const override;
+	
+	vector<shared_ptr<compute_queue>> create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const override;
+	
+	vector<shared_ptr<compute_queue>> create_distinct_compute_queues(const compute_device& dev, const uint32_t wanted_count) const override;
+	
 	unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const override;
 	
 	//////////////////////////////////////////

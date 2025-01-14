@@ -278,6 +278,25 @@ shared_ptr<compute_queue> host_compute::create_queue(const compute_device& dev f
 	return main_queue;
 }
 
+std::optional<uint32_t> host_compute::get_max_distinct_queue_count(const compute_device&) const {
+	return 1;
+}
+
+std::optional<uint32_t> host_compute::get_max_distinct_compute_queue_count(const compute_device&) const {
+	return 1;
+}
+
+vector<shared_ptr<compute_queue>> host_compute::create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	if (wanted_count == 0) {
+		return {};
+	}
+	return { create_queue(dev) };
+}
+
+vector<shared_ptr<compute_queue>> host_compute::create_distinct_compute_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	return create_distinct_queues(dev, wanted_count);
+}
+
 unique_ptr<compute_fence> host_compute::create_fence(const compute_queue&) const {
 	log_error("fence creation not yet supported by host_compute!");
 	return {};

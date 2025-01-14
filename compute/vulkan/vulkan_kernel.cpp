@@ -597,9 +597,7 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 	
 	// the argument buffer size is device/driver dependent (can't be statically known)
 	// -> query required buffer size + ensure good alignment
-	VkDeviceSize arg_buffer_size = 0;
-	vk_ctx.vulkan_get_descriptor_set_layout_size(vk_dev.device, arg_buf_info.layout.desc_set_layout, &arg_buffer_size);
-	arg_buffer_size = const_math::round_next_multiple(arg_buffer_size, uint64_t(256));
+	const auto arg_buffer_size = const_math::round_next_multiple(arg_buf_info.layout.layout_size, uint64_t(256));
 	
 	// query offset for each binding/argument
 	vector<VkDeviceSize> argument_offsets;

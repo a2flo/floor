@@ -243,3 +243,29 @@ vector<string> compute_context::get_resource_registry_keys() const REQUIRES(!res
 	}
 	return ret;
 }
+
+vector<shared_ptr<compute_queue>> compute_context::create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	if (wanted_count == 0) {
+		return {};
+	}
+	
+	vector<shared_ptr<compute_queue>> ret;
+	ret.reserve(wanted_count);
+	for (uint32_t i = 0; i < wanted_count; ++i) {
+		ret.emplace_back(create_queue(dev));
+	}
+	return ret;
+}
+
+vector<shared_ptr<compute_queue>> compute_context::create_distinct_compute_queues(const compute_device& dev, const uint32_t wanted_count) const {
+	if (wanted_count == 0) {
+		return {};
+	}
+	
+	vector<shared_ptr<compute_queue>> ret;
+	ret.reserve(wanted_count);
+	for (uint32_t i = 0; i < wanted_count; ++i) {
+		ret.emplace_back(create_compute_queue(dev));
+	}
+	return ret;
+}

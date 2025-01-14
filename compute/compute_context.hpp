@@ -133,6 +133,28 @@ public:
 		return get_device_default_queue(dev);
 	}
 	
+	//! returns the max amount of distinct queues that can be created by the context for the specified device,
+	//! returns empty if there is no particular max amount
+	virtual optional<uint32_t> get_max_distinct_queue_count(const compute_device&) const {
+		return {};
+	}
+	
+	//! returns the max amount of distinct compute-only queues that can be created by the context for the specified device,
+	//! returns empty if there is no particular max amount
+	virtual optional<uint32_t> get_max_distinct_compute_queue_count(const compute_device&) const {
+		return {};
+	}
+	
+	//! creates up to "wanted_count" number of compute_queues for the specified device "dev",
+	//! for backends that only support a certain amount of distinct queues, this will create/return distinct queues from that pool,
+	//! with the returned number of created queues limited to min(wanted_count, get_max_distinct_queue_count())
+	virtual vector<shared_ptr<compute_queue>> create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const;
+	
+	//! creates up to "wanted_count" number of compute-only compute_queues for the specified device "dev",
+	//! for backends that only support a certain amount of distinct compute-only queues, this will create/return distinct queues from that pool,
+	//! with the returned number of created queues limited to min(wanted_count, get_max_distinct_compute_queue_count())
+	virtual vector<shared_ptr<compute_queue>> create_distinct_compute_queues(const compute_device& dev, const uint32_t wanted_count) const;
+	
 	//! creates and returns a fence for the specified queue
 	virtual unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const = 0;
 	
