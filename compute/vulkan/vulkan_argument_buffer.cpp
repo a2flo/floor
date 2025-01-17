@@ -45,7 +45,7 @@ mapped_host_memory(mapped_host_memory_), constant_buffer_storage(constant_buffer
 		throw runtime_error("should not have soft-printf flag in argument buffer function info");
 	}
 #if defined(FLOOR_DEBUG)
-	if ((((const vulkan_buffer*)storage_buffer.get())->get_vulkan_buffer_usage() & VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT) == 0) {
+	if ((((const vulkan_buffer*)storage_buffer.get())->get_vulkan_buffer_usage() & VK_BUFFER_USAGE_2_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT) == 0) {
 		throw runtime_error("argument buffer storage has not been created with descriptor buffer support");
 	}
 #endif

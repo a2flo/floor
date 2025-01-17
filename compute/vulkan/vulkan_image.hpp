@@ -139,7 +139,7 @@ public:
 	}
 	
 	//! returns the actual allocation size in bytes this image has been created with
-	//! NOTE: allocation size has been computed via vkGetBufferMemoryRequirements and can differ from "size"
+	//! NOTE: allocation size has been computed via vkGetImageMemoryRequirements2 and can differ from "size"
 	const VkDeviceSize& get_vulkan_allocation_size() const {
 		return allocation_size;
 	}

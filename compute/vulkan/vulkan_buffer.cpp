@@ -63,12 +63,12 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	const auto is_desc_buffer = has_flag<COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER>(flags);
 	// set all the bits here, might need some better restrictions later on
 	// NOTE: not setting vertex bit here, b/c we're always using SSBOs
-	buffer_usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-					VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-					VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-					VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-					VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+	buffer_usage = (VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT |
+					VK_BUFFER_USAGE_2_TRANSFER_DST_BIT |
+					VK_BUFFER_USAGE_2_STORAGE_BUFFER_BIT |
+					VK_BUFFER_USAGE_2_INDEX_BUFFER_BIT |
+					VK_BUFFER_USAGE_2_INDIRECT_BUFFER_BIT |
+					VK_BUFFER_USAGE_2_SHADER_DEVICE_ADDRESS_BIT);
 	VkExternalMemoryBufferCreateInfo ext_create_info;
 	if (is_sharing) {
 		ext_create_info = {
@@ -84,15 +84,20 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 		};
 	}
 	if (is_desc_buffer) {
-		buffer_usage |= VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+		buffer_usage |= VK_BUFFER_USAGE_2_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 	}
 	const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
+	const VkBufferUsageFlags2CreateInfo buffer_usage_flags_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+		.pNext = (is_sharing ? &ext_create_info : nullptr),
+		.usage = buffer_usage,
+	};
 	const VkBufferCreateInfo buffer_create_info {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.pNext = (is_sharing ? &ext_create_info : nullptr),
+		.pNext = &buffer_usage_flags_info,
 		.flags = 0,
 		.size = size,
-		.usage = buffer_usage,
+		.usage = 0,
 		.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
 		.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
 		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
@@ -136,8 +141,18 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	}
 	
 	// allocate / back it up
-	VkMemoryRequirements mem_req;
-	vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
+	VkMemoryRequirements2 mem_req2 {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+		.pNext = nullptr,
+		.memoryRequirements = {},
+	};
+	const VkBufferMemoryRequirementsInfo2 mem_req_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+		.pNext = nullptr,
+		.buffer = buffer,
+	};
+	vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+	const auto& mem_req = mem_req2.memoryRequirements;
 	allocation_size = mem_req.size;
 	
 	const VkMemoryAllocateFlagsInfo alloc_flags_info {
@@ -155,7 +170,14 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 												  is_host_coherent /* require host-coherent if set */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
-	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false)
+	const VkBindBufferMemoryInfo bind_info {
+		.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+		.pNext = nullptr,
+		.buffer = buffer,
+		.memory = mem,
+		.memoryOffset = 0,
+	};
+	VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "buffer allocation binding failed", false)
 	
 	// update buffer desc info
 	buffer_info.buffer = buffer;
@@ -191,7 +213,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 			.pStorageBuffer = &addr_info,
 		},
 	};
-	((vulkan_compute*)cqueue.get_device().context)->vulkan_get_descriptor(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
+	vkGetDescriptorEXT(vulkan_dev, &desc_info, device.desc_buffer_sizes.ssbo, &descriptor_data[0]);
 	
 	// buffer init from host data pointer
 	if (copy_host_data &&
@@ -278,12 +300,22 @@ void vulkan_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	VK_CMD_BLOCK_RET(vk_queue, "buffer zero", ({
-		const VkBufferCopy region {
+		const VkBufferCopy2 region {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+			.pNext = nullptr,
 			.srcOffset = src_offset,
 			.dstOffset = dst_offset,
 			.size = copy_size,
 		};
-		vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, ((const vulkan_buffer&)src).buffer, buffer, 1, &region);
+		const VkCopyBufferInfo2 info {
+			.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+			.pNext = nullptr,
+			.srcBuffer = ((const vulkan_buffer&)src).buffer,
+			.dstBuffer = buffer,
+			.regionCount = 1,
+			.pRegions = &region,
+		};
+		vkCmdCopyBuffer2(block_cmd_buffer.cmd_buffer, &info);
 	}), , true /* always blocking */);
 }
 

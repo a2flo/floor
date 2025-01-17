@@ -50,8 +50,8 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 //#include <vulkan/vulkan.h>
 #include <floor/external/volk/volk.h>
 
-#if VK_HEADER_VERSION < 235
-#error "Vulkan header version must at least be 235"
+#if VK_HEADER_VERSION < 303
+#error "Vulkan header version must at least be 303"
 #endif
 
 // for Vulkan resource sharing on Windows
@@ -210,5 +210,13 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 	} \
 }
+
+// to work around a current validation layer issue, we need to be able to convert VkBufferUsageFlags from v2 to v1
+// -> only enable this in debug mode when validation layers are actually active
+#if defined(FLOOR_DEBUG)
+#define VK_LEGACY_USAGE_FLAGS_WORKAROUND(flags) VkBufferUsageFlags(flags & 0xFFFFFFFFu)
+#else
+#define VK_LEGACY_USAGE_FLAGS_WORKAROUND(flags) 0
+#endif
 
 #endif // FLOOR_NO_VULKAN

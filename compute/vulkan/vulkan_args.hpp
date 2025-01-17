@@ -122,9 +122,9 @@ static inline void set_argument(const vulkan_device& vk_dev,
 					.pStorageBuffer = &addr_info,
 				},
 			};
-			((vulkan_compute*)vk_dev.context)->vulkan_get_descriptor(vk_dev.device, &desc_info,
-																	 vk_dev.desc_buffer_sizes.ssbo,
-																	 host_desc_data.data() + write_offset);
+			vkGetDescriptorEXT(vk_dev.device, &desc_info,
+							   vk_dev.desc_buffer_sizes.ssbo,
+							   host_desc_data.data() + write_offset);
 		}
 	}
 }

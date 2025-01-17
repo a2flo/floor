@@ -254,8 +254,18 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// allocate / back it up
-	VkMemoryRequirements mem_req;
-	vkGetImageMemoryRequirements(vulkan_dev, image, &mem_req);
+	VkMemoryRequirements2 mem_req2 {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+		.pNext = nullptr,
+		.memoryRequirements = {},
+	};
+	const VkImageMemoryRequirementsInfo2 mem_req_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+		.pNext = nullptr,
+		.image = image,
+	};
+	vkGetImageMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+	const auto& mem_req = mem_req2.memoryRequirements;
 	allocation_size = mem_req.size;
 	
 	const VkMemoryAllocateInfo alloc_info {
@@ -268,17 +278,43 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem),
 				"image allocation (" + std::to_string(allocation_size) + " bytes) failed", false)
-	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false)
+	const VkBindImageMemoryInfo bind_info {
+		.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+		.pNext = nullptr,
+		.image = image,
+		.memory = mem,
+		.memoryOffset = 0,
+	};
+	VK_CALL_RET(vkBindImageMemory2(vulkan_dev, 1, &bind_info), "image allocation binding failed", false)
 
 	// aliased array: back each layer
 	if (is_aliased_array) {
-		VkMemoryRequirements layer_mem_req;
-		vkGetImageMemoryRequirements(vulkan_dev, image_aliased_layers[0], &layer_mem_req);
+		VkMemoryRequirements2 layer_mem_req2 {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+			.pNext = nullptr,
+			.memoryRequirements = {},
+		};
+		const VkImageMemoryRequirementsInfo2 layer_mem_req_info {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+			.pNext = nullptr,
+			.image = image_aliased_layers[0],
+		};
+		vkGetImageMemoryRequirements2(vulkan_dev, &layer_mem_req_info, &layer_mem_req2);
+		const auto& layer_mem_req = layer_mem_req2.memoryRequirements;
+		
 		const auto per_layer_size = layer_mem_req.size;
+		vector<VkBindImageMemoryInfo> per_layer_bind_info(layer_count);
 		for (uint32_t layer = 0; layer < layer_count; ++layer) {
-			VK_CALL_RET(vkBindImageMemory(vulkan_dev, image_aliased_layers[layer], mem, per_layer_size * layer),
-						"image layer allocation binding failed", false)
+			per_layer_bind_info[layer] = {
+				.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+				.pNext = nullptr,
+				.image = image_aliased_layers[layer],
+				.memory = mem,
+				.memoryOffset = per_layer_size * layer,
+			};
 		}
+		VK_CALL_RET(vkBindImageMemory2(vulkan_dev, (uint32_t)per_layer_bind_info.size(), per_layer_bind_info.data()),
+					"image layer allocation binding failed", false)
 	}
 	
 	// create the view
@@ -414,8 +450,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 				.pSampledImage = &desc_img_info,
 			},
 		};
-		vk_ctx.vulkan_get_descriptor(vulkan_dev, &desc_info_sampled, device.desc_buffer_sizes.sampled_image,
-									 descriptor_data_sampled.get());
+		vkGetDescriptorEXT(vulkan_dev, &desc_info_sampled, device.desc_buffer_sizes.sampled_image, descriptor_data_sampled.get());
 		
 		for (size_t mip_level = 0, level_count = mip_map_image_view.size(); mip_level < level_count; ++mip_level) {
 			const VkDescriptorImageInfo mm_desc_img_info {
@@ -432,8 +467,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 					.pStorageImage = &mm_desc_img_info,
 				},
 			};
-			vk_ctx.vulkan_get_descriptor(vulkan_dev, &mm_desc_info_storage, device.desc_buffer_sizes.storage_image,
-										 descriptor_data_storage.get() + mip_level * device.desc_buffer_sizes.storage_image);
+			vkGetDescriptorEXT(vulkan_dev, &mm_desc_info_storage, device.desc_buffer_sizes.storage_image,
+							   descriptor_data_storage.get() + mip_level * device.desc_buffer_sizes.storage_image);
 		}
 	} else {
 		memset(descriptor_data_sampled.get(), 0, descriptor_sampled_size);
@@ -813,7 +848,7 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 		rgb_to_rgba_inplace(image_type, shim_image_type, data, generate_mip_maps);
 	}
 	
-	vector<VkBufferImageCopy> regions;
+	vector<VkBufferImageCopy2> regions;
 	regions.reserve(mip_level_count);
 	uint64_t buffer_offset = 0;
 	apply_on_levels([this, &regions, &buffer_offset, &dim_count, &is_compressed](const uint32_t& level,
@@ -834,7 +869,9 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 			.baseArrayLayer = 0,
 			.layerCount = layer_count,
 		};
-		regions.emplace_back(VkBufferImageCopy {
+		regions.emplace_back(VkBufferImageCopy2 {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+			.pNext = nullptr,
 			.bufferOffset = buffer_offset,
 			.bufferRowLength = (is_compressed ? buffer_dim.x : 0 /* tightly packed */),
 			.bufferImageHeight = (is_compressed ? buffer_dim.y : 0 /* tightly packed */),
@@ -850,8 +887,16 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 		return true;
 	}, shim_image_type);
 	
-	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, image_info.imageLayout,
-						   (uint32_t)regions.size(), regions.data());
+	const VkCopyBufferToImageInfo2 info {
+		.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
+		.pNext = nullptr,
+		.srcBuffer = host_buffer,
+		.dstImage = image,
+		.dstImageLayout = image_info.imageLayout,
+		.regionCount = (uint32_t)regions.size(),
+		.pRegions = regions.data(),
+	};
+	vkCmdCopyBufferToImage2(cmd_buffer, &info);
 }
 
 static VkPipelineStageFlags2 stage_mask_from_access(const VkAccessFlags2& access_mask_in, const VkPipelineStageFlags2& stage_mask_in,

@@ -135,13 +135,18 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		// create the host-visible buffer
 		const auto& vk_dev = (const vulkan_device&)device;
 		const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
+		const VkBufferUsageFlags2CreateInfo buffer_usage_flags_info {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+			.pNext = nullptr,
+			.usage = VkBufferUsageFlags2((does_write ? VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT : VkBufferUsageFlagBits2(0u)) |
+										 (does_read ? VK_BUFFER_USAGE_2_TRANSFER_DST_BIT : VkBufferUsageFlagBits2(0u))),
+		};
 		const VkBufferCreateInfo buffer_create_info {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.pNext = nullptr,
+			.pNext = &buffer_usage_flags_info,
 			.flags = 0,
 			.size = size,
-			.usage = VkBufferUsageFlags((does_write ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : VkBufferUsageFlagBits(0u)) |
-										(does_read ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : VkBufferUsageFlagBits(0u))),
+			.usage = 0,
 			.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
 			.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
 			.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
@@ -149,8 +154,18 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 	
 		// allocate / back it up
-		VkMemoryRequirements mem_req;
-		vkGetBufferMemoryRequirements(vulkan_dev, mapping.buffer, &mem_req);
+		VkMemoryRequirements2 mem_req2 {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+			.pNext = nullptr,
+			.memoryRequirements = {},
+		};
+		const VkBufferMemoryRequirementsInfo2 mem_req_info {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+			.pNext = nullptr,
+			.buffer = mapping.buffer,
+		};
+		vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+		const auto& mem_req = mem_req2.memoryRequirements;
 	
 		const VkMemoryAllocateInfo alloc_info {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -159,7 +174,14 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 			.memoryTypeIndex = device.host_mem_cached_index,
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
-		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr)
+		const VkBindBufferMemoryInfo bind_info {
+			.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+			.pNext = nullptr,
+			.buffer = mapping.buffer,
+			.memory = mapping.mem,
+			.memoryOffset = 0,
+		};
+		VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "map buffer allocation binding failed", nullptr)
 	} else {
 		mapping.buffer = (VkBuffer)*object;
 		mapping.mem = mem;
@@ -177,12 +199,22 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		if (!is_host_coherent || is_image) {
 			VK_CMD_BLOCK(vk_queue, "dev -> host memory copy", ({
 				if (!is_image) {
-					const VkBufferCopy region {
+					const VkBufferCopy2 region {
+						.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+						.pNext = nullptr,
 						.srcOffset = mapping.offset,
 						.dstOffset = 0,
 						.size = mapping.size,
 					};
-					vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, (VkBuffer)*object, mapping.buffer, 1, &region);
+					const VkCopyBufferInfo2 info {
+						.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+						.pNext = nullptr,
+						.srcBuffer = (VkBuffer)*object,
+						.dstBuffer = mapping.buffer,
+						.regionCount = 1,
+						.pRegions = &region,
+					};
+					vkCmdCopyBuffer2(block_cmd_buffer.cmd_buffer, &info);
 				} else {
 					image_copy_dev_to_host(cqueue, block_cmd_buffer.cmd_buffer, mapping.buffer);
 				}
@@ -223,7 +255,15 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 	
 	// map the host buffer
 	void* __attribute__((aligned(128))) host_ptr { nullptr };
-	VK_CALL_RET(vkMapMemory(vulkan_dev, mapping.mem, host_buffer_offset, size, 0, &host_ptr), "failed to map host buffer", nullptr)
+	const VkMemoryMapInfo map_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_MAP_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.memory = mapping.mem,
+		.offset = host_buffer_offset,
+		.size = size,
+	};
+	VK_CALL_RET(vkMapMemory2KHR(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
 	
 	// need to remember how much we mapped and where (so the host -> device write-back copies the right amount of bytes)
 	mappings.emplace(host_ptr, mapping);
@@ -256,12 +296,22 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 				// TODO: sync ...
 				VK_CMD_BLOCK(vk_queue, "host -> dev memory copy", ({
 					if(!is_image) {
-						const VkBufferCopy region {
+						const VkBufferCopy2 region {
+							.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+							.pNext = nullptr,
 							.srcOffset = 0,
 							.dstOffset = iter->second.offset,
 							.size = iter->second.size,
 						};
-						vkCmdCopyBuffer(block_cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
+						const VkCopyBufferInfo2 info {
+							.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+							.pNext = nullptr,
+							.srcBuffer = iter->second.buffer,
+							.dstBuffer = (VkBuffer)*object,
+							.regionCount = 1,
+							.pRegions = &region,
+						};
+						vkCmdCopyBuffer2(block_cmd_buffer.cmd_buffer, &info);
 					} else {
 						span<uint8_t> host_buffer { (uint8_t*)mapped_ptr, iter->second.size };
 						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, iter->second.buffer, host_buffer);
@@ -275,7 +325,14 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ...
 	// -> can only unmap if this is the last mapping (if is_host_coherent, if the buffer was just created/allocated for this, then it doesn't matter)
 	// also: TODO: SYNC!
-	vkUnmapMemory(vulkan_dev, iter->second.mem);
+	const VkMemoryUnmapInfo unmap_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.memory = iter->second.mem,
+	};
+	// NOTE: can't do much more than ignore errors at this point
+	VK_CALL_IGNORE(vkUnmapMemory2KHR(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
 	
 	// barrier after unmap when using unified memory
 	// TODO: make this actually work

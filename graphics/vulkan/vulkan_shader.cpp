@@ -64,7 +64,6 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 	}
 	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
-	const auto& vk_ctx = *(vulkan_compute*)vk_dev.context;
 	
 	// create command buffer ("encoder") for this kernel execution
 	bool encoder_success = false;
@@ -147,38 +146,56 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 	// -> this will instead be done in a separate command buffer in the caller (vulkan_renderer)
 	
 	// set/write/update descriptors
-	vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
-															   VK_PIPELINE_BIND_POINT_GRAPHICS,
-															   encoder->pipeline_layout, 0 /* always set #0 */);
+	const VkBindDescriptorBufferEmbeddedSamplersInfoEXT bind_embedded_info {
+		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_BUFFER_EMBEDDED_SAMPLERS_INFO_EXT,
+		.pNext = nullptr,
+		.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+		.layout = encoder->pipeline_layout,
+		.set = 0 /* always set #0 */,
+	};
+	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(encoder->cmd_buffer.cmd_buffer, &bind_embedded_info);
 	
 	if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 		// setup + bind descriptor buffers
 		const auto desc_buf_count = uint32_t(encoder->acquired_descriptor_buffers.size()) + uint32_t(encoder->argument_buffers.size());
 		vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
-		desc_buf_bindings.reserve(desc_buf_count);
+		desc_buf_bindings.resize(desc_buf_count);
+		vector<VkBufferUsageFlags2CreateInfo> desc_buf_bindings_usage;
+		desc_buf_bindings_usage.resize(desc_buf_count);
+		size_t desc_buf_binding_idx = 0;
 		
 		for (const auto& acq_desc_buffer : encoder->acquired_descriptor_buffers) {
 			const auto& desc_buffer = *(const vulkan_buffer*)acq_desc_buffer.desc_buffer;
-			desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+			desc_buf_bindings_usage[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
 				.pNext = nullptr,
-				.address = desc_buffer.get_vulkan_buffer_device_address(),
 				.usage = desc_buffer.get_vulkan_buffer_usage(),
-			});
+			};
+			desc_buf_bindings[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
+				.address = desc_buffer.get_vulkan_buffer_device_address(),
+				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(desc_buffer.get_vulkan_buffer_usage()),
+			};
+			++desc_buf_binding_idx;
 		}
 		
 		for (const auto& arg_buffer : encoder->argument_buffers) {
-			desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+			desc_buf_bindings_usage[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
 				.pNext = nullptr,
-				.address = arg_buffer.second->get_vulkan_buffer_device_address(),
 				.usage = arg_buffer.second->get_vulkan_buffer_usage(),
-			});
+			};
+			desc_buf_bindings[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
+				.address = arg_buffer.second->get_vulkan_buffer_device_address(),
+				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(arg_buffer.second->get_vulkan_buffer_usage()),
+			};
+			++desc_buf_binding_idx;
 		}
 		
-		vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
-												  uint32_t(desc_buf_bindings.size()),
-												  desc_buf_bindings.data());
+		vkCmdBindDescriptorBuffersEXT(encoder->cmd_buffer.cmd_buffer, uint32_t(desc_buf_bindings.size()), desc_buf_bindings.data());
 		
 		// set fixed descriptor buffers (set #1 is the vertex shader, set #2 is the fragment shader)
 		// NOTE: these may be optional
@@ -188,11 +205,17 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 		const uint32_t set_count = ((vertex_shader->desc_buffer.desc_buffer_container ? 1 : 0) +
 									(fragment_shader && fragment_shader->desc_buffer.desc_buffer_container ? 1 : 0));
 		if (set_count > 0) {
-			vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
-															VK_PIPELINE_BIND_POINT_GRAPHICS,
-															encoder->pipeline_layout,
-															start_set, set_count,
-															&buffer_indices[0], &offsets[0]);
+			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+				.pNext = nullptr,
+				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.layout = encoder->pipeline_layout,
+				.firstSet = start_set,
+				.setCount = set_count,
+				.pBufferIndices = &buffer_indices[0],
+				.pOffsets = &offsets[0],
+			};
+			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 		
 		// bind argument buffers if there are any
@@ -213,18 +236,30 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 		}
 		const vector<VkDeviceSize> arg_buf_offsets(std::max(arg_buf_vs_set_count, arg_buf_fs_set_count), 0); // always 0 for all
 		if (arg_buf_vs_set_count > 0) {
-			vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
-															VK_PIPELINE_BIND_POINT_GRAPHICS,
-															encoder->pipeline_layout,
-															vulkan_pipeline::argument_buffer_vs_start_set, arg_buf_vs_set_count,
-															arg_buf_vs_buf_indices.data(), arg_buf_offsets.data());
+			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+				.pNext = nullptr,
+				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.layout = encoder->pipeline_layout,
+				.firstSet = vulkan_pipeline::argument_buffer_vs_start_set,
+				.setCount = arg_buf_vs_set_count,
+				.pBufferIndices = arg_buf_vs_buf_indices.data(),
+				.pOffsets = arg_buf_offsets.data(),
+			};
+			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 		if (arg_buf_fs_set_count > 0) {
-			vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
-															VK_PIPELINE_BIND_POINT_GRAPHICS,
-															encoder->pipeline_layout,
-															vulkan_pipeline::argument_buffer_fs_start_set, arg_buf_fs_set_count,
-															arg_buf_fs_buf_indices.data(), arg_buf_offsets.data());
+			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+				.pNext = nullptr,
+				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.layout = encoder->pipeline_layout,
+				.firstSet = vulkan_pipeline::argument_buffer_fs_start_set,
+				.setCount = arg_buf_fs_set_count,
+				.pBufferIndices = arg_buf_fs_buf_indices.data(),
+				.pOffsets = arg_buf_offsets.data(),
+			};
+			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 	}
 	
@@ -237,7 +272,7 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 	if (draw_indexed_entries != nullptr) {
 		for (const auto& entry : *draw_indexed_entries) {
 			const auto vk_idx_buffer = entry.index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
-			vkCmdBindIndexBuffer(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer2KHR(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(encoder->cmd_buffer.cmd_buffer, entry.index_count, entry.instance_count, entry.first_index,
 							 entry.vertex_offset, entry.first_instance);
 		}

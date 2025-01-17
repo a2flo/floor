@@ -265,7 +265,6 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	
 	const auto& vk_dev = kernel_iter->first.get();
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	const auto& vk_ctx = *(vulkan_compute*)vk_dev.context;
 	
 	// check work size
 	const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
@@ -365,39 +364,58 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	}
 	
 	// set/write/update descriptors
-	vk_ctx.vulkan_cmd_bind_descriptor_buffer_embedded_samplers(encoder->cmd_buffer.cmd_buffer,
-															   VK_PIPELINE_BIND_POINT_COMPUTE,
-															   entry.pipeline_layout, 0 /* always set #0 */);
+	const VkBindDescriptorBufferEmbeddedSamplersInfoEXT bind_embedded_info {
+		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_BUFFER_EMBEDDED_SAMPLERS_INFO_EXT,
+		.pNext = nullptr,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.layout = entry.pipeline_layout,
+		.set = 0 /* always set #0 */,
+	};
+	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(encoder->cmd_buffer.cmd_buffer, &bind_embedded_info);
 	
 	if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 		// setup + bind descriptor buffers
 		const auto desc_buf_count = uint32_t(encoder->acquired_descriptor_buffers.size()) + uint32_t(encoder->argument_buffers.size());
 		vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
-		desc_buf_bindings.reserve(desc_buf_count);
+		desc_buf_bindings.resize(desc_buf_count);
+		vector<VkBufferUsageFlags2CreateInfo> desc_buf_bindings_usage;
+		desc_buf_bindings_usage.resize(desc_buf_count);
+		size_t desc_buf_binding_idx = 0;
 		
 		if (!encoder->acquired_descriptor_buffers.empty()) {
 			assert(encoder->acquired_descriptor_buffers.size() == 1);
 			const auto& kernel_desc_buffer = *(const vulkan_buffer*)encoder->acquired_descriptor_buffers[0].desc_buffer;
-			desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+			desc_buf_bindings_usage[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
 				.pNext = nullptr,
-				.address = kernel_desc_buffer.get_vulkan_buffer_device_address(),
 				.usage = kernel_desc_buffer.get_vulkan_buffer_usage(),
-			});
+			};
+			desc_buf_bindings[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
+				.address = kernel_desc_buffer.get_vulkan_buffer_device_address(),
+				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(kernel_desc_buffer.get_vulkan_buffer_usage()),
+			};
+			++desc_buf_binding_idx;
 		}
 		
 		for (const auto& arg_buffer : encoder->argument_buffers) {
 			assert(arg_buffer.first == 0);
-			desc_buf_bindings.emplace_back(VkDescriptorBufferBindingInfoEXT {
-				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+			desc_buf_bindings_usage[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
 				.pNext = nullptr,
-				.address = arg_buffer.second->get_vulkan_buffer_device_address(),
 				.usage = arg_buffer.second->get_vulkan_buffer_usage(),
-			});
+			};
+			desc_buf_bindings[desc_buf_binding_idx] = {
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
+				.address = arg_buffer.second->get_vulkan_buffer_device_address(),
+				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(arg_buffer.second->get_vulkan_buffer_usage()),
+			};
+			++desc_buf_binding_idx;
 		}
 		
-		vk_ctx.vulkan_cmd_bind_descriptor_buffers(encoder->cmd_buffer.cmd_buffer,
-												  desc_buf_count, desc_buf_bindings.data());
+		vkCmdBindDescriptorBuffersEXT(encoder->cmd_buffer.cmd_buffer, desc_buf_count, desc_buf_bindings.data());
 		
 		// kernel descriptor set + any argument buffers are stored in contiguous descriptor set indices
 		const vector<VkDeviceSize> offsets(desc_buf_count, 0); // always 0 for all
@@ -406,11 +424,17 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 			buffer_indices[i] = i;
 		}
 		const auto start_set = (encoder->acquired_descriptor_buffers.empty() ? 2u /* first arg buffer set */ : 1u /* kernel set */);
-		vk_ctx.vulkan_cmd_set_descriptor_buffer_offsets(encoder->cmd_buffer.cmd_buffer,
-														VK_PIPELINE_BIND_POINT_COMPUTE,
-														entry.pipeline_layout,
-														start_set, desc_buf_count,
-														buffer_indices.data(), offsets.data());
+		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+			.pNext = nullptr,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+			.layout = entry.pipeline_layout,
+			.firstSet = start_set,
+			.setCount = desc_buf_count,
+			.pBufferIndices = buffer_indices.data(),
+			.pOffsets = offsets.data(),
+		};
+		vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 	}
 	
 	// set dims + pipeline
@@ -604,7 +628,7 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 	argument_offsets.reserve(arg_buf_info.layout.bindings.size());
 	for (const auto& binding : arg_buf_info.layout.bindings) {
 		VkDeviceSize offset = 0;
-		vk_ctx.vulkan_get_descriptor_set_layout_binding_offset(vk_dev.device, arg_buf_info.layout.desc_set_layout, binding.binding, &offset);
+		vkGetDescriptorSetLayoutBindingOffsetEXT(vk_dev.device, arg_buf_info.layout.desc_set_layout, binding.binding, &offset);
 		argument_offsets.emplace_back(offset);
 	}
 	

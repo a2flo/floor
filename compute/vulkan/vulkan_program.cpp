@@ -200,7 +200,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 	// TODO: vkDestroyDescriptorSetLayout cleanup
 	
 	// retrieve and cache layout size
-	((const vulkan_compute*)dev.context)->vulkan_get_descriptor_set_layout_size(vk_dev.device, layout.desc_set_layout, &layout.layout_size);
+	vkGetDescriptorSetLayoutSizeEXT(vk_dev.device, layout.desc_set_layout, &layout.layout_size);
 	
 	return layout;
 }
@@ -278,7 +278,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 		entry.desc_buffer.argument_offsets.reserve(layout->bindings.size());
 		for (const auto& binding : layout->bindings) {
 			VkDeviceSize offset = 0;
-			vk_ctx.vulkan_get_descriptor_set_layout_binding_offset(vk_dev.device, entry.desc_set_layout, binding.binding, &offset);
+			vkGetDescriptorSetLayoutBindingOffsetEXT(vk_dev.device, entry.desc_set_layout, binding.binding, &offset);
 			entry.desc_buffer.argument_offsets.emplace_back(offset);
 		}
 		

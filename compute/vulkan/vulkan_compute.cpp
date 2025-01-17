@@ -724,7 +724,6 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_video_encode_h265",
 			"VK_KHR_video_encode_av1",
 			"VK_KHR_video_encode_quantization_map",
-			"VK_KHR_map_memory2",
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
 			"VK_KHR_shared_presentable_image",
@@ -741,8 +740,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_index_type_uint8",
 			"VK_KHR_line_rasterization",
 			"VK_KHR_load_store_op_none",
+#if !defined(FLOOR_DEBUG) // TODO: still required by validation ...
 			"VK_KHR_maintenance5",
 			"VK_KHR_maintenance6",
+			"VK_KHR_map_memory2",
+#endif
 			"VK_KHR_push_descriptor",
 			"VK_KHR_shader_expect_assume",
 			"VK_KHR_shader_float_controls2",
@@ -783,6 +785,22 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				continue;
 			}
 			device_extensions_set.emplace(ext_name);
+		}
+		
+		// pre checks
+		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
+			if (!device_extensions_set.contains(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME)) {
+				log_error("VK_KHR_map_memory2 is not supported by $", props.deviceName);
+				continue;
+			}
+			if (!device_extensions_set.contains(VK_KHR_MAINTENANCE_5_EXTENSION_NAME)) {
+				log_error("VK_KHR_maintenance5 is not supported by $", props.deviceName);
+				continue;
+			}
+			if (!device_extensions_set.contains(VK_KHR_MAINTENANCE_6_EXTENSION_NAME)) {
+				log_error("VK_KHR_maintenance6 is not supported by $", props.deviceName);
+				continue;
+			}
 		}
 		
 		//
@@ -945,7 +963,18 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.shaderIntegerDotProduct = false,
 			.maintenance4 = false,
 		};
-#if defined(VK_VERSION_1_4)
+		// Vulkan 1.3 only:
+		VkPhysicalDeviceMaintenance5Features maintenance5_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES,
+			.pNext = &vulkan13_features,
+			.maintenance5 = false,
+		};
+		VkPhysicalDeviceMaintenance6Features maintenance6_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_6_FEATURES,
+			.pNext = &maintenance5_features,
+			.maintenance6 = false,
+		};
+		// Vulkan 1.4+:
 		VkPhysicalDeviceVulkan14Features vulkan14_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
 			.pNext = &vulkan13_features,
@@ -971,14 +1000,9 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.hostImageCopy = false,
 			.pushDescriptor = false,
 		};
-#endif
 		VkPhysicalDeviceFeatures2 features_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-#if defined(VK_VERSION_1_4)
-			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_features : (void*)&vulkan13_features),
-#else
-			.pNext = &vulkan13_features,
-#endif
+			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_features : (void*)&maintenance6_features),
 			.features = {
 				.shaderInt64 = true,
 			},
@@ -1159,7 +1183,25 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.uniformTexelBufferOffsetSingleTexelAlignment = 0,
 			.maxBufferSize = 0,
 		};
-#if defined(VK_VERSION_1_4)
+		// Vulkan 1.3 only:
+		VkPhysicalDeviceMaintenance5Properties maintenance5_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES,
+			.pNext = &vulkan13_props,
+			.earlyFragmentMultisampleCoverageAfterSampleCounting = false,
+			.earlyFragmentSampleMaskTestBeforeSampleCounting = false,
+			.depthStencilSwizzleOneSupport = false,
+			.polygonModePointSize = false,
+			.nonStrictSinglePixelWideLinesUseParallelogram = false,
+			.nonStrictWideLinesUseParallelogram = false,
+		};
+		VkPhysicalDeviceMaintenance6Properties maintenance6_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_6_PROPERTIES,
+			.pNext = &maintenance5_props,
+			.blockTexelViewCompatibleMultipleLayers = false,
+			.maxCombinedImageSamplerDescriptorCount = 0,
+			.fragmentShadingRateClampCombinerInputs = false,
+		};
+		// Vulkan 1.4+:
 		VkPhysicalDeviceVulkan14Properties vulkan14_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_PROPERTIES,
 			.pNext = &vulkan13_props,
@@ -1189,14 +1231,9 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.optimalTilingLayoutUUID = {},
 			.identicalMemoryTypeRequirements = false,
 		};
-#endif
 		VkPhysicalDeviceProperties2 props_2 {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-#if defined(VK_VERSION_1_4)
-			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_props : (void*)&vulkan13_props),
-#else
-			.pNext = &vulkan13_props,
-#endif
+			.pNext = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ? (void*)&vulkan14_props : (void*)&maintenance6_props),
 		};
 		vkGetPhysicalDeviceProperties2(phys_dev, &props_2);
 		
@@ -1304,7 +1341,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			log_error("maintenance4 is not supported by $", props.deviceName);
 			continue;
 		}
-#if defined(VK_VERSION_1_4) // will be required in the future for 1.3 as well
+		
 		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
 			if (!vulkan14_features.maintenance5) {
 				log_error("maintenance5 is not supported by $", props.deviceName);
@@ -1314,8 +1351,16 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				log_error("maintenance6 is not supported by $", props.deviceName);
 				continue;
 			}
+		} else {
+			if (!maintenance5_features.maintenance5) {
+				log_error("maintenance5 is not supported by $", props.deviceName);
+				continue;
+			}
+			if (!maintenance6_features.maintenance6) {
+				log_error("maintenance6 is not supported by $", props.deviceName);
+				continue;
+			}
 		}
-#endif
 		
 		// check IUB limits
 		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
@@ -1399,6 +1444,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
 #endif
+		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
+			device_extensions_set.emplace(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME);
+			device_extensions_set.emplace(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+			device_extensions_set.emplace(VK_KHR_MAINTENANCE_6_EXTENSION_NAME);
+		}
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_EXT_HDR_METADATA_EXTENSION_NAME);
@@ -1564,12 +1614,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		vulkan13_features.inlineUniformBlock = true;
 		vulkan13_features.maintenance4 = true;
 		// NOTE: shaderFloat16 is optional
-#if defined(VK_VERSION_1_4)
 		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
 			vulkan14_features.maintenance5 = true;
 			vulkan14_features.maintenance6 = true;
 		}
-#endif
 		
 		// we only want the "null descriptor" feature from the robustness extension
 		robustness_features.robustBufferAccess2 = false;
@@ -1820,16 +1868,6 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 				device.desc_buffer_sizes.ubo, device.desc_buffer_sizes.ssbo,
 				device.desc_buffer_sizes.sampled_image, device.desc_buffer_sizes.storage_image,
 				device.desc_buffer_sizes.sampler, device.descriptor_buffer_offset_alignment);
-		
-		// init extension functions if we haven't done this yet
-		if (!get_descriptor_set_layout_binding_offset) {
-			get_descriptor_set_layout_binding_offset = (PFN_vkGetDescriptorSetLayoutBindingOffsetEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutBindingOffsetEXT");
-			get_descriptor_set_layout_size = (PFN_vkGetDescriptorSetLayoutSizeEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorSetLayoutSizeEXT");
-			get_descriptor = (PFN_vkGetDescriptorEXT)vkGetInstanceProcAddr(ctx, "vkGetDescriptorEXT");
-			cmd_bind_descriptor_buffers = (PFN_vkCmdBindDescriptorBuffersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBuffersEXT");
-			cmd_bind_descriptor_buffer_embedded_samplers = (PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT)vkGetInstanceProcAddr(ctx, "vkCmdBindDescriptorBufferEmbeddedSamplersEXT");
-			cmd_set_descriptor_buffer_offsets = (PFN_vkCmdSetDescriptorBufferOffsetsEXT)vkGetInstanceProcAddr(ctx, "vkCmdSetDescriptorBufferOffsetsEXT");
-		}
 		
 		if (floor::get_toolchain_log_binaries()) {
 			device.get_pipeline_executable_properties = (PFN_vkGetPipelineExecutablePropertiesKHR)vkGetDeviceProcAddr(dev, "vkGetPipelineExecutablePropertiesKHR");

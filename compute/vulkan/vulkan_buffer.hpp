@@ -74,7 +74,7 @@ public:
 	}
 	
 	//! returns the actual allocation size in bytes this buffer has been created with
-	//! NOTE: allocation size has been computed via vkGetBufferMemoryRequirements and can differ from "size"
+	//! NOTE: allocation size has been computed via vkGetBufferMemoryRequirements2 and can differ from "size"
 	const VkDeviceSize& get_vulkan_allocation_size() const {
 		return allocation_size;
 	}
@@ -90,7 +90,7 @@ public:
 	}
 	
 	//! returns the usage flags that this Vulkan buffer was created with
-	VkBufferUsageFlags get_vulkan_buffer_usage() const {
+	VkBufferUsageFlags2 get_vulkan_buffer_usage() const {
 		return buffer_usage;
 	}
 	
@@ -99,7 +99,7 @@ protected:
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
 	VkDeviceSize allocation_size { 0 };
 	VkDeviceAddress buffer_device_address { 0 };
-	VkBufferUsageFlags buffer_usage { 0 };
+	VkBufferUsageFlags2 buffer_usage { 0 };
 	
 	//! when using descriptor buffers, this contains the descriptor data (as a SSBO descriptor)
 	array<uint8_t, max_ssbo_descriptor_size> descriptor_data {{
