@@ -41,6 +41,9 @@ public:
 	//! supported SPIR-V version
 	SPIRV_VERSION spirv_version { SPIRV_VERSION::NONE };
 	
+	//! Vulkan conformance version
+	string conformance_version;
+	
 #if !defined(FLOOR_NO_VULKAN)
 	//! physical vulkan device
 	VkPhysicalDevice physical_device { nullptr };

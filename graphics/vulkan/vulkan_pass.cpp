@@ -26,19 +26,17 @@
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 
 struct vulkan_render_pass_info {
-	vector<VkAttachmentDescription> attachment_desc;
-	vector<VkAttachmentReference> color_attachment_refs;
-	vector<VkAttachmentReference> resolve_attachment_refs;
-	VkAttachmentDescription depth_attachment_desc {};
-	VkAttachmentReference depth_attachment_ref {};
+	vector<VkAttachmentDescription2> attachment_desc;
+	vector<VkAttachmentReference2> color_attachment_refs;
+	vector<VkAttachmentReference2> resolve_attachment_refs;
+	VkAttachmentDescription2 depth_attachment_desc {};
+	VkAttachmentReference2 depth_attachment_ref {};
 	vector<VkClearValue> clear_values;
 
-	VkSubpassDescription sub_pass_info {};
-	VkRenderPassCreateInfo render_pass_info {};
-
-	uint32_t mv_view_mask { 0 };
+	VkSubpassDescription2 sub_pass_info {};
+	VkRenderPassCreateInfo2 render_pass_info {};
 	uint32_t mv_correlation_mask { 0 };
-	VkRenderPassMultiviewCreateInfo mv_render_pass_info {};
+	VkRenderPassCreateInfo2 mv_render_pass_info {};
 };
 
 static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_description(const render_pass_description& desc,
@@ -75,8 +73,13 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 			// depth attachment
 			layout = (!is_read_only ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 			has_depth_attachment = true;
-			info->depth_attachment_ref.attachment = 0; // -> set at the end
-			info->depth_attachment_ref.layout = layout;
+			info->depth_attachment_ref = {
+				.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+				.pNext = nullptr,
+				.attachment = 0, // -> set at the end
+				.layout = layout,
+				.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+			};
 			clear_depth = {
 				.depthStencil = {
 					.depth = att.clear.depth,
@@ -86,9 +89,12 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 		} else {
 			// color attachment
 			layout = (!is_read_only ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			info->color_attachment_refs.emplace_back(VkAttachmentReference {
+			info->color_attachment_refs.emplace_back(VkAttachmentReference2 {
+				.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+				.pNext = nullptr,
 				.attachment = att_counter++,
 				.layout = layout,
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			});
 			info->clear_values.emplace_back(VkClearValue {
 				.color = {
@@ -100,18 +106,24 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 			if (has_any_resolve) {
 				if (is_msaa_resolve) {
 					// -> resolve
-					info->resolve_attachment_refs.emplace_back(VkAttachmentReference {
+					info->resolve_attachment_refs.emplace_back(VkAttachmentReference2 {
 						// corresponding resolve attachment always comes after the color attachment
+						.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+						.pNext = nullptr,
 						.attachment = att_counter++,
 						.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 					});
 					// same clear color as color attachment
 					info->clear_values.emplace_back(info->clear_values.back());
 				} else {
 					// -> not being resolved
-					info->resolve_attachment_refs.emplace_back(VkAttachmentReference {
+					info->resolve_attachment_refs.emplace_back(VkAttachmentReference2 {
+						.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+						.pNext = nullptr,
 						.attachment = VK_ATTACHMENT_UNUSED,
 						.layout = VK_IMAGE_LAYOUT_UNDEFINED,
+						.aspectMask = VK_IMAGE_ASPECT_NONE,
 					});
 				}
 			}
@@ -123,7 +135,9 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 			return {};
 		}
 
-		VkAttachmentDescription att_desc {
+		VkAttachmentDescription2 att_desc {
+			.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+			.pNext = nullptr,
 			.flags = 0, // no-alias
 			.format = *vk_format,
 			.samples = vulkan_image::sample_count_to_vulkan_sample_count(image_sample_count(att.format)),
@@ -137,7 +151,7 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 			.finalLayout = layout,
 		};
 		if (!is_depth) {
-			info->attachment_desc.emplace_back(att_desc);
+			info->attachment_desc.push_back(att_desc);
 			if (is_msaa_resolve) {
 				// resolving to 1 sample (overwrite old + always store)
 				att_desc.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -145,7 +159,7 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 				att_desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 				att_desc.initialLayout = (att.load_op == LOAD_OP::LOAD ? layout : VK_IMAGE_LAYOUT_UNDEFINED);
 				att_desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				info->attachment_desc.emplace_back(att_desc);
+				info->attachment_desc.push_back(att_desc);
 			}
 		} else {
 			// -> set at the end
@@ -155,13 +169,16 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 	if (has_depth_attachment) {
 		// depth attachment must always be at the end
 		info->depth_attachment_ref.attachment = att_counter++;
-		info->attachment_desc.emplace_back(info->depth_attachment_desc);
+		info->attachment_desc.push_back(info->depth_attachment_desc);
 		info->clear_values.emplace_back(clear_depth);
 	}
 
 	info->sub_pass_info = {
+		.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+		.pNext = nullptr,
 		.flags = 0,
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+		.viewMask = (is_multi_view ? 0b11u /* mask: view 1 and 2 (left/right eye) */: 0u),
 		.inputAttachmentCount = 0,
 		.pInputAttachments = nullptr,
 		.colorAttachmentCount = (uint32_t)info->color_attachment_refs.size(),
@@ -172,25 +189,9 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 		.pPreserveAttachments = nullptr,
 	};
 
-	if (is_multi_view) {
-		// mask: view 1 and 2 (left/right eye)
-		info->mv_view_mask = 0b11u;
-		info->mv_correlation_mask = 0b11u;
-		info->mv_render_pass_info = {
-			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
-			.pNext = nullptr,
-			.subpassCount = 1,
-			.pViewMasks = &info->mv_view_mask,
-			.dependencyCount = 0,
-			.pViewOffsets = nullptr,
-			.correlationMaskCount = 1,
-			.pCorrelationMasks = &info->mv_correlation_mask,
-		};
-	}
-
 	info->render_pass_info = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		.pNext = (!is_multi_view ? nullptr : &info->mv_render_pass_info),
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
+		.pNext = nullptr,
 		.flags = 0,
 		.attachmentCount = (uint32_t)info->attachment_desc.size(),
 		.pAttachments = info->attachment_desc.data(),
@@ -198,7 +199,18 @@ static unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_from_d
 		.pSubpasses = &info->sub_pass_info,
 		.dependencyCount = 0,
 		.pDependencies = nullptr,
+		.correlatedViewMaskCount = 0,
+		.pCorrelatedViewMasks = nullptr,
 	};
+
+	if (is_multi_view) {
+		info->mv_render_pass_info = info->render_pass_info;
+		
+		// mask: view 1 and 2 (left/right eye)
+		info->mv_correlation_mask = 0b11u;
+		info->mv_render_pass_info.correlatedViewMaskCount = 1;
+		info->mv_render_pass_info.pCorrelatedViewMasks = &info->mv_correlation_mask;
+	}
 
 	return info;
 }
@@ -238,7 +250,7 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 		const auto& vk_dev = (const vulkan_device&)*dev;
 		VkRenderPass sv_render_pass { nullptr };
 		if (create_sv_pass) {
-			VK_CALL_RET(vkCreateRenderPass(vk_dev.device, &sv_render_pass_info->render_pass_info, nullptr, &sv_render_pass),
+			VK_CALL_RET(vkCreateRenderPass2(vk_dev.device, &sv_render_pass_info->render_pass_info, nullptr, &sv_render_pass),
 						"failed to create render pass")
 #if defined(FLOOR_DEBUG)
 			if (!pass_desc.debug_label.empty()) {
@@ -250,7 +262,7 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 
 		VkRenderPass mv_render_pass { nullptr };
 		if (create_mv_pass) {
-			VK_CALL_RET(vkCreateRenderPass(vk_dev.device, &mv_render_pass_info->render_pass_info, nullptr, &mv_render_pass),
+			VK_CALL_RET(vkCreateRenderPass2(vk_dev.device, &mv_render_pass_info->render_pass_info, nullptr, &mv_render_pass),
 						"failed to create multi-view render pass")
 #if defined(FLOOR_DEBUG)
 			if (!pass_desc.debug_label.empty()) {

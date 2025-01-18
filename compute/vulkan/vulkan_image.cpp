@@ -254,9 +254,15 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	}
 	
 	// allocate / back it up
+	VkMemoryDedicatedRequirements ded_req {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+		.pNext = nullptr,
+		.prefersDedicatedAllocation = false,
+		.requiresDedicatedAllocation = false,
+	};
 	VkMemoryRequirements2 mem_req2 {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-		.pNext = nullptr,
+		.pNext = (!is_aliased_array ? &ded_req : nullptr),
 		.memoryRequirements = {},
 	};
 	const VkImageMemoryRequirementsInfo2 mem_req_info {
@@ -265,12 +271,22 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.image = image,
 	};
 	vkGetImageMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+	const auto is_dedicated = (!is_aliased_array && (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation));
 	const auto& mem_req = mem_req2.memoryRequirements;
 	allocation_size = mem_req.size;
 	
+	const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.image = image,
+		.buffer = VK_NULL_HANDLE,
+	};
+	if (is_sharing && is_dedicated) {
+		export_alloc_info.pNext = &ded_alloc_info;
+	}
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = (is_sharing ? &export_alloc_info : nullptr),
+		.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
 		.allocationSize = allocation_size,
 		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
 												  is_sharing /* sharing requires device memory */,
@@ -433,7 +449,6 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	descriptor_data_sampled = make_unique<uint8_t[]>(descriptor_sampled_size);
 	descriptor_data_storage = make_unique<uint8_t[]>(descriptor_storage_size);
 	
-	auto& vk_ctx = *(vulkan_compute*)cqueue.get_device().context;
 	// while not explicitly forbidden, we should not query the descriptor info of transient images
 	if (!is_transient) {
 		const VkDescriptorImageInfo desc_img_info {
@@ -515,7 +530,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 			.memory = mem,
 			.handleType = (VkExternalMemoryHandleTypeFlagBits)export_alloc_info.handleTypes,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_memory_win32_handle(vulkan_dev, &get_win32_handle, &shared_handle),
+		VK_CALL_RET(vkGetMemoryWin32HandleKHR(vulkan_dev, &get_win32_handle, &shared_handle),
 					"failed to retrieve shared win32 memory handle", false)
 #else
 		VkMemoryGetFdInfoKHR get_fd_handle {
@@ -524,7 +539,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 			.memory = mem,
 			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_memory_fd(vulkan_dev, &get_fd_handle, &shared_handle),
+		VK_CALL_RET(vkGetMemoryFdKHR(vulkan_dev, &get_fd_handle, &shared_handle),
 					"failed to retrieve shared fd memory handle", false)
 #endif
 	}
@@ -812,7 +827,9 @@ void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommand
 		.baseArrayLayer = 0,
 		.layerCount = 1,
 	};
-	const VkBufferImageCopy region {
+	const VkBufferImageCopy2 region {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+		.pNext = nullptr,
 		.bufferOffset = 0,
 		.bufferRowLength = 0, // tightly packed
 		.bufferImageHeight = 0, // tightly packed
@@ -829,7 +846,16 @@ void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommand
 			   VK_ACCESS_2_TRANSFER_READ_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
+	const VkCopyImageToBufferInfo2 copy_info {
+		.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
+		.pNext = nullptr,
+		.srcImage = image,
+		.srcImageLayout = image_info.imageLayout,
+		.dstBuffer = host_buffer,
+		.regionCount = 1,
+		.pRegions = &region,
+	};
+	vkCmdCopyImageToBuffer2(cmd_buffer, &copy_info);
 }
 
 void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) {

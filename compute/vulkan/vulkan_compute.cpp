@@ -490,9 +490,9 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 #if defined(FLOOR_DEBUG)
 	static const array val_features_enable {
 		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
 		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
 		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
-		//VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
 	};
 	const VkValidationFeaturesEXT val_features {
 		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
@@ -533,18 +533,12 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 	
 #if defined(FLOOR_DEBUG)
 	// debug label handling
-	set_debug_utils_object_name = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(ctx, "vkSetDebugUtilsObjectNameEXT");
-	cmd_begin_debug_utils_label = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdBeginDebugUtilsLabelEXT");
-	cmd_end_debug_utils_label = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(ctx, "vkCmdEndDebugUtilsLabelEXT");
-	
 	if (floor::get_vulkan_validation()) {
 		// create and register debug messenger
-		create_debug_utils_messenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugUtilsMessengerEXT");
-		if (create_debug_utils_messenger == nullptr) {
+		if (vkCreateDebugUtilsMessengerEXT == nullptr) {
 			log_error("failed to retrieve vkCreateDebugUtilsMessengerEXT function pointer");
 			return;
 		}
-		destroy_debug_utils_messenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugUtilsMessengerEXT");
 		const VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 			.pNext = nullptr,
@@ -560,31 +554,27 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.pfnUserCallback = &vulkan_debug_callback,
 			.pUserData = this,
 		};
-		VK_CALL_RET(create_debug_utils_messenger(ctx, &debug_messenger_info, nullptr, &debug_utils_messenger),
+		VK_CALL_RET(vkCreateDebugUtilsMessengerEXT(ctx, &debug_messenger_info, nullptr, &debug_utils_messenger),
 					"failed to create debug messenger")
 	}
 #endif
 	
 	// get external memory functions
 #if defined(__WINDOWS__)
-	get_memory_win32_handle = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(ctx, "vkGetMemoryWin32HandleKHR");
-	if (get_memory_win32_handle == nullptr) {
+	if (vkGetMemoryWin32HandleKHR == nullptr) {
 		log_error("failed to retrieve vkGetMemoryWin32HandleKHR function pointer");
 		return;
 	}
-	get_semaphore_win32_handle = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(ctx, "vkGetSemaphoreWin32HandleKHR");
-	if (get_semaphore_win32_handle == nullptr) {
+	if (vkGetSemaphoreWin32HandleKHR == nullptr) {
 		log_error("failed to retrieve vkGetSemaphoreWin32HandleKHR function pointer");
 		return;
 	}
 #else
-	get_memory_fd = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(ctx, "vkGetMemoryFdKHR");
-	if (get_memory_fd == nullptr) {
+	if (vkGetMemoryFdKHR == nullptr) {
 		log_error("failed to retrieve vkGetMemoryFdKHR function pointer");
 		return;
 	}
-	get_semaphore_fd = (PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(ctx, "vkGetSemaphoreFdKHR");
-	if (get_semaphore_fd == nullptr) {
+	if (vkGetSemaphoreFdKHR == nullptr) {
 		log_error("failed to retrieve vkGetSemaphoreFdKHR function pointer");
 		return;
 	}
@@ -592,8 +582,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 
 	// get HDR function
 	if (floor::get_hdr()) {
-		vk_set_hdr_metadata = (PFN_vkSetHdrMetadataEXT)vkGetInstanceProcAddr(ctx, "vkSetHdrMetadataEXT");
-		if (vk_set_hdr_metadata == nullptr) {
+		if (vkSetHdrMetadataEXT == nullptr) {
 			log_error("failed to retrieve vkSetHdrMetadataEXT function pointer");
 			hdr_supported = false;
 		} else {
@@ -1611,17 +1600,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		}
 		
 		// ext feature enablement
-		vulkan13_features.inlineUniformBlock = true;
-		vulkan13_features.maintenance4 = true;
-		// NOTE: shaderFloat16 is optional
-		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-			vulkan14_features.maintenance5 = true;
-			vulkan14_features.maintenance6 = true;
-		}
-		
 		// we only want the "null descriptor" feature from the robustness extension
 		robustness_features.robustBufferAccess2 = false;
 		robustness_features.robustImageAccess2 = false;
+		// NOTE: shaderFloat16 is optional
 		
 		// create device
 		const VkDeviceCreateInfo dev_info {
@@ -1673,6 +1655,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 							  to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
 							  to_string(VK_VERSION_PATCH(props.apiVersion)));
 		device.driver_version_str = to_string(props.driverVersion);
+		device.conformance_version = (to_string(vulkan12_props.conformanceVersion.major) + "." +
+									  to_string(vulkan12_props.conformanceVersion.minor) + "." +
+									  to_string(vulkan12_props.conformanceVersion.subminor) + "." +
+									  to_string(vulkan12_props.conformanceVersion.patch));
 		device.extensions = device_extensions;
 		
 		device.vulkan_version = device_vulkan_version;
@@ -1921,13 +1907,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		// TODO: fastest device selection, tricky to do without a unit count
 		
 		// done
-		log_debug("$ (Memory: $ MB): $ $, API: $, driver: $",
+		log_debug("$ (Memory: $ MB): $ $, API: $, driver: $, conformance: $",
 				  (device.is_gpu() ? "GPU" : (device.is_cpu() ? "CPU" : "UNKNOWN")),
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.vendor_name,
 				  device.name,
 				  device.version_str,
-				  device.driver_version_str);
+				  device.driver_version_str,
+				  device.conformance_version);
 	}
 	
 	// if there are no devices left, init has failed
@@ -1991,8 +1978,8 @@ vulkan_compute::~vulkan_compute() {
 	vulkan_queue::destroy();
 	
 #if defined(FLOOR_DEBUG)
-	if (destroy_debug_utils_messenger != nullptr && debug_utils_messenger != nullptr) {
-		destroy_debug_utils_messenger(ctx, debug_utils_messenger, nullptr);
+	if (vkDestroyDebugUtilsMessengerEXT != nullptr && debug_utils_messenger != nullptr) {
+		vkDestroyDebugUtilsMessengerEXT(ctx, debug_utils_messenger, nullptr);
 	}
 #endif
 	
@@ -2394,8 +2381,8 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 				"failed to create swapchain", false)
 	
 	// now that we have a swapchain, actually set the HDR metadata for it (if HDR was enabled and can be used)
-	if (screen.hdr_metadata) {
-		vulkan_set_hdr_metadata(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
+	if (hdr_supported && screen.hdr_metadata) {
+		vkSetHdrMetadataEXT(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
 	}
 	
 	// get all swapchain images + create views
@@ -2632,7 +2619,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 		const VkImageMemoryBarrier2 image_barrier {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.pNext = nullptr,
-			.srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.srcAccessMask = VK_ACCESS_2_NONE,
 			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.dstAccessMask = dst_access_mask,
@@ -3307,8 +3294,8 @@ void vulkan_compute::set_hdr_metadata(const hdr_metadata_t& hdr_metadata_) {
 	
 	// update screen and swapchain HDR metadata (if we previously enabled HDR support)
 	set_vk_screen_hdr_metadata();
-	if (screen.hdr_metadata) {
-		vulkan_set_hdr_metadata(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
+	if (hdr_supported && screen.hdr_metadata) {
+		vkSetHdrMetadataEXT(screen.render_device->device, 1, &screen.swapchain, &*screen.hdr_metadata);
 	}
 }
 
@@ -3333,7 +3320,7 @@ void vulkan_compute::set_vk_screen_hdr_metadata() {
 
 #if defined(FLOOR_DEBUG)
 void vulkan_compute::set_vulkan_debug_label(const vulkan_device& dev, const VkObjectType type, const uint64_t& handle, const string& label) const {
-	if (set_debug_utils_object_name == nullptr) {
+	if (vkSetDebugUtilsObjectNameEXT == nullptr) {
 		return;
 	}
 	
@@ -3344,11 +3331,11 @@ void vulkan_compute::set_vulkan_debug_label(const vulkan_device& dev, const VkOb
 		.objectHandle = handle,
 		.pObjectName = label.c_str(),
 	};
-	set_debug_utils_object_name(dev.device, &name_info);
+	vkSetDebugUtilsObjectNameEXT(dev.device, &name_info);
 }
 
 void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer, const string& label) const {
-	if (cmd_begin_debug_utils_label == nullptr) {
+	if (vkCmdBeginDebugUtilsLabelEXT == nullptr) {
 		return;
 	}
 	
@@ -3358,14 +3345,14 @@ void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buf
 		.pLabelName = label.c_str(),
 		.color = {},
 	};
-	cmd_begin_debug_utils_label(cmd_buffer, &debug_label);
+	vkCmdBeginDebugUtilsLabelEXT(cmd_buffer, &debug_label);
 }
 
 void vulkan_compute::vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffer) const {
-	if (cmd_end_debug_utils_label == nullptr) {
+	if (vkCmdEndDebugUtilsLabelEXT == nullptr) {
 		return;
 	}
-	cmd_end_debug_utils_label(cmd_buffer);
+	vkCmdEndDebugUtilsLabelEXT(cmd_buffer);
 }
 #endif
 

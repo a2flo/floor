@@ -78,7 +78,6 @@ vulkan_semaphore::vulkan_semaphore(const compute_device& dev_, const bool is_exp
 
 	// get shared handle
 	if (is_export_sema) {
-		const auto& vk_ctx = *((const vulkan_compute*)vk_dev.context);
 #if defined(__WINDOWS__)
 		VkSemaphoreGetWin32HandleInfoKHR get_win32_handle {
 			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
@@ -86,7 +85,7 @@ vulkan_semaphore::vulkan_semaphore(const compute_device& dev_, const bool is_exp
 			.semaphore = sema,
 			.handleType = (VkExternalSemaphoreHandleTypeFlagBits)export_sema_info.handleTypes,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_semaphore_win32_handle(vk_dev.device, &get_win32_handle, &shared_handle),
+		VK_CALL_RET(vkGetSemaphoreWin32HandleKHR(vk_dev.device, &get_win32_handle, &shared_handle),
 					"failed to retrieve shared win32 semaphore handle")
 #else
 		VkSemaphoreGetFdInfoKHR get_fd_handle {
@@ -95,7 +94,7 @@ vulkan_semaphore::vulkan_semaphore(const compute_device& dev_, const bool is_exp
 			.semaphore = sema,
 			.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_semaphore_fd(vk_dev.device, &get_fd_handle, &shared_handle),
+		VK_CALL_RET(vkGetSemaphoreFdKHR(vk_dev.device, &get_fd_handle, &shared_handle),
 					"failed to retrieve shared fd semaphore handle")
 #endif
 	}

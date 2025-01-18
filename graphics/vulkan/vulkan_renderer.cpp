@@ -267,14 +267,22 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	// NOTE: if indirect rendering is enabled, we need to perform all rendering within secondary cmd buffers (which may also be specified
 	//       by the user when calling execute_indirect()), otherwise always perform rendering in primary buffers (-> inline)
 	//       also: for any direct rendering when "indirect" is enabled, we will create and execute a sec cmd buffer on-the-fly
-	vkCmdBeginRenderPass(render_cmd_buffer.cmd_buffer, &pass_begin_info,
-						 !is_indirect ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+	const VkSubpassBeginInfo subpass_begin_info {
+		.sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,
+		.pNext = nullptr,
+		.contents = (!is_indirect ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS),
+	};
+	vkCmdBeginRenderPass2(render_cmd_buffer.cmd_buffer, &pass_begin_info, &subpass_begin_info);
 	
 	return true;
 }
 
 bool vulkan_renderer::end() {
-	vkCmdEndRenderPass(render_cmd_buffer.cmd_buffer);
+	const VkSubpassEndInfo subpass_end_info {
+		.sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO,
+		.pNext = nullptr,
+	};
+	vkCmdEndRenderPass2(render_cmd_buffer.cmd_buffer, &subpass_end_info);
 	return true;
 }
 
@@ -352,7 +360,8 @@ bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_fini
 	if (is_presenting) {
 		// transition drawable image back to present mode (after render pass is complete)
 		cur_drawable->vk_image->transition(&cqueue, render_cmd_buffer.cmd_buffer, 0 /* as per doc */, cur_drawable->vk_drawable.present_layout,
-										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+										   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+										   VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 	}
 	
 	VK_CALL_RET(vkEndCommandBuffer(render_cmd_buffer.cmd_buffer), "failed to end command buffer", false)

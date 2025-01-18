@@ -141,9 +141,15 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	}
 	
 	// allocate / back it up
+	VkMemoryDedicatedRequirements ded_req {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+		.pNext = nullptr,
+		.prefersDedicatedAllocation = false,
+		.requiresDedicatedAllocation = false,
+	};
 	VkMemoryRequirements2 mem_req2 {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-		.pNext = nullptr,
+		.pNext = &ded_req,
 		.memoryRequirements = {},
 	};
 	const VkBufferMemoryRequirementsInfo2 mem_req_info {
@@ -152,12 +158,22 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 		.buffer = buffer,
 	};
 	vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+	const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
 	const auto& mem_req = mem_req2.memoryRequirements;
 	allocation_size = mem_req.size;
 	
+	const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.image = VK_NULL_HANDLE,
+		.buffer = buffer,
+	};
+	if (is_sharing && is_dedicated) {
+		export_alloc_info.pNext = &ded_alloc_info;
+	}
 	const VkMemoryAllocateFlagsInfo alloc_flags_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-		.pNext = (is_sharing ? &export_alloc_info : nullptr),
+		.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
 		.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
 		.deviceMask = 0,
 	};
@@ -227,7 +243,6 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 	
 	// get shared memory handle (if sharing is enabled)
 	if (is_sharing) {
-		const auto& vk_ctx = *((const vulkan_compute*)cqueue.get_device().context);
 #if defined(__WINDOWS__)
 		VkMemoryGetWin32HandleInfoKHR get_win32_handle {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
@@ -235,7 +250,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 			.memory = mem,
 			.handleType = (VkExternalMemoryHandleTypeFlagBits)export_alloc_info.handleTypes,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_memory_win32_handle(vulkan_dev, &get_win32_handle, &shared_handle),
+		VK_CALL_RET(vkGetMemoryWin32HandleKHR(vulkan_dev, &get_win32_handle, &shared_handle),
 					"failed to retrieve shared win32 memory handle", false)
 #else
 		VkMemoryGetFdInfoKHR get_fd_handle {
@@ -244,7 +259,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const compute_que
 			.memory = mem,
 			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
 		};
-		VK_CALL_RET(vk_ctx.vulkan_get_memory_fd(vulkan_dev, &get_fd_handle, &shared_handle),
+		VK_CALL_RET(vkGetMemoryFdKHR(vulkan_dev, &get_fd_handle, &shared_handle),
 					"failed to retrieve shared fd memory handle", false)
 #endif
 	}

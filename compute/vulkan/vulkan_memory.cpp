@@ -154,9 +154,15 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 	
 		// allocate / back it up
+		VkMemoryDedicatedRequirements ded_req {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+			.pNext = nullptr,
+			.prefersDedicatedAllocation = false,
+			.requiresDedicatedAllocation = false,
+		};
 		VkMemoryRequirements2 mem_req2 {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-			.pNext = nullptr,
+			.pNext = &ded_req,
 			.memoryRequirements = {},
 		};
 		const VkBufferMemoryRequirementsInfo2 mem_req_info {
@@ -165,11 +171,18 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 			.buffer = mapping.buffer,
 		};
 		vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+		const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
 		const auto& mem_req = mem_req2.memoryRequirements;
-	
+		
+		const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+			.pNext = nullptr,
+			.image = VK_NULL_HANDLE,
+			.buffer = mapping.buffer,
+		};
 		const VkMemoryAllocateInfo alloc_info {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.pNext = nullptr,
+			.pNext = (is_dedicated ? &ded_alloc_info : nullptr),
 			.allocationSize = mem_req.size,
 			.memoryTypeIndex = device.host_mem_cached_index,
 		};

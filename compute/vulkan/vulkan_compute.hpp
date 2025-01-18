@@ -220,34 +220,6 @@ public:
 	//! final queue image present only
 	//! NOTE: "present_image" calls this
 	bool queue_present(const compute_queue& dev_queue, const drawable_image_info& drawable);
-	
-#if defined(__WINDOWS__)
-	//! calls vkGetMemoryWin32HandleKHR
-	VkResult vulkan_get_memory_win32_handle(VkDevice device_, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo_, HANDLE* pHandle_) const {
-		return (*get_memory_win32_handle)(device_, pGetWin32HandleInfo_, pHandle_);
-	}
-	//! calls vkGetSemaphoreWin32HandleKHR
-	VkResult vulkan_get_semaphore_win32_handle(VkDevice device_, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo_, HANDLE* pHandle_) const {
-		return (*get_semaphore_win32_handle)(device_, pGetWin32HandleInfo_, pHandle_);
-	}
-#else
-	//! calls vkGetMemoryFdKHR
-	VkResult vulkan_get_memory_fd(VkDevice device_, const VkMemoryGetFdInfoKHR* pGetFdInfo_, int* pFd_) const {
-		return (*get_memory_fd)(device_, pGetFdInfo_, pFd_);
-	}
-	//! calls vkGetSemaphoreFdKHR
-	VkResult vulkan_get_semaphore_fd(VkDevice device_, const VkSemaphoreGetFdInfoKHR* pGetFdInfo_, int* pFd_) const {
-		return (*get_semaphore_fd)(device_, pGetFdInfo_, pFd_);
-	}
-#endif
-
-	//! calls vkSetHdrMetadataEXT
-	void vulkan_set_hdr_metadata(VkDevice device_, uint32_t swapchainCount_, const VkSwapchainKHR* pSwapchains_, const VkHdrMetadataEXT* pMetadata_) {
-		if (!vk_set_hdr_metadata) {
-			return;
-		}
-		(*vk_set_hdr_metadata)(device_, swapchainCount_, pSwapchains_, pMetadata_);
-	}
 
 	//! returns true if validation layer error printing is currently enabled
 	bool is_vulkan_validation_ignored() const {
@@ -359,27 +331,6 @@ protected:
 								   const vector<llvm_toolchain::function_info>& functions,
 								   const string& identifier);
 	
-	// TODO: remove funcs in here, use volk
-	
-#if defined(FLOOR_DEBUG)
-	PFN_vkCreateDebugUtilsMessengerEXT create_debug_utils_messenger { nullptr };
-	PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_utils_messenger { nullptr };
-	VkDebugUtilsMessengerEXT debug_utils_messenger { nullptr };
-	PFN_vkSetDebugUtilsObjectNameEXT set_debug_utils_object_name { nullptr };
-	PFN_vkCmdBeginDebugUtilsLabelEXT cmd_begin_debug_utils_label { nullptr };
-	PFN_vkCmdEndDebugUtilsLabelEXT cmd_end_debug_utils_label { nullptr };
-#endif
-	
-#if defined(__WINDOWS__)
-	PFN_vkGetMemoryWin32HandleKHR get_memory_win32_handle { nullptr };
-	PFN_vkGetSemaphoreWin32HandleKHR get_semaphore_win32_handle { nullptr };
-#else
-	PFN_vkGetMemoryFdKHR get_memory_fd { nullptr };
-	PFN_vkGetSemaphoreFdKHR get_semaphore_fd { nullptr };
-#endif
-
-	PFN_vkSetHdrMetadataEXT vk_set_hdr_metadata { nullptr };
-	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;
 
@@ -393,6 +344,11 @@ protected:
 	
 	shared_ptr<compute_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins,
 																	 const string& identifier) REQUIRES(!programs_lock);
+	
+	// debug functionality
+#if defined(FLOOR_DEBUG)
+	VkDebugUtilsMessengerEXT debug_utils_messenger { nullptr };
+#endif
 	
 };
 
