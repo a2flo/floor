@@ -242,9 +242,15 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 		case 0x8765edea /* Everest/Sawtooth A16 */:
 		case 0x2876f5b5 /* Coll A17 */:
 		case 0xfa33415e /* Ibiza M3 */:
-		case 0x72015832 /* Palma M3 */:
-		case 0x5f4dea93 /* Lobos M3 */:
+		case 0x72015832 /* Palma M3 Max */:
+		case 0x5f4dea93 /* Lobos M3 Pro */:
 			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_7;
+			break;
+		case 0x6f5129ac /* Donan M4 */:
+		case 0x17d5b93a /* Brava M4 Max */:
+		case 0x75d4acb9 /* Tahiti A18 Pro */:
+		case 0x204526d0 /* Tupai A18 */:
+			device.cpu_tier = HOST_CPU_TIER::ARM_TIER_7; // TODO: TIER_8, ARMv9.2
 			break;
 	}
 	
