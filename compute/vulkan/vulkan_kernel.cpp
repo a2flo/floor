@@ -186,23 +186,6 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
-#if defined(FLOOR_DEBUG)
-	string encoder_label = "encoder_"s + (entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ? "compute" : "graphics");
-	if (entries[0]->info) {
-		encoder_label += "_" + entries[0]->info->name;
-	}
-	if (debug_label) {
-		encoder_label += '#';
-		encoder_label += debug_label;
-	}
-	((const vulkan_compute*)vk_dev.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
-#endif
-	
-	vkCmdBindPipeline(cmd_buffer.cmd_buffer,
-					  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
-					  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
-					  pipeline);
-	
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = cmd_buffer,
 		.cqueue = (const vulkan_queue&)cqueue,
@@ -211,6 +194,23 @@ shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cq
 		.pipeline_layout = pipeline_layout,
 		.entries = entries,
 	});
+	
+#if defined(FLOOR_DEBUG)
+	encoder->debug_label = "encoder_"s + (entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ? "compute" : "graphics");
+	if (entries[0]->info) {
+		encoder->debug_label += "_" + entries[0]->info->name;
+	}
+	if (debug_label) {
+		encoder->debug_label += '#';
+		encoder->debug_label += debug_label;
+	}
+	((const vulkan_compute*)vk_dev.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder->debug_label.c_str());
+#endif
+	
+	vkCmdBindPipeline(cmd_buffer.cmd_buffer,
+					  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
+					  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
+					  pipeline);
 	
 	success = true;
 	return encoder;
@@ -442,6 +442,9 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 	vkCmdDispatch(encoder->cmd_buffer.cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
 	
 	// all done here, end + submit
+#if defined(FLOOR_DEBUG)
+	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
+#endif
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
 	// add completion handler if required
 	if (completion_handler) {
@@ -449,9 +452,6 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 			handler();
 		});
 	}
-#if defined(FLOOR_DEBUG)
-	((const vulkan_compute*)vk_dev.context)->vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
-#endif
 	
 	vector<vulkan_queue::wait_fence_t> wait_fences;
 	vector<vulkan_queue::signal_fence_t> signal_fences;

@@ -47,6 +47,10 @@ static inline VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const
 			return VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
 		case compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT:
 			return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		case compute_fence::SYNC_STAGE::BOTTOM_OF_PIPE:
+			return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+		case compute_fence::SYNC_STAGE::TOP_OF_PIPE:
+			return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
 	}
 }
 
@@ -716,7 +720,7 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 				"failed to begin command buffer")
 	
 #if defined(FLOOR_DEBUG)
-	((const vulkan_compute*)device.context)->vulkan_begin_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
+	((const vulkan_compute*)device.context)->vulkan_insert_cmd_debug_label(cmd_buffer.cmd_buffer, encoder_label);
 #endif
 	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
@@ -740,9 +744,6 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 			handler();
 		});
 	}
-#if defined(FLOOR_DEBUG)
-	((const vulkan_compute*)device.context)->vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
-#endif
 	
 	vector<wait_fence_t> wait_fences;
 	vector<signal_fence_t> signal_fences;
@@ -881,13 +882,13 @@ vulkan_command_block::~vulkan_command_block() {
 		return;
 	}
 	
-	VK_CALL_ERR_EXEC(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-					 "failed to end command buffer",
-					 { error_signal = true; return; })
-	
 #if defined(FLOOR_DEBUG)
 	((const vulkan_compute*)vk_queue.get_device().context)->vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
 #endif
+	
+	VK_CALL_ERR_EXEC(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
+					 "failed to end command buffer",
+					 { error_signal = true; return; })
 	
 	vk_queue.submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), {}, is_blocking);
 }

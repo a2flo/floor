@@ -262,7 +262,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 	};
 	VkMemoryRequirements2 mem_req2 {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-		.pNext = (!is_aliased_array ? &ded_req : nullptr),
+		.pNext = (!is_aliasing ? &ded_req : nullptr),
 		.memoryRequirements = {},
 	};
 	const VkImageMemoryRequirementsInfo2 mem_req_info {
@@ -271,7 +271,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 		.image = image,
 	};
 	vkGetImageMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
-	const auto is_dedicated = (!is_aliased_array && (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation));
+	const auto is_dedicated = (!is_aliasing && (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation));
 	const auto& mem_req = mem_req2.memoryRequirements;
 	allocation_size = mem_req.size;
 	

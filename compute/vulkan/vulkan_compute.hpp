@@ -208,11 +208,15 @@ public:
 		VkImageLayout layout { VK_IMAGE_LAYOUT_UNDEFINED };
 		VkImageLayout present_layout { VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
 		COMPUTE_IMAGE_TYPE base_type { COMPUTE_IMAGE_TYPE::NONE };
+		uint32_t sema_index { ~0u };
+		compute_fence* acquisition_sema { nullptr };
+		compute_fence* present_sema { nullptr };
+		VkFence present_fence { nullptr };
 	};
 	
 	//! acquires the next drawable image
-	//! NOTE: will block for now
-	pair<bool, const drawable_image_info> acquire_next_image(const compute_queue& dev_queue, const bool get_multi_view_drawable = false);
+	pair<bool, const drawable_image_info> acquire_next_image(const compute_queue& dev_queue, const bool get_multi_view_drawable = false)
+	REQUIRES(!acquisition_lock, !screen_sema_lock);
 	
 	//! presents the drawable image that has previously been acquired
 	//! NOTE: will block for now
@@ -244,7 +248,7 @@ public:
 	
 	//! begins a Vulkan command buffer debug label block
 	void vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer [[maybe_unused]],
-									  const string& label [[maybe_unused]]) const
+									  const char* label [[maybe_unused]]) const
 #if defined(FLOOR_DEBUG)
 	;
 #else
@@ -253,6 +257,15 @@ public:
 	
 	//! ends a Vulkan command buffer debug label block
 	void vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffer [[maybe_unused]]) const
+#if defined(FLOOR_DEBUG)
+	;
+#else
+	{}
+#endif
+	
+	//! inserts a Vulkan command buffer debug label
+	void vulkan_insert_cmd_debug_label(const VkCommandBuffer& cmd_buffer [[maybe_unused]],
+									   const char* label [[maybe_unused]]) const
 #if defined(FLOOR_DEBUG)
 	;
 #else
@@ -280,8 +293,7 @@ protected:
 		//! NOTE: owned by the swapchain, not this
 		vector<VkImage> swapchain_images;
 		vector<VkImageView> swapchain_image_views;
-		uint32_t next_fence_index { 0 };
-		vector<unique_ptr<compute_fence>> render_fences;
+		vector<VkImageLayout> swapchain_prev_layouts;
 		const vulkan_device* render_device { nullptr };
 		bool x11_forwarding { false };
 		shared_ptr<vulkan_image> x11_screen;
@@ -303,12 +315,26 @@ protected:
 		bool has_wide_gamut { false };
 	} vr_screen;
 	safe_mutex acquisition_lock;
-	bool reinit_renderer(const uint2 screen_size);
-	void destroy_renderer_swapchain();
+
+	//! max swapchain image count limit
+	static constexpr const uint32_t max_swapchain_image_count { 8u };
+	//! multiplier against the actual image count (conservative estimate) -> use in acquisition_semas/present_semas
+	static constexpr const uint32_t semaphore_multiplier { 2u };
+	//! NOTE: semaphores do not map 1:1 to swapchain_images
+	safe_mutex screen_sema_lock;
+	vector<VkFence> present_fences GUARDED_BY(screen_sema_lock);
+	uint32_t next_sema_index GUARDED_BY(screen_sema_lock) { 0 };
+	bitset<32u> semas_in_use GUARDED_BY(screen_sema_lock);
+	vector<unique_ptr<compute_fence>> acquisition_semas GUARDED_BY(screen_sema_lock);
+	vector<unique_ptr<compute_fence>> present_semas GUARDED_BY(screen_sema_lock);
+	
+	bool reinit_renderer(const uint2 screen_size) REQUIRES(!screen_sema_lock);
+	void destroy_renderer_swapchain(const bool reset_present_fences) REQUIRES(!screen_sema_lock);
 	bool init_vr_renderer();
+	pair<bool, const drawable_image_info> acquire_next_vr_image(const compute_queue& dev_queue) REQUIRES(acquisition_lock);
 	
 	function<bool(EVENT_TYPE, shared_ptr<event_object>)> resize_handler_fnctr;
-	bool resize_handler(EVENT_TYPE type, shared_ptr<event_object>);
+	bool resize_handler(EVENT_TYPE type, shared_ptr<event_object>) REQUIRES(!screen_sema_lock);
 	
 	// sets screen.hdr_metadata from current compute_context::hdr_metadata if screen.hdr_metadata is not empty
 	void set_vk_screen_hdr_metadata();

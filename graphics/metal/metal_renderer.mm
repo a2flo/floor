@@ -476,9 +476,11 @@ static inline MTLRenderStages sync_stage_to_metal_render_stages(const compute_fe
 			throw runtime_error("invalid sync stage");
 		case compute_fence::SYNC_STAGE::VERTEX:
 		case compute_fence::SYNC_STAGE::TESSELLATION:
+		case compute_fence::SYNC_STAGE::BOTTOM_OF_PIPE:
 			return MTLRenderStageVertex;
 		case compute_fence::SYNC_STAGE::FRAGMENT:
 		case compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT:
+		case compute_fence::SYNC_STAGE::TOP_OF_PIPE:
 			return MTLRenderStageFragment;
 	}
 }

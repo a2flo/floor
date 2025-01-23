@@ -37,4 +37,8 @@ struct vulkan_encoder {
 	vector<vulkan_args::constant_buffer_wrapper_t> constant_buffer_wrappers;
 	//! NOTE: this is created automatically right before setting/handling all args
 	vector<const vulkan_args::constant_buffer_wrapper_t*> constant_buffer_wrappers_ptr;
+	
+#if defined(FLOOR_DEBUG)
+	string debug_label;
+#endif
 };

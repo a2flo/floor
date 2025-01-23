@@ -124,7 +124,8 @@ indirect_command_pipeline(desc_) {
 #if defined(FLOOR_DEBUG)
 			uint32_t sec_cmd_buffer_counter = 0;
 			for (const auto& cb : per_queue_data.cmd_buffers) {
-				vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_BUFFER, uint64_t(cb), "icp_cmd_buf_" + to_string(sec_cmd_buffer_counter++));
+				vk_ctx.set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_COMMAND_BUFFER, uint64_t(cb),
+											  "icp_cmd_buf_" + to_string(sec_cmd_buffer_counter++));
 			}
 #endif
 		}

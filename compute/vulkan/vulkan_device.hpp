@@ -59,6 +59,9 @@ public:
 	shared_ptr<void*> _mem_props;
 #endif
 	
+	//! Vulkan physical device index inside the parent context/instance
+	uint32_t physical_device_index { 0u };
+	
 	//! queue count per queue family
 	//! (obviously also stores the queue family count)
 	vector<uint32_t> queue_counts {};

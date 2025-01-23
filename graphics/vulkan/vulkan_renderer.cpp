@@ -157,6 +157,32 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		}
 	}
 	
+	// if a drawbale is associated with this renderer, we need to take care of some swapchain/present handling
+	if (cur_drawable) {
+		// transition swapchain image / drawable at the start -> make it usable as a color attachment
+		assert(cur_drawable->vk_drawable.image);
+		att_transition_barriers.emplace_back(cur_drawable->vk_image->transition(&cqueue, render_cmd_buffer.cmd_buffer,
+																				VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+																				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+																				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+																				VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+																				true /* only want a soft transition here */).second);
+		
+		// final submit has to actually wait on the swapchain image acquisition
+		wait_fences.emplace_back(vulkan_queue::wait_fence_t {
+			.fence = cur_drawable->vk_drawable.acquisition_sema,
+			.signaled_value = 1,
+			.stage = compute_fence::SYNC_STAGE::TOP_OF_PIPE,
+		});
+		// present will be performed after the final submit -> need to signal when the submit has finished and the present can start
+		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
+			.fence = cur_drawable->vk_drawable.present_sema,
+			.unsignaled_value = 0,
+			.signaled_value = 1,
+			.stage = compute_fence::SYNC_STAGE::NONE,
+		});
+	}
+	
 	// transition attachments
 	if (!att_transition_barriers.empty()) {
 		const VkDependencyInfo dep_info {
@@ -368,7 +394,7 @@ bool vulkan_renderer::commit_internal(const bool is_blocking, const bool is_fini
 	vk_queue.submit_command_buffer(std::move(render_cmd_buffer), std::move(wait_fences), std::move(signal_fences),
 								   std::move(renderer_compl_handler), is_blocking);
 	
-	// NOTE: all of this can only be called when doing a blocking commit(), for non-blocking commits, ownership
+	// NOTE: all of this can only be called when doing a blocking commit()
 	if (is_blocking) {
 		// if present has been called earlier, we can now actually present the image to the screen
 		if (is_presenting) {
@@ -482,6 +508,12 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 	if (!graphics_renderer::set_attachment(index, attachment)) {
 		return false;
 	}
+	
+	// drawable/present image transition is handled later
+	if (cur_drawable && cur_drawable->image == attachment.image) {
+		return true;
+	}
+	
 	const auto is_read_only_color = cur_pipeline->get_description(multi_view).color_attachments[index].blend.write_mask.none();
 	auto ret = attachment_transition(*attachment.image, att_transition_barriers, is_read_only_color);
 	if (ret && attachment.resolve_image) {

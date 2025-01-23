@@ -437,8 +437,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
 #endif
-	if(enable_renderer && !screen.x11_forwarding) {
+	if (enable_renderer && !screen.x11_forwarding) {
 		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
+		instance_extensions.emplace(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+		instance_extensions.emplace(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
 #if defined(SDL_PLATFORM_WIN32)
 		instance_extensions.emplace(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(SDL_PLATFORM_LINUX)
@@ -610,7 +612,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 
 	auto gpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::GPU0;
 	auto cpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::CPU0;
-	for(const auto& phys_dev : queried_devices) {
+	uint32_t phys_dev_counter = 0;
+	for (const auto& phys_dev : queried_devices) {
+		const auto phys_dev_idx = phys_dev_counter++;
+		
 		// get device props and features
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(phys_dev, &props);
@@ -792,6 +797,26 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			}
 		}
 		
+		// deal with swapchain ext
+		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		if (enable_renderer && !screen.x11_forwarding) {
+			if (swapchain_ext_iter == device_extensions_set.end()) {
+				log_error("$ extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+				continue;
+			}
+			
+			if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+				log_error("$ extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+				continue;
+			}
+			device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+		} else {
+			if (swapchain_ext_iter != device_extensions_set.end()) {
+				// remove again, since we don't want/need it
+				device_extensions_set.erase(swapchain_ext_iter);
+			}
+		}
+		
 		//
 		vector<VkQueueFamilyProperties> dev_queue_family_props(queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, dev_queue_family_props.data());
@@ -866,9 +891,16 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.sparseImageFloat32Atomics = false,
 			.sparseImageFloat32AtomicAdd = false,
 		};
+		VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_maintenance_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT,
+			.pNext = &shader_atomic_float_features,
+			.swapchainMaintenance1 = false,
+		};
 		VkPhysicalDeviceVulkan11Features vulkan11_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-			.pNext = &shader_atomic_float_features,
+			.pNext = (// NOTE: already added to device_extensions_set at this point!
+					  device_extensions_set.count(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) ?
+					  (void*)&swapchain_maintenance_features : (void*)&shader_atomic_float_features),
 			.storageBuffer16BitAccess = true,
 			.uniformAndStorageBuffer16BitAccess = true,
 			.storagePushConstant16 = false,
@@ -1351,6 +1383,13 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			}
 		}
 		
+		if (enable_renderer && !screen.x11_forwarding &&
+			device_extensions_set.count(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) &&
+			!swapchain_maintenance_features.swapchainMaintenance1) {
+			log_error("swapchainMaintenance1 is not supported by $", props.deviceName);
+			continue;
+		}
+		
 		// check IUB limits
 		if (vulkan13_props.maxInlineUniformBlockSize < vulkan_device::min_required_inline_uniform_block_size) {
 			log_error("max inline uniform block size of $ is below the required limit of $ (for device $)",
@@ -1568,20 +1607,6 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			feature_chain_end = const_cast<void**>(&nv_device_diagnostics.pNext);
 		}
 
-		// deal with swapchain ext
-		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		if (enable_renderer && !screen.x11_forwarding) {
-			if (swapchain_ext_iter == device_extensions_set.end()) {
-				log_error("$ extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-				continue;
-			}
-		} else {
-			if (swapchain_ext_iter != device_extensions_set.end()) {
-				// remove again, since we don't want/need it
-				device_extensions_set.erase(swapchain_ext_iter);
-			}
-		}
-
 		// set -> vector
 		vector<string> device_extensions;
 		device_extensions.reserve(device_extensions_set.size());
@@ -1645,6 +1670,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		logical_devices.emplace_back(dev);
 		device.context = this;
 		device.physical_device = phys_dev;
+		device.physical_device_index = phys_dev_idx;
 		device.device = dev;
 		device.name = props.deviceName;
 		set_vulkan_debug_label(device, VK_OBJECT_TYPE_DEVICE, uint64_t(dev), device.name);
@@ -1983,13 +2009,40 @@ vulkan_compute::~vulkan_compute() {
 	}
 #endif
 	
-	destroy_renderer_swapchain();
+	destroy_renderer_swapchain(false);
 	
 	// TODO: destroy all else
 }
 
-void vulkan_compute::destroy_renderer_swapchain() {
+void vulkan_compute::destroy_renderer_swapchain(const bool reset_present_fences) {
 	if (!screen.x11_forwarding) {
+		// ensure all presents are done before we kill any resources
+		GUARD(screen_sema_lock);
+		for (uint32_t i = 0, fence_count = uint32_t(present_fences.size()); i < fence_count; ++i) {
+			auto& fence = present_fences[i];
+			if (semas_in_use[i]) {
+				if (const auto fence_status = vkGetFenceStatus(screen.render_device->device, fence);
+					fence_status != VK_SUCCESS && fence_status != VK_ERROR_DEVICE_LOST) {
+					log_warn("waiting on present fence ...");
+					(void)vkWaitForFences(screen.render_device->device, 1, &fence, true, 1'000'000'000ull);
+				}
+			}
+		}
+		if (!reset_present_fences) {
+			// -> fully destroy fences
+			for (auto& fence : present_fences) {
+				vkDestroyFence(screen.render_device->device, fence, nullptr);
+			}
+			present_fences.clear();
+		} else if (!present_fences.empty()) {
+			// -> only reset
+			vkResetFences(screen.render_device->device, uint32_t(present_fences.size()), present_fences.data());
+		}
+		next_sema_index = 0;
+		semas_in_use.reset();
+		acquisition_semas.clear();
+		present_semas.clear();
+		
 		if (!screen.swapchain_image_views.empty()) {
 			for (auto& image_view : screen.swapchain_image_views) {
 				vkDestroyImageView(screen.render_device->device, image_view, nullptr);
@@ -2019,13 +2072,16 @@ bool vulkan_compute::resize_handler(EVENT_TYPE type, shared_ptr<event_object>) {
 }
 
 bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
+	static_assert(max_swapchain_image_count * semaphore_multiplier <= (decltype(semas_in_use){}).size(),
+				  "semas_in_use is not large enough to cover max_swapchain_image_count");
+	
 	if ((screen.size == screen_size).all()) {
 		// skip if the size is the same
 		return true;
 	}
 	
 	// clear previous
-	destroy_renderer_swapchain();
+	destroy_renderer_swapchain(true /* only reset fences */);
 	
 	// -> init
 	screen.size = screen_size;
@@ -2062,6 +2118,7 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 		
 		screen.swapchain_images.emplace_back(screen.x11_screen->get_vulkan_image());
 		screen.swapchain_image_views.emplace_back(screen.x11_screen->get_vulkan_image_view());
+		screen.swapchain_prev_layouts.emplace_back(VK_IMAGE_LAYOUT_UNDEFINED);
 		
 		return true;
 	}
@@ -2332,7 +2389,6 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 	}
 	
 	// try using "maxImageCount" (if non-zero) or 8 images at most
-	static constexpr const uint32_t max_swapchain_image_count = 8u;
 	auto swapchain_image_count = (surface_caps.maxImageCount > 0 ?
 								  min(surface_caps.maxImageCount, max_swapchain_image_count) :
 								  max_swapchain_image_count);
@@ -2353,9 +2409,16 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 	
 	// swap chain creation
 	const auto is_concurrent_sharing = (screen.render_device->all_queue_family_index != screen.render_device->compute_queue_family_index);
+	const VkSwapchainPresentModesCreateInfoEXT swapchain_present_modes_info {
+		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_EXT,
+		.pNext = nullptr,
+		// TODO: support more than one present mode
+		.presentModeCount = 1,
+		.pPresentModes = &present_mode,
+	};
 	const VkSwapchainCreateInfoKHR swapchain_create_info {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		.pNext = nullptr,
+		.pNext = &swapchain_present_modes_info,
 		.flags = 0,
 		.surface = screen.surface,
 		.minImageCount = swapchain_image_count,
@@ -2391,12 +2454,40 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 				"failed to query swapchain image count", false)
 	screen.swapchain_images.resize(screen.image_count);
 	screen.swapchain_image_views.resize(screen.image_count);
-	screen.render_fences.resize(screen.image_count * 2u /* conservative estimate */);
-	for (uint32_t i = 0, fence_count = uint32_t(screen.render_fences.size()); i < fence_count; ++i) {
-		screen.render_fences[i] = make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
+	screen.swapchain_prev_layouts.resize(screen.image_count, VK_IMAGE_LAYOUT_UNDEFINED);
+	{
+		GUARD(screen_sema_lock);
+		next_sema_index = 0;
+		semas_in_use.reset();
+		const auto sync_object_count = screen.image_count * semaphore_multiplier;
+		
+		const VkFenceCreateInfo present_fence_info {
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+		};
+		if (present_fences.size() != sync_object_count) {
+			present_fences.resize(sync_object_count);
+			for (uint32_t i = 0; i < sync_object_count; ++i) {
+				VK_CALL_RET(vkCreateFence(screen.render_device->device, &present_fence_info, nullptr, &present_fences[i]),
+							"failed to create present fence #" + to_string(i), false)
 #if defined(FLOOR_DEBUG)
-		screen.render_fences[i]->set_debug_label("render_fence#" + to_string(i));
+				set_vulkan_debug_label(*screen.render_device, VK_OBJECT_TYPE_FENCE, uint64_t(present_fences[i]),
+									   "present_fence#" + to_string(i));
 #endif
+			}
+		}
+		
+		acquisition_semas.resize(sync_object_count);
+		present_semas.resize(sync_object_count);
+		for (uint32_t i = 0; i < sync_object_count; ++i) {
+			acquisition_semas[i] = make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
+			present_semas[i] = make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
+#if defined(FLOOR_DEBUG)
+			acquisition_semas[i]->set_debug_label("acq_sema#" + to_string(i));
+			present_semas[i]->set_debug_label("present_sema#" + to_string(i));
+#endif
+		}
 	}
 	VK_CALL_RET(vkGetSwapchainImagesKHR(screen.render_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
 				"failed to retrieve swapchain images", false)
@@ -2499,68 +2590,70 @@ bool vulkan_compute::init_vr_renderer() {
 	return true;
 }
 
-pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const compute_queue& dev_queue,
-																						 const bool get_multi_view_drawable) NO_THREAD_SAFETY_ANALYSIS {
-	const auto& vk_queue = (const vulkan_queue&)dev_queue;
+pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_vr_image(const compute_queue& dev_queue) NO_THREAD_SAFETY_ANALYSIS {
+	// manual index advance
+	vr_screen.image_index = (vr_screen.image_index + 1) % vr_screen.image_count;
 	
+	// lock this image until it has been submitted for present (also blocks until the wanted image is available)
+	vr_screen.image_locks[vr_screen.image_index].lock();
+	
+	// if the VR backend provides its own swapchain, use the swapchain image directly
+	if (vr_ctx->has_swapchain()) {
+		auto swapchain_image = vr_ctx->acquire_next_image();
+		if (!swapchain_image) {
+			// still need to call present() to finish the frame
+			(void)vr_ctx->present(dev_queue, nullptr);
+			return { false, {} };
+		}
+		
+		auto vk_swapchain_image = (vulkan_image*)swapchain_image;
+		vr_screen.external_swapchain_images[vr_screen.image_index] = swapchain_image;
+		return {
+			true,
+			{
+				.index = vr_screen.image_index,
+				.image_size = vr_screen.size,
+				.layer_count = vr_screen.layer_count,
+				.image = vk_swapchain_image->get_vulkan_image(),
+				.image_view = vk_swapchain_image->get_vulkan_image_view(),
+				.format = vk_swapchain_image->get_vulkan_format(),
+				.access_mask = vk_swapchain_image->get_vulkan_access_mask(),
+				.layout = vk_swapchain_image->get_vulkan_image_info()->imageLayout,
+				.present_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.base_type = vk_swapchain_image->get_image_type(),
+			}
+		};
+	} else {
+		auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
+		
+		// transition / make the render target writable
+		vr_image->transition_write(&dev_queue, nullptr);
+		
+		return {
+			true,
+			{
+				.index = vr_screen.image_index,
+				.image_size = vr_screen.size,
+				.layer_count = vr_screen.layer_count,
+				.image = vr_image->get_vulkan_image(),
+				.image_view = vr_image->get_vulkan_image_view(),
+				.format = vr_screen.format,
+				.access_mask = vr_image->get_vulkan_access_mask(),
+				.layout = vr_image->get_vulkan_image_info()->imageLayout,
+				.present_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY,
+			}
+		};
+	}
+}
+
+pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image(const compute_queue& dev_queue,
+																						 const bool get_multi_view_drawable) {
 	// none of this is thread-safe -> ensure only one thread is actively executing this
 	GUARD(acquisition_lock);
 
 	if (get_multi_view_drawable && vr_ctx) {
-		// manual index advance
-		vr_screen.image_index = (vr_screen.image_index + 1) % vr_screen.image_count;
-
-		// lock this image until it has been submitted for present (also blocks until the wanted image is available)
-		vr_screen.image_locks[vr_screen.image_index].lock();
-
-		// if the VR backend provides its own swapchain, use the swapchain image directly
-		if (vr_ctx->has_swapchain()) {
-			auto swapchain_image = vr_ctx->acquire_next_image();
-			if (!swapchain_image) {
-				// still need to call present() to finish the frame
-				(void)vr_ctx->present(dev_queue, nullptr);
-				return { false, {} };
-			}
-
-			auto vk_swapchain_image = (vulkan_image*)swapchain_image;
-			vr_screen.external_swapchain_images[vr_screen.image_index] = swapchain_image;
-			return {
-				true,
-				{
-					.index = vr_screen.image_index,
-					.image_size = vr_screen.size,
-					.layer_count = vr_screen.layer_count,
-					.image = vk_swapchain_image->get_vulkan_image(),
-					.image_view = vk_swapchain_image->get_vulkan_image_view(),
-					.format = vk_swapchain_image->get_vulkan_format(),
-					.access_mask = vk_swapchain_image->get_vulkan_access_mask(),
-					.layout = vk_swapchain_image->get_vulkan_image_info()->imageLayout,
-					.present_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					.base_type = vk_swapchain_image->get_image_type(),
-				}
-			};
-		} else {
-			auto vr_image = (vulkan_image*)vr_screen.images[vr_screen.image_index].get();
-
-			// transition / make the render target writable
-			vr_image->transition_write(&dev_queue, nullptr);
-
-			return {
-				true,
-				{
-					.index = vr_screen.image_index,
-					.image_size = vr_screen.size,
-					.layer_count = vr_screen.layer_count,
-					.image = vr_image->get_vulkan_image(),
-					.image_view = vr_image->get_vulkan_image_view(),
-					.format = vr_screen.format,
-					.access_mask = vr_image->get_vulkan_access_mask(),
-					.layout = vr_image->get_vulkan_image_info()->imageLayout,
-					.present_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY,
-				}
-			};
-		}
+		return acquire_next_vr_image(dev_queue);
 	}
 	
 	if (screen.x11_forwarding) {
@@ -2580,19 +2673,81 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 	
 	const drawable_image_info dummy_ret {};
 	
-	// acquire image + fence
-	// NOTE: this is a bit of a chicken/egg problem: since we don't know the image_index yet, we can't associate a fixed render fence with it
-	//       -> use a separate fence index (and allocate a conservative amount of render fences)
-	const auto fence_index = screen.next_fence_index++;
-	if (screen.next_fence_index >= screen.render_fences.size()) {
-		screen.next_fence_index = 0;
+	// acquire image + sema(s)
+	// NOTE: this is a bit of a chicken/egg problem: since we don't know the image_index yet, we can't associate a fixed acquisition sema with it
+	//       -> use a separate sema index (and allocate a conservative amount of acqusition fences/semas)
+	// NOTE: this also associates a corresponding present semaphore and fence with it
+	uint32_t sema_index = ~0u;
+	compute_fence* acquisition_sema = nullptr;
+	compute_fence* present_sema = nullptr;
+	VkFence present_fence = nullptr;
+	{
+		GUARD(screen_sema_lock);
+		// on pass #0 we will just query/check if there is a free/unused sema_index that we can just use,
+		// if none was found, we perform another pass #1 where we will wait on previous present_fences
+		for (uint32_t pass = 0; pass < 2; ++pass) {
+			for (uint32_t i = 0, count = uint32_t(acquisition_semas.size()); i < count; ++i) {
+				const auto idx = (next_sema_index + i) % count;
+				
+				if (semas_in_use[idx]) {
+					// in case we wrap around to a previoulsy used "sema_index", we need to ensure that the present has actually finished,
+					// which usually *should* already be the case when getting here, but we still need to make sure
+					// NOTE: this may actually happen when rendering is too fast
+					const auto fence_status = vkGetFenceStatus(screen.render_device->device, present_fences[idx]);
+					if (fence_status == VK_SUCCESS) {
+						// unused again
+						semas_in_use.reset(idx);
+					} else if (fence_status == VK_ERROR_DEVICE_LOST) {
+						log_error("VK_ERROR_DEVICE_LOST during present fence query");
+						return { false, {} };
+					} else if (fence_status == VK_NOT_READY && pass > 0) {
+						// wait on pass #1
+						if (const auto wait_ret = vkWaitForFences(screen.render_device->device, 1, &present_fences[idx], true, ~0ull);
+							wait_ret != VK_SUCCESS) {
+							log_error("waiting for present fence failed: $ ($)", vulkan_error_to_string(wait_ret), wait_ret);
+							return { false, {} };
+						}
+						// unused again
+						semas_in_use.reset(idx);
+					}
+				}
+				
+				if (!semas_in_use[idx]) {
+					sema_index = idx;
+					semas_in_use.set(sema_index);
+					next_sema_index = (sema_index + 1u) % count;
+					present_fence = present_fences[idx];
+					// reset fence for when it will be presented later on
+					VK_CALL_RET(vkResetFences(screen.render_device->device, 1, &present_fence),
+								"failed to reset present fence", { false, {} })
+					break;
+				}
+			}
+			if (sema_index != ~0u) {
+				break;
+			}
+		}
+		if (sema_index == ~0u) {
+			log_error("failed to acquire a free screen image semaphore slot");
+			return { false, dummy_ret };
+		}
+		acquisition_sema = acquisition_semas[sema_index].get();
+		present_sema = present_semas[sema_index].get();
 	}
+	
 	do {
 		// we may not use UINT64_MAX if we want to actually wait for the next image -> use 10s instead
 		static constexpr const uint64_t acq_wait_time_ns = 10'000'000'000 /* 10s */;
-		const auto acq_result = vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, acq_wait_time_ns,
-													  ((const vulkan_fence&)*screen.render_fences[fence_index]).get_vulkan_fence(),
-													  nullptr, &screen.image_index);
+		const VkAcquireNextImageInfoKHR acq_info {
+			.sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
+			.pNext = nullptr,
+			.swapchain = screen.swapchain,
+			.timeout = acq_wait_time_ns,
+			.semaphore = ((const vulkan_fence&)*acquisition_sema).get_vulkan_fence(),
+			.fence = nullptr,
+			.deviceMask = (1u << screen.render_device->physical_device_index),
+		};
+		const auto acq_result = vkAcquireNextImage2KHR(screen.render_device->device, &acq_info, &screen.image_index);
 		if (acq_result != VK_SUCCESS && acq_result != VK_SUBOPTIMAL_KHR && acq_result != VK_TIMEOUT) {
 			log_error("failed to acquire next presentable image: $: $", acq_result, vulkan_error_to_string(acq_result));
 			return { false, dummy_ret };
@@ -2607,50 +2762,6 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 						   "swapchain_image#" + to_string(screen.image_index));
 #endif
 	
-	// transition image
-	const auto dst_access_mask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-	const auto dst_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	vector<vulkan_queue::wait_fence_t> wait_fence { vulkan_queue::wait_fence_t {
-		.fence = screen.render_fences[fence_index].get(),
-		.signaled_value = 1,
-		.stage = compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT,
-	}};
-	VK_CMD_BLOCK_RET(vk_queue, "image drawable transition", ({
-		const VkImageMemoryBarrier2 image_barrier {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-			.pNext = nullptr,
-			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = VK_ACCESS_2_NONE,
-			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstAccessMask = dst_access_mask,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = dst_layout,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = screen.swapchain_images[screen.image_index],
-			.subresourceRange = {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			},
-		};
-		const VkDependencyInfo dep_info {
-			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-			.pNext = nullptr,
-			.dependencyFlags = 0,
-			.memoryBarrierCount = 0,
-			.pMemoryBarriers = nullptr,
-			.bufferMemoryBarrierCount = 0,
-			.pBufferMemoryBarriers = nullptr,
-			.imageMemoryBarrierCount = 1,
-			.pImageMemoryBarriers = &image_barrier,
-		};
-		vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
-	}), (pair { false, dummy_ret }), true /* always blocking */, std::move(wait_fence));
-	// TODO: non-blocking/async/signal-fence option
-	
 	return {
 		true,
 		{
@@ -2660,10 +2771,14 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 			.image = screen.swapchain_images[screen.image_index],
 			.image_view = screen.swapchain_image_views[screen.image_index],
 			.format = screen.format,
-			.access_mask = dst_access_mask,
-			.layout = dst_layout,
+			.access_mask = VK_ACCESS_2_NONE,
+			.layout = screen.swapchain_prev_layouts[screen.image_index],
 			.present_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			.base_type = COMPUTE_IMAGE_TYPE::IMAGE_2D,
+			.sema_index = sema_index,
+			.acquisition_sema = acquisition_sema,
+			.present_sema = present_sema,
+			.present_fence = present_fence,
 		}
 	};
 }
@@ -2779,11 +2894,18 @@ bool vulkan_compute::queue_present(const compute_queue& dev_queue, const drawabl
 		const auto& vk_queue = (const vulkan_queue&)dev_queue;
 
 		// present window image
+		screen.swapchain_prev_layouts[drawable.index] = drawable.present_layout;
+		const VkSwapchainPresentFenceInfoEXT present_fence_info {
+			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT,
+			.pNext = nullptr,
+			.swapchainCount = 1,
+			.pFences = &drawable.present_fence,
+		};
 		const VkPresentInfoKHR present_info {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.pNext = nullptr,
-			.waitSemaphoreCount = 0,
-			.pWaitSemaphores = nullptr,
+			.pNext = &present_fence_info,
+			.waitSemaphoreCount = (drawable.present_sema ? 1 : 0),
+			.pWaitSemaphores = (drawable.present_sema ? &((vulkan_fence*)drawable.present_sema)->get_vulkan_fence() : nullptr),
 			.swapchainCount = 1,
 			.pSwapchains = &screen.swapchain,
 			.pImageIndices = &drawable.index,
@@ -3334,7 +3456,7 @@ void vulkan_compute::set_vulkan_debug_label(const vulkan_device& dev, const VkOb
 	vkSetDebugUtilsObjectNameEXT(dev.device, &name_info);
 }
 
-void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer, const string& label) const {
+void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buffer, const char* label) const {
 	if (vkCmdBeginDebugUtilsLabelEXT == nullptr) {
 		return;
 	}
@@ -3342,7 +3464,7 @@ void vulkan_compute::vulkan_begin_cmd_debug_label(const VkCommandBuffer& cmd_buf
 	const VkDebugUtilsLabelEXT debug_label {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
 		.pNext = nullptr,
-		.pLabelName = label.c_str(),
+		.pLabelName = label,
 		.color = {},
 	};
 	vkCmdBeginDebugUtilsLabelEXT(cmd_buffer, &debug_label);
@@ -3353,6 +3475,20 @@ void vulkan_compute::vulkan_end_cmd_debug_label(const VkCommandBuffer& cmd_buffe
 		return;
 	}
 	vkCmdEndDebugUtilsLabelEXT(cmd_buffer);
+}
+
+void vulkan_compute::vulkan_insert_cmd_debug_label(const VkCommandBuffer& cmd_buffer, const char* label) const {
+	if (vkCmdInsertDebugUtilsLabelEXT == nullptr) {
+		return;
+	}
+	
+	const VkDebugUtilsLabelEXT debug_label {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pNext = nullptr,
+		.pLabelName = label,
+		.color = {},
+	};
+	vkCmdInsertDebugUtilsLabelEXT(cmd_buffer, &debug_label);
 }
 #endif
 

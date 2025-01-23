@@ -213,6 +213,7 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 
 // to work around a current validation layer issue, we need to be able to convert VkBufferUsageFlags from v2 to v1
 // -> only enable this in debug mode when validation layers are actually active
+// TODO: fixed now, remove with next SDK version bump (past 304)
 #if defined(FLOOR_DEBUG)
 #define VK_LEGACY_USAGE_FLAGS_WORKAROUND(flags) VkBufferUsageFlags(flags & 0xFFFFFFFFu)
 #else

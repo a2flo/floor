@@ -322,7 +322,7 @@ bool cuda_image::create_internal(const bool copy_host_data, const compute_queue&
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			log_debug("copying $ bytes from $X to array $X",
-					  image_data_size, host_data.data(), image);
+					  image_data_size, uint64_t(host_data.data()), image);
 			auto cpy_host_data = host_data;
 			apply_on_levels([this, &cpy_host_data](const uint32_t& level,
 												   const uint4& mip_image_dim,

@@ -37,6 +37,10 @@ public:
 		
 		//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
 		COLOR_ATTACHMENT_OUTPUT = 10u,
+		//! Vulkan-specific sync stage
+		TOP_OF_PIPE = 11,
+		//! Vulkan-specific sync stage
+		BOTTOM_OF_PIPE = 12,
 	};
 	
 	//! sets the debug label for this fence object (e.g. for display in a debugger)
