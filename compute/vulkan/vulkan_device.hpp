@@ -206,6 +206,10 @@ public:
 	void* _get_pipeline_executable_internal_representation { nullptr };
 	void* _get_pipeline_executable_statistics { nullptr };
 #endif
+	
+#if !defined(FLOOR_NO_VULKAN)
+	VolkDeviceTable vk;
+#endif
 };
 
 FLOOR_POP_WARNINGS()

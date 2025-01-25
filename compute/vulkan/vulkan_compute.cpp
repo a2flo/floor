@@ -734,11 +734,9 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_index_type_uint8",
 			"VK_KHR_line_rasterization",
 			"VK_KHR_load_store_op_none",
-#if !defined(FLOOR_DEBUG) // TODO: still required by validation ...
 			"VK_KHR_maintenance5",
 			"VK_KHR_maintenance6",
 			"VK_KHR_map_memory2",
-#endif
 			"VK_KHR_push_descriptor",
 			"VK_KHR_shader_expect_assume",
 			"VK_KHR_shader_float_controls2",
@@ -1668,6 +1666,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		auto& device = (vulkan_device&)*devices.back();
 		physical_devices.emplace_back(phys_dev);
 		logical_devices.emplace_back(dev);
+		volkLoadDeviceTable(&device.vk, dev);
 		device.context = this;
 		device.physical_device = phys_dev;
 		device.physical_device_index = phys_dev_idx;

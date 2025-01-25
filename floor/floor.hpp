@@ -73,8 +73,9 @@ public:
 		//! renderer backend that should be used and initialized
 		RENDERER renderer { RENDERER::DEFAULT };
 		
-		//! min Vulkan API version that should be used
-		uint3 vulkan_api_version { 1, 3, 274 };
+		//! min compatible Vulkan API version
+		//! NOTE: this still allows Vulkan 1.3 instances/devices
+		uint3 vulkan_api_version { 1, 4, 303 };
 		
 		//! window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will also be set automatically depending on the config
