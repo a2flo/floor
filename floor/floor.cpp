@@ -177,9 +177,9 @@ bool floor::init(const init_state& state) {
 	floor::vulkan_api_version = state.vulkan_api_version;
 	
 	// get working directory
-	char working_dir[16384];
-	memset(working_dir, 0, 16384);
-	if(getcwd(working_dir, 16383) == nullptr) {
+	char working_dir[4096];
+	memset(working_dir, 0, 4096);
+	if(getcwd(working_dir, 4095) == nullptr) {
 		cerr << "failed to retrieve the current working directory" << endl;
 		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;

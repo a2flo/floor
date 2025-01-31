@@ -692,7 +692,11 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		vkCmdDraw(cmd_buffer, draw_entry->vertex_count, draw_entry->instance_count, draw_entry->first_vertex, draw_entry->first_instance);
 	} else if (draw_index_entry) {
 		const auto vk_idx_buffer = draw_index_entry->index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
-		vkCmdBindIndexBuffer2KHR(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+		if (((const vulkan_device&)dev).vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			vkCmdBindIndexBuffer2(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+		} else {
+			vkCmdBindIndexBuffer2KHR(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+		}
 		vkCmdDrawIndexed(cmd_buffer, draw_index_entry->index_count, draw_index_entry->instance_count, draw_index_entry->first_index,
 						 draw_index_entry->vertex_offset, draw_index_entry->first_instance);
 	}

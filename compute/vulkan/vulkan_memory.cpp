@@ -133,8 +133,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		host_buffer_offset = 0;
 		
 		// create the host-visible buffer
-		const auto& vk_dev = (const vulkan_device&)device;
-		const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
+		const auto is_concurrent_sharing = (device.all_queue_family_index != device.compute_queue_family_index);
 		const VkBufferUsageFlags2CreateInfo buffer_usage_flags_info {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
 			.pNext = nullptr,
@@ -148,8 +147,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 			.size = size,
 			.usage = 0,
 			.sharingMode = (is_concurrent_sharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE),
-			.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
-			.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
+			.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(device.queue_families.size()) : 0),
+			.pQueueFamilyIndices = (is_concurrent_sharing ? device.queue_families.data() : nullptr),
 		};
 		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 	
@@ -276,7 +275,11 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const compute_queue& cque
 		.offset = host_buffer_offset,
 		.size = size,
 	};
-	VK_CALL_RET(vkMapMemory2KHR(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+	if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+		VK_CALL_RET(vkMapMemory2(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+	} else {
+		VK_CALL_RET(vkMapMemory2KHR(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+	}
 	
 	// need to remember how much we mapped and where (so the host -> device write-back copies the right amount of bytes)
 	mappings.emplace(host_ptr, mapping);
@@ -345,7 +348,11 @@ bool vulkan_memory::unmap(const compute_queue& cqueue, void* __attribute__((alig
 		.memory = iter->second.mem,
 	};
 	// NOTE: can't do much more than ignore errors at this point
-	VK_CALL_IGNORE(vkUnmapMemory2KHR(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+	if (device.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+		VK_CALL_IGNORE(vkUnmapMemory2(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+	} else {
+		VK_CALL_IGNORE(vkUnmapMemory2KHR(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+	}
 	
 	// barrier after unmap when using unified memory
 	// TODO: make this actually work

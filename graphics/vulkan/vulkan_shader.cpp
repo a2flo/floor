@@ -272,7 +272,11 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 	if (draw_indexed_entries != nullptr) {
 		for (const auto& entry : *draw_indexed_entries) {
 			const auto vk_idx_buffer = entry.index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
-			vkCmdBindIndexBuffer2KHR(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+			if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+				vkCmdBindIndexBuffer2(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+			} else {
+				vkCmdBindIndexBuffer2KHR(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+			}
 			vkCmdDrawIndexed(encoder->cmd_buffer.cmd_buffer, entry.index_count, entry.instance_count, entry.first_index,
 							 entry.vertex_offset, entry.first_instance);
 		}

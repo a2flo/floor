@@ -74,11 +74,19 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 	if (vk_ctx->is_vulkan_validation_ignored()) {
 		return VK_FALSE; // don't abort
 	}
-	if ((cb_data->messageIdNumber == 181611958 || cb_data->messageIdNumber == 555635515) &&
-		vk_ctx->get_vulkan_vr_context() != nullptr) {
-		// ignore UNASSIGNED-BestPractices-vkCreateDevice-deprecated-extension and
-		// VUID-VkDeviceCreateInfo-pNext-02830 when we're using a VR context
-		return VK_FALSE;
+	if (cb_data != nullptr) {
+		if ((cb_data->messageIdNumber == 181611958 || cb_data->messageIdNumber == 555635515) &&
+			vk_ctx->get_vulkan_vr_context() != nullptr) {
+			// ignore UNASSIGNED-BestPractices-vkCreateDevice-deprecated-extension and
+			// VUID-VkDeviceCreateInfo-pNext-02830 when we're using a VR context
+			return VK_FALSE;
+		}
+		if (cb_data->pMessage && cb_data->messageIdNumber == -628989766 &&
+			strstr(cb_data->pMessage, "VK_KHR_maintenance6") != nullptr) {
+			// ignore warning about deprecated VK_KHR_maintenance6 in Vulkan 1.4,
+			// since we still need to enable it for VK_EXT_descriptor_buffer functionality ...
+			return VK_FALSE;
+		}
 	}
 	
 	string debug_message;
@@ -735,13 +743,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_line_rasterization",
 			"VK_KHR_load_store_op_none",
 			"VK_KHR_maintenance5",
-			"VK_KHR_maintenance6",
 			"VK_KHR_map_memory2",
 			"VK_KHR_push_descriptor",
 			"VK_KHR_shader_expect_assume",
 			"VK_KHR_shader_float_controls2",
 			"VK_KHR_shader_subgroup_rotate",
 			"VK_KHR_vertex_attribute_divisor",
+#if 0
+			// NOTE: ideally, we would filter this out as well (i.e. not enable this extension due to deprecation), but this currently
+			// leads to VkBindDescriptorBufferEmbeddedSamplersInfoEXT/VkSetDescriptorBufferOffsetsInfoEXT not being available ...
+			"VK_KHR_maintenance6",
+#endif
 		};
 		for (const auto& ext : supported_dev_exts) {
 			string ext_name = ext.extensionName;
