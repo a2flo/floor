@@ -211,6 +211,7 @@ public:
 		uint32_t sema_index { ~0u };
 		compute_fence* acquisition_sema { nullptr };
 		compute_fence* present_sema { nullptr };
+		//! NOTE: only valid if the device supports VK_EXT_swapchain_maintenance1
 		VkFence present_fence { nullptr };
 	};
 	

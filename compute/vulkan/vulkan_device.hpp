@@ -142,6 +142,9 @@ public:
 	//! feature support: VK_EXT_nested_command_buffer with all features supported
 	bool nested_cmd_buffers_support { false };
 	
+	//! feature support: VK_EXT_swapchain_maintenance1
+	bool swapchain_maintenance1_support { false };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set

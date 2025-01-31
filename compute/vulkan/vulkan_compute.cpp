@@ -809,17 +809,27 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		
 		// deal with swapchain ext
 		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		bool swapchain_maintenance1_support = false;
 		if (enable_renderer && !screen.x11_forwarding) {
 			if (swapchain_ext_iter == device_extensions_set.end()) {
 				log_error("$ extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 				continue;
 			}
 			
+#if 0 // AMDVLK doesn't support this yet in 2025 ...
 			if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
 				log_error("$ extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 				continue;
 			}
 			device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+#else
+			if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+				log_warn("$ extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+			} else {
+				device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+				swapchain_maintenance1_support = true;
+			}
+#endif
 		} else {
 			if (swapchain_ext_iter != device_extensions_set.end()) {
 				// remove again, since we don't want/need it
@@ -1880,6 +1890,8 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			log_msg("nested cmd buffers are fully supported (max nesting level: $)", nested_cmds_props.maxCommandBufferNestingLevel);
 		}
 		
+		device.swapchain_maintenance1_support = swapchain_maintenance1_support;
+		
 		// descriptor buffer support handling
 		device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);
 		device.desc_buffer_sizes.storage_image = uint32_t(desc_buf_props.storageImageDescriptorSize);
@@ -2429,7 +2441,7 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 	};
 	const VkSwapchainCreateInfoKHR swapchain_create_info {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		.pNext = &swapchain_present_modes_info,
+		.pNext = (screen.render_device->swapchain_maintenance1_support ? &swapchain_present_modes_info : nullptr),
 		.flags = 0,
 		.surface = screen.surface,
 		.minImageCount = swapchain_image_count,
@@ -2701,7 +2713,7 @@ pair<bool, const vulkan_compute::drawable_image_info> vulkan_compute::acquire_ne
 				const auto idx = (next_sema_index + i) % count;
 				
 				if (semas_in_use[idx]) {
-					// in case we wrap around to a previoulsy used "sema_index", we need to ensure that the present has actually finished,
+					// in case we wrap around to a previously used "sema_index", we need to ensure that the present has actually finished,
 					// which usually *should* already be the case when getting here, but we still need to make sure
 					// NOTE: this may actually happen when rendering is too fast
 					const auto fence_status = vkGetFenceStatus(screen.render_device->device, present_fences[idx]);
@@ -2914,7 +2926,7 @@ bool vulkan_compute::queue_present(const compute_queue& dev_queue, const drawabl
 		};
 		const VkPresentInfoKHR present_info {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.pNext = &present_fence_info,
+			.pNext = (((const vulkan_device&)dev_queue.get_device()).swapchain_maintenance1_support ? &present_fence_info : nullptr),
 			.waitSemaphoreCount = (drawable.present_sema ? 1 : 0),
 			.pWaitSemaphores = (drawable.present_sema ? &((vulkan_fence*)drawable.present_sema)->get_vulkan_fence() : nullptr),
 			.swapchainCount = 1,
@@ -2926,6 +2938,24 @@ bool vulkan_compute::queue_present(const compute_queue& dev_queue, const drawabl
 		if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR) {
 			log_error("failed to present: $: $", present_result, vulkan_error_to_string(present_result));
 			return false;
+		}
+		
+		if (!screen.render_device->swapchain_maintenance1_support) {
+			// when VK_EXT_swapchain_maintenance1 is not supported, perform a dummy queue submit to signal "present_fence"
+			// NOTE: this may or may not be correct and properly ordered, but we can't do much else here ...
+			const VkSubmitInfo2 submit_info {
+				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+				.pNext = nullptr,
+				.flags = 0,
+				.waitSemaphoreInfoCount = 0,
+				.pWaitSemaphoreInfos = nullptr,
+				.commandBufferInfoCount = 0,
+				.pCommandBufferInfos = nullptr,
+				.signalSemaphoreInfoCount = 0,
+				.pSignalSemaphoreInfos = nullptr,
+			};
+			VK_CALL_IGNORE(vkQueueSubmit2((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), 1, &submit_info, drawable.present_fence),
+						   "present fence emulation failed")
 		}
 	}
 	
