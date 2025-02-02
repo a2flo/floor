@@ -18,7 +18,7 @@
 
 #include <floor/math/vector_lib.hpp>
 
-// sizeof check
+// sizeof checks
 #define FLOOR_VECTOR_SIZEOF_CHECK(pod_type, prefix, vec_width) \
 static_assert(sizeof(prefix##vec_width) == sizeof(pod_type) * vec_width, "invalid vector size");
 
@@ -26,3 +26,15 @@ FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 1)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 2)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 3)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 4)
+
+// class property checks:
+// * all basic type vectors must be trivially copyable (may safely be copied using memcpy)
+// * all basic type vectors must be in standard-layout (POD)
+#define FLOOR_VECTOR_PROPERTY_CHECK(pod_type, prefix, vec_width) \
+static_assert(std::is_trivially_copyable_v<prefix##vec_width>); \
+static_assert(std::is_standard_layout_v<prefix##vec_width>);
+
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_PROPERTY_CHECK, 1)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_PROPERTY_CHECK, 2)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_PROPERTY_CHECK, 3)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_PROPERTY_CHECK, 4)

@@ -203,18 +203,16 @@ public:
 	, w((scalar_type)0)
 #endif
 	{}
-	
-	//! copy-construct from same vector_type
-	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+
+	//! default copy-construct from same vector_type
+	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept = default;
 	
 	//! copy-construct from same vector_type (pointer)
 	constexpr FLOOR_VECNAME(const vector_type* vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec->, FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
-	//! copy-construct from same vector_type (rvalue)
-	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+	//! default move-construct from same vector_type (rvalue)
+	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept = default;
 	
 	//! construct by specifying each component
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -331,24 +329,34 @@ public:
 	, w(arr[3])
 #endif
 	{}
+
+	//! default copy assignment
+	constexpr vector_type& operator=(const vector_type& vec) noexcept = default;
 	
-	// assignments (note: these also work if scalar_type is a reference)
-	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
+	//! default move assignment
+	constexpr vector_type& operator=(vector_type&& vec) noexcept = default;
+	
+	//! copy assignment with decayed_scalar_type != scalar_type (e.g. scalar_type is a reference)
+	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept
+	requires(!std::is_same_v<FLOOR_VECNAME<decayed_scalar_type>, vector_type>) {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON)
 		return *this;
 	}
 	
-	floor_inline_always constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept {
+	//! move assignment with decayed_scalar_type != scalar_type (e.g. scalar_type is a reference)
+	floor_inline_always constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept
+	requires(!std::is_same_v<FLOOR_VECNAME<decayed_scalar_type>, vector_type>) {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON)
 		return *this;
 	}
-	
+
+	//! assignment from scalar value -> set all components
 	floor_inline_always constexpr vector_type& operator=(const decayed_scalar_type& val) noexcept {
 		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON)
 		return *this;
 	}
 	
-	// assignment from lower types
+	//! assignment from lower vector types
 #if FLOOR_VECTOR_WIDTH >= 3
 	floor_inline_always constexpr vector_type& operator=(const vector2<decayed_scalar_type>& vec) noexcept {
 		x = vec.x;

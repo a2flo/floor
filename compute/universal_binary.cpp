@@ -194,7 +194,7 @@ namespace universal_binary {
 							  filename_hint, cur_size, data_size);
 					return {};
 				}
-				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v4));
+				memcpy(/* ignore non-trivial copy */ (void*)&func_info.static_function_info, data.data(), sizeof(function_info_v4));
 				data = data.subspan(sizeof(function_info_v4));
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
