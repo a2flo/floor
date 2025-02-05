@@ -3,6 +3,7 @@
 	{
 		"type": "CUDA",
 		"sm": [ 5, 0 ],
+		"sm_aa": false,
 		"ptx": [ 8, 0 ],
 		"is_ptx": true,
 		"image_depth_compare_support": false,

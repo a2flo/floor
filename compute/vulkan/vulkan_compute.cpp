@@ -711,7 +711,6 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_fragment_shading_rate",
 			"VK_KHR_ray_query",
 			"VK_KHR_ray_tracing_pipeline",
-			"VK_KHR_workgroup_memory_explicit_layout",
 			"VK_KHR_video_queue",
 			"VK_KHR_video_decode_queue",
 			"VK_KHR_video_encode_queue",
@@ -792,6 +791,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		}
 		
 		// pre checks
+		if (!device_extensions_set.contains(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME)) {
+			log_error("VK_KHR_workgroup_memory_explicit_layout is not supported by $", props.deviceName);
+			continue;
+		}
+		
 		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
 			if (!device_extensions_set.contains(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME)) {
 				log_error("VK_KHR_map_memory2 is not supported by $", props.deviceName);
@@ -895,9 +899,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.pNext = &robustness_features,
 			.fragmentShaderBarycentric = false,
 		};
+		VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR wg_explicit_layout_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR,
+			.pNext = &barycentric_features,
+			.workgroupMemoryExplicitLayout = false,
+			.workgroupMemoryExplicitLayoutScalarBlockLayout = false,
+			.workgroupMemoryExplicitLayout8BitAccess = false,
+			.workgroupMemoryExplicitLayout16BitAccess = false,
+		};
 		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shader_atomic_float_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
-			.pNext = &barycentric_features,
+			.pNext = &wg_explicit_layout_features,
 			.shaderBufferFloat32Atomics = false,
 			.shaderBufferFloat32AtomicAdd = false,
 			.shaderBufferFloat64Atomics = false,
@@ -1407,6 +1419,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			device_extensions_set.count(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) &&
 			!swapchain_maintenance_features.swapchainMaintenance1) {
 			log_error("swapchainMaintenance1 is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		if (!wg_explicit_layout_features.workgroupMemoryExplicitLayout ||
+			!wg_explicit_layout_features.workgroupMemoryExplicitLayoutScalarBlockLayout ||
+			!wg_explicit_layout_features.workgroupMemoryExplicitLayout8BitAccess ||
+			!wg_explicit_layout_features.workgroupMemoryExplicitLayout16BitAccess) {
+			log_error("explicit layout work-group memory is not supported by $", props.deviceName);
 			continue;
 		}
 		

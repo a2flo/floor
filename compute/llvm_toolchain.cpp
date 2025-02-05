@@ -1270,7 +1270,7 @@ program_data compile_input(const string& input,
 			if (validate) {
 				string validator_opts;
 				if (options.target == TARGET::SPIRV_VULKAN) {
-					validator_opts = "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout";
+					validator_opts = "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout --workgroup-scalar-block-layout";
 				} else {
 					assert(options.target == TARGET::SPIRV_OPENCL);
 					const auto& cl_device = (const opencl_device&)device;
