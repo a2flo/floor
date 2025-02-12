@@ -109,6 +109,16 @@ namespace const_math {
 	//! epsilon (for general use)
 	template <typename fp_type = max_fp_type>
 	constexpr fp_type EPSILON = fp_type(0.00001L);
+	//! epsilon for half precision
+	template <> static inline constexpr half EPSILON<half> = 1.0e-2f;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	//! epsilon for double precision
+	template <> static inline constexpr double EPSILON<double> = 1.0e-14;
+#endif
+#if !defined(FLOOR_COMPUTE) || (defined(FLOOR_COMPUTE_HOST) && !defined(FLOOR_COMPUTE_HOST_DEVICE))
+	//! epsilon for long double precision
+	template <> static inline constexpr long double EPSILON<long double> = 1.0e-17L;
+#endif
 }
 
 //! udl to convert any floating-point value into the largest supported one at compile-time

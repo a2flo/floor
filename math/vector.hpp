@@ -1141,14 +1141,33 @@ public:
 		return (vec - *this).dot();
 	}
 	
-	//! returns the angle between this vector and another vector
+	//! returns the angle (in [0, pi]) between this vector and another vector
 	constexpr scalar_type angle(const vector_type& vec) const {
 		// if either vector is 0, there is no angle -> return 0
-		if(is_null() || vec.is_null()) return (scalar_type)0;
-		
+		if (is_null() || vec.is_null()) {
+			return (scalar_type)0;
+		}
 		// acos(<x, y> / ||x||*||y||)
 		return vector_helper<decayed_scalar_type>::acos(this->dot(vec) / (length() * vec.length()));
 	}
+	
+	//! returns the angle (in [0, pi]) between this vector and another vector
+	//! ref: https://people.eecs.berkeley.edu/~wkahan/Mindless.pdf
+	//! NOTE: according to Kahan, this is has better numeric stability than the acos variant used in angle(), but has a higher computational cost
+	constexpr scalar_type angle_kahan(const vector_type& vec) const {
+		const auto this_len = length();
+		const auto vec_len = vec.length();
+		return scalar_type(2) * vector_helper<decayed_scalar_type>::atan2((vec_len * *this - this_len * vec).length(),
+																		  (vec_len * *this + this_len * vec).length());
+	}
+	
+#if FLOOR_VECTOR_WIDTH == 3
+	//! returns the angle (in [-pi, pi]) between this vector and another vector around the specified axis
+	//! NOTE: axis must be normalized!
+	constexpr scalar_type angle_around_axis(const vector_type& vec, const vector_type& axis) const {
+		return vector_helper<decayed_scalar_type>::atan2(this->crossed(vec).dot(axis), this->dot(vec));
+	}
+#endif
 	
 	//! normalizes this vector / returns a normalized vector of this vector
 	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"

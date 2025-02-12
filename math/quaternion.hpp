@@ -481,7 +481,7 @@ FLOOR_POP_WARNINGS()
 	
 	//! creates a quaternion according to the necessary rotation to get from vector "from" to vector "to"
 	static constexpr quaternion rotation_from_to_vector(const vector3<scalar_type>& from, const vector3<scalar_type>& to) {
-		return rotation(from.angle(to), from.crossed(to).normalize());
+		return rotation(from.angle_kahan(to), from.crossed(to).normalize());
 	}
 	
 	//! creates a quaternion according to the necessary rotation to get from quaternion "from" to quaternion "to",
