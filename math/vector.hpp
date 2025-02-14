@@ -1153,7 +1153,7 @@ public:
 	
 	//! returns the angle (in [0, pi]) between this vector and another vector
 	//! ref: https://people.eecs.berkeley.edu/~wkahan/Mindless.pdf
-	//! NOTE: according to Kahan, this is has better numeric stability than the acos variant used in angle(), but has a higher computational cost
+	//! NOTE: according to Kahan, this has better numeric stability than the acos variant used in angle(), but has a higher computational cost
 	constexpr scalar_type angle_kahan(const vector_type& vec) const {
 		const auto this_len = length();
 		const auto vec_len = vec.length();
