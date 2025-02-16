@@ -1008,6 +1008,11 @@ program_data compile_input(const string& input,
 		clang_cmd += " -DFLOOR_COMPUTE_PARAM_WORKAROUND=1";
 	}
 	
+	// handle assert support
+	const auto assert_str = to_string(options.enable_assert);
+	clang_cmd += " -DFLOOR_ASSERT=" + assert_str;
+	clang_cmd += " -DFLOOR_ASSERT_" + assert_str;
+	
 	// floor function info
 	string function_info_file_name;
 	if (!build_pch) {

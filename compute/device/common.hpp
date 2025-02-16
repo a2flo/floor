@@ -34,7 +34,7 @@
 #define _LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS 1
 #define _LIBCPP_HAS_NO_ALIGNED_ALLOCATION 1
 #define _LIBCPP_HAS_NO_PLATFORM_WAIT 1
-#define assert(...)
+#define assert(expr) __builtin_expect(!(expr), 0)
 #endif
 
 // compute implementation specific headers (pre-std headers)
@@ -441,7 +441,7 @@ template <typename data_type, size_t array_size> using array_param = const globa
 #include <floor/compute/device/cuda_image.hpp>
 #elif defined(FLOOR_COMPUTE_OPENCL)
 #include <floor/compute/device/opencl_image.hpp>
-#elif  defined(FLOOR_COMPUTE_VULKAN)
+#elif defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/vulkan_image.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_image.hpp>
@@ -478,6 +478,44 @@ template <typename data_type, size_t array_size> using array_param = const globa
 #define barycentric_coord get_barycentric_coord()
 #define patch_id get_patch_id()
 #define position_in_patch get_position_in_patch()
+#endif
+
+// enable assert support at the end of everything
+// NOTE: we don't want this to be enabled for any STL or other libfloor code
+#if defined(FLOOR_ASSERT) && FLOOR_ASSERT
+#if defined(FLOOR_COMPUTE_CUDA)
+// can just call PTX exit
+void floor_exit() __attribute__((noreturn)) {
+	asm volatile("exit;");
+}
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_OPENCL)
+// must be handled on the compiler side
+void floor_exit() __attribute__((noreturn)) asm("floor.exit");
+#elif defined(FLOOR_COMPUTE_HOST)
+// make this debuggable
+#define floor_exit() __builtin_debugtrap()
+#endif
+
+#undef assert // undef previous
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_HOST_DEVICE)
+// we have no printf string argument support with soft-printf yet (TODO: update this once implemented)
+#define assert(expr) \
+	do { \
+		if (__builtin_expect(!(expr), 0)) { \
+			print("assert in " __FILE_NAME__ ":$", __LINE__); \
+			floor_exit(); \
+		} \
+	} while (false)
+#else // CUDA/OpenCL
+#define assert(expr) \
+	do { \
+		if (__builtin_expect(!(expr), 0)) { \
+			print("assert in " __FILE_NAME__ ":$: $", __LINE__, #expr); \
+			floor_exit(); \
+		} \
+	} while (false)
+#endif
+
 #endif
 
 #endif

@@ -240,6 +240,11 @@ namespace llvm_toolchain {
 		//! when building a FUBAR archive: compress all binary data in the archive?
 		bool compress_binaries { false };
 		
+		//! if true, enables C assert() functionality,
+		//! i.e. if an assertion doesn't hold true, the shader/kernel is exited and an error is printed
+		//! NOTE: printing requires soft-printf to be enabled on Metal and Vulkan
+		bool enable_assert { false };
+		
 		//! debug options
 		struct {
 			//! if true, enables the emission of target dependent debug info,
