@@ -229,6 +229,35 @@ namespace rt_math {
 		return (val % max);
 	}
 	
+	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	//! ref: https://www.desmos.com/calculator/b4xbbrsqmy
+	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
+	static floor_inline_always fp_type shmwrap(const fp_type val, const fp_type max, const fp_type gap) {
+		const auto uval = (val < fp_type(0) ? max - val : val);
+		const auto side = int((uval - max) / (max - gap)) % 2;
+		const auto shval = (fmod(uval - max, max - gap) + gap) * (side ? fp_type(1) : fp_type(-1)) + max * (side ? fp_type(0) : fp_type(1));
+		return (val < fp_type(0) ? max - shval : (val < max ? val : shval));
+	}
+	
+	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	static floor_inline_always int_type shmwrap(const int_type val, const int_type max, const int_type gap) {
+		const auto uval = (val < int_type(0) ? max - val : val);
+		const auto side = int((uval - max) / (max - gap)) % 2;
+		const auto shval = (((uval - max) % (max - gap)) + gap) * (side ? int_type(1) : int_type(-1)) + max * (side ? int_type(0) : int_type(1));
+		return (val < int_type(0) ? int_type(max - shval) : (val < max ? val : int_type(shval)));
+	}
+	
+	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
+	static floor_inline_always uint_type shmwrap(const uint_type val, const uint_type max, const uint_type gap) {
+		using signed_type = ext::signed_eqv_t<uint_type>;
+		return uint_type(rt_math::shmwrap(signed_type(val), signed_type(max), signed_type(gap)));
+	}
+	
 	//! returns the fractional part of val
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type fractional(const fp_type& val) {

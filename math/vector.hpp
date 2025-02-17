@@ -907,7 +907,6 @@ public:
 	
 	//! mirrored/alternating wrapping of all components of this vector around/to [0, max],
 	//! i.e. creating a triangle/zigzag signal from a linear input
-	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	FLOOR_VEC_FUNC_ARGS(math::mwrap, mwrap, mwrapped,
 						(const scalar_type& max),
 						max)
@@ -918,6 +917,13 @@ public:
 	FLOOR_VEC_FUNC_ARGS(math::mswrap, mswrap, mswrapped,
 						(const scalar_type& max),
 						max)
+	
+	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	//! ref: https://www.desmos.com/calculator/b4xbbrsqmy
+	FLOOR_VEC_FUNC_ARGS(math::shmwrap, shmwrap, shmwrapped,
+						(const scalar_type& max, const scalar_type& gap),
+						max, gap)
 	
 	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type& wrap(const vector_type& max) {
@@ -961,7 +967,6 @@ public:
 	
 	//! mirrored/alternating wrapping of all components of this vector around/to [0, max],
 	//! i.e. creating a triangle/zigzag signal from a linear input
-	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	constexpr vector_type& mwrap(const vector_type& max) {
 		x = math::mwrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -977,7 +982,6 @@ public:
 	}
 	//! signed mirrored/alternating wrapping of all components of this vector around/to [0, max],
 	//! i.e. creating a triangle/zigzag signal from a linear input
-	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	constexpr vector_type mwrapped(const vector_type& max) const {
 		return vector_type(*this).mwrap(max);
 	}
@@ -1003,6 +1007,27 @@ public:
 	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	constexpr vector_type mswrapped(const vector_type& max) const {
 		return vector_type(*this).mswrap(max);
+	}
+	
+	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	constexpr vector_type& shmwrap(const vector_type& max, const vector_type& gap) {
+		x = math::shmwrap(x, max.x, gap.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = math::shmwrap(y, max.y, gap.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = math::shmwrap(z, max.z, gap.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = math::shmwrap(w, max.w, gap.w);
+#endif
+		return *this;
+	}
+	//! shingled signed mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
+	constexpr vector_type shmwrapped(const vector_type& max, const vector_type& gap) const {
+		return vector_type(*this).shmwrap(max, gap);
 	}
 	
 	//! rounds the components of this vector to next multiple of "multiple"
