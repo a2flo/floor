@@ -242,7 +242,7 @@ namespace llvm_toolchain {
 		
 		//! if true, enables C assert() functionality,
 		//! i.e. if an assertion doesn't hold true, the shader/kernel is exited and an error is printed
-		//! NOTE: printing requires soft-printf to be enabled on Metal and Vulkan
+		//! NOTE: printing requires soft-printf to be enabled on Metal/Vulkan/Host-Compute
 		bool enable_assert { false };
 		
 		//! debug options
