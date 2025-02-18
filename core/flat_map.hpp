@@ -199,7 +199,7 @@ public:
 		if(iter != end()) {
 			return { iter, false };
 		}
-		return { data.emplace(end(), std::move(key), std::move(value)), true };
+		return { data.emplace(end(), std::forward<empl_key_type>(key), std::forward<empl_value_type>(value)), true };
 	}
 	
 	//! erases the <key, value> pair at 'iter',
