@@ -115,13 +115,13 @@ namespace rt_math {
 		return min(max(val, (arithmetic_type)0), max_);
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
-		return (val < (fp_type)0 ? (max - fmod(abs(val), max)) : fmod(val, max));
+		return (val < fp_type(0) ? (max - fmod(abs(val), max)) : fmod(val, max));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename int_type>
 	requires(ext::is_integral_v<int_type> &&
 			 ext::is_signed_v<int_type> &&
@@ -132,35 +132,58 @@ namespace rt_math {
 #else // still want native 8-bit/16-bit abs calls on compute platforms
 		using cast_int_type = int_type;
 #endif
-		return (val < (int_type)0 ? (max - (std::abs(cast_int_type(val)) % max)) : (val % max));
+		return (val < int_type(0) ? (max - ((std::abs(cast_int_type(val)) + max - int_type(1)) % max) - int_type(1)) : (val % max));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename int_type> requires(is_same_v<int_type, __int128_t>)
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 		// no std::abs or __builtin_abs for __int128_t
 		return (val < (int_type)0 ? (max - ((val < (int_type)0 ? -val : val) % max)) : (val % max));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
 	
-	//! signed wrapping of val to the range [-max, max]
+	//! signed wrapping of val to the range [-max, max)
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type swrap(const fp_type val, const fp_type max) {
 		return rt_math::wrap(val + max, fp_type(2) * max) - max;
 	}
 	
-	//! signed wrapping of val to the range [-max, max]
-	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
+	//! signed wrapping of val to the range [-max, max)
+	template <typename int_type>
+	requires(ext::is_integral_v<int_type> &&
+			 ext::is_signed_v<int_type> &&
+			 !is_same_v<int_type, __int128_t>)
 	static floor_inline_always int_type swrap(const int_type val, const int_type max) {
-		return int_type(rt_math::wrap(val + max, int_type(2) * max)) - max;
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
+		using cast_int_type = conditional_t<sizeof(int_type) < 4, int32_t, int_type>;
+#else // still want native 8-bit/16-bit abs calls on compute platforms
+		using cast_int_type = int_type;
+#endif
+		const auto dbl_max = int_type(2) * max;
+		return int_type((val < int_type(0) ?
+						 (dbl_max - (std::abs(cast_int_type(val) - cast_int_type(max) + cast_int_type(1)) % dbl_max) - int_type(1)) :
+						 ((val + max) % dbl_max)) - max);
+	}
+	
+	//! signed wrapping of val to the range [-max, max)
+	template <typename int_type> requires(is_same_v<int_type, __int128_t>)
+	static floor_inline_always constexpr int_type swrap(const int_type val, const int_type max) {
+		// no std::abs or __builtin_abs for __int128_t
+		const auto dbl_max = int_type(2) * max;
+		auto abs_inner = val - max + int_type(1);
+		abs_inner = (abs_inner < int_type(0) ? -abs_inner : abs_inner);
+		return int_type((val < int_type(0) ?
+						 (dbl_max - (abs_inner % dbl_max) - int_type(1)) :
+						 ((val + max) % dbl_max)) - max);
 	}
 
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	//! NOTE: only exists for completeness, no actual purposes
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	static floor_inline_always uint_type swrap(const uint_type val, const uint_type max) {
@@ -229,7 +252,7 @@ namespace rt_math {
 		return (val % max);
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	//! ref: https://www.desmos.com/calculator/b4xbbrsqmy
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
@@ -240,7 +263,7 @@ namespace rt_math {
 		return (val < fp_type(0) ? max - shval : (val < max ? val : shval));
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
 	static floor_inline_always int_type shmwrap(const int_type val, const int_type max, const int_type gap) {
@@ -250,7 +273,7 @@ namespace rt_math {
 		return (val < int_type(0) ? int_type(max - shval) : (val < max ? val : int_type(shval)));
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	static floor_inline_always uint_type shmwrap(const uint_type val, const uint_type max, const uint_type gap) {

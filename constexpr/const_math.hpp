@@ -857,39 +857,42 @@ namespace const_math {
 		return (val > max ? max : (val < (arithmetic_type)0 ? (arithmetic_type)0 : val));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type wrap(const fp_type val, const fp_type max) {
-		return (val < (fp_type)0 ?
+		return (val < fp_type(0) ?
 				(max - const_math::fmod(const_math::abs(val), max)) :
 				const_math::fmod(val, max));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
 	constexpr int_type wrap(const int_type val, const int_type max) {
-		return (val < (int_type)0 ? (max - (const_math::abs(val) % max)) : (val % max));
+		return (val < int_type(0) ? (max - ((const_math::abs(val) + max - int_type(1)) % max) - int_type(1)) : (val % max));
 	}
 	
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	constexpr uint_type wrap(const uint_type val, const uint_type max) {
 		return (val % max);
 	}
 	
-	//! signed wrapping of val to the range [-max, max]
+	//! signed wrapping of val to the range [-max, max)
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type swrap(const fp_type val, const fp_type max) {
 		return const_math::wrap(val + max, fp_type(2) * max) - max;
 	}
 	
-	//! signed wrapping of val to the range [-max, max]
+	//! signed wrapping of val to the range [-max, max)
 	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
 	constexpr int_type swrap(const int_type val, const int_type max) {
-		return int_type(const_math::wrap(val + max, int_type(2) * max)) - max;
+		const auto dbl_max = int_type(2) * max;
+		return int_type((val < int_type(0) ?
+						 (dbl_max - (const_math::abs(val - max + int_type(1)) % dbl_max) - int_type(1)) :
+						 ((val + max) % dbl_max)) - max);
 	}
 
-	//! wraps val to the range [0, max]
+	//! wraps val to the range [0, max)
 	//! NOTE: only exists for completeness, no actual purposes
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	constexpr uint_type swrap(const uint_type val, const uint_type max) {
@@ -942,7 +945,7 @@ namespace const_math {
 		return (val % max);
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	//! ref: https://www.desmos.com/calculator/b4xbbrsqmy
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
@@ -953,7 +956,7 @@ namespace const_math {
 		return (val < fp_type(0) ? max - shval : (val < max ? val : shval));
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	template <typename int_type> requires (ext::is_integral_v<int_type> && ext::is_signed_v<int_type>)
 	constexpr int_type shmwrap(const int_type val, const int_type max, const int_type gap) {
@@ -963,7 +966,7 @@ namespace const_math {
 		return (val < int_type(0) ? int_type(max - shval) : (val < max ? val : int_type(shval)));
 	}
 	
-	//! shingled mirrored/alternating wrapping of val to the range [0, max],
+	//! shingled mirrored/alternating wrapping of val to the range [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	template <typename uint_type> requires(ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>)
 	constexpr uint_type shmwrap(const uint_type val, const uint_type max, const uint_type gap) {

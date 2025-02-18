@@ -894,13 +894,13 @@ public:
 		return vector_type(*this).clamp(max);
 	}
 	
-	//! wraps all components of this vector around/to [0, max]
+	//! wraps all components of this vector around/to [0, max)
 	FLOOR_VEC_FUNC_ARGS(math::wrap, wrap, wrapped,
 						(const scalar_type& max),
 						max)
 	
-	//! signed wrapping of all components of this vector around/to [-max, max]
-	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	//! signed wrapping of all components of this vector around/to [-max, max)
+	//! NOTE: for unsigned types, this wraps around/to [0, max)
 	FLOOR_VEC_FUNC_ARGS(math::swrap, swrap, swrapped,
 						(const scalar_type& max),
 						max)
@@ -918,14 +918,14 @@ public:
 						(const scalar_type& max),
 						max)
 	
-	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	//! ref: https://www.desmos.com/calculator/b4xbbrsqmy
 	FLOOR_VEC_FUNC_ARGS(math::shmwrap, shmwrap, shmwrapped,
 						(const scalar_type& max, const scalar_type& gap),
 						max, gap)
 	
-	//! wraps all components of this vector around/to [0, max]
+	//! wraps all components of this vector around/to [0, max)
 	constexpr vector_type& wrap(const vector_type& max) {
 		x = math::wrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -939,13 +939,13 @@ public:
 #endif
 		return *this;
 	}
-	//! wraps all components of this vector around/to [0, max]
+	//! wraps all components of this vector around/to [0, max)
 	constexpr vector_type wrapped(const vector_type& max) const {
 		return vector_type(*this).wrap(max);
 	}
 	
-	//! signed wrapping of all components of this vector around/to [-max, max]
-	//! NOTE: for unsigned types, this wraps around/to [0, max]
+	//! signed wrapping of all components of this vector around/to [-max, max)
+	//! NOTE: for unsigned types, this wraps around/to [0, max)
 	constexpr vector_type& swrap(const vector_type& max) {
 		x = math::swrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -959,7 +959,7 @@ public:
 #endif
 		return *this;
 	}
-	//! signed wrapping of all components of this vector around/to [-max, max]
+	//! signed wrapping of all components of this vector around/to [-max, max)
 	//! NOTE: for unsigned types, this wraps around/to [0, max]
 	constexpr vector_type swrapped(const vector_type& max) const {
 		return vector_type(*this).swrap(max);
@@ -1009,7 +1009,7 @@ public:
 		return vector_type(*this).mswrap(max);
 	}
 	
-	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! shingled mirrored/alternating wrapping of all components of this vector around/to [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	constexpr vector_type& shmwrap(const vector_type& max, const vector_type& gap) {
 		x = math::shmwrap(x, max.x, gap.x);
@@ -1024,7 +1024,7 @@ public:
 #endif
 		return *this;
 	}
-	//! shingled signed mirrored/alternating wrapping of all components of this vector around/to [0, max],
+	//! shingled signed mirrored/alternating wrapping of all components of this vector around/to [0, max),
 	//! i.e. creating a triangle/zigzag signal from a linear input with Y-gaps in repeats
 	constexpr vector_type shmwrapped(const vector_type& max, const vector_type& gap) const {
 		return vector_type(*this).shmwrap(max, gap);
