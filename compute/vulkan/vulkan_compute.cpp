@@ -2000,7 +2000,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 	for (auto& dev : devices) {
 		auto default_queue = create_queue(*dev);
 		default_queue->set_debug_label("default_queue");
-		default_queues.insert(*dev, default_queue);
+		default_queues.emplace(dev.get(), default_queue);
 		
 		auto& vk_dev = (vulkan_device&)*dev;
 		
@@ -2008,7 +2008,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		if (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index) {
 			auto default_compute_queue = create_compute_queue(*dev);
 			default_compute_queue->set_debug_label("default_compute_queue");
-			default_compute_queues.insert(*dev, default_compute_queue);
+			default_compute_queues.emplace(dev.get(), default_compute_queue);
 		}
 		
 		// reset idx to 0 so that the first user request gets the same queue
@@ -3025,8 +3025,8 @@ shared_ptr<compute_queue> vulkan_compute::create_compute_queue(const compute_dev
 }
 
 const compute_queue* vulkan_compute::get_device_default_queue(const compute_device& dev) const {
-	for (const auto& default_queue : default_queues) {
-		if (default_queue.first.get() == dev) {
+	for (auto&& default_queue : default_queues) {
+		if (default_queue.first == &dev) {
 			return default_queue.second.get();
 		}
 	}
@@ -3042,8 +3042,8 @@ const compute_queue* vulkan_compute::get_device_default_compute_queue(const comp
 		return get_device_default_queue(dev);
 	}
 	
-	for (const auto& default_queue : default_compute_queues) {
-		if (default_queue.first.get() == dev) {
+	for (auto&& default_queue : default_compute_queues) {
+		if (default_queue.first == &dev) {
 			return default_queue.second.get();
 		}
 	}
@@ -3126,9 +3126,8 @@ shared_ptr<compute_program> vulkan_compute::create_program_from_archive_binaries
 																				 const string& identifier) {
 	// create the program
 	vulkan_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& vlk_dev = (const vulkan_device&)*devices[i];
+		const auto vlk_dev = (const vulkan_device*)devices[i].get();
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		
@@ -3138,7 +3137,7 @@ shared_ptr<compute_program> vulkan_compute::create_program_from_archive_binaries
 		if(!container.valid) return {}; // already prints an error
 		
 		prog_map.insert_or_assign(vlk_dev,
-								  create_vulkan_program_internal(vlk_dev, container, func_info, identifier));
+								  create_vulkan_program_internal(*vlk_dev, container, func_info, identifier));
 	}
 	return add_program(std::move(prog_map));
 }
@@ -3182,10 +3181,9 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 															 compile_options options) {
 	// compile the source file for all devices in the context
 	vulkan_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const vulkan_device&)*dev,
+		prog_map.insert_or_assign((const vulkan_device*)dev.get(),
 								  create_vulkan_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(std::move(prog_map));
@@ -3201,10 +3199,9 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 															   compile_options options) {
 	// compile the source code for all devices in the context
 	vulkan_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const vulkan_device&)*dev,
+		prog_map.insert_or_assign((const vulkan_device*)dev.get(),
 								  create_vulkan_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(std::move(prog_map));
@@ -3280,7 +3277,6 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 	
 	// assume pre-compiled program is the same for all devices
 	vulkan_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		vulkan_program::vulkan_program_entry entry;
 		entry.functions = functions;
@@ -3293,7 +3289,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		entry.programs.emplace_back(module);
 		entry.valid = true;
 		
-		prog_map.insert_or_assign((const vulkan_device&)*dev, entry);
+		prog_map.insert_or_assign((const vulkan_device*)dev.get(), entry);
 	}
 	return add_program(std::move(prog_map));
 }

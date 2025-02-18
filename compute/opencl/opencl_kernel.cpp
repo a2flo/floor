@@ -31,7 +31,7 @@ compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue& queue) const {
-	return kernels.find((const opencl_device&)queue.get_device());
+	return kernels.find((const opencl_device*)&queue.get_device());
 }
 
 void opencl_kernel::execute(const compute_queue& cqueue,
@@ -185,8 +185,10 @@ void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, 
 }
 
 const compute_kernel::kernel_entry* opencl_kernel::get_kernel_entry(const compute_device& dev) const {
-	const auto ret = kernels.get((const opencl_device&)dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = kernels.find((const opencl_device*)&dev); iter != kernels.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 #endif

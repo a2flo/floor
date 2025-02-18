@@ -172,12 +172,14 @@ void metal_kernel::execute(const compute_queue& cqueue,
 }
 
 typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(const compute_queue& cqueue) const {
-	return kernels.find((const metal_device&)cqueue.get_device());
+	return kernels.find((const metal_device*)&cqueue.get_device());
 }
 
 const compute_kernel::kernel_entry* metal_kernel::get_kernel_entry(const compute_device& dev) const {
-	const auto ret = kernels.get((const metal_device&)dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = kernels.find((const metal_device*)&dev); iter != kernels.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const compute_queue& cqueue,

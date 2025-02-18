@@ -106,7 +106,7 @@ indirect_command_pipeline(desc_) {
 			entry.icb.label = (desc.debug_label.empty() ? @"metal_icb" :
 							   [NSString stringWithUTF8String:(desc.debug_label).c_str()]);
 			
-			pipelines.emplace_or_assign(*dev, std::move(entry));
+			pipelines.insert_or_assign(dev.get(), std::move(entry));
 		}
 	}
 }
@@ -115,13 +115,17 @@ metal_indirect_command_pipeline::~metal_indirect_command_pipeline() {
 }
 
 const metal_indirect_command_pipeline::metal_pipeline_entry* metal_indirect_command_pipeline::get_metal_pipeline_entry(const compute_device& dev) const {
-	const auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 metal_indirect_command_pipeline::metal_pipeline_entry* metal_indirect_command_pipeline::get_metal_pipeline_entry(const compute_device& dev) {
-	auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 indirect_render_command_encoder& metal_indirect_command_pipeline::add_render_command(const compute_device& dev,
@@ -175,7 +179,7 @@ void metal_indirect_command_pipeline::complete(const compute_device& dev) {
 
 void metal_indirect_command_pipeline::complete() {
 	for (auto& pipeline : pipelines) {
-		complete_pipeline(pipeline.first, pipeline.second);
+		complete_pipeline(*pipeline.first, pipeline.second);
 	}
 }
 

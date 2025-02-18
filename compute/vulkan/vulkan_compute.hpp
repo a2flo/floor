@@ -344,8 +344,8 @@ protected:
 	vector<VkPhysicalDevice> physical_devices;
 	vector<VkDevice> logical_devices;
 	
-	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
-	floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_compute_queues;
+	floor_core::flat_map<const compute_device*, shared_ptr<compute_queue>> default_queues;
+	floor_core::flat_map<const compute_device*, shared_ptr<compute_queue>> default_compute_queues;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_3 };
 	

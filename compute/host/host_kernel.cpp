@@ -573,14 +573,15 @@ compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 const host_kernel::kernel_entry* host_kernel::get_kernel_entry(const compute_device& dev) const {
 	if (kernel != nullptr) {
 		return &entry; // can't really check if the device is correct here
-	} else {
-		const auto ret = kernels.get((const host_device&)dev);
-		return !ret.first ? nullptr : &ret.second->second;
 	}
+	if (const auto iter = kernels.find((const host_device*)&dev); iter != kernels.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 typename host_kernel::kernel_map_type::const_iterator host_kernel::get_kernel(const compute_queue& cqueue) const {
-	return kernels.find((const host_device&)cqueue.get_device());
+	return kernels.find((const host_device*)&cqueue.get_device());
 }
 
 FLOOR_PUSH_WARNINGS()

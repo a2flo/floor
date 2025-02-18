@@ -40,8 +40,6 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 		kernels.reserve(kernel_names.size());
 		for(const auto& kernel_name : kernel_names) {
 			metal_kernel::kernel_map_type kernel_map;
-			kernel_map.reserve(kernel_names.size());
-			
 			bool is_kernel = true;
 			for(auto& prog : programs) {
 				if(!prog.second.valid) continue;
@@ -49,7 +47,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 					if(info.name == kernel_name) {
 						metal_kernel::metal_kernel_entry entry;
 						entry.info = &info;
-						entry.max_local_size = prog.first.get().max_local_size;
+						entry.max_local_size = prog.first->max_local_size;
 						if (entry.info->type != llvm_toolchain::FUNCTION_TYPE::KERNEL) {
 							is_kernel = false;
 						}
@@ -62,7 +60,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 						}
 						id <MTLFunction> func = [prog.second.program newFunctionWithName:floor_force_nonnull(func_name)];
 						if(!func) {
-							log_error("failed to get function \"$\" for device \"$\"", info.name, prog.first.get().name);
+							log_error("failed to get function \"$\" for device \"$\"", info.name, prog.first->name);
 							continue;
 						}
 						
@@ -114,14 +112,14 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 																											 error:&err];
 							}
 							if (!kernel_state) {
-								log_error("failed to create kernel state \"$\" for device \"$\": $", info.name, prog.first.get().name,
+								log_error("failed to create kernel state \"$\" for device \"$\": $", info.name, prog.first->name,
 										  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 								continue;
 							}
 							supports_indirect_compute = [kernel_state supportIndirectCommandBuffers];
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 							log_debug("$ ($): max work-items: $, simd width: $, local mem: $",
-									  info.name, prog.first.get().name,
+									  info.name, prog.first->name,
 									  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);
 #endif
 						}
@@ -134,7 +132,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 						if(kernel_state != nil) {
 							entry.max_total_local_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
 						}
-						kernel_map.insert_or_assign(prog.first.get(), entry);
+						kernel_map.insert_or_assign(prog.first, entry);
 						break;
 					}
 				}

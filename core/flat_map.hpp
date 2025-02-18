@@ -18,15 +18,23 @@
 
 #pragma once
 
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION >= 200100)
+#include <flat_map>
+#else
 #include <functional>
 #include <algorithm>
 #include <vector>
 #include <exception>
 #include <string>
 using namespace std;
+#endif
 
 namespace floor_core {
 
+// make use of std::flat_map when available (libc++ 20.1+)
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION >= 200100)
+template <typename key_type, typename value_type> using flat_map = std::flat_map<key_type, value_type>;
+#else // otherwise use our implementation
 //! simple <key, value> map backed by a vector stored contiguously in memory (hence flat map),
 //! technically O(n) lookup and insert, but usually faster than unordered_map or map for small maps
 template <typename key_type, typename value_type> class flat_map {
@@ -151,60 +159,47 @@ public:
 		return iter->second;
 	}
 	
-	//! returns a <found flag, iterator> pair, returning <true, iterator to <key, value>> if 'key' was found,
-	//! and <false, end()> if 'key' was not found (will not modify this object)
-	pair<bool, iterator> get(const key_type& key) {
-		const auto iter = find(key);
-		return { iter != end(), iter };
-	}
-	
-	//! returns a <found flag, const_iterator> pair, returning <true, const_iterator to <key, value>> if 'key' was found,
-	//! and <false, end()> if 'key' was not found
-	pair<bool, const_iterator> get(const key_type& key) const {
-		const auto iter = find(key);
-		return { iter != end(), iter };
-	}
-	
 	//! inserts a new <key, value> pair if no entry for 'key' exists yet, or replaces the current <key, value> entry if it does,
-	//! returns an iterator to the <key, value> pair
-	iterator insert_or_assign(const key_type& key, const value_type& value) {
+	//! returns an iterator to the <key, value> pair, as well as a bool signaling whether insertion (true) or assignment (false) took place
+	pair<iterator, bool> insert_or_assign(const key_type& key, const value_type& value) {
 		auto iter = find(key);
 		if(iter != end()) {
 			iter->second = value;
-			return iter;
+			return { iter, false };
 		}
-		return data.emplace(end(), key, value);
-	}
-	
-	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<true, iterator to it>,
-	//! or returns pair<false, iterator to the current <key, value> entry> if it already exists
-	pair<bool, iterator> insert(const key_type& key, const value_type& value) {
-		auto iter = find(key);
-		if(iter != end()) {
-			return { false, iter };
-		}
-		return { true, data.emplace(end(), key, value) };
-	}
-	
-	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<true, iterator to it>,
-	//! or returns pair<false, iterator to the current <key, value> entry> if it already exists
-	pair<bool, iterator> emplace(key_type&& key, value_type&& value) {
-		auto iter = find(key);
-		if(iter != end()) {
-			return { false, iter };
-		}
-		return { true, data.emplace(end(), std::move(key), std::move(value)) };
+		return { data.emplace(end(), key, value), true };
 	}
 	
 	//! inserts a new <key, value> pair if no entry for 'key' exists yet, or replaces the current <key, value> entry if it does,
-	//! returns an iterator to the <key, value> pair
-	iterator emplace_or_assign(key_type&& key, value_type&& value) {
+	//! returns an iterator to the <key, value> pair, as well as a bool signaling whether insertion (true) or assignment (false) took place
+	pair<iterator, bool> insert_or_assign(const key_type& key, value_type&& value) {
+		auto iter = find(key);
+		if (iter != end()) {
+			iter->second = std::move(value);
+			return { iter, false };
+		}
+		return { data.emplace(end(), key, std::forward<value_type>(value)), true };
+	}
+	
+	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<iterator to it, true>,
+	//! or returns pair<iterator to the current <key, value> entry, false> if it already exists
+	pair<iterator, bool> insert(const key_type& key, const value_type& value) {
 		auto iter = find(key);
 		if(iter != end()) {
-			iter->second = std::move(value);
-			return iter;
+			return { iter, false };
 		}
-		return data.emplace(end(), std::forward<key_type>(key), std::forward<value_type>(value));
+		return { data.emplace(end(), key, value), true };
+	}
+	
+	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<iterator to it, true>,
+	//! or returns pair<iterator to the current <key, value> entry, false> if it already exists
+	template <typename empl_key_type, typename empl_value_type>
+	pair<iterator, bool> emplace(empl_key_type&& key, empl_value_type&& value) {
+		auto iter = find(key);
+		if(iter != end()) {
+			return { iter, false };
+		}
+		return { data.emplace(end(), std::move(key), std::move(value)), true };
 	}
 	
 	//! erases the <key, value> pair at 'iter',
@@ -219,14 +214,14 @@ public:
 		return data.erase(first, last);
 	}
 	
-	//! erases the <key, value> pair for the specified 'key', returns a <erased flag, iterator> pair set to
-	//! <true, next entry> if 'key' was found, and <false, end()> if key was not found
-	pair<bool, iterator> erase(const key_type& key) {
+	//! erases the <key, value> pair for the specified 'key', returns the number of erased <key, value> entries
+	size_t erase(const key_type& key) {
 		const auto iter = find(key);
-		if(iter != end()) {
-			return { true, data.erase(iter) };
+		if (iter != end()) {
+			data.erase(iter);
+			return 1uz;
 		}
-		return { false, end() };
+		return 0uz;
 	}
 	
 	//! returns an iterator to the <key, value> pair corresponding to 'key', returns end() if not found
@@ -264,8 +259,8 @@ public:
 	auto size() const { return data.size(); }
 	auto empty() const { return data.empty(); }
 	auto clear() { data.clear(); }
-	void reserve(const size_t& count) { data.reserve(count); }
 	
 };
+#endif
 
 } // namespace floor_core

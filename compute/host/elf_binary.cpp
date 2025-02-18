@@ -1100,7 +1100,7 @@ bool elf_binary::instantiate(const uint32_t instance_idx) {
 		if (&info->sections[sym.symbol_ptr->section_header_table_index] != exec_sections[0].first) {
 			continue;
 		}
-		ext_instance.functions.insert(sym.name, instance.exec_memory.get() + sym.symbol_ptr->value);
+		ext_instance.functions.emplace(string(sym.name), instance.exec_memory.get() + sym.symbol_ptr->value);
 	}
 	
 	// perform relocation

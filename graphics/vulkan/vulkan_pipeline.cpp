@@ -379,7 +379,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			}
 		}
 		
-		pipelines.insert_or_assign(*dev, entry);
+		pipelines.insert_or_assign(dev.get(), entry);
 	}
 	
 	// success
@@ -393,14 +393,14 @@ vulkan_pipeline::~vulkan_pipeline() {
 const vulkan_pipeline_state_t* vulkan_pipeline::get_vulkan_pipeline_state(const compute_device& dev,
 																		  const bool get_multi_view,
 																		  const bool get_indirect) const {
-	const auto ret = pipelines.get(dev);
-	if (!ret.first) {
+	const auto iter = pipelines.find(&dev);
+	if (iter == pipelines.end()) {
 		return nullptr;
 	}
 	if (!get_multi_view) {
-		return (!get_indirect ? &ret.second->second.single_view_pipeline : &ret.second->second.indirect_single_view_pipeline);
+		return (!get_indirect ? &iter->second.single_view_pipeline : &iter->second.indirect_single_view_pipeline);
 	} else {
-		return (!get_indirect ? &ret.second->second.multi_view_pipeline : &ret.second->second.indirect_multi_view_pipeline);
+		return (!get_indirect ? &iter->second.multi_view_pipeline : &iter->second.indirect_multi_view_pipeline);
 	}
 }
 

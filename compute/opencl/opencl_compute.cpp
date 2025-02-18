@@ -738,8 +738,8 @@ shared_ptr<compute_queue> opencl_compute::create_queue(const compute_device& dev
 	// has a default queue already been created for this device?
 	bool has_default_queue = false;
 	shared_ptr<compute_queue> dev_default_queue;
-	for(const auto& default_queue : default_queues) {
-		if(default_queue.first.get() == dev) {
+	for (auto&& default_queue : default_queues) {
+		if(default_queue.first == &dev) {
 			has_default_queue = true;
 			dev_default_queue = default_queue.second;
 			break;
@@ -749,7 +749,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(const compute_device& dev
 	// has the user already created a queue for this device (i.e. accessed the default queue)?
 	bool user_accessed = false;
 	if(has_default_queue) {
-		const auto iter = default_queues_user_accessed.find(dev);
+		const auto iter = default_queues_user_accessed.find(&dev);
 		if(iter != end(default_queues_user_accessed)) {
 			user_accessed = iter->second;
 		}
@@ -758,7 +758,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(const compute_device& dev
 		// -> return the default queue
 		if(!user_accessed) {
 			// signal that the user has accessed the default queue, any subsequent create_queue calls will actually create a new queue
-			default_queues_user_accessed.insert(dev, true);
+			default_queues_user_accessed.emplace(&dev, 1u);
 			return dev_default_queue;
 		}
 	}
@@ -788,15 +788,15 @@ FLOOR_POP_WARNINGS()
 	
 	// set the default queue if it hasn't been set yet
 	if(!has_default_queue) {
-		default_queues.insert(dev, ret);
+		default_queues.emplace(&dev, ret);
 	}
 	
 	return ret;
 }
 
 const compute_queue* opencl_compute::get_device_default_queue(const compute_device& dev) const {
-	for(const auto& default_queue : default_queues) {
-		if(default_queue.first.get() == dev) {
+	for (auto&& default_queue : default_queues) {
+		if(default_queue.first == &dev) {
 			return default_queue.second.get();
 		}
 	}
@@ -839,14 +839,13 @@ shared_ptr<compute_image> opencl_compute::create_image(const compute_queue& cque
 shared_ptr<compute_program> opencl_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// create the program
 	opencl_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& cl_dev = (const opencl_device&)*devices[i];
+		const auto cl_dev = (const opencl_device*)devices[i].get();
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		
 		prog_map.insert_or_assign(cl_dev,
-								  create_opencl_program_internal(cl_dev,
+								  create_opencl_program_internal(*cl_dev,
 																 dev_best_bin.first->data.data(),
 																 dev_best_bin.first->data.size(),
 																 func_info,
@@ -897,11 +896,10 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 															 compile_options options) {
 	// compile the source file for all devices in the context
 	opencl_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		options.target = (((const opencl_device&)*dev).spirv_version != SPIRV_VERSION::NONE ?
 						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
-		prog_map.insert_or_assign((const opencl_device&)*dev,
+		prog_map.insert_or_assign((const opencl_device*)dev.get(),
 								  create_opencl_program(*dev, llvm_toolchain::compile_program_file(*dev, file_name, options),
 														options.target));
 	}
@@ -918,11 +916,10 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 															   compile_options options) {
 	// compile the source code for all devices in the context
 	opencl_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		options.target = (((const opencl_device&)*dev).spirv_version != SPIRV_VERSION::NONE ?
 						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
-		prog_map.insert_or_assign((const opencl_device&)*dev,
+		prog_map.insert_or_assign((const opencl_device*)dev.get(),
 								  create_opencl_program(*dev, llvm_toolchain::compile_program(*dev, source_code, options),
 														options.target));
 	}

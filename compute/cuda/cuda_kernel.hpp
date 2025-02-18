@@ -37,7 +37,7 @@ public:
 		cu_function kernel { nullptr };
 		size_t kernel_args_size;
 	};
-	typedef floor_core::flat_map<const cuda_device&, cuda_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const cuda_device*, cuda_kernel_entry> kernel_map_type;
 	
 	cuda_kernel(const string_view kernel_name_, kernel_map_type&& kernels);
 	~cuda_kernel() override = default;

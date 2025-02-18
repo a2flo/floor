@@ -87,7 +87,7 @@ public:
 		vulkan_kernel_entry::spec_entry* specialize(const vulkan_device& device,
 													const uint3& work_group_size) REQUIRES(specializations_lock);
 	};
-	typedef floor_core::flat_map<const vulkan_device&, vulkan_kernel_entry> kernel_map_type;
+	typedef floor_core::flat_map<const vulkan_device*, vulkan_kernel_entry> kernel_map_type;
 	
 	vulkan_kernel(const string_view kernel_name_, kernel_map_type&& kernels);
 	~vulkan_kernel() override = default;

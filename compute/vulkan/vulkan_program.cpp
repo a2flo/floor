@@ -340,9 +340,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 	kernels.reserve(kernel_names.size());
 	for (const auto& func_name : kernel_names) {
 		vulkan_kernel::kernel_map_type kernel_map;
-		kernel_map.reserve(kernel_names.size());
-		
-		for (const auto& prog : programs) {
+		for (auto&& prog : programs) {
 			if (!prog.second.valid) continue;
 			
 			for (const auto& info : prog.second.functions) {
@@ -351,19 +349,19 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 					entry.info = &info;
 					
 					auto& prog_entry = prog.second;
-					const auto& dev = prog.first.get();
-					const auto& vk_dev = (const vulkan_device&)dev;
+					const auto dev = prog.first;
+					const auto& vk_dev = (const vulkan_device&)*dev;
 					
 					const VkShaderStageFlagBits stage = (info.type == FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
 														 info.type == FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
 														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
 					
 					if (!info.has_valid_required_local_size()) {
-						entry.max_local_size = dev.max_local_size;
+						entry.max_local_size = vk_dev.max_local_size;
 						
 						// always assume that we can execute this with the max possible work-group size,
 						// i.e. use this as the initial default
-						entry.max_total_local_size = dev.max_total_local_size;
+						entry.max_total_local_size = vk_dev.max_total_local_size;
 					} else {
 						// a required local size/dim is specified -> use it
 						entry.max_local_size = info.required_local_size;
@@ -371,7 +369,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 					}
 					
 					// TODO: make sure that _all_ of this is synchronized
-					if (!create_kernel_entry_descriptor_buffer(entry, dev, stage, func_name, info)) {
+					if (!create_kernel_entry_descriptor_buffer(entry, *dev, stage, func_name, info)) {
 						continue;
 					}
 					
@@ -388,7 +386,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 						.pNext = nullptr,
 						// TODO: sub-group size / SIMD-width must really be stored in function info,
 						// this may not work if the device supports a SIMD-width range and the program has not been compiled for the default width
-						.requiredSubgroupSize = dev.simd_width,
+						.requiredSubgroupSize = vk_dev.simd_width,
 					};
 					entry.stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -444,7 +442,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 						}
 					}
 					
-					kernel_map.emplace_or_assign(std::move(prog.first), std::move(entry));
+					kernel_map.emplace(&*dev, std::move(entry));
 					break;
 				}
 			}
@@ -461,8 +459,8 @@ VkDescriptorSetLayout vulkan_program::get_empty_descriptor_set(const compute_dev
 	GUARD(empty_desc_set_lock);
 	
 	const auto& vk_dev = (const vulkan_device&)dev;
-	static floor_core::flat_map<const compute_device&, VkDescriptorSetLayout> empty_descriptor_sets;
-	const auto iter = empty_descriptor_sets.find(vk_dev);
+	static floor_core::flat_map<const compute_device*, VkDescriptorSetLayout> empty_descriptor_sets;
+	const auto iter = empty_descriptor_sets.find(&vk_dev);
 	if (iter != empty_descriptor_sets.end()) {
 		// already created
 		return iter->second;
@@ -479,7 +477,7 @@ VkDescriptorSetLayout vulkan_program::get_empty_descriptor_set(const compute_dev
 	VkDescriptorSetLayout empty_desc_set_layout {};
 	VK_CALL_RET(vkCreateDescriptorSetLayout(vk_dev.device, &empty_desc_set_layout_info, nullptr, &empty_desc_set_layout),
 				"failed to create empty descriptor set layout for device " + dev.name, nullptr)
-	empty_descriptor_sets.insert(vk_dev, empty_desc_set_layout);
+	empty_descriptor_sets.emplace(&dev, empty_desc_set_layout);
 	
 	return empty_desc_set_layout;
 }

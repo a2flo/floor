@@ -44,9 +44,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), device(device_), progr
 	kernels.reserve(kernel_names.size());
 	for (const auto& kernel_name : kernel_names) {
 		host_kernel::kernel_map_type kernel_map;
-		kernel_map.reserve(kernel_names.size());
-		
-		for (const auto& prog : programs) {
+		for (auto&& prog : programs) {
 			if (!prog.second.valid || !prog.second.program) {
 				continue;
 			}
@@ -82,7 +80,7 @@ compute_program(retrieve_unique_kernel_names(programs_)), device(device_), progr
 					entry.max_total_local_size = local_size_extent;
 				} else {
 					// else: just assume the device/global default
-					entry.max_local_size = prog.first.get().max_local_size;
+					entry.max_local_size = prog.first->max_local_size;
 					entry.max_total_local_size = host_limits::max_total_local_size;
 				}
 				

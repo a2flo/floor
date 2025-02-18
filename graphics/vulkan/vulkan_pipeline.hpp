@@ -84,7 +84,7 @@ public:
 	const vulkan_pass* get_vulkan_pass(const bool get_multi_view) const;
 	
 protected:
-	floor_core::flat_map<const compute_device&, vulkan_pipeline_entry_t> pipelines;
+	floor_core::flat_map<const compute_device*, vulkan_pipeline_entry_t> pipelines;
 	unique_ptr<vulkan_pass> sv_vulkan_base_pass;
 	unique_ptr<vulkan_pass> mv_vulkan_base_pass;
 	

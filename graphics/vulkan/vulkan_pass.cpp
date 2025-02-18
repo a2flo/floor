@@ -272,7 +272,7 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 #endif
 		}
 
-		render_passes.insert_or_assign(*dev, { sv_render_pass, mv_render_pass });
+		render_passes.insert_or_assign(dev.get(), vulkan_pass_t { sv_render_pass, mv_render_pass });
 	}
 	
 	// success
@@ -280,12 +280,12 @@ vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,
 }
 
 vulkan_pass::~vulkan_pass() {
-	for (const auto& render_pass : render_passes) {
+	for (auto&& render_pass : render_passes) {
 		if (render_pass.second.single_view_pass) {
-			vkDestroyRenderPass(((const vulkan_device&)render_pass.first.get()).device, render_pass.second.single_view_pass, nullptr);
+			vkDestroyRenderPass(((const vulkan_device*)render_pass.first)->device, render_pass.second.single_view_pass, nullptr);
 		}
 		if (render_pass.second.multi_view_pass) {
-			vkDestroyRenderPass(((const vulkan_device&)render_pass.first.get()).device, render_pass.second.multi_view_pass, nullptr);
+			vkDestroyRenderPass(((const vulkan_device*)render_pass.first)->device, render_pass.second.multi_view_pass, nullptr);
 		}
 	}
 }
@@ -313,8 +313,10 @@ VkAttachmentStoreOp vulkan_pass::vulkan_store_op_from_store_op(const STORE_OP& s
 }
 
 VkRenderPass vulkan_pass::get_vulkan_render_pass(const compute_device& dev, const bool get_multi_view) const {
-	const auto ret = render_passes.get(dev);
-	return !ret.first ? nullptr : (!get_multi_view ? ret.second->second.single_view_pass : ret.second->second.multi_view_pass);
+	if (const auto iter = render_passes.find((const vulkan_device*)&dev); iter != render_passes.end()) {
+		return (!get_multi_view ? iter->second.single_view_pass : iter->second.multi_view_pass);
+	}
+	return nullptr;
 }
 
 #endif

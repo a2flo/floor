@@ -59,7 +59,7 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	vector<VkImageView> vk_attachments;
-	for (const auto& att : attachments_map) {
+	for (auto&& att : attachments_map) {
 		vk_attachments.emplace_back(att.second.image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
 		if (att.second.resolve_image) {
 			vk_attachments.emplace_back(att.second.resolve_image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());

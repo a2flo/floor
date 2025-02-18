@@ -30,7 +30,7 @@ compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue& cqueue) const {
-	return kernels.find((const cuda_device&)cqueue.get_device());
+	return kernels.find((const cuda_device*)&cqueue.get_device());
 }
 
 void cuda_kernel::execute_internal(const compute_queue& cqueue,
@@ -231,8 +231,10 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 }
 
 const compute_kernel::kernel_entry* cuda_kernel::get_kernel_entry(const compute_device& dev) const {
-	const auto ret = kernels.get((const cuda_device&)dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = kernels.find((const cuda_device*)&dev); iter != kernels.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 unique_ptr<argument_buffer> cuda_kernel::create_argument_buffer_internal(const compute_queue& cqueue,

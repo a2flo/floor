@@ -685,7 +685,6 @@ struct json_grammar {
 						case json_node::JSON_NODE_TYPE::OBJECT: {
 							auto onode = (object_node*)jnode;
 							json_object obj;
-							obj.reserve(onode->objects.size());
 							for (auto& object : onode->objects) {
 								obj.emplace(std::move(((member_node*)object.get())->name),
 											std::move(((value_node*)((member_node*)object.get())->value.get())->value));
@@ -858,7 +857,7 @@ template <typename T> static pair<bool, T> extract_value(const document& doc, co
 		if (!object_ptr) { // should never happen if we get here, but just in case ...
 			return { false, T {} };
 		}
-		for (const auto& member : *object_ptr) {
+		for (auto&& member : *object_ptr) {
 			if(member.first == key) {
 				// is leaf?
 				if(i == count - 1) {

@@ -165,7 +165,7 @@ indirect_command_pipeline(desc_) {
 			throw runtime_error("failed to map cmd parameters buffer" + err_str);
 		}
 		
-		pipelines.emplace_or_assign(*dev, std::move(entry));
+		pipelines.insert_or_assign(dev.get(), std::move(entry));
 	}
 }
 
@@ -173,13 +173,17 @@ vulkan_indirect_command_pipeline::~vulkan_indirect_command_pipeline() {
 }
 
 const vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command_pipeline::get_vulkan_pipeline_entry(const compute_device& dev) const {
-	const auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command_pipeline::get_vulkan_pipeline_entry(const compute_device& dev) {
-	auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const compute_device& dev,
@@ -232,8 +236,8 @@ void vulkan_indirect_command_pipeline::complete(const compute_device& dev) {
 }
 
 void vulkan_indirect_command_pipeline::complete() {
-	for (auto& pipeline : pipelines) {
-		complete_pipeline(pipeline.first, pipeline.second);
+	for (auto&& pipeline : pipelines) {
+		complete_pipeline(*pipeline.first, pipeline.second);
 	}
 }
 
@@ -253,7 +257,7 @@ void vulkan_indirect_command_pipeline::complete_pipeline(const compute_device& d
 }
 
 void vulkan_indirect_command_pipeline::reset() {
-	for (auto& pipeline : pipelines) {
+	for (auto&& pipeline : pipelines) {
 		// just clear all parameters
 		if (pipeline.second.mapped_cmd_parameters && pipeline.second.cmd_parameters && pipeline.second.cmd_parameters->get_size() > 0) {
 			memset(pipeline.second.mapped_cmd_parameters, 0, pipeline.second.cmd_parameters->get_size());

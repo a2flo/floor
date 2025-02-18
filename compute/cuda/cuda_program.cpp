@@ -54,18 +54,16 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
 	kernels.reserve(kernel_names.size());
-	for(const auto& kernel_name : kernel_names) {
+	for (const auto& kernel_name : kernel_names) {
 		cuda_kernel::kernel_map_type kernel_map;
-		kernel_map.reserve(kernel_names.size());
-		
-		for(const auto& prog : programs) {
-			if(!prog.second.valid) continue;
-			for(const auto& info : prog.second.functions) {
-				if(info.name == kernel_name) {
+		for (auto&& prog : programs) {
+			if (!prog.second.valid) continue;
+			for (const auto& info : prog.second.functions) {
+				if (info.name == kernel_name) {
 					cuda_kernel::cuda_kernel_entry entry;
 					entry.info = &info;
 					entry.kernel_args_size = compute_kernel_args_size(info);
-					entry.max_local_size = prog.first.get().max_local_size;
+					entry.max_local_size = prog.first->max_local_size;
 					
 					CU_CALL_CONT(cu_module_get_function(&entry.kernel, prog.second.program, kernel_name.c_str()),
 								 "failed to get function \"" + kernel_name + "\"")
@@ -92,9 +90,9 @@ compute_program(retrieve_unique_kernel_names(programs_)), programs(std::move(pro
 					int local_mem_size = 0;
 					CU_CALL_IGNORE(cu_function_get_attribute(&local_mem_size,
 															 CU_FUNCTION_ATTRIBUTE::LOCAL_SIZE_BYTES, entry.kernel))
-					if (local_mem_size > 0 && uint64_t(local_mem_size) > prog.first.get().local_mem_size) {
+					if (local_mem_size > 0 && uint64_t(local_mem_size) > prog.first->local_mem_size) {
 						log_error("kernel $ requires $' bytes of local memory, but the device only provides $' bytes",
-								  kernel_name, uint64_t(local_mem_size), prog.first.get().local_mem_size);
+								  kernel_name, uint64_t(local_mem_size), prog.first->local_mem_size);
 						break;
 					}
 					

@@ -142,9 +142,10 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		vkDestroyPipelineCache(device.device, cache, nullptr);
 	}
 	
-	auto spec_iter = specializations.insert(spec_key, spec_entry);
-	if(!spec_iter.first) return nullptr;
-	return &spec_iter.second->second;
+	if (const auto spec_iter = specializations.emplace(spec_key, spec_entry); spec_iter.second) {
+		return &spec_iter.first->second;
+	}
+	return nullptr;
 }
 
 vulkan_kernel::vulkan_kernel(const string_view kernel_name_, kernel_map_type&& kernels_) :
@@ -152,7 +153,7 @@ compute_kernel(kernel_name_), kernels(std::move(kernels_)) {
 }
 
 typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue& cqueue) const {
-	return kernels.find((const vulkan_device&)cqueue.get_device());
+	return kernels.find((const vulkan_device*)&cqueue.get_device());
 }
 
 shared_ptr<vulkan_encoder> vulkan_kernel::create_encoder(const compute_queue& cqueue,
@@ -263,7 +264,7 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		return;
 	}
 	
-	const auto& vk_dev = kernel_iter->first.get();
+	const auto& vk_dev = *kernel_iter->first;
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	
 	// check work size
@@ -566,8 +567,10 @@ bool vulkan_kernel::set_and_handle_arguments(const bool is_shader, vulkan_encode
 }
 
 const compute_kernel::kernel_entry* vulkan_kernel::get_kernel_entry(const compute_device& dev) const {
-	const auto ret = kernels.get((const vulkan_device&)dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = kernels.find((const vulkan_device*)&dev); iter != kernels.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const compute_queue& cqueue,

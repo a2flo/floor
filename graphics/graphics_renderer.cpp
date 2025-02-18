@@ -83,7 +83,6 @@ bool graphics_renderer::set_attachments(vector<attachment_t>& attachments) {
 	
 	// clear old + prepare for new
 	attachments_map.clear();
-	attachments_map.reserve(attachments.size());
 	
 	// set each attachment
 	uint32_t running_idx = 0;

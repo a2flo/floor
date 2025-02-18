@@ -32,7 +32,7 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 		{
 			GUARD(warn_map_lock);
 			do_warn = (warn_map.count(&entry) == 0);
-			warn_map.insert(&entry, true);
+			warn_map.emplace(&entry, 1u);
 		}
 		
 		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2

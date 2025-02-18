@@ -383,13 +383,12 @@ shared_ptr<compute_image> host_compute::wrap_image(const compute_queue& cqueue,
 shared_ptr<compute_program> host_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// create the program
 	host_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& host_dev = (const host_device&)*devices[i];
+		const auto host_dev = (const host_device*)devices[i].get();
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		prog_map.insert_or_assign(host_dev,
-								  create_host_program_internal(host_dev,
+								  create_host_program_internal(*host_dev,
 															   {},
 															   dev_best_bin.first->data.data(),
 															   dev_best_bin.first->data.size(),
@@ -445,12 +444,11 @@ shared_ptr<compute_program> host_compute::add_program_file(const string& file_na
 	
 	// compile the source file for all devices in the context
 	host_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::HOST_COMPUTE_CPU;
 	for(const auto& dev : devices) {
-		const auto& host_dev = (const host_device&)*dev;
+		const auto host_dev = (const host_device*)dev.get();
 		prog_map.insert_or_assign(host_dev,
-								  create_host_program(host_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
+								  create_host_program(*host_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(std::move(prog_map));
 }
@@ -473,12 +471,11 @@ shared_ptr<compute_program> host_compute::add_program_source(const string& sourc
 	
 	// compile the source code for all devices in the context
 	host_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::HOST_COMPUTE_CPU;
 	for(const auto& dev : devices) {
-		const auto& host_dev = (const host_device&)*dev;
+		const auto host_dev = (const host_device*)dev.get();
 		prog_map.insert_or_assign(host_dev,
-								  create_host_program(host_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
+								  create_host_program(*host_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(std::move(prog_map));
 }

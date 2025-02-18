@@ -67,7 +67,7 @@ public:
 														 const uint32_t command_count) const;
 	
 protected:
-	floor_core::flat_map<const compute_device&, metal_pipeline_entry> pipelines;
+	floor_core::flat_map<const compute_device*, metal_pipeline_entry> pipelines;
 	
 	void complete_pipeline(const compute_device& dev, metal_pipeline_entry& entry);
 	

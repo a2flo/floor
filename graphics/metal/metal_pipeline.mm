@@ -224,7 +224,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				return;
 			}
 			
-			pipelines.insert(*dev, entry);
+			pipelines.insert(dev.get(), entry);
 		}
 	}
 	
@@ -432,8 +432,10 @@ MTLVertexFormat metal_pipeline::metal_vertex_format_from_vertex_format(const VER
 }
 
 const metal_pipeline::metal_pipeline_entry* metal_pipeline::get_metal_pipeline_entry(const compute_device& dev) const {
-	const auto ret = pipelines.get(dev);
-	return !ret.first ? nullptr : &ret.second->second;
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return &iter->second;
+	}
+	return nullptr;
 }
 
 #endif

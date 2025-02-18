@@ -34,7 +34,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding host program for multiple devices
-	typedef floor_core::flat_map<const host_device&, host_program_entry> program_map_type;
+	typedef floor_core::flat_map<const host_device*, host_program_entry> program_map_type;
 	
 	host_program(const compute_device& device, program_map_type&& programs);
 	

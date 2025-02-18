@@ -144,8 +144,8 @@ protected:
 	cl_context ctx { nullptr };
 	vector<cl_device_id> ctx_devices;
 	
-	mutable floor_core::flat_map<const compute_device&, shared_ptr<compute_queue>> default_queues;
-	mutable floor_core::flat_map<const compute_device&, bool> default_queues_user_accessed;
+	mutable floor_core::flat_map<const compute_device*, shared_ptr<compute_queue>> default_queues;
+	mutable floor_core::flat_map<const compute_device*, uint8_t> default_queues_user_accessed;
 	
 	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::NONE };
 	

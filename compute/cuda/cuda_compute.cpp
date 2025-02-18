@@ -354,7 +354,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 	
 	// create a default queue for each device
 	for(const auto& dev : devices) {
-		default_queues.insert(*dev, create_queue(*dev));
+		default_queues.emplace(dev.get(), create_queue(*dev));
 	}
 	
 	// init shaders in cuda_image
@@ -379,9 +379,9 @@ shared_ptr<compute_queue> cuda_compute::create_queue(const compute_device& dev) 
 }
 
 const compute_queue* cuda_compute::get_device_default_queue(const compute_device& dev) const {
-	const auto def_queue = default_queues.get(dev);
-	if(def_queue.first) {
-		return def_queue.second->second.get();
+	const auto def_queue_iter = default_queues.find(&dev);
+	if (def_queue_iter != default_queues.end()) {
+		return def_queue_iter->second.get();
 	}
 	// only happens if the context is invalid (the default queues haven't been created)
 	log_error("no default queue for this device exists yet!");
@@ -444,14 +444,13 @@ shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,
 shared_ptr<compute_program> cuda_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// create the program
 	cuda_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-		const auto& cuda_dev = (const cuda_device&)*devices[i];
+		const auto cuda_dev = (const cuda_device*)devices[i].get();
 		const auto& dev_best_bin = bins.dev_binaries[i];
 		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 		// TODO: handle CUBIN
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program_internal(cuda_dev,
+								  create_cuda_program_internal(*cuda_dev,
 															   dev_best_bin.first->data.data(),
 															   dev_best_bin.first->data.size(),
 															   func_info,
@@ -500,12 +499,11 @@ shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_na
 														   compile_options options) {
 	// compile the source file for all devices in the context
 	cuda_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
-		const auto& cuda_dev = (const cuda_device&)*dev;
+		const auto cuda_dev = (const cuda_device*)dev.get();
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
+								  create_cuda_program(*cuda_dev, llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(std::move(prog_map));
 }
@@ -520,12 +518,11 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 															 compile_options options) {
 	// compile the source code for all devices in the context
 	cuda_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
-		const auto& cuda_dev = (const cuda_device&)*dev;
+		const auto cuda_dev = (const cuda_device*)dev.get();
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
+								  create_cuda_program(*cuda_dev, llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(std::move(prog_map));
 }

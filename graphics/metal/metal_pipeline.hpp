@@ -73,7 +73,7 @@ public:
 	static MTLVertexFormat metal_vertex_format_from_vertex_format(const VERTEX_FORMAT& vertex_format);
 	
 protected:
-	floor_core::flat_map<const compute_device&, metal_pipeline_entry> pipelines;
+	floor_core::flat_map<const compute_device*, metal_pipeline_entry> pipelines;
 	
 };
 

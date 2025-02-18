@@ -408,14 +408,14 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		// queue
 		auto dev_queue = create_queue(*dev);
 		dev_queue->set_debug_label("default_queue");
-		internal_queues.insert_or_assign(*dev, dev_queue);
+		internal_queues.insert_or_assign(dev.get(), dev_queue);
 		((metal_device&)*dev).internal_queue = dev_queue.get();
 		
 		// create null buffer
 		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
 										 COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
 		null_buffer->zero(*dev_queue);
-		internal_null_buffers.insert_or_assign(*dev, null_buffer);
+		internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
 		
 		// create soft-printf buffer cache
 		if (floor::get_metal_soft_printf()) {
@@ -423,7 +423,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
 				dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
 			}
-			soft_printf_buffers.emplace_or_assign(*dev, make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
+			soft_printf_buffers.insert_or_assign(dev.get(), make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
 		}
 	}
 	
@@ -463,7 +463,7 @@ shared_ptr<compute_queue> metal_compute::create_queue(const compute_device& dev)
 }
 
 const compute_queue* metal_compute::get_device_default_queue(const compute_device& dev) const {
-	if (const auto iter = internal_queues.find(dev); iter != internal_queues.end()) {
+	if (const auto iter = internal_queues.find(&dev); iter != internal_queues.end()) {
 		return iter->second.get();
 	}
 	log_error("no default queue exists for this device: $!", dev.name);
@@ -478,7 +478,7 @@ unique_ptr<compute_fence> metal_compute::create_fence(const compute_queue& cqueu
 }
 
 const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) const {
-	if (const auto iter = internal_null_buffers.find(dev); iter != internal_null_buffers.end()) {
+	if (const auto iter = internal_null_buffers.find(&dev); iter != internal_null_buffers.end()) {
 		return (const metal_buffer*)iter->second.get();
 	}
 	log_error("no null-buffer exists for this device: $!", dev.name);
@@ -486,7 +486,7 @@ const metal_buffer* metal_compute::get_null_buffer(const compute_device& dev) co
 }
 
 pair<compute_buffer*, uint32_t> metal_compute::acquire_soft_printf_buffer(const compute_device& dev) const {
-	if (const auto iter = soft_printf_buffers.find(dev); iter != soft_printf_buffers.end()) {
+	if (const auto iter = soft_printf_buffers.find(&dev); iter != soft_printf_buffers.end()) {
 		return iter->second->acquire();
 	}
 	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);
@@ -494,7 +494,7 @@ pair<compute_buffer*, uint32_t> metal_compute::acquire_soft_printf_buffer(const 
 }
 
 void metal_compute::release_soft_printf_buffer(const compute_device& dev, const pair<compute_buffer*, uint32_t>& buf) const {
-	if (const auto iter = soft_printf_buffers.find(dev); iter != soft_printf_buffers.end()) {
+	if (const auto iter = soft_printf_buffers.find(&dev); iter != soft_printf_buffers.end()) {
 		iter->second->release(buf);
 		return;
 	}
@@ -556,10 +556,9 @@ shared_ptr<compute_program> metal_compute::create_program_from_archive_binaries(
 	
 	// create the program
 	metal_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	@autoreleasepool {
 		for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-			const auto& mtl_dev = (const metal_device&)*devices[i];
+			const auto mtl_dev = (const metal_device*)devices[i].get();
 			const auto& dev_best_bin = bins.dev_binaries[i];
 			const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
 			
@@ -570,10 +569,10 @@ shared_ptr<compute_program> metal_compute::create_program_from_archive_binaries(
 			NSError* err { nil };
 			dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
 															dispatch_get_main_queue(), ^{} /* must be non-default */);
-			entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
+			entry.program = [mtl_dev->device newLibraryWithData:lib_data error:&err];
 			if (!entry.program) {
 				log_error("failed to create metal program/library for device $: $",
-						  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+						  mtl_dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 				return {};
 			}
 			entry.valid = true;
@@ -656,10 +655,9 @@ shared_ptr<compute_program> metal_compute::add_program_file(const string& file_n
 															compile_options options) {
 	// compile the source file for all devices in the context
 	metal_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::AIR;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const metal_device&)*dev,
+		prog_map.insert_or_assign((const metal_device*)dev.get(),
 								  create_metal_program((const metal_device&)*dev,
 													   llvm_toolchain::compile_program_file(*dev, file_name, options)));
 	}
@@ -675,10 +673,9 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 															  compile_options options) {
 	// compile the source code for all devices in the context
 	metal_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	options.target = llvm_toolchain::TARGET::AIR;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const metal_device&)*dev,
+		prog_map.insert_or_assign((const metal_device*)dev.get(),
 								  create_metal_program((const metal_device&)*dev,
 													   llvm_toolchain::compile_program(*dev, source_code, options)));
 	}
@@ -691,7 +688,6 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 	
 	// assume pre-compiled program is the same for all devices
 	metal_program::program_map_type prog_map;
-	prog_map.reserve(devices.size());
 	@autoreleasepool {
 		for(const auto& dev : devices) {
 			metal_program::metal_program_entry entry;
@@ -713,7 +709,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 			}
 			entry.valid = true;
 			
-			prog_map.insert_or_assign((const metal_device&)*dev, entry);
+			prog_map.insert_or_assign((const metal_device*)dev.get(), entry);
 		}
 	}
 	return add_metal_program(std::move(prog_map), &programs, programs_lock);
@@ -743,7 +739,7 @@ shared_ptr<compute_program> metal_compute::create_metal_test_program(shared_ptr<
 	
 	// create/return the program
 	metal_program::program_map_type prog_map;
-	prog_map.insert(*metal_dev, *metal_entry);
+	prog_map.insert(metal_dev, *metal_entry);
 	return make_shared<metal_program>(std::move(prog_map));
 }
 

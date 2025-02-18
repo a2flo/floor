@@ -45,7 +45,7 @@ public:
 	};
 	
 	//! lookup map that contains the corresponding metal program for multiple devices
-	typedef floor_core::flat_map<const metal_device&, metal_program_entry> program_map_type;
+	typedef floor_core::flat_map<const metal_device*, metal_program_entry> program_map_type;
 	
 	metal_program(program_map_type&& programs);
 	
