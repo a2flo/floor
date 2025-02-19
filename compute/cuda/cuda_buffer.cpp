@@ -395,27 +395,27 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 			log_error("CUDA/Vulkan buffer sharing failed: failed to find a matching Vulkan device");
 			return false;
 		}
-	}
-	
-	if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */) {
-		// create the underlying Vulkan buffer
-		auto default_queue = vk_render_ctx->get_device_default_queue(*render_dev);
-		auto shared_vk_buffer_flags = flags;
-		if (!copy_host_data) {
-			shared_vk_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+		
+		if (shared_vk_buffer == nullptr || cuda_vk_buffer != nullptr /* !nullptr if resize */) {
+			// create the underlying Vulkan buffer
+			auto default_queue = vk_render_ctx->get_device_default_queue(*render_dev);
+			auto shared_vk_buffer_flags = flags;
+			if (!copy_host_data) {
+				shared_vk_buffer_flags |= COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY;
+			}
+			assert(host_data.data() == nullptr || size == host_data.size_bytes());
+			cuda_vk_buffer = (host_data.data() != nullptr ?
+							  vk_render_ctx->create_buffer(*default_queue, host_data, shared_vk_buffer_flags) :
+							  vk_render_ctx->create_buffer(*default_queue, size, shared_vk_buffer_flags));
+			if (!cuda_vk_buffer) {
+				log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
+				return false;
+			}
+			cuda_vk_buffer->set_debug_label("cuda_vk_buffer");
+			shared_vk_buffer = (vulkan_buffer*)cuda_vk_buffer.get();
 		}
-		assert(host_data.data() == nullptr || size == host_data.size_bytes());
-		cuda_vk_buffer = (host_data.data() != nullptr ?
-						  vk_render_ctx->create_buffer(*default_queue, host_data, shared_vk_buffer_flags) :
-						  vk_render_ctx->create_buffer(*default_queue, size, shared_vk_buffer_flags));
-		if (!cuda_vk_buffer) {
-			log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
-			return false;
-		}
-		cuda_vk_buffer->set_debug_label("cuda_vk_buffer");
-		shared_vk_buffer = (vulkan_buffer*)cuda_vk_buffer.get();
+		// else: wrapping an existing Vulkan buffer
 	}
-	// else: wrapping an existing Vulkan buffer
 	
 	const auto vk_shared_handle = shared_vk_buffer->get_vulkan_shared_handle();
 	if (
