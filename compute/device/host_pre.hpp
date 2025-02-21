@@ -130,8 +130,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_TOOLCHAIN_VERSION 160000u
 #elif (__clang_major__ == 16) // Xcode 16.0
 #define FLOOR_TOOLCHAIN_VERSION 170000u
-#else // newer/unreleased Xcode, default to 17.0 for now
-#define FLOOR_TOOLCHAIN_VERSION 170000u
+#elif (__clang_major__ == 17) // Xcode 16.3+
+#define FLOOR_TOOLCHAIN_VERSION 190000u
+#else // newer/unreleased Xcode, default to 19.0 for now
+#define FLOOR_TOOLCHAIN_VERSION 190000u
 #endif
 
 #endif

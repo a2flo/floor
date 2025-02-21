@@ -828,6 +828,8 @@ if [ $CLANG_MAJOR -ge 19 ]; then
 else
 	WARNINGS="${WARNINGS} -Wno-missing-field-initializers"
 fi
+# ignore missing include directories, we may not always have all specified include dirs
+WARNINGS="${WARNINGS} -Wno-missing-include-dirs"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
 # diagnostics

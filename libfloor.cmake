@@ -102,6 +102,8 @@ if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "19.0.0")
 else ()
 	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-designated-field-initializers)
 endif ()
+# ignore missing include directories, we may not always have all specified include dirs
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-include-dirs)
 # diagnostics
 target_compile_options(${PROJECT_NAME} PUBLIC -fdiagnostics-show-note-include-stack -fmessage-length=0 -fmacro-backtrace-limit=0)
 target_compile_options(${PROJECT_NAME} PUBLIC -fparse-all-comments -fno-elide-type -fdiagnostics-show-template-tree)

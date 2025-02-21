@@ -2358,6 +2358,8 @@
 					"-Wno-poison-system-directories",
 					"-Wno-nan-infinity-disabled",
 					"-Wno-unsafe-buffer-usage-in-container",
+					"-Wno-missing-include-dirs",
+					"-Wno-missing-designated-field-initializers",
 				);
 				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
@@ -2520,6 +2522,8 @@
 					"-Wno-poison-system-directories",
 					"-Wno-nan-infinity-disabled",
 					"-Wno-unsafe-buffer-usage-in-container",
+					"-Wno-missing-include-dirs",
+					"-Wno-missing-designated-field-initializers",
 				);
 				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
