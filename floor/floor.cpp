@@ -1005,10 +1005,6 @@ bool floor::init_internal(const init_state& state) {
 			}
 		}
 #endif
-		if (renderer == RENDERER::NONE) {
-			// no renderer at all
-			return false;
-		}
 	}
 	
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
