@@ -370,7 +370,13 @@ namespace compute_algorithm {
 					}
 				}
 				
-				lmem[lane] = group_scan_value;
+				if constexpr (group_count == simd_width) {
+					lmem[lane] = group_scan_value;
+				} else {
+					if (lane < group_count) {
+						lmem[lane] = group_scan_value;
+					}
+				}
 			}
 			local_barrier();
 			
@@ -462,6 +468,9 @@ namespace compute_algorithm {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
 		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			constexpr const auto simd_width = device_info::simd_width();
+			constexpr const auto group_count = work_group_size / simd_width;
+			
 			// first pass: inclusive scan in each sub-group
 			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
@@ -473,9 +482,20 @@ namespace compute_algorithm {
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+				data_type sg_in_val {};
+				if constexpr (group_count == simd_width) {
+					sg_in_val = lmem[sub_group_local_id];
+				} else {
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+				}
 				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
-				lmem[sub_group_local_id] = wg_offset;
+				if constexpr (group_count == simd_width) {
+					lmem[sub_group_local_id] = wg_offset;
+				} else {
+					if (sub_group_local_id < (work_group_size / sub_group_size)) {
+						lmem[sub_group_local_id] = wg_offset;
+					}
+				}
 			}
 			local_barrier();
 			
@@ -512,6 +532,9 @@ namespace compute_algorithm {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
 		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+			constexpr const auto simd_width = device_info::simd_width();
+			constexpr const auto group_count = work_group_size / simd_width;
+			
 			// first pass: inclusive scan in each sub-group
 			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
@@ -523,9 +546,20 @@ namespace compute_algorithm {
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+				data_type sg_in_val {};
+				if constexpr (group_count == simd_width) {
+					sg_in_val = lmem[sub_group_local_id];
+				} else {
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+				}
 				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
-				lmem[sub_group_local_id] = wg_offset;
+				if constexpr (group_count == simd_width) {
+					lmem[sub_group_local_id] = wg_offset;
+				} else {
+					if (sub_group_local_id < (work_group_size / sub_group_size)) {
+						lmem[sub_group_local_id] = wg_offset;
+					}
+				}
 			}
 			local_barrier();
 			
@@ -544,9 +578,9 @@ namespace compute_algorithm {
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size, group::OP op = group::OP::NONE>
 	static constexpr uint32_t scan_local_memory_elements() {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, uint32_t>) {
-			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, uint32_t>::count;
-		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, op, uint32_t> &&
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, uint32_t>) {
+			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, uint32_t>::count;
+		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, uint32_t> &&
 							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
 			return work_group_size / device_info::simd_width_min();
 		}
