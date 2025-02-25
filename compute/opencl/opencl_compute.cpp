@@ -285,6 +285,7 @@ opencl_compute::opencl_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 				device.max_total_local_size = 1024;
 				device.max_local_size.min(device.max_total_local_size);
 			}
+			device.max_resident_local_size = device.max_total_local_size;
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
 			if(!device.image_support) {

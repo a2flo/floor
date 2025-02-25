@@ -189,6 +189,7 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 	}
 	
 	device.max_total_local_size = host_limits::max_total_local_size;
+	device.max_resident_local_size = device.max_total_local_size;
 	device.max_local_size = { host_limits::max_total_local_size };
 	device.max_image_1d_buffer_dim = { (size_t)std::min(device.max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	

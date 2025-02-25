@@ -333,6 +333,17 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		assert(device.max_total_local_size == 1024u); // should always be the case with Metal3
 		assert(device.local_mem_size >= 32768u);
 		
+		if (device.vendor == COMPUTE_VENDOR::APPLE) {
+			// from the limited amount of hardware info that Apple has shown for the M1,
+			// we know that 8 GPU cores can have 24576 concurrent/resident threads
+			// -> this translates to 3072 per "core"
+			// NOTE: this may not be exactly how the hardware actually works and these threads may
+			//       live in a GPU global space that may dynamically redistributed
+			device.max_resident_local_size = 3072u;
+		} else {
+			device.max_resident_local_size = device.max_total_local_size;
+		}
+		
 		device.max_mem_alloc = [dev maxBufferLength];
 		// adjust global memory size (might have been invalid)
 		device.global_mem_size = max(device.global_mem_size, device.max_mem_alloc);
@@ -342,7 +353,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			(uint32_t)[dev maxThreadsPerThreadgroup].height,
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
-		log_msg("max total local size: $'", device.max_total_local_size);
+		log_msg("max total local size: $' (max resident $')", device.max_total_local_size, device.max_resident_local_size);
 		log_msg("max local size: $'", device.max_local_size);
 		log_msg("max global size: $'", device.max_global_size);
 		log_msg("SIMD width: $", device.simd_width);

@@ -117,6 +117,8 @@ public:
 	uint32_t max_total_local_size { 0u };
 	//! max total number of active work-items in a work-group when running a cooperative kernel
 	uint32_t max_coop_total_local_size { 0u };
+	//! max resident/concurrent number of work-items in an EU/SM/CU
+	uint32_t max_resident_local_size { 0u };
 	//! max amount of work-items that can be active/used per work-group per dimension
 	uint3 max_local_size;
 	//! max amount of work-items that can be active/used per dimension (generally: local size * group size)

@@ -1840,6 +1840,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		device.local_mem_size = limits.maxComputeSharedMemorySize;
 		
 		device.max_total_local_size = limits.maxComputeWorkGroupInvocations;
+		device.max_resident_local_size = device.max_total_local_size;
 		device.max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
 		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device.max_global_size = device.max_local_size * device.max_group_size;
@@ -1853,10 +1854,13 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		if (device_supported_extensions_set.contains(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME)) {
 			device.units = nv_sm_builtins_props.shaderSMCount;
 			device.max_coop_total_local_size = nv_sm_builtins_props.shaderWarpsPerSM * 32u;
+			device.max_resident_local_size = device.max_coop_total_local_size;
 		}
 		if (device_supported_extensions_set.contains(VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME)) {
 			device.units = (amd_shader_core_props.computeUnitsPerShaderArray * amd_shader_core_props.shaderArraysPerEngineCount *
 							amd_shader_core_props.shaderEngineCount);
+			device.max_resident_local_size = (amd_shader_core_props.simdPerComputeUnit * amd_shader_core_props.wavefrontsPerSimd *
+											  amd_shader_core_props.wavefrontSize);
 		}
 		if (device.units > 0) {
 			log_msg("device units: $", device.units);
@@ -1958,18 +1962,18 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
 		log_msg("prefer device-local/host-coherent over host-cached (ReBAR/SAM): $", device.prefer_host_coherent_mem);
 		
-		log_msg("max mem alloc: $ bytes / $ MB",
+		log_msg("max mem alloc: $' bytes / $' MB",
 				device.max_mem_alloc,
 				device.max_mem_alloc / 1024ULL / 1024ULL);
-		log_msg("mem size: $ MB (global), $ KB (local), $ KB (constant)",
+		log_msg("mem size: $' MB (global), $' KB (local), $' KB (constant)",
 				device.global_mem_size / 1024ULL / 1024ULL,
 				device.local_mem_size / 1024ULL,
 				device.constant_mem_size / 1024ULL);
 		
-		log_msg("max total local size: $", device.max_total_local_size);
-		log_msg("max local size: $", device.max_local_size);
-		log_msg("max global size: $", device.max_global_size);
-		log_msg("max group size: $", device.max_group_size);
+		log_msg("max total local size: $' (max resident $')", device.max_total_local_size, device.max_resident_local_size);
+		log_msg("max local size: $'", device.max_local_size);
+		log_msg("max global size: $'", device.max_global_size);
+		log_msg("max group size: $'", device.max_group_size);
 		log_msg("SIMD width: $ ($ - $)", device.simd_width, device.simd_range.x, device.simd_range.y);
 		log_msg("queue families: $", queue_family_count);
 		

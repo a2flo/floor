@@ -158,6 +158,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev))
 		device.max_total_local_size = uint32_t(max_total_local_size);
 		device.max_coop_total_local_size = uint32_t(max_coop_total_local_size);
+		device.max_resident_local_size = device.max_coop_total_local_size;
 		device.max_global_size = ulong3(max_block_dim) * ulong3(max_grid_dim);
 		device.max_local_size = uint3(max_block_dim);
 		
@@ -251,15 +252,15 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 		}
 		
 		// additional info
-		log_msg("mem size: $ MB (global), $ KB (local), $ KB (constant)",
+		log_msg("mem size: $' MB (global), $' KB (local), $' KB (constant)",
 				device.global_mem_size / 1024ULL / 1024ULL,
 				device.local_mem_size / 1024ULL,
 				device.constant_mem_size / 1024ULL);
-		log_msg("host unified memory: $", device.unified_memory);
+		log_msg("host unified memory: $'", device.unified_memory);
 		log_msg("coop kernels: $", device.cooperative_kernel_support);
-		log_msg("max total local size: $", device.max_total_local_size);
-		log_msg("max local size: $", device.max_local_size);
-		log_msg("max global size: $", device.max_global_size);
+		log_msg("max total local size: $' (max resident $')", device.max_total_local_size, device.max_resident_local_size);
+		log_msg("max local size: $'", device.max_local_size);
+		log_msg("max global size: $'", device.max_global_size);
 		log_msg("max cuda grid-dim: $", max_grid_dim);
 		log_msg("max mip-levels: $", device.max_mip_levels);
 		
@@ -270,7 +271,7 @@ cuda_compute::cuda_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 				printf_buffer_size / 1024ULL / 1024ULL);
 		
 		//
-		log_debug("GPU (Units: $, Clock: $ MHz, Memory: $ MB): $ $, SM $ / CUDA $",
+		log_debug("GPU (Units: $', Clock: $' MHz, Memory: $' MB): $ $, SM $ / CUDA $",
 				  device.units,
 				  device.clock,
 				  uint32_t(device.global_mem_size / 1024ull / 1024ull),
