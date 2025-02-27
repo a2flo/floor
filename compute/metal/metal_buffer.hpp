@@ -105,6 +105,11 @@ public:
 	//! returns the null-buffer for the specified device
 	static const compute_buffer* floor_nullable get_null_buffer(const compute_device& dev);
 	
+	//! returns true if this buffer has been allocated from the internal heap
+	bool is_metal_heap_buffer() const {
+		return is_heap_buffer;
+	}
+	
 	//! potential staging constructor so that we can decide whether a staging buffer is created
 	metal_buffer(const bool is_staging_buffer_,
 				 const compute_queue& cqueue,
@@ -121,6 +126,7 @@ protected:
 	unique_ptr<metal_buffer> staging_buffer;
 	bool is_external { false };
 	bool is_staging_buffer { false };
+	bool is_heap_buffer { false };
 	
 #if defined(__OBJC__)
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };

@@ -294,7 +294,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			device.global_mem_size = [dev_spi dedicatedMemorySize];
 		}
 		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
-		device.unified_memory = [dev_spi hasUnifiedMemory];
+		device.unified_memory = [dev hasUnifiedMemory];
 		
 		// there is no direct way of querying the highest available feature set
 		// -> find the highest (currently known) version
@@ -338,7 +338,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			// we know that 8 GPU cores can have 24576 concurrent/resident threads
 			// -> this translates to 3072 per "core"
 			// NOTE: this may not be exactly how the hardware actually works and these threads may
-			//       live in a GPU global space that may dynamically redistributed
+			//       live in a GPU global space that may be dynamically redistributed
 			device.max_resident_local_size = 3072u;
 		} else {
 			device.max_resident_local_size = device.max_total_local_size;
@@ -346,7 +346,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		
 		device.max_mem_alloc = [dev maxBufferLength];
 		// adjust global memory size (might have been invalid)
-		device.global_mem_size = max(device.global_mem_size, device.max_mem_alloc);
+		device.global_mem_size = std::max(device.global_mem_size, std::max([dev recommendedMaxWorkingSetSize], device.max_mem_alloc));
 		device.max_group_size = { 0xFFFFFFFFu };
 		device.max_local_size = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
@@ -414,27 +414,47 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 #endif
 	log_debug("fastest GPU device: $", fastest_gpu_device->name);
 	
-	// create an internal queue, null buffer and (if enabled) soft-printf buffer cache for each device
-	for(auto& dev : devices) {
-		// queue
-		auto dev_queue = create_queue(*dev);
-		dev_queue->set_debug_label("default_queue");
-		internal_queues.insert_or_assign(dev.get(), dev_queue);
-		((metal_device&)*dev).internal_queue = dev_queue.get();
-		
-		// create null buffer
-		auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
-										 COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
-		null_buffer->zero(*dev_queue);
-		internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
-		
-		// create soft-printf buffer cache
-		if (floor::get_metal_soft_printf()) {
-			array<shared_ptr<compute_buffer>, soft_printf_buffer_count> dev_soft_printf_buffers;
-			for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
-				dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
+	// create an internal queue, null buffer, (if enabled) soft-printf buffer cache for each device, and the internal heap(s)
+	@autoreleasepool {
+		for (auto& dev : devices) {
+			auto mtl_dev = (metal_device*)dev.get();
+			
+			// queue
+			auto dev_queue = create_queue(*dev);
+			dev_queue->set_debug_label("default_queue");
+			internal_queues.insert_or_assign(dev.get(), dev_queue);
+			mtl_dev->internal_queue = dev_queue.get();
+			
+			// allocate internal (experimental) heap
+			if (has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
+				auto heap_desc = [[MTLHeapDescriptor alloc] init];
+				heap_desc.size = dev->max_mem_alloc / 8;
+				heap_desc.storageMode = MTLStorageModePrivate;
+				heap_desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
+				heap_desc.hazardTrackingMode = MTLHazardTrackingModeUntracked;
+				heap_desc.type = MTLHeapTypeAutomatic;
+				mtl_dev->heap_private = [mtl_dev->device newHeapWithDescriptor:heap_desc];
+				if (dev->unified_memory) {
+					heap_desc.storageMode = MTLStorageModeShared;
+					mtl_dev->heap_shared = [mtl_dev->device newHeapWithDescriptor:heap_desc];
+				}
 			}
-			soft_printf_buffers.insert_or_assign(dev.get(), make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
+			
+			// create null buffer
+			auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
+											 COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+											 COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING | COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC);
+			null_buffer->zero(*dev_queue);
+			internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
+			
+			// create soft-printf buffer cache
+			if (floor::get_metal_soft_printf()) {
+				array<shared_ptr<compute_buffer>, soft_printf_buffer_count> dev_soft_printf_buffers;
+				for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
+					dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
+				}
+				soft_printf_buffers.insert_or_assign(dev.get(), make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
+			}
 		}
 	}
 	

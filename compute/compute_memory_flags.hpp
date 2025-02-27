@@ -134,6 +134,10 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! NOTE: this is the default
 	SHARING_COMPUTE_READ_WRITE	= (SHARING_COMPUTE_READ | SHARING_COMPUTE_WRITE),
 	
+	//! Metal-only (for now): *experimental* heap allocation from an internal memory heap
+	//! NOTE: if other flags prevent the use of heap memory, a normal allocation will be made instead
+	__EXP_HEAP_ALLOC			= (1u << 23u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

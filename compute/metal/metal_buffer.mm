@@ -88,10 +88,26 @@ compute_buffer(cqueue, size_, host_data_, flags_), is_staging_buffer(is_staging_
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	
+	// both heap flags must be enabled for this to be viable + must obviously not be backed by CPU memory
+	if (has_flag<COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
+		has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags())) {
+		// must also be untracked and in private or shared storage mode
+		if ((options & MTLResourceHazardTrackingModeMask) == MTLResourceHazardTrackingModeUntracked &&
+			((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+			 (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared)) {
+			// always use default
+			options &= ~MTLResourceCPUCacheModeMask;
+			options |= MTLCPUCacheModeDefaultCache;
+			// enable (for now), may get disabled in create_internal() if other conditions aren't met
+			is_heap_buffer = true;
+		}
+	}
+	
 	// TODO: handle the remaining flags + host ptr
 	
 	// actually create the buffer
-	if(!create_internal(true, cqueue)) {
+	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
@@ -152,7 +168,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 	const auto& mtl_dev = (const metal_device&)cqueue.get_device();
 	
 	// should not be called under that condition, but just to be safe
-	if(is_external) {
+	if (is_external) {
 		log_error("buffer is external!");
 		return false;
 	}
@@ -162,61 +178,80 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 		if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 			buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_data.data() length:host_data.size_bytes() options:options
 												  deallocator:nil /* opt-out */];
+			assert(!is_heap_buffer);
+			return true;
 		}
+		
+		const auto is_private = (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate;
+		const auto is_shared = (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared;
+		
+		// if we want a heap allocated buffer, try to do this first, since we may need to fall back to a normal buffer allocation
+		if (is_heap_buffer) {
+			assert((is_private && mtl_dev.heap_private) || (is_shared && mtl_dev.heap_shared));
+			buffer = [(is_private ? mtl_dev.heap_private : mtl_dev.heap_shared) newBufferWithLength:size options:options];
+			if (!buffer) {
+				is_heap_buffer = false;
+			}
+		}
+		
 		// -> alloc and use device memory
-		else {
-			// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-			if (copy_host_data &&
-				host_data.data() != nullptr &&
-				!has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-				// can't use "newBufferWithBytes" with private storage memory
-				if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-					// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
-					//    if available), then blit from the host memory buffer
+		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
+		if (copy_host_data && host_data.data() != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			// can't use "newBufferWithBytes" with private storage memory
+			if (is_private) {
+				// -> create the uninitialized private storage buffer and a host memory buffer (or use the staging buffer
+				//    if available), then blit from the host memory buffer
+				if (!buffer) {
 					buffer = [mtl_dev.device newBufferWithLength:size options:options];
-					if (staging_buffer == nullptr) {
-						MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
+				}
+				if (staging_buffer == nullptr) {
+					MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-						if (!dev.unified_memory) {
-							host_mem_storage = MTLResourceStorageModeManaged;
-						}
-#endif
-						auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_data.data()
-																				length:host_data.size_bytes()
-																			   options:(host_mem_storage |
-																						MTLResourceCPUCacheModeWriteCombined)];
-						if (!buffer_with_host_mem) {
-							log_error("failed to allocate memory of size $'", size);
-							return false;
-						}
-						
-						id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-						id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-						[blit_encoder copyFromBuffer:floor_force_nonnull(buffer_with_host_mem)
-										sourceOffset:0
-											toBuffer:buffer
-								   destinationOffset:0
-												size:size];
-						[blit_encoder endEncoding];
-						[cmd_buffer commit];
-						[cmd_buffer waitUntilCompleted];
-						
-						[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
-						buffer_with_host_mem = nil;
-					} else {
-						staging_buffer->write(cqueue, host_data.data(), size);
-						copy(cqueue, *staging_buffer);
+					if (!dev.unified_memory) {
+						host_mem_storage = MTLResourceStorageModeManaged;
 					}
+#endif
+					auto buffer_with_host_mem = [mtl_dev.device newBufferWithBytes:host_data.data()
+																			length:host_data.size_bytes()
+																		   options:(host_mem_storage |
+																					MTLResourceCPUCacheModeWriteCombined)];
+					if (!buffer_with_host_mem) {
+						log_error("failed to allocate memory of size $'", size);
+						return false;
+					}
+					
+					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+					[blit_encoder copyFromBuffer:floor_force_nonnull(buffer_with_host_mem)
+									sourceOffset:0
+										toBuffer:buffer
+							   destinationOffset:0
+											size:size];
+					[blit_encoder endEncoding];
+					[cmd_buffer commit];
+					[cmd_buffer waitUntilCompleted];
+					
+					[buffer_with_host_mem setPurgeableState:MTLPurgeableStateEmpty];
+					buffer_with_host_mem = nil;
 				} else {
-					// all other storage modes can just use it
+					staging_buffer->write(cqueue, host_data.data(), size);
+					copy(cqueue, *staging_buffer);
+				}
+			} else {
+				// all other storage modes can just use it
+				if (!buffer) {
 					buffer = [mtl_dev.device newBufferWithBytes:host_data.data() length:host_data.size_bytes() options:options];
+				} else {
+					// -> heap allocated: need to write data manually
+					write(cqueue, host_data.data(), host_data.size_bytes());
 				}
 			}
-			// else: just create a buffer of the specified size
-			else {
-				buffer = [mtl_dev.device newBufferWithLength:size options:options];
-			}
 		}
+		// else: just create a buffer of the specified size (if we don't have already created a heap-allocated one)
+		else if (!buffer) {
+			buffer = [mtl_dev.device newBufferWithLength:size options:options];
+		}
+		
 		return true;
 	}
 }
@@ -226,7 +261,9 @@ metal_buffer::~metal_buffer() {
 		// kill the buffer / auto-release
 		if (buffer) {
 			[buffer removeAllDebugMarkers];
-			[buffer setPurgeableState:MTLPurgeableStateEmpty];
+			if (!is_heap_buffer) {
+				[buffer setPurgeableState:MTLPurgeableStateEmpty];
+			}
 		}
 		buffer = nil;
 	}

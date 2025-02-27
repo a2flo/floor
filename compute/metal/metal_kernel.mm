@@ -256,6 +256,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 		
 		// create the argument buffer
 		// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
+		// TODO: on GPUs with unified memory, do we always want to use GPU-backed shared mode memory instead?
 		auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
 		memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
 		auto buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),

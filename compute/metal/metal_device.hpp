@@ -99,8 +99,15 @@ public:
 #if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
 	// actual metal device object
 	id <MTLDevice> device { nil };
+	
+	//! internal memory heaps
+	//! NOTE: only exists if the context was created with __EXP_INTERNAL_HEAP
+	id <MTLHeap> heap_private { nil };
+	id <MTLHeap> heap_shared { nil };
 #else
 	void* _device { nullptr };
+	void* _heap_private { nullptr };
+	void* _heap_shared { nullptr };
 #endif
 	
 	//! returns true if the specified object is the same object as this

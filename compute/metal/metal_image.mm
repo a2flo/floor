@@ -632,12 +632,16 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	
 	bool success = false;
 	@autoreleasepool {
+		// TODO: optimize this, should ideally use an empty render pass
+		
 		const bool is_compressed = image_compressed(image_type);
 		const auto dim_count = image_dim_count(image_type);
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		
 		auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																	  COMPUTE_MEMORY_FLAG::READ_WRITE | COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING);
+																	  COMPUTE_MEMORY_FLAG::READ_WRITE |
+																	  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING |
+																	  COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC);
 		zero_buffer->set_debug_label("zero_buffer");
 		auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 		
@@ -673,9 +677,6 @@ bool metal_image::zero(const compute_queue& cqueue) {
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
-		
-		[mtl_zero_buffer removeAllDebugMarkers];
-		[mtl_zero_buffer setPurgeableState:MTLPurgeableStateEmpty];
 	}
 	
 	return success;
