@@ -50,13 +50,6 @@
 #include <floor/core/essentials.hpp> // cleanup
 #endif
 
-// provided by SDL3
-#if defined(SDL_DECLSPEC)
-extern "C" SDL_DECLSPEC int SDLCALL SDL_GetSystemRAM();
-#else // TODO: remove this (keep it for older SDL3 versions for now)
-extern "C" DECLSPEC int SDLCALL SDL_GetSystemRAM();
-#endif
-
 host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has_toolchain_) : compute_context(ctx_flags, has_toolchain_) {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
@@ -165,7 +158,7 @@ host_compute::host_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags, const bool has
 	device.name = cpu_name;
 	device.units = core::get_hw_thread_count();
 	device.clock = uint32_t(cpu_clock);
-	device.global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
+	device.global_mem_size = core::get_total_system_memory();
 	device.max_mem_alloc = device.global_mem_size;
 	device.constant_mem_size = device.global_mem_size; // not different from normal ram
 	
@@ -542,6 +535,21 @@ unique_ptr<indirect_command_pipeline> host_compute::create_indirect_command_pipe
 	// TODO: !
 	log_error("not yet supported by host_compute!");
 	return {};
+}
+
+compute_context::memory_usage_t host_compute::get_memory_usage(const compute_device& dev) const {
+	const auto& host_dev = (const host_device&)dev;
+	
+	const auto total_mem = host_dev.global_mem_size;
+	const auto free_mem = core::get_free_system_memory();
+	
+	memory_usage_t ret {
+		.global_mem_used = (free_mem <= total_mem ? total_mem - free_mem : total_mem),
+		.global_mem_total = total_mem,
+		.heap_used = 0u,
+		.heap_total = 0u,
+	};
+	return ret;
 }
 
 #endif

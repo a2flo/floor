@@ -427,16 +427,55 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			
 			// allocate internal (experimental) heap
 			if (has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
+				// determine heap sizes
+				// NOTE: global_mem_size may be >= max_mem_alloc, but also ensure we don't allocate too much memory (10% safety margin)
+				const auto safety_global_mem_size = uint64_t(double(dev->global_mem_size) * 0.9);
+				uint64_t heap_size_private = std::min(uint64_t(double(safety_global_mem_size) * double(floor::get_heap_private_size())),
+													  dev->max_mem_alloc);
+				uint64_t heap_size_shared = std::min(uint64_t(double(safety_global_mem_size) * double(floor::get_heap_shared_size())),
+													 dev->max_mem_alloc);
+				assert(heap_size_private <= dev->max_mem_alloc && heap_size_shared <= dev->max_mem_alloc);
+				if (!dev->unified_memory) {
+					// we don't have any shared storage mode memory on GPUs w/o unified memory
+					heap_size_shared = 0u;
+				} else {
+					if (floor::get_metal_shared_only_with_unified_memory()) {
+						heap_size_private = 0u;
+					}
+				}
+				if (heap_size_private + heap_size_shared > safety_global_mem_size) {
+					// ensure the combined heap sizes aren't bigger than the max possible memory size
+					const auto over_size = (heap_size_private + heap_size_shared) - safety_global_mem_size;
+					const auto half_over_size = over_size / 2u;
+					heap_size_private = (heap_size_private >= half_over_size ? heap_size_private - half_over_size : 0u);
+					heap_size_shared = (heap_size_shared >= half_over_size ? heap_size_shared - half_over_size : 0u);
+					log_warn("wanted heap sizes were too large ($' over $'), reducing them to private $', shared $'",
+							 over_size, safety_global_mem_size, heap_size_private, heap_size_shared);
+				}
+				
 				auto heap_desc = [[MTLHeapDescriptor alloc] init];
-				heap_desc.size = dev->max_mem_alloc / 8;
-				heap_desc.storageMode = MTLStorageModePrivate;
 				heap_desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
 				heap_desc.hazardTrackingMode = MTLHazardTrackingModeUntracked;
 				heap_desc.type = MTLHeapTypeAutomatic;
-				mtl_dev->heap_private = [mtl_dev->device newHeapWithDescriptor:heap_desc];
-				if (dev->unified_memory) {
+				if (heap_size_private > 0u) {
+					heap_desc.size = heap_size_private;
+					heap_desc.storageMode = MTLStorageModePrivate;
+					mtl_dev->heap_private = [mtl_dev->device newHeapWithDescriptor:heap_desc];
+					if (mtl_dev->heap_private) {
+						log_msg("allocated private storage heap of size $'", [mtl_dev->heap_private size]);
+					} else {
+						log_error("failed to allocate private storage heap of size $'", heap_size_private);
+					}
+				}
+				if (heap_size_shared > 0u) {
+					heap_desc.size = heap_size_shared;
 					heap_desc.storageMode = MTLStorageModeShared;
 					mtl_dev->heap_shared = [mtl_dev->device newHeapWithDescriptor:heap_desc];
+					if (mtl_dev->heap_shared) {
+						log_msg("allocated shared storage heap of size $'", [mtl_dev->heap_shared size]);
+					} else {
+						log_error("failed to allocate share storage heap of size $'", heap_size_shared);
+					}
 				}
 			}
 			
@@ -1005,6 +1044,27 @@ bool metal_compute::stop_metal_capture() const {
 		capture_manager.defaultCaptureScope = nil;
 		return true;
 	}
+}
+
+compute_context::memory_usage_t metal_compute::get_memory_usage(const compute_device& dev) const {
+	const auto& mtl_dev = (const metal_device&)dev;
+	memory_usage_t ret {
+		.global_mem_used = [mtl_dev.device currentAllocatedSize],
+		.global_mem_total = dev.global_mem_size,
+		.heap_used = 0u,
+		.heap_total = 0u,
+	};
+	
+	if (mtl_dev.heap_shared) {
+		ret.heap_used += [mtl_dev.heap_shared usedSize];
+		ret.heap_total += [mtl_dev.heap_shared currentAllocatedSize];
+	}
+	if (mtl_dev.heap_private) {
+		ret.heap_used += [mtl_dev.heap_private usedSize];
+		ret.heap_total += [mtl_dev.heap_private currentAllocatedSize];
+	}
+	
+	return ret;
 }
 
 #endif

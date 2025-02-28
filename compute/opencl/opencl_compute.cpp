@@ -1107,4 +1107,17 @@ unique_ptr<indirect_command_pipeline> opencl_compute::create_indirect_command_pi
 	return {};
 }
 
+compute_context::memory_usage_t opencl_compute::get_memory_usage(const compute_device& dev) const {
+	const auto& cl_dev = (const opencl_device&)dev;
+	
+	const auto total_mem = cl_dev.global_mem_size;
+	memory_usage_t ret {
+		.global_mem_used = 0u, // NOTE/TODO: no standard way of getting this
+		.global_mem_total = total_mem,
+		.heap_used = 0u,
+		.heap_total = 0u,
+	};
+	return ret;
+}
+
 #endif

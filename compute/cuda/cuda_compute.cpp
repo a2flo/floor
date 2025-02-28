@@ -702,4 +702,18 @@ unique_ptr<indirect_command_pipeline> cuda_compute::create_indirect_command_pipe
 	return {};
 }
 
+compute_context::memory_usage_t cuda_compute::get_memory_usage(const compute_device& dev) const {
+	const auto& cu_dev = (const cuda_device&)dev;
+	CU_CALL_RET(cu_ctx_set_current(cu_dev.ctx), "failed to make device context current", {})
+	size_t free = 0u, total = 0u;
+	CU_CALL_RET(cu_mem_get_info(&free, &total), "failed to query device memory info", {})
+	memory_usage_t ret {
+		.global_mem_used = (free <= total ? total - free : total),
+		.global_mem_total = total,
+		.heap_used = 0u,
+		.heap_total = 0u,
+	};
+	return ret;
+}
+
 #endif

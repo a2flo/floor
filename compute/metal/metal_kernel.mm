@@ -87,7 +87,7 @@ void metal_kernel::execute(const compute_queue& cqueue,
 						   const vector<compute_fence*>& signal_fences,
 						   const char* debug_label,
 						   kernel_completion_handler_f&& completion_handler) const {
-	const auto dev = &cqueue.get_device();
+	const auto dev = (const metal_device*)&cqueue.get_device();
 	const auto ctx = (const metal_compute*)dev->context;
 	
 	// no cooperative support yet
@@ -255,15 +255,25 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 		}
 		
 		// create the argument buffer
-		// NOTE: the buffer has to be allocated in managed mode (macOS) or shared mode (iOS) -> set appropriate flags
-		// TODO: on GPUs with unified memory, do we always want to use GPU-backed shared mode memory instead?
-		auto storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
-		memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
-		auto buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),
-											  COMPUTE_MEMORY_FLAG::READ |
-											  COMPUTE_MEMORY_FLAG::HOST_WRITE |
-											  COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
-											  add_mem_flags);
+		// NOTE: the buffer has to be allocated in managed mode (dedicated GPU) or shared mode (integrated GPU) -> set appropriate flags
+		shared_ptr<compute_buffer> buf;
+		aligned_ptr<uint8_t> storage_buffer_backing;
+		if (dev.unified_memory) {
+			buf = dev.context->create_buffer(cqueue, arg_buffer_size_page,
+											 COMPUTE_MEMORY_FLAG::READ |
+											 COMPUTE_MEMORY_FLAG::HOST_WRITE |
+											 COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC |
+											 add_mem_flags);
+			buf->zero(cqueue);
+		} else {
+			storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
+			memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
+			buf = dev.context->create_buffer(cqueue, storage_buffer_backing.to_span(),
+											 COMPUTE_MEMORY_FLAG::READ |
+											 COMPUTE_MEMORY_FLAG::HOST_WRITE |
+											 COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY |
+											 add_mem_flags);
+		}
 		buf->set_debug_label(entry.info->name + "_arg_buffer");
 		return make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));
 	}

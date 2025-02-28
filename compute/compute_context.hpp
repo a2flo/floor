@@ -162,6 +162,21 @@ public:
 	//! creates and returns a fence for the specified queue
 	virtual unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const = 0;
 	
+	//! memory usage returned by get_memory_usage()
+	struct memory_usage_t {
+		//! current amount of used global memory in bytes
+		uint64_t global_mem_used { 0u };
+		//! total available amount of global memory in bytes
+		uint64_t global_mem_total { 0u };
+		//! current amount of used heap memory in bytes
+		uint64_t heap_used { 0u };
+		//! total available amount of heap memory in bytes
+		uint64_t heap_total { 0u };
+	};
+	
+	//! return the current memory usage for the specified device
+	virtual memory_usage_t get_memory_usage(const compute_device& dev) const = 0;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	

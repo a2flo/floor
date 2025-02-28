@@ -222,6 +222,11 @@ public:
 	static uint32_t get_mdouble_click_time();
 	static uint32_t get_rdouble_click_time();
 	
+	// memory
+	static float get_heap_private_size();
+	static float get_heap_shared_size();
+	static bool get_metal_shared_only_with_unified_memory();
+	
 	// toolchain
 	static const string& get_toolchain_backend();
 	static bool get_toolchain_debug();
@@ -392,6 +397,11 @@ protected:
 		bool log_commands = false;
 		bool internal_skip_toolchain_check = false;
 		uint32_t internal_claim_toolchain_version = 0u;
+		
+		// memory
+		float heap_private_size { 0.25f };
+		float heap_shared_size { 0.25f };
+		bool metal_shared_only_with_unified_memory { false };
 		
 		// compute toolchain
 		string default_compiler = "clang";

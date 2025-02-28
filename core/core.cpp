@@ -54,11 +54,21 @@
 #if defined(__APPLE__)
 #include <mach/thread_policy.h>
 #include <mach/thread_act.h>
-#elif defined(__linux__) || defined(__FreeBSD__)
+#include <mach/vm_statistics.h>
+#include <mach/mach_host.h>
+#elif defined(__linux__)
 #include <pthread.h>
-#if defined(__FreeBSD__)
+#include <sys/sysinfo.h>
+#elif defined(__FreeBSD__)
+#include <pthread.h>
 #include <pthread_np.h>
 #endif
+
+// provided by SDL3
+#if defined(SDL_DECLSPEC)
+extern "C" SDL_DECLSPEC int SDLCALL SDL_GetSystemRAM();
+#else // TODO: remove this (keep it for older SDL3 versions for now)
+extern "C" DECLSPEC int SDLCALL SDL_GetSystemRAM();
 #endif
 
 namespace core {
@@ -606,6 +616,33 @@ FLOOR_POP_WARNINGS()
 #else // other platforms?
 #endif
 	return core_count;
+}
+
+uint64_t get_total_system_memory() {
+	return uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
+}
+
+uint64_t get_free_system_memory() {
+	uint64_t free_mem = 0u;
+#if defined(__APPLE__)
+	vm_statistics64_data_t vm_stats {};
+	auto host_info_cnt = HOST_VM_INFO64_COUNT;
+	if (host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info64_t)&vm_stats, &host_info_cnt) == KERN_SUCCESS) {
+		free_mem = uint64_t(vm_stats.free_count) * aligned_ptr<int>::page_size;
+	}
+#elif defined(__linux__)
+	struct sysinfo info {};
+	if (sysinfo(&info) == 0) {
+		free_mem = uint64_t(info.freeram) * uint64_t(info.mem_unit);
+	}
+#elif defined(__WINDOWS__)
+	MEMORYSTATUSEX mem_status {};
+	mem_status.dwLength = sizeof(MEMORYSTATUSEX);
+	if (GlobalMemoryStatusEx(&mem_status) > 0) {
+		free_mem = uint64_t(mem_status.ullAvailPhys);
+	}
+#endif
+	return free_mem;
 }
 
 void set_thread_affinity(const uint32_t affinity) {

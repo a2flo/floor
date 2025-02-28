@@ -291,7 +291,13 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 	
 	// retrieve memory info
 	ret.mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
-	vkGetPhysicalDeviceMemoryProperties(dev, ret.mem_props.get());
+	VkPhysicalDeviceMemoryProperties2 mem_props {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
+		.pNext = nullptr,
+		.memoryProperties = {},
+	};
+	vkGetPhysicalDeviceMemoryProperties2(dev, &mem_props);
+	memcpy(ret.mem_props.get(), &mem_props.memoryProperties, sizeof(VkPhysicalDeviceMemoryProperties));
 	const auto& props = *ret.mem_props;
 	
 	// find largest memory of a specific type
@@ -795,6 +801,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			log_error("VK_KHR_workgroup_memory_explicit_layout is not supported by $", props.deviceName);
 			continue;
 		}
+		if (!device_supported_extensions_set.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+			log_error("VK_EXT_memory_budget is not supported by $", props.deviceName);
+			continue;
+		}
+		device_extensions_set.emplace(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 		
 		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
 			if (!device_extensions_set.contains(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME)) {
@@ -3559,6 +3570,36 @@ unique_ptr<indirect_command_pipeline> vulkan_compute::create_indirect_command_pi
 		return {};
 	}
 	return pipeline;
+}
+
+compute_context::memory_usage_t vulkan_compute::get_memory_usage(const compute_device& dev) const {
+	const auto& vk_dev = (const vulkan_device&)dev;
+	
+	VkPhysicalDeviceMemoryBudgetPropertiesEXT mem_budget {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT,
+		.pNext = nullptr,
+		.heapBudget = {},
+		.heapUsage = {},
+	};
+	VkPhysicalDeviceMemoryProperties2 mem_props {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
+		.pNext = &mem_budget,
+		.memoryProperties = {},
+	};
+	vkGetPhysicalDeviceMemoryProperties2(vk_dev.physical_device, &mem_props);
+	
+	const auto heap_idx = mem_props.memoryProperties.memoryTypes[vk_dev.device_mem_index].heapIndex;
+	assert(heap_idx < std::size(mem_budget.heapUsage));
+	const auto budget = mem_budget.heapBudget[heap_idx];
+	const auto usage = mem_budget.heapUsage[heap_idx];
+	
+	memory_usage_t ret {
+		.global_mem_used = (usage <= budget ? budget - usage : budget),
+		.global_mem_total = budget,
+		.heap_used = 0u,
+		.heap_total = 0u,
+	};
+	return ret;
 }
 
 #endif

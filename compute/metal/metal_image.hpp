@@ -75,6 +75,11 @@ public:
 	//! creates the mip-map chain for this metal image
 	void generate_mip_map_chain(const compute_queue& cqueue) override;
 	
+	//! returns true if this image has been allocated from the internal heap
+	bool is_metal_heap_image() const {
+		return is_heap_image;
+	}
+	
 	//! returns the corresponding MTLPixelFormat for the specified COMPUTE_IMAGE_TYPE,
 	//! or nothing if there is no matching pixel format
 #if defined(__OBJC__)
@@ -90,6 +95,7 @@ protected:
 	void* floor_null_unspecified desc { nullptr };
 #endif
 	bool is_external { false };
+	bool is_heap_image { false };
 
 #if defined(__OBJC__)
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };

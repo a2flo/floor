@@ -67,6 +67,8 @@ public:
 	
 	unique_ptr<compute_fence> create_fence(const compute_queue& cqueue) const override;
 	
+	memory_usage_t get_memory_usage(const compute_device& dev) const override;
+	
 	//////////////////////////////////////////
 	// buffer creation
 	

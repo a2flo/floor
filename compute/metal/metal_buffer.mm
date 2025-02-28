@@ -25,20 +25,36 @@
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/darwin/darwin_helper.hpp>
+#include <floor/floor/floor.hpp>
 
 // TODO: proper error (return) value handling everywhere
+
+static COMPUTE_MEMORY_FLAG infer_metal_buffer_flags(COMPUTE_MEMORY_FLAG flags, const metal_device& mtl_dev) {
+	if (mtl_dev.unified_memory) {
+		if (// always use shared memory?
+			floor::get_metal_shared_only_with_unified_memory() ||
+			// will already use shared memory if either HOST_READ or HOST_WRITE is set
+			(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) != COMPUTE_MEMORY_FLAG::NONE) {
+			// any shared memory combination -> can always use HOST_READ_WRITE
+			flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+		}
+	}
+	return flags;
+}
 
 metal_buffer::metal_buffer(const bool is_staging_buffer_,
 						   const compute_queue& cqueue,
 						   const size_t& size_,
 						   std::span<uint8_t> host_data_,
 						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_buffer(cqueue, size_, host_data_, flags_), is_staging_buffer(is_staging_buffer_) {
+compute_buffer(cqueue, size_, host_data_, infer_metal_buffer_flags(flags_, (const metal_device&)cqueue.get_device())),
+is_staging_buffer(is_staging_buffer_) {
 	if(size < min_multiple()) return;
 	
 	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
 	
-	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
+	const auto shared_only = (floor::get_metal_shared_only_with_unified_memory() && dev.unified_memory);
+	switch (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::HOST_READ:
 		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// keep the default MTLCPUCacheModeDefaultCache
@@ -46,13 +62,15 @@ compute_buffer(cqueue, size_, host_data_, flags_), is_staging_buffer(is_staging_
 		case COMPUTE_MEMORY_FLAG::NONE:
 		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
 			// host will only write or not read/write at all -> can use write combined
-			options = MTLCPUCacheModeWriteCombined;
+			if (!shared_only) {
+				options = MTLCPUCacheModeWriteCombined;
+			}
 			break;
 		// all possible cases handled
 		default: floor_unreachable();
 	}
 	
-	if ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if (!shared_only && (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		// if buffer is not accessed by the host at all, use private storage
 		// note that this disables pretty much all functionality of this class!
 		options |= MTLResourceStorageModePrivate;

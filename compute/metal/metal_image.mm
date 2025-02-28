@@ -26,6 +26,7 @@
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/aligned_ptr.hpp>
+#include <floor/floor/floor.hpp>
 
 // TODO: proper error (return) value handling everywhere
 
@@ -35,7 +36,7 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */) {
-	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+	switch (flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			usage_options = MTLTextureUsageShaderRead;
 			break;
@@ -49,6 +50,7 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		default: floor_unreachable();
 	}
 	
+	const auto shared_only = (floor::get_metal_shared_only_with_unified_memory() && dev.unified_memory);
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	if (is_render_target) {
@@ -56,14 +58,16 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 	}
 	
 	// NOTE: same as metal_buffer:
-	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
+	switch (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::HOST_READ:
 		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// keep the default MTLCPUCacheModeDefaultCache
 			break;
 		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
 			// host will only write -> can use write combined
-			options = MTLCPUCacheModeWriteCombined;
+			if (!shared_only) {
+				options = MTLCPUCacheModeWriteCombined;
+			}
 			break;
 		case COMPUTE_MEMORY_FLAG::NONE:
 			// don' set anything -> private storage will be set later
@@ -72,7 +76,7 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		default: floor_unreachable();
 	}
 	
-	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		bool is_memory_less = false;
 		if (is_render_target && is_transient) {
 			options |= MTLResourceStorageModeMemoryless;
@@ -80,8 +84,13 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 			is_memory_less = true;
 		}
 		if (!is_memory_less) {
-			options |= MTLResourceStorageModePrivate;
-			storage_options = MTLStorageModePrivate;
+			if (!shared_only) {
+				options |= MTLResourceStorageModePrivate;
+				storage_options = MTLStorageModePrivate;
+			} else {
+				options |= MTLResourceStorageModeShared;
+				storage_options = MTLStorageModeShared;
+			}
 		}
 	} else {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
@@ -104,8 +113,25 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		options |= MTLResourceHazardTrackingModeUntracked;
 	}
 	
+	// both heap flags must be enabled for this to be viable + must not be transient
+	// NOTE: we don't have any support for images being backed by host memory
+	assert(!has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags));
+	if (has_flag<COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) && !is_transient &&
+		has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags())) {
+		// must also be untracked and in private or shared storage mode
+		if ((options & MTLResourceHazardTrackingModeMask) == MTLResourceHazardTrackingModeUntracked &&
+			((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
+			 (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared)) {
+			// always use default
+			options &= ~MTLResourceCPUCacheModeMask;
+			options |= MTLCPUCacheModeDefaultCache;
+			// enable (for now), may get disabled in create_internal() if other conditions aren't met
+			is_heap_image = true;
+		}
+	}
+	
 	// actually create the image
-	if(!create_internal(true, cqueue)) {
+	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
@@ -467,6 +493,15 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 		[desc setUsage:usage_options];
 		
 		// create the actual metal image with the just created descriptor
+		const auto is_private = (options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate;
+		const auto is_shared = (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared;
+		if (is_heap_image) {
+			assert((is_private && mtl_dev.heap_private) || (is_shared && mtl_dev.heap_shared));
+			image = [(is_private ? mtl_dev.heap_private : mtl_dev.heap_shared) newTextureWithDescriptor:desc];
+			if (!image) {
+				is_heap_image = false;
+			}
+		}
 		image = [mtl_device newTextureWithDescriptor:desc];
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
@@ -632,51 +667,87 @@ bool metal_image::zero(const compute_queue& cqueue) {
 	
 	bool success = false;
 	@autoreleasepool {
-		// TODO: optimize this, should ideally use an empty render pass
-		
 		const bool is_compressed = image_compressed(image_type);
 		const auto dim_count = image_dim_count(image_type);
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
-		
-		auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																	  COMPUTE_MEMORY_FLAG::READ_WRITE |
-																	  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING |
-																	  COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC);
-		zero_buffer->set_debug_label("zero_buffer");
-		auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
-		
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		
-		[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
-		
-		success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
-																											const uint4& mip_image_dim,
-																											const uint32_t& slice_data_size,
-																											const uint32_t&) {
-			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
-			for (size_t slice = 0; slice < layer_count; ++slice) {
-				const MTLSize copy_size {
-					max(mip_image_dim.x, 1u),
-					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
-					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
-				};
-				[blit_encoder copyFromBuffer:mtl_zero_buffer
-								sourceOffset:0
-						   sourceBytesPerRow:(is_compressed ? 0 : bytes_per_row)
-						 sourceBytesPerImage:slice_data_size
-								  sourceSize:copy_size
-								   toTexture:image
-							destinationSlice:slice
-							destinationLevel:level
-						   destinationOrigin:MTLOrigin { 0, 0, 0 }];
+		if (!is_compressed && dim_count == 2 &&
+			has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type) &&
+			!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
+			// create and run an empty render pass that clears the image values
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			
+			MTLRenderPassDescriptor* pass_desc = [MTLRenderPassDescriptor renderPassDescriptor];
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+				pass_desc.depthAttachment.texture = image;
+				pass_desc.depthAttachment.loadAction = MTLLoadActionClear;
+				pass_desc.depthAttachment.storeAction = MTLStoreActionStore;
+				pass_desc.depthAttachment.clearDepth = 1.0;
+			} else {
+				pass_desc.colorAttachments[0].texture = image;
+				pass_desc.colorAttachments[0].loadAction = MTLLoadActionClear;
+				pass_desc.colorAttachments[0].storeAction = MTLStoreActionStore;
+				pass_desc.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 0.0);
 			}
-			return true;
-		}, shim_image_type);
-		
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
+			if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+				pass_desc.renderTargetArrayLength = image_layer_count(image_dim, image_type);
+			}
+			auto encoder = [cmd_buffer renderCommandEncoderWithDescriptor:pass_desc];
+			
+			MTLViewport viewport {
+				.originX = 0.0, .originY = 0.0, .width = double(image_dim.x), .height = double(image_dim.y), .znear = 0.0, .zfar = 1.0
+			};
+			[encoder setViewport:viewport];
+			
+			MTLScissorRect scissor_rect { .x = 0, .y = 0, .width = image_dim.x, .height = image_dim.y };
+			[encoder setScissorRect:scissor_rect];
+			
+			[encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
+		} else {
+			// TODO: builtin kernel to zero an image (unless compressed)
+			
+			const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+			
+			auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
+																		  COMPUTE_MEMORY_FLAG::READ_WRITE |
+																		  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING |
+																		  COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC);
+			zero_buffer->set_debug_label("zero_buffer");
+			auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
+			
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			
+			[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
+			
+			success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
+																												const uint4& mip_image_dim,
+																												const uint32_t& slice_data_size,
+																												const uint32_t&) {
+				const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+				for (size_t slice = 0; slice < layer_count; ++slice) {
+					const MTLSize copy_size {
+						max(mip_image_dim.x, 1u),
+						dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+						dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+					};
+					[blit_encoder copyFromBuffer:mtl_zero_buffer
+									sourceOffset:0
+							   sourceBytesPerRow:(is_compressed ? 0 : bytes_per_row)
+							 sourceBytesPerImage:slice_data_size
+									  sourceSize:copy_size
+									   toTexture:image
+								destinationSlice:slice
+								destinationLevel:level
+							   destinationOrigin:MTLOrigin { 0, 0, 0 }];
+				}
+				return true;
+			}, shim_image_type);
+			
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
+		}
 	}
 	
 	return success;
