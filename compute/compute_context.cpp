@@ -244,6 +244,20 @@ vector<string> compute_context::get_resource_registry_keys() const REQUIRES(!res
 	return ret;
 }
 
+vector<weak_ptr<compute_memory>> compute_context::get_resource_registry_weak_resources() const REQUIRES(!resource_registry_lock) {
+	if (!resource_registry_enabled) {
+		return {};
+	}
+	
+	GUARD(resource_registry_lock);
+	vector<weak_ptr<compute_memory>> ret;
+	ret.reserve(resource_registry_ptr_lut.size());
+	for (const auto& entry : resource_registry_ptr_lut) {
+		ret.emplace_back(entry.second);
+	}
+	return ret;
+}
+
 vector<shared_ptr<compute_queue>> compute_context::create_distinct_queues(const compute_device& dev, const uint32_t wanted_count) const {
 	if (wanted_count == 0) {
 		return {};

@@ -110,6 +110,11 @@
 
 #endif
 
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+safe_mutex metal_mem_tracking_lock;
+uint64_t metal_mem_tracking_leak_total { 0u };
+#endif
+
 metal_compute::metal_compute(const COMPUTE_CONTEXT_FLAGS ctx_flags,
 							 const bool has_toolchain_,
 							 const bool enable_renderer_,

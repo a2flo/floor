@@ -311,15 +311,17 @@ graphics_renderer::drawable_t* metal_renderer::get_next_drawable(const bool get_
 }
 
 void metal_renderer::present() {
-	if (!cur_drawable || !cur_drawable->is_valid()) {
-		log_error("current Metal drawable is invalid");
-		return;
-	}
-	if (cur_drawable->is_multi_view_drawable) {
-		const auto& mtl_ctx = (const metal_compute&)ctx;
-		mtl_ctx.present_metal_vr_drawable(cqueue, *cur_drawable->metal_image.get());
-	} else {
-		[cmd_buffer presentDrawable:cur_drawable->metal_drawable];
+	@autoreleasepool {
+		if (!cur_drawable || !cur_drawable->is_valid()) {
+			log_error("current Metal drawable is invalid");
+			return;
+		}
+		if (cur_drawable->is_multi_view_drawable) {
+			const auto& mtl_ctx = (const metal_compute&)ctx;
+			mtl_ctx.present_metal_vr_drawable(cqueue, *cur_drawable->metal_image.get());
+		} else {
+			[cmd_buffer presentDrawable:cur_drawable->metal_drawable];
+		}
 	}
 }
 
@@ -352,63 +354,65 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 	}
 #endif
 	
-	const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
-	const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(cqueue.get_device());
-	if (!mtl_indirect_pipeline_entry) {
-		log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
-				  cqueue.get_device().name, indirect_cmd.get_description().debug_label);
-		return;
-	}
-	
-	const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-	if (!range) {
-		return;
-	}
-	
-	// declare all used resources
-	// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
-	const auto& resources = mtl_indirect_pipeline_entry->get_resources();
-	const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
-	if (!resources.read_only.empty()) {
-		[encoder useResources:resources.read_only.data()
-						count:resources.read_only.size()
-						usage:MTLResourceUsageRead
-					   stages:stages];
-	}
-	if (!resources.write_only.empty()) {
-		[encoder useResources:resources.write_only.data()
-						count:resources.write_only.size()
-						usage:MTLResourceUsageWrite
-					   stages:stages];
-	}
-	if (!resources.read_write.empty()) {
-		[encoder useResources:resources.read_write.data()
-						count:resources.read_write.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
-					   stages:stages];
-	}
-	if (!resources.read_only_images.empty()) {
-		[encoder useResources:resources.read_only_images.data()
-						count:resources.read_only_images.size()
-						usage:MTLResourceUsageRead
-					   stages:stages];
-	}
-	if (!resources.read_write_images.empty()) {
-		[encoder useResources:resources.read_write_images.data()
-						count:resources.read_write_images.size()
-						usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
-					   stages:stages];
-	}
-	
-	if (mtl_indirect_pipeline_entry->printf_buffer) {
-		mtl_indirect_pipeline_entry->printf_init(cqueue);
-	}
-	
-	[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
-						   withRange:*range];
-	
-	if (mtl_indirect_pipeline_entry->printf_buffer) {
-		mtl_indirect_pipeline_entry->printf_completion(cqueue, cmd_buffer);
+	@autoreleasepool {
+		const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
+		const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(cqueue.get_device());
+		if (!mtl_indirect_pipeline_entry) {
+			log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
+					  cqueue.get_device().name, indirect_cmd.get_description().debug_label);
+			return;
+		}
+		
+		const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
+		if (!range) {
+			return;
+		}
+		
+		// declare all used resources
+		// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
+		const auto& resources = mtl_indirect_pipeline_entry->get_resources();
+		const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
+		if (!resources.read_only.empty()) {
+			[encoder useResources:resources.read_only.data()
+							count:resources.read_only.size()
+							usage:MTLResourceUsageRead
+						   stages:stages];
+		}
+		if (!resources.write_only.empty()) {
+			[encoder useResources:resources.write_only.data()
+							count:resources.write_only.size()
+							usage:MTLResourceUsageWrite
+						   stages:stages];
+		}
+		if (!resources.read_write.empty()) {
+			[encoder useResources:resources.read_write.data()
+							count:resources.read_write.size()
+							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
+						   stages:stages];
+		}
+		if (!resources.read_only_images.empty()) {
+			[encoder useResources:resources.read_only_images.data()
+							count:resources.read_only_images.size()
+							usage:MTLResourceUsageRead
+						   stages:stages];
+		}
+		if (!resources.read_write_images.empty()) {
+			[encoder useResources:resources.read_write_images.data()
+							count:resources.read_write_images.size()
+							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
+						   stages:stages];
+		}
+		
+		if (mtl_indirect_pipeline_entry->printf_buffer) {
+			mtl_indirect_pipeline_entry->printf_init(cqueue);
+		}
+		
+		[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
+							   withRange:*range];
+		
+		if (mtl_indirect_pipeline_entry->printf_buffer) {
+			mtl_indirect_pipeline_entry->printf_completion(cqueue, cmd_buffer);
+		}
 	}
 }
 
@@ -433,14 +437,16 @@ bool metal_renderer::update_metal_pipeline() {
 void metal_renderer::draw_internal(const vector<multi_draw_entry>* draw_entries,
 								   const vector<multi_draw_indexed_entry>* draw_indexed_entries,
 								   const vector<compute_kernel_arg>& args) {
-	const auto vs = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
-	vs->set_shader_arguments(cqueue, encoder, cmd_buffer,
-							 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
-							 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
-	if (draw_entries != nullptr) {
-		vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_entries);
-	} else if (draw_indexed_entries != nullptr) {
-		vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_indexed_entries);
+	@autoreleasepool {
+		const auto vs = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
+		vs->set_shader_arguments(cqueue, encoder, cmd_buffer,
+								 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
+								 (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
+		if (draw_entries != nullptr) {
+			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_entries);
+		} else if (draw_indexed_entries != nullptr) {
+			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_indexed_entries);
+		}
 	}
 }
 
@@ -449,24 +455,27 @@ bool metal_renderer::set_tessellation_factors(const compute_buffer& tess_factors
 		return false;
 	}
 	
-	[encoder setTessellationFactorBuffer:tess_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer()
-								  offset:0u
-						  instanceStride:0u];
-	
-	return true;
+	@autoreleasepool {
+		[encoder setTessellationFactorBuffer:tess_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer()
+									  offset:0u
+							  instanceStride:0u];
+		return true;
+	}
 }
 
 void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 										   const patch_draw_indexed_entry* draw_indexed_entry,
 										   const vector<compute_kernel_arg>& args) {
-	const auto tes = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
-	tes->set_shader_arguments(cqueue, encoder, cmd_buffer,
-							  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
-							  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
-	if (draw_entry != nullptr) {
-		tes->draw(encoder, *draw_entry);
-	} else if (draw_indexed_entry != nullptr) {
-		tes->draw(encoder, *draw_indexed_entry);
+	@autoreleasepool {
+		const auto tes = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
+		tes->set_shader_arguments(cqueue, encoder, cmd_buffer,
+								  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
+								  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
+		if (draw_entry != nullptr) {
+			tes->draw(encoder, *draw_entry);
+		} else if (draw_indexed_entry != nullptr) {
+			tes->draw(encoder, *draw_indexed_entry);
+		}
 	}
 }
 
@@ -486,11 +495,15 @@ static inline MTLRenderStages sync_stage_to_metal_render_stages(const compute_fe
 }
 
 void metal_renderer::wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) {
-	[encoder waitForFence:((const metal_fence&)fence).get_metal_fence() beforeStages:sync_stage_to_metal_render_stages(before_stage)];
+	@autoreleasepool {
+		[encoder waitForFence:((const metal_fence&)fence).get_metal_fence() beforeStages:sync_stage_to_metal_render_stages(before_stage)];
+	}
 }
 
 void metal_renderer::signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) {
-	[encoder updateFence:((const metal_fence&)fence).get_metal_fence() afterStages:sync_stage_to_metal_render_stages(after_stage)];
+	@autoreleasepool {
+		[encoder updateFence:((const metal_fence&)fence).get_metal_fence() afterStages:sync_stage_to_metal_render_stages(after_stage)];
+	}
 }
 
 #endif

@@ -184,17 +184,19 @@ void metal_indirect_command_pipeline::complete() {
 }
 
 void metal_indirect_command_pipeline::complete_pipeline(const compute_device& dev, metal_pipeline_entry& entry) {
-	// gather all resources for this device
-	entry.clear_resources();
-	for (const auto& cmd : commands) {
-		if (!cmd || &cmd->get_device() != &dev) {
-			continue;
+	@autoreleasepool {
+		// gather all resources for this device
+		entry.clear_resources();
+		for (const auto& cmd : commands) {
+			if (!cmd || &cmd->get_device() != &dev) {
+				continue;
+			}
+			if (auto res_tracking = dynamic_cast<metal_resource_tracking*>(cmd.get()); res_tracking) {
+				entry.add_resources(res_tracking->get_resources());
+			}
 		}
-		if (auto res_tracking = dynamic_cast<metal_resource_tracking*>(cmd.get()); res_tracking) {
-			entry.add_resources(res_tracking->get_resources());
-		}
+		entry.sort_and_unique_all_resources();
 	}
-	entry.sort_and_unique_all_resources();
 }
 
 void metal_indirect_command_pipeline::reset() {
@@ -337,25 +339,27 @@ metal_indirect_render_command_encoder::~metal_indirect_render_command_encoder() 
 }
 
 void metal_indirect_render_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {
-	vector<compute_kernel_arg> implicit_args;
-	const auto vs_has_soft_printf = (vs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
-	const auto fs_has_soft_printf = (fs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
-	if (vs_has_soft_printf || fs_has_soft_printf) {
-		// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
-		// NOTE: these are automatically added to the used resources
-		if (vs_has_soft_printf) {
-			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+	@autoreleasepool {
+		vector<compute_kernel_arg> implicit_args;
+		const auto vs_has_soft_printf = (vs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
+		const auto fs_has_soft_printf = (fs_info && llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
+		if (vs_has_soft_printf || fs_has_soft_printf) {
+			// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
+			// NOTE: these are automatically added to the used resources
+			if (vs_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
+			if (fs_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
 		}
-		if (fs_has_soft_printf) {
-			implicit_args.emplace_back(pipeline_entry.printf_buffer);
-		}
+		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command,
+																						{ vs_info, fs_info },
+																						args, implicit_args,
+																						nullptr,
+																						&resources);
+		sort_and_unique_all_resources();
 	}
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command,
-																					{ vs_info, fs_info },
-																					args, implicit_args,
-																					nullptr,
-																					&resources);
-	sort_and_unique_all_resources();
 }
 
 indirect_render_command_encoder& metal_indirect_render_command_encoder::draw(const uint32_t vertex_count,
@@ -377,19 +381,21 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_ind
 																					 const uint32_t first_index,
 																					 const int32_t vertex_offset,
 																					 const uint32_t first_instance) {
-	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
-	auto idx_buffer = index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
-	[command drawIndexedPrimitives:mtl_primitve
-						indexCount:index_count
-						 indexType:MTLIndexTypeUInt32
-					   indexBuffer:idx_buffer
-				 indexBufferOffset:(first_index * 4u)
-					 instanceCount:instance_count
-						baseVertex:vertex_offset
-					  baseInstance:first_instance];
-	// need to track this as well!
-	resources.read_only.emplace_back(idx_buffer);
-	return *this;
+	@autoreleasepool {
+		const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
+		auto idx_buffer = index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+		[command drawIndexedPrimitives:mtl_primitve
+							indexCount:index_count
+							 indexType:MTLIndexTypeUInt32
+						   indexBuffer:idx_buffer
+					 indexBufferOffset:(first_index * 4u)
+						 instanceCount:instance_count
+							baseVertex:vertex_offset
+						  baseInstance:first_instance];
+		// need to track this as well!
+		resources.read_only.emplace_back(idx_buffer);
+		return *this;
+	}
 }
 
 indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_patches(const vector<const compute_buffer*> control_point_buffers,
@@ -399,28 +405,30 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																					 const uint32_t first_patch,
 																					 const uint32_t instance_count,
 																					 const uint32_t first_instance) {
-	uint32_t vbuffer_idx = 0u;
-	for (const auto& vbuffer : control_point_buffers) {
-		auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
-		[command setVertexBuffer:mtl_buf
-						  offset:0u
-						 atIndex:vbuffer_idx++];
-		resources.read_only.emplace_back(mtl_buf);
-	}
-	
-	auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
-	[command drawPatches:patch_control_point_count
-			  patchStart:first_patch
-			  patchCount:patch_count
-		patchIndexBuffer:nil
-  patchIndexBufferOffset:0u
-		   instanceCount:instance_count
-			baseInstance:first_instance
-tessellationFactorBuffer:factors_buffer
+	@autoreleasepool {
+		uint32_t vbuffer_idx = 0u;
+		for (const auto& vbuffer : control_point_buffers) {
+			auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
+			[command setVertexBuffer:mtl_buf
+							  offset:0u
+							 atIndex:vbuffer_idx++];
+			resources.read_only.emplace_back(mtl_buf);
+		}
+		
+		auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+		[command drawPatches:patch_control_point_count
+				  patchStart:first_patch
+				  patchCount:patch_count
+			patchIndexBuffer:nil
+	  patchIndexBufferOffset:0u
+			   instanceCount:instance_count
+				baseInstance:first_instance
+	tessellationFactorBuffer:factors_buffer
 tessellationFactorBufferOffset:0u
 tessellationFactorBufferInstanceStride:0u];
-	resources.read_only.emplace_back(factors_buffer);
-	return *this;
+		resources.read_only.emplace_back(factors_buffer);
+		return *this;
+	}
 }
 
 indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_patches_indexed(const vector<const compute_buffer*> control_point_buffers,
@@ -432,32 +440,34 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																							 const uint32_t first_patch,
 																							 const uint32_t instance_count,
 																							 const uint32_t first_instance) {
-	uint32_t vbuffer_idx = 0u;
-	for (const auto& vbuffer : control_point_buffers) {
-		auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
-		[command setVertexBuffer:mtl_buf
-						  offset:0u
-						 atIndex:vbuffer_idx++];
-		resources.read_only.emplace_back(mtl_buf);
-	}
-	
-	auto idx_buffer = control_point_index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
-	auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
-	[command drawIndexedPatches:patch_control_point_count
-					 patchStart:first_patch
-					 patchCount:patch_count
-			   patchIndexBuffer:nil
-		 patchIndexBufferOffset:0u
-		controlPointIndexBuffer:idx_buffer
-  controlPointIndexBufferOffset:(first_index * 4u)
-				  instanceCount:instance_count
-				   baseInstance:first_instance
-	   tessellationFactorBuffer:factors_buffer
- tessellationFactorBufferOffset:0u
+	@autoreleasepool {
+		uint32_t vbuffer_idx = 0u;
+		for (const auto& vbuffer : control_point_buffers) {
+			auto mtl_buf = vbuffer->get_underlying_metal_buffer_safe()->get_metal_buffer();
+			[command setVertexBuffer:mtl_buf
+							  offset:0u
+							 atIndex:vbuffer_idx++];
+			resources.read_only.emplace_back(mtl_buf);
+		}
+		
+		auto idx_buffer = control_point_index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+		auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+		[command drawIndexedPatches:patch_control_point_count
+						 patchStart:first_patch
+						 patchCount:patch_count
+				   patchIndexBuffer:nil
+			 patchIndexBufferOffset:0u
+			controlPointIndexBuffer:idx_buffer
+	  controlPointIndexBufferOffset:(first_index * 4u)
+					  instanceCount:instance_count
+					   baseInstance:first_instance
+		   tessellationFactorBuffer:factors_buffer
+	 tessellationFactorBufferOffset:0u
 tessellationFactorBufferInstanceStride:0u];
-	resources.read_only.emplace_back(idx_buffer);
-	resources.read_only.emplace_back(factors_buffer);
-	return *this;
+		resources.read_only.emplace_back(idx_buffer);
+		resources.read_only.emplace_back(factors_buffer);
+		return *this;
+	}
 }
 
 metal_indirect_compute_command_encoder::metal_indirect_compute_command_encoder(const metal_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
@@ -492,17 +502,19 @@ metal_indirect_compute_command_encoder::~metal_indirect_compute_command_encoder(
 }
 
 void metal_indirect_compute_command_encoder::set_arguments_vector(vector<compute_kernel_arg>&& args) {
-	vector<compute_kernel_arg> implicit_args;
-	if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
-		// NOTE: this is automatically added to the used resources
-		implicit_args.emplace_back(pipeline_entry.printf_buffer);
+	@autoreleasepool {
+		vector<compute_kernel_arg> implicit_args;
+		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {
+			// NOTE: this is automatically added to the used resources
+			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+		}
+		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev, command,
+																						 { entry->info },
+																						 args, implicit_args,
+																						 nullptr,
+																						 &resources);
+		sort_and_unique_all_resources();
 	}
-	metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::INDIRECT_COMPUTE>(dev, command,
-																					 { entry->info },
-																					 args, implicit_args,
-																					 nullptr,
-																					 &resources);
-	sort_and_unique_all_resources();
 }
 
 indirect_compute_command_encoder& metal_indirect_compute_command_encoder::execute(const uint32_t dim,

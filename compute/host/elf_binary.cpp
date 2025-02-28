@@ -1463,6 +1463,7 @@ bool elf_binary::perform_relocations(internal_instance_t& instance,
 							log_error("out-of-bounds G0 relocation: $", value);
 							return false;
 						}
+						[[fallthrough]];
 					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G0_NC:
 						value = (value & 0xFFFFll) << 5ll;
 						break;
@@ -1471,6 +1472,7 @@ bool elf_binary::perform_relocations(internal_instance_t& instance,
 							log_error("out-of-bounds G1 relocation: $", value);
 							return false;
 						}
+						[[fallthrough]];
 					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G1_NC:
 						value = (value & 0xFFFF'0000ll) >> 11ll;
 						break;
@@ -1479,6 +1481,7 @@ bool elf_binary::perform_relocations(internal_instance_t& instance,
 							log_error("out-of-bounds G2 relocation: $", value);
 							return false;
 						}
+						[[fallthrough]];
 					case ELF_RELOCATION_TYPE_ARM64::MOVW_UABS_G2_NC:
 						value = (value & 0xFFFF'0000'0000ll) >> 27ll;
 						break;

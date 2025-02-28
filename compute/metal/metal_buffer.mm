@@ -275,6 +275,18 @@ bool metal_buffer::create_internal(const bool copy_host_data, const compute_queu
 }
 
 metal_buffer::~metal_buffer() {
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+	GUARD(metal_mem_tracking_lock);
+	uint64_t pre_alloc_size = 0u;
+	uint64_t buffer_alloc_size = 0u;
+	if (buffer) {
+		pre_alloc_size = [((const metal_device&)dev).device currentAllocatedSize];
+		buffer_alloc_size = [buffer allocatedSize];
+		if (size > buffer_alloc_size) {
+			log_error("buffer size $' > alloc size $'", size, buffer_alloc_size);
+		}
+	}
+#endif
 	@autoreleasepool {
 		// kill the buffer / auto-release
 		if (buffer) {
@@ -285,6 +297,19 @@ metal_buffer::~metal_buffer() {
 		}
 		buffer = nil;
 	}
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+	if (pre_alloc_size > 0) {
+		this_thread::yield();
+		const auto post_alloc_size = [((const metal_device&)dev).device currentAllocatedSize];
+		const auto alloc_diff = (pre_alloc_size >= post_alloc_size ? pre_alloc_size - post_alloc_size : 0);
+		if (alloc_diff != buffer_alloc_size && alloc_diff != const_math::round_next_multiple(buffer_alloc_size, 16384ull) &&
+			buffer_alloc_size >= 16384u) {
+			metal_mem_tracking_leak_total += buffer_alloc_size;
+			log_error("buffer ($) dealloc mismatch: expected $' to have been freed, got $' -> leak total $'",
+					  debug_label, size, alloc_diff, metal_mem_tracking_leak_total);
+		}
+	}
+#endif
 }
 
 void metal_buffer::read(const compute_queue& cqueue, const size_t size_, const size_t offset) {
@@ -354,43 +379,18 @@ void metal_buffer::copy(const compute_queue& cqueue, const compute_buffer& src,
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	GUARD(lock);
-	
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	// if either source or destination uses private storage, we need to perform a blit copy
-	if ((src_mtl_buffer.get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
-		(options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
-		@autoreleasepool {
-			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-			[blit_encoder copyFromBuffer:src_mtl_buffer.get_metal_buffer()
-							sourceOffset:src_offset
-								toBuffer:buffer
-					   destinationOffset:dst_offset
-									size:copy_size];
-			[blit_encoder endEncoding];
-			[cmd_buffer commit];
-			[cmd_buffer waitUntilCompleted];
-			return;
-		}
+	@autoreleasepool {
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		[blit_encoder copyFromBuffer:src_mtl_buffer.get_metal_buffer()
+						sourceOffset:src_offset
+							toBuffer:buffer
+				   destinationOffset:dst_offset
+								size:copy_size];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
 	}
-#endif
-	
-	if (metal_resource_type_needs_sync(src_mtl_buffer.get_metal_resource_options())) {
-		sync_metal_resource(cqueue, src_mtl_buffer.get_metal_buffer());
-	}
-	if (metal_resource_type_needs_sync(options)) {
-		sync_metal_resource(cqueue, buffer);
-	}
-	
-	memcpy((uint8_t*)[buffer contents] + dst_offset,
-		   (uint8_t*)[src_mtl_buffer.get_metal_buffer() contents] + src_offset,
-		   copy_size);
-	
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[buffer didModifyRange:NSRange { dst_offset, dst_offset + copy_size }];
-	}
-#endif
 }
 
 bool metal_buffer::fill(const compute_queue& cqueue,

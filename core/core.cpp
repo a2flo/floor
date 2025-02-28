@@ -437,6 +437,10 @@ void system(const string& cmd, string& output) {
 						   ("\"" + cmd + "\"").c_str()
 #endif
 						   , "r");
+	if (!sys_pipe) {
+		log_error("failed to execute system command: $", cmd);
+		return;
+	}
 	while(fgets(buffer, buffer_size, sys_pipe) != nullptr) {
 		output += buffer;
 		memset(buffer, 0, buffer_size); // size+1 is always 0

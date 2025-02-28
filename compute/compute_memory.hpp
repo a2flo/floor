@@ -84,6 +84,11 @@ public:
 	void _lock() const ACQUIRE(lock) REQUIRES(!lock);
 	void _unlock() const RELEASE(lock);
 	
+	//! returns true if this buffer has been allocated from the internal heap
+	virtual bool is_heap_allocated() const {
+		return false;
+	}
+	
 	//! for debugging purposes: dumps the content of the specified memory object into a file using the specified "value_type" operator<<
 	//! NOTE: each value will printed in one line (terminated by \n)
 	template <typename value_type, typename memory_object_type>

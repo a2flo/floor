@@ -172,6 +172,15 @@ public:
 		uint64_t heap_used { 0u };
 		//! total available amount of heap memory in bytes
 		uint64_t heap_total { 0u };
+		
+		//! returns the global memory usage as a percentage
+		double global_mem_usage_percentage() const {
+			return (global_mem_total > 0 ? (double(global_mem_used) / double(global_mem_total)) * 100.0 : 0.0);
+		}
+		//! returns the heap memory usage as a percentage
+		double heap_usage_percentage() const {
+			return (heap_total > 0 ? (double(heap_used) / double(heap_total)) * 100.0 : 0.0);
+		}
 	};
 	
 	//! return the current memory usage for the specified device
@@ -424,6 +433,9 @@ public:
 	
 	//! returns a vector of resource labels of all currently registered resources
 	virtual vector<string> get_resource_registry_keys() const REQUIRES(!resource_registry_lock);
+	
+	//! returns a vector of weak pointers to all currently registered resources
+	virtual vector<weak_ptr<compute_memory>> get_resource_registry_weak_resources() const REQUIRES(!resource_registry_lock);
 	
 protected:
 	compute_context(const COMPUTE_CONTEXT_FLAGS context_flags_, const bool has_toolchain_) :

@@ -36,26 +36,28 @@ metal_argument_buffer::~metal_argument_buffer() {
 }
 
 bool metal_argument_buffer::set_arguments(const compute_queue& dev_queue [[maybe_unused]], const vector<compute_kernel_arg>& args) {
-	auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();
-	auto mtl_buffer = mtl_storage_buffer->get_metal_buffer();
-	
-	[encoder setArgumentBuffer:mtl_buffer offset:0];
-	assert(&dev_queue.get_device() == &mtl_storage_buffer->get_device());
-	resources = {}; // clear current resource tracking
-	if (!metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
-																				  (!arg_indices.empty() ? &arg_indices : nullptr),
-																				  &resources)) {
-		return false;
-	}
-	sort_and_unique_all_resources();
-	
+	@autoreleasepool {
+		auto mtl_storage_buffer = (metal_buffer*)storage_buffer.get();
+		auto mtl_buffer = mtl_storage_buffer->get_metal_buffer();
+		
+		[encoder setArgumentBuffer:mtl_buffer offset:0];
+		assert(&dev_queue.get_device() == &mtl_storage_buffer->get_device());
+		resources = {}; // clear current resource tracking
+		if (!metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
+																					  (!arg_indices.empty() ? &arg_indices : nullptr),
+																					  &resources)) {
+			return false;
+		}
+		sort_and_unique_all_resources();
+		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	// signal buffer update if this is a managed buffer
-	if ((mtl_storage_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		const auto update_range = (uint64_t)[encoder encodedLength];
-		[mtl_buffer didModifyRange:NSRange { 0, update_range }];
-	}
+		// signal buffer update if this is a managed buffer
+		if ((mtl_storage_buffer->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			const auto update_range = (uint64_t)[encoder encodedLength];
+			[mtl_buffer didModifyRange:NSRange { 0, update_range }];
+		}
 #endif
+	}
 	
 	return true;
 }

@@ -225,4 +225,11 @@ protected:
 	
 };
 
+// for internal debugging only
+#define FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING 0
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+extern safe_mutex metal_mem_tracking_lock;
+extern uint64_t metal_mem_tracking_leak_total;
+#endif
+
 #endif

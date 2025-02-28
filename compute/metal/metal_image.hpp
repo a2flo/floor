@@ -64,6 +64,10 @@ public:
 	
 	void set_debug_label(const string& label) override;
 	
+	bool is_heap_allocated() const override {
+		return is_heap_image;
+	}
+	
 	//! returns the metal specific image object
 #if defined(__OBJC__)
 	id <MTLTexture> floor_nonnull get_metal_image() const { return image; }
@@ -74,11 +78,6 @@ public:
 	
 	//! creates the mip-map chain for this metal image
 	void generate_mip_map_chain(const compute_queue& cqueue) override;
-	
-	//! returns true if this image has been allocated from the internal heap
-	bool is_metal_heap_image() const {
-		return is_heap_image;
-	}
 	
 	//! returns the corresponding MTLPixelFormat for the specified COMPUTE_IMAGE_TYPE,
 	//! or nothing if there is no matching pixel format

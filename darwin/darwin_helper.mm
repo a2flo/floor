@@ -469,46 +469,48 @@ FLOOR_POP_WARNINGS()
 @end
 
 metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata) {
-	// we always create our own Metal view
+	@autoreleasepool {
+		// we always create our own Metal view
 #if defined(FLOOR_IOS)
-	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
-	if (!uikit_wnd) {
-		log_error("failed to retrieve window: $", SDL_GetError());
-		return nullptr;
-	}
-	const bool can_do_hdr = ([[uikit_wnd screen] potentialEDRHeadroom] > 1.0);
+		UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+		if (!uikit_wnd) {
+			log_error("failed to retrieve window: $", SDL_GetError());
+			return nullptr;
+		}
+		const bool can_do_hdr = ([[uikit_wnd screen] potentialEDRHeadroom] > 1.0);
 #elif defined(FLOOR_VISIONOS)
-	UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
-	// no way to query this, but we can always query this
-	const bool can_do_hdr = true;
+		UIWindow* uikit_wnd = (__bridge UIWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, nullptr);
+		// no way to query this, but we can always query this
+		const bool can_do_hdr = true;
 #else
-	NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
-	if (!cocoa_wnd) {
-		log_error("failed to retrieve window: $", SDL_GetError());
-		return nullptr;
+		NSWindow* cocoa_wnd = (__bridge NSWindow*)SDL_GetPointerProperty(SDL_GetWindowProperties(wnd), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+		if (!cocoa_wnd) {
+			log_error("failed to retrieve window: $", SDL_GetError());
+			return nullptr;
+		}
+		const bool can_do_hdr = ([[cocoa_wnd screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
+#endif
+		
+		metal_view* view = [[metal_view alloc]
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+							initWithWindow:cocoa_wnd
+#else
+							initWithWindow:uikit_wnd
+#endif
+							withDevice:device
+							withHiDPI:floor::get_hidpi()
+							withVSync:floor::get_vsync()
+							withWideGamut:floor::get_wide_gamut()
+							withHDR:(floor::get_hdr() && can_do_hdr)
+							withHDRLinear:floor::get_hdr_linear()
+							withHDRMetadata:hdr_metadata];
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+		[[cocoa_wnd contentView] addSubview:view];
+#else
+		[uikit_wnd addSubview:view];
+#endif
+		return view;
 	}
-	const bool can_do_hdr = ([[cocoa_wnd screen] maximumPotentialExtendedDynamicRangeColorComponentValue] > 1.0);
-#endif
-	
-	metal_view* view = [[metal_view alloc]
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-						initWithWindow:cocoa_wnd
-#else
-						initWithWindow:uikit_wnd
-#endif
-						withDevice:device
-						withHiDPI:floor::get_hidpi()
-						withVSync:floor::get_vsync()
-						withWideGamut:floor::get_wide_gamut()
-						withHDR:(floor::get_hdr() && can_do_hdr)
-						withHDRLinear:floor::get_hdr_linear()
-						withHDRMetadata:hdr_metadata];
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-	[[cocoa_wnd contentView] addSubview:view];
-#else
-	[uikit_wnd addSubview:view];
-#endif
-	return view;
 }
 
 CAMetalLayer* darwin_helper::get_metal_layer(metal_view* view) {
@@ -518,29 +520,31 @@ CAMetalLayer* darwin_helper::get_metal_layer(metal_view* view) {
 id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer) {
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(direct-ivar-access)
-	while (view->max_scheduled_frames == 0) {
-		// wait until woken up or 250ms timeout
-		unique_lock<mutex> start_render_lock_guard(view->available_frame_cv_lock);
-		if (view->available_frame_cv.wait_for(start_render_lock_guard, 250ms) == cv_status::timeout) {
-			continue;
+	@autoreleasepool {
+		while (view->max_scheduled_frames == 0) {
+			// wait until woken up or 250ms timeout
+			unique_lock<mutex> start_render_lock_guard(view->available_frame_cv_lock);
+			if (view->available_frame_cv.wait_for(start_render_lock_guard, 250ms) == cv_status::timeout) {
+				continue;
+			}
 		}
-	}
-	
-	// take away one frame/drawable
-	--view->max_scheduled_frames;
-	
-	__block atomic<uint32_t>& max_scheduled_frames_ = view->max_scheduled_frames;
-	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer> buffer floor_unused) {
-		// free up frame + signal that a new frame can be rendered again
-		++max_scheduled_frames_;
-		view->available_frame_cv.notify_one();
-	}];
-	auto drawable = [[view metal_layer] nextDrawable];
+		
+		// take away one frame/drawable
+		--view->max_scheduled_frames;
+		
+		__block atomic<uint32_t>& max_scheduled_frames_ = view->max_scheduled_frames;
+		[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer> buffer floor_unused) {
+			// free up frame + signal that a new frame can be rendered again
+			++max_scheduled_frames_;
+			view->available_frame_cv.notify_one();
+		}];
+		auto drawable = [[view metal_layer] nextDrawable];
 #if !TARGET_OS_SIMULATOR // in the simulator, doing this will lead to issues
-	// since macOS 13.0: must manually set this to non-volatile
-	[[drawable texture] setPurgeableState:MTLPurgeableStateNonVolatile];
+		// since macOS 13.0: must manually set this to non-volatile
+		[[drawable texture] setPurgeableState:MTLPurgeableStateNonVolatile];
 #endif
-	return drawable;
+		return drawable;
+	}
 FLOOR_POP_WARNINGS()
 }
 

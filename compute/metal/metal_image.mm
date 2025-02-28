@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/core/logger.hpp>
+#include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
@@ -593,6 +594,18 @@ bool metal_image::create_internal(const bool copy_host_data, const compute_queue
 }
 
 metal_image::~metal_image() {
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+	GUARD(metal_mem_tracking_lock);
+	uint64_t pre_alloc_size = 0u;
+	uint64_t image_alloc_size = 0u;
+	if (image && !is_external && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type)) {
+		pre_alloc_size = [((const metal_device&)dev).device currentAllocatedSize];
+		image_alloc_size = [image allocatedSize];
+		if (image_data_size > image_alloc_size) {
+			log_error("image size $' > alloc size $'", image_data_size, image_alloc_size);
+		}
+	}
+#endif
 	@autoreleasepool {
 		// kill the image
 		if (image
@@ -607,6 +620,19 @@ metal_image::~metal_image() {
 			desc = nil;
 		}
 	}
+#if FLOOR_METAL_INTERNAL_MEM_TRACKING_DEBUGGING
+	if (pre_alloc_size > 0) {
+		this_thread::yield();
+		const auto post_alloc_size = [((const metal_device&)dev).device currentAllocatedSize];
+		const auto alloc_diff = (pre_alloc_size >= post_alloc_size ? pre_alloc_size - post_alloc_size : 0);
+		if (alloc_diff != image_alloc_size && alloc_diff != const_math::round_next_multiple(image_alloc_size, 16384ull) &&
+			image_alloc_size >= 16384u) {
+			metal_mem_tracking_leak_total += image_alloc_size;
+			log_error("buffer ($) dealloc mismatch: expected $' to have been freed, got $' -> leak total $'",
+					  debug_label, image_alloc_size, alloc_diff, metal_mem_tracking_leak_total);
+		}
+	}
+#endif
 }
 
 bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
@@ -616,13 +642,13 @@ bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
 		return false;
 	}
 	
-	auto src_image = ((const metal_image&)src).get_metal_image();
-	if (!src_image) {
-		log_error("blit: source Metal image is null");
-		return false;
-	}
-	
 	@autoreleasepool {
+		auto src_image = ((const metal_image&)src).get_metal_image();
+		if (!src_image) {
+			log_error("blit: source Metal image is null");
+			return false;
+		}
+		
 		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto dim_count = image_dim_count(image_type);
