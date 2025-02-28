@@ -3594,7 +3594,7 @@ compute_context::memory_usage_t vulkan_compute::get_memory_usage(const compute_d
 	const auto usage = mem_budget.heapUsage[heap_idx];
 	
 	memory_usage_t ret {
-		.global_mem_used = (usage <= budget ? budget - usage : budget),
+		.global_mem_used = (usage <= budget ? usage : budget),
 		.global_mem_total = budget,
 		.heap_used = 0u,
 		.heap_total = 0u,
