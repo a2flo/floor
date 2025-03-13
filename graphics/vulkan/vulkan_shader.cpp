@@ -175,7 +175,7 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 				.address = desc_buffer.get_vulkan_buffer_device_address(),
-				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(desc_buffer.get_vulkan_buffer_usage()),
+				.usage = 0,
 			};
 			++desc_buf_binding_idx;
 		}
@@ -190,7 +190,7 @@ vector<VkImageMemoryBarrier2> vulkan_shader::draw(const compute_queue& cqueue,
 				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 				.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 				.address = arg_buffer.second->get_vulkan_buffer_device_address(),
-				.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(arg_buffer.second->get_vulkan_buffer_usage()),
+				.usage = 0,
 			};
 			++desc_buf_binding_idx;
 		}

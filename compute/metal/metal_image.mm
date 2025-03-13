@@ -37,6 +37,9 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */) {
+	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
+	assert(!is_render_target || has_flag<COMPUTE_MEMORY_FLAG::RENDER_TARGET>(flags));
+	
 	switch (flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			usage_options = MTLTextureUsageShaderRead;
@@ -47,12 +50,15 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		case COMPUTE_MEMORY_FLAG::READ_WRITE:
 			usage_options = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
 			break;
-		// all possible cases handled
-		default: floor_unreachable();
+		default:
+			if (is_render_target) {
+				break;
+			}
+			// all possible cases handled
+			floor_unreachable();
 	}
 	
 	const auto shared_only = (floor::get_metal_shared_only_with_unified_memory() && dev.unified_memory);
-	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	if (is_render_target) {
 		usage_options |= MTLTextureUsageRenderTarget;
@@ -157,7 +163,7 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> floor_nonnull
 	COMPUTE_IMAGE_TYPE type { COMPUTE_IMAGE_TYPE::NONE };
 	
 	// start with the base format
-	switch([img textureType]) {
+	switch ([img textureType]) {
 		case MTLTextureType1D: type = COMPUTE_IMAGE_TYPE::IMAGE_1D; break;
 		case MTLTextureType1DArray: type = COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY; break;
 		case MTLTextureType2D: type = COMPUTE_IMAGE_TYPE::IMAGE_2D; break;
@@ -300,31 +306,40 @@ FLOOR_POP_WARNINGS()
 #endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
-	if(metal_format == end(format_lut)) {
+	if (metal_format == end(format_lut)) {
 		log_error("unsupported image pixel format: $X", [img pixelFormat]);
 		return COMPUTE_IMAGE_TYPE::NONE;
 	}
 	type |= metal_format->second;
 	
+	// handle render target
+	if (([img usage] & MTLTextureUsageRenderTarget) == MTLTextureUsageRenderTarget || [img isFramebufferOnly]) {
+		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
+		// NOTE: COMPUTE_MEMORY_FLAG::RENDER_TARGET will be set automatically in the compute_image constructor
+	}
+	
 	// handle read/write flags
-	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) type |= COMPUTE_IMAGE_TYPE::READ;
-	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) type |= COMPUTE_IMAGE_TYPE::WRITE;
-	if(!has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
-		// assume read/write if no flags are set
+	if (has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
+		type |= COMPUTE_IMAGE_TYPE::READ;
+	}
+	if (has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
+		type |= COMPUTE_IMAGE_TYPE::WRITE;
+	}
+	if (!has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags) &&
+		!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(type)) {
+		// assume read/write if no flags are set and this is not a render target
 		type |= COMPUTE_IMAGE_TYPE::READ_WRITE;
 	}
 	
 	// handle mip-mapping / MSAA (although both are possible with == 1 as well)
-	if([img mipmapLevelCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
+	if ([img mipmapLevelCount] > 1) {
+		type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
+	}
 	const auto sample_count = [img sampleCount];
 	if (sample_count > 1) {
 		type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
 		type |= image_sample_type_from_count((uint32_t)sample_count);
-	}
-	
-	if(([img usage] & MTLTextureUsageRenderTarget) != 0 ||
-	   [img isFramebufferOnly]) {
-		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
 	}
 	
 	return type;
@@ -901,7 +916,7 @@ bool metal_image::unmap(const compute_queue& cqueue, void* floor_nullable __attr
 			const auto dim_count = image_dim_count(image_type);
 			
 			// again, need to convert RGB to RGBA if necessary
-			assert(iter->second.ptr.allocation_size() == image_data_size);
+			assert(iter->second.ptr.allocation_size() >= image_data_size);
 			span<const uint8_t> host_buffer { (const uint8_t*)mapped_ptr, image_data_size };
 			unique_ptr<uint8_t[]> host_shim_buffer;
 			size_t host_shim_buffer_size = 0;

@@ -109,6 +109,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageS
 			-1993010233, // UNASSIGNED-Descriptor uninitialized (NOTE/TODO: not updated for descriptor buffer use?)
 			67123586, // UNASSIGNED-BestPractices-vkCreateRenderPass-image-requires-memory
 			1016899250, // BestPractices-vkCreateRenderPass-image-requires-memory
+			1734198062, // BestPractices-specialuse-extension
+			-1443561624, // BestPractices-SyncObjects-HighNumberOfFences
+			-539066078, // BestPractices-SyncObjects-HighNumberOfSemaphores
+			-222910232, // BestPractices-NVIDIA-CreatePipelineLayout-SeparateSampler
+			1469440330, // BestPractices-NVIDIA-CreatePipelineLayout-LargePipelineLayout
+			-2047828895, // BestPractices-AMD-LocalWorkgroup-Multiple64 (seems to ignore actual work-group size?)
+			1829508205, // BestPractices-Pipeline-SortAndBind
+			-267480408, // BestPractices-NVIDIA-CreateImage-Depth32Format
+			-1819900685, // BestPractices-AMD-VkCommandBuffer-AvoidSecondaryCmdBuffers
+
+			// TODO: implement/fix/use these
+			-1955647590, // BestPractices-NVIDIA-AllocateMemory-SetPriority
+			11102936, // BestPractices-NVIDIA-BindMemory-NoPriority
+			-954943182, // BestPractices-NVIDIA-AllocateMemory-ReuseAllocations
 		};
 		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
 			// ignore and don't abort
@@ -440,13 +454,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 	
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
-	set<string> instance_extensions {
-		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
-	};
+	set<string> instance_extensions;
 #if defined(FLOOR_DEBUG)
 	if (floor::get_vulkan_validation()) {
+		instance_extensions.emplace(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
 		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-		instance_extensions.emplace(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
 	} else if (floor::get_vulkan_debug_labels()) {
 		instance_extensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
@@ -504,26 +516,105 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 	log_debug("using instance layers: $", inst_layers_str);
 	
 #if defined(FLOOR_DEBUG)
-	static const array val_features_enable {
-		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
-		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
-		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-		//VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+	// NOTE: see VkLayer_khronos_validation.json for documentation (there is no header file for this ...)
+	static constexpr const VkBool32 disable_setting { VK_FALSE };
+	static constexpr const VkBool32 enable_setting { VK_TRUE };
+	static constexpr const char* debug_action { "VK_DBG_LAYER_ACTION_CALLBACK" };
+	static constexpr const char* report_flags[] { "info", "warn", "perf", "error", "debug" };
+	static constexpr const int duplicate_message_limit { std::numeric_limits<int>::max() };
+	const VkLayerSettingEXT layer_settings[] {
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_core",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_sync",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices_amd",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices_nvidia",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+#if 0
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "gpuav_enable",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+#endif
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "thread_safety",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "debug_action",
+			.type = VK_LAYER_SETTING_TYPE_STRING_EXT,
+			.valueCount = 1,
+			.pValues = &debug_action
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "report_flags",
+			.type = VK_LAYER_SETTING_TYPE_STRING_EXT,
+			.valueCount = std::size(report_flags),
+			.pValues = report_flags
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "enable_message_limit",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &disable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "duplicate_message_limit",
+			.type = VK_LAYER_SETTING_TYPE_INT32_EXT,
+			.valueCount = 1,
+			.pValues = &duplicate_message_limit
+		},
 	};
-	const VkValidationFeaturesEXT val_features {
-		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+	const VkLayerSettingsCreateInfoEXT layer_settings_info {
+		.sType = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
 		.pNext = nullptr,
-		.enabledValidationFeatureCount = val_features_enable.size(),
-		.pEnabledValidationFeatures = &val_features_enable[0],
-		.disabledValidationFeatureCount = 0,
-		.pDisabledValidationFeatures = nullptr,
+		.settingCount = std::size(layer_settings),
+		.pSettings = layer_settings,
 	};
 #endif
 
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 #if defined(FLOOR_DEBUG)
-		.pNext = (floor::get_vulkan_validation() ? &val_features : nullptr),
+		.pNext = (floor::get_vulkan_validation() ? &layer_settings_info : nullptr),
 #else
 		.pNext = nullptr,
 #endif
@@ -737,6 +828,7 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			"VK_KHR_cooperative_matrix",
 			"VK_KHR_performance_query",
 			"VK_KHR_video_maintenance1",
+			"VK_KHR_video_maintenance2",
 			"VK_KHR_shader_maximal_reconvergence",
 			"VK_KHR_shader_quad_control",
 		};
@@ -806,6 +898,12 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			continue;
 		}
 		device_extensions_set.emplace(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+		
+		if (!device_supported_extensions_set.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+			log_error("VK_EXT_memory_priority is not supported by $", props.deviceName);
+			continue;
+		}
+		device_extensions_set.emplace(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		
 		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
 			if (!device_extensions_set.contains(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME)) {
@@ -905,9 +1003,15 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 			.nullDescriptor = false,
 		};
 		auto pre_nested_cmds_features = &robustness_features; // need this to rechain later
+		VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT device_pageable_device_local_mem_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PAGEABLE_DEVICE_LOCAL_MEMORY_FEATURES_EXT,
+			.pNext = &robustness_features,
+			.pageableDeviceLocalMemory = false,
+		};
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentric_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR,
-			.pNext = &robustness_features,
+			.pNext = (device_supported_extensions_set.contains(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME) ?
+					  (void*)&device_pageable_device_local_mem_features : (void*)&robustness_features),
 			.fragmentShaderBarycentric = false,
 		};
 		VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR wg_explicit_layout_features {
@@ -1542,6 +1646,10 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 		}
 		if (desc_buf_features.descriptorBuffer) {
 			device_extensions_set.emplace(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+		}
+		if (device_supported_extensions_set.contains(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME) &&
+			device_pageable_device_local_mem_features.pageableDeviceLocalMemory) {
+			device_extensions_set.emplace(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);
 		}
 		
 		if (floor::get_toolchain_log_binaries()) {
@@ -2623,13 +2731,11 @@ bool vulkan_compute::init_vr_renderer() {
 		vr_screen.image_count = 2;
 		// NOTE: we'll be using multi-view / layered rendering
 		vr_screen.image_type = *vulkan_image::image_type_from_vulkan_format(vr_screen.format);
-		vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ_WRITE;
+		// TODO: does this need to be writable (and host writable)?
+		vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ;
 		for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
-			vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count },
-													   vr_screen.image_type,
-													   COMPUTE_MEMORY_FLAG::READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
-													   COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
+			vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count }, vr_screen.image_type,
+													   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
 			vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i));
 		}
 	} else {

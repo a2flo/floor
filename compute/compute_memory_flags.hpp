@@ -66,7 +66,11 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! will be used for all memory operations
 	USE_HOST_MEMORY				= (1u << 7u),
 	
-	// unused					= (1u << 8u),
+	//! internal flag that is implicitly set when creating an image with COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET,
+	//! if this is set, this allows neither READ or WRITE to be set, making the render target not directly readable/writable from a shader/kernel
+	//! NOTE: usable for images only
+	//! NOTE: Vulkan/Metal only
+	RENDER_TARGET				= (1u << 8u),
 	
 	//! automatically create mip-levels (either happens in the backend or libfloor)
 	//! NOTE: if not set, it is expected that the host data pointer contains all necessary mip-levels

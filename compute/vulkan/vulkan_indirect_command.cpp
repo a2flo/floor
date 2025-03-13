@@ -605,7 +605,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 			.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 			.address = desc_buffer.get_vulkan_buffer_device_address() + cmd_params_offset,
-			.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(desc_buffer.get_vulkan_buffer_usage()),
+			.usage = 0,
 		};
 		++desc_buf_binding_idx;
 	}
@@ -620,7 +620,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 			.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 			.address = arg_buffer.second->get_vulkan_buffer_device_address(),
-			.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(arg_buffer.second->get_vulkan_buffer_usage()),
+			.usage = 0,
 		};
 		++desc_buf_binding_idx;
 	}
@@ -855,7 +855,7 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 			.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 			.address = kernel_desc_buffer.get_vulkan_buffer_device_address() + cmd_params_offset,
-			.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(kernel_desc_buffer.get_vulkan_buffer_usage()),
+			.usage = 0,
 		};
 		++desc_buf_binding_idx;
 	}
@@ -871,7 +871,7 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
 			.pNext = &desc_buf_bindings_usage[desc_buf_binding_idx],
 			.address = arg_buffer.second->get_vulkan_buffer_device_address(),
-			.usage = VK_LEGACY_USAGE_FLAGS_WORKAROUND(arg_buffer.second->get_vulkan_buffer_usage()),
+			.usage = 0,
 		};
 		++desc_buf_binding_idx;
 	}

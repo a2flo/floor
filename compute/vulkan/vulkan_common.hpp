@@ -46,12 +46,10 @@ constexpr VULKAN_VERSION vulkan_version_from_uint(const uint32_t major, const ui
 #elif defined(SDL_PLATFORM_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #endif
-//#define VK_NO_PROTOTYPES 1
-//#include <vulkan/vulkan.h>
 #include <floor/external/volk/volk.h>
 
-#if VK_HEADER_VERSION < 303
-#error "Vulkan header version must at least be 303"
+#if VK_HEADER_VERSION < 309
+#error "Vulkan header version must at least be 309"
 #endif
 
 // for Vulkan resource sharing on Windows
@@ -210,14 +208,5 @@ constexpr const char* vulkan_object_type_to_string(const int& object_type) {
 		log_error("$: $: $", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
 	} \
 }
-
-// to work around a current validation layer issue, we need to be able to convert VkBufferUsageFlags from v2 to v1
-// -> only enable this in debug mode when validation layers are actually active
-// TODO: fixed now, remove with next SDK version bump (past 304)
-#if defined(FLOOR_DEBUG)
-#define VK_LEGACY_USAGE_FLAGS_WORKAROUND(flags) VkBufferUsageFlags(flags & 0xFFFFFFFFu)
-#else
-#define VK_LEGACY_USAGE_FLAGS_WORKAROUND(flags) 0
-#endif
 
 #endif // FLOOR_NO_VULKAN

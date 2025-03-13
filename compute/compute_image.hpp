@@ -42,8 +42,19 @@ public:
 		// clear existing r/w flags
 		flags_ &= ~COMPUTE_MEMORY_FLAG::READ_WRITE;
 		// set r/w flags from specified image type
-		if(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) flags_ |= COMPUTE_MEMORY_FLAG::READ;
-		if(has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) flags_ |= COMPUTE_MEMORY_FLAG::WRITE;
+		if (has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
+			flags_ |= COMPUTE_MEMORY_FLAG::READ;
+		}
+		if (has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
+			flags_ |= COMPUTE_MEMORY_FLAG::WRITE;
+		}
+		
+		// flag as render target memory if the image is a render target
+		flags_ &= ~COMPUTE_MEMORY_FLAG::RENDER_TARGET;
+		if (has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+			flags_ |= COMPUTE_MEMORY_FLAG::RENDER_TARGET;
+		}
+		
 		return flags_;
 	}
 	

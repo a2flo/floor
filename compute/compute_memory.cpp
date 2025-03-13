@@ -25,9 +25,9 @@
 
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags) {
 	// Vulkan sharing handling
-	if(has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		// clear out USE_HOST_MEMORY flag if it is set
-		if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+		if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 			flags &= ~COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY;
 		}
 	}
@@ -41,14 +41,15 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 	}
 	
 	// handle read/write flags
-	if((flags & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if ((flags & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE &&
+		!has_flag<COMPUTE_MEMORY_FLAG::RENDER_TARGET>(flags)) {
 		// neither read nor write is set -> set read/write
 		flags |= COMPUTE_MEMORY_FLAG::READ_WRITE;
 	}
 	
 	// handle host read/write flags
-	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE &&
-	   has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+	if ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE &&
+		has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		// can't be using host memory and declaring that the host doesn't access the memory
 		log_error("USE_HOST_MEMORY specified, but host read/write flags set to NONE!");
 		flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
@@ -98,15 +99,16 @@ compute_memory::compute_memory(const compute_queue& cqueue,
 							   std::span<uint8_t> host_data_,
 							   const COMPUTE_MEMORY_FLAG flags_) :
 dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_)) {
-	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if ((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE &&
+		!has_flag<COMPUTE_MEMORY_FLAG::RENDER_TARGET>(flags)) {
 		log_error("memory must be read-only, write-only or read-write!");
 	}
-	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
-	   has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags_)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
+		has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags_)) {
 		log_error("USE_HOST_MEMORY and VULKAN_SHARING are mutually exclusive!");
 	}
-	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
-	   has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags_)) {
+	if (has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
+		has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags_)) {
 		log_error("USE_HOST_MEMORY and METAL_SHARING are mutually exclusive!");
 	}
 }

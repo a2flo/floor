@@ -54,10 +54,11 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
+	assert(!is_render_target || has_flag<COMPUTE_MEMORY_FLAG::RENDER_TARGET>(flags));
 	
 	VkImageUsageFlags usage = 0;
 	if (!is_transient) {
-		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		switch (flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 			case COMPUTE_MEMORY_FLAG::READ:
 				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 				break;
@@ -67,8 +68,12 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 			case COMPUTE_MEMORY_FLAG::READ_WRITE:
 				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 				break;
+			default:
+				if (is_render_target) {
+					break;
+				}
 				// all possible cases handled
-			default: floor_unreachable();
+				floor_unreachable();
 		}
 	} else {
 		usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
@@ -182,7 +187,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, const compute_queu
 #endif
 		};
 	}
-	const auto is_concurrent_sharing = (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index);
+	const auto is_concurrent_sharing = ((vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index) &&
+										!is_render_target);
 	const VkImageCreateInfo image_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
@@ -568,14 +574,6 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 	}
 	type |= *img_type;
 	
-	// handle read/write flags
-	if (has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) type |= COMPUTE_IMAGE_TYPE::READ;
-	if (has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) type |= COMPUTE_IMAGE_TYPE::WRITE;
-	if (!has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
-		// assume read/write if no flags are set
-		type |= COMPUTE_IMAGE_TYPE::READ_WRITE;
-	}
-	
 	// check if this is a render target
 	if ((info.access_mask & VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT) != 0 ||
 		(info.access_mask & VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT) != 0 ||
@@ -591,6 +589,21 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 		info.layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL ||
 		info.layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL) {
 		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
+	}
+	// NOTE: COMPUTE_MEMORY_FLAG::RENDER_TARGET will be set automatically in the compute_image constructor
+	
+	// handle read/write flags
+	if (has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
+		type |= COMPUTE_IMAGE_TYPE::READ;
+	}
+	if (has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
+		type |= COMPUTE_IMAGE_TYPE::WRITE;
+	}
+	if (!has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) &&
+		!has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags) &&
+		!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(type)) {
+		// assume read/write if no flags are set and this is not a render target
+		type |= COMPUTE_IMAGE_TYPE::READ_WRITE;
 	}
 	
 	// TODO: handle/check mip-mapping

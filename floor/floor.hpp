@@ -75,7 +75,7 @@ public:
 		
 		//! min compatible Vulkan API version
 		//! NOTE: this still allows Vulkan 1.3 instances/devices
-		uint3 vulkan_api_version { 1, 4, 303 };
+		uint3 vulkan_api_version { 1, 4, 309 };
 		
 		//! window creation flags
 		//! NOTE: fullscreen, borderless and hidpi flags will also be set automatically depending on the config
