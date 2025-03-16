@@ -2185,6 +2185,31 @@ public:
 		uniform_real_distribution<fp_type> dist(min, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::get_vec_gen()) FLOOR_COMMA) };
 	}
+	
+	//! returns a randomized vector using the specified generator, with a uniform distribution with each component in [0, max]
+	template <typename int_type = scalar_type> requires(ext::is_integral_v<int_type>)
+	static vector_type random(mt19937& gen, const scalar_type max = numeric_limits<int_type>::max()) {
+		uniform_int_distribution<int_type> dist((int_type)0, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(gen) FLOOR_COMMA) };
+	}
+	//! returns a randomized vector using the specified generator, with a uniform distribution with each component in [min, max]
+	template <typename int_type = scalar_type> requires(ext::is_integral_v<int_type>)
+	static vector_type random(mt19937& gen, const scalar_type min, const scalar_type max) {
+		uniform_int_distribution<int_type> dist(min, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(gen) FLOOR_COMMA) };
+	}
+	//! returns a randomized vector using the specified generator, with a uniform distribution with each component in [0, max)
+	template <typename fp_type = scalar_type> requires(ext::is_floating_point_v<fp_type>)
+	static vector_type random(mt19937& gen, const scalar_type max = (scalar_type)1) {
+		uniform_real_distribution<fp_type> dist((fp_type)0, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(gen) FLOOR_COMMA) };
+	}
+	//! returns a randomized vector using the specified generator, with a uniform distribution with each component in [min, max)
+	template <typename fp_type = scalar_type> requires(ext::is_floating_point_v<fp_type>)
+	static vector_type random(mt19937& gen, const scalar_type min, const scalar_type max) {
+		uniform_real_distribution<fp_type> dist(min, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(gen) FLOOR_COMMA) };
+	}
 #endif
 	
 	//! returns an integer value representing the number of components of this vector (-> equivalent to vec_step in opencl)
