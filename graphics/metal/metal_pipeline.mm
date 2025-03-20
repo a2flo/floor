@@ -123,6 +123,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
 					break;
 				case PRIMITIVE::LINE:
+				case PRIMITIVE::LINE_STRIP:
 					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
 					break;
 				case PRIMITIVE::TRIANGLE:
@@ -244,6 +245,8 @@ MTLPrimitiveType metal_pipeline::metal_primitive_type_from_primitive(const PRIMI
 			return MTLPrimitiveTypePoint;
 		case PRIMITIVE::LINE:
 			return MTLPrimitiveTypeLine;
+		case PRIMITIVE::LINE_STRIP:
+			return MTLPrimitiveTypeLineStrip;
 		case PRIMITIVE::TRIANGLE:
 			return MTLPrimitiveTypeTriangle;
 		case PRIMITIVE::TRIANGLE_STRIP:

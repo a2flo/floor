@@ -410,6 +410,8 @@ VkPrimitiveTopology vulkan_pipeline::vulkan_primitive_topology_from_primitive(co
 			return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 		case PRIMITIVE::LINE:
 			return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		case PRIMITIVE::LINE_STRIP:
+			return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 		case PRIMITIVE::TRIANGLE:
 			return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		case PRIMITIVE::TRIANGLE_STRIP:
