@@ -148,7 +148,7 @@ namespace json {
 			return ret.second;
 		}
 		
-		void print(const uint32_t depth = 0) const;
+		void print(std::ostream& stream = std::cout, const uint32_t depth = 0) const;
 		
 		constexpr json_value() noexcept : value(0) {}
 		constexpr json_value(json_value&& val) = default;
@@ -193,12 +193,32 @@ namespace json {
 		
 		//! returns the value of the key specified by path "node.subnode.key",
 		//! or the root node if path is an empty string
-		template<typename T> T get(const string& path,
-								   const T default_val = default_value<T>::def()) const;
+		template <typename T> T get(const string& path,
+									const T default_val = default_value<T>::def()) const;
 		
-		//! dumps the document to cout
-		void print() const {
-			root.print();
+		//! writes this document to disk as "filename",
+		//! returns true on success, false otherwise
+		bool write(const string& filename) const {
+			std::ofstream file_stream(filename);
+			if (!file_stream.is_open()) {
+				return false;
+			}
+			print(file_stream);
+			file_stream.close();
+			return true;
+		}
+		
+		//! dumps the document to the specified stream (defaults to "cout")
+		void print(std::ostream& stream = std::cout) const {
+			const auto cur_flags = stream.flags();
+			const auto cur_precision = stream.precision();
+			
+			stream.setf(std::ios::dec | std::ios::showpoint);
+			stream.precision(19);
+			root.print(stream);
+			
+			stream.setf(cur_flags);
+			stream.precision(cur_precision);
 		}
 	};
 	

@@ -30,45 +30,45 @@
 
 namespace json {
 
-void json_value::print(const uint32_t depth) const {
-	std::visit([&depth](const auto& arg) {
+void json_value::print(std::ostream& stream, const uint32_t depth) const {
+	std::visit([&stream, &depth](const auto& arg) {
 		using value_type = std::decay_t<decltype(arg)>;
 		if constexpr (std::is_same_v<value_type, nullptr_t>) {
-			cout << "null";
+			stream << "null";
 		} else if constexpr (std::is_same_v<value_type, int64_t>) {
-			cout << arg;
+			stream << arg;
 		} else if constexpr (std::is_same_v<value_type, double>) {
-			cout << arg;
+			stream << arg;
 		} else if constexpr (std::is_same_v<value_type, std::string>) {
-			cout << '\"' << arg << '\"';
+			stream << '\"' << arg << '\"';
 		} else if constexpr (std::is_same_v<value_type, bool>) {
-			cout << (arg ? "true" : "false");
+			stream << (arg ? "true" : "false");
 		} else if constexpr (std::is_same_v<value_type, json_object>) {
 			const string space_string((depth + 1) * 4, ' ');
-			cout << "{" << endl;
+			stream << "{" << endl;
 			size_t i = 0, count = size(arg);
 			for (const auto& entry : arg) {
-				cout << space_string << '\"' << entry.first << "\": ";
-				entry.second.print(depth + 1);
+				stream << space_string << '\"' << entry.first << "\": ";
+				entry.second.print(stream, depth + 1);
 				if (i < count - 1) {
-					cout << ",";
+					stream << ",";
 				}
-				cout << endl;
+				stream << endl;
 				++i;
 			}
-			cout << string(depth * 4, ' ') << "}";
+			stream << string(depth * 4, ' ') << "}";
 		} else if constexpr (std::is_same_v<value_type, json_array>) {
 			const string space_string((depth + 1) * 4, ' ');
-			cout << "[" << endl;
+			stream << "[" << endl;
 			for (size_t i = 0, count = size(arg); i < count; ++i) {
-				cout << space_string;
-				arg[i].print(depth + 1);
+				stream << space_string;
+				arg[i].print(stream, depth + 1);
 				if (i < count - 1) {
-					cout << ",";
+					stream << ",";
 				}
-				cout << endl;
+				stream << endl;
 			}
-			cout << string(depth * 4, ' ') << "]";
+			stream << string(depth * 4, ' ') << "]";
 		} else {
 			instantiation_trap_dependent_type(value_type, "unhandled value type");
 		}
@@ -76,7 +76,7 @@ void json_value::print(const uint32_t depth) const {
 	
 	// one last newline if this is @ depth 0
 	if (depth == 0) {
-		cout << endl;
+		stream << endl;
 	}
 }
 

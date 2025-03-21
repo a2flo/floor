@@ -57,7 +57,7 @@ protected:
 	
 	//! removes all duplicate entries for each unique key in this map
 	void unique() {
-		const auto end_iter = unique(begin(), end(), [](const entry_type& kv_1, const entry_type& kv_2) {
+		const auto end_iter = std::unique(begin(), end(), [](const entry_type& kv_1, const entry_type& kv_2) {
 			return (kv_1.first == kv_2.first);
 		});
 		data.erase(end_iter, end());
