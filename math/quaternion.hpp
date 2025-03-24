@@ -403,6 +403,30 @@ FLOOR_POP_WARNINGS()
 	// static quaternion creation functions
 #pragma mark static quaternion creation functions
 	
+	//! converts the specified euler angle rotations to a quaternion
+	//! NOTE: assumes the angles are in radian
+	//! ref: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Euler_angles_(in_3-2-1_sequence)_to_quaternion_conversion
+	static constexpr quaternion<scalar_type> from_euler(const scalar_type x, const scalar_type y, const scalar_type z) {
+		const auto cr = math::cos(x * scalar_type(0.5));
+		const auto sr = math::sin(x * scalar_type(0.5));
+		const auto cp = math::cos(y * scalar_type(0.5));
+		const auto sp = math::sin(y * scalar_type(0.5));
+		const auto cy = math::cos(z * scalar_type(0.5));
+		const auto sy = math::sin(z * scalar_type(0.5));
+		return {
+			sr * cp * cy - cr * sp * sy,
+			cr * sp * cy + sr * cp * sy,
+			cr * cp * sy - sr * sp * cy,
+			cr * cp * cy + sr * sp * sy,
+		};
+	}
+	
+	//! converts the specified euler angle rotations to a quaternion
+	//! NOTE: assumes the angles are in radian
+	static constexpr quaternion<scalar_type> from_euler(const vector3<scalar_type>& xyz) {
+		return from_euler(xyz.x, xyz.y, xyz.z);
+	}
+	
 	//! converts the specified 4x4 matrix (only considering 3x3) to a quaternion
 	//! NOTE: for accuracy and better/proper handling of singularities, the branched conversion should be used (default), the branchless variant is however faster
 	template <bool branchless = false>
