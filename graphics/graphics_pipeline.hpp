@@ -23,6 +23,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/device/image_types.hpp>
 #include <floor/graphics/graphics_vertex_format.hpp>
+#include <floor/graphics/graphics_index_type.hpp>
 #include <optional>
 
 enum class PRIMITIVE {
@@ -231,6 +232,9 @@ struct render_pipeline_description {
 		
 		//! only either of "draw_patches()" or "draw_patches_indexed()" is allowed and must be known at pipeline creation time
 		bool is_indexed_draw { false };
+		
+		//! when index drawing is used, this defines the underlying type of indices in the index buffer
+		INDEX_TYPE index_type { INDEX_TYPE::UINT };
 	} tessellation;
 
 	//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering

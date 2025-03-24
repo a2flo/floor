@@ -109,11 +109,13 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& p
 	@autoreleasepool {
 		const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(primitive);
 		for (const auto& entry : draw_indexed_entries) {
+			const auto mtl_index_type = metal_pipeline::metal_index_type_from_index_type(entry.index_type);
+			const auto index_size = index_type_size(entry.index_type);
 			[encoder drawIndexedPrimitives:mtl_primitve
 								indexCount:entry.index_count
-								 indexType:MTLIndexTypeUInt32
+								 indexType:mtl_index_type
 							   indexBuffer:entry.index_buffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
-						 indexBufferOffset:(entry.first_index * 4u)
+						 indexBufferOffset:(entry.first_index * index_size)
 							 instanceCount:entry.instance_count
 								baseVertex:entry.vertex_offset
 							  baseInstance:entry.first_instance];
@@ -147,7 +149,8 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const graphics_ren
 }
 
 void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
-						const graphics_renderer::patch_draw_indexed_entry& entry) const {
+						const graphics_renderer::patch_draw_indexed_entry& entry,
+						const uint32_t index_size) const {
 	if (entry.control_point_buffers.empty()) {
 		log_error("no control-point buffer specified");
 		return;
@@ -172,7 +175,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
 				   patchIndexBuffer:nil
 			 patchIndexBufferOffset:0u
 			controlPointIndexBuffer:entry.control_point_index_buffer->get_underlying_metal_buffer_safe()->get_metal_buffer()
-	  controlPointIndexBufferOffset:(entry.first_index * 4u)
+	  controlPointIndexBufferOffset:(entry.first_index * index_size)
 					  instanceCount:entry.instance_count
 					   baseInstance:entry.first_instance];
 	}

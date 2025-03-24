@@ -24,6 +24,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/llvm_toolchain.hpp>
+#include <floor/graphics/graphics_index_type.hpp>
 
 class compute_buffer;
 class graphics_pipeline;
@@ -199,7 +200,8 @@ public:
 														  const uint32_t instance_count = 1u,
 														  const uint32_t first_index = 0u,
 														  const int32_t vertex_offset = 0u,
-														  const uint32_t first_instance = 0u) = 0;
+														  const uint32_t first_instance = 0u,
+														  const INDEX_TYPE index_type = INDEX_TYPE::UINT) = 0;
 	
 	//! encodes a patch draw call using the specified parameters
 	//! NOTE: returns *this to enable subsequent set_arguments()

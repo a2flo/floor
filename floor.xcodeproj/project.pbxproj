@@ -791,6 +791,7 @@
 		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
 		5CCC2F602CDFFC44006544E0 /* bcm.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = bcm.hpp; sourceTree = "<group>"; };
 		5CCC2F612CDFFC44006544E0 /* bcm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bcm.cpp; sourceTree = "<group>"; };
+		5CCDC34C2D92009B007E2CCE /* graphics_index_type.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = graphics_index_type.hpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD1A37D21DE3767002D5CB1 /* vector_lib_checks.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = vector_lib_checks.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
@@ -1291,6 +1292,7 @@
 				5C8452FF22B1A64C0014AECF /* graphics_pass.hpp */,
 				5C8452FA22B1A09A0014AECF /* graphics_pipeline.cpp */,
 				5C8452FB22B1A09A0014AECF /* graphics_pipeline.hpp */,
+				5CCDC34C2D92009B007E2CCE /* graphics_index_type.hpp */,
 				5CA2ADDF27B192310061D07E /* graphics_vertex_format.hpp */,
 				5C84530422B1A6C90014AECF /* metal */,
 				5C84530F22B1A6D80014AECF /* vulkan */,

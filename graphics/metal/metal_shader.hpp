@@ -67,7 +67,8 @@ public:
 	
 	//! enqueue an indexed patch draw call in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder,
-			  const graphics_renderer::patch_draw_indexed_entry& draw_indexed_entry) const;
+			  const graphics_renderer::patch_draw_indexed_entry& draw_indexed_entry,
+			  const uint32_t index_size) const;
 
 };
 

@@ -22,6 +22,7 @@
 #include <floor/compute/compute_fence.hpp>
 #include <floor/graphics/graphics_pass.hpp>
 #include <floor/graphics/graphics_pipeline.hpp>
+#include <floor/graphics/graphics_index_type.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/flat_map.hpp>
 
@@ -240,6 +241,7 @@ public:
 		uint32_t first_index { 0u };
 		int32_t vertex_offset { 0u };
 		uint32_t first_instance { 0u };
+		INDEX_TYPE index_type { INDEX_TYPE::UINT };
 	};
 	
 	//! emit a simple draw call with the draw-call information stored in "draw_entry"

@@ -147,9 +147,18 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				mtl_pipeline_desc.maxTessellationFactor = pipeline_desc.tessellation.max_factor;
 				mtl_pipeline_desc.tessellationFactorScaleEnabled = false; // never
 				mtl_pipeline_desc.tessellationFactorFormat = MTLTessellationFactorFormatHalf;
-				mtl_pipeline_desc.tessellationControlPointIndexType = (pipeline_desc.tessellation.is_indexed_draw ?
-																	   MTLTessellationControlPointIndexTypeUInt32 :
-																	   MTLTessellationControlPointIndexTypeNone);
+				auto index_type = MTLTessellationControlPointIndexTypeNone;
+				if (pipeline_desc.tessellation.is_indexed_draw) {
+					switch (pipeline_desc.tessellation.index_type) {
+						case INDEX_TYPE::UINT:
+							index_type = MTLTessellationControlPointIndexTypeUInt32;
+							break;
+						case INDEX_TYPE::USHORT:
+							index_type = MTLTessellationControlPointIndexTypeUInt16;
+							break;
+					}
+				}
+				mtl_pipeline_desc.tessellationControlPointIndexType = index_type;
 				mtl_pipeline_desc.tessellationFactorStepFunction = MTLTessellationFactorStepFunctionPerPatch;
 				mtl_pipeline_desc.tessellationPartitionMode = metal_tessellation_partition_mode_from_spacing(pipeline_desc.tessellation.spacing);
 				mtl_pipeline_desc.tessellationOutputWindingOrder = metal_winding_from_winding(pipeline_desc.tessellation.winding);
@@ -432,6 +441,15 @@ MTLVertexFormat metal_pipeline::metal_vertex_format_from_vertex_format(const VER
 		return MTLVertexFormatInvalid;
 	}
 	return metal_vertex_format->second;
+}
+
+MTLIndexType metal_pipeline::metal_index_type_from_index_type(const INDEX_TYPE& index_type) {
+	switch (index_type) {
+		case INDEX_TYPE::UINT:
+			return MTLIndexTypeUInt32;
+		case INDEX_TYPE::USHORT:
+			return MTLIndexTypeUInt16;
+	}
 }
 
 const metal_pipeline::metal_pipeline_entry* metal_pipeline::get_metal_pipeline_entry(const compute_device& dev) const {

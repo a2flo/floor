@@ -93,7 +93,8 @@ public:
 												  const uint32_t instance_count = 1u,
 												  const uint32_t first_index = 0u,
 												  const int32_t vertex_offset = 0u,
-												  const uint32_t first_instance = 0u) override;
+												  const uint32_t first_instance = 0u,
+												  const INDEX_TYPE index_type = INDEX_TYPE::UINT) override;
 	
 	indirect_render_command_encoder& draw_patches(const vector<const compute_buffer*> control_point_buffers,
 												  const compute_buffer& tessellation_factors_buffer,

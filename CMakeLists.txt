@@ -233,6 +233,8 @@ add_library(${PROJECT_NAME}
 	graphics/graphics_pass.hpp
 	graphics/graphics_pipeline.cpp
 	graphics/graphics_pipeline.hpp
+	graphics/graphics_index_type.hpp
+	graphics/graphics_vertex_format.hpp
 	graphics/metal/metal_renderer.mm
 	graphics/metal/metal_renderer.hpp
 	graphics/metal/metal_pass.mm

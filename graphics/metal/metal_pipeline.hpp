@@ -72,6 +72,9 @@ public:
 	//! NOTE: returns MTLVertexFormatInvalid when there is no Metal-compatible vertex format
 	static MTLVertexFormat metal_vertex_format_from_vertex_format(const VERTEX_FORMAT& vertex_format);
 	
+	//! returns the corresponding MTLIndexType for the specified INDEX_TYPE
+	static MTLIndexType metal_index_type_from_index_type(const INDEX_TYPE& index_type);
+	
 protected:
 	floor_core::flat_map<const compute_device*, metal_pipeline_entry> pipelines;
 	

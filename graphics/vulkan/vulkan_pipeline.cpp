@@ -513,6 +513,15 @@ VkCompareOp vulkan_pipeline::vulkan_compare_op_from_depth_compare(const DEPTH_CO
 	}
 }
 
+VkIndexType vulkan_pipeline::vulkan_index_type_from_index_type(const INDEX_TYPE& index_type) {
+	switch (index_type) {
+		case INDEX_TYPE::UINT:
+			return VK_INDEX_TYPE_UINT32;
+		case INDEX_TYPE::USHORT:
+			return VK_INDEX_TYPE_UINT16;
+	}
+}
+
 const vulkan_pass* vulkan_pipeline::get_vulkan_pass(const bool get_multi_view) const {
 	if (!get_multi_view) {
 		return (sv_vulkan_base_pass ? sv_vulkan_base_pass.get() : nullptr);

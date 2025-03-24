@@ -466,14 +466,16 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 										   const patch_draw_indexed_entry* draw_indexed_entry,
 										   const vector<compute_kernel_arg>& args) {
 	@autoreleasepool {
-		const auto tes = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
+		const auto& desc = cur_pipeline->get_description(multi_view);
+		const auto tes = (const metal_shader*)desc.vertex_shader;
 		tes->set_shader_arguments(cqueue, encoder, cmd_buffer,
 								  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->vs_entry,
 								  (const metal_kernel::metal_kernel_entry*)mtl_pipeline_state->fs_entry, args);
 		if (draw_entry != nullptr) {
 			tes->draw(encoder, *draw_entry);
 		} else if (draw_indexed_entry != nullptr) {
-			tes->draw(encoder, *draw_indexed_entry);
+			const auto index_size = index_type_size(desc.tessellation.index_type);
+			tes->draw(encoder, *draw_indexed_entry, index_size);
 		}
 	}
 }

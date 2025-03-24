@@ -502,7 +502,8 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_in
 																					  const uint32_t instance_count,
 																					  const uint32_t first_index,
 																					  const int32_t vertex_offset,
-																					  const uint32_t first_instance) {
+																					  const uint32_t first_instance,
+																					  const INDEX_TYPE index_type) {
 	const graphics_renderer::multi_draw_indexed_entry draw_indexed_entry {
 		.index_buffer = &index_buffer,
 		.index_count = index_count,
@@ -510,6 +511,7 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_in
 		.first_index = first_index,
 		.vertex_offset = vertex_offset,
 		.first_instance = first_instance,
+		.index_type = index_type,
 	};
 	draw_internal(nullptr, &draw_indexed_entry);
 	return *this;
@@ -696,10 +698,11 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		vkCmdDraw(cmd_buffer, draw_entry->vertex_count, draw_entry->instance_count, draw_entry->first_vertex, draw_entry->first_instance);
 	} else if (draw_index_entry) {
 		const auto vk_idx_buffer = draw_index_entry->index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
+		const auto vk_idx_type = vulkan_pipeline::vulkan_index_type_from_index_type(draw_index_entry->index_type);
 		if (((const vulkan_device&)dev).vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-			vkCmdBindIndexBuffer2(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer2(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
 		} else {
-			vkCmdBindIndexBuffer2KHR(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer2KHR(cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
 		}
 		vkCmdDrawIndexed(cmd_buffer, draw_index_entry->index_count, draw_index_entry->instance_count, draw_index_entry->first_index,
 						 draw_index_entry->vertex_offset, draw_index_entry->first_instance);

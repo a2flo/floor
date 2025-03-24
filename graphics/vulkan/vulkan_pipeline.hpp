@@ -72,6 +72,9 @@ public:
 	//! returns the corresponding VkCompareOp for the specified DEPTH_COMPARE
 	static VkCompareOp vulkan_compare_op_from_depth_compare(const DEPTH_COMPARE& depth_compare);
 	
+	//! returns the corresponding VkIndexType for the specified INDEX_TYPE
+	static VkIndexType vulkan_index_type_from_index_type(const INDEX_TYPE& index_type);
+	
 	//! the descriptor set index where vertex shader argument buffers start at
 	static constexpr const uint32_t argument_buffer_vs_start_set { 5u };
 	//! the descriptor set index where fragment shader argument buffers start at

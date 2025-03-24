@@ -380,15 +380,18 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_ind
 																					 const uint32_t instance_count,
 																					 const uint32_t first_index,
 																					 const int32_t vertex_offset,
-																					 const uint32_t first_instance) {
+																					 const uint32_t first_instance,
+																					 const INDEX_TYPE index_type) {
 	@autoreleasepool {
 		const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
+		const auto mtl_index_type = metal_pipeline::metal_index_type_from_index_type(index_type);
+		const auto index_size = index_type_size(index_type);
 		auto idx_buffer = index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
 		[command drawIndexedPrimitives:mtl_primitve
 							indexCount:index_count
-							 indexType:MTLIndexTypeUInt32
+							 indexType:mtl_index_type
 						   indexBuffer:idx_buffer
-					 indexBufferOffset:(first_index * 4u)
+					 indexBufferOffset:(first_index * index_size)
 						 instanceCount:instance_count
 							baseVertex:vertex_offset
 						  baseInstance:first_instance];
@@ -452,13 +455,14 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 		
 		auto idx_buffer = control_point_index_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
 		auto factors_buffer = tessellation_factors_buffer.get_underlying_metal_buffer_safe()->get_metal_buffer();
+		const auto index_size = index_type_size(pipeline.get_description(false).tessellation.index_type);
 		[command drawIndexedPatches:patch_control_point_count
 						 patchStart:first_patch
 						 patchCount:patch_count
 				   patchIndexBuffer:nil
 			 patchIndexBufferOffset:0u
 			controlPointIndexBuffer:idx_buffer
-	  controlPointIndexBufferOffset:(first_index * 4u)
+	  controlPointIndexBufferOffset:(first_index * index_size)
 					  instanceCount:instance_count
 					   baseInstance:first_instance
 		   tessellationFactorBuffer:factors_buffer
