@@ -68,13 +68,13 @@ namespace const_math {
 	//! tests if two values are equal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
 	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
 	constexpr bool is_equal(const arithmetic_type lhs, const arithmetic_type rhs) {
-		return (lhs > (rhs - arithmetic_type(EPSILON<>)) && lhs < (rhs + arithmetic_type(EPSILON<>)));
+		return (lhs > (rhs - EPSILON<arithmetic_type>) && lhs < (rhs + EPSILON<arithmetic_type>));
 	}
 	
 	//! tests if two values are unequal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
 	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
 	constexpr bool is_unequal(const arithmetic_type lhs, const arithmetic_type rhs) {
-		return (lhs < (rhs - arithmetic_type(EPSILON<>)) || lhs > (rhs + arithmetic_type(EPSILON<>)));
+		return (lhs < (rhs - EPSILON<arithmetic_type>) || lhs > (rhs + EPSILON<arithmetic_type>));
 	}
 	
 	//! tests if two values are equal +/- a specified epsilon

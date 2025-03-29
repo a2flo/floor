@@ -95,7 +95,7 @@ bool file_io::open(const string& filename_, OPEN_TYPE open_type_) {
 	}
 
 	if(!filestream.is_open()) {
-		log_error("error while loading file $!", filename);
+		log_error("error while opening file $!", filename);
 		filestream.clear();
 		return false;
 	}
