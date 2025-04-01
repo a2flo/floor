@@ -203,7 +203,7 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 		// find the metal buffer index
 		uint32_t buffer_idx = 0;
 		for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < min(ll_arg_index, count); ++i) {
-			if (mtl_entry.info->args[i].special_type == SPECIAL_TYPE::STAGE_INPUT) {
+			if (has_flag<ARG_FLAG::STAGE_INPUT>(mtl_entry.info->args[i].flags)) {
 				// only tessellation evaluation shaders may contain buffers in stage_input
 				if (mtl_entry.info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					buffer_idx += mtl_entry.info->args[i].size;
@@ -235,22 +235,21 @@ unique_ptr<argument_buffer> metal_kernel::create_argument_buffer_internal(const 
 		uint32_t arg_idx_counter = 0;
 		for (const auto& arg_buffer_arg : arg_info->args) {
 			arg_indices.emplace_back(arg_idx_counter);
-			switch (arg_buffer_arg.special_type) {
-				case llvm_toolchain::SPECIAL_TYPE::NONE:
-					// normal arg
-					++arg_idx_counter;
-					break;
-				case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
-				case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
-					arg_idx_counter += arg_buffer_arg.size; // #elements
-					break;
-				case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
-				case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
-				case llvm_toolchain::SPECIAL_TYPE::SSBO:
-				case llvm_toolchain::SPECIAL_TYPE::IUB:
-					throw runtime_error("invalid argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
-				case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
-					throw runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+			if (has_flag<llvm_toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg_buffer_arg.flags)) {
+				throw runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+			}
+			if (has_flag<llvm_toolchain::ARG_FLAG::STAGE_INPUT>(arg_buffer_arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::PUSH_CONSTANT>(arg_buffer_arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::SSBO>(arg_buffer_arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::IUB>(arg_buffer_arg.flags)) {
+				throw runtime_error("invalid argument type in argument buffer (in " + mtl_entry.info->name + " #" + to_string(user_arg_index) + ")");
+			}
+			
+			if (arg_buffer_arg.is_array()) {
+				assert(arg_buffer_arg.array_extent > 0u);
+				arg_idx_counter += arg_buffer_arg.array_extent;
+			} else {
+				++arg_idx_counter;
 			}
 		}
 		

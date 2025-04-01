@@ -49,12 +49,13 @@ bool create_floor_function_info(const string& ffi_file_name,
 		if (line.empty()) continue;
 		const auto tokens = core::tokenize(line, ',');
 		
-		// at least 7 w/o any args:
-		// functions : <version>,<func_name>,<type>,<flags>,<local_size_x>,<local_size_y>,<local_size_z>,<args...>
-		// arg-buffer: <version>,<func_name>,<type>,<flags>,<arg # in func/arg-buffer>,0,0,<args...>
+		// at least 8 w/o any args:
+		// functions : <version>,<func_name>,<type>,<flags>,<local_size_x>,<local_size_y>,<local_size_z>,<simd-width>,<args...>
+		// arg-buffer: <version>,<func_name>,<type>,<flags>,<arg # in func/arg-buffer>,0,0,0,<args...>
 		// NOTE: arg-buffer entry must come after the function entry that uses it
 		// NOTE: for an argument buffer struct local_size_* is 0
-		if (tokens.size() < 7) {
+		static constexpr const uint32_t function_token_count { 8u };
+		if (tokens.size() < function_token_count) {
 			log_error("invalid function info entry: $", line);
 			return false;
 		}
@@ -66,11 +67,12 @@ bool create_floor_function_info(const string& ffi_file_name,
 		const auto& token_req_local_size_x = tokens[4];
 		const auto& token_req_local_size_y = tokens[5];
 		const auto& token_req_local_size_z = tokens[6];
+		const auto& token_req_simd_width = tokens[7];
 		// -> argument buffer
 		const auto& token_arg_num = tokens[4];
 		
 		//
-		static constexpr const char floor_functions_version[] { "4" };
+		static constexpr const char floor_functions_version[] { "5" };
 		if (token_version != floor_functions_version) {
 			log_error("invalid floor function info version, expected $, got $!",
 					  floor_functions_version, token_version);
@@ -98,17 +100,20 @@ bool create_floor_function_info(const string& ffi_file_name,
 		const auto func_flags = (FUNCTION_FLAGS)strtoull(token_flags.c_str(), nullptr, 10);
 		
 		uint3 required_local_size {};
+		uint32_t required_simd_width { 0u };
 		if (func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
 			required_local_size = {
 				(uint32_t)strtoull(token_req_local_size_x.c_str(), nullptr, 10),
 				(uint32_t)strtoull(token_req_local_size_y.c_str(), nullptr, 10),
 				(uint32_t)strtoull(token_req_local_size_z.c_str(), nullptr, 10),
 			};
+			required_simd_width = (uint32_t)strtoull(token_req_simd_width.c_str(), nullptr, 10);
 		}
 		
 		function_info info {
 			.name = token_name,
 			.required_local_size = required_local_size,
+			.required_simd_width = required_simd_width,
 			.type = func_type,
 			.flags = func_flags,
 		};
@@ -117,26 +122,23 @@ bool create_floor_function_info(const string& ffi_file_name,
 			return false;
 		}
 		
-		for (size_t i = 7, count = tokens.size(); i < count; ++i) {
-			if (tokens[i].empty()) continue;
-			// function arg info: #elem_idx size, address space, image type, image access
-			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);
-			
-			if (data == ULLONG_MAX || data == 0) {
-				log_error("invalid arg info (in $): $", ffi_file_name, tokens[i]);
+		// each arg: size,array_extent,address_space,access,image_type,flags
+		static constexpr const uint32_t arg_token_count { 6u };
+		assert(((tokens.size() - function_token_count) % arg_token_count) == 0u && "invalid args token count");
+		for (size_t i = function_token_count, count = tokens.size(); i < count; i += arg_token_count) {
+			uint64_t arg_tokens[arg_token_count];
+			for (uint32_t j = 0; j < arg_token_count; ++j) {
+				assert(!tokens[i + j].empty());
+				arg_tokens[j] = strtoull(tokens[i + j].c_str(), nullptr, 10);
 			}
 			
 			info.args.emplace_back(arg_info {
-				.size			= (uint32_t)
-				((data & uint64_t(FLOOR_METADATA::ARG_SIZE_MASK)) >> uint64_t(FLOOR_METADATA::ARG_SIZE_SHIFT)),
-				.address_space	= (ARG_ADDRESS_SPACE)
-				((data & uint64_t(FLOOR_METADATA::ADDRESS_SPACE_MASK)) >> uint64_t(FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-				.image_type		= (ARG_IMAGE_TYPE)
-				((data & uint64_t(FLOOR_METADATA::IMAGE_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-				.image_access	= (ARG_IMAGE_ACCESS)
-				((data & uint64_t(FLOOR_METADATA::IMAGE_ACCESS_MASK)) >> uint64_t(FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-				.special_type	= (SPECIAL_TYPE)
-				((data & uint64_t(FLOOR_METADATA::SPECIAL_TYPE_MASK)) >> uint64_t(FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
+				.size = arg_tokens[0],
+				.array_extent = arg_tokens[1],
+				.address_space = (ARG_ADDRESS_SPACE)arg_tokens[2],
+				.access = (ARG_ACCESS)arg_tokens[3],
+				.image_type = (ARG_IMAGE_TYPE)arg_tokens[4],
+				.flags = (ARG_FLAG)arg_tokens[5],
 			});
 		}
 		
@@ -154,7 +156,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 					}
 					
 					auto& arg = riter->args[arg_idx];
-					if (arg.special_type != SPECIAL_TYPE::ARGUMENT_BUFFER) {
+					if (!has_flag<ARG_FLAG::ARGUMENT_BUFFER>(arg.flags)) {
 						log_error("argument index $ in function $ is not an argument buffer", arg_idx, info.name);
 						return false;
 					}
@@ -176,7 +178,7 @@ bool create_floor_function_info(const string& ffi_file_name,
 	for (const auto& func : functions) {
 		for (size_t i = 0, count = func.args.size(); i < count; ++i) {
 			const auto& arg = func.args[i];
-			if (arg.special_type == SPECIAL_TYPE::ARGUMENT_BUFFER && !arg.argument_buffer_info) {
+			if (has_flag<ARG_FLAG::ARGUMENT_BUFFER>(arg.flags) && !arg.argument_buffer_info) {
 				log_error("missing argument buffer info for argument #$ in function $", i, func.name);
 				return false;
 			}

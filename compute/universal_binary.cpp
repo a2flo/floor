@@ -31,15 +31,15 @@
 #include <floor/floor/floor.hpp>
 
 namespace std {
-	template <> struct hash<universal_binary::target_v4> : public hash<uint64_t> {
-		size_t operator()(universal_binary::target_v4 target) const noexcept {
+	template <> struct hash<universal_binary::target_v5> : public hash<uint64_t> {
+		size_t operator()(universal_binary::target_v5 target) const noexcept {
 			return std::hash<uint64_t>::operator()(target.value);
 		}
 	};
 }
 
 namespace universal_binary {
-	static constexpr const uint32_t min_required_toolchain_version_v4 { 140000u };
+	static constexpr const uint32_t min_required_toolchain_version_v5 { 140000u };
 	
 	unique_ptr<archive> load_archive(const string& file_name) {
 		auto [data, data_size] = file_io::file_to_buffer(file_name);
@@ -57,14 +57,14 @@ namespace universal_binary {
 		auto ar = make_unique<archive>();
 		
 		// parse header
-		cur_size += sizeof(header_v4);
+		cur_size += sizeof(header_v5);
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid header size, expected $, got $",
 					  filename_hint, cur_size, data_size);
 			return {};
 		}
-		const header_v4& header = *(const header_v4*)data.data();
-		data = data.subspan(sizeof(header_v4));
+		const header_v5& header = *(const header_v5*)data.data();
+		data = data.subspan(sizeof(header_v5));
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
 			log_error("universal binary $: invalid header magic", filename_hint);
@@ -74,7 +74,7 @@ namespace universal_binary {
 			log_error("universal binary $: unsupported binary version $", filename_hint, header.binary_format_version);
 			return {};
 		}
-		memcpy(&ar->header.static_header, &header, sizeof(header_v4));
+		memcpy(&ar->header.static_header, &header, sizeof(header_v5));
 		
 		const auto& bin_count = ar->header.static_header.binary_count;
 		if (bin_count == 0) {
@@ -88,10 +88,10 @@ namespace universal_binary {
 		ar->header.toolchain_versions.resize(bin_count);
 		ar->header.hashes.resize(bin_count);
 		
-		const auto targets_size = sizeof(target_v4) * bin_count;
-		const auto offsets_size = sizeof(typename decltype(header_dynamic_v4::offsets)::value_type) * bin_count;
-		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v4::toolchain_versions)::value_type) * bin_count;
-		const auto hashes_size = sizeof(typename decltype(header_dynamic_v4::hashes)::value_type) * bin_count;
+		const auto targets_size = sizeof(target_v5) * bin_count;
+		const auto offsets_size = sizeof(typename decltype(header_dynamic_v5::offsets)::value_type) * bin_count;
+		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v5::toolchain_versions)::value_type) * bin_count;
+		const auto hashes_size = sizeof(typename decltype(header_dynamic_v5::hashes)::value_type) * bin_count;
 		const auto dyn_header_size = targets_size + offsets_size + toolchain_versions_size + hashes_size;
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
@@ -123,9 +123,9 @@ namespace universal_binary {
 		
 		// verify toolchain versions
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
-			if (toolchain_version < min_required_toolchain_version_v4) {
+			if (toolchain_version < min_required_toolchain_version_v5) {
 				log_error("universal binary $: unsupported toolchain version, expected $, got $",
-						  filename_hint, min_required_toolchain_version_v4, toolchain_version);
+						  filename_hint, min_required_toolchain_version_v5, toolchain_version);
 				return {};
 			}
 		}
@@ -147,7 +147,7 @@ namespace universal_binary {
 		
 		// parse binaries
 		for (uint32_t bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
-			binary_dynamic_v4 bin;
+			binary_dynamic_v5 bin;
 			
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
@@ -157,14 +157,14 @@ namespace universal_binary {
 			}
 			
 			// static binary header
-			cur_size += sizeof(binary_v4);
+			cur_size += sizeof(binary_v5);
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid static binary header size, expected $, got $",
 						  filename_hint, cur_size, data_size);
 				return {};
 			}
-			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v4));
-			data = data.subspan(sizeof(binary_v4));
+			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v5));
+			data = data.subspan(sizeof(binary_v5));
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
@@ -185,17 +185,17 @@ namespace universal_binary {
 			// function info
 			const auto func_info_start_size = cur_size;
 			for (uint32_t func_idx = 0; func_idx < bin.static_binary_header.function_count; ++func_idx) {
-				function_info_dynamic_v4 func_info;
+				function_info_dynamic_v5 func_info;
 				
 				// static function info
-				cur_size += sizeof(function_info_v4);
+				cur_size += sizeof(function_info_v5);
 				if (cur_size > data_size) {
 					log_error("universal binary $: invalid static function info size, expected $, got $",
 							  filename_hint, cur_size, data_size);
 					return {};
 				}
-				memcpy(/* ignore non-trivial copy */ (void*)&func_info.static_function_info, data.data(), sizeof(function_info_v4));
-				data = data.subspan(sizeof(function_info_v4));
+				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v5));
+				data = data.subspan(sizeof(function_info_v5));
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
 					log_error("universal binary $: unsupported function info version $",
@@ -222,16 +222,16 @@ namespace universal_binary {
 				}
 				
 				for (uint32_t arg_idx = 0; arg_idx < func_info.static_function_info.arg_count; ++arg_idx) {
-					function_info_dynamic_v4::arg_info arg;
+					function_info_dynamic_v5::arg_info arg;
 					
-					cur_size += sizeof(function_info_dynamic_v4::arg_info);
+					cur_size += sizeof(function_info_dynamic_v5::arg_info);
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info arg size, expected $, got $",
 								  filename_hint, cur_size, data_size);
 						return {};
 					}
-					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v4::arg_info));
-					data = data.subspan(sizeof(function_info_dynamic_v4::arg_info));
+					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v5::arg_info));
+					data = data.subspan(sizeof(function_info_dynamic_v5::arg_info));
 					
 					func_info.args.emplace_back(arg);
 				}
@@ -694,7 +694,7 @@ namespace universal_binary {
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;
-		vector<target_v4> targets;
+		vector<target_v5> targets;
 		deque<pair<size_t, target>> remaining_targets;
 		auto unique_target_iter = unique_targets_in.begin();
 		for (size_t i = 0; i < target_count; ++i, ++unique_target_iter) {
@@ -806,7 +806,7 @@ namespace universal_binary {
 		}
 		
 		// write binary
-		header_dynamic_v4 header {
+		header_dynamic_v5 header {
 			.static_header = {
 				.binary_format_version = binary_format_version,
 				.binary_count = uint32_t(targets_prog_data.size()),
@@ -824,7 +824,7 @@ namespace universal_binary {
 		
 		// header
 		auto& ar_stream = *archive.get_filestream();
-		archive.write_block(&header.static_header, sizeof(header_v4));
+		archive.write_block(&header.static_header, sizeof(header_v5));
 		archive.write_block(header.targets.data(), target_count * sizeof(typename decltype(header.targets)::value_type));
 		const auto header_offsets_pos = ar_stream.tellp();
 		archive.write_block(header.offsets.data(), header.offsets.size() * sizeof(typename decltype(header.offsets)::value_type));
@@ -843,7 +843,7 @@ namespace universal_binary {
 			header.offsets[i] = binary_base_offset + binaries_data.size();
 			
 			// static header
-			binary_dynamic_v4 bin_data {
+			binary_dynamic_v5 bin_data {
 				.static_binary_header = {
 					.function_count = 0u, // -> will be incremented below
 					.function_info_size = 0, // N/A yet
@@ -859,20 +859,19 @@ namespace universal_binary {
 			bin_data.function_info.reserve(bin.function_info.size());
 			const function<bool(const llvm_toolchain::function_info&, const uint32_t)> create_bin_function_info =
 			[&bin_data, &create_bin_function_info](const llvm_toolchain::function_info& func, const uint32_t argument_buffer_index) {
-				function_info_dynamic_v4 finfo {
+				function_info_dynamic_v5 finfo {
 					.static_function_info = {
 						.function_info_version = function_info_version,
 						.type = func.type,
 						.flags = func.flags,
 						.arg_count = uint32_t(func.args.size()),
-						.details.local_size = func.required_local_size,
+						.local_size = func.required_local_size,
+						.simd_width = func.required_simd_width,
+						.argument_buffer_index = (func.type == llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT ? argument_buffer_index : 0u),
 					},
 					.name = func.name,
 					.args = {}, // need proper conversion
 				};
-				if (func.type == llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
-					finfo.static_function_info.details.argument_buffer_index = argument_buffer_index;
-				}
 				bin_data.static_binary_header.function_info_size += sizeof(finfo.static_function_info);
 				bin_data.static_binary_header.function_info_size += finfo.name.size() + 1 /* \0 */;
 				
@@ -881,14 +880,15 @@ namespace universal_binary {
 				vector<pair<const llvm_toolchain::function_info*, uint32_t>> arg_buffers;
 				for (uint32_t arg_idx = 0, arg_count = (uint32_t)func.args.size(); arg_idx < arg_count; ++arg_idx) {
 					const auto& arg = func.args[arg_idx];
-					finfo.args.emplace_back(function_info_dynamic_v4::arg_info {
-						.argument_size = arg.size,
+					finfo.args.emplace_back(function_info_dynamic_v5::arg_info {
+						.size = arg.size,
+						.array_extent = arg.array_extent,
 						.address_space = arg.address_space,
+						.access = arg.access,
 						.image_type = arg.image_type,
-						.image_access = arg.image_access,
-						.special_type = arg.special_type,
+						.flags = arg.flags,
 					});
-					if (arg.special_type == llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+					if (has_flag<llvm_toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg.flags)) {
 						if (!arg.argument_buffer_info) {
 							log_error("missing argument buffer info for function $", finfo.name);
 							return false;
@@ -898,7 +898,7 @@ namespace universal_binary {
 					}
 				}
 				++bin_data.static_binary_header.function_count;
-				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v4::arg_info) * finfo.args.size();
+				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v5::arg_info) * finfo.args.size();
 				bin_data.function_info.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
@@ -966,7 +966,7 @@ namespace universal_binary {
 		return build_archive(src_code, false, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
-	pair<const binary_dynamic_v4*, const target_v4>
+	pair<const binary_dynamic_v5*, const target_v5>
 	find_best_match_for_device(const compute_device& dev, const archive& ar) {
 		if (dev.context == nullptr) return { nullptr, {} };
 		
@@ -983,7 +983,7 @@ namespace universal_binary {
 		for (size_t i = 0, count = ar.header.targets.size(); i < count; ++i) {
 			const auto& target = ar.header.targets[i];
 			if (target.common.type != type) continue;
-			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v4) continue;
+			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v5) continue;
 			
 			switch (target.common.type) {
 				case COMPUTE_TYPE::NONE: continue;
@@ -1565,7 +1565,7 @@ namespace universal_binary {
 		return { nullptr, {} };
 	}
 	
-	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v4>& functions) {
+	vector<llvm_toolchain::function_info> translate_function_info(const vector<function_info_dynamic_v5>& functions) {
 		vector<llvm_toolchain::function_info> ret;
 		
 		for (const auto& func : functions) {
@@ -1577,18 +1577,20 @@ namespace universal_binary {
 			
 			uint32_t arg_idx = 0u;
 			if (entry.type != llvm_toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
-				entry.required_local_size = func.static_function_info.details.local_size;
+				entry.required_local_size = func.static_function_info.local_size;
+				entry.required_simd_width = func.static_function_info.simd_width;
 			} else {
-				arg_idx = func.static_function_info.details.argument_buffer_index;
+				arg_idx = func.static_function_info.argument_buffer_index;
 			}
 			
 			for (const auto& arg : func.args) {
 				entry.args.emplace_back(llvm_toolchain::arg_info {
-					.size = arg.argument_size,
+					.size = arg.size,
+					.array_extent = arg.array_extent,
 					.address_space = arg.address_space,
+					.access = arg.access,
 					.image_type = arg.image_type,
-					.image_access = arg.image_access,
-					.special_type = arg.special_type,
+					.flags = arg.flags,
 				});
 			}
 			
@@ -1605,7 +1607,7 @@ namespace universal_binary {
 						}
 						
 						auto& arg = riter->args[arg_idx];
-						if (arg.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+						if (!has_flag<llvm_toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg.flags)) {
 							log_error("argument index $ in function $ is not an argument buffer", arg_idx, entry.name);
 							return {};
 						}
@@ -1626,7 +1628,7 @@ namespace universal_binary {
 	
 	static archive_binaries make_device_binaries_from_archive(unique_ptr<archive>&& ar, const vector<const compute_device*>& devices) {
 		// find the best matching binary for each device
-		vector<pair<const universal_binary::binary_dynamic_v4*, const universal_binary::target_v4>> dev_binaries;
+		vector<pair<const universal_binary::binary_dynamic_v5*, const universal_binary::target_v5>> dev_binaries;
 		dev_binaries.reserve(devices.size());
 		for (const auto& dev : devices) {
 			const auto best_bin = universal_binary::find_best_match_for_device(*dev, *ar);

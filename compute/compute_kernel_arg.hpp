@@ -23,6 +23,8 @@
 #include <vector>
 #include <type_traits>
 #include <span>
+#include <ranges>
+#include <floor/constexpr/ext_traits.hpp>
 using namespace std;
 
 class compute_buffer;
@@ -76,11 +78,19 @@ struct compute_kernel_arg {
 	// span arg with CPU storage
 	template <typename data_type>
 	constexpr compute_kernel_arg(const span<data_type>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+	template <typename data_type>
+	constexpr compute_kernel_arg(span<data_type>&& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+	
+	// any contiguous sized range with CPU storage (e.g. std::vector)
+	template <ranges::contiguous_range cr_type>
+	requires (ranges::sized_range<cr_type>)
+	constexpr compute_kernel_arg(cr_type&& cr) noexcept : compute_kernel_arg(span<const ranges::range_value_t<cr_type>>(cr)) {}
 	
 	// generic arg with CPU storage
 	template <typename T> requires (!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_buffer*> &&
 									!is_convertible_v<decay_t<remove_pointer_t<T>>*, compute_image*> &&
-									!is_convertible_v<decay_t<remove_pointer_t<T>>*, argument_buffer*>)
+									!is_convertible_v<decay_t<remove_pointer_t<T>>*, argument_buffer*> &&
+									!ext::is_vector_v<T> && !ext::is_span_v<T>)
 	constexpr compute_kernel_arg(const T& generic_arg) noexcept : var((const void*)&generic_arg), size(sizeof(T)) {}
 	
 	// forward generic shader_ptrs to one of the constructors above

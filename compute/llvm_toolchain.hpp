@@ -99,33 +99,36 @@ namespace llvm_toolchain {
 		IMAGE_CUBE_ARRAY_DEPTH			= (16u),
 	};
 
-	//! r/w image access flags
-	enum class ARG_IMAGE_ACCESS : uint32_t {
-		NONE							= (0u),
-		READ							= (1u),
-		WRITE							= (2u),
+	//! r/w memory/image access flags
+	enum class ARG_ACCESS : uint32_t {
+		UNSPECIFIED						= (0u),
+		READ							= (1u << 0u),
+		WRITE							= (1u << 1u),
 		READ_WRITE						= (READ | WRITE),
 	};
 
-	//! special types (backend or function type specific special args)
-	enum class SPECIAL_TYPE : uint32_t {
+	//! special argument flags (backend or function type specific)
+	enum class ARG_FLAG : uint32_t {
 		NONE							= (0u),
-		//! graphics-only: shader stage input
-		STAGE_INPUT						= (1u),
-		//! Vulkan-only: constant parameter fast path
-		PUSH_CONSTANT					= (2u),
-		//! Vulkan-only: param is a storage buffer (not uniform)
-		SSBO							= (3u),
+		//! an array of some sort (buffers, images, plain data)
+		ARRAY							= (1u << 0u),
 		//! array of images
-		IMAGE_ARRAY						= (4u),
-		//! Vulkan-only: inline uniform block
-		IUB								= (5u),
-		//! argument/indirect buffer
-		ARGUMENT_BUFFER					= (6u),
+		IMAGE_ARRAY						= (1u << 1u),
 		//! Vulkan/Metal only: array of buffers
 		//! NOTE: Vulkan: always used, Metal: only used for buffer arrays in argument buffers
-		BUFFER_ARRAY					= (7u),
+		BUFFER_ARRAY					= (1u << 2u),
+		//! argument/indirect buffer
+		ARGUMENT_BUFFER					= (1u << 3u),
+		//! graphics-only: shader stage input
+		STAGE_INPUT						= (1u << 4u),
+		//! Vulkan-only: constant parameter fast path
+		PUSH_CONSTANT					= (1u << 5u),
+		//! Vulkan-only: param is a storage buffer (not uniform)
+		SSBO							= (1u << 6u),
+		//! Vulkan-only: inline uniform block
+		IUB								= (1u << 7u),
 	};
+	floor_global_enum_no_hash_ext(ARG_FLAG)
 
 	//! need forward decl for function_info
 	struct arg_info;
@@ -140,6 +143,10 @@ namespace llvm_toolchain {
 		constexpr bool has_valid_required_local_size() const {
 			return (required_local_size != 0u).all();
 		}
+		
+		//! required SIMD-width (if non-zero)
+		//! NOTE: not implemented yet, this is for future-proofing
+		uint32_t required_simd_width { 0u };
 		
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
 		
@@ -161,35 +168,36 @@ namespace llvm_toolchain {
 
 	//! argument information
 	struct arg_info {
-		//! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
-		uint32_t size { 0 };
+		//! sizeof(arg_type) if applicable
+		uint64_t size { 0u };
+		
+		//! array extent if "is_array()" is true
+		//! NOTE: "size" includes the size of all array elements, not just a single one
+		//!       -> can divide by "array_extent" to get the individual element size
+		uint64_t array_extent { 0u };
 		
 		//! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
-		//! although some arguments might be marked with an address space nonetheless.
+		//!       although some arguments might be marked with an address space nonetheless
 		ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
 		
+		//! memory access of the argument (UNSPECIFIED if unknown or not applicable)
+		ARG_ACCESS access { ARG_ACCESS::UNSPECIFIED };
+		
+		//! the specific image type if this argument is an image (otherwise NONE)
 		ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
 		
-		ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
+		//! special argument flags
+		ARG_FLAG flags { ARG_FLAG::NONE };
 		
-		SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
+		//! true if this argument is some sort of array, i.e. array_extent contains a valid array extent
+		bool is_array() const {
+			return (has_flag<ARG_FLAG::ARRAY>(flags) ||
+					has_flag<ARG_FLAG::BUFFER_ARRAY>(flags) ||
+					has_flag<ARG_FLAG::IMAGE_ARRAY>(flags));
+		}
 		
 		//! if this is an argument buffer (special_type == ARGUMENT_BUFFER) then this contains the argument buffer struct info
 		optional<function_info> argument_buffer_info {};
-	};
-	
-	//! internal: encoded floor metadata layout
-	enum class FLOOR_METADATA : uint64_t {
-		ARG_SIZE_MASK			= (0x00000000FFFFFFFFull),
-		ARG_SIZE_SHIFT			= (0ull),
-		ADDRESS_SPACE_MASK		= (0x0000000700000000ull),
-		ADDRESS_SPACE_SHIFT		= (32ull),
-		IMAGE_TYPE_MASK			= (0x0000FF0000000000ull),
-		IMAGE_TYPE_SHIFT		= (40ull),
-		IMAGE_ACCESS_MASK		= (0x0003000000000000ull),
-		IMAGE_ACCESS_SHIFT		= (48ull),
-		SPECIAL_TYPE_MASK		= (0xFF00000000000000ull),
-		SPECIAL_TYPE_SHIFT		= (56ull),
 	};
 	
 	//! internal: packed version of the image support flags

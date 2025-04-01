@@ -71,17 +71,17 @@ unique_ptr<argument_buffer> compute_kernel::create_argument_buffer(const compute
 		
 		const auto& arg_info = entry->info->args[idx];
 		if (actual_idx == arg_index) {
-			if (arg_info.special_type != llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER) {
+			if (!has_flag<llvm_toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg_info.flags)) {
 				log_error("argument #$ is not an argument buffer", arg_index);
 				return {};
 			}
 			break;
 		}
 		
-		if (arg_info.special_type == llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT) {
+		if (has_flag<llvm_toolchain::ARG_FLAG::STAGE_INPUT>(arg_info.flags)) {
 			// skip to next actual arg
 			while (idx < entry->info->args.size() &&
-				   entry->info->args[idx].special_type == llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT) {
+				   has_flag<llvm_toolchain::ARG_FLAG::STAGE_INPUT>(entry->info->args[idx].flags)) {
 				++idx;
 			}
 		} else {

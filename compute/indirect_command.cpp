@@ -90,32 +90,31 @@ void indirect_command_description::compute_buffer_counts_from_functions(const co
 				continue;
 			}
 #endif
-			switch (arg.special_type) {
-				case llvm_toolchain::SPECIAL_TYPE::NONE:
-				case llvm_toolchain::SPECIAL_TYPE::SSBO:
-					++buf_count;
-					break;
-				case llvm_toolchain::SPECIAL_TYPE::ARGUMENT_BUFFER:
-					// for Vulkan, argument buffers are separately stored descriptor buffers (-> don't need to account for them here)
-					if (!is_vulkan) {
-						++buf_count;
-					}
-					break;
-				case llvm_toolchain::SPECIAL_TYPE::STAGE_INPUT:
-					// only tessellation evaluation shaders may contain buffers in stage_input
-					if (entry->info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
-						buf_count += arg.size;
-					}
-					break;
-				case llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY:
-				case llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY:
-				case llvm_toolchain::SPECIAL_TYPE::IUB:
-				case llvm_toolchain::SPECIAL_TYPE::PUSH_CONSTANT:
+			
+			if (has_flag<llvm_toolchain::ARG_FLAG::IMAGE_ARRAY>(arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::BUFFER_ARRAY>(arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::IUB>(arg.flags) ||
+				has_flag<llvm_toolchain::ARG_FLAG::PUSH_CONSTANT>(arg.flags)) {
 #if defined(FLOOR_DEBUG)
-					log_error("must not have image/buffer-array, IUB or push-constant parameters (in function \"$\") intended for indirect compute/render",
-							  entry->info->name);
+				log_error("must not have image/buffer-array, IUB or push-constant parameters (in function \"$\") intended for indirect compute/render",
+						  entry->info->name);
+				continue;
 #endif
-					break;
+			}
+			
+			if (arg.flags == llvm_toolchain::ARG_FLAG::NONE ||
+				has_flag<llvm_toolchain::ARG_FLAG::SSBO>(arg.flags)) {
+				++buf_count;
+			} else if (has_flag<llvm_toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg.flags)) {
+				// for Vulkan, argument buffers are separately stored descriptor buffers (-> don't need to account for them here)
+				if (!is_vulkan) {
+					++buf_count;
+				}
+			} else if (has_flag<llvm_toolchain::ARG_FLAG::STAGE_INPUT>(arg.flags)) {
+				// only tessellation evaluation shaders may contain buffers in stage_input
+				if (entry->info->type == llvm_toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					buf_count += arg.size;
+				}
 			}
 		}
 		if (llvm_toolchain::has_flag<llvm_toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(entry->info->flags)) {

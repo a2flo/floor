@@ -611,7 +611,7 @@ unique_ptr<argument_buffer> vulkan_kernel::create_argument_buffer_internal(const
 		if (i == ll_arg_index) {
 			break;
 		}
-		if (vulkan_entry.info->args[i].special_type == SPECIAL_TYPE::ARGUMENT_BUFFER) {
+		if (has_flag<ARG_FLAG::ARGUMENT_BUFFER>(vulkan_entry.info->args[i].flags)) {
 			++arg_buf_idx;
 		}
 	}

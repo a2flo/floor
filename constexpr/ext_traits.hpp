@@ -86,6 +86,7 @@ namespace ext {
 	//! is_vector to detect vector<T>
 	template <typename any_type> struct is_vector : public false_type {};
 	template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
+	template <typename T> constexpr bool is_vector_v = ext::is_vector<T>::value;
 
 	//! span<T[, extent]> detection
 	template <typename any_type> struct is_span_helper : public false_type {};

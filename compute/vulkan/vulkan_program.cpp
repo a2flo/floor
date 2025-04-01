@@ -44,7 +44,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 	bool valid_desc = true;
 	for (uint32_t i = 0, binding_idx = 0; i < (uint32_t)total_arg_count; ++i) {
 		// fully ignore argument buffer args, these are encoded as separate descriptor sets
-		if (i < explicit_arg_count && info.args[i].special_type == SPECIAL_TYPE::ARGUMENT_BUFFER) {
+		if (i < explicit_arg_count && has_flag<ARG_FLAG::ARGUMENT_BUFFER>(info.args[i].flags)) {
 			continue;
 		}
 		
@@ -61,12 +61,13 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 			switch (arg.address_space) {
 				// image
 				case ARG_ADDRESS_SPACE::IMAGE: {
-					const bool is_image_array = (arg.special_type == SPECIAL_TYPE::IMAGE_ARRAY);
+					const bool is_image_array = has_flag<ARG_FLAG::IMAGE_ARRAY>(arg.flags);
 					if (is_image_array) {
-						binding.descriptorCount = arg.size;
+						assert(arg.array_extent > 0u && arg.array_extent <= 0xFFFF'FFFFu);
+						binding.descriptorCount = uint32_t(arg.array_extent);
 					}
-					switch (arg.image_access) {
-						case ARG_IMAGE_ACCESS::READ:
+					switch (arg.access) {
+						case ARG_ACCESS::READ:
 							binding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 							if (is_image_array) {
 								layout.read_image_desc += arg.size;
@@ -74,7 +75,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 								++layout.read_image_desc;
 							}
 							break;
-						case ARG_IMAGE_ACCESS::WRITE:
+						case ARG_ACCESS::WRITE:
 							binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 							binding.descriptorCount *= dev.max_mip_levels;
 							if (is_image_array) {
@@ -83,7 +84,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 								layout.write_image_desc += dev.max_mip_levels;
 							}
 							break;
-						case ARG_IMAGE_ACCESS::READ_WRITE: {
+						case ARG_ACCESS::READ_WRITE: {
 							if (is_image_array) {
 								log_error("read/write image array not supported (arg #$ in $)", i, func_name);
 								return {};
@@ -103,8 +104,8 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 							layout.write_image_desc += dev.max_mip_levels;
 							break;
 						}
-						case ARG_IMAGE_ACCESS::NONE:
-							log_error("unknown image access type (arg #$ in $)", i, func_name);
+						case ARG_ACCESS::UNSPECIFIED:
+							log_error("unspecified image access type (arg #$ in $)", i, func_name);
 							valid_desc = false;
 							break;
 					}
@@ -115,16 +116,18 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 				case ARG_ADDRESS_SPACE::CONSTANT:
 					// NOTE: buffers are always SSBOs
 					// NOTE: uniforms/param can either be SSBOs or IUBs, depending on their size and device support
-					if (arg.special_type == SPECIAL_TYPE::IUB) {
+					if (has_flag<ARG_FLAG::IUB>(arg.flags)) {
 						binding.descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK;
 						// descriptor count == size, which must be a multiple of 4
-						const uint32_t arg_size_4 = const_math::round_next_multiple(arg.size, 4u);
+						assert(arg.size <= 0xFFFF'FFFFu);
+						const uint32_t arg_size_4 = const_math::round_next_multiple(uint32_t(arg.size), 4u);
 						layout.max_iub_size = max(arg_size_4, layout.max_iub_size);
 						binding.descriptorCount = arg_size_4;
 						++layout.iub_desc;
-					} else if (arg.special_type == SPECIAL_TYPE::BUFFER_ARRAY) {
+					} else if (has_flag<ARG_FLAG::BUFFER_ARRAY>(arg.flags)) {
 						binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-						binding.descriptorCount = arg.size;
+						assert(arg.array_extent > 0u && arg.array_extent <= 0xFFFF'FFFFu);
+						binding.descriptorCount = uint32_t(arg.array_extent);
 						layout.ssbo_desc += arg.size;
 					} else {
 						binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -132,13 +135,13 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 						
 						// put all non-IUB constant args into a single constant buffer that is allocated only once
 						if (arg.address_space == ARG_ADDRESS_SPACE::CONSTANT) {
-							assert(arg.size > 0);
+							assert(arg.size > 0u && arg.size <= 0xFFFF'FFFFu);
 							// offsets in SSBOs must be aligned to minStorageBufferOffsetAlignment
 							const auto ssbo_alignment = vk_dev.min_storage_buffer_offset_alignment;
 							layout.constant_buffer_size = ((layout.constant_buffer_size + ssbo_alignment - 1u) / ssbo_alignment) * ssbo_alignment;
 							layout.constant_buffer_info.emplace(uint32_t(i), vulkan_constant_buffer_info_t {
 								.offset = layout.constant_buffer_size,
-								.size = arg.size,
+								.size = uint32_t(arg.size),
 							});
 							layout.constant_buffer_size += arg.size;
 							++layout.constant_arg_count;
@@ -150,7 +153,7 @@ optional<vulkan_descriptor_set_layout_t> vulkan_program::build_descriptor_set_la
 					valid_desc = false;
 					break;
 				case ARG_ADDRESS_SPACE::UNKNOWN:
-					if (arg.special_type == SPECIAL_TYPE::STAGE_INPUT) {
+					if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags)) {
 						// ignore + compact
 						layout.bindings.pop_back();
 						continue;
@@ -308,7 +311,7 @@ static bool create_kernel_entry_descriptor_buffer(vulkan_kernel::vulkan_kernel_e
 	// handle argument buffers -> need to create descriptor set layouts for these as well
 	{
 		for (uint32_t i = 0, explicit_arg_count = uint32_t(info.args.size()); i < explicit_arg_count; ++i) {
-			if (info.args[i].special_type == SPECIAL_TYPE::ARGUMENT_BUFFER) {
+			if (has_flag<ARG_FLAG::ARGUMENT_BUFFER>(info.args[i].flags)) {
 				if (!info.args[i].argument_buffer_info) {
 					log_error("function $ has an argument buffer at index $, but no argument buffer info exists", func_name, i);
 					return false;

@@ -75,7 +75,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const void* ptr, const size_t& size,
 								const constant_buffer_wrapper_t* const_buf) {
 	const auto write_offset = argument_offsets[idx.binding];
-	if (!idx.is_implicit && arg_info.args[idx.arg].special_type == llvm_toolchain::SPECIAL_TYPE::IUB) {
+	if (!idx.is_implicit && has_flag<ARG_FLAG::IUB>(arg_info.args[idx.arg].flags)) {
 		// -> inline uniform buffer (directly writes into the descriptor buffer memory)
 #if defined(FLOOR_DEBUG)
 		if (write_offset + size > host_desc_data.size_bytes()) {
@@ -139,7 +139,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 	const span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
-	if (!idx.is_implicit && arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::SSBO) {
+	if (!idx.is_implicit && !has_flag<ARG_FLAG::SSBO>(arg_info.args[idx.arg].flags)) {
 		throw runtime_error("argument is not a buffer, but a buffer was specified");
 	}
 	if (write_offset + desc_data.size() > host_desc_data.size_bytes()) {
@@ -160,7 +160,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 	const auto elem_count = arg_info.args[idx.arg].size;
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
-	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::BUFFER_ARRAY) {
+	if (!has_flag<ARG_FLAG::BUFFER_ARRAY>(arg_info.args[idx.arg].flags)) {
 		throw runtime_error("argument is not a buffer array, but a buffer array was specified");
 	}
 	if (elem_count != buffer_array.size()) {
@@ -216,7 +216,7 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 								transition_info_t* transition_info) {
 	assert(!idx.is_implicit);
 	const auto vk_img = arg->get_underlying_vulkan_image_safe();
-	const auto img_access = arg_info.args[idx.arg].image_access;
+	const auto access = arg_info.args[idx.arg].access;
 	
 #if defined(FLOOR_DEBUG)
 	if (arg_info.args[idx.arg].image_type == llvm_toolchain::ARG_IMAGE_TYPE::NONE) {
@@ -228,10 +228,10 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 	if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) {
 		if (transition_info) {
 			auto vk_img_mut = const_cast<compute_image*>(arg)->get_underlying_vulkan_image_safe();
-			if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+			if (access == ARG_ACCESS::WRITE || access == ARG_ACCESS::READ_WRITE) {
 				auto [needs_transition, barrier] = vk_img_mut->transition_write(nullptr, nullptr,
 																				// also readable?
-																				img_access == ARG_IMAGE_ACCESS::READ_WRITE,
+																				access == ARG_ACCESS::READ_WRITE,
 																				// always direct-write, never attachment
 																				true,
 																				// allow general layout?
@@ -255,8 +255,8 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 	}
 	
 	// read image desc/obj
-	if (img_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ ||
-		img_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if (access == llvm_toolchain::ARG_ACCESS::READ ||
+		access == llvm_toolchain::ARG_ACCESS::READ_WRITE) {
 		const auto& desc_data = vk_img->get_vulkan_descriptor_data_sampled();
 		const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
@@ -271,10 +271,10 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 	}
 	
 	// write image descs/objs
-	if (img_access == llvm_toolchain::ARG_IMAGE_ACCESS::WRITE ||
-		img_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if (access == llvm_toolchain::ARG_ACCESS::WRITE ||
+		access == llvm_toolchain::ARG_ACCESS::READ_WRITE) {
 		const auto& desc_data = vk_img->get_vulkan_descriptor_data_storage();
-		const uint32_t rw_offset = (img_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE ? 1u : 0u);
+		const uint32_t rw_offset = (access == llvm_toolchain::ARG_ACCESS::READ_WRITE ? 1u : 0u);
 		const auto write_offset = argument_offsets[idx.binding + rw_offset];
 #if defined(FLOOR_DEBUG)
 		if (write_offset + desc_data.size_bytes() > host_desc_data.size_bytes()) {
@@ -301,7 +301,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 	// TODO: write/read-write array support
 	
 #if defined(FLOOR_DEBUG)
-	if (arg_info.args[idx.arg].special_type != llvm_toolchain::SPECIAL_TYPE::IMAGE_ARRAY) {
+	if (!has_flag<llvm_toolchain::ARG_FLAG::IMAGE_ARRAY>(arg_info.args[idx.arg].flags)) {
 		throw runtime_error("argument is not an image array, but an image array was specified");
 	}
 #endif
@@ -309,8 +309,8 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 	// soft-transition image if request + gather transition info
 	if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) {
 		if (transition_info) {
-			const auto img_access = arg_info.args[idx.arg].image_access;
-			if (img_access == ARG_IMAGE_ACCESS::WRITE || img_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+			const auto access = arg_info.args[idx.arg].access;
+			if (access == ARG_ACCESS::WRITE || access == ARG_ACCESS::READ_WRITE) {
 				for (auto& img : image_array) {
 					auto img_ptr = image_accessor(img);
 					if (!img_ptr) {
@@ -319,7 +319,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 					auto vk_img_mut = const_cast<vulkan_image*>(img_ptr)->get_underlying_vulkan_image_safe();
 					auto [needs_transition, barrier] = vk_img_mut->transition_write(nullptr, nullptr,
 																					// also readable?
-																					img_access == ARG_IMAGE_ACCESS::READ_WRITE,
+																					access == ARG_ACCESS::READ_WRITE,
 																					// always direct-write, never attachment
 																					true,
 																					// allow general layout?
@@ -439,8 +439,7 @@ arg_pre_handler(const vector<span<uint8_t>>& mapped_host_desc_data,
 		host_desc_data = mapped_host_desc_data[idx.entry];
 		
 		// ignore any stage input args
-		while (idx.arg < entry->args.size() &&
-			   entry->args[idx.arg].special_type == SPECIAL_TYPE::STAGE_INPUT) {
+		while (idx.arg < entry->args.size() && has_flag<ARG_FLAG::STAGE_INPUT>(entry->args[idx.arg].flags)) {
 			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 				throw runtime_error("should not have stage_input argument in argument buffer");
 			}
@@ -475,7 +474,7 @@ static inline void arg_post_handler(const function_info& arg_info,
 									idx_handler& idx) {
 	// advance all indices
 	if (!idx.is_implicit) {
-		if (arg_info.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+		if (arg_info.args[idx.arg].access == ARG_ACCESS::READ_WRITE) {
 			// read/write images are implemented as two args -> inc twice
 			++idx.binding;
 		}
@@ -483,7 +482,7 @@ static inline void arg_post_handler(const function_info& arg_info,
 		++idx.implicit;
 	}
 	// argument buffer doesn't use a binding, it's a separate descriptor set
-	if (idx.is_implicit || (!idx.is_implicit && arg_info.args[idx.arg].special_type != SPECIAL_TYPE::ARGUMENT_BUFFER)) {
+	if (idx.is_implicit || (!idx.is_implicit && !has_flag<ARG_FLAG::ARGUMENT_BUFFER>(arg_info.args[idx.arg].flags))) {
 		++idx.binding;
 	}
 	// next arg

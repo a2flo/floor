@@ -16,7 +16,7 @@ fi
 
 # build mip map minify FUBAR
 rm mmm.fubar 2>/dev/null
-${OCC} --src ../../compute/device/mip_map_minify.hpp --fubar targets_mmm.json --fubar-compress --out mmm.fubar --no-double -vv
+${OCC} --src ../../compute/device/mip_map_minify.hpp --fubar targets_mmm.json --fubar-compress --out mmm.fubar --no-double -vv -- -fdiscard-value-names
 if [ ! -f mmm.fubar ]; then
 	echo "failed to build mmm.fubar"
 	exit -3

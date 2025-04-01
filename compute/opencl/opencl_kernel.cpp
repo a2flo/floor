@@ -175,7 +175,7 @@ void opencl_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx, 
 	++arg_idx;
 	
 	// legacy s/w read/write image -> set it twice
-	if(entry.info->args[total_idx].image_access == llvm_toolchain::ARG_IMAGE_ACCESS::READ_WRITE &&
+	if (entry.info->args[total_idx].access == llvm_toolchain::ARG_ACCESS::READ_WRITE &&
 	   !handler->device->image_read_write_support) {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 								   &((const opencl_image*)arg)->get_cl_image()),

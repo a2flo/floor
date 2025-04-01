@@ -278,7 +278,7 @@ namespace metal_args {
 		}
 		
 		// if this is a read/write image, add it again (one is read-only, the other is write-only)
-		if (entry.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+		if (entry.args[idx.arg].access == ARG_ACCESS::READ_WRITE) {
 			if constexpr (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::ARGUMENT) {
 				[encoder setTexture:mtl_image_obj
 							atIndex:(idx.texture_idx + 1)];
@@ -397,8 +397,7 @@ namespace metal_args {
 			entry = entries[idx.entry];
 			
 			// ignore any stage input args
-			while (idx.arg < entry->args.size() &&
-				   entry->args[idx.arg].special_type == SPECIAL_TYPE::STAGE_INPUT) {
+			while (idx.arg < entry->args.size() && has_flag<ARG_FLAG::STAGE_INPUT>(entry->args[idx.arg].flags)) {
 				if (entry->type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					// offset buffer index by the amount of vertex attribute buffers
 					idx.buffer_idx += entry->args[idx.arg].size;
@@ -444,7 +443,9 @@ namespace metal_args {
 				} else if (auto vec_buf_sptrs = get_if<const vector<shared_ptr<compute_buffer>>*>(&arg.var)) {
 					idx.buffer_idx += (*vec_buf_sptrs)->size();
 				} else {
-					++idx.buffer_idx;
+					const auto buf_idx_count = (entry.args[idx.arg].is_array() ? entry.args[idx.arg].array_extent : 1u);
+					assert(buf_idx_count > 0u);
+					idx.buffer_idx += buf_idx_count;
 				}
 			} else {
 				// texture
@@ -458,7 +459,7 @@ namespace metal_args {
 				}
 				
 				idx.texture_idx += tex_arg_count;
-				if (entry.args[idx.arg].image_access == ARG_IMAGE_ACCESS::READ_WRITE) {
+				if (entry.args[idx.arg].access == ARG_ACCESS::READ_WRITE) {
 					// read/write images are implemented as two images -> add twice
 					idx.texture_idx += tex_arg_count;
 				}
