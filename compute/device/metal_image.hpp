@@ -113,6 +113,13 @@ namespace metal_image {
 			uint64_t value;
 		};
 		
+		// is_constant is no longer set with Metal 3.2+
+#if FLOOR_COMPUTE_METAL_MAJOR > 3 || (FLOOR_COMPUTE_METAL_MAJOR == 3 && FLOOR_COMPUTE_METAL_MINOR >= 2)
+		static constexpr const uint64_t is_constant_init { 0u };
+#else
+		static constexpr const uint64_t is_constant_init { 1u };
+#endif
+		
 		// must be known at compile-time for now
 		constexpr sampler(const ADDRESS_MODE address_mode = CLAMP_TO_EDGE,
 						  const COORD_MODE coord_mode_ = PIXEL,
@@ -128,7 +135,7 @@ namespace metal_image {
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
 		reduction(WEIGHTED_AVERAGE),
-		_unused(0u), is_constant(1u) {}
+		_unused(0u), is_constant(is_constant_init) {}
 		
 		constexpr sampler(const sampler& s) :
 		s_address(s.s_address), t_address(s.t_address), r_address(s.r_address),
@@ -139,7 +146,7 @@ namespace metal_image {
 		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		border_color(TRANSPARENT_BLACK),
 		reduction(WEIGHTED_AVERAGE),
-		_unused(0u), is_constant(1u) {}
+		_unused(0u), is_constant(is_constant_init) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
 		operator metal_sampler_t() const {

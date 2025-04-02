@@ -43,13 +43,29 @@ namespace floor_image {
 	//! is image type sampling return type an int?
 	static constexpr bool is_sample_int(COMPUTE_IMAGE_TYPE image_type) {
 		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
-				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+				!has_flag<COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING>(image_type));
+	}
+	
+	//! is image type sampling return type a short?
+	static constexpr bool is_sample_short(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+				has_flag<COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING>(image_type));
 	}
 	
 	//! is image type sampling return type an uint?
 	static constexpr bool is_sample_uint(COMPUTE_IMAGE_TYPE image_type) {
 		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
-				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT);
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+				!has_flag<COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING>(image_type));
+	}
+
+	//! is image type sampling return type an ushort?
+	static constexpr bool is_sample_ushort(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+				has_flag<COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING>(image_type));
 	}
 	
 	//! returns true if coord_type is an int/integral type (int, int2, int3, ...), false if float (or anything else)
@@ -176,8 +192,14 @@ namespace floor_image {
 	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_int(image_type)) struct to_sample_type<image_type> {
 		typedef int32_t type;
 	};
+	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_short(image_type)) struct to_sample_type<image_type> {
+		typedef int16_t type;
+	};
 	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_uint(image_type)) struct to_sample_type<image_type> {
 		typedef uint32_t type;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type> requires(is_sample_ushort(image_type)) struct to_sample_type<image_type> {
+		typedef uint16_t type;
 	};
 	//! (vector) sample type -> COMPUTE_IMAGE_TYPE
 	//! NOTE: scalar sample types will always return the 4-channel variant,
@@ -198,9 +220,19 @@ namespace floor_image {
 			COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::CHANNELS_4
 		};
 	};
+	template <typename sample_type> requires(is_same_v<int16_t, sample_type>) struct from_sample_type<sample_type> {
+		static constexpr COMPUTE_IMAGE_TYPE type {
+			COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::CHANNELS_4 | COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING
+		};
+	};
 	template <typename sample_type> requires(is_same_v<uint32_t, sample_type>) struct from_sample_type<sample_type> {
 		static constexpr COMPUTE_IMAGE_TYPE type {
 			COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::CHANNELS_4
+		};
+	};
+	template <typename sample_type> requires(is_same_v<uint16_t, sample_type>) struct from_sample_type<sample_type> {
+		static constexpr COMPUTE_IMAGE_TYPE type {
+			COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::CHANNELS_4 | COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING
 		};
 	};
 	template <typename sample_type> requires(is_floor_vector<sample_type>::value) struct from_sample_type<sample_type> {
@@ -403,11 +435,10 @@ namespace floor_image {
 #endif
 											   const float compare_value = 0.0f
 		) const {
-			// sample type must be 32-bit float, int or uint, or 16-bit half
-			constexpr const bool is_float = is_sample_float(image_type);
-			constexpr const bool is_half = is_sample_half(image_type);
-			constexpr const bool is_int = is_sample_int(image_type);
-			static_assert(is_float || is_half || is_int || is_sample_uint(image_type), "invalid sample type");
+			// sample type must be 32-bit or 16-bit float/int/uint
+			static_assert(is_sample_float(image_type) || is_sample_half(image_type) ||
+						  is_sample_int(image_type) || is_sample_short(image_type) ||
+						  is_sample_uint(image_type) || is_sample_ushort(image_type), "invalid sample type");
 			
 			// explicit lod and gradient are mutually exclusive
 			static_assert(!(is_lod && is_gradient), "can't use both lod and gradient");
@@ -451,27 +482,10 @@ namespace floor_image {
 			constexpr
 #endif
 			const sampler_type smplr = default_sampler<coord_type, sample_linear, sample_repeat, sample_repeat_mirrored, compare_function>::value();
-			if constexpr (is_float) {
-				return fit_output(opaque_image::read_image_float(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																 gradient.first, gradient.second, is_gradient,
-																 compare_function, compare_value, is_compare));
-			} else if constexpr (is_half) {
-				return fit_output(opaque_image::read_image_half(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																gradient.first, gradient.second, is_gradient,
-																compare_function, compare_value, is_compare));
-			} else if constexpr (is_int) {
-				return fit_output(opaque_image::read_image_int(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-															   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															   gradient.first, gradient.second, is_gradient,
-															   compare_function, compare_value, is_compare));
-			} else {
-				return fit_output(opaque_image::read_image_uint(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																gradient.first, gradient.second, is_gradient,
-																compare_function, compare_value, is_compare));
-			}
+			return fit_output(opaque_image::read_image<sample_type>(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
+																	(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
+																	gradient.first, gradient.second, is_gradient,
+																	compare_function, compare_value, is_compare));
 #elif defined(FLOOR_COMPUTE_CUDA)
 			constexpr const auto cuda_tex_idx = cuda_sampler::sampler_index(is_int_coord<coord_type>() ? cuda_sampler::PIXEL : cuda_sampler::NORMALIZED,
 																			sample_linear ? cuda_sampler::LINEAR : cuda_sampler::NEAREST,
@@ -481,27 +495,10 @@ namespace floor_image {
 																			 compare_function == COMPARE_FUNCTION::ALWAYS ||
 																			 compare_function == COMPARE_FUNCTION::NEVER) ?
 																			cuda_sampler::NONE : (cuda_sampler::COMPARE_FUNCTION)compare_function);
-			if constexpr (is_float) {
-				return fit_output(cuda_image::read_image_float(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-															   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															   gradient.first, gradient.second, is_gradient,
-															   compare_function, compare_value, is_compare));
-			} else if constexpr (is_half) {
-				return fit_output(cuda_image::read_image_half(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-															  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															  gradient.first, gradient.second, is_gradient,
-															  compare_function, compare_value, is_compare));
-			} else if constexpr (is_int) {
-				return fit_output(cuda_image::read_image_int(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-															 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															 gradient.first, gradient.second, is_gradient,
-															 compare_function, compare_value, is_compare));
-			} else {
-				return fit_output(cuda_image::read_image_uint(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-															  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															  gradient.first, gradient.second, is_gradient,
-															  compare_function, compare_value, is_compare));
-			}
+			return fit_output(cuda_image::read_image<sample_type>(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
+																  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
+																  gradient.first, gradient.second, is_gradient,
+																  compare_function, compare_value, is_compare));
 #elif defined(FLOOR_COMPUTE_HOST)
 			if constexpr (!is_compare) {
 				if constexpr (!sample_linear) {
@@ -1053,12 +1050,16 @@ namespace floor_image {
 												const uint32_t layer,
 												const uint32_t lod,
 												const vector_sample_type& data) {
-			// sample type must be 32-bit float, int or uint
+			// sample type must be 32-bit or 16-bit float/int/uint
 			constexpr const bool is_float = is_sample_float(image_type);
 			constexpr const bool is_half = is_sample_half(image_type);
 			constexpr const bool is_int = is_sample_int(image_type);
+			constexpr const bool is_short = is_sample_short(image_type);
+			constexpr const bool is_uint = is_sample_uint(image_type);
+			constexpr const bool is_ushort = is_sample_ushort(image_type);
+			static_assert(is_float || is_half || is_int || is_short || is_uint || is_ushort, "invalid sample type");
+			// depth data type must always be a float
 			constexpr const bool is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type);
-			static_assert(is_float || is_half || is_int || is_sample_uint(image_type), "invalid sample type");
 			static_assert(!is_depth || (is_depth && is_float && is_same_v<vector_sample_type, float>), "depth value must always be a float");
 			
 			// backend specific coordinate conversion (should always be int here)
@@ -1079,39 +1080,51 @@ namespace floor_image {
 			
 			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
 #if defined(FLOOR_COMPUTE_OPENCL)
-			if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-			else if constexpr(is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
-			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			if constexpr (is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+			else if constexpr (is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
+			else if constexpr (is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+			else if constexpr (is_short) opaque_image::write_image_short(w_img(), image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
+			else if constexpr (is_uint) opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(), image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
 #elif defined(FLOOR_COMPUTE_METAL)
 			if constexpr (is_depth) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, converted_data);
-			else if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-			else if constexpr(is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
-			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			else if constexpr (is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+			else if constexpr (is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
+			else if constexpr (is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+			else if constexpr (is_short) opaque_image::write_image_short(w_img(), image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
+			else if constexpr (is_uint) opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(), image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
 #elif defined(FLOOR_COMPUTE_VULKAN)
-			if constexpr(!is_lod) {
-				if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, 0, false, (float4)converted_data);
-				else if constexpr(is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, 0, false, (half4)converted_data);
-				else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, 0, false, (int4)converted_data);
-				else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+			if constexpr (!is_lod) {
+				if constexpr (is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, 0, false, (float4)converted_data);
+				else if constexpr (is_half) opaque_image::write_image_half(w_img(), image_type, converted_coord, layer, 0, false, (half4)converted_data);
+				else if constexpr (is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, 0, false, (int4)converted_data);
+				else if constexpr (is_short) opaque_image::write_image_short(w_img(), image_type, converted_coord, layer, 0, false, (short4)converted_data);
+				else if constexpr (is_uint) opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+				else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(), image_type, converted_coord, layer, 0, false, (ushort4)converted_data);
 			} else {
-				if constexpr(is_float) opaque_image::write_image_float(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-				else if constexpr(is_half) opaque_image::write_image_half(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
-				else if constexpr(is_int) opaque_image::write_image_int(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-				else opaque_image::write_image_uint(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				if constexpr (is_float) opaque_image::write_image_float(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr (is_half) opaque_image::write_image_half(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
+				else if constexpr (is_int) opaque_image::write_image_int(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else if constexpr (is_short) opaque_image::write_image_short(w_img(), image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
+				else if constexpr (is_uint) opaque_image::write_image_uint(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(), image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
-			if constexpr(!is_lod) {
-				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (float4)converted_data);
-				else if constexpr(is_half) cuda_image::write_half<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (half4)converted_data);
-				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (int4)converted_data);
-				else cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+			if constexpr (!is_lod) {
+				if constexpr (is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (float4)converted_data);
+				else if constexpr (is_half) cuda_image::write_half<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (half4)converted_data);
+				else if constexpr (is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (int4)converted_data);
+				else if constexpr (is_short) cuda_image::write_short<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (short4)converted_data);
+				else if constexpr (is_uint) cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+				else if constexpr (is_ushort) cuda_image::write_ushort<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (ushort4)converted_data);
 			} else {
-				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-				else if constexpr(is_half) cuda_image::write_half<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
-				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-				else cuda_image::write_uint<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				if constexpr (is_float) cuda_image::write_float<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr (is_half) cuda_image::write_half<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
+				else if constexpr (is_int) cuda_image::write_int<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else if constexpr (is_short) cuda_image::write_short<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
+				else if constexpr (is_uint) cuda_image::write_uint<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				else if constexpr (is_ushort) cuda_image::write_ushort<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
 			}
 #elif defined(FLOOR_COMPUTE_HOST)
 			host_device_image<image_type, is_lod, false, false, false>::write((host_device_image<image_type, is_lod, false, false, false>*)w_img(), converted_coord, layer, lod, converted_data);
