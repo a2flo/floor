@@ -25,6 +25,7 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/compute/metal/metal_fence.hpp>
+#include <floor/compute/metal/metal_device.hpp>
 #include <floor/graphics/metal/metal_pass.hpp>
 #include <floor/graphics/metal/metal_pipeline.hpp>
 #include <floor/graphics/metal/metal_shader.hpp>
@@ -191,6 +192,15 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		
 		[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];
 		[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
+		
+		// make heaps implicitly resident
+		const auto& mtl_dev = (const metal_device&)cqueue.get_device();
+		if (mtl_dev.heap_shared) {
+			[encoder useHeap:mtl_dev.heap_shared stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
+		}
+		if (mtl_dev.heap_private) {
+			[encoder useHeap:mtl_dev.heap_private stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
+		}
 		
 		return true;
 	}

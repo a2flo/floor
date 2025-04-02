@@ -23,6 +23,7 @@
 #include <floor/darwin/darwin_helper.hpp>
 #include <floor/compute/metal/metal_indirect_command.hpp>
 #include <floor/compute/metal/metal_fence.hpp>
+#include <floor/compute/metal/metal_device.hpp>
 
 metal_queue::metal_queue(const compute_device& device_, id <MTLCommandQueue> queue_) : compute_queue(device_, QUEUE_TYPE::ALL), queue(queue_) {}
 
@@ -133,6 +134,14 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 			[encoder useResources:resources.read_write_images.data()
 							count:resources.read_write_images.size()
 							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
+		}
+		
+		const auto& mtl_dev = (const metal_device&)device;
+		if (mtl_dev.heap_shared) {
+			[encoder useHeap:mtl_dev.heap_shared];
+		}
+		if (mtl_dev.heap_private) {
+			[encoder useHeap:mtl_dev.heap_private];
 		}
 		
 		if (mtl_indirect_pipeline_entry->printf_buffer) {

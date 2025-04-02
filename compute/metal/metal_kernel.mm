@@ -127,6 +127,13 @@ void metal_kernel::execute(const compute_queue& cqueue,
 		const kernel_entry& entry = kernel_iter->second;
 		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
 		
+		if (dev->heap_shared) {
+			[encoder->encoder useHeap:dev->heap_shared];
+		}
+		if (dev->heap_private) {
+			[encoder->encoder useHeap:dev->heap_private];
+		}
+		
 		// compute sizes
 		auto [grid_dim, block_dim] = compute_grid_and_block_dim(kernel_iter->second, dim, global_work_size, local_work_size);
 		const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
