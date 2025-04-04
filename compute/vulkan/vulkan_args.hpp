@@ -157,7 +157,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 														  const span<uint8_t>& host_desc_data,
 														  const vector<T>& buffer_array, F&& buffer_accessor) {
 	assert(!idx.is_implicit);
-	const auto elem_count = arg_info.args[idx.arg].size;
+	const auto elem_count = arg_info.args[idx.arg].array_extent;
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
 	if (!has_flag<ARG_FLAG::BUFFER_ARRAY>(arg_info.args[idx.arg].flags)) {
@@ -173,7 +173,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 	}
 #endif
 	
-	for (uint32_t i = 0; i < elem_count; ++i) {
+	for (uint64_t i = 0; i < elem_count; ++i) {
 		auto buf_ptr = buffer_accessor(buffer_array[i]);
 		if (!buf_ptr) {
 			memset(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, 0, vk_dev.desc_buffer_sizes.ssbo);
@@ -350,7 +350,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 		}
 	}
 	
-	const auto elem_count = arg_info.args[idx.arg].size;
+	const auto elem_count = arg_info.args[idx.arg].array_extent;
 	const auto desc_data_size = vk_dev.desc_buffer_sizes.sampled_image;
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
@@ -364,7 +364,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 	}
 #endif
 	
-	for (uint32_t i = 0; i < elem_count; ++i) {
+	for (uint64_t i = 0; i < elem_count; ++i) {
 		auto img_ptr = image_accessor(image_array[i]);
 		if (!img_ptr) {
 			memset(host_desc_data.data() + write_offset + desc_data_size * i, 0, desc_data_size);
