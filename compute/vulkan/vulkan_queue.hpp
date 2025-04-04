@@ -142,7 +142,7 @@ protected:
 	friend vulkan_queue_impl;
 	
 	//! internal queue submit
-	VkResult queue_submit(const VkSubmitInfo2& submit_info, VkFence& fence) const REQUIRES(!queue_lock);
+	VkResult queue_submit(const VkSubmitInfo2& submit_info) const REQUIRES(!queue_lock);
 	
 };
 

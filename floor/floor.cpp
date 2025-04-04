@@ -444,7 +444,7 @@ bool floor::init(const init_state& state) {
 		extract_string_array_set.operator()<false>(config.vulkan_log_binary_filter, "toolchain.vulkan.log_binary_filter");
 		config.vulkan_nvidia_device_diagnostics = config_doc.get<bool>("toolchain.vulkan.nvidia_device_diagnostics", false);
 		config.vulkan_debug_labels = config_doc.get<bool>("toolchain.vulkan.debug_labels", false);
-		config.vulkan_fence_wait_polling = config_doc.get<bool>("toolchain.vulkan.fence_wait_polling", true);
+		config.vulkan_sema_wait_polling = config_doc.get<bool>("toolchain.vulkan.sema_wait_polling", true);
 		
 		host_toolchain_paths = config_doc.get<json::json_array>("toolchain.host.paths", default_toolchain_paths);
 		config.host_compiler = config_doc.get<string>("toolchain.host.compiler", config.default_compiler);
@@ -1803,8 +1803,8 @@ const bool& floor::get_vulkan_nvidia_device_diagnostics() {
 const bool& floor::get_vulkan_debug_labels() {
 	return config.vulkan_debug_labels;
 }
-const bool& floor::get_vulkan_fence_wait_polling() {
-	return config.vulkan_fence_wait_polling;
+const bool& floor::get_vulkan_sema_wait_polling() {
+	return config.vulkan_sema_wait_polling;
 }
 
 bool floor::has_host_toolchain() {

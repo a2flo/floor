@@ -312,7 +312,7 @@ public:
 	static const vector<string>& get_vulkan_log_binary_filter();
 	static const bool& get_vulkan_nvidia_device_diagnostics();
 	static const bool& get_vulkan_debug_labels();
-	static const bool& get_vulkan_fence_wait_polling();
+	static const bool& get_vulkan_sema_wait_polling();
 	
 	// host
 	static bool has_host_toolchain();
@@ -490,7 +490,7 @@ protected:
 		vector<string> vulkan_log_binary_filter;
 		bool vulkan_nvidia_device_diagnostics = false;
 		bool vulkan_debug_labels = false;
-		bool vulkan_fence_wait_polling = false;
+		bool vulkan_sema_wait_polling = true;
 
 		// initial window flags
 		floor::init_state::window_flags_t window_flags {};
