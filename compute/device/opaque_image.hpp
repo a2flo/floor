@@ -212,7 +212,11 @@ void write_image_ushort(image_type img, COMPUTE_IMAGE_TYPE type, clang_int1 coor
 void write_image_ushort(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_ushort4 data) asm("floor.opaque.write_image." #image_type ".ushort.i2"); \
 void write_image_ushort(image_type img, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_ushort4 data) asm("floor.opaque.write_image." #image_type ".ushort.i3"); \
 \
-const_func clang_uint4 get_image_dim(image_type img, COMPUTE_IMAGE_TYPE type, uint32_t lod) asm("floor.opaque.get_image_dim." #image_type);
+const_func clang_uint4 get_image_dim(image_type img, COMPUTE_IMAGE_TYPE type, uint32_t lod) asm("floor.opaque.get_image_dim." #image_type); \
+\
+const_func float query_image_lod(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float1 coord) asm("floor.opaque.query_image_lod." #image_type ".f1"); \
+const_func float query_image_lod(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float2 coord) asm("floor.opaque.query_image_lod." #image_type ".f2"); \
+const_func float query_image_lod(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float3 coord) asm("floor.opaque.query_image_lod." #image_type ".f3");
 
 #define FLOOR_OPAQUE_IMAGE_TYPES(F) \
 F(image1d_t) \

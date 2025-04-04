@@ -68,11 +68,19 @@ namespace floor_image {
 				has_flag<COMPUTE_IMAGE_TYPE::FLAG_16_BIT_SAMPLING>(image_type));
 	}
 	
-	//! returns true if coord_type is an int/integral type (int, int2, int3, ...), false if float (or anything else)
+	//! returns true if coord_type is an int/integral type (int, int2, int3, ...), false if anything else
 	template <typename coord_type, bool ret_value = ((is_floor_vector<coord_type>::value &&
 													  ext::is_integral_v<typename coord_type::decayed_scalar_type>) ||
 													 (ext::is_fundamental_v<coord_type> && ext::is_integral_v<coord_type>))>
 	static constexpr bool is_int_coord() {
+		return ret_value;
+	}
+	
+	//! returns true if coord_type is a float type (float, float2, float3, ...), false if anything else
+	template <typename coord_type, bool ret_value = ((is_floor_vector<coord_type>::value &&
+													  ext::is_floating_point_v<typename coord_type::decayed_scalar_type>) ||
+													 ext::is_floating_point_v<coord_type>)>
+	static constexpr bool is_float_coord() {
 		return ret_value;
 	}
 	
@@ -406,6 +414,29 @@ namespace floor_image {
 			}
 #else
 #error "unknown backend"
+#endif
+		}
+		
+		//! queries the LOD that would be used when sampling this image with an implicit LOD at the specified coordinate,
+		//! the returned LOD may be fractional, e.g. 2.5f defines a 50/50 mix of LOD2 and LOD3
+		//! NOTE: the image must be readable and the coordinate must by a floating point vector/scalar type
+		//! NOTE: this can not be called on multi-sampled or buffer images
+		//! NOTE: this may only be called inside a fragment shader
+		template <typename coord_type>
+		requires (is_readable() &&
+				  is_float_coord<coord_type>() &&
+				  !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type) &&
+				  !has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type))
+		float query_lod([[maybe_unused]] const coord_type& coord) const {
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if !defined(FLOOR_COMPUTE_METAL) // only constexpr with Vulkan
+			constexpr
+#endif
+			const sampler_type smplr = default_sampler<coord_type, true, true, false, COMPARE_FUNCTION::NEVER>::value();
+			const auto converted_coord = convert_coord(coord);
+			return opaque_image::query_image_lod(r_img(), smplr, image_type, converted_coord);
+#else
+			return 0.0f;
 #endif
 		}
 		
