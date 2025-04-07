@@ -51,6 +51,9 @@ public:
 	~metal_image() override;
 	
 	bool blit(const compute_queue& cqueue, compute_image& src) override;
+	bool blit_async(const compute_queue& cqueue, compute_image& src,
+					vector<const compute_fence*>&& wait_fences,
+					vector<compute_fence*>&& signal_fences) override;
 	
 	bool zero(const compute_queue& cqueue) override;
 	
@@ -112,6 +115,10 @@ protected:
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const compute_queue& cqueue);
+	
+	bool blit_internal(const bool is_async, const compute_queue& cqueue, compute_image& src,
+					   const vector<const compute_fence*>& wait_fences,
+					   const vector<compute_fence*>& signal_fences);
 	
 };
 

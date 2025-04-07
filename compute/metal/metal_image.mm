@@ -25,6 +25,7 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/compute/metal/metal_fence.hpp>
 #include <floor/compute/compute_context.hpp>
 #include <floor/core/aligned_ptr.hpp>
 #include <floor/floor/floor.hpp>
@@ -650,8 +651,12 @@ metal_image::~metal_image() {
 #endif
 }
 
-bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
-	if (image == nil) return false;
+bool metal_image::blit_internal(const bool is_async, const compute_queue& cqueue, compute_image& src,
+								const vector<const compute_fence*>& wait_fences,
+								const vector<compute_fence*>& signal_fences) {
+	if (image == nil) {
+		return false;
+	}
 	
 	if (!blit_check(cqueue, src)) {
 		return false;
@@ -667,6 +672,12 @@ bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
 		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto dim_count = image_dim_count(image_type);
+		
+		if (is_async) {
+			for (const auto& fence : wait_fences) {
+				[blit_encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
+			}
+		}
 		
 		apply_on_levels<true /* blit all levels */>([this, &blit_encoder, &src_image, &dim_count](const uint32_t& level,
 																								  const uint4& mip_image_dim,
@@ -695,12 +706,30 @@ bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
 		// always optimize for GPU use
 		[blit_encoder optimizeContentsForGPUAccess:image];
 		
+		if (is_async) {
+			for (const auto& fence : signal_fences) {
+				[blit_encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
+			}
+		}
+		
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
+		if (!is_async) {
+			[cmd_buffer waitUntilCompleted];
+		}
 		
 		return true;
 	}
+}
+
+bool metal_image::blit(const compute_queue& cqueue, compute_image& src) {
+	return blit_internal(false, cqueue, src, {}, {});
+}
+
+bool metal_image::blit_async(const compute_queue& cqueue, compute_image& src,
+							 vector<const compute_fence*>&& wait_fences,
+							 vector<compute_fence*>&& signal_fences) {
+	return blit_internal(true, cqueue, src, wait_fences, signal_fences);
 }
 
 bool metal_image::zero(const compute_queue& cqueue) {

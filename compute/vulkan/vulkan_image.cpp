@@ -25,6 +25,7 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_device.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/vulkan/vulkan_fence.hpp>
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
@@ -704,8 +705,12 @@ bool vulkan_image::zero(const compute_queue& cqueue) {
 	return true;
 }
 
-bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
-	if (image == nullptr) return false;
+bool vulkan_image::blit_internal(const bool is_async, const compute_queue& cqueue, compute_image& src,
+								 const vector<const compute_fence*>& wait_fences,
+								 const vector<compute_fence*>& signal_fences) {
+	if (image == nullptr) {
+		return false;
+	}
 	
 	if (!blit_check(cqueue, src)) {
 		return false;
@@ -716,6 +721,13 @@ bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
 	if (!src_image) {
 		log_error("blit: source Vulkan image is null");
 		return false;
+	}
+	
+	vector<vulkan_queue::wait_fence_t> vk_wait_fences;
+	vector<vulkan_queue::signal_fence_t> vk_signal_fences;
+	if (is_async) {
+		vk_wait_fences = vulkan_queue::encode_wait_fences(wait_fences);
+		vk_signal_fences = vulkan_queue::encode_signal_fences(signal_fences);
 	}
 	
 	const auto dim_count = image_dim_count(image_type);
@@ -788,9 +800,19 @@ bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
 		
 		vk_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
 						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-	}), false /* return false on error */, true /* always blocking */);
+	}), false /* return false on error */, !is_async /* blocking if not async */, std::move(vk_wait_fences), std::move(vk_signal_fences));
 	
 	return true;
+}
+
+bool vulkan_image::blit(const compute_queue& cqueue, compute_image& src) {
+	return blit_internal(false, cqueue, src, {}, {});
+}
+
+bool vulkan_image::blit_async(const compute_queue& cqueue, compute_image& src,
+							  vector<const compute_fence*>&& wait_fences,
+							  vector<compute_fence*>&& signal_fences) {
+	return blit_internal(true, cqueue, src, wait_fences, signal_fences);
 }
 
 void* __attribute__((aligned(128))) vulkan_image::map(const compute_queue& cqueue,

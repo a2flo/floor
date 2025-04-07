@@ -29,6 +29,7 @@ class floor;
 class compute_context;
 class compute_program;
 class compute_kernel;
+class compute_fence;
 
 class vulkan_image;
 class vulkan_queue;
@@ -83,6 +84,15 @@ public:
 	//! NOTE: dim must be identical, format must be compatible
 	//! TODO: implement this everywhere
 	virtual bool blit(const compute_queue& cqueue floor_unused, compute_image& src floor_unused) { return false; }
+	
+	
+	//! asynchronously blits the "src" image onto this image, returns true if encoding was successful,
+	//! waits for all fences specified in "wait_fences" and signals all fences specified in "signal_fences"
+	//! NOTE: dim must be identical, format must be compatible
+	//! TODO: implement this everywhere
+	virtual bool blit_async(const compute_queue& cqueue floor_unused, compute_image& src floor_unused,
+							vector<const compute_fence*>&& wait_fences floor_unused,
+							vector<compute_fence*>&& signal_fences floor_unused) { return false; }
 	
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)

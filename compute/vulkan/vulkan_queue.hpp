@@ -80,6 +80,8 @@ public:
 		uint64_t signaled_value { 0 };
 		compute_fence::SYNC_STAGE stage { compute_fence::SYNC_STAGE::NONE };
 	};
+	//! encodes the specified fences as a vector of "wait_fence_t"
+	static vector<wait_fence_t> encode_wait_fences(const vector<const compute_fence*>& wait_fences);
 	
 	//! definition for a fence that should be signaled after command buffer execution
 	struct signal_fence_t {
@@ -88,6 +90,8 @@ public:
 		uint64_t signaled_value { 0 };
 		compute_fence::SYNC_STAGE stage { compute_fence::SYNC_STAGE::NONE };
 	};
+	//! encodes the specified fences as a vector of "signal_fence_t"
+	static vector<signal_fence_t> encode_signal_fences(const vector<compute_fence*>& signal_fences);
 	
 	vulkan_command_block make_command_block(const char* name, bool& error_signal, const bool is_blocking,
 											vector<wait_fence_t>&& wait_fences = {},

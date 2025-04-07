@@ -59,6 +59,9 @@ public:
 	bool zero(const compute_queue& cqueue) override;
 	
 	bool blit(const compute_queue& cqueue, compute_image& src) override;
+	bool blit_async(const compute_queue& cqueue, compute_image& src,
+					vector<const compute_fence*>&& wait_fences,
+					vector<compute_fence*>&& signal_fences) override;
 	
 	void* __attribute__((aligned(128))) map(const compute_queue& cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags = (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE | COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
@@ -209,6 +212,10 @@ protected:
 								VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
 	void image_copy_host_to_dev(const compute_queue& cqueue,
 								VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) override;
+	
+	bool blit_internal(const bool is_async, const compute_queue& cqueue, compute_image& src,
+					   const vector<const compute_fence*>& wait_fences,
+					   const vector<compute_fence*>& signal_fences);
 	
 };
 

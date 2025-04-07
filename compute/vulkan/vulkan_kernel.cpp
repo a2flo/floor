@@ -454,35 +454,8 @@ void vulkan_kernel::execute(const compute_queue& cqueue,
 		});
 	}
 	
-	vector<vulkan_queue::wait_fence_t> wait_fences;
-	vector<vulkan_queue::signal_fence_t> signal_fences;
-	for (const auto& fence : wait_fences_) {
-		if (!fence) {
-			continue;
-		}
-		const auto& vk_fence = (const vulkan_fence&)*fence;
-		wait_fences.emplace_back(vulkan_queue::wait_fence_t {
-			.fence = fence,
-			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::NONE,
-		});
-	}
-	for (auto& fence : signal_fences_) {
-		if (!fence) {
-			continue;
-		}
-		auto& vk_fence = (vulkan_fence&)*fence;
-		if (!vk_fence.next_signal_value()) {
-			throw runtime_error("failed to set next signal value on fence");
-		}
-		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
-			.fence = fence,
-			.unsignaled_value = vk_fence.get_unsignaled_value(),
-			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::NONE,
-		});
-	}
-	
+	auto wait_fences = vulkan_queue::encode_wait_fences(wait_fences_);
+	auto signal_fences = vulkan_queue::encode_signal_fences(signal_fences_);
 	vk_queue.submit_command_buffer(std::move(encoder->cmd_buffer),
 								   std::move(wait_fences), std::move(signal_fences),
 								   [encoder](const vulkan_command_buffer&) {

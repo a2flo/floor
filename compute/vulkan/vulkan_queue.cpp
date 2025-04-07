@@ -740,20 +740,32 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		});
 	}
 	
-	vector<wait_fence_t> wait_fences;
-	vector<signal_fence_t> signal_fences;
-	for (const auto& fence : params.wait_fences) {
+	auto wait_fences = encode_wait_fences(params.wait_fences);
+	auto signal_fences = encode_signal_fences(params.signal_fences);
+	submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), [](const vulkan_command_buffer&) {
+		// -> completion handler
+	}, params.wait_until_completion || vk_indirect_pipeline_entry->printf_buffer /* must block when soft-print is used */);
+}
+
+vector<vulkan_queue::wait_fence_t> vulkan_queue::encode_wait_fences(const vector<const compute_fence*>& wait_fences) {
+	vector<wait_fence_t> vk_wait_fences;
+	for (const auto& fence : wait_fences) {
 		if (!fence) {
 			continue;
 		}
 		const auto& vk_fence = (const vulkan_fence&)*fence;
-		wait_fences.emplace_back(wait_fence_t {
+		vk_wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 			.fence = fence,
 			.signaled_value = vk_fence.get_signaled_value(),
 			.stage = compute_fence::SYNC_STAGE::NONE,
 		});
 	}
-	for (auto& fence : params.signal_fences) {
+	return vk_wait_fences;
+}
+
+vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(const vector<compute_fence*>& signal_fences) {
+	vector<signal_fence_t> vk_signal_fences;
+	for (auto& fence : signal_fences) {
 		if (!fence) {
 			continue;
 		}
@@ -761,17 +773,14 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		if (!vk_fence.next_signal_value()) {
 			throw runtime_error("failed to set next signal value on fence");
 		}
-		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
+		vk_signal_fences.emplace_back(vulkan_queue::signal_fence_t {
 			.fence = fence,
 			.unsignaled_value = vk_fence.get_unsignaled_value(),
 			.signaled_value = vk_fence.get_signaled_value(),
 			.stage = compute_fence::SYNC_STAGE::NONE,
 		});
 	}
-	
-	submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), [](const vulkan_command_buffer&) {
-		// -> completion handler
-	}, params.wait_until_completion || vk_indirect_pipeline_entry->printf_buffer /* must block when soft-print is used */);
+	return vk_signal_fences;
 }
 
 vulkan_command_buffer vulkan_queue::make_command_buffer(const char* name) const {
