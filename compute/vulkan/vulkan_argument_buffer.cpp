@@ -71,4 +71,13 @@ bool vulkan_argument_buffer::set_arguments(const compute_queue& dev_queue, const
 	return true;
 }
 
+void vulkan_argument_buffer::set_debug_label(const string& label) {
+	argument_buffer::set_debug_label(label);
+	if (storage_buffer) {
+		if (auto vk_buf = storage_buffer->get_underlying_vulkan_buffer_safe(); vk_buf) {
+			const_cast<vulkan_buffer*>(vk_buf)->set_debug_label(label);
+		}
+	}
+}
+
 #endif

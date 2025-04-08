@@ -21,3 +21,11 @@
 #include <floor/compute/compute_context.hpp>
 
 argument_buffer::argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer_) : func(func_), storage_buffer(storage_buffer_) {}
+
+void argument_buffer::set_debug_label(const string& label) {
+	debug_label = label;
+}
+
+const string& argument_buffer::get_debug_label() const {
+	return debug_label;
+}

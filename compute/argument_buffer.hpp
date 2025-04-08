@@ -54,9 +54,15 @@ public:
 	//! sets/encodes the specified arguments in this buffer
 	virtual bool set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) = 0;
 	
+	//! sets the debug label for this argument buffer (e.g. for display in a debugger)
+	virtual void set_debug_label(const string& label);
+	//! returns the current debug label
+	virtual const string& get_debug_label() const;
+	
 protected:
 	const compute_kernel& func;
 	shared_ptr<compute_buffer> storage_buffer;
+	string debug_label;
 	
 };
 

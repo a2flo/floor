@@ -42,6 +42,8 @@ public:
 	//! ensures all tracked resources are resident during the lifetime of the specified encoder
 	void make_resident(id <MTLRenderCommandEncoder> enc, const llvm_toolchain::FUNCTION_TYPE& func_type) const;
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	aligned_ptr<uint8_t> storage_buffer_backing;
 	id <MTLArgumentEncoder> encoder;

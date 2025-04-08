@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/compute/metal/metal_argument_buffer.hpp>
 #include <floor/compute/metal/metal_args.hpp>
+#include <floor/compute/metal/metal_buffer.hpp>
 
 metal_argument_buffer::metal_argument_buffer(const compute_kernel& func_, shared_ptr<compute_buffer> storage_buffer_,
 											 aligned_ptr<uint8_t>&& storage_buffer_backing_,
@@ -137,6 +138,17 @@ void metal_argument_buffer::make_resident(id <MTLRenderCommandEncoder> enc, cons
 					count:resources.read_write_images.size()
 					usage:(MTLResourceUsageRead | MTLResourceUsageWrite)
 				   stages:stages];
+	}
+}
+
+void metal_argument_buffer::set_debug_label(const string& label) {
+	argument_buffer::set_debug_label(label);
+	if (storage_buffer) {
+		@autoreleasepool {
+			if (auto mtl_buf = storage_buffer->get_underlying_metal_buffer_safe(); mtl_buf) {
+				const_cast<metal_buffer*>(mtl_buf)->set_debug_label(label);
+			}
+		}
 	}
 }
 

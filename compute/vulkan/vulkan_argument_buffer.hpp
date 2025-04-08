@@ -38,6 +38,8 @@ public:
 	
 	bool set_arguments(const compute_queue& dev_queue, const vector<compute_kernel_arg>& args) override;
 	
+	void set_debug_label(const string& label) override;
+	
 protected:
 	const llvm_toolchain::function_info& arg_info;
 	const vulkan_descriptor_set_layout_t& layout;
