@@ -19,7 +19,24 @@
 #pragma once
 
 #include <floor/core/essentials.hpp>
+#include <floor/core/enum_helpers.hpp>
 #include <string>
+
+//! synchronization stages (e.g. for fences)
+enum class SYNC_STAGE : uint32_t {
+	NONE						= 0u,
+	VERTEX						= (1u << 0u),
+	TESSELLATION				= (1u << 1u),
+	FRAGMENT					= (1u << 2u),
+	
+	//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
+	COLOR_ATTACHMENT_OUTPUT		= (1u << 3u),
+	//! Vulkan-specific sync stage
+	TOP_OF_PIPE					= (1u << 4u),
+	//! Vulkan-specific sync stage
+	BOTTOM_OF_PIPE				= (1u << 5u),
+};
+floor_global_enum_ext(SYNC_STAGE)
 
 //! a lightweight synchronization primitive
 //! NOTE: this only supports synchronization within the same compute_queue
@@ -27,21 +44,6 @@ class compute_fence {
 public:
 	compute_fence() = default;
 	virtual ~compute_fence() = default;
-	
-	//! synchronization stage for fences
-	enum class SYNC_STAGE {
-		NONE = 0u,
-		VERTEX = 1u,
-		TESSELLATION = 2u,
-		FRAGMENT = 3u,
-		
-		//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
-		COLOR_ATTACHMENT_OUTPUT = 10u,
-		//! Vulkan-specific sync stage
-		TOP_OF_PIPE = 11,
-		//! Vulkan-specific sync stage
-		BOTTOM_OF_PIPE = 12,
-	};
 	
 	//! sets the debug label for this fence object (e.g. for display in a debugger)
 	virtual void set_debug_label(const std::string& label);

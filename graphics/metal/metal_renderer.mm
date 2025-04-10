@@ -490,28 +490,25 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 	}
 }
 
-static inline MTLRenderStages sync_stage_to_metal_render_stages(const compute_fence::SYNC_STAGE stage) {
-	switch (stage) {
-		case compute_fence::SYNC_STAGE::NONE:
-			throw runtime_error("invalid sync stage");
-		case compute_fence::SYNC_STAGE::VERTEX:
-		case compute_fence::SYNC_STAGE::TESSELLATION:
-		case compute_fence::SYNC_STAGE::BOTTOM_OF_PIPE:
-			return MTLRenderStageVertex;
-		case compute_fence::SYNC_STAGE::FRAGMENT:
-		case compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT:
-		case compute_fence::SYNC_STAGE::TOP_OF_PIPE:
-			return MTLRenderStageFragment;
+static inline MTLRenderStages sync_stage_to_metal_render_stages(const SYNC_STAGE stage) {
+	assert(stage != SYNC_STAGE::NONE);
+	MTLRenderStages mtl_stages { 0u };
+	if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::TESSELLATION>(stage) || has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+		mtl_stages |= MTLRenderStageVertex;
 	}
+	if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage) || has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
+		mtl_stages |= MTLRenderStageFragment;
+	}
+	return mtl_stages;
 }
 
-void metal_renderer::wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) {
+void metal_renderer::wait_for_fence(const compute_fence& fence, const SYNC_STAGE before_stage) {
 	@autoreleasepool {
 		[encoder waitForFence:((const metal_fence&)fence).get_metal_fence() beforeStages:sync_stage_to_metal_render_stages(before_stage)];
 	}
 }
 
-void metal_renderer::signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) {
+void metal_renderer::signal_fence(compute_fence& fence, const SYNC_STAGE after_stage) {
 	@autoreleasepool {
 		[encoder updateFence:((const metal_fence&)fence).get_metal_fence() afterStages:sync_stage_to_metal_render_stages(after_stage)];
 	}

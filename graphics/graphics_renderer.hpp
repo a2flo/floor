@@ -317,11 +317,11 @@ public:
 	
 	//! waits for the specified "fence" before starting the specified "before_stage" (defaulting to vertex)
 	//! NOTE: this must be called after a begin() call and before the corresponding end() call
-	virtual void wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage = compute_fence::SYNC_STAGE::VERTEX) = 0;
+	virtual void wait_for_fence(const compute_fence& fence, const SYNC_STAGE before_stage = SYNC_STAGE::VERTEX) = 0;
 	
 	//! signals the specified "fence" after the specified "after_stage" has finished execution (defaulting to fragment)
 	//! NOTE: this must be called after a begin() call and before the corresponding end() call
-	virtual void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage = compute_fence::SYNC_STAGE::FRAGMENT) = 0;
+	virtual void signal_fence(compute_fence& fence, const SYNC_STAGE after_stage = SYNC_STAGE::FRAGMENT) = 0;
 	
 	//////////////////////////////////////////
 	// misc

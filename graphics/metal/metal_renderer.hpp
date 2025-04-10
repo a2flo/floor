@@ -69,8 +69,8 @@ public:
 	
 	bool switch_pipeline(const graphics_pipeline& pipeline_) override;
 	
-	void wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) override;
-	void signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) override;
+	void wait_for_fence(const compute_fence& fence, const SYNC_STAGE before_stage) override;
+	void signal_fence(compute_fence& fence, const SYNC_STAGE after_stage) override;
 	
 protected:
 	friend metal_renderer_internal;

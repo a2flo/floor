@@ -78,7 +78,7 @@ public:
 	struct wait_fence_t {
 		const compute_fence* fence { nullptr };
 		uint64_t signaled_value { 0 };
-		compute_fence::SYNC_STAGE stage { compute_fence::SYNC_STAGE::NONE };
+		SYNC_STAGE stage { SYNC_STAGE::NONE };
 	};
 	//! encodes the specified fences as a vector of "wait_fence_t"
 	static vector<wait_fence_t> encode_wait_fences(const vector<const compute_fence*>& wait_fences);
@@ -88,7 +88,7 @@ public:
 		compute_fence* fence { nullptr };
 		uint64_t unsignaled_value { 0 };
 		uint64_t signaled_value { 0 };
-		compute_fence::SYNC_STAGE stage { compute_fence::SYNC_STAGE::NONE };
+		SYNC_STAGE stage { SYNC_STAGE::NONE };
 	};
 	//! encodes the specified fences as a vector of "signal_fence_t"
 	static vector<signal_fence_t> encode_signal_fences(const vector<compute_fence*>& signal_fences);

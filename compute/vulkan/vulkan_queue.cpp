@@ -35,23 +35,27 @@ static inline const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffe
 	return (cmd_buffer.name != nullptr ? cmd_buffer.name : "unknown");
 }
 
-static inline VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const compute_fence::SYNC_STAGE stage) {
-	switch (stage) {
-		case compute_fence::SYNC_STAGE::NONE:
-			return 0;
-		case compute_fence::SYNC_STAGE::VERTEX:
-			return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-		case compute_fence::SYNC_STAGE::TESSELLATION:
-			return VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
-		case compute_fence::SYNC_STAGE::FRAGMENT:
-			return VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-		case compute_fence::SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT:
-			return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		case compute_fence::SYNC_STAGE::BOTTOM_OF_PIPE:
-			return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
-		case compute_fence::SYNC_STAGE::TOP_OF_PIPE:
-			return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+static inline VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const SYNC_STAGE stage) {
+	VkPipelineStageFlagBits2 vk_stages { 0u };
+	if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 	}
+	if (has_flag<SYNC_STAGE::TESSELLATION>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+	}
+	if (has_flag<SYNC_STAGE::FRAGMENT>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+	}
+	if (has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+	}
+	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+	}
+	if (has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+	}
+	return vk_stages;
 }
 
 //! completes the specified cmd buffer (blocking) + performs all the completion handling and clean up
@@ -757,7 +761,7 @@ vector<vulkan_queue::wait_fence_t> vulkan_queue::encode_wait_fences(const vector
 		vk_wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 			.fence = fence,
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::NONE,
+			.stage = SYNC_STAGE::NONE,
 		});
 	}
 	return vk_wait_fences;
@@ -777,7 +781,7 @@ vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(const ve
 			.fence = fence,
 			.unsignaled_value = vk_fence.get_unsignaled_value(),
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = compute_fence::SYNC_STAGE::NONE,
+			.stage = SYNC_STAGE::NONE,
 		});
 	}
 	return vk_signal_fences;

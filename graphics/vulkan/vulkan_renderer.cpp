@@ -172,14 +172,14 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 			.fence = cur_drawable->vk_drawable.acquisition_sema,
 			.signaled_value = 1,
-			.stage = compute_fence::SYNC_STAGE::TOP_OF_PIPE,
+			.stage = SYNC_STAGE::TOP_OF_PIPE,
 		});
 		// present will be performed after the final submit -> need to signal when the submit has finished and the present can start
 		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
 			.fence = cur_drawable->vk_drawable.present_sema,
 			.unsignaled_value = 0,
 			.signaled_value = 1,
-			.stage = compute_fence::SYNC_STAGE::NONE,
+			.stage = SYNC_STAGE::NONE,
 		});
 	}
 	
@@ -650,7 +650,7 @@ void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry f
 	log_error("patch drawing not implemented yet!");
 }
 
-void vulkan_renderer::wait_for_fence(const compute_fence& fence, const compute_fence::SYNC_STAGE before_stage) {
+void vulkan_renderer::wait_for_fence(const compute_fence& fence, const SYNC_STAGE before_stage) {
 	const auto& vk_fence = (const vulkan_fence&)fence;
 	wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 		.fence = &fence,
@@ -659,7 +659,7 @@ void vulkan_renderer::wait_for_fence(const compute_fence& fence, const compute_f
 	});
 }
 
-void vulkan_renderer::signal_fence(compute_fence& fence, const compute_fence::SYNC_STAGE after_stage) {
+void vulkan_renderer::signal_fence(compute_fence& fence, const SYNC_STAGE after_stage) {
 	auto& vk_fence = (vulkan_fence&)fence;
 	if (!vk_fence.next_signal_value()) {
 		throw runtime_error("failed to set next signal value on fence");
