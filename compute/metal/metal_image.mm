@@ -65,6 +65,30 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		usage_options |= MTLTextureUsageRenderTarget;
 	}
 	
+	bool is_untracked = false;
+	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
+		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
+		options |= MTLResourceHazardTrackingModeUntracked;
+		is_untracked = true;
+	}
+	
+	const auto is_host_accessible = ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) != COMPUTE_MEMORY_FLAG::NONE);
+	
+	// for this to be put into a heap, the following must be fulfilled:
+	//  * both heap flags must be enabled for this to be viable
+	//  * the image must be untracked
+	//  * the image must be in private or shared storage mode (!managed and !transient)
+	// NOTE: we don't have any support for images being backed by host memory
+	assert(!has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags));
+	if (has_flag<COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) &&
+		has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags()) &&
+		!is_transient && is_untracked && (dev.unified_memory || !is_host_accessible)) {
+		// enable (for now), may get disabled in create_internal() if other conditions aren't met
+		is_heap_image = true;
+		// always use default
+		options |= MTLCPUCacheModeDefaultCache;
+	}
+	
 	// NOTE: same as metal_buffer:
 	switch (flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::HOST_READ:
@@ -73,7 +97,7 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 			break;
 		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
 			// host will only write -> can use write combined
-			if (!shared_only) {
+			if (!shared_only && !is_heap_image) {
 				options = MTLCPUCacheModeWriteCombined;
 			}
 			break;
@@ -84,7 +108,7 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		default: floor_unreachable();
 	}
 	
-	if ((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+	if (!is_host_accessible) {
 		bool is_memory_less = false;
 		if (is_render_target && is_transient) {
 			options |= MTLResourceStorageModeMemoryless;
@@ -92,7 +116,8 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 			is_memory_less = true;
 		}
 		if (!is_memory_less) {
-			if (!shared_only) {
+			// prefer to put render targets into private storage mode even if shared-only is set (but must not be heap-allocated)
+			if (!shared_only || (is_render_target && !is_heap_image)) {
 				options |= MTLResourceStorageModePrivate;
 				storage_options = MTLStorageModePrivate;
 			} else {
@@ -114,28 +139,6 @@ compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true
 		options |= MTLResourceStorageModeShared;
 		storage_options = MTLStorageModeShared;
 #endif
-	}
-	
-	if (has_flag<COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING>(flags) ||
-		has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(dev.context->get_context_flags())) {
-		options |= MTLResourceHazardTrackingModeUntracked;
-	}
-	
-	// both heap flags must be enabled for this to be viable + must not be transient
-	// NOTE: we don't have any support for images being backed by host memory
-	assert(!has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags));
-	if (has_flag<COMPUTE_MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) && !is_transient &&
-		has_flag<COMPUTE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags())) {
-		// must also be untracked and in private or shared storage mode
-		if ((options & MTLResourceHazardTrackingModeMask) == MTLResourceHazardTrackingModeUntracked &&
-			((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||
-			 (options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared)) {
-			// always use default
-			options &= ~MTLResourceCPUCacheModeMask;
-			options |= MTLCPUCacheModeDefaultCache;
-			// enable (for now), may get disabled in create_internal() if other conditions aren't met
-			is_heap_image = true;
-		}
 	}
 	
 	// actually create the image
