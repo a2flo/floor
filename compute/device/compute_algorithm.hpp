@@ -327,7 +327,7 @@ namespace compute_algorithm {
 		const auto lid = local_id.x;
 		
 #if !defined(FLOOR_COMPUTE_HOST)
-		if constexpr (has_sub_group_scan()) {
+		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
@@ -467,7 +467,8 @@ namespace compute_algorithm {
 		}
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type> &&
+						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
@@ -531,7 +532,8 @@ namespace compute_algorithm {
 		}
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type> &&
+						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
@@ -585,7 +587,7 @@ namespace compute_algorithm {
 			return work_group_size / device_info::simd_width_min();
 		}
 #if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
-		else if constexpr (has_sub_group_scan()) {
+		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
