@@ -141,8 +141,12 @@ const_func uint32_t get_view_index() asm("floor.builtin.view_index.i32");
 // vertex shader
 //! returns the vertex id inside a vertex shader
 const_func uint32_t get_vertex_id() asm("floor.builtin.vertex_id.i32");
+//! returns the base/first vertex id inside a vertex shader
+const_func uint32_t get_base_vertex_id() asm("floor.builtin.base_vertex_id.i32");
 //! returns the instance id inside a vertex shader or tessellation evaluation shader
 const_func uint32_t get_instance_id() asm("floor.builtin.instance_id.i32");
+//! returns the base/first instance id inside a vertex shader or tessellation evaluation shader
+const_func uint32_t get_base_instance_id() asm("floor.builtin.base_instance_id.i32");
 
 //////////////////////////////////////////
 // fragment shader

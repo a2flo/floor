@@ -150,11 +150,11 @@ indirect_command_pipeline(desc_) {
 		// need host-visible/host-coherent and descriptor buffer usage flags
 		const auto default_queue = (const vulkan_queue*)dev->context->get_device_default_queue(*dev);
 		entry.cmd_parameters = vk_ctx.create_buffer(*default_queue, cmd_params_size,
-															 // NOTE: read-only on the device side (until writable argument buffers are implemented)
-															 COMPUTE_MEMORY_FLAG::READ |
-															 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
-															 COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT |
-															 COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
+													// NOTE: read-only on the device side (until writable argument buffers are implemented)
+													COMPUTE_MEMORY_FLAG::READ |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+													COMPUTE_MEMORY_FLAG::VULKAN_HOST_COHERENT |
+													COMPUTE_MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
 #if defined(FLOOR_DEBUG)
 		entry.cmd_parameters->set_debug_label("icp_cmd_params_buf");
 #endif

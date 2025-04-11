@@ -471,7 +471,9 @@ template <typename data_type, size_t array_size> using array_param = const globa
 // graphics builtin/id handling
 #if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 #define vertex_id get_vertex_id()
+#define base_vertex_id get_base_vertex_id()
 #define instance_id get_instance_id()
+#define base_instance_id get_base_instance_id()
 #define point_coord get_point_coord()
 #define view_index get_view_index()
 #define primitive_id get_primitive_id()

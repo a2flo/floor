@@ -1420,6 +1420,11 @@ compute_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(ena
 #endif
 		
 		// check required features
+		if (!vulkan11_features.shaderDrawParameters) {
+			log_error("shader draw parameters are not supported by $", props.deviceName);
+			continue;
+		}
+		
 		if (!vulkan12_features.vulkanMemoryModel ||
 			!vulkan12_features.vulkanMemoryModelDeviceScope) {
 			log_error("Vulkan memory model is not supported by $", props.deviceName);

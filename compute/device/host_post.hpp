@@ -25,7 +25,15 @@ floor_inline_always __attribute__((const)) static uint32_t get_vertex_id() {
 	return 0;
 }
 // NOTE: not supported
+floor_inline_always __attribute__((const)) static uint32_t get_base_vertex_id() {
+	return 0;
+}
+// NOTE: not supported
 floor_inline_always __attribute__((const)) static uint32_t get_instance_id() {
+	return 0;
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) static uint32_t get_base_instance_id() {
 	return 0;
 }
 // NOTE: not supported
