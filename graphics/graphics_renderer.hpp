@@ -63,13 +63,6 @@ public:
 		return true;
 	}
 	
-	//! commits all currently queued work to the queue, then waits until completion (blocking)
-	//! NOTE: this is deprecated, explicitly use commit_and_finish() or commit_and_release() instead
-	[[deprecated("use commit_and_finish() or commit_and_release() instead")]]
-	virtual bool commit(const bool wait_until_completion [[maybe_unused]] = false) {
-		return commit_and_finish();
-	}
-	
 	//! commits all currently queued work to the queue, then finishes this renderer and waits until completion (blocking)
 	//! NOTE: no other renderer commands are allowed after this
 	virtual bool commit_and_finish() = 0;

@@ -210,16 +210,6 @@ public:
 		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
 	}
 	
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
-	[[deprecated("use the std::span create_buffer() variant instead")]]
-	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
-											 const size_t& size,
-											 void* data,
-											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_buffer(cqueue, { (uint8_t*)data, size }, flags);
-	}
-	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
 	shared_ptr<compute_buffer> create_buffer(const compute_queue& cqueue,
@@ -277,20 +267,6 @@ public:
 										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
 		return create_image(cqueue, image_dim, image_type,
 							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
-	}
-	
-	//! constructs an image of the specified dimensions, types and channel count on the specified device
-	[[deprecated("use the std::span create_image() variant instead")]]
-	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
-										   const uint4 image_dim,
-										   const COMPUTE_IMAGE_TYPE image_type,
-										   void* data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
-		const auto actual_img_type = compute_image::handle_image_type(image_dim, image_type);
-		const auto img_size = image_data_size_from_types(image_dim, actual_img_type,
-														 has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(actual_img_type) &&
-														 has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags));
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)data, img_size }, flags);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device

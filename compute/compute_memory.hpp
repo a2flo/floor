@@ -45,10 +45,6 @@ public:
 		return ((size_ % min_multiple()) == 0u ? size_ : (((size_ / min_multiple()) + 1u) * min_multiple()));
 	}
 	
-	//! returns the associated host memory pointer
-	[[deprecated("use get_host_data() instead")]]
-	void* get_host_ptr() const { return host_data.data(); }
-	
 	//! returns the associated host memory span/range
 	std::span<uint8_t> get_host_data() const {
 		return host_data;
