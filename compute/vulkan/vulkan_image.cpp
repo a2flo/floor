@@ -50,8 +50,9 @@ vulkan_image::vulkan_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
-						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */),
+						   const COMPUTE_MEMORY_FLAG flags_,
+						   const uint32_t mip_level_limit_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */, mip_level_limit_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<COMPUTE_IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
@@ -615,7 +616,7 @@ static COMPUTE_IMAGE_TYPE compute_vulkan_image_type(const vulkan_image::external
 
 vulkan_image::vulkan_image(const compute_queue& cqueue, const external_vulkan_image_info& external_image, std::span<uint8_t> host_data_, const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_,
-			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */),
+			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */, 0u),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
 	image_view = external_image.image_view;

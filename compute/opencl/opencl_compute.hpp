@@ -78,13 +78,9 @@ public:
 	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
-	
-	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
-										   const uint4 image_dim,
-										   const COMPUTE_IMAGE_TYPE image_type,
 										   std::span<uint8_t> data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const override;
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t mip_level_limit = 0u) const override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality

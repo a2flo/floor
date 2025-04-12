@@ -34,7 +34,8 @@ public:
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   std::span<uint8_t> host_data_ = {},
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-			   compute_image* shared_image_ = nullptr);
+			   compute_image* shared_image_ = nullptr,
+			   const uint32_t mip_level_limit = 0u);
 	
 	~host_image() override;
 	

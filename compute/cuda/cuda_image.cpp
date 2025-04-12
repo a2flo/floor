@@ -118,8 +118,9 @@ cuda_image::cuda_image(const compute_queue& cqueue,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
-					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false),
+					   compute_image* shared_image_,
+					   const uint32_t mip_level_limit_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_),
 is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<COMPUTE_MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 	// TODO: handle the remaining flags + host ptr
 	

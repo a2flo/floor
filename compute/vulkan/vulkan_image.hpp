@@ -32,7 +32,8 @@ public:
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 std::span<uint8_t> host_data_ = {},
-				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				 const uint32_t mip_level_limit = 0u);
 	
 	//! image info used for wrapping an existing Vulkan image
 	//! NOTE: since Vulkan has no image query functionality, this needs to be specified manually

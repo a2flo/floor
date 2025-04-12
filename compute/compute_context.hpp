@@ -245,18 +245,22 @@ public:
 	//////////////////////////////////////////
 	// image creation
 	
-	//! constructs an uninitialized image of the specified dimensions, types and channel count on the specified device
-	virtual shared_ptr<compute_image> create_image(const compute_queue& cqueue,
-												   const uint4 image_dim,
-												   const COMPUTE_IMAGE_TYPE image_type,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
-	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	virtual shared_ptr<compute_image> create_image(const compute_queue& cqueue,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
 												   std::span<uint8_t> data,
-												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+												   const uint32_t mip_level_limit = 0u) const = 0;
+	
+	//! constructs an uninitialized image of the specified dimensions, types and channel count on the specified device
+	shared_ptr<compute_image> create_image(const compute_queue& cqueue,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t mip_level_limit = 0u) const {
+		return create_image(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, mip_level_limit);
+	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
@@ -264,9 +268,11 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   std::span<data_type> data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t mip_level_limit = 0u) const {
 		return create_image(cqueue, image_dim, image_type,
-							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
+							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
+							flags, mip_level_limit);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -275,8 +281,10 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const vector<data_type>& data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) }, flags);
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t mip_level_limit = 0u) const {
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) },
+							flags, mip_level_limit);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -285,8 +293,10 @@ public:
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   const array<data_type, n>& data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) }, flags);
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t mip_level_limit = 0u) const {
+		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) },
+							flags, mip_level_limit);
 	}
 	
 	//! wraps an already existing Vulkan image, with the specified flags

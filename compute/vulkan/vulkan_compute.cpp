@@ -2279,6 +2279,7 @@ bool vulkan_compute::reinit_renderer(const uint2 screen_size) {
 																		   COMPUTE_IMAGE_TYPE::BGRA8UI_NORM |
 																		   COMPUTE_IMAGE_TYPE::READ_WRITE |
 																		   COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET,
+																		   std::span<uint8_t> {},
 																		   COMPUTE_MEMORY_FLAG::READ_WRITE |
 																		   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 		if(!screen.x11_screen) {
@@ -2740,7 +2741,7 @@ bool vulkan_compute::init_vr_renderer() {
 		vr_screen.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET | COMPUTE_IMAGE_TYPE::READ;
 		for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
 			vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count }, vr_screen.image_type,
-													   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
+													   std::span<uint8_t> {}, COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::VULKAN_ALIASING));
 			vr_screen.images.back()->set_debug_label("VR screen image #" + to_string(i));
 		}
 	} else {
@@ -3236,16 +3237,10 @@ shared_ptr<compute_buffer> vulkan_compute::create_buffer(const compute_queue& cq
 shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   const COMPUTE_MEMORY_FLAG flags) const {
-	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
-}
-
-shared_ptr<compute_image> vulkan_compute::create_image(const compute_queue& cqueue,
-													   const uint4 image_dim,
-													   const COMPUTE_IMAGE_TYPE image_type,
 													   std::span<uint8_t> data,
-													   const COMPUTE_MEMORY_FLAG flags) const {
-	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags));
+													   const COMPUTE_MEMORY_FLAG flags,
+													   const uint32_t mip_level_limit) const {
+	return add_resource(make_shared<vulkan_image>(cqueue, image_dim, image_type, data, flags, mip_level_limit));
 }
 
 shared_ptr<compute_program> vulkan_compute::create_program_from_archive_binaries(universal_binary::archive_binaries& bins,

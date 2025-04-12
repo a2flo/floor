@@ -419,16 +419,10 @@ shared_ptr<compute_buffer> cuda_compute::wrap_buffer(const compute_queue& cqueue
 shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags));
-}
-
-shared_ptr<compute_image> cuda_compute::create_image(const compute_queue& cqueue,
-													 const uint4 image_dim,
-													 const COMPUTE_IMAGE_TYPE image_type,
 													 std::span<uint8_t> data,
-													 const COMPUTE_MEMORY_FLAG flags) const {
-	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags));
+													 const COMPUTE_MEMORY_FLAG flags,
+													 const uint32_t mip_level_limit) const {
+	return add_resource(make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, nullptr, mip_level_limit));
 }
 
 shared_ptr<compute_image> cuda_compute::wrap_image(const compute_queue& cqueue,

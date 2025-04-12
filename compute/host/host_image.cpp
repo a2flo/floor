@@ -39,8 +39,9 @@ host_image::host_image(const compute_queue& cqueue,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   std::span<uint8_t> host_data_,
 					   const COMPUTE_MEMORY_FLAG flags_,
-					   compute_image* shared_image_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false) {
+					   compute_image* shared_image_,
+					   const uint32_t mip_level_limit_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_) {
 	// check Metal/Vulkan buffer sharing validity
 #if defined(FLOOR_NO_METAL)
 	if (has_flag<COMPUTE_MEMORY_FLAG::METAL_SHARING>(flags)) {

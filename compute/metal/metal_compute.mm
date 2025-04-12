@@ -594,20 +594,13 @@ shared_ptr<compute_buffer> metal_compute::create_buffer(const compute_queue& cqu
 shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
 													  const uint4 image_dim,
 													  const COMPUTE_IMAGE_TYPE image_type,
-													  const COMPUTE_MEMORY_FLAG flags) const {
-	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, std::span<uint8_t> {},
-												 flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
-}
-
-shared_ptr<compute_image> metal_compute::create_image(const compute_queue& cqueue,
-													  const uint4 image_dim,
-													  const COMPUTE_IMAGE_TYPE image_type,
 													  std::span<uint8_t> data,
-													  const COMPUTE_MEMORY_FLAG flags) const {
+													  const COMPUTE_MEMORY_FLAG flags,
+													  const uint32_t mip_level_limit) const {
 	return add_resource(make_shared<metal_image>(cqueue, image_dim, image_type, data,
 												 flags | (has_flag<COMPUTE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE)));
+														  COMPUTE_MEMORY_FLAG::NO_RESOURCE_TRACKING : COMPUTE_MEMORY_FLAG::NONE),
+												 mip_level_limit));
 }
 
 static shared_ptr<metal_program> add_metal_program(metal_program::program_map_type&& prog_map,

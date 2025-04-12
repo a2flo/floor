@@ -36,8 +36,9 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
 						 std::span<uint8_t> host_data_,
-						 const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */) {
+						 const COMPUTE_MEMORY_FLAG flags_,
+						 const uint32_t mip_level_limit_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */, mip_level_limit_) {
 	const auto is_render_target = has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	assert(!is_render_target || has_flag<COMPUTE_MEMORY_FLAG::RENDER_TARGET>(flags));
 	
@@ -354,7 +355,7 @@ metal_image::metal_image(const compute_queue& cqueue,
 						 std::span<uint8_t> host_data_,
 						 const COMPUTE_MEMORY_FLAG flags_) :
 compute_image(cqueue, compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
-			  host_data_, flags_, nullptr, false /* no shim type here */), image(external_image), is_external(true) {
+			  host_data_, flags_, nullptr, false /* no shim type here */, 0u), image(external_image), is_external(true) {
 	// device must match
 	if(((const metal_device&)dev).device != [external_image device]) {
 		log_error("specified metal device does not match the device set in the external image");

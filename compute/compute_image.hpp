@@ -224,6 +224,9 @@ public:
 	
 	//! returns the data size necessary to store this image in memory at the specified mip level
 	size_t get_image_data_size_at_mip_level(const uint32_t mip_level) const {
+		if (mip_level >= mip_level_count) {
+			return 0u;
+		}
 		return image_mip_level_data_size_from_types(image_dim, image_type, mip_level);
 	}
 	
@@ -275,7 +278,7 @@ public:
 	//! returns the amount of mip-map levels used by this image
 	//! NOTE: #mip-levels from image dim to 1px
 	uint32_t get_mip_level_count() const {
-		return image_mip_level_count(image_dim, image_type);
+		return mip_level_count;
 	}
 	
 	//! returns true if this image is using a compressed image format
@@ -420,14 +423,16 @@ protected:
 				  std::span<uint8_t> host_data_,
 				  const COMPUTE_MEMORY_FLAG flags_,
 				  compute_image* shared_image_,
-				  const bool backend_may_need_shim_type) :
+				  const bool backend_may_need_shim_type,
+				  const uint32_t mip_level_limit) :
 	compute_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_)),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
 	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
 					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
-	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps)),
-	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
+	mip_level_count(is_mip_mapped ? std::min(uint32_t(image_mip_level_count(image_dim, image_type)),
+											 mip_level_limit > 0u ? mip_level_limit : ~0u) : 1u),
+	image_data_size(image_data_size_from_types(image_dim, image_type, generate_mip_maps, mip_level_count)),
 	layer_count(image_layer_count(image_dim, image_type)),
 	shared_image(shared_image_),
 	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, false)) {
@@ -487,8 +492,8 @@ protected:
 	const COMPUTE_IMAGE_TYPE image_type;
 	const bool is_mip_mapped;
 	const bool generate_mip_maps;
-	const size_t image_data_size;
 	const uint32_t mip_level_count;
+	const size_t image_data_size;
 	const uint32_t layer_count;
 	
 	// NOTE: only one of these can be active at a time

@@ -31,8 +31,9 @@ opencl_image::opencl_image(const compute_queue& cqueue,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
-						   const COMPUTE_MEMORY_FLAG flags_) :
-compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, false),
+						   const COMPUTE_MEMORY_FLAG flags_,
+						   const uint32_t mip_level_limit_) :
+compute_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, false, mip_level_limit_),
 mip_origin_idx(!is_mip_mapped ? 0 :
 			   (image_dim_count(image_type) + (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? 1 : 0))) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {

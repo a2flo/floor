@@ -32,7 +32,8 @@ public:
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 std::span<uint8_t> host_data_ = {},
-				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				 const uint32_t mip_level_limit = 0u);
 	
 	~opencl_image() override;
 	
