@@ -1137,9 +1137,9 @@ namespace floor_image {
 				if constexpr (is_float) opaque_image::write_image_float(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 				else if constexpr (is_half) opaque_image::write_image_half(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (half4)converted_data);
 				else if constexpr (is_int) opaque_image::write_image_int(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-				else if constexpr (is_short) opaque_image::write_image_short(w_img(), image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
+				else if constexpr (is_short) opaque_image::write_image_short(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (short4)converted_data);
 				else if constexpr (is_uint) opaque_image::write_image_uint(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
-				else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(), image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
+				else if constexpr (is_ushort) opaque_image::write_image_ushort(w_img(lod), image_type, converted_coord, layer, lod, is_lod, (ushort4)converted_data);
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
 			if constexpr (!is_lod) {
