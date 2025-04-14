@@ -59,4 +59,7 @@ cuda_device::cuda_device() : compute_device() {
 	image_gather_support = true;
 	image_read_write_support = true;
 	max_anisotropy = 16u;
+	
+	// will be overwritten later
+	max_mip_levels = 16u; // 32768px
 }

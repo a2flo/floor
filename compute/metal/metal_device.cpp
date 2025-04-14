@@ -50,6 +50,9 @@ metal_device::metal_device() : compute_device() {
 	image_gather_support = true;
 	max_anisotropy = 16u;
 	
+	// will be overwritten later
+	max_mip_levels = 15u; // 16384px
+	
 	// tessellation is always supported with 64 max factor
 	tessellation_support = true;
 	max_tessellation_factor = 64u;

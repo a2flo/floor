@@ -540,7 +540,7 @@ protected:
 	// if function "F" returns false, this will immediately returns false; returns true otherwise
 	// if "all_levels" is true, ignore the "generate_mip_maps" and run this on all mip-levels
 	template <bool all_levels = false, typename F>
-	bool apply_on_levels(F&& func, COMPUTE_IMAGE_TYPE override_image_type = COMPUTE_IMAGE_TYPE::NONE) {
+	bool apply_on_levels(F&& func, COMPUTE_IMAGE_TYPE override_image_type = COMPUTE_IMAGE_TYPE::NONE) const {
 		const COMPUTE_IMAGE_TYPE mip_image_type = (override_image_type != COMPUTE_IMAGE_TYPE::NONE ?
 												   override_image_type : image_type);
 		const auto dim_count = image_dim_count(mip_image_type);
@@ -552,10 +552,10 @@ protected:
 			dim_count >= 3 ? image_dim.z : 0,
 			0
 		};
-		for(uint32_t level = 0; level < handled_level_count; ++level, mip_image_dim >>= 1) {
+		for (uint32_t level = 0; level < handled_level_count; ++level, mip_image_dim >>= 1) {
 			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, mip_image_type);
 			const auto level_data_size = (uint32_t)(slice_data_size * slice_count);
-			if(!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size)) {
+			if (!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size)) {
 				return false;
 			}
 		}

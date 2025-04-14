@@ -214,12 +214,10 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 		}
 		string zstd_output;
 		core::system("zstd -d '" + identifier_with_suffix + ".zstd' -o '" + identifier_with_suffix + ".nvbin' -v --force 2>&1", zstd_output);
-#if !defined(__APPLE__)
 		{
 			error_code ec {};
 			filesystem::remove(identifier_with_suffix + ".zstd", ec);
 		}
-#endif
 		
 		// validate deompressed size
 		// expexcting: "identifier_with_suffix.zstd: N bytes"
@@ -243,12 +241,10 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 		//  * LLVM/NVVM bitcode (BC)
 		//  * when debug info is available: the full GPU binary (ELF) that contains actual debug info that nvdisasm can print
 		auto [nvvm_binary_data, nvvm_binary_size] = file_io::file_to_buffer(identifier_with_suffix + ".nvbin");
-#if !defined(__APPLE__)
 		{
 			error_code ec {};
 			filesystem::remove(identifier_with_suffix + ".nvbin", ec);
 		}
-#endif
 		
 		struct __attribute__((packed)) nvuc_header_t {
 			uint32_t nvuc_magic;
@@ -331,12 +327,10 @@ static void disassemble_nvidia(const std::string& identifier, std::span<const ui
 		
 		// can just use the llvm-dis from the floor toolchain here
 		core::system(floor::get_vulkan_dis() + " -o '" + identifier_with_suffix + ".ll' '" + identifier_with_suffix + ".bc'");
-#if !defined(__APPLE__)
 		{
 			error_code ec {};
 			filesystem::remove(identifier_with_suffix + ".bc", ec);
 		}
-#endif
 		
 		// check if there is an ELF file at the end (this is the case when we have debug info)
 		static constexpr const string_view elf_magic { "\177ELF" };
@@ -533,12 +527,10 @@ void disassemble(const vulkan_device& dev, const std::string& identifier, const 
 				disassemble_nvidia(identifier, std::span<const uint8_t> { ((const uint8_t*)cache_data.get()) + header.headerSize, data_size });
 				
 				// no longer need the bin file in NVIDIAs case
-#if !defined(__APPLE__)
 				{
 					error_code ec {};
 					filesystem::remove(identifier + ".bin", ec);
 				}
-#endif
 			}
 			// TODO: AMD: bin contains ELF, ISA, LLVM IR
 		} while (false);

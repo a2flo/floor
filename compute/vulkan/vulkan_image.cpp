@@ -854,50 +854,78 @@ bool vulkan_image::unmap(const compute_queue& cqueue,
 	return true;
 }
 
-void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
-	// TODO: mip-mapping, array/layer support, depth/stencil support
+vector<VkBufferImageCopy2> vulkan_image::build_image_buffer_copy_regions(const bool with_shim_type) const {
 	const auto dim_count = image_dim_count(image_type);
-	const VkImageSubresourceLayers img_sub_rsrc_layers {
-		.aspectMask = vk_aspect_flags_from_type(image_type),
-		.mipLevel = 0,
-		.baseArrayLayer = 0,
-		.layerCount = 1,
-	};
-	const VkBufferImageCopy2 region {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
-		.pNext = nullptr,
-		.bufferOffset = 0,
-		.bufferRowLength = 0, // tightly packed
-		.bufferImageHeight = 0, // tightly packed
-		.imageSubresource = img_sub_rsrc_layers,
-		.imageOffset = { 0, 0, 0 },
-		.imageExtent = {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 1,
-			dim_count >= 3 ? image_dim.z : 1,
-		},
-	};
+	const bool is_compressed = image_compressed(image_type);
+	vector<VkBufferImageCopy2> regions;
+	regions.reserve(mip_level_count);
+	uint64_t buffer_offset = 0;
+	const auto img_type = (with_shim_type ? shim_image_type : image_type);
+	apply_on_levels([this, &regions, &buffer_offset, &dim_count, &is_compressed, &img_type](const uint32_t& level,
+																							const uint4& mip_image_dim,
+																							const uint32_t&,
+																							const uint32_t& level_data_size) {
+		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
+		uint2 buffer_dim;
+		if (is_compressed) {
+			// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
+			buffer_dim = image_compression_block_size(img_type);
+			buffer_dim.max(mip_image_dim.xy);
+		}
+		
+		regions.emplace_back(VkBufferImageCopy2 {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+			.pNext = nullptr,
+			.bufferOffset = buffer_offset,
+			.bufferRowLength = (is_compressed ? buffer_dim.x : 0 /* tightly packed */),
+			.bufferImageHeight = (is_compressed ? buffer_dim.y : 0 /* tightly packed */),
+			.imageSubresource = {
+				.aspectMask = vk_aspect_flags_from_type(img_type),
+				.mipLevel = level,
+				.baseArrayLayer = 0,
+				.layerCount = layer_count,
+			},
+			.imageOffset = { 0, 0, 0 },
+			.imageExtent = {
+				max(mip_image_dim.x, 1u),
+				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+			},
+		});
+		buffer_offset += level_data_size;
+		return true;
+	}, img_type);
+	return regions;
+}
+
+void vulkan_image::image_copy_dev_to_host(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
+	// TODO: depth/stencil support
+	if (image_type != shim_image_type) {
+		throw runtime_error("dev -> host copy is unsupported when using a shim type (RGB)");
+	}
+	
 	// transition to src-optimal, b/c of perf
 	transition(&cqueue, cmd_buffer,
 			   VK_ACCESS_2_TRANSFER_READ_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+	
+	//
+	const auto regions = build_image_buffer_copy_regions(false);
 	const VkCopyImageToBufferInfo2 copy_info {
 		.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
 		.pNext = nullptr,
 		.srcImage = image,
 		.srcImageLayout = image_info.imageLayout,
 		.dstBuffer = host_buffer,
-		.regionCount = 1,
-		.pRegions = &region,
+		.regionCount = (uint32_t)regions.size(),
+		.pRegions = regions.data(),
 	};
 	vkCmdCopyImageToBuffer2(cmd_buffer, &copy_info);
 }
 
 void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) {
 	// TODO: depth/stencil support
-	const auto dim_count = image_dim_count(image_type);
-	const bool is_compressed = image_compressed(image_type);
 	
 	// transition to dst-optimal, b/c of perf
 	transition(&cqueue, cmd_buffer,
@@ -910,45 +938,8 @@ void vulkan_image::image_copy_host_to_dev(const compute_queue& cqueue, VkCommand
 		rgb_to_rgba_inplace(image_type, shim_image_type, data, generate_mip_maps);
 	}
 	
-	vector<VkBufferImageCopy2> regions;
-	regions.reserve(mip_level_count);
-	uint64_t buffer_offset = 0;
-	apply_on_levels([this, &regions, &buffer_offset, &dim_count, &is_compressed](const uint32_t& level,
-																				 const uint4& mip_image_dim,
-																				 const uint32_t&,
-																				 const uint32_t& level_data_size) {
-		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-		uint2 buffer_dim;
-		if (is_compressed) {
-			// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
-			buffer_dim = image_compression_block_size(shim_image_type);
-			buffer_dim.max(mip_image_dim.xy);
-		}
-		
-		const VkImageSubresourceLayers img_sub_rsrc_layers {
-			.aspectMask = vk_aspect_flags_from_type(shim_image_type),
-			.mipLevel = level,
-			.baseArrayLayer = 0,
-			.layerCount = layer_count,
-		};
-		regions.emplace_back(VkBufferImageCopy2 {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
-			.pNext = nullptr,
-			.bufferOffset = buffer_offset,
-			.bufferRowLength = (is_compressed ? buffer_dim.x : 0 /* tightly packed */),
-			.bufferImageHeight = (is_compressed ? buffer_dim.y : 0 /* tightly packed */),
-			.imageSubresource = img_sub_rsrc_layers,
-			.imageOffset = { 0, 0, 0 },
-			.imageExtent = {
-				max(mip_image_dim.x, 1u),
-				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
-				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
-			},
-		});
-		buffer_offset += level_data_size;
-		return true;
-	}, shim_image_type);
-	
+	//
+	const auto regions = build_image_buffer_copy_regions(true);
 	const VkCopyBufferToImageInfo2 info {
 		.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
 		.pNext = nullptr,

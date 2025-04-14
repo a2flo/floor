@@ -46,6 +46,9 @@ vulkan_device::vulkan_device() : compute_device() {
 	image_gather_support = false; // for now (needs floor support)
 	image_read_write_support = false;
 	
+	// will be overwritten later
+	max_mip_levels = 16u; // 32768px
+	
 	// init IUB vars with min requirement (will be overwritten on init, but devices need to at least support this)
 	max_inline_uniform_block_size = min_required_inline_uniform_block_size;
 	max_inline_uniform_block_count = min_required_inline_uniform_block_count;

@@ -218,6 +218,8 @@ protected:
 					   const vector<const compute_fence*>& wait_fences,
 					   const vector<compute_fence*>& signal_fences);
 	
+	vector<VkBufferImageCopy2> build_image_buffer_copy_regions(const bool with_shim_type) const;
+	
 };
 
 #endif
