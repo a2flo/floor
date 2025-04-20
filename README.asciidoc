@@ -12,7 +12,7 @@ All backends (CUDA/Host/Metal/OpenCL/Vulkan) currently provide compute support, 
 
 To provide a unified device language, a clang/LLVM/libc++ 14.0 toolchain has been link:https://github.com/a2flo/floor_llvm[modified].
 
-Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/include/math[math] and link:https://github.com/a2flo/floor/tree/master/include/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/include/device/backend[backend].
+Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/include/floor/math[math] and link:https://github.com/a2flo/floor/tree/master/include/floor/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/include/floor/device/backend[backend].
 
 Advanced examples can be found in the link:https://github.com/a2flo/floor_examples[floor_examples] repository.
 
