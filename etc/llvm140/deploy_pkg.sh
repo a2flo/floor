@@ -29,7 +29,7 @@ error() {
 
 DEPLOY_TOOLCHAIN_FOLDER="toolchain"
 DEPLOY_FLOOR_ROOT_FOLDER="/opt/floor"
-DEPLOY_FLOOR_INCLUDE_FOLDER="floor"
+DEPLOY_FLOOR_INCLUDE_FOLDER="include"
 DEPLOY_SYMLINK_FLOOR_INCLUDE=0
 DEPLOY_DRY_RUN=0
 
@@ -177,6 +177,6 @@ deploy_file "spirv-val" "bin" "bin"
 
 deploy_folder "clang" "${DEPLOY_TARGET}/clang" 0
 deploy_folder "libcxx" "${DEPLOY_TARGET}/libcxx" 0
-deploy_folder "${DEPLOY_FLOOR_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/floor" ${DEPLOY_SYMLINK_FLOOR_INCLUDE}
+deploy_folder "${DEPLOY_FLOOR_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/include" ${DEPLOY_SYMLINK_FLOOR_INCLUDE}
 
 info "done"

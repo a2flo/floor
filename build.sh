@@ -64,14 +64,14 @@ if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor|clang_patchlevel" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 15.0 is required (ships with Xcode / CLI tools 15.0)
-		if [ $CLANG_MAJOR -lt 15 ] || [ $CLANG_MAJOR -eq 15 -a $CLANG_MINOR -lt 0 -a $CLANG_PATCHLEVEL -lt 0 ]; then
-			error "at least Xcode 15.0 / Apple clang/LLVM 15.0.0 is required to compile this project!"
+		# Apple Xcode/LLVM/clang versioning scheme -> at least 17.0 is required (ships with Xcode / CLI tools 16.3)
+		if [ $CLANG_MAJOR -lt 17 ] || [ $CLANG_MAJOR -eq 17 -a $CLANG_MINOR -lt 0 -a $CLANG_PATCHLEVEL -lt 0 ]; then
+			error "at least Xcode 16.3 / Apple clang/LLVM 17.0.0 is required to compile this project!"
 		fi
 	else
-		# standard clang versioning scheme -> at least 16.0 is required
-		if [ $CLANG_MAJOR -lt 16 ] || [ $CLANG_MAJOR -eq 16 -a $CLANG_MINOR -lt 0 ]; then
-			error "at least clang 16.0 is required to compile this project!"
+		# standard clang versioning scheme -> at least 19.0 is required
+		if [ $CLANG_MAJOR -lt 19 ] || [ $CLANG_MAJOR -eq 19 -a $CLANG_MINOR -lt 0 ]; then
+			error "at least clang 19.0 is required to compile this project!"
 		fi
 	fi
 else
@@ -134,11 +134,11 @@ for arg in "$@"; do
 			echo "	json               creates a compile_commands.json file for use with clang tools"
 			echo ""
 			echo "build configuration:"
-			echo "	no-opencl          disables opencl support"
-			echo "	no-cuda            disables cuda support"
-			echo "	no-host-compute    disables host compute support"
-			echo "	no-metal           disables metal support (default for non-iOS and non-macOS targets)"
-			echo "	no-vulkan          disables vulkan support"
+			echo "	no-opencl          disables OpenCL support"
+			echo "	no-cuda            disables CUDA support"
+			echo "	no-host-compute    disables Host-Compute support"
+			echo "	no-metal           disables Metal support (default for non-iOS and non-macOS targets)"
+			echo "	no-vulkan          disables Vulkan support"
 			echo "	no-openvr          disables OpenVR support (default for macOS and iOS targets)"
 			echo "	no-openxr          disables OpenXR support (default for macOS and iOS targets)"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
@@ -153,7 +153,7 @@ for arg in "$@"; do
 			echo "misc flags:"
 			echo "	-v                 verbose output (prints all executed compiler and linker commands, and some other information)"
 			echo "	-vv                very verbose output (same as -v + runs all compiler and linker commands with -v)"
-			echo "	-j#                explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
+			echo "	-j#                explicitly use # amount of build jobs (instead of automatically using #logical-CPUs jobs)"
 			echo "	-build-dir=<dir>   sets the build directory for temporary files to the specified <dir> (defaults to 'build')"
 			echo ""
 			echo ""
@@ -250,7 +250,7 @@ done
 # name of the target (part of the binary name)
 TARGET_NAME=floor
 
-# check on which platform we're compiling + check how many h/w threads can be used (logical cpus)
+# check on which platform we're compiling + check how many h/w threads can be used (logical CPUs)
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
 BUILD_OS="unknown"
 BUILD_CPU_COUNT=1
@@ -386,10 +386,10 @@ TARGET_BIN=${BIN_DIR}/${TARGET_BIN_NAME}
 TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 
 # root folder of the source code
-SRC_DIR=.
+SRC_DIR="src/"
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan graphics graphics/metal graphics/vulkan constexpr core floor lang math threading vr"
+SRC_SUB_DIRS="constexpr core device device/cuda device/host device/metal device/opencl device/vulkan device/vulkan/internal floor lang math threading vr"
 if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
@@ -636,7 +636,7 @@ LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib"
 
 # create the floor_conf.hpp file
 if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
-	CONF=$(cat floor/floor_conf.hpp.in)
+	CONF=$(cat include/floor/floor_conf.hpp.in)
 	set_conf_val() {
 		repl_text="$1"
 		define="$2"
@@ -660,14 +660,14 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	fi
 	set_conf_val "###FLOOR_OPENVR###" "FLOOR_NO_OPENVR" ${BUILD_CONF_OPENVR}
 	set_conf_val "###FLOOR_OPENXR###" "FLOOR_NO_OPENXR" ${BUILD_CONF_OPENXR}
-	echo "${CONF}" > floor/floor_conf.hpp.tmp
+	echo "${CONF}" > include/floor/floor_conf.hpp.tmp
 
 	# check if this is an entirely new conf or if it differs from the existing conf
-	if [ ! -f floor/floor_conf.hpp ]; then
-		mv floor/floor_conf.hpp.tmp floor/floor_conf.hpp
-	elif [ "$(${MD5_CMD} floor/floor_conf.hpp.tmp | cut -c -32)" != "$(${MD5_CMD} floor/floor_conf.hpp | cut -c -32)" ]; then
+	if [ ! -f include/floor/floor_conf.hpp ]; then
+		mv include/floor/floor_conf.hpp.tmp include/floor/floor_conf.hpp
+	elif [ "$(${MD5_CMD} include/floor/floor_conf.hpp.tmp | cut -c -32)" != "$(${MD5_CMD} include/floor/floor_conf.hpp | cut -c -32)" ]; then
 		info "new conf file ..."
-		mv -f floor/floor_conf.hpp.tmp floor/floor_conf.hpp
+		mv -f include/floor/floor_conf.hpp.tmp include/floor/floor_conf.hpp
 	fi
 
 	# only update build version if FLOOR_DEV environment variable is set
@@ -675,12 +675,12 @@ if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 		# checks if any source files have updated (are newer than the target binary)
 		# if so, this increments the build version by one (updates the header file)
 		info "build version update ..."
-		. ./floor/build_version.sh
+		. ./build_version.sh
 	fi
 fi
 
 # version of the target (preprocess the floor version header, grep the version defines, transform them to exports and eval)
-eval $(${CXX} -E -dM -I../ floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
+eval $(${CXX} -E -dM -Iinclude/ include/floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 TARGET_VERSION="${FLOOR_MAJOR_VERSION}.${FLOOR_MINOR_VERSION}.${FLOOR_REVISION_VERSION}"
 TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION_STR}-${FLOOR_BUILD_VERSION}"
 if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
@@ -690,8 +690,8 @@ fi
 ##########################################
 # flags
 
-# set up initial c++ and c flags
-CXXFLAGS="${CXXFLAGS} -std=gnu++2b"
+# set up initial C++ and C flags
+CXXFLAGS="${CXXFLAGS} -std=gnu++23"
 if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
 else
@@ -742,10 +742,10 @@ fi
 
 # release mode flags/optimizations
 REL_FLAGS="-O3 -funroll-loops"
-# if we're building for the native/host cpu, the appropriate sse/avx flags will already be set/used
+# if we're building for the native/host cpu, the appropriate SSE/AVX flags will already be set/used
 if [ $BUILD_CONF_NATIVE -eq 0 ]; then
 	if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
-		# TODO: sse/avx selection/config? default to sse4.1 for now (core2)
+		# TODO: SSE/AVX selection/config? default to sse4.1 for now (core2)
 		REL_FLAGS="${REL_FLAGS} -msse4.1"
 	fi
 fi
@@ -791,7 +791,7 @@ WARNINGS="${WARNINGS} -Wno-unknown-warning-option"
 WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
-WARNINGS="${WARNINGS} -Wno-c++17-compat -Wno-c++17-compat-pedantic"
+WARNINGS="${WARNINGS} -Wno-c++17-compat -Wno-c++17-compat-pedantic -Wno-c++17-extensions"
 WARNINGS="${WARNINGS} -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions"
 WARNINGS="${WARNINGS} -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions"
 WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions"
@@ -822,12 +822,7 @@ WARNINGS="${WARNINGS} -Wno-reserved-identifier"
 # ignore UD NaN/infinity due to fast-math
 WARNINGS="${WARNINGS} -Wno-nan-infinity-disabled"
 # ignore warnings about missing designated initializer when they are default-initialized
-# on clang < 19: disable missing field initializer warnings altogether
-if [ $CLANG_MAJOR -ge 19 ]; then
-	WARNINGS="${WARNINGS} -Wno-missing-designated-field-initializers"
-else
-	WARNINGS="${WARNINGS} -Wno-missing-field-initializers"
-fi
+WARNINGS="${WARNINGS} -Wno-missing-designated-field-initializers"
 # ignore missing include directories, we may not always have all specified include dirs
 WARNINGS="${WARNINGS} -Wno-missing-include-dirs"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
@@ -841,12 +836,7 @@ COMMON_FLAGS="${INCLUDES} ${COMMON_FLAGS}"
 COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-I/-isystem /g")
 
 # include libfloor itself (so that we can use <floor/...> includes)
-if [ -z "${FLOOR_SELF_INCL_DIR}" ]; then
-	# default: ../ -> finds ../floor
-	COMMON_FLAGS="${COMMON_FLAGS} -I../"
-else
-	COMMON_FLAGS="${COMMON_FLAGS} -I${FLOOR_SELF_INCL_DIR}"
-fi
+COMMON_FLAGS="${COMMON_FLAGS} -Iinclude/ -Isrc/"
 
 # mingw fixes/workarounds
 if [ $BUILD_OS == "mingw" ]; then
@@ -884,25 +874,25 @@ CFLAGS="${CFLAGS} ${COMMON_FLAGS}"
 # get all source files (c++/c/objective-c++/objective-c) and create build folders
 for dir in ${SRC_SUB_DIRS}; do
 	# source files
-	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.cpp' | grep -v "\._")"
-	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.c' | grep -v "\._")"
-	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.mm' | grep -v "\._")"
-	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.m' | grep -v "\._")"
+	SRC_FILES="${SRC_FILES} $(find ${SRC_DIR}${dir} -maxdepth 1 -type f -name '*.cpp' | grep -v "\._")"
+	SRC_FILES="${SRC_FILES} $(find ${SRC_DIR}${dir} -maxdepth 1 -type f -name '*.c' | grep -v "\._")"
+	SRC_FILES="${SRC_FILES} $(find ${SRC_DIR}${dir} -maxdepth 1 -type f -name '*.mm' | grep -v "\._")"
+	SRC_FILES="${SRC_FILES} $(find ${SRC_DIR}${dir} -maxdepth 1 -type f -name '*.m' | grep -v "\._")"
 	
 	# create resp. build folder
-	mkdir -p ${BUILD_DIR}/${dir}
+	mkdir -p ${BUILD_DIR}/${SRC_DIR}${dir}
 done
 
 # total hack, but it makes building faster: reverse the source file order, so that math files
 # are compiled first (these take longest to compile, so pipeline them properly)
-# also: put compute/compute_image.cpp at the front, because it takes the longest to compile
+# also: put device/device_image.cpp at the front, because it takes the longest to compile
 REV_SRC_FILES=""
 for source_file in ${SRC_FILES}; do
-	if [ $source_file != "compute/compute_image.cpp" ]; then
+	if [ $source_file != "src/device/device_image.cpp" ]; then
 		REV_SRC_FILES="${source_file} ${REV_SRC_FILES}"
 	fi
 done
-SRC_FILES="compute/compute_image.cpp ${REV_SRC_FILES}"
+SRC_FILES="src/device/device_image.cpp ${REV_SRC_FILES}"
 
 # make a list of all object files
 for source_file in ${SRC_FILES}; do

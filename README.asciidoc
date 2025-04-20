@@ -7,12 +7,12 @@
 
 This project provides a unified compute & graphics host API, as well as a unified compute & graphics C++ device language and library to enable same-source CUDA/Host/Metal/OpenCL/Vulkan programming and execution.
 
-The unified host API is implemented at link:https://github.com/a2flo/floor/tree/master/compute[compute] and link:https://github.com/a2flo/floor/tree/master/graphics[graphics].
+The unified host API is implemented at link:https://github.com/a2flo/floor/tree/master/src/device[device].
 All backends (CUDA/Host/Metal/OpenCL/Vulkan) currently provide compute support, while graphics support is limited to Metal and Vulkan.
 
 To provide a unified device language, a clang/LLVM/libc++ 14.0 toolchain has been link:https://github.com/a2flo/floor_llvm[modified].
 
-Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/math[math] and link:https://github.com/a2flo/floor/tree/master/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/compute/device[device].
+Certain parts of libfloor are used by both host and device code (link:https://github.com/a2flo/floor/tree/master/include/math[math] and link:https://github.com/a2flo/floor/tree/master/include/constexpr[constexpr]). Additional device library code is located at link:https://github.com/a2flo/floor/tree/master/include/device/backend[backend].
 
 Advanced examples can be found in the link:https://github.com/a2flo/floor_examples[floor_examples] repository.
 
@@ -2712,12 +2712,12 @@ function void simplified_nbody ( %void() ) {
 ** Linux: any current x64 distribution
 ** other Unix: if other requirements are met
 * compiler/toolchain:
-** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 16.0+
-** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 15.0+]
+** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 19.0+
+** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 16.3+]
 ** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
-** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 16.0+
+** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 19.0+
 * libraries and optional requirements:
-** link:https://www.libsdl.org[SDL3] 3.1.3+
+** link:https://www.libsdl.org[SDL3] 3.2.0+
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_50+/Maxwell+ GPU and CUDA 12.0+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 16.0+ or macOS 13.0+, and a Metal 3.0 capable GPU
@@ -2738,7 +2738,7 @@ function void simplified_nbody ( %void() ) {
    define `FLOOR_NO_CUDA` or `./build.sh no-cuda`
 ** to disable Metal (only affects macOS/iOS builds):
    define `FLOOR_NO_METAL` or `./build.sh no-metal`
-** to disable Host Compute:
+** to disable Host-Compute:
    define `FLOOR_NO_HOST_COMPUTE` or `./build.sh no-host-compute`
 ** to disable Vulkan:
    define `FLOOR_NO_VULKAN` or `./build.sh no-vulkan`
@@ -2794,8 +2794,8 @@ function void simplified_nbody ( %void() ) {
 
 == Installation ==
 === Installation (Unix / macOS) ===
-* `sudo mkdir -p /opt/floor/include`
-* `sudo ln -sf /path/to/floor /opt/floor/include/floor`
+* `sudo mkdir -p /opt/floor/`
+* `sudo ln -sf /path/to/floor/include /opt/floor/include`
 * `sudo ln -sf /path/to/floor/bin /opt/floor/lib`
 * alternatively: copy these files/folders there
 
@@ -2807,7 +2807,7 @@ function void simplified_nbody ( %void() ) {
 *** copy everything from bin/ in there (dlls/lib/exp)
 ** MinGW/MSYS2:
 *** copy libfloor_static.a/libfloord_static.a there
-** create an `include` folder and copy the original `floor` folder in there (containing all floor source code)
+** copy the original floor `include` folder in there (containing all floor include files)
 
 == Compute/Graphics Toolchain ==
 * automated builds for Linux, macOS and Windows can be found at: https://libfloor.org/builds/toolchain
@@ -2823,10 +2823,10 @@ function void simplified_nbody ( %void() ) {
 **** release: run `./deploy_pkg.sh` from inside the toolchain package folder (floor/etc/llvm140/toolchain_140006_*; this will copy everything)
 *** manual:
 **** copy the toolchain folder as `toolchain` to `/opt/floor/` (should then be `/opt/floor/toolchain/{bin,clang,libcxx}`)
-**** inside `/opt/floor/toolchain`, add a symlink to the `floor` include folder: `sudo ln -sf ../include floor`
+**** inside `/opt/floor/toolchain`, add a symlink to the floor `include` folder: `sudo ln -sf ../include`
 ** Windows:
 *** copy the toolchain folder as `toolchain` to `%%ProgramFiles%%/floor` (should then be `%%ProgramFiles%%/floor/toolchain/{bin,clang,libcxx}`)
-*** inside `%%ProgramFiles%%/floor/toolchain`, copy the `floor` folder from the `include` folder above it into this folder
+*** inside `%%ProgramFiles%%/floor/toolchain`, copy the floor `include` folder from the `include` folder above it into this folder
 * NOTE: this is the expected default setup - paths can be changed inside config.json (toolchain.generic.paths)
 
 == Misc Hints ==

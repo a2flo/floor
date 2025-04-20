@@ -28,19 +28,12 @@ cp -R ../build/lib/clang/${RELEASE}/include clang
 cp -R ../llvm/libcxx/include libcxx
 cp ../llvm/libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
-mkdir -p floor/floor
-FLOOR_SUB_DIRS="compute compute/device compute/cuda compute/host compute/metal compute/opencl compute/vulkan constexpr core floor lang math threading"
-for dir in ${FLOOR_SUB_DIRS}; do
-	# create resp. folder
-	mkdir -p floor/floor/${dir}
-
-	# copy include files
-	FLOOR_INCL_FILES=""
-	FLOOR_INCL_FILES="${FLOOR_INCL_FILES} $(find ../../../${dir} -maxdepth 1 -type f -name '*.hpp' | grep -v "\._")"
-	FLOOR_INCL_FILES="${FLOOR_INCL_FILES} $(find ../../../${dir} -maxdepth 1 -type f -name '*.h' | grep -v "\._")"
-	for file in ${FLOOR_INCL_FILES}; do
-		cp $file floor/floor/${dir}/
-	done
+# copy include files
+mkdir -p include/floor/{constexpr,core,darwin,device,device/backend,device/cuda,device/host,device/metal,device/opencl,device/vulkan,lang,math,threading,vr}
+FLOOR_INCL_FILES="$(find ../../../include/ -type f -name '*.hpp' | grep -v "\._")"
+for file in ${FLOOR_INCL_FILES}; do
+	dst_dir=$(echo $(dirname "${file}") | cut -c 10-)
+	cp -a "${file}" "${dst_dir}/"
 done
 
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])

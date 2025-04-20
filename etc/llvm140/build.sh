@@ -164,7 +164,7 @@ if [ -z "${CXX}" ]; then
 	export CC=${BUILD_CC}
 fi
 
-# if job count is unspecified (0), set it to #cpus
+# if job count is unspecified (0), set it to #CPUs
 if [ ${BUILD_JOB_COUNT} -eq 0 ]; then
 	BUILD_JOB_COUNT=${BUILD_CPU_COUNT}
 fi

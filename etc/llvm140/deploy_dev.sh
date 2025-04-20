@@ -276,7 +276,7 @@ deploy_file "spirv-val" "${DEPLOY_SPIRV_TOOLS_BUILD_FOLDER}/tools" "bin" ${DEPLO
 
 deploy_folder "${DEPLOY_LLVM_BUILD_FOLDER}/lib/clang/${RELEASE}/include" "${DEPLOY_TARGET}/clang" ${DEPLOY_SYMLINK}
 deploy_folder "${DEPLOY_LIBCXX_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/libcxx" ${DEPLOY_SYMLINK}
-deploy_folder "${DEPLOY_FLOOR_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/floor" ${DEPLOY_SYMLINK_FLOOR_INCLUDE}
+deploy_folder "${DEPLOY_FLOOR_INCLUDE_FOLDER}" "${DEPLOY_TARGET}/include" ${DEPLOY_SYMLINK_FLOOR_INCLUDE}
 
 # on Windows, also deploy/copy required dlls
 if [ $DEPLOY_OS == "windows" ]; then
