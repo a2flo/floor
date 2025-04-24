@@ -43,26 +43,22 @@ vulkan_semaphore::vulkan_semaphore(const device& dev_, const bool is_export_sema
 #endif
 	if (is_export_sema) {
 #if defined(__WINDOWS__)
-		if (core::is_windows_8_or_higher()) {
-			export_sema_win32_info = {
-				.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR,
-				.pNext = nullptr,
-				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
-				//       -> we don't need this, so set it to nullptr
-				.pAttributes = nullptr,
-				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
-				.name = nullptr,
-			};
-		}
+		export_sema_win32_info = {
+			.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR,
+			.pNext = nullptr,
+			// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+			//       -> we don't need this, so set it to nullptr
+			.pAttributes = nullptr,
+			.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+			.name = nullptr,
+		};
 #endif
 		
 		export_sema_info = {
 			.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO,
 #if defined(__WINDOWS__)
-			.pNext = (core::is_windows_8_or_higher() ? &export_sema_win32_info : nullptr),
-			.handleTypes = (core::is_windows_8_or_higher() ?
-							VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT :
-							VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+			.pNext = &export_sema_win32_info,
+			.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT,
 #else
 			.pNext = nullptr,
 			.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,

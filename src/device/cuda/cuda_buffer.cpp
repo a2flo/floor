@@ -136,9 +136,7 @@ bool cuda_buffer::create_internal(const bool copy_host_data, [[maybe_unused]] co
 			}
 			cu_external_memory_handle_descriptor ext_mem_desc {
 #if defined(__WINDOWS__)
-				.type = (core::is_windows_8_or_higher() ?
-						 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32 :
-						 CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+				.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE::OPAQUE_WIN32,
 				.handle.win32 = {
 					.handle = shared_vk_buffer->get_vulkan_shared_handle(),
 					.name = nullptr,
@@ -442,9 +440,7 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 		
 		cu_external_semaphore_handle_descriptor ext_sema_desc {
 #if defined(__WINDOWS__)
-			.type = (core::is_windows_8_or_higher() ?
-					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32 :
-					 CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32_KMT),
+			.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE::OPAQUE_WIN32,
 			.handle.win32 = {
 				.handle = cuda_vk_sema->get_shared_handle(),
 				.name = nullptr,

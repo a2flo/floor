@@ -2706,7 +2706,7 @@ function void simplified_nbody ( %void() ) {
 == Requirements ==
 * OS:
 ** only AMD64/Intel64/ARM64 are supported
-** Windows: NT 6.1+
+** Windows: 10+
 ** macOS: 13.0+
 ** iOS: 16.0+
 ** Linux: any current x64 distribution

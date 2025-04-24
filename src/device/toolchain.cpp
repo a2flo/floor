@@ -728,7 +728,7 @@ program_data compile_input(const std::string& input,
 #elif defined(__WINDOWS__)
 	if (!options.ignore_runtime_info) {
 		const auto win_version = core::get_windows_version();
-		// set as: 61 (Win 7), 62 (Win 8), 63 (Win 8.1), 100 (Win 10)
+		// set as: 100 (Win 10), 110 (Win 11)
 		const auto win_version_str = std::to_string(win_version.x * 10 + win_version.y);
 		os_version_str = " -DFLOOR_DEVICE_INFO_OS_VERSION="s + win_version_str;
 		os_version_str += " -DFLOOR_DEVICE_INFO_OS_VERSION_"s + win_version_str;

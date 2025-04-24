@@ -751,12 +751,6 @@ uint4 get_windows_version() {
 	}();
 	return version;
 }
-
-bool is_windows_8_or_higher() {
-	static const auto win_ver = get_windows_version();
-	static const bool is_win8_or_higher = (win_ver.x > 6 || (win_ver.x == 6 && win_ver.y >= 2));
-	return is_win8_or_higher;
-}
 #endif
 
 bool cpu_has_fma() {

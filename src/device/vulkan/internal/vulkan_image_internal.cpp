@@ -253,9 +253,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 			.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
 			.pNext = nullptr,
 #if defined(__WINDOWS__)
-			.handleTypes = (core::is_windows_8_or_higher() ?
-							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
-							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
 #else
 			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
 #endif
@@ -306,26 +304,22 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 	if (is_sharing) {
 #if defined(__WINDOWS__)
 		// Windows 8+ needs more detailed sharing info
-		if (core::is_windows_8_or_higher()) {
-			export_mem_win32_info = {
-				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-				.pNext = nullptr,
-				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
-				//       -> we don't need this, so set it to nullptr
-				.pAttributes = nullptr,
-				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
-				.name = nullptr,
-			};
-		}
+		export_mem_win32_info = {
+			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+			.pNext = nullptr,
+			// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+			//       -> we don't need this, so set it to nullptr
+			.pAttributes = nullptr,
+			.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+			.name = nullptr,
+		};
 #endif
 		
 		export_alloc_info = {
 			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
 #if defined(__WINDOWS__)
-			.pNext = (core::is_windows_8_or_higher() ? &export_mem_win32_info : nullptr),
-			.handleTypes = (core::is_windows_8_or_higher() ?
-							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT :
-							VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT),
+			.pNext = &export_mem_win32_info,
+			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
 #else
 			.pNext = nullptr,
 			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
