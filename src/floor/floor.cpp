@@ -665,7 +665,7 @@ bool floor::init(const init_state& state) {
 				 config.log_filename, config.msg_filename);
 	log_debug("$", (FLOOR_VERSION_STRING).c_str());
 	
-	[[maybe_unused]] const uint64_t wanted_locked_memory_size = core::get_hw_thread_count() * 32u * 1024u * 1024u;
+	[[maybe_unused]] const uint64_t wanted_locked_memory_size = std::max(core::get_hw_thread_count(), 1u) * 32u * 1024u * 1024u;
 #if defined(__linux__)
 	// change max open files and max locked memory to a reasonable limit on Linux
 	struct rlimit nofile_limit;
@@ -702,7 +702,7 @@ bool floor::init(const init_state& state) {
 #elif defined(__WINDOWS__)
 	// change max locked memory / working set + disable hard quota limits on Windows
 	if (SetProcessWorkingSetSizeEx(GetCurrentProcess(),
-								   wanted_locked_memory_size / 32u,
+								   wanted_locked_memory_size / 2u,
 								   wanted_locked_memory_size,
 								   QUOTA_LIMITS_HARDWS_MIN_DISABLE |
 								   QUOTA_LIMITS_HARDWS_MAX_DISABLE) == 0) {

@@ -29,16 +29,17 @@ namespace fl {
 // https://probablydance.com/2019/12/30/measuring-mutexes-spinlocks-and-how-bad-the-linux-scheduler-really-is/
 // https://gpuopen.com/gdc-presentations/2019/gdc-2019-s2-amd-ryzen-processor-software-optimization.pdf
 // https://github.com/skarupke/mutex_benchmarks/blob/master/BenchmarkMutex.cpp
-class CAPABILITY("mutex") atomic_spin_lock {
+template <bool aligned = true>
+class CAPABILITY("mutex") alignas(aligned ? 64u : 4u) atomic_spin_lock_t {
 public:
-	constexpr floor_inline_always atomic_spin_lock() noexcept = default;
+	constexpr floor_inline_always atomic_spin_lock_t() noexcept = default;
 	
-	floor_inline_always atomic_spin_lock(atomic_spin_lock&& spin_lock) noexcept {
+	floor_inline_always atomic_spin_lock_t(atomic_spin_lock_t&& spin_lock) noexcept {
 		mtx = spin_lock.mtx.load();
 		spin_lock.mtx = false;
 	}
 	
-	floor_inline_always atomic_spin_lock& operator=(atomic_spin_lock&& spin_lock) noexcept {
+	floor_inline_always atomic_spin_lock_t& operator=(atomic_spin_lock_t&& spin_lock) noexcept {
 		mtx = spin_lock.mtx.load();
 		spin_lock.mtx = false;
 		return *this;
@@ -76,11 +77,18 @@ public:
 	}
 	
 	// for negative capabilities
-	floor_inline_always const atomic_spin_lock& operator!() const { return *this; }
+	floor_inline_always const atomic_spin_lock_t& operator!() const { return *this; }
 	
 protected:
-	alignas(64) std::atomic<bool> mtx { false };
+	std::atomic<bool> mtx { false };
+	static_assert(sizeof(std::atomic<bool>) <= 4u);
 	
 };
+
+//! atomic spin lock with default ideal 64-byte alignment
+using atomic_spin_lock = atomic_spin_lock_t<true>;
+//! atomic spin lock with only 4 byte alignment (to contain the atomic)
+//! NOTE: use this if you want to specify the alignment externally https://developer.amd.com/amd-uprof/or encompass this within an already aligned structure
+using atomic_spin_lock_unaligned = atomic_spin_lock_t<false>;
 
 } // namespace fl
