@@ -17,8 +17,8 @@
  */
 
 #include <floor/threading/thread_base.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
 #include <chrono>
 
 namespace fl {
@@ -67,7 +67,7 @@ void thread_base::restart() {
 
 int thread_base::_thread_run(thread_base* this_thread_obj) {
 	this_thread_obj->lock();
-	core::set_current_thread_name(this_thread_obj->thread_name);
+	set_current_thread_name(this_thread_obj->thread_name);
 	this_thread_obj->unlock();
 	
 	while(true) {
@@ -79,10 +79,10 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 					this_thread_obj->run();
 				} catch(std::exception& exc) {
 					log_error("encountered an unhandled exception while running a thread \"$\": $",
-							  core::get_current_thread_name(), exc.what());
+							  get_current_thread_name(), exc.what());
 				} catch(...) {
 					log_error("encountered an unhandled exception while running a thread \"$\"",
-							  core::get_current_thread_name());
+							  get_current_thread_name());
 				}
 			}
 			this_thread_obj->unlock();

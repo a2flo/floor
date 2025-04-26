@@ -19,6 +19,7 @@
 #include <floor/device/host/host_queue.hpp>
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
+#include <floor/core/logger.hpp>
 #include <chrono>
 
 namespace fl {

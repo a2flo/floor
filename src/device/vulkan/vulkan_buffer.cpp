@@ -21,7 +21,6 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
 #include "internal/vulkan_headers.hpp"
 #include <floor/device/vulkan/vulkan_queue.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>

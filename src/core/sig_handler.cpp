@@ -19,6 +19,7 @@
 #include <floor/core/sig_handler.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <string>
 #include <cstring>
 #include <cstdio>
@@ -46,7 +47,7 @@ static void sighandler(int, siginfo_t*, void*) {
 #define STACK_PTR_COUNT 256
 	void* stack_ptrs[STACK_PTR_COUNT];
 	const int ptr_count = (int)backtrace(stack_ptrs, STACK_PTR_COUNT);
-	const auto thread_name = core::get_current_thread_name();
+	const auto thread_name = get_current_thread_name();
 	log_error("segfault/trap/abort in thread/process \"$\":", thread_name);
 	
 	// converts a stack and load address of a specified binary into a line number,

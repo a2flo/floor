@@ -21,7 +21,6 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
 #include <floor/device/cuda/cuda_queue.hpp>
 #include <floor/device/cuda/cuda_device.hpp>
 

@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 #include "vulkan_debug.hpp"
 #include <floor/device/vulkan/vulkan_context.hpp>
+#include <floor/core/core.hpp>
 #include <floor/floor.hpp>
 #include <cassert>
 #include <cstring>

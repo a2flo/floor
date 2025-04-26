@@ -19,7 +19,6 @@
 #include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
-#include <floor/core/core.hpp>
 #include "vulkan_image_internal.hpp"
 #include <floor/device/vulkan/vulkan_queue.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>

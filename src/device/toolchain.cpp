@@ -29,6 +29,8 @@
 #include <floor/device/metal/metal_device.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/device/host/host_device.hpp>
+#include <floor/core/file_io.hpp>
+#include <floor/core/core.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>

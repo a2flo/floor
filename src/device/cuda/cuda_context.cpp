@@ -24,6 +24,7 @@
 #include <floor/floor.hpp>
 #include <floor/device/universal_binary.hpp>
 #include <floor/core/cpp_ext.hpp>
+#include <floor/core/core.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/device/vulkan/vulkan_buffer.hpp>

@@ -24,8 +24,8 @@
 #include <string>
 #include <functional>
 #include <floor/threading/thread_safety.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
 
 namespace fl::task {
 
@@ -65,17 +65,17 @@ static inline void spawn(std::function<void()> op, const std::string task_name =
 			// the task thread is not allowed to run until the task thread object has been detached from the callers thread
 			while(!this_task->initialized) { std::this_thread::yield(); }
 			
-			core::set_current_thread_name(this_task->task_name);
+			set_current_thread_name(this_task->task_name);
 			
 			try {
 				// NOTE: this is the function object created above (not the users task op!)
 				task_op();
 			} catch (std::exception& exc) {
 				log_error("encountered an unhandled exception while running task \"$\": $",
-						  core::get_current_thread_name(), exc.what());
+						  get_current_thread_name(), exc.what());
 			} catch (...) {
 				log_error("encountered an unhandled exception while running task \"$\"",
-						  core::get_current_thread_name());
+						  get_current_thread_name());
 			}
 			this_task->task_alloc = nullptr;
 		}

@@ -19,11 +19,8 @@
 #pragma once
 
 #include <floor/core/platform.hpp>
-#include <floor/core/core.hpp>
-#include <floor/core/file_io.hpp>
 #include <floor/core/event.hpp>
 #include <floor/math/vector_lib.hpp>
-#include <floor/math/matrix4.hpp>
 #include <floor/device/device_context.hpp>
 
 namespace fl {

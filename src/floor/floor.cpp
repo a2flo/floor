@@ -19,6 +19,8 @@
 #include <floor/floor.hpp>
 #include <floor/floor_version.hpp>
 #include <floor/core/sig_handler.hpp>
+#include <floor/core/core.hpp>
+#include <floor/core/file_io.hpp>
 #include <floor/core/json.hpp>
 #include <floor/core/aligned_ptr.hpp>
 #include <floor/core/cpp_ext.hpp>
@@ -27,6 +29,7 @@
 #include <floor/device/metal/metal_context.hpp>
 #include <floor/device/host/host_context.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/vr/vr_context.hpp>
 #include <floor/vr/openvr_context.hpp>
 #include <floor/vr/openxr_context.hpp>
@@ -665,13 +668,13 @@ bool floor::init(const init_state& state) {
 				 config.log_filename, config.msg_filename);
 	log_debug("$", (FLOOR_VERSION_STRING).c_str());
 	
-	[[maybe_unused]] const uint64_t wanted_locked_memory_size = std::max(core::get_hw_thread_count(), 1u) * 32u * 1024u * 1024u;
+	[[maybe_unused]] const uint64_t wanted_locked_memory_size = std::max(get_logical_core_count(), 1u) * 32u * 1024u * 1024u;
 #if defined(__linux__)
 	// change max open files and max locked memory to a reasonable limit on Linux
 	struct rlimit nofile_limit;
 	memset(&nofile_limit, 0, sizeof(rlimit));
 	if (getrlimit(RLIMIT_NOFILE, &nofile_limit) == 0) {
-		const auto wanted_nofile = (decltype(nofile_limit.rlim_cur))core::get_hw_thread_count() * 256u;
+		const auto wanted_nofile = (decltype(nofile_limit.rlim_cur))get_logical_core_count() * 256u;
 		if (nofile_limit.rlim_cur < wanted_nofile) {
 			nofile_limit.rlim_cur = wanted_nofile;
 			if (nofile_limit.rlim_cur > nofile_limit.rlim_max) {

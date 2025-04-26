@@ -38,6 +38,8 @@
 #include <floor/device/backend/host_limits.hpp>
 #include <floor/device/backend/host_id.hpp>
 #include <floor/device/soft_printf.hpp>
+#include <floor/threading/thread_helpers.hpp>
+#include <floor/core/logger.hpp>
 #include <floor/floor.hpp>
 
 //#define FLOOR_HOST_FUNCTION_ENABLE_TIMING 1
@@ -523,7 +525,7 @@ static_assert(offsetof(floor_fiber_context, init_arg) == 208);
 #endif
 
 // will be initialized to "max h/w threads", note that this is stored in a global var,
-// so that core::get_hw_thread_count() doesn't have to called over and over again, and
+// so that get_logical_core_count() doesn't have to called over and over again, and
 // so this is actually a consistent value (bad things will happen if it isn't)
 static uint32_t floor_max_thread_count { 0 };
 
@@ -807,7 +809,7 @@ void host_function::execute(const device_queue& cqueue,
 	
 	// init max thread count (once!)
 	if (floor_max_thread_count == 0) {
-		floor_max_thread_count = core::get_hw_thread_count();
+		floor_max_thread_count = get_logical_core_count();
 	}
 	
 	// device CPU count must be <= h/w thread count, b/c local memory is only allocated for such many threads
@@ -929,7 +931,7 @@ void host_function::execute_host(const host_function_wrapper& func,
 													   global_dim, local_size, local_dim, work_dim] {
 			// set CPU affinity for this thread to a particular CPU to prevent this thread from being constantly moved/scheduled
 			// on different CPUs (starting at index 1, with 0 representing no affinity)
-			core::set_thread_affinity(cpu_idx + 1);
+			set_thread_affinity(cpu_idx + 1);
 			
 			// get and init host execution context
 			auto& exec_ctx = host_exec_context;
@@ -1071,7 +1073,7 @@ void host_function::execute_device(const host_function_entry& func_entry,
 													   local_size, local_dim, work_dim] {
 			// set CPU affinity for this thread to a particular CPU to prevent this thread from being constantly moved/scheduled
 			// on different CPUs (starting at index 1, with 0 representing no affinity)
-			core::set_thread_affinity(cpu_idx + 1);
+			set_thread_affinity(cpu_idx + 1);
 			
 			// retrieve the instance for this CPU + reset/init it
 			auto instance = func_entry.program->get_instance(cpu_idx);

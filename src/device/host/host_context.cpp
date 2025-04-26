@@ -26,6 +26,7 @@
 #include <floor/core/file_io.hpp>
 #include <floor/device/backend/host_limits.hpp>
 #include <floor/device/host/elf_binary.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/floor.hpp>
 
 #if defined(__APPLE__)
@@ -161,7 +162,7 @@ host_context::host_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	if(cpu_name == "") cpu_name = "UNKNOWN CPU";
 	
 	device.name = cpu_name;
-	device.units = core::get_hw_thread_count();
+	device.units = get_logical_core_count();
 	device.clock = uint32_t(cpu_clock);
 	device.global_mem_size = core::get_total_system_memory();
 	device.max_mem_alloc = device.global_mem_size;

@@ -18,38 +18,26 @@
 
 #pragma once
 
-#include <floor/device/device.hpp>
-#include <floor/device/host/host_common.hpp>
+#include <floor/core/essentials.hpp>
+#include <string>
+#include <cstdint>
 
 namespace fl {
 
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(weak-vtables)
+//! returns the number of logical CPU cores (hardware threads)
+uint32_t get_logical_core_count();
 
-class device_context;
+//! returns the number of physical CPU cores
+uint32_t get_physical_core_count();
 
-class host_device final : public device {
-public:
-	host_device();
-	
-	//! CPU tier
-	HOST_CPU_TIER cpu_tier {
-#if defined(__x86_64__)
-		HOST_CPU_TIER::X86_TIER_1
-#elif defined(__aarch64__)
-		HOST_CPU_TIER::ARM_TIER_1
-#else
-#error "unhandled arch"
-#endif
-	};
-	
-	//! returns true if the specified object is the same object as this
-	bool operator==(const host_device& dev) const {
-		return (this == &dev);
-	}
-	
-};
+//! sets the current threads affinity to the specified "affinity"
+//! NOTE: 0 represents no affinity, 1 is CPU core #0, ...
+void set_thread_affinity(const uint32_t affinity);
 
-FLOOR_POP_WARNINGS()
+//! returns the name/label of the current thread (only works with pthreads)
+std::string get_current_thread_name();
+
+//! sets the name/label of the current thread to "thread_name" (only works with pthreads)
+void set_current_thread_name(const std::string& thread_name);
 
 } // namespace fl

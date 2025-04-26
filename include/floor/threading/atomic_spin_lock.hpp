@@ -88,7 +88,7 @@ protected:
 //! atomic spin lock with default ideal 64-byte alignment
 using atomic_spin_lock = atomic_spin_lock_t<true>;
 //! atomic spin lock with only 4 byte alignment (to contain the atomic)
-//! NOTE: use this if you want to specify the alignment externally https://developer.amd.com/amd-uprof/or encompass this within an already aligned structure
+//! NOTE: use this if you want to specify the alignment externally or encompass this within an already aligned structure
 using atomic_spin_lock_unaligned = atomic_spin_lock_t<false>;
 
 } // namespace fl

@@ -200,12 +200,6 @@ using namespace std::literals;
 		return (uint32_t)std::chrono::duration_cast<std::chrono::seconds>(time_point.time_since_epoch()).count();
 	}
 	
-	//! returns the number of hardware threads ("logical CPU cores")
-	uint32_t get_hw_thread_count();
-
-	//! returns the number of physical CPU cores
-	uint32_t get_physical_core_count();
-	
 	//! returns the total amount of CPU/system memory in bytes,
 	//! returns 0 if the query failed or is unimplemented
 	uint64_t get_total_system_memory();
@@ -213,16 +207,6 @@ using namespace std::literals;
 	//! returns the currently free/available amount of CPU/system memory in bytes,
 	//! returns 0 if the query failed or is unimplemented
 	uint64_t get_free_system_memory();
-	
-	//! sets the current threads affinity to the specified "affinity"
-	//! NOTE: 0 represents no affinity, 1 is CPU core #0, ...
-	void set_thread_affinity(const uint32_t affinity);
-
-	//! sets the name/label of the current thread to "thread_name" (only works with pthreads)
-	void set_current_thread_name(const std::string& thread_name);
-	
-	//! returns the name/label of the current thread (only works with pthreads)
-	std::string get_current_thread_name();
 
 #if defined(__WINDOWS__)
 	//! returns the Windows version as { major, minor, build, revision }

@@ -25,6 +25,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/core/core.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <string_view>
 
 #if !defined(__WINDOWS__)
@@ -512,7 +513,7 @@ void elf_binary::init_elf() {
 	}
 	
 	// create an instance for each CPU
-	const auto cpu_count = core::get_hw_thread_count();
+	const auto cpu_count = get_logical_core_count();
 	if (cpu_count == 0) {
 		return;
 	}

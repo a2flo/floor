@@ -24,7 +24,6 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <dlfcn.h>
-#include <floor/core/core.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/cpp_ext.hpp>

@@ -22,7 +22,7 @@
 #include <floor/threading/thread_safety.hpp>
 #if defined(FLOOR_DEBUG)
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #endif
 #include <floor/constexpr/ext_traits.hpp>
 #include <bitset>
@@ -94,7 +94,7 @@ public:
 			std::this_thread::yield();
 #if defined(FLOOR_DEBUG)
 			if (counter == stuck_count) {
-				log_warn("resource acquisition is probably stuck ($: $)", core::get_current_thread_name(), typeid(*this).name());
+				log_warn("resource acquisition is probably stuck ($: $)", get_current_thread_name(), typeid(*this).name());
 			}
 #endif
 		}

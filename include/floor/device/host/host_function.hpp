@@ -22,10 +22,6 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
-#include <floor/core/core.hpp>
-#include <floor/core/logger.hpp>
-#include <floor/threading/atomic_spin_lock.hpp>
-#include <floor/threading/task.hpp>
 #include <floor/device/device_function.hpp>
 
 namespace fl {

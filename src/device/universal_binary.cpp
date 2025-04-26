@@ -25,8 +25,8 @@
 #include <floor/device/host/host_device.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/core/file_io.hpp>
-#include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/core/bcm.hpp>
 #include <floor/floor.hpp>
 #include <chrono>
@@ -692,7 +692,7 @@ namespace fl::universal_binary {
 		
 		// create a thread pool of #logical-CPUs threads that build all targets
 		const auto target_count = unique_targets_in.size();
-		const auto compile_job_count = uint32_t(std::min(size_t(core::get_hw_thread_count()), target_count));
+		const auto compile_job_count = uint32_t(std::min(size_t(get_logical_core_count()), target_count));
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;

@@ -18,13 +18,13 @@
 
 #pragma once
 
-#include <floor/core/core.hpp>
 #include <floor/threading/thread_base.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/core/event_objects.hpp>
 #include <SDL3/SDL_events.h>
 #include <queue>
 #include <memory>
+#include <set>
 
 namespace fl {
 

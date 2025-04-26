@@ -18,6 +18,7 @@
 
 #include <floor/device/host/host_device.hpp>
 #include <floor/device/backend/host_limits.hpp>
+#include <floor/core/core.hpp>
 #include <floor/floor_version.hpp>
 
 namespace fl {

@@ -231,6 +231,7 @@ add_library(${PROJECT_NAME}
 	include/floor/threading/safe_resource_container.hpp
 	include/floor/threading/task.hpp
 	include/floor/threading/thread_base.hpp
+	include/floor/threading/thread_helpers.hpp
 	include/floor/threading/thread_safety.hpp
 	include/floor/vr/openvr_context.hpp
 	include/floor/vr/openxr_common.hpp
@@ -350,6 +351,7 @@ add_library(${PROJECT_NAME}
 	src/math/vector_lib.cpp
 	src/math/vector.cpp
 	src/threading/thread_base.cpp
+	src/threading/thread_helpers.cpp
 	src/vr/internal/openxr_internal.hpp
 	src/vr/openvr_context.cpp
 	src/vr/openxr_context.cpp

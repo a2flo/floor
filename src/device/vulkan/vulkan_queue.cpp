@@ -26,9 +26,9 @@
 #include <floor/device/vulkan/vulkan_fence.hpp>
 #include "internal/vulkan_debug.hpp"
 #include <floor/core/logger.hpp>
-#include <floor/core/core.hpp>
 #include <floor/threading/task.hpp>
 #include <floor/threading/thread_base.hpp>
+#include <floor/threading/thread_helpers.hpp>
 #include <floor/floor.hpp>
 #include <chrono>
 #include <condition_variable>
@@ -592,7 +592,7 @@ struct vulkan_queue_impl {
 					"failed to create command pool", false)
 		
 #if defined(FLOOR_DEBUG)
-		auto thread_name = core::get_current_thread_name();
+		auto thread_name = get_current_thread_name();
 		if (thread_name.empty()) {
 			std::stringstream sstr;
 			sstr << std::this_thread::get_id();

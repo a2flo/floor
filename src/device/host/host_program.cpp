@@ -19,6 +19,7 @@
 #include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
+#include <floor/core/logger.hpp>
 #include <floor/device/host/host_program.hpp>
 #include <floor/device/host/host_function.hpp>
 #include <floor/device/host/host_device.hpp>

@@ -24,7 +24,6 @@
 #include <floor/device/metal/metal_shader.hpp>
 #include <floor/device/metal/metal_device.hpp>
 #include <floor/device/toolchain.hpp>
-#include <floor/core/core.hpp>
 #include <floor/floor.hpp>
 
 namespace fl {

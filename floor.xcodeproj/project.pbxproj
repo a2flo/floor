@@ -540,6 +540,10 @@
 		5C6DCB102DB098F300627453 /* graphics_renderer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF52DB098F300627453 /* graphics_renderer.hpp */; };
 		5C6DCB112DB098F300627453 /* graphics_vertex_format.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF62DB098F300627453 /* graphics_vertex_format.hpp */; };
 		5C6DCB122DB098F300627453 /* device_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE92DB098F300627453 /* device_context.hpp */; };
+		5C83AE912DBD6863009E4182 /* thread_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C83AE902DBD6863009E4182 /* thread_helpers.hpp */; };
+		5C83AE932DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
+		5C83AE942DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
+		5C83AE952DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
 		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
@@ -878,6 +882,8 @@
 		5C6DCB142DB172D900627453 /* sources.xcfilelist */ = {isa = PBXFileReference; lastKnownFileType = text.xcfilelist; path = sources.xcfilelist; sourceTree = "<group>"; };
 		5C6DCB152DB174AA00627453 /* build_version.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build_version.sh; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
+		5C83AE902DBD6863009E4182 /* thread_helpers.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = thread_helpers.hpp; path = include/floor/threading/thread_helpers.hpp; sourceTree = SOURCE_ROOT; };
+		5C83AE922DBD692B009E4182 /* thread_helpers.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thread_helpers.cpp; sourceTree = "<group>"; };
 		5C84964D261284D50009DBCA /* README.asciidoc */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.asciidoc; sourceTree = "<group>"; };
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
 		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -1372,6 +1378,8 @@
 				5C6DCA782DB098AA00627453 /* task.hpp */,
 				5C6DC7132DB0958100627453 /* thread_base.cpp */,
 				5C6DCA792DB098AA00627453 /* thread_base.hpp */,
+				5C83AE922DBD692B009E4182 /* thread_helpers.cpp */,
+				5C83AE902DBD6863009E4182 /* thread_helpers.hpp */,
 				5C6DCA7A2DB098AA00627453 /* thread_safety.hpp */,
 			);
 			name = threading;
@@ -1705,6 +1713,7 @@
 				5C6DC9C72DB097E000627453 /* logger.hpp in Headers */,
 				5C6DC9C82DB097E000627453 /* serializer.hpp in Headers */,
 				5C6DC9C92DB097E000627453 /* file_io.hpp in Headers */,
+				5C83AE912DBD6863009E4182 /* thread_helpers.hpp in Headers */,
 				5C6DC9CA2DB097E000627453 /* hdr_metadata.hpp in Headers */,
 				5C6DC9D92DB0980700627453 /* cuda_context.hpp in Headers */,
 				5C6DC9DA2DB0980700627453 /* cuda_device.hpp in Headers */,
@@ -1985,6 +1994,7 @@
 				5C6DC7A42DB0958100627453 /* vector.cpp in Sources */,
 				5C6DC7A52DB0958100627453 /* metal_buffer.mm in Sources */,
 				5C6DC7A62DB0958100627453 /* opencl_context.cpp in Sources */,
+				5C83AE952DBD692B009E4182 /* thread_helpers.cpp in Sources */,
 				5C6DC7A72DB0958100627453 /* json.cpp in Sources */,
 				5C6DC7A82DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC7A92DB0958100627453 /* host_context.cpp in Sources */,
@@ -2100,6 +2110,7 @@
 				5C6DC72D2DB0958100627453 /* vector.cpp in Sources */,
 				5C6DC72E2DB0958100627453 /* metal_buffer.mm in Sources */,
 				5C6DC72F2DB0958100627453 /* opencl_context.cpp in Sources */,
+				5C83AE932DBD692B009E4182 /* thread_helpers.cpp in Sources */,
 				5C6DC7302DB0958100627453 /* json.cpp in Sources */,
 				5C6DC7312DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC7322DB0958100627453 /* host_context.cpp in Sources */,
@@ -2215,6 +2226,7 @@
 				5C6DC8102DB0958100627453 /* vector.cpp in Sources */,
 				5C6DC8112DB0958100627453 /* metal_buffer.mm in Sources */,
 				5C6DC8122DB0958100627453 /* opencl_context.cpp in Sources */,
+				5C83AE942DBD692B009E4182 /* thread_helpers.cpp in Sources */,
 				5C6DC8132DB0958100627453 /* json.cpp in Sources */,
 				5C6DC8142DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC8152DB0958100627453 /* host_context.cpp in Sources */,
