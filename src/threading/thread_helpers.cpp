@@ -19,6 +19,7 @@
 #include <floor/threading/thread_helpers.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/cpp_ext.hpp>
+#include <cassert>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
 #include <sys/types.h>
