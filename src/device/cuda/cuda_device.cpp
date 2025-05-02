@@ -17,6 +17,7 @@
  */
 
 #include <floor/device/cuda/cuda_device.hpp>
+#include <floor/core/logger.hpp>
 
 namespace fl {
 
@@ -64,6 +65,18 @@ cuda_device::cuda_device() : device() {
 	
 	// will be overwritten later
 	max_mip_levels = 16u; // 32768px
+}
+
+bool cuda_device::make_context_current() const {
+#if !defined(FLOOR_NO_CUDA)
+	// NOTE: we manually store the current CUDA context for the current thread so that we don't incur an API call
+	static thread_local cu_context thread_current_ctx { nullptr };
+	if (thread_current_ctx != ctx) {
+		CU_CALL_RET(cu_ctx_set_current(ctx), "failed to make CUDA context current", false)
+		thread_current_ctx = ctx;
+	}
+#endif
+	return true;
 }
 
 } // namespace fl

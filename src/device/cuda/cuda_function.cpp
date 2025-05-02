@@ -35,35 +35,6 @@ typename cuda_function::function_map_type::const_iterator cuda_function::get_fun
 	return functions.find((const cuda_device*)&cqueue.get_device());
 }
 
-void cuda_function::execute_internal(const device_queue& cqueue,
-								   const cuda_function_entry& entry,
-								   const uint3& grid_dim,
-								   const uint3& block_dim,
-								   void** function_params) const {
-	CU_CALL_NO_ACTION(cu_launch_kernel(entry.function,
-									   grid_dim.x, grid_dim.y, grid_dim.z,
-									   block_dim.x, block_dim.y, block_dim.z,
-									   0,
-									   (const_cu_stream)cqueue.get_queue_ptr(),
-									   function_params,
-									   nullptr),
-					  "failed to execute kernel: " + entry.info->name)
-}
-
-void cuda_function::execute_cooperative_internal(const device_queue& cqueue,
-											   const cuda_function_entry& entry,
-											   const uint3& grid_dim,
-											   const uint3& block_dim,
-											   void** function_params) const {
-	CU_CALL_NO_ACTION(cu_launch_cooperative_kernel(entry.function,
-												   grid_dim.x, grid_dim.y, grid_dim.z,
-												   block_dim.x, block_dim.y, block_dim.z,
-												   0,
-												   (const_cu_stream)cqueue.get_queue_ptr(),
-												   function_params),
-					  "failed to execute cooperative kernel: " + entry.info->name)
-}
-
 struct cuda_completion_handler {
 	kernel_completion_handler_f handler;
 };
@@ -91,21 +62,27 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 }
 
 void cuda_function::execute(const device_queue& cqueue,
-						  const bool& is_cooperative,
-						  const bool& wait_until_completion,
-						  const uint32_t& dim floor_unused,
-						  const uint3& global_work_size,
-						  const uint3& local_work_size,
-						  const std::vector<device_function_arg>& args,
-						  const std::vector<const device_fence*>& wait_fences floor_unused,
-						  const std::vector<device_fence*>& signal_fences floor_unused,
-						  const char* debug_label floor_unused,
-						  kernel_completion_handler_f&& completion_handler) const
+							const bool& is_cooperative,
+							const bool& wait_until_completion,
+							const uint32_t& dim floor_unused,
+							const uint3& global_work_size,
+							const uint3& local_work_size,
+							const std::vector<device_function_arg>& args,
+							const std::vector<const device_fence*>& wait_fences floor_unused,
+							const std::vector<device_fence*>& signal_fences floor_unused,
+							const char* debug_label floor_unused,
+							kernel_completion_handler_f&& completion_handler) const
 REQUIRES(!completion_handlers_in_flight_lock) {
 	// find entry for queue device
 	const auto function_iter = get_function(cqueue);
 	if(function_iter == functions.cend()) {
 		log_error("no kernel \"$\" for this compute queue/device exists!", function_name);
+		return;
+	}
+	
+	const auto& cu_dev = (const cuda_device&)cqueue.get_device();
+	if (!cu_dev.make_context_current()) {
+		log_error("failed to make CUDA context current for execution of $", function_name);
 		return;
 	}
 	
@@ -207,11 +184,30 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 	
 	// TODO: implement waiting for "wait_fences"
 	
-	if (!is_cooperative) {
-		execute_internal(cqueue, function_iter->second, grid_dim, block_dim, &function_params[0]);
-	} else {
-		execute_cooperative_internal(cqueue, function_iter->second, grid_dim, block_dim, &function_params[0]);
+	uint32_t launch_attr_count = 0u;
+	std::array<cu_launch_attribute, 4> launch_attrs;
+	if (is_cooperative) {
+		launch_attrs[launch_attr_count++] = {
+			.type = CU_LAUNCH_ATTRIBUTE::COOPERATIVE,
+			.value = {
+				.cooperative = 1,
+			},
+		};
 	}
+	const cu_launch_config launch_config {
+		.grid_dim_x = grid_dim.x,
+		.grid_dim_y = grid_dim.y,
+		.grid_dim_z = grid_dim.z,
+		.block_dim_x = block_dim.x,
+		.block_dim_y = block_dim.y,
+		.block_dim_z = block_dim.z,
+		.shared_memory_bytes = 0,
+		.stream = (const_cu_stream)cqueue.get_queue_ptr(),
+		.attrs = launch_attrs.data(),
+		.num_attrs = launch_attr_count,
+	};
+	CU_CALL_NO_ACTION(cu_launch_kernel_ex(&launch_config, function_iter->second.function, &function_params[0], nullptr),
+					  "failed to execute kernel: " + function_iter->second.info->name)
 	
 	// TODO: implement signaling of "signal_fences"
 	

@@ -81,6 +81,9 @@ public:
 		return (this == &dev);
 	}
 	
+	//! makes the CUDA context of this device current/active in the current thread
+	bool make_context_current() const;
+	
 };
 
 } // namespace fl

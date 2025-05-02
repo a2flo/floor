@@ -161,6 +161,9 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.launch_kernel = load_symbol(cuda_lib, "cuLaunchKernel");
 	if(cuda_api.launch_kernel == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchKernel\"");
 	
+	(void*&)cuda_api.launch_kernel_ex = load_symbol(cuda_lib, "cuLaunchKernelEx");
+	if(cuda_api.launch_kernel_ex == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchKernelEx\"");
+	
 	(void*&)cuda_api.launch_cooperative_kernel = load_symbol(cuda_lib, "cuLaunchCooperativeKernel");
 	if(cuda_api.launch_cooperative_kernel == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchCooperativeKernel\"");
 	

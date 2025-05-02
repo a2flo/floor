@@ -359,7 +359,7 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		fastest_device = fastest_gpu_device;
 		
 		// make context of fastest device current
-		CU_CALL_IGNORE(cu_ctx_set_current(((const cuda_device*)fastest_gpu_device)->ctx))
+		(void)((const cuda_device*)fastest_gpu_device)->make_context_current();
 	}
 	
 	// create a default queue for each device
@@ -375,8 +375,9 @@ std::shared_ptr<device_queue> cuda_context::create_queue(const device& dev) cons
 	// ensure context is set for the calling thread
 	const auto& cuda_dev = (const cuda_device&)dev;
 	if (cuda_dev.ctx != nullptr) {
-		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
-					"failed to make CUDA context current", {})
+		if (!cuda_dev.make_context_current()) {
+			return {};
+		}
 	}
 	
 	cu_stream stream;
@@ -555,8 +556,9 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 	ret.functions = functions;
 	
 	// must make the device ctx current for this thread (if it isn't already)
-	CU_CALL_RET(cu_ctx_set_current(dev.ctx),
-				"failed to make CUDA context current", {})
+	if (!dev.make_context_current()) {
+		return {};
+	}
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
 		static constexpr const CU_JIT_OPTION jit_options[] {
@@ -707,7 +709,9 @@ std::unique_ptr<indirect_command_pipeline> cuda_context::create_indirect_command
 
 device_context::memory_usage_t cuda_context::get_memory_usage(const device& dev) const {
 	const auto& cu_dev = (const cuda_device&)dev;
-	CU_CALL_RET(cu_ctx_set_current(cu_dev.ctx), "failed to make device context current", {})
+	if (!cu_dev.make_context_current()) {
+		return {};
+	}
 	size_t free = 0u, total = 0u;
 	CU_CALL_RET(cu_mem_get_info(&free, &total), "failed to query device memory info", {})
 	memory_usage_t ret {

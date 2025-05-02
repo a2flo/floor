@@ -14,7 +14,7 @@ if (MSVC)
 else ()
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem ")
 	if (CMAKE_BUILD_TYPE MATCHES "DEBUG" OR CMAKE_BUILD_TYPE MATCHES "Debug")
-		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-5 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -fstandalone-debug)
+		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-5 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstandalone-debug)
 	endif ()
 endif (MSVC)
 
@@ -45,14 +45,21 @@ else ()
 endif (MSVC)
 
 if (WITH_ASAN)
-	# enable asan
+	# enable address sanitizer
 	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize=address -fsanitize-address-use-after-scope)
 	target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+elseif (WITH_TSAN)
+	# enable thread sanitizer
+	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize=thread)
+	target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=thread)
+endif ()
+
+if (WITH_ASAN OR WITH_TSAN)
 	# enable full backtraces everywhere
-	target_compile_options(${PROJECT_NAME} PUBLIC -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+	target_compile_options(${PROJECT_NAME} PUBLIC -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fno-optimize-sibling-calls)
 	# enable sanitizer recovery
 	target_compile_options(${PROJECT_NAME} PUBLIC -fsanitize-recover=all)
-endif (WITH_ASAN)
+endif ()
 
 if (WITH_LIBCXX)
 	# use libc++ as the STL

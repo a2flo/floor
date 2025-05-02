@@ -72,9 +72,10 @@ device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
 	const auto& cuda_dev = (const cuda_device&)cqueue.get_device();
-	if(cuda_dev.ctx != nullptr) {
-		CU_CALL_RET(cu_ctx_set_current(cuda_dev.ctx),
-					"failed to make CUDA context current")
+	if (cuda_dev.ctx != nullptr) {
+		if (!cuda_dev.make_context_current()) {
+			throw std::runtime_error("failed to make CUDA context current for buffer allocation");
+		}
 	}
 	
 	// check Vulkan buffer sharing validity

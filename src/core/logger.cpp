@@ -337,16 +337,18 @@ bool logger::prepare_log(std::stringstream& buffer, const LOG_TYPE& type, const 
 	
 	if (logger_state.use_time) {
 		buffer << "[";
-		char time_str[64];
+		char time_str[64] { '\0' };
 		const auto system_now = std::chrono::system_clock::now();
 		const auto cur_time = std::chrono::system_clock::to_time_t(system_now);
+		struct tm local_time {};
 #if !defined(_MSC_VER)
-		struct tm* local_time = localtime(&cur_time);
-		strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
+		if (localtime_r(&cur_time, &local_time)) {
+			strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+		}
 #else
-		struct tm local_time;
-		localtime_s(&local_time, &cur_time);
-		strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+		if (localtime_s(&local_time, &cur_time)) {
+			strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+		}
 #endif
 		buffer << time_str;
 		buffer << ".";

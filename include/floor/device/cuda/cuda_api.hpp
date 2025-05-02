@@ -626,6 +626,11 @@ struct _cu_event;
 using cu_event = _cu_event*;
 using const_cu_event = const _cu_event*;
 
+// also: cu_graph_device_updatable_node
+struct _cu_graph_device_node;
+using cu_graph_device_node = _cu_graph_device_node*;
+using const_cu_graph_device_node = const _cu_graph_device_node*;
+
 using cu_device = int32_t;
 using cu_device_ptr = size_t;
 using cu_surf_object = uint64_t;
@@ -857,14 +862,131 @@ struct cu_external_semaphore_wait_parameters {
 	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
+enum class CU_LAUNCH_ATTRIBUTE {
+	IGNORE = 0,
+	ACCESS_POLICY_WINDOW = 1,
+	COOPERATIVE = 2,
+	SYNCHRONIZATION_POLICY = 3,
+	CLUSTER_DIMENSION = 4,
+	CLUSTER_SCHEDULING_POLICY_PREFERENCE = 5,
+	PROGRAMMATIC_STREAM_SERIALIZATION = 6,
+	PROGRAMMATIC_EVENT = 7,
+	PRIORITY = 8,
+	MEM_SYNC_DOMAIN_MAP = 9,
+	MEM_SYNC_DOMAIN = 10,
+	// CUDA 12.8+
+	PREFERRED_CLUSTER_DIMENSION = 11,
+	// CUDA 12.3+
+	LAUNCH_COMPLETION_EVENT = 12,
+	// CUDA 12.4+
+	DEVICE_UPDATABLE_KERNEL_NODE = 13,
+	// CUDA 12.5+
+	PREFERRED_SHARED_MEMORY_CARVEOUT = 14,
+};
+
+enum class CU_ACCESS_PROPERTY {
+	NORMAL = 0,
+	STREAMING = 1,
+	PERSISTING = 2,
+};
+
+struct cu_access_policy_window {
+	void* base_ptr;
+	size_t num_bytes;
+	float hit_ratio;
+	CU_ACCESS_PROPERTY hit_prop;
+	CU_ACCESS_PROPERTY miss_prop;
+};
+
+enum class CU_SYNCHRONIZATION_POLICY {
+	AUTO = 1,
+	SPIN = 2,
+	YIELD = 3,
+	BLOCKING_SYNC = 4,
+};
+
+enum class CU_CLUSTER_SCHEDULING_POLICY {
+	DEFAULT = 0,
+	SPREAD = 1,
+	LOAD_BALANCING = 2,
+};
+
+enum class CU_LAUNCH_MEM_SYNC_DOMAIN {
+	DEFAULT = 0,
+	REMOTE = 1,
+};
+
+struct cu_launch_mem_sync_domain_map {
+	uint32_t default_domain;
+	uint32_t remote_domain;
+};
+
+union cu_launch_attribute_value {
+	char pad[64];
+	cu_access_policy_window access_policy_window;
+	int cooperative;
+	CU_SYNCHRONIZATION_POLICY sync_policy;
+	struct {
+		uint32_t x;
+		uint32_t y;
+		uint32_t z;
+	} cluster_dim;
+	CU_CLUSTER_SCHEDULING_POLICY cluster_scheduling_policy_preference;
+	int programmatic_stream_serialization_allowed;
+	struct {
+		cu_event event;
+		int flags;
+		int trigger_at_block_start;
+	} programmatic_event;
+	struct {
+		cu_event event;
+		int flags;
+	} launch_completion_event;
+	int priority;
+	cu_launch_mem_sync_domain_map mem_sync_domain_map;
+	CU_LAUNCH_MEM_SYNC_DOMAIN mem_sync_domain;
+	struct {
+		uint32_t x;
+		uint32_t y;
+		uint32_t z;
+	} preferred_cluster_dim;
+	struct {
+		int device_updatable;
+		cu_graph_device_node dev_node;
+	} device_updatable_kernel_node;
+	uint32_t shared_memory_carveout;
+};
+
+struct cu_launch_attribute {
+	CU_LAUNCH_ATTRIBUTE type;
+	char pad[8 - sizeof(CU_LAUNCH_ATTRIBUTE)];
+	cu_launch_attribute_value value;
+};
+
+struct cu_launch_config {
+	uint32_t grid_dim_x;
+	uint32_t grid_dim_y;
+	uint32_t grid_dim_z;
+	uint32_t block_dim_x;
+	uint32_t block_dim_y;
+	uint32_t block_dim_z;
+	uint32_t shared_memory_bytes;
+	const_cu_stream stream;
+	cu_launch_attribute* attrs;
+	uint32_t num_attrs;
+};
+
+// CUDA 12.5+
 enum class CU_EXECUTION_AFFINITY_TYPE : uint32_t {
 	SM_COUNT = 0,
 };
 
+// CUDA 12.5+
 struct cu_execution_affinity_sm_count {
 	uint32_t sm_count;
 };
 
+// CUDA 12.5+
 struct cu_execution_affinity_parameter {
 	CU_EXECUTION_AFFINITY_TYPE type;
 	union {
@@ -937,6 +1059,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*import_external_semaphore)(cu_external_semaphore* ext_sem_out, const cu_external_semaphore_handle_descriptor* sem_handle_desc);
 	CU_API CU_RESULT (*init)(uint32_t flags);
 	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params, void** extra);
+	CU_API CU_RESULT (*launch_kernel_ex)(const cu_launch_config* config, cu_function f, void** kernel_params, void** extra);
 	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, const_cu_stream h_stream, void** kernel_params);
 	CU_API CU_RESULT (*launch_cooperative_kernel_multi_device)(cu_launch_params* launch_params, uint32_t num_devices, uint32_t flags);
 	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, const void* data, size_t size, const char* name, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
@@ -1029,6 +1152,7 @@ extern bool cuda_can_use_external_memory();
 #define cu_import_external_semaphore cuda_api.import_external_semaphore
 #define cu_init cuda_api.init
 #define cu_launch_kernel cuda_api.launch_kernel
+#define cu_launch_kernel_ex cuda_api.launch_kernel_ex
 #define cu_launch_cooperative_kernel cuda_api.launch_cooperative_kernel
 #define cu_launch_cooperative_kernel_multi_device cuda_api.launch_cooperative_kernel_multi_device
 #define cu_link_add_data cuda_api.link_add_data

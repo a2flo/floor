@@ -65,18 +65,6 @@ protected:
 	
 	typename function_map_type::const_iterator get_function(const device_queue& cqueue) const;
 	
-	void execute_internal(const device_queue& cqueue,
-						  const cuda_function_entry& entry,
-						  const uint3& grid_dim,
-						  const uint3& block_dim,
-						  void** function_params) const;
-	
-	void execute_cooperative_internal(const device_queue& cqueue,
-									  const cuda_function_entry& entry,
-									  const uint3& grid_dim,
-									  const uint3& block_dim,
-									  void** function_params) const;
-	
 	std::unique_ptr<argument_buffer> create_argument_buffer_internal(const device_queue& cqueue,
 																const function_entry& entry,
 																const toolchain::arg_info& arg,
