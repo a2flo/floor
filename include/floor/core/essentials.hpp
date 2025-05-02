@@ -162,6 +162,9 @@
 #if defined(RELATIVE)
 #undef RELATIVE
 #endif
+#if defined(IGNORE)
+#undef IGNORE
+#endif
 
 // some macOS security framework
 #if defined(INTEL)
