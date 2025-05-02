@@ -427,7 +427,8 @@ program_data compile_input(const std::string& input,
 			// * 8.0 is the minimum requirement for floor (sm_50 - sm_90)
 			// * 8.6 for sm_100/sm_101
 			// * 8.7 for sm_120
-			// * 8.7 for anything else
+			// * 8.8 for sm_103/sm_121
+			// * 8.8 for anything else
 			switch (cuda_dev.sm.x) {
 				case 5:
 				case 6:
@@ -439,13 +440,13 @@ program_data compile_input(const std::string& input,
 					ptx_version = std::max(cuda_dev.sm.y == 0 ? 80u : 86u, ptx_version);
 					break;
 				case 10:
-					ptx_version = std::max(86u, ptx_version);
+					ptx_version = std::max(cuda_dev.sm.y <= 1 ? 86u : 88u, ptx_version);
 					break;
 				case 12:
-					ptx_version = std::max(87u, ptx_version);
+					ptx_version = std::max(cuda_dev.sm.y == 0 ? 87u : 88u, ptx_version);
 					break;
 				default:
-					ptx_version = std::max(87u, ptx_version);
+					ptx_version = std::max(88u, ptx_version);
 					break;
 			}
 			if (!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {

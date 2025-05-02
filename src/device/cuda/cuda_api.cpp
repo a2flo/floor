@@ -80,8 +80,11 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.array_destroy = load_symbol(cuda_lib, "cuArrayDestroy");
 	if(cuda_api.array_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuArrayDestroy\"");
 	
-	(void*&)cuda_api.ctx_create = load_symbol(cuda_lib, "cuCtxCreate_v2");
-	if(cuda_api.ctx_create == nullptr) log_error("failed to retrieve function pointer for \"cuCtxCreate_v2\"");
+	(void*&)cuda_api.ctx_create = load_symbol(cuda_lib, "cuCtxCreate_v3");
+	if(cuda_api.ctx_create == nullptr) log_error("failed to retrieve function pointer for \"cuCtxCreate_v3\"");
+	
+	// NOTE: this was introduced in CUDA 12.5, ignore if not available
+	(void*&)cuda_api.ctx_create_v4 = load_symbol(cuda_lib, "cuCtxCreate_v4");
 	
 	(void*&)cuda_api.ctx_get_limit = load_symbol(cuda_lib, "cuCtxGetLimit");
 	if(cuda_api.ctx_get_limit == nullptr) log_error("failed to retrieve function pointer for \"cuCtxGetLimit\"");

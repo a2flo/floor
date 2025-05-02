@@ -288,11 +288,15 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	// CUDA 12.8+
 	MEM_DECOMPRESS_ALGORITHM_MASK = 136,
 	MEM_DECOMPRESS_MAXIMUM_LENGTH = 137,
-	// no 138
+	// CUDA 12.9+
+	VULKAN_CIG_SUPPORTED = 138,
+	// CUDA 12.8+
 	GPU_PCI_DEVICE_ID = 139,
 	GPU_PCI_SUBSYSTEM_ID = 140,
-	// no 141
-	// no 142
+	// CUDA 12.9+
+	HOST_NUMA_VIRTUAL_MEMORY_MANAGEMENT_SUPPORTED = 141,
+	HOST_NUMA_MEMORY_POOLS_SUPPORTED = 142,
+	// CUDA 12.8+
 	HOST_NUMA_MULTINODE_IPC_SUPPORTED = 143,
 };
 enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
@@ -578,6 +582,9 @@ enum class CU_EVENT_FLAGS : uint32_t {
 #define CU_LAUNCH_PARAM_BUFFER_SIZE ((void*)2)
 #define CU_LAUNCH_PARAM_END nullptr
 
+// CUDA 12.9+
+#define CU_LAUNCH_KERNEL_REQUIRED_BLOCK_DIM 1
+
 // these are all external opaque types
 struct _cu_context;
 using cu_context = _cu_context*;
@@ -850,6 +857,41 @@ struct cu_external_semaphore_wait_parameters {
 	uint32_t _reserved[16] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
+enum class CU_EXECUTION_AFFINITY_TYPE : uint32_t {
+	SM_COUNT = 0,
+};
+
+struct cu_execution_affinity_sm_count {
+	uint32_t sm_count;
+};
+
+struct cu_execution_affinity_parameter {
+	CU_EXECUTION_AFFINITY_TYPE type;
+	union {
+		cu_execution_affinity_sm_count sm_count;
+	} param;
+};
+
+// CUDA 12.5+
+enum class CU_CIG_DATA_TYPE : uint32_t {
+	D3D12_COMMAND_QUEUE = 1,
+	// CUDA 12.9+
+	NV_BLOB = 2,
+};
+
+// CUDA 12.5+
+struct cu_ctx_cig_parameter {
+	CU_CIG_DATA_TYPE shared_data_type;
+	void* shared_data;
+};
+
+// CUDA 12.5+
+struct cu_ctx_create_parameters {
+	cu_execution_affinity_parameter* execution_affinity_parameters;
+	uint32_t num_execution_affinity_parameters;
+	cu_ctx_cig_parameter* cig_parameter;
+};
+
 } // namespace fl
 
 // internal API structs
@@ -862,7 +904,8 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*array_3d_create)(cu_array* p_handle, const cu_array_3d_descriptor* p_allocate_array);
 	CU_API CU_RESULT (*array_3d_get_descriptor)(cu_array_3d_descriptor* p_array_descriptor, cu_array h_array);
 	CU_API CU_RESULT (*array_destroy)(cu_array h_array);
-	CU_API CU_RESULT (*ctx_create)(cu_context* pctx, CU_CONTEXT_FLAGS flags, cu_device dev);
+	CU_API CU_RESULT (*ctx_create)(cu_context* pctx, cu_execution_affinity_parameter* params_array, int num_params, CU_CONTEXT_FLAGS flags, cu_device dev);
+	CU_API CU_RESULT (*ctx_create_v4)(cu_context* pctx, cu_ctx_create_parameters* create_params, CU_CONTEXT_FLAGS flags, cu_device dev);
 	CU_API CU_RESULT (*ctx_get_limit)(size_t* pvalue, CU_LIMIT limit);
 	CU_API CU_RESULT (*ctx_set_current)(cu_context ctx);
 	CU_API CU_RESULT (*destroy_external_memory)(cu_external_memory ext_mem);
@@ -954,6 +997,7 @@ extern bool cuda_can_use_external_memory();
 #define cu_array_3d_get_descriptor cuda_api.array_3d_get_descriptor
 #define cu_array_destroy cuda_api.array_destroy
 #define cu_ctx_create cuda_api.ctx_create
+#define cu_ctx_create_v4 cuda_api.ctx_create_v4
 #define cu_ctx_get_limit cuda_api.ctx_get_limit
 #define cu_ctx_set_current cuda_api.ctx_set_current
 #define cu_destroy_external_memory cuda_api.destroy_external_memory

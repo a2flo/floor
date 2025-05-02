@@ -115,7 +115,7 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		
 		// create the context for this device
 		cu_context ctx;
-		CU_CALL_CONT(cu_ctx_create(&ctx, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
+		CU_CALL_CONT(cu_ctx_create(&ctx, nullptr, 0, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
 					 "failed to create context for device")
 		CU_CALL_IGNORE(cu_ctx_set_current(ctx))
 		
@@ -241,8 +241,10 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 			device.ptx = { 8, 5 };
 		} else if (driver_version < 12080) {
 			device.ptx = { 8, 6 };
-		} else {
+		} else if (driver_version < 12090) {
 			device.ptx = { 8, 7 };
+		} else {
+			device.ptx = { 8, 8 };
 		}
 		
 		if (device.sm.x < 9 || (device.sm.x == 9 && device.sm.y == 0)) {
@@ -251,8 +253,11 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 			device.min_req_ptx = { 8, 6 };
 		} else if (device.sm.x < 12 || (device.sm.x == 12 && device.sm.y == 0)) {
 			device.min_req_ptx = { 8, 7 };
+		} else if ((device.sm.x == 10 && device.sm.y <= 3) ||
+				   (device.sm.x == 12 && device.sm.y <= 1)) {
+			device.min_req_ptx = { 8, 8 };
 		} else {
-			device.min_req_ptx = { 8, 7 };
+			device.min_req_ptx = { 8, 8 };
 		}
 		
 		// additional info
