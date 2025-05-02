@@ -266,12 +266,12 @@ bool openxr_context::input_setup() {
 	}
 	
 	struct base_action_definition_t {
-		std::string name;
+		std::string_view name;
 		ACTION_TYPE action_type;
 		EVENT_TYPE event_type;
 	};
 	{
-		static const std::vector<base_action_definition_t> base_actions_defs {
+		static constexpr const std::array<base_action_definition_t, 23> base_actions_defs {{
 			{ "system_press", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_SYSTEM_PRESS },
 			{ "system_touch", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_SYSTEM_TOUCH },
 			{ "main_press", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_MAIN_PRESS },
@@ -295,7 +295,7 @@ bool openxr_context::input_setup() {
 			{ "thumbrest_touch", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_THUMBREST_TOUCH },
 			{ "thumbrest_force", ACTION_TYPE::FLOAT, EVENT_TYPE::VR_THUMBREST_FORCE },
 			{ "shoulder_press", ACTION_TYPE::BOOLEAN, EVENT_TYPE::VR_SHOULDER_PRESS },
-		};
+		}};
 		for (const auto& base_action_def : base_actions_defs) {
 			XrActionType action_type {};
 			switch (base_action_def.action_type) {
@@ -328,13 +328,13 @@ bool openxr_context::input_setup() {
 				.countSubactionPaths = uint32_t(hand_paths.size()),
 				.subactionPaths = hand_paths.data(),
 			};
-			memcpy(action_create_info.actionName, base_action_def.name.c_str(), base_action_def.name.size());
+			memcpy(action_create_info.actionName, base_action_def.name.data(), base_action_def.name.size());
 			action_create_info.actionName[action_name_size] = '\0';
-			memcpy(action_create_info.localizedActionName, base_action_def.name.c_str(), base_action_def.name.size());
+			memcpy(action_create_info.localizedActionName, base_action_def.name.data(), base_action_def.name.size());
 			action_create_info.localizedActionName[action_name_size] = '\0';
 			XrAction action { nullptr };
 			XR_CALL_RET(xrCreateAction(input_action_set, &action_create_info, &action),
-						"failed to create action " + base_action_def.name, false);
+						"failed to create action " + std::string(base_action_def.name), false);
 			base_actions.emplace(base_action_def.event_type,
 								 action_t {
 				.action = action,

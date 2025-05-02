@@ -13,6 +13,9 @@
 #include <array>
 #include <memory>
 
+// unfortunate, but better than heap allocation in here
+FLOOR_IGNORE_WARNING(frame-larger-than)
+
 namespace fl::bcm {
 namespace saisxx_private { // via sais-lite
 static uint32_t saisxx_bwt(const std::span<const uint8_t>& input, std::span<uint8_t> U, std::span<int> A);

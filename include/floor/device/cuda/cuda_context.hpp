@@ -153,11 +153,10 @@ protected:
 	fl::flat_map<const device*, std::shared_ptr<device_queue>> default_queues;
 	
 	cuda_program::cuda_program_entry create_cuda_program_internal(const cuda_device& dev,
-																  const void* program_data,
-																  const size_t& program_size,
+																  const std::span<const uint8_t> program,
 																  const std::vector<toolchain::function_info>& functions,
-																  const uint32_t& max_registers,
-																  const bool& silence_debug_output);
+																  const uint32_t max_registers,
+																  const bool silence_debug_output);
 	
 	std::shared_ptr<device_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
 	

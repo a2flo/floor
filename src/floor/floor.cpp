@@ -184,13 +184,13 @@ bool floor::init(const init_state& state) {
 	floor::vulkan_api_version = state.vulkan_api_version;
 	
 	// get working directory
-	char working_dir[4096];
-	memset(working_dir, 0, 4096);
-	if(getcwd(working_dir, 4095) == nullptr) {
+	std::string working_dir(4096, 0);
+	if (getcwd(working_dir.data(), 4095) == nullptr) {
 		std::cerr << "failed to retrieve the current working directory" << std::endl;
 		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
+	working_dir.resize(std::max(strlen(working_dir.c_str()), 1uz));
 	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {

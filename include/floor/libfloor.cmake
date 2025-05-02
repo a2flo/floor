@@ -71,6 +71,8 @@ endif (WITH_LIBCXX)
 ## warnings
 # let's start with everything
 target_compile_options(${PROJECT_NAME} PUBLIC -Weverything)
+# add warning about large frame/stack usage in functions
+target_compile_options(${PROJECT_NAME} PUBLIC -Wframe-larger-than=16384)
 # in case we're using warning options that aren't supported by other clang versions
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unknown-warning-option)
 # remove std compat warnings (c++23 with gnu and clang extensions is required)

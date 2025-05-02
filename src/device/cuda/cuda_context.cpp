@@ -456,8 +456,7 @@ std::shared_ptr<device_program> cuda_context::create_program_from_archive_binari
 		// TODO: handle CUBIN
 		prog_map.insert_or_assign(cuda_dev,
 								  create_cuda_program_internal(*cuda_dev,
-															   dev_best_bin.first->data.data(),
-															   dev_best_bin.first->data.size(),
+															   dev_best_bin.first->data,
 															   func_info,
 															   dev_best_bin.second.cuda.max_registers,
 															   false /* TODO: true? */));
@@ -538,17 +537,16 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program(const cuda_de
 		return {};
 	}
 	return create_cuda_program_internal(dev,
-										program.data_or_filename.data(), program.data_or_filename.size(),
+										std::span { (const uint8_t*)program.data_or_filename.data(), program.data_or_filename.size() },
 										program.function_info, program.options.cuda.max_registers,
 										program.options.silence_debug_output);
 }
 
 cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(const cuda_device& dev,
-																			const void* program_data,
-																			const size_t& program_size,
+																			const std::span<const uint8_t> program,
 																			const std::vector<toolchain::function_info>& functions,
-																			const uint32_t& max_registers,
-																			const bool& silence_debug_output) {
+																			const uint32_t max_registers,
+																			const bool silence_debug_output) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = dev.sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
@@ -560,7 +558,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		return {};
 	}
 	
-	if(!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
+	if (!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
 		static constexpr const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
@@ -583,14 +581,13 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		static_assert(option_count == std::size(jit_option_values), "mismatching option count");
 		
 		CU_CALL_RET(cu_module_load_data_ex(&ret.program,
-										   program_data,
+										   program.data(),
 										   option_count,
-										   (const CU_JIT_OPTION*)&jit_options[0],
+										   &jit_options[0],
 										   (const void* const*)&jit_option_values[0]),
-					"failed to load/jit CUDA module", {})
-	}
-	else {
-		// jit the module / PTX code
+					"failed to load/JIT compile the CUDA module", {})
+	} else {
+		// JIT compile the module / PTX code
 		const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
@@ -605,11 +602,10 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		};
 		constexpr const size_t option_count { std::size(jit_options) };
 		constexpr const size_t log_size { 65536 };
-		char error_log[log_size], info_log[log_size];
-		error_log[0] = 0;
-		info_log[0] = 0;
+		std::string error_log(log_size, 0);
+		std::string info_log(log_size, 0);
 		const auto print_error_log = [&error_log] {
-			if(error_log[0] != 0) {
+			if (error_log[0] != 0) {
 				error_log[log_size - 1] = 0;
 				log_error("PTX build errors: $", error_log);
 			}
@@ -626,8 +622,8 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 			// opt level must be 0 when debug info is generated
 			{ .ui = (floor::get_toolchain_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },
-			{ .ptr = error_log },
-			{ .ptr = info_log },
+			{ .ptr = error_log.data() },
+			{ .ptr = info_log.data() },
 			{ .ui = log_size - 1u },
 			{ .ui = log_size - 1u },
 		};
@@ -643,7 +639,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 								   &link_state),
 					"failed to create link state", {})
 		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
-											program_data, program_size,
+											program.data(), program.size_bytes(),
 											nullptr, 0, nullptr, nullptr),
 						   "failed to add PTX data to link state", {
 							   print_error_log();
@@ -659,7 +655,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		CU_CALL_ERROR_EXEC(cu_module_load_data(&ret.program, cubin_ptr),
 						   "failed to load CUDA module", {
 							   print_error_log();
-							   if(info_log[0] != 0) {
+							   if (info_log[0] != 0) {
 								   info_log[log_size - 1] = 0;
 								   log_debug("PTX build info: $", info_log);
 							   }
@@ -669,18 +665,18 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 						  "failed to destroy link state")
 		
-		if(info_log[0] != 0 && !silence_debug_output) {
+		if (info_log[0] != 0 && !silence_debug_output) {
 			info_log[log_size - 1] = 0;
 			log_debug("PTX build info: $", info_log);
 		}
 	
-		if(floor::get_toolchain_log_binaries()) {
+		if (floor::get_toolchain_log_binaries()) {
 			// for testing purposes: dump the compiled binaries again
 			file_io::buffer_to_file("binary_" + std::to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
 		}
 	}
 	
-	if(!silence_debug_output) {
+	if (!silence_debug_output) {
 		log_debug("successfully created CUDA program!");
 	}
 	

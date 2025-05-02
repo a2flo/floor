@@ -389,8 +389,7 @@ void system(const std::string& cmd) {
 
 void system(const std::string& cmd, std::string& output) {
 	static constexpr size_t buffer_size = 8192;
-	char buffer[buffer_size+1];
-	memset(&buffer, 0, buffer_size+1);
+	std::string buffer(buffer_size + 1, 0);
 	
 #if defined(_MSC_VER)
 #define popen _popen
@@ -407,9 +406,9 @@ void system(const std::string& cmd, std::string& output) {
 		log_error("failed to execute system command: $", cmd);
 		return;
 	}
-	while(fgets(buffer, buffer_size, sys_pipe) != nullptr) {
-		output += buffer;
-		memset(buffer, 0, buffer_size); // size+1 is always 0
+	while (fgets(buffer.data(), buffer_size, sys_pipe) != nullptr) {
+		output.append(buffer.data(), buffer_size);
+		memset(buffer.data(), 0, buffer_size); // size+1 is always 0
 	}
 	pclose(sys_pipe);
 }
