@@ -24,6 +24,7 @@
 
 #include <floor/core/enum_helpers.hpp>
 #include <floor/math/vector_lib.hpp>
+#include <floor/core/essentials.hpp>
 
 namespace fl {
 
