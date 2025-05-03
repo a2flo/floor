@@ -47,15 +47,6 @@ void cuda_queue::flush() const {
 	// nop on cuda
 }
 
-void cuda_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd floor_unused,
-								  const indirect_execution_parameters_t& params floor_unused,
-								  kernel_completion_handler_f&& completion_handler floor_unused,
-								  const uint32_t command_offset floor_unused,
-								  const uint32_t command_count floor_unused) const {
-	// TODO: implement this
-	log_error("indirect compute command execution is not implemented for CUDA");
-}
-
 const void* cuda_queue::get_queue_ptr() const {
 	return queue;
 }

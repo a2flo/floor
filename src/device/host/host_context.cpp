@@ -531,12 +531,6 @@ bool host_context::has_host_device_support() const {
 	return floor::get_host_run_on_device();
 }
 
-std::unique_ptr<indirect_command_pipeline> host_context::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
-	// TODO: !
-	log_error("not yet supported by Host-Compute!");
-	return {};
-}
-
 device_context::memory_usage_t host_context::get_memory_usage(const device& dev) const {
 	const auto& host_dev = (const host_device&)dev;
 	

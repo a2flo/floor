@@ -20,6 +20,7 @@
 #include <floor/device/graphics_pipeline.hpp>
 #include <floor/device/graphics_pass.hpp>
 #include <floor/device/graphics_renderer.hpp>
+#include <floor/device/indirect_command.hpp>
 
 namespace fl {
 
@@ -121,6 +122,14 @@ std::shared_ptr<device_buffer> device_context::wrap_buffer(const device_queue&, 
 std::shared_ptr<device_image> device_context::wrap_image(const device_queue&, metal_image&, const MEMORY_FLAG) const {
 	log_error("Metal image sharing is not supported by this backend");
 	return {};
+}
+
+std::unique_ptr<indirect_command_pipeline> device_context::create_indirect_command_pipeline(const indirect_command_description& desc) const {
+	auto pipeline = std::make_unique<generic_indirect_command_pipeline>(desc, devices);
+	if (!pipeline || !pipeline->is_valid()) {
+		return {};
+	}
+	return pipeline;
 }
 
 std::unique_ptr<graphics_pipeline> device_context::create_graphics_pipeline(const render_pipeline_description&, const bool) const {

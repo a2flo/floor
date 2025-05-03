@@ -254,7 +254,7 @@ public:
 								  const indirect_execution_parameters_t& params,
 								  kernel_completion_handler_f&& completion_handler = {},
 								  const uint32_t command_offset = 0u,
-								  const uint32_t command_count = ~0u) const = 0;
+								  const uint32_t command_count = ~0u) const;
 	
 	//! executes the compute commands from an indirect command pipeline
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default

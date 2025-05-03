@@ -305,6 +305,96 @@ protected:
 	
 };
 
+class generic_indirect_command_pipeline;
+
+//! generic indirect pipeline entry used in generic_indirect_command_pipeline
+struct generic_indirect_pipeline_entry {
+	generic_indirect_pipeline_entry() = default;
+	generic_indirect_pipeline_entry(generic_indirect_pipeline_entry&& entry) :
+	dev(entry.dev), debug_label(std::move(entry.debug_label)), commands(std::move(entry.commands)) {
+		entry.dev = nullptr;
+	}
+	generic_indirect_pipeline_entry& operator=(generic_indirect_pipeline_entry&& entry) {
+		dev = entry.dev;
+		debug_label = std::move(entry.debug_label);
+		commands = std::move(entry.commands);
+		return *this;
+	}
+	~generic_indirect_pipeline_entry() = default;
+	
+	friend generic_indirect_command_pipeline;
+	device* dev { nullptr };
+	std::string debug_label;
+	
+	struct command_t {
+		const device_function* kernel_ptr { nullptr };
+		bool wait_until_completion { false };
+		uint32_t dim { 0u };
+		uint3 global_work_size;
+		uint3 local_work_size;
+		std::vector<device_function_arg> args;
+	};
+	std::vector<command_t> commands;
+};
+
+//! generic indirect command pipeline implementation (used by CUDA, Host-Compute, OpenCL)
+//! NOTE: this only supports compute commands
+class generic_indirect_command_pipeline final : public indirect_command_pipeline {
+public:
+	explicit generic_indirect_command_pipeline(const indirect_command_description& desc_,
+											  const std::vector<std::unique_ptr<device>>& devices);
+	~generic_indirect_command_pipeline() override = default;
+	
+	//! return the device specific pipeline state for the specified device (or nullptr if it doesn't exist)
+	const generic_indirect_pipeline_entry* get_pipeline_entry(const device& dev) const;
+	generic_indirect_pipeline_entry* get_pipeline_entry(const device& dev);
+	
+	indirect_render_command_encoder& add_render_command(const device&, const graphics_pipeline&, const bool) override {
+		throw std::runtime_error("render commands are not supported");
+	}
+	indirect_compute_command_encoder& add_compute_command(const device& dev, const device_function& kernel_obj) override;
+	void complete(const device& dev) override;
+	void complete() override;
+	void reset() override;
+	
+	struct command_range_t {
+		uint32_t offset { 0u };
+		uint32_t count { 0u };
+	};
+	
+	//! computes the command command_range_t that is necessary for indirect command execution from the given parameters
+	//! and validates if the given parameters specify a correct range, returning empty if invalid
+	std::optional<command_range_t> compute_and_validate_command_range(const uint32_t command_offset,
+																	  const uint32_t command_count) const;
+	
+protected:
+	fl::flat_map<const device*, std::shared_ptr<generic_indirect_pipeline_entry>> pipelines;
+	
+};
+
+//! generic indirect compute command encoder implementation (used by CUDA, Host-Compute, OpenCL)
+class generic_indirect_compute_command_encoder final : public indirect_compute_command_encoder {
+public:
+	generic_indirect_compute_command_encoder(generic_indirect_pipeline_entry& pipeline_entry_,
+											 const device& dev_, const device_function& kernel_obj_);
+	~generic_indirect_compute_command_encoder() override = default;
+	
+	void set_arguments_vector(std::vector<device_function_arg>&& args) override;
+	
+	indirect_compute_command_encoder& barrier() override;
+	
+protected:
+	generic_indirect_pipeline_entry& pipeline_entry;
+	
+	//! set via set_arguments_vector
+	std::vector<device_function_arg> args;
+	
+	indirect_compute_command_encoder& execute(const uint32_t dim,
+											  const uint3& global_work_size,
+											  const uint3& local_work_size) override;
+	
+};
+
 FLOOR_POP_WARNINGS()
 
 } // namespace fl

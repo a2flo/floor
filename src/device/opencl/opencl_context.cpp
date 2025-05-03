@@ -1098,12 +1098,6 @@ cl_int opencl_context::get_kernel_sub_group_info(cl_kernel kernel,
 	return CL_INVALID_DEVICE;
 }
 
-std::unique_ptr<indirect_command_pipeline> opencl_context::create_indirect_command_pipeline(const indirect_command_description& desc floor_unused) const {
-	// TODO: !
-	log_error("not yet supported by opencl_context!");
-	return {};
-}
-
 device_context::memory_usage_t opencl_context::get_memory_usage(const device& dev) const {
 	const auto& cl_dev = (const opencl_device&)dev;
 	

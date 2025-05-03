@@ -362,7 +362,7 @@ public:
 	
 	//! creates an indirect compute/render command pipeline from the specified description
 	//! NOTE: only supported when the context has any devices with support for either indirect compute or rendering
-	virtual std::unique_ptr<indirect_command_pipeline> create_indirect_command_pipeline(const indirect_command_description& desc) const = 0;
+	virtual std::unique_ptr<indirect_command_pipeline> create_indirect_command_pipeline(const indirect_command_description& desc) const;
 	
 	//////////////////////////////////////////
 	// graphics functionality

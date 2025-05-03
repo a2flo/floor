@@ -32,6 +32,10 @@ opencl_device::opencl_device() : device() {
 	image_cube_array_write_support = false;
 	image_offset_read_support = false;
 	image_offset_write_support = false;
+	
+	// indirect compute pipelines are always supported
+	indirect_command_support = true;
+	indirect_compute_command_support = true;
 }
 
 } // namespace fl

@@ -71,6 +71,10 @@ host_device::host_device() : device() {
 	image_read_write_support = true;
 	
 	argument_buffer_support = true;
+	
+	// indirect compute pipelines are always supported
+	indirect_command_support = true;
+	indirect_compute_command_support = true;
 }
 
 } // namespace fl

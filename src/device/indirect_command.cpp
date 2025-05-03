@@ -177,4 +177,172 @@ indirect_command_encoder(dev_), kernel_obj(kernel_obj_) {
 	}
 }
 
+//
+generic_indirect_command_pipeline::generic_indirect_command_pipeline(const indirect_command_description& desc_,
+																	 const std::vector<std::unique_ptr<device>>& devices) :
+indirect_command_pipeline(desc_) {
+	if (!valid) {
+		return;
+	}
+	if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
+		log_error("indirect render command pipelines are not supported (pipeline \"$\")", desc.debug_label);
+		valid = false;
+		return;
+	}
+	if (devices.empty()) {
+		log_error("no devices specified in indirect command pipeline \"$\"", desc.debug_label);
+		valid = false;
+		return;
+	}
+	for (const auto& dev : devices) {
+		if (!dev->indirect_command_support || !dev->indirect_compute_command_support) {
+			log_error("specified device \"$\" has no support for indirect commands in indirect command pipeline \"$\"",
+					  dev->name, desc.debug_label);
+			valid = false;
+			return;
+		}
+	}
+	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
+		log_error("max supported command count is 16384, in indirect command pipeline \"$\"", desc.debug_label);
+		valid = false;
+		return;
+	}
+	
+	for (const auto& dev_ptr : devices) {
+		auto entry = std::make_shared<generic_indirect_pipeline_entry>();
+		entry->dev = dev_ptr.get();
+		entry->debug_label = (desc.debug_label.empty() ? "generic_indirect_command_pipeline" : desc.debug_label);
+		entry->commands.reserve(desc.max_command_count);
+		pipelines.insert_or_assign(dev_ptr.get(), std::move(entry));
+	}
+}
+
+const generic_indirect_pipeline_entry* generic_indirect_command_pipeline::get_pipeline_entry(const device& dev) const {
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return iter->second.get();
+	}
+	return nullptr;
+}
+
+generic_indirect_pipeline_entry* generic_indirect_command_pipeline::get_pipeline_entry(const device& dev) {
+	if (const auto iter = pipelines.find(&dev); iter != pipelines.end()) {
+		return iter->second.get();
+	}
+	return nullptr;
+}
+
+indirect_compute_command_encoder& generic_indirect_command_pipeline::add_compute_command(const device& dev, const device_function& kernel_obj) {
+	if (desc.command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {
+		throw std::runtime_error("adding compute commands to a render indirect command pipeline is not allowed");
+	}
+	
+	const auto pipeline_entry = get_pipeline_entry(dev);
+	if (!pipeline_entry) {
+		throw std::runtime_error("no pipeline entry for device " + dev.name);
+	}
+	if (commands.size() >= desc.max_command_count) {
+		throw std::runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
+	}
+	
+	auto compute_enc = std::make_unique<generic_indirect_compute_command_encoder>(*pipeline_entry, dev, kernel_obj);
+	auto compute_enc_ptr = compute_enc.get();
+	commands.emplace_back(std::move(compute_enc));
+	return *compute_enc_ptr;
+}
+
+void generic_indirect_command_pipeline::complete(const device& dev) {
+	if (!get_pipeline_entry(dev)) {
+		throw std::runtime_error("no pipeline entry for device " + dev.name);
+	}
+}
+
+void generic_indirect_command_pipeline::complete() {
+	// nop
+}
+
+void generic_indirect_command_pipeline::reset() {
+	for (auto&& pipeline : pipelines) {
+		// just clear all parameters
+		pipeline.second->commands.clear();
+	}
+	indirect_command_pipeline::reset();
+}
+
+std::optional<generic_indirect_command_pipeline::command_range_t>
+generic_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
+																	  const uint32_t command_count) const {
+	command_range_t range { command_offset, command_count };
+	if (command_count == ~0u) {
+		range.count = get_command_count();
+	}
+#if defined(FLOOR_DEBUG)
+	{
+		const auto cmd_count = get_command_count();
+		if (cmd_count == 0) {
+			log_warn("no commands in indirect command pipeline \"$\"", desc.debug_label);
+		}
+		if (range.offset >= cmd_count) {
+			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
+					  range.offset, desc.debug_label);
+			return {};
+		}
+		uint32_t sum = 0;
+		if (__builtin_uadd_overflow((uint32_t)range.offset, (uint32_t)range.count, &sum)) {
+			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
+					  range.offset, range.count, desc.debug_label);
+			return {};
+		}
+		if (sum > cmd_count) {
+			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
+					  range.count, desc.debug_label);
+			return {};
+		}
+	}
+#endif
+	// post count check, since this might have been modified, but we still want the debug messages
+	if (range.count == 0) {
+		return {};
+	}
+	
+	return range;
+}
+
+//
+generic_indirect_compute_command_encoder::generic_indirect_compute_command_encoder(generic_indirect_pipeline_entry& pipeline_entry_,
+																				   const device& dev_, const device_function& kernel_obj_) :
+indirect_compute_command_encoder(dev_, kernel_obj_), pipeline_entry(pipeline_entry_) {
+	if (!entry || !entry->info) {
+		throw std::runtime_error("state is invalid or no compute pipeline entry exists for device " + dev.name);
+	}
+}
+
+void generic_indirect_compute_command_encoder::set_arguments_vector(std::vector<device_function_arg>&& args_) {
+	args = std::move(args_);
+}
+
+indirect_compute_command_encoder& generic_indirect_compute_command_encoder::execute(const uint32_t dim,
+																					const uint3& global_work_size,
+																					const uint3& local_work_size) {
+	// add command
+	pipeline_entry.commands.emplace_back(generic_indirect_pipeline_entry::command_t {
+		.kernel_ptr = &kernel_obj,
+		.dim = dim,
+		.global_work_size = global_work_size,
+		.local_work_size = local_work_size,
+		.args = std::move(args),
+	});
+	return *this;
+}
+
+indirect_compute_command_encoder& generic_indirect_compute_command_encoder::barrier() {
+	// nop if there isn't any command yet
+	if (pipeline_entry.commands.empty()) {
+		return *this;
+	}
+	// make last command blocking
+	// TODO: or do we need a full queue sync/finish?
+	pipeline_entry.commands.back().wait_until_completion = true;
+	return *this;
+}
+
 } // namespace fl
