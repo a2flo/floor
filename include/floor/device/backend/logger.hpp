@@ -177,7 +177,7 @@ public:
 	template<size_t dollar_count, typename... Args>
 	static constexpr auto process_args(std::tuple<Args...> dummy_tupple) {
 		// counts must match (fail early if not)
-		static_assert(tuple_size<decltype(dummy_tupple)>() == dollar_count, "invalid arg count");
+		static_assert(std::tuple_size<decltype(dummy_tupple)>() == dollar_count, "invalid arg count");
 		
 		// map types to ARG_TYPEs
 		const_array<ARG_TYPE, dollar_count + 1> arg_types {};
