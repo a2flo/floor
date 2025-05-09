@@ -293,21 +293,6 @@ namespace std {
 		return ret;
 	}
 	
-	template <uint32_t width, typename any_type> requires(sizeof(any_type) == 4)
-	volatile floor_inline_always any_type sub_group_shuffle_index(const any_type lane_var, const uint32_t src_lane_idx) {
-		constexpr const auto mask = ((fl::device_info::simd_width() - width) << 8u) | 0x1Fu;
-		any_type ret;
-		if constexpr(std::is_floating_point_v<any_type>) {
-			asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-						 : "=f"(ret) : "f"(lane_var), "r"(src_lane_idx), "i"(mask));
-		}
-		else {
-			asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-						  : "=r"(ret) : "r"(lane_var), "r"(src_lane_idx), "i"(mask));
-		}
-		return ret;
-	}
-	
 	// asin/acos/atan s/w computation
 	template <typename fp_type> requires(fl::ext::is_floating_point_v<fp_type>)
 	const_func floor_inline_always fp_type asin(fp_type a) {
@@ -537,6 +522,12 @@ floor_inline_always static int32_t simd_shuffle(const int32_t lane_var, const ui
 				 : "=r"(ret) : "r"(lane_var), "r"(lane_id), "i"(fl::device_info::simd_width() - 1));
 	return ret;
 }
+template <typename type_16b> requires (fl::ext::is_same_as_any_v<type_16b, uint16_t, int16_t, half>)
+floor_inline_always static type_16b simd_shuffle(const type_16b lane_var, const uint32_t lane_id) {
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<type_16b>, float,
+										std::conditional_t<!std::is_signed_v<type_16b>, uint32_t, int32_t>>;
+	return type_16b(simd_shuffle(type_32b(lane_var), lane_id));
+}
 
 floor_inline_always static float simd_shuffle_down(const float lane_var, const uint32_t delta) {
 	float ret;
@@ -555,6 +546,12 @@ floor_inline_always static int32_t simd_shuffle_down(const int32_t lane_var, con
 	asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 				 : "=r"(ret) : "r"(lane_var), "r"(delta), "i"(fl::device_info::simd_width() - 1));
 	return ret;
+}
+template <typename type_16b> requires (fl::ext::is_same_as_any_v<type_16b, uint16_t, int16_t, half>)
+floor_inline_always static type_16b simd_shuffle_down(const type_16b lane_var, const uint32_t delta) {
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<type_16b>, float,
+										std::conditional_t<!std::is_signed_v<type_16b>, uint32_t, int32_t>>;
+	return type_16b(simd_shuffle_down(type_32b(lane_var), delta));
 }
 
 floor_inline_always static float simd_shuffle_up(const float lane_var, const uint32_t delta) {
@@ -575,6 +572,12 @@ floor_inline_always static int32_t simd_shuffle_up(const int32_t lane_var, const
 				 : "=r"(ret) : "r"(lane_var), "r"(delta));
 	return ret;
 }
+template <typename type_16b> requires (fl::ext::is_same_as_any_v<type_16b, uint16_t, int16_t, half>)
+floor_inline_always static type_16b simd_shuffle_up(const type_16b lane_var, const uint32_t delta) {
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<type_16b>, float,
+										std::conditional_t<!std::is_signed_v<type_16b>, uint32_t, int32_t>>;
+	return type_16b(simd_shuffle_up(type_32b(lane_var), delta));
+}
 
 floor_inline_always static float simd_shuffle_xor(const float lane_var, const uint32_t mask) {
 	float ret;
@@ -594,26 +597,35 @@ floor_inline_always static int32_t simd_shuffle_xor(const int32_t lane_var, cons
 				 : "=r"(ret) : "r"(lane_var), "r"(mask), "i"(fl::device_info::simd_width() - 1));
 	return ret;
 }
+template <typename type_16b> requires (fl::ext::is_same_as_any_v<type_16b, uint16_t, int16_t, half>)
+floor_inline_always static type_16b simd_shuffle_xor(const type_16b lane_var, const uint32_t mask) {
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<type_16b>, float,
+										std::conditional_t<!std::is_signed_v<type_16b>, uint32_t, int32_t>>;
+	return type_16b(simd_shuffle_xor(type_32b(lane_var), mask));
+}
 
 //! CUDA parallel group operation implementations / support
 namespace fl::algorithm::group {
 
 //! performs a butterfly reduction inside the sub-group using the specific operation/function
-template <typename T, typename F> requires (sizeof(T) == 4)
+template <typename T, typename F> requires (sizeof(T) <= 4)
 floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
-	T shfled_var;
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<T>, float,
+										std::conditional_t<!std::is_signed_v<T>, uint32_t, int32_t>>;
+	const auto lane_var_32b = type_32b(lane_var);
+	type_32b shfled_var;
 #pragma unroll
 	for (uint32_t lane = fl::device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-		if constexpr(std::is_floating_point_v<T>) {
+		if constexpr (fl::ext::is_floating_point_v<T>) {
 			asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-						 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(fl::device_info::simd_width() - 1));
+						 : "=f"(shfled_var) : "f"(lane_var_32b), "i"(lane), "i"(fl::device_info::simd_width() - 1));
 		} else {
 			asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
-						 : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(fl::device_info::simd_width() - 1));
+						 : "=r"(shfled_var) : "r"(lane_var_32b), "i"(lane), "i"(fl::device_info::simd_width() - 1));
 		}
 		lane_var = op(lane_var, shfled_var);
 	}
-	return lane_var;
+	return T(lane_var);
 }
 
 template <typename T, typename F> requires(sizeof(T) == 8)
@@ -641,68 +653,76 @@ floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
 	return lane_var;
 }
 
-template <bool is_exclusive, typename T, typename F> requires (sizeof(T) == 4)
+template <bool is_exclusive, typename T, typename F> requires (sizeof(T) <= 4)
 floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 	// NOTE: can't use builtin lane index -> mask local id X instead
 	const auto lane_idx = __nvvm_read_ptx_sreg_tid_x() & (fl::device_info::simd_width() - 1u);
 	
-	T shfled_var;
+	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<T>, float,
+										std::conditional_t<!std::is_signed_v<T>, uint32_t, int32_t>>;
+	auto lane_var_32b = type_32b(lane_var);
+	type_32b shfled_var;
 #pragma unroll
 	for (uint32_t delta = 1u; delta <= (fl::device_info::simd_width() / 2u); delta <<= 1u) {
 		if constexpr(std::is_floating_point_v<T>) {
 			asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
-						 : "=f"(shfled_var) : "f"(lane_var), "i"(delta));
+						 : "=f"(shfled_var) : "f"(lane_var_32b), "i"(delta));
 		} else {
 			asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
-						 : "=r"(shfled_var) : "r"(lane_var), "i"(delta));
+						 : "=r"(shfled_var) : "r"(lane_var_32b), "i"(delta));
 		}
 		if (lane_idx >= delta) {
-			lane_var = op(lane_var, shfled_var);
+			lane_var_32b = op(lane_var_32b, shfled_var);
 		}
 	}
 	
 	if constexpr (is_exclusive) {
 		// if this is an exclusive scan: shift one up
-		const auto incl_result = lane_var;
+		const auto incl_result = lane_var_32b;
 		asm volatile("shfl.sync.up.b32 %0, %1, 1, 0, 0xFFFFFFFF;"
-					 : "=r"(lane_var) : "r"(incl_result));
-		return (lane_idx == 0 ? T(0) : lane_var);
+					 : "=r"(lane_var_32b) : "r"(incl_result));
+		return T(lane_idx == 0 ? T(0) : lane_var_32b);
 	} else {
-		return lane_var;
+		return T(lane_var);
 	}
 }
 
 #if FLOOR_DEVICE_INFO_CUDA_SM >= 80
 //! use redux.sync with sm_80+
 template <OP op, typename T>
-requires ((std::is_same_v<T, uint32_t> || std::is_same_v<T, int32_t>) &&
+requires (fl::ext::is_same_as_any_v<T, uint16_t, int16_t, uint32_t, int32_t> &&
 		  (op == OP::ADD || op == OP::MIN || op == OP::MAX))
 floor_inline_always static T cuda_sub_group_redux(T lane_var) {
-	T ret;
+	using int_type_32b = std::conditional_t<!std::is_signed_v<T>, uint32_t, int32_t>;
+	const auto lane_var_32b = int_type_32b(lane_var);
+	int_type_32b ret;
 	if constexpr (op == OP::ADD) {
-		if constexpr (std::is_same_v<T, uint32_t>) {
-			asm volatile("redux.sync.add.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		if constexpr (!std::is_signed_v<T>) {
+			asm volatile("redux.sync.add.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		} else {
-			asm volatile("redux.sync.add.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+			asm volatile("redux.sync.add.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		}
 	} else if constexpr (op == OP::MIN) {
-		if constexpr (std::is_same_v<T, uint32_t>) {
-			asm volatile("redux.sync.min.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		if constexpr (!std::is_signed_v<T>) {
+			asm volatile("redux.sync.min.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		} else {
-			asm volatile("redux.sync.min.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+			asm volatile("redux.sync.min.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		}
 	} else if constexpr (op == OP::MAX) {
-		if constexpr (std::is_same_v<T, uint32_t>) {
-			asm volatile("redux.sync.max.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+		if constexpr (!std::is_signed_v<T>) {
+			asm volatile("redux.sync.max.u32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		} else {
-			asm volatile("redux.sync.max.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var));
+			asm volatile("redux.sync.max.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		}
 	}
-	return ret;
+	return T(ret);
 }
 #endif
 
 // specialize for all supported operations
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, half> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, uint32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, int32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, float> : public std::true_type {};
@@ -713,13 +733,16 @@ template <OP op, typename data_type>
 requires(op == OP::ADD)
 static auto sub_group_reduce(const data_type& input_value) {
 #if FLOOR_DEVICE_INFO_CUDA_SM >= 80
-	if constexpr (std::is_same_v<data_type, uint32_t> || std::is_same_v<data_type, int32_t>) {
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
 		return cuda_sub_group_redux<OP::ADD>(input_value);
 	}
 #endif
 	return cuda_sub_group_reduce(input_value, std::plus<data_type> {});
 }
 
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, half> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, uint32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, int32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, float> : public std::true_type {};
@@ -730,13 +753,16 @@ template <OP op, typename data_type>
 requires(op == OP::MIN)
 static auto sub_group_reduce(const data_type& input_value) {
 #if FLOOR_DEVICE_INFO_CUDA_SM >= 80
-	if constexpr (std::is_same_v<data_type, uint32_t> || std::is_same_v<data_type, int32_t>) {
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
 		return cuda_sub_group_redux<OP::MIN>(input_value);
 	}
 #endif
 	return cuda_sub_group_reduce(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_min(lhs, rhs); });
 }
 
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, half> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, uint32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, int32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, float> : public std::true_type {};
@@ -747,13 +773,16 @@ template <OP op, typename data_type>
 requires(op == OP::MAX)
 static auto sub_group_reduce(const data_type& input_value) {
 #if FLOOR_DEVICE_INFO_CUDA_SM >= 80
-	if constexpr (std::is_same_v<data_type, uint32_t> || std::is_same_v<data_type, int32_t>) {
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
 		return cuda_sub_group_redux<OP::MAX>(input_value);
 	}
 #endif
 	return cuda_sub_group_reduce(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_max(lhs, rhs); });
 }
 
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, half> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
@@ -763,6 +792,33 @@ static auto sub_group_inclusive_scan(const data_type& input_value) {
 	return cuda_sub_group_scan<false>(input_value, std::plus<data_type> {});
 }
 
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, half> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MIN)
+static auto sub_group_inclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_min(lhs, rhs); });
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, half> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MAX)
+static auto sub_group_inclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_max(lhs, rhs); });
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, half> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, int32_t> : public std::true_type {};
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, float> : public std::true_type {};
@@ -770,6 +826,30 @@ template <OP op, typename data_type>
 requires(op == OP::ADD)
 static auto sub_group_exclusive_scan(const data_type& input_value) {
 	return cuda_sub_group_scan<true>(input_value, std::plus<data_type> {});
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, half> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MIN)
+static auto sub_group_exclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_min(lhs, rhs); });
+}
+
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, uint16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, int16_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, half> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, uint32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, int32_t> : public std::true_type {};
+template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, float> : public std::true_type {};
+template <OP op, typename data_type>
+requires(op == OP::MAX)
+static auto sub_group_exclusive_scan(const data_type& input_value) {
+	return cuda_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_max(lhs, rhs); });
 }
 
 } // namespace fl::algorithm::group

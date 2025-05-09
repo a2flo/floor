@@ -244,7 +244,8 @@ namespace fl::algorithm {
 			reduced_type total_min {};
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
+										lmem[sub_group_local_id] : std::numeric_limits<reduced_type>::max());
 				total_min = group::sub_group_reduce<group::OP::MIN>(sg_in_val);
 			}
 			local_barrier();
@@ -281,7 +282,8 @@ namespace fl::algorithm {
 			reduced_type total_max {};
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
+										lmem[sub_group_local_id] : std::numeric_limits<reduced_type>::lowest());
 				total_max = group::sub_group_reduce<group::OP::MAX>(sg_in_val);
 			}
 			local_barrier();
@@ -389,7 +391,7 @@ namespace fl::algorithm {
 			}
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
-			return op(group_offset, scan_value);
+			return data_type(op(group_offset, scan_value));
 #endif
 		} else {
 			// old-school scan
@@ -415,7 +417,7 @@ namespace fl::algorithm {
 			// exclusive
 			const auto ret = (lid == 0u ? zero_val : lmem[side_idx + lid - 1u]);
 			local_barrier();
-			return ret;
+			return data_type(ret);
 		}
 #else // -> Host-Compute
 		lmem[inclusive ? lid : lid + 1] = work_item_value;
@@ -457,23 +459,24 @@ namespace fl::algorithm {
 		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 
-	//! work-group inclusive-scan-add/sum function (aka prefix sum)
+	//! work-group inclusive-scan-$op function (aka prefix sum/min/max)
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
-	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type>) {
-			return group::work_group_inclusive_scan<group::OP::ADD>(work_item_value, lmem);
+	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
+	floor_inline_always static auto inclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
+													  const data_type zero_val) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>) {
+			return group::work_group_inclusive_scan<op>(work_item_value, lmem);
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type> &&
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, data_type> &&
 						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
 			// first pass: inclusive scan in each sub-group
-			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
+			const auto sub_block_val = group::sub_group_inclusive_scan<op>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == sub_group_size - 1u) {
 				lmem[sub_group_id_1d] = sub_block_val;
@@ -487,9 +490,9 @@ namespace fl::algorithm {
 				if constexpr (group_count == simd_width) {
 					sg_in_val = lmem[sub_group_local_id];
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : zero_val);
 				}
-				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
+				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
 					lmem[sub_group_local_id] = wg_offset;
 				} else {
@@ -501,13 +504,57 @@ namespace fl::algorithm {
 			local_barrier();
 			
 			// finally: broadcast final per-sub-group/block offsets to all sub-groups
-			const auto sub_block_offset = (sub_group_id_1d == 0u ? data_type(0) : lmem[sub_group_id_1d - 1u]);
+			const auto sub_block_offset = data_type(sub_group_id_1d == 0u ? zero_val : lmem[sub_group_id_1d - 1u]);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
-			return sub_block_offset + sub_block_val;
+			if constexpr (op == group::OP::ADD) {
+				return data_type(sub_block_offset + sub_block_val);
+			} else if constexpr (op == group::OP::MIN) {
+				return data_type(std::min(sub_block_offset, sub_block_val));
+			} else if constexpr (op == group::OP::MAX) {
+				return data_type(std::max(sub_block_offset, sub_block_val));
+			} else {
+				instantiation_trap_dependent_type(data_type, "unhandled op");
+			}
 		}
 #endif
-		return scan<work_group_size, true>(work_item_value, std::plus<data_type> {}, lmem, data_type(0));
+		else {
+			if constexpr (op == group::OP::ADD) {
+				return scan<work_group_size, true>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
+			} else if constexpr (op == group::OP::MIN) {
+				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::min(lhs, rhs); },
+												   lmem, zero_val);
+			} else if constexpr (op == group::OP::MAX) {
+				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::max(lhs, rhs); },
+												   lmem, zero_val);
+			} else {
+				instantiation_trap_dependent_type(data_type, "unhandled op");
+			}
+		}
+	}
+
+	//! work-group inclusive-scan-add/sum function (aka prefix sum)
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto inclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
+		return inclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, data_type(0));
+	}
+
+	//! work-group inclusive-scan-min function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto inclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
+		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<data_type>::max());
+	}
+
+	//! work-group inclusive-scan-max function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto inclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
+		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<data_type>::lowest());
 	}
 	
 	//! generic work-group exclusive-scan function
@@ -522,23 +569,24 @@ namespace fl::algorithm {
 		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	
-	//! work-group exclusive-scan-add/sum function
+	//! work-group exclusive-scan-$op function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
-	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, group::OP::ADD, data_type>) {
-			return group::work_group_exclusive_scan<group::OP::ADD>(work_item_value, lmem);
+	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
+	floor_inline_always static auto exclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
+													  const data_type zero_val) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, data_type>) {
+			return group::work_group_exclusive_scan<op>(work_item_value, lmem);
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, group::OP::ADD, data_type> &&
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, data_type> &&
 						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
 			// first pass: inclusive scan in each sub-group
-			const auto sub_block_val = group::sub_group_inclusive_scan<group::OP::ADD>(work_item_value);
+			const auto sub_block_val = group::sub_group_inclusive_scan<op>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == sub_group_size - 1u) {
 				lmem[sub_group_id_1d] = sub_block_val;
@@ -552,9 +600,9 @@ namespace fl::algorithm {
 				if constexpr (group_count == simd_width) {
 					sg_in_val = lmem[sub_group_local_id];
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : data_type(0));
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : zero_val);
 				}
-				const auto wg_offset = group::sub_group_inclusive_scan<group::OP::ADD>(sg_in_val);
+				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
 					lmem[sub_group_local_id] = wg_offset;
 				} else {
@@ -566,15 +614,59 @@ namespace fl::algorithm {
 			local_barrier();
 			
 			// finally: broadcast final per-sub-group/block offsets to all sub-groups
-			const auto sub_block_offset = (sub_group_id_1d == 0u ? data_type(0) : lmem[sub_group_id_1d - 1u]);
+			const auto sub_block_offset = data_type(sub_group_id_1d == 0u ? zero_val : lmem[sub_group_id_1d - 1u]);
 			// shift one up, #0 in each group returns the offset of the previous group (+ 0)
 			const auto excl_sub_block_val = simd_shuffle_up(sub_block_val, 1u);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
-			return sub_block_offset + (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val);
+			if constexpr (op == group::OP::ADD) {
+				return data_type(sub_block_offset + (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val));
+			} else if constexpr (op == group::OP::MIN) {
+				return data_type(std::min(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+			} else if constexpr (op == group::OP::MAX) {
+				return data_type(std::max(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+			} else {
+				instantiation_trap_dependent_type(data_type, "unhandled op");
+			}
 		}
 #endif
-		return scan<work_group_size, false>(work_item_value, std::plus<data_type> {}, lmem, data_type(0));
+		else {
+			if constexpr (op == group::OP::ADD) {
+				return scan<work_group_size, false>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
+			} else if constexpr (op == group::OP::MIN) {
+				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::min(lhs, rhs); },
+													lmem, zero_val);
+			} else if constexpr (op == group::OP::MAX) {
+				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::max(lhs, rhs); },
+													lmem, zero_val);
+			} else {
+				instantiation_trap_dependent_type(data_type, "unhandled op");
+			}
+		}
+	}
+	
+	//! work-group exclusive-scan-add/sum function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto exclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
+		return exclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, data_type(0));
+	}
+	
+	//! work-group exclusive-scan-min function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto exclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
+		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<data_type>::max());
+	}
+	
+	//! work-group exclusive-scan-max function
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	//! NOTE: this function can only be called for 1D kernels
+	template <uint32_t work_group_size, typename data_type, typename lmem_type>
+	floor_inline_always static auto exclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
+		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<data_type>::lowest());
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller

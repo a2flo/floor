@@ -32,6 +32,13 @@
 #include <floor/constexpr/soft_f16.hpp>
 
 namespace fl::ext {
+	//! true if "T" is std::is_same_v as any type in "any_types"
+	template <typename T, typename... any_types>
+	requires(sizeof...(any_types) > 0)
+	struct is_same_as_any : public std::conditional_t<(std::is_same_v<T, any_types> || ...), std::true_type, std::false_type> {};
+	
+	template <typename T, typename... any_types> constexpr bool is_same_as_any_v = ext::is_same_as_any<T, any_types...>::value;
+	
 	//! std::is_floating_point with half, float, double and long double support
 	template <typename T> struct is_floating_point :
 	public std::conditional_t<(std::is_same_v<std::remove_cv_t<T>, float> ||

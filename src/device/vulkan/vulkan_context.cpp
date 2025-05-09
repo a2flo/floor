@@ -1376,7 +1376,8 @@ enable_renderer(enable_renderer_) {
 		const auto sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
 		const auto sq_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
 									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT);
-		if (!vulkan13_features.subgroupSizeControl ||
+		if (!vulkan12_features.shaderSubgroupExtendedTypes ||
+			!vulkan13_features.subgroupSizeControl ||
 			!vulkan13_features.computeFullSubgroups ||
 			vulkan11_props.subgroupSize < 2 ||
 			(vulkan11_props.subgroupSupportedStages & sg_required_stages) != sg_required_stages ||
