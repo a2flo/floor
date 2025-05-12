@@ -176,7 +176,7 @@ protected:
 					
 					// count needed ' separators
 					uint64_t sep_count = 0, sep_div = 1;
-					for (auto tmp = print_value; tmp > 1000ull; tmp /= 1000ull) {
+					for (auto tmp = 1000ull, iter = 0ull; tmp <= print_value && iter < 6ull; tmp *= 1000ull, ++iter) {
 						++sep_count;
 						sep_div *= 1000ull;
 					}
