@@ -82,10 +82,14 @@ const_func uint64_t floor_rt_ctz(uint64_t x) {
 	return (lsb_bit_idx < 0 ? 64 : lsb_bit_idx);
 }
 
-// we have direct support for these
-const_func uint16_t floor_rt_popcount(uint16_t x) asm("floor.bit_count.u16");
+// 32-bit popcount is natively supported, 16-bit and 64-bit can be easily emulated
 const_func uint32_t floor_rt_popcount(uint32_t x) asm("floor.bit_count.u32");
-const_func uint64_t floor_rt_popcount(uint64_t x) asm("floor.bit_count.u64");
+inline const_func uint16_t floor_rt_popcount(uint16_t x) {
+	return uint16_t(floor_rt_popcount(uint32_t(x)));
+}
+inline const_func uint64_t floor_rt_popcount(uint64_t x) {
+	return floor_rt_popcount(uint32_t(x)) + floor_rt_popcount(uint32_t(x >> 32ull));
+}
 
 } // namespace std
 
