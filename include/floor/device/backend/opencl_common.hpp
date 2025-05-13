@@ -136,7 +136,7 @@ floor_inline_always const_func float abs(float x) { return fabs(x); }
 floor_inline_always const_func double abs(double x) { return fabs(x); }
 #endif
 
-namespace std {
+namespace fl {
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
 const_func int8_t floor_rt_min(int8_t x, int8_t y) asm("_Z3mincc");
 const_func int16_t floor_rt_min(int16_t x, int16_t y) asm("_Z3minss");
@@ -162,7 +162,7 @@ const_func float floor_rt_max(float x, float y) { return fmax(x, y); }
 const_func double floor_rt_min(double x, double y) { return fmin(x, y); }
 const_func double floor_rt_max(double x, double y) { return fmax(x, y); }
 #endif
-} // namespace std
+} // namespace fl
 
 // add them to std::
 namespace std {

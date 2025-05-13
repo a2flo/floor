@@ -122,6 +122,18 @@ floor_inline_always const_func uint16_t abs(uint16_t x) { return x; }
 floor_inline_always const_func uint32_t abs(uint32_t x) { return x; }
 floor_inline_always const_func uint64_t abs(uint64_t x) { return x; }
 
+floor_inline_always const_func static double rsqrt(double x) { return 1.0 / __builtin_sqrt(x); }
+
+#else
+
+floor_inline_always const_func static float rsqrt(float x) { return 1.0f / sqrt(x); }
+floor_inline_always const_func static double rsqrt(double x) { return 1.0 / sqrt(x); }
+
+#endif // FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE
+} // namespace std
+
+namespace fl {
+
 floor_inline_always const_func int8_t floor_rt_min(int8_t a, int8_t b) { return a <= b ? a : b; }
 floor_inline_always const_func uint8_t floor_rt_min(uint8_t a, uint8_t b) { return a <= b ? a : b; }
 floor_inline_always const_func int16_t floor_rt_min(int16_t a, int16_t b) { return a <= b ? a : b; }
@@ -132,6 +144,7 @@ floor_inline_always const_func int64_t floor_rt_min(int64_t a, int64_t b) { retu
 floor_inline_always const_func uint64_t floor_rt_min(uint64_t a, uint64_t b) { return a <= b ? a : b; }
 floor_inline_always const_func half floor_rt_min(half a, half b) { return (half)__builtin_fminf(float(a), float(b)); }
 floor_inline_always const_func float floor_rt_min(float a, float b) { return __builtin_fminf(a, b); }
+floor_inline_always const_func double floor_rt_min(double a, double b) { return __builtin_fmin(a, b); }
 floor_inline_always const_func int8_t floor_rt_max(int8_t a, int8_t b) { return a >= b ? a : b; }
 floor_inline_always const_func uint8_t floor_rt_max(uint8_t a, uint8_t b) { return a >= b ? a : b; }
 floor_inline_always const_func int16_t floor_rt_max(int16_t a, int16_t b) { return a >= b ? a : b; }
@@ -142,26 +155,19 @@ floor_inline_always const_func int64_t floor_rt_max(int64_t a, int64_t b) { retu
 floor_inline_always const_func uint64_t floor_rt_max(uint64_t a, uint64_t b) { return a >= b ? a : b; }
 floor_inline_always const_func half floor_rt_max(half a, half b) { return (half)__builtin_fmaxf(float(a), float(b)); }
 floor_inline_always const_func float floor_rt_max(float a, float b) { return __builtin_fmaxf(a, b); }
+floor_inline_always const_func double floor_rt_max(double a, double b) { return __builtin_fmax(a, b); }
 
-floor_inline_always const_func uint16_t floor_rt_clz(uint16_t x) { return (x != 0u ? __builtin_clzs(x) : 16u); }
-floor_inline_always const_func uint32_t floor_rt_clz(uint32_t x) { return (x != 0u ? __builtin_clz(x) : 32u); }
-floor_inline_always const_func uint64_t floor_rt_clz(uint64_t x) { return (x != 0u ? __builtin_clzll(x) : 64u); }
-floor_inline_always const_func uint16_t floor_rt_ctz(uint16_t x) { return (x != 0u ? __builtin_ctzs(x) : 16u); }
-floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) { return (x != 0u ? __builtin_ctz(x) : 32u); }
-floor_inline_always const_func uint64_t floor_rt_ctz(uint64_t x) { return (x != 0u ? __builtin_ctzll(x) : 64u); }
-floor_inline_always const_func uint16_t floor_rt_popcount(uint16_t x) { return __builtin_popcount(uint32_t(x)); }
-floor_inline_always const_func uint32_t floor_rt_popcount(uint32_t x) { return __builtin_popcount(x); }
-floor_inline_always const_func uint64_t floor_rt_popcount(uint64_t x) { return __builtin_popcountll(x); }
+floor_inline_always const_func uint16_t floor_rt_clz(uint16_t x) { return uint16_t(x != 0u ? __builtin_clzs(x) : 16); }
+floor_inline_always const_func uint32_t floor_rt_clz(uint32_t x) { return uint32_t(x != 0u ? __builtin_clz(x) : 32); }
+floor_inline_always const_func uint64_t floor_rt_clz(uint64_t x) { return uint64_t(x != 0u ? __builtin_clzll(x) : 64); }
+floor_inline_always const_func uint16_t floor_rt_ctz(uint16_t x) { return uint16_t(x != 0u ? __builtin_ctzs(x) : 16); }
+floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) { return uint32_t(x != 0u ? __builtin_ctz(x) : 32); }
+floor_inline_always const_func uint64_t floor_rt_ctz(uint64_t x) { return uint64_t(x != 0u ? __builtin_ctzll(x) : 64); }
+floor_inline_always const_func uint16_t floor_rt_popcount(uint16_t x) { return uint16_t(__builtin_popcount(uint32_t(x))); }
+floor_inline_always const_func uint32_t floor_rt_popcount(uint32_t x) { return uint32_t(__builtin_popcount(x)); }
+floor_inline_always const_func uint64_t floor_rt_popcount(uint64_t x) { return uint64_t(__builtin_popcountll(x)); }
 
-floor_inline_always const_func static double rsqrt(double x) { return 1.0 / __builtin_sqrt(x); }
-
-#else
-
-floor_inline_always const_func static float rsqrt(float x) { return 1.0f / sqrt(x); }
-floor_inline_always const_func static double rsqrt(double x) { return 1.0 / sqrt(x); }
-
-#endif // FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE
-} // namespace std
+} // namespace fl
 
 // printing
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)

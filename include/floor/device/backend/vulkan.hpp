@@ -47,7 +47,7 @@ const_func int64_t floor_vulkan_find_int_lsb(int64_t x) asm("floor.find_int_lsb.
 const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb.u32"); // 32-bit only
 const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32"); // 32-bit only
 
-namespace std {
+namespace fl {
 const_func uint16_t floor_rt_reverse_bits(uint16_t x) asm("floor.bit_reverse.u16");
 const_func uint32_t floor_rt_reverse_bits(uint32_t x) asm("floor.bit_reverse.u32");
 const_func uint64_t floor_rt_reverse_bits(uint64_t x) asm("floor.bit_reverse.u64");
@@ -91,7 +91,7 @@ inline const_func uint64_t floor_rt_popcount(uint64_t x) {
 	return floor_rt_popcount(uint32_t(x)) + floor_rt_popcount(uint32_t(x >> 32ull));
 }
 
-} // namespace std
+} // namespace fl
 
 // NOTE: builtin printf is not supported with vulkan
 // -> software printf implementation

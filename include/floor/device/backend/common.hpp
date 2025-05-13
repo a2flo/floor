@@ -196,57 +196,57 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 #endif
 
 // min/max functions are problematic with most backends, C++14 requires/defines them to be constexpr,
-// but backends define these as normal non-constexpr runtime functions, which will be taken over
+// but backends define these as normal non-constexpr runtime functions, which will be chosen over
 // the existing templated min/max functions (which are constexpr)
 // -> use compiler/enable_if voodoo to fix it (see const_math.hpp for how this works)
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE)
 _LIBCPP_BEGIN_NAMESPACE_STD
 #define FLOOR_CONST_SELECT_2(func_name, ce_func, rt_func, type_name, type_suffix) \
-	static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) asm("floor__std_" #func_name type_suffix ); \
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
-	__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(&y), ""))) asm("floor__std_" #func_name type_suffix ); \
-	\
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
-	__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(&y), ""))) { \
-		return std:: ce_func (x, y); \
-	} \
-	static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) { \
-		return rt_func (x, y) ; \
-	}
-	
-	template <typename T> constexpr const_func floor_inline_always auto floor_ce_min(T x, T y) { return x <= y ? x : y; }
-	template <typename T> constexpr const_func floor_inline_always auto floor_ce_max(T x, T y) { return x >= y ? x : y; }
+static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) asm("floor__fl_" #func_name type_suffix ); \
+static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
+__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
+__attribute__((enable_if(!__builtin_constant_p(&y), ""))) asm("floor__fl_" #func_name type_suffix ); \
+\
+[[maybe_unused]] static __attribute__((always_inline)) constexpr type_name func_name (type_name x, type_name y) \
+__attribute__((enable_if(!__builtin_constant_p(&x), ""))) \
+__attribute__((enable_if(!__builtin_constant_p(&y), ""))) { \
+	return ce_func (x, y); \
+} \
+[[maybe_unused]] static __attribute__((always_inline)) type_name func_name (type_name x, type_name y) { \
+	return fl:: rt_func (x, y); \
+}
 
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int8_t, "c")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int16_t, "s")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int32_t, "i")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int64_t, "l")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint8_t, "h")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint16_t, "t")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint32_t, "j")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint64_t, "m")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, half, "h")
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, float, "f")
+template <typename T> constexpr const_func floor_inline_always auto floor_ce_min(T x, T y) { return x <= y ? x : y; }
+template <typename T> constexpr const_func floor_inline_always auto floor_ce_max(T x, T y) { return x >= y ? x : y; }
+
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int8_t, "c")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int16_t, "s")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int32_t, "i")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int64_t, "l")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint8_t, "h")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint16_t, "t")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint32_t, "j")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint64_t, "m")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, half, "Dh")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, float, "f")
 #if !defined(FLOOR_DEVICE_NO_DOUBLE)
-	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, double, "d")
+FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, double, "d")
 #endif
-	
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int8_t, "c")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int16_t, "s")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int32_t, "i")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int64_t, "l")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint8_t, "h")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint16_t, "t")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint32_t, "j")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint64_t, "m")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, half, "h")
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, float, "f")
+
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int8_t, "c")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int16_t, "s")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int32_t, "i")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int64_t, "l")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint8_t, "h")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint16_t, "t")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint32_t, "j")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint64_t, "m")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, half, "Dh")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, float, "f")
 #if !defined(FLOOR_DEVICE_NO_DOUBLE)
-	FLOOR_CONST_SELECT_2(max, floor_ce_max, fmax, double, "d")
+FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, double, "d")
 #endif
-	
+
 #undef FLOOR_CONST_SELECT_2
 _LIBCPP_END_NAMESPACE_STD
 #endif

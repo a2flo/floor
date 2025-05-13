@@ -101,7 +101,7 @@ namespace fl::rt_math {
 					 || std::is_same_v<rt_type, half>
 #endif
 					 ) {
-			return std::floor_rt_min(a, b);
+			return fl::floor_rt_min(a, b);
 		}
 		else {
 			return std::min(a, b);
@@ -131,7 +131,7 @@ namespace fl::rt_math {
 					 || std::is_same_v<rt_type, half>
 #endif
 					 ) {
-			return std::floor_rt_max(a, b);
+			return fl::floor_rt_max(a, b);
 		}
 		else {
 			return std::max(a, b);
@@ -332,7 +332,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_clzs(val) : 16u);
 #else
-		return std::floor_rt_clz(val);
+		return fl::floor_rt_clz(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint32_t>)
@@ -340,7 +340,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_clz(val) : 32u);
 #else
-		return std::floor_rt_clz(val);
+		return fl::floor_rt_clz(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint64_t>)
@@ -348,7 +348,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_clzll(val) : 64u);
 #else
-		return std::floor_rt_clz(val);
+		return fl::floor_rt_clz(val);
 #endif
 	}
 	template <typename any_type> requires(std::is_same_v<any_type, bool>)
@@ -393,7 +393,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_ctzs(val) : 16u);
 #else
-		return std::floor_rt_ctz(val);
+		return fl::floor_rt_ctz(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint32_t>)
@@ -401,7 +401,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_ctz(val) : 32u);
 #else
-		return std::floor_rt_ctz(val);
+		return fl::floor_rt_ctz(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint64_t>)
@@ -409,7 +409,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return (val != 0u ? __builtin_ctzll(val) : 64u);
 #else
-		return std::floor_rt_ctz(val);
+		return fl::floor_rt_ctz(val);
 #endif
 	}
 	template <typename any_type> requires(std::is_same_v<any_type, bool>)
@@ -454,7 +454,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return __builtin_popcount((uint32_t)val);
 #else
-		return std::floor_rt_popcount(val);
+		return fl::floor_rt_popcount(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint32_t>)
@@ -462,7 +462,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return __builtin_popcount(val);
 #else
-		return std::floor_rt_popcount(val);
+		return fl::floor_rt_popcount(val);
 #endif
 	}
 	template <typename uint_type> requires(std::is_same_v<uint_type, uint64_t>)
@@ -470,7 +470,7 @@ namespace fl::rt_math {
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 		return __builtin_popcountll(val);
 #else
-		return std::floor_rt_popcount(val);
+		return fl::floor_rt_popcount(val);
 #endif
 	}
 	template <typename any_type> requires(std::is_same_v<any_type, bool>)
@@ -525,7 +525,7 @@ namespace fl::rt_math {
 	//! whether the sign of the selected byte should be used instead (filling the full 8-bit, i.e. sign-extended)
 	static floor_inline_always uint32_t permute(const uint32_t low, const uint32_t high, const uint32_t select) {
 #if defined(FLOOR_DEVICE_INFO_HAS_PERMUTE) && FLOOR_DEVICE_INFO_HAS_PERMUTE == 1
-		return std::floor_rt_permute(low, high, select);
+		return fl::floor_rt_permute(low, high, select);
 #else
 		// 64-bit source value (consisting of 8x 8-bit values we'll select from)
 		const uint64_t src = (uint64_t(high) << 32ull) | uint64_t(low);
@@ -574,7 +574,7 @@ namespace fl::rt_math {
 	//! combines "low" and "high" to a 64-bit uint, then shifts it left by "shift" amount of bits (modulo 32)
 	static floor_inline_always uint32_t funnel_shift_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
 #if defined(FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT == 1
-		return std::floor_rt_funnel_shift_left(low, high, shift);
+		return fl::floor_rt_funnel_shift_left(low, high, shift);
 #else
 		const uint32_t shift_amount = shift & 0x1Fu;
 		return (high << shift_amount) | (low >> (32u - shift_amount));
@@ -584,7 +584,7 @@ namespace fl::rt_math {
 	//! combines "low" and "high" to a 64-bit uint, then shifts it right by "shift" amount of bits (modulo 32)
 	static floor_inline_always uint32_t funnel_shift_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
 #if defined(FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT == 1
-		return std::floor_rt_funnel_shift_right(low, high, shift);
+		return fl::floor_rt_funnel_shift_right(low, high, shift);
 #else
 		const uint32_t shift_amount = shift & 0x1Fu;
 		return (high << (32u - shift_amount)) | (low >> shift_amount);
@@ -594,7 +594,7 @@ namespace fl::rt_math {
 	//! combines "low" and "high" to a 64-bit uint, then shifts it left by "shift" amount of bits (clamped by 32)
 	static floor_inline_always uint32_t funnel_shift_clamp_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
 #if defined(FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT == 1
-		return std::floor_rt_funnel_shift_clamp_left(low, high, shift);
+		return fl::floor_rt_funnel_shift_clamp_left(low, high, shift);
 #else
 		const uint32_t shift_amount = rt_math::min(shift, 32u);
 		return (high << shift_amount) | (low >> (32u - shift_amount));
@@ -604,7 +604,7 @@ namespace fl::rt_math {
 	//! combines "low" and "high" to a 64-bit uint, then shifts it right by "shift" amount of bits (clamped by 32)
 	static floor_inline_always uint32_t funnel_shift_clamp_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
 #if defined(FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_DEVICE_INFO_HAS_FUNNEL_SHIFT == 1
-		return std::floor_rt_funnel_shift_clamp_right(low, high, shift);
+		return fl::floor_rt_funnel_shift_clamp_right(low, high, shift);
 #else
 		const uint32_t shift_amount = rt_math::min(shift, 32u);
 		return (high << (32u - shift_amount)) | (low >> shift_amount);
@@ -618,7 +618,7 @@ namespace fl::rt_math {
 													 const uint32_t base,
 													 const int32_t offset_) {
 #if defined(FLOOR_DEVICE_INFO_HAS_FIND_NTH_SET) && FLOOR_DEVICE_INFO_HAS_FIND_NTH_SET == 1
-		return std::floor_rt_find_nth_set(value, base, offset_);
+		return fl::floor_rt_find_nth_set(value, base, offset_);
 #else
 		static constexpr const uint32_t failure_ret { ~0u };
 		if(offset_ == 0) {
@@ -655,7 +655,7 @@ namespace fl::rt_math {
 	static floor_inline_always any_type reverse_bits(const any_type& value) {
 		if constexpr(sizeof(any_type) == 4) {
 #if defined(FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_32) && FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_32 == 1
-			return (any_type)std::floor_rt_reverse_bits(*(const uint32_t*)&value);
+			return (any_type)fl::floor_rt_reverse_bits(*(const uint32_t*)&value);
 #else
 			uint32_t u32_val = *(const uint32_t*)&value;
 			u32_val = ((u32_val >> 1u) & 0x55555555u) | ((u32_val & 0x55555555u) << 1u);
@@ -668,7 +668,7 @@ namespace fl::rt_math {
 		}
 		else {
 #if defined(FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64) && FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64 == 1
-			return (any_type)std::floor_rt_reverse_bits(*(const uint64_t*)&value);
+			return (any_type)fl::floor_rt_reverse_bits(*(const uint64_t*)&value);
 #else
 			uint64_t u64_val = *(const uint64_t*)&value;
 			u64_val = ((u64_val >> 1ull) & 0x5555555555555555ull) | ((u64_val & 0x5555555555555555ull) << 1ull);

@@ -252,7 +252,7 @@ namespace fl::algorithm {
 			return total_min;
 		}
 #endif
-		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return std::min(lhs, rhs); });
+		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
 	}
 	
 	//! work-group max reduce function
@@ -290,7 +290,7 @@ namespace fl::algorithm {
 			return total_max;
 		}
 #endif
-		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return std::max(lhs, rhs); });
+		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
@@ -510,9 +510,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return data_type(sub_block_offset + sub_block_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return data_type(std::min(sub_block_offset, sub_block_val));
+				return data_type(fl::floor_rt_min(sub_block_offset, sub_block_val));
 			} else if constexpr (op == group::OP::MAX) {
-				return data_type(std::max(sub_block_offset, sub_block_val));
+				return data_type(fl::floor_rt_max(sub_block_offset, sub_block_val));
 			} else {
 				instantiation_trap_dependent_type(data_type, "unhandled op");
 			}
@@ -522,10 +522,10 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return scan<work_group_size, true>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::min(lhs, rhs); },
+				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
 												   lmem, zero_val);
 			} else if constexpr (op == group::OP::MAX) {
-				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::max(lhs, rhs); },
+				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
 												   lmem, zero_val);
 			} else {
 				instantiation_trap_dependent_type(data_type, "unhandled op");
@@ -622,9 +622,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return data_type(sub_block_offset + (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val));
 			} else if constexpr (op == group::OP::MIN) {
-				return data_type(std::min(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+				return data_type(fl::floor_rt_min(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
 			} else if constexpr (op == group::OP::MAX) {
-				return data_type(std::max(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+				return data_type(fl::floor_rt_max(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
 			} else {
 				instantiation_trap_dependent_type(data_type, "unhandled op");
 			}
@@ -634,10 +634,10 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return scan<work_group_size, false>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::min(lhs, rhs); },
+				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
 													lmem, zero_val);
 			} else if constexpr (op == group::OP::MAX) {
-				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return std::max(lhs, rhs); },
+				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
 													lmem, zero_val);
 			} else {
 				instantiation_trap_dependent_type(data_type, "unhandled op");

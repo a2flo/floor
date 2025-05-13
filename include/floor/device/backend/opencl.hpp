@@ -38,7 +38,7 @@ FLOOR_GROUP_SIZE_RANGE_ATTR const_func size_t cl_get_group_size(uint32_t dim) as
 
 #include <floor/device/backend/opencl_common.hpp>
 
-namespace std {
+namespace fl {
 // non-standard bit counting functions (don't use these directly, use math::func instead)
 const_func uint16_t floor_rt_clz(uint16_t x) asm("_Z3clzt");
 const_func uint32_t floor_rt_clz(uint32_t x) asm("_Z3clzj");
@@ -71,7 +71,7 @@ static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
 	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
 }
 #endif
-} // namespace std
+} // namespace fl
 
 // can't normally produce _Z6printfPrU3AS2cz with clang/LLVM, because a proper "restrict" keyword is missing in C++ mode
 // -> slay it with an asm label

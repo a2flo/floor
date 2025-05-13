@@ -104,79 +104,83 @@ namespace std {
 	const_func metal_func uint32_t abs(uint32_t) asm("air.abs.u.i32");
 	const_func metal_func uint64_t abs(uint64_t val) { return val; }
 	
-	const_func metal_func int8_t floor_rt_min(int8_t, int8_t) asm("air.min.s.i8");
-	const_func metal_func uint8_t floor_rt_min(uint8_t, uint8_t) asm("air.min.u.i8");
-	const_func metal_func int16_t floor_rt_min(int16_t, int16_t) asm("air.min.s.i16");
-	const_func metal_func uint16_t floor_rt_min(uint16_t, uint16_t) asm("air.min.u.i16");
-	const_func metal_func int32_t floor_rt_min(int32_t, int32_t) asm("air.min.s.i32");
-	const_func metal_func uint32_t floor_rt_min(uint32_t, uint32_t) asm("air.min.u.i32");
-	const_func metal_func int64_t floor_rt_min(int64_t x, int64_t y) { return x <= y ? x : y; }
-	const_func metal_func uint64_t floor_rt_min(uint64_t x, uint64_t y) { return x <= y ? x : y; }
-	const_func metal_func half floor_rt_min(half, half) asm("air.fmin.f16");
-	const_func metal_func float floor_rt_min(float, float) asm("air.fast_fmin.f32");
-	const_func metal_func int8_t floor_rt_max(int8_t, int8_t) asm("air.max.s.i8");
-	const_func metal_func uint8_t floor_rt_max(uint8_t, uint8_t) asm("air.max.u.i8");
-	const_func metal_func int16_t floor_rt_max(int16_t, int16_t) asm("air.max.s.i16");
-	const_func metal_func uint16_t floor_rt_max(uint16_t, uint16_t) asm("air.max.u.i16");
-	const_func metal_func int32_t floor_rt_max(int32_t, int32_t) asm("air.max.s.i32");
-	const_func metal_func uint32_t floor_rt_max(uint32_t, uint32_t) asm("air.max.u.i32");
-	const_func metal_func int64_t floor_rt_max(int64_t x, int64_t y) { return x >= y ? x : y; }
-	const_func metal_func uint64_t floor_rt_max(uint64_t x, uint64_t y) { return x >= y ? x : y; }
-	const_func metal_func half floor_rt_max(half, half) asm("air.fmax.f16");
-	const_func metal_func float floor_rt_max(float, float) asm("air.fast_fmax.f32");
-	
 	const_func metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
 	const_func metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
 	
 	const_func metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
 	
-	// non-standard bit counting functions (don't use these directly, use math::func instead)
-	const_func metal_func uint16_t air_rt_clz(uint16_t, bool undef = false) asm("air.clz.i16");
-	const_func metal_func uint32_t air_rt_clz(uint32_t, bool undef = false) asm("air.clz.i32");
-	const_func metal_func uint16_t air_rt_ctz(uint16_t, bool undef = false) asm("air.ctz.i16");
-	const_func metal_func uint32_t air_rt_ctz(uint32_t, bool undef = false) asm("air.ctz.i32");
-	
-	const_func floor_inline_always metal_func uint16_t floor_rt_clz(uint16_t x) {
-		return air_rt_clz(x);
-	}
-	const_func floor_inline_always metal_func uint32_t floor_rt_clz(uint32_t x) {
-		return air_rt_clz(x);
-	}
-	const_func floor_inline_always metal_func uint64_t floor_rt_clz(uint64_t x) {
-		const auto upper = uint32_t(x >> 32ull);
-		const auto lower = uint32_t(x & 0xFFFFFFFFull);
-		const auto clz_upper = floor_rt_clz(upper);
-		const auto clz_lower = floor_rt_clz(lower);
-		return (clz_upper < 32 ? clz_upper : (clz_upper + clz_lower));
-	}
-	const_func floor_inline_always metal_func uint16_t floor_rt_ctz(uint16_t x) {
-		return air_rt_ctz(x);
-	}
-	const_func floor_inline_always metal_func uint32_t floor_rt_ctz(uint32_t x) {
-		return air_rt_ctz(x);
-	}
-	const_func floor_inline_always metal_func uint64_t floor_rt_ctz(uint64_t x) {
-		const auto upper = uint32_t(x >> 32ull);
-		const auto lower = uint32_t(x & 0xFFFFFFFFull);
-		const auto ctz_upper = floor_rt_ctz(upper);
-		const auto ctz_lower = floor_rt_ctz(lower);
-		return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
-	}
-	const_func metal_func uint16_t floor_rt_popcount(uint16_t) asm("air.popcount.i16");
-	const_func metal_func uint32_t floor_rt_popcount(uint32_t) asm("air.popcount.i32");
-	const_func floor_inline_always metal_func uint64_t floor_rt_popcount(uint64_t x) {
-		const auto upper = uint32_t(x >> 32ull);
-		const auto lower = uint32_t(x & 0xFFFFFFFFull);
-		return floor_rt_popcount(upper) + floor_rt_popcount(lower);
-	}
-	const_func metal_func uint32_t floor_rt_reverse_bits(uint32_t) asm("air.reverse_bits.i32");
-	const_func metal_func uint64_t floor_rt_reverse_bits(uint64_t value) {
-		const auto low_rev = floor_rt_reverse_bits(uint32_t(value));
-		const auto high_rev = floor_rt_reverse_bits(uint32_t(value >> 32ull));
-		return (uint64_t(low_rev) << 32ull) | uint64_t(high_rev);
-	}
-	
 } // namespace std
+
+namespace fl {
+
+// non-standard bit counting functions (don't use these directly, use math::func instead)
+const_func metal_func uint16_t air_rt_clz(uint16_t, bool undef = false) asm("air.clz.i16");
+const_func metal_func uint32_t air_rt_clz(uint32_t, bool undef = false) asm("air.clz.i32");
+const_func metal_func uint16_t air_rt_ctz(uint16_t, bool undef = false) asm("air.ctz.i16");
+const_func metal_func uint32_t air_rt_ctz(uint32_t, bool undef = false) asm("air.ctz.i32");
+
+const_func metal_func int8_t floor_rt_min(int8_t, int8_t) asm("air.min.s.i8");
+const_func metal_func uint8_t floor_rt_min(uint8_t, uint8_t) asm("air.min.u.i8");
+const_func metal_func int16_t floor_rt_min(int16_t, int16_t) asm("air.min.s.i16");
+const_func metal_func uint16_t floor_rt_min(uint16_t, uint16_t) asm("air.min.u.i16");
+const_func metal_func int32_t floor_rt_min(int32_t, int32_t) asm("air.min.s.i32");
+const_func metal_func uint32_t floor_rt_min(uint32_t, uint32_t) asm("air.min.u.i32");
+const_func metal_func int64_t floor_rt_min(int64_t x, int64_t y) { return x <= y ? x : y; }
+const_func metal_func uint64_t floor_rt_min(uint64_t x, uint64_t y) { return x <= y ? x : y; }
+const_func metal_func half floor_rt_min(half, half) asm("air.fmin.f16");
+const_func metal_func float floor_rt_min(float, float) asm("air.fast_fmin.f32");
+const_func metal_func int8_t floor_rt_max(int8_t, int8_t) asm("air.max.s.i8");
+const_func metal_func uint8_t floor_rt_max(uint8_t, uint8_t) asm("air.max.u.i8");
+const_func metal_func int16_t floor_rt_max(int16_t, int16_t) asm("air.max.s.i16");
+const_func metal_func uint16_t floor_rt_max(uint16_t, uint16_t) asm("air.max.u.i16");
+const_func metal_func int32_t floor_rt_max(int32_t, int32_t) asm("air.max.s.i32");
+const_func metal_func uint32_t floor_rt_max(uint32_t, uint32_t) asm("air.max.u.i32");
+const_func metal_func int64_t floor_rt_max(int64_t x, int64_t y) { return x >= y ? x : y; }
+const_func metal_func uint64_t floor_rt_max(uint64_t x, uint64_t y) { return x >= y ? x : y; }
+const_func metal_func half floor_rt_max(half, half) asm("air.fmax.f16");
+const_func metal_func float floor_rt_max(float, float) asm("air.fast_fmax.f32");
+
+const_func floor_inline_always metal_func uint16_t floor_rt_clz(uint16_t x) {
+	return air_rt_clz(x);
+}
+const_func floor_inline_always metal_func uint32_t floor_rt_clz(uint32_t x) {
+	return air_rt_clz(x);
+}
+const_func floor_inline_always metal_func uint64_t floor_rt_clz(uint64_t x) {
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	const auto clz_upper = floor_rt_clz(upper);
+	const auto clz_lower = floor_rt_clz(lower);
+	return (clz_upper < 32 ? clz_upper : (clz_upper + clz_lower));
+}
+const_func floor_inline_always metal_func uint16_t floor_rt_ctz(uint16_t x) {
+	return air_rt_ctz(x);
+}
+const_func floor_inline_always metal_func uint32_t floor_rt_ctz(uint32_t x) {
+	return air_rt_ctz(x);
+}
+const_func floor_inline_always metal_func uint64_t floor_rt_ctz(uint64_t x) {
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	const auto ctz_upper = floor_rt_ctz(upper);
+	const auto ctz_lower = floor_rt_ctz(lower);
+	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
+}
+const_func metal_func uint16_t floor_rt_popcount(uint16_t) asm("air.popcount.i16");
+const_func metal_func uint32_t floor_rt_popcount(uint32_t) asm("air.popcount.i32");
+const_func floor_inline_always metal_func uint64_t floor_rt_popcount(uint64_t x) {
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	return floor_rt_popcount(upper) + floor_rt_popcount(lower);
+}
+const_func metal_func uint32_t floor_rt_reverse_bits(uint32_t) asm("air.reverse_bits.i32");
+const_func metal_func uint64_t floor_rt_reverse_bits(uint64_t value) {
+	const auto low_rev = floor_rt_reverse_bits(uint32_t(value));
+	const auto high_rev = floor_rt_reverse_bits(uint32_t(value >> 32ull));
+	return (uint64_t(low_rev) << 32ull) | uint64_t(high_rev);
+}
+
+} // namespace fl
 
 // Metal itself does not provide get_*_id/get_*_size functions, but rather handles this by using additional function arguments
 // that must be tagged with a specific attribute. personally, I think this is a bad design decision that adds unnecessary work
@@ -419,7 +423,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, float>
 template <OP op, typename data_type>
 requires(op == OP::MIN)
 static auto sub_group_inclusive_scan(const data_type& input_value) {
-	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_min(lhs, rhs); });
+	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
 }
 
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, uint16_t> : public std::true_type {};
@@ -431,7 +435,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MAX, float>
 template <OP op, typename data_type>
 requires(op == OP::MAX)
 static auto sub_group_inclusive_scan(const data_type& input_value) {
-	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_max(lhs, rhs); });
+	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
 }
 
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, uint16_t> : public std::true_type {};
@@ -455,7 +459,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, float>
 template <OP op, typename data_type>
 requires(op == OP::MIN)
 static auto sub_group_exclusive_scan(const data_type& input_value) {
-	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_min(lhs, rhs); });
+	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
 }
 
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, uint16_t> : public std::true_type {};
@@ -467,7 +471,7 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, float>
 template <OP op, typename data_type>
 requires(op == OP::MAX)
 static auto sub_group_exclusive_scan(const data_type& input_value) {
-	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return std::floor_rt_max(lhs, rhs); });
+	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
 }
 
 } // namespace fl::algorithm::group
