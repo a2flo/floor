@@ -117,7 +117,7 @@ namespace fl::algorithm {
 				arr[0] = op(arr[0], arr[i]);
 			}
 		}
-		return lmem[0];
+		return data_type(lmem[0]);
 #endif
 	}
 	
@@ -176,7 +176,7 @@ namespace fl::algorithm {
 				arr[0] = op(arr[0], arr[i]);
 			}
 		}
-		return lmem[0];
+		return reduced_type(lmem[0]);
 #endif
 	}
 	
@@ -423,9 +423,9 @@ namespace fl::algorithm {
 		lmem[inclusive ? lid : lid + 1] = work_item_value;
 		local_barrier();
 		
-		if(lid == 0) {
+		if (lid == 0) {
 			// exclusive: #0 has not been set yet -> init with zero
-			if(!inclusive) {
+			if (!inclusive) {
 				lmem[0] = zero_val;
 			}
 			
@@ -435,15 +435,15 @@ namespace fl::algorithm {
 #else
 			auto& arr = lmem;
 #endif
-			for(uint32_t i = 1; i < work_group_size; ++i) {
-				arr[i] = op(arr[i - 1], arr[i]);
+			for (uint32_t i = 1; i < work_group_size; ++i) {
+				arr[i] = data_type(op(data_type(arr[i - 1]), data_type(arr[i])));
 			}
 		}
 		
 		// sync once so that lmem can safely be used again outside of this function
 		const auto ret = lmem[lid];
 		local_barrier();
-		return ret;
+		return data_type(ret);
 #endif
 	}
 	

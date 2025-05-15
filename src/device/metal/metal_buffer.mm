@@ -406,22 +406,28 @@ bool metal_buffer::fill(const device_queue& cqueue,
 	@autoreleasepool {
 		GUARD(lock);
 		
+		const auto fill_single_byte = [&cqueue, &offset, &fill_size, &pattern, this]() {
+			@autoreleasepool {
+				id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+				id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+				// NOTE: always use "buffer" here, not the staging buffer if available!
+				[blit_encoder fillBuffer:buffer
+								   range:NSRange { offset, offset + fill_size }
+								   value:*(const uint8_t*)pattern];
+				[blit_encoder endEncoding];
+				[cmd_buffer commit];
+				[cmd_buffer waitUntilCompleted];
+			}
+		};
+		
 		id <MTLBuffer> fill_buffer = (staging_buffer != nullptr ? staging_buffer->get_metal_buffer() : buffer);
 		const size_t pattern_count = fill_size / pattern_size;
 		if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
 			switch (pattern_size) {
-				case 1: {
+				case 1:
 					// can use fillBuffer directly on the private storage buffer
-					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-					[blit_encoder fillBuffer:buffer
-									   range:NSRange { offset, offset + fill_size }
-									   value:*(const uint8_t*)pattern];
-					[blit_encoder endEncoding];
-					[cmd_buffer commit];
-					[cmd_buffer waitUntilCompleted];
+					fill_single_byte();
 					return true;
-				}
 				default: {
 					// there is no fast path -> create a host buffer with the pattern and upload it
 					const size_t pattern_fill_size = pattern_size * pattern_count;
@@ -438,7 +444,7 @@ bool metal_buffer::fill(const device_queue& cqueue,
 		} else {
 			switch(pattern_size) {
 				case 1:
-					std::fill_n((uint8_t*)[fill_buffer contents] + offset, pattern_count, *(const uint8_t*)pattern);
+					fill_single_byte();
 					break;
 				case 2:
 					std::fill_n((uint16_t*)[fill_buffer contents] + offset / 2u, pattern_count, *(const uint16_t*)pattern);
