@@ -616,7 +616,7 @@ template <typename T, typename F> requires (sizeof(T) <= 4)
 floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
 	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<T>, float,
 										std::conditional_t<!std::is_signed_v<T>, uint32_t, int32_t>>;
-	const auto lane_var_32b = type_32b(lane_var);
+	auto lane_var_32b = type_32b(lane_var);
 	type_32b shfled_var;
 #pragma unroll
 	for (uint32_t lane = fl::device_info::simd_width() / 2; lane > 0; lane >>= 1) {
@@ -627,9 +627,9 @@ floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
 			asm volatile("shfl.sync.bfly.b32 %0, %1, %2, %3, 0xFFFFFFFF;"
 						 : "=r"(shfled_var) : "r"(lane_var_32b), "i"(lane), "i"(fl::device_info::simd_width() - 1));
 		}
-		lane_var = op(lane_var, shfled_var);
+		lane_var_32b = op(lane_var_32b, shfled_var);
 	}
-	return T(lane_var);
+	return T(lane_var_32b);
 }
 
 template <typename T, typename F> requires(sizeof(T) == 8)
@@ -687,7 +687,7 @@ floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 					 : "=r"(lane_var_32b) : "r"(incl_result));
 		return T(lane_idx == 0 ? T(0) : lane_var_32b);
 	} else {
-		return T(lane_var);
+		return T(lane_var_32b);
 	}
 }
 

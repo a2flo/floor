@@ -407,8 +407,8 @@ bool cuda_api_init(const bool use_internal_api) {
 				cuda_device_sampler_func_offset = device_sampler_func_offset;
 				cuda_device_in_ctx_offset = device_in_ctx_offset;
 			} else {
-				log_error("device sampler function pointer offset / device in context offset invalid or not found: $X, $X",
-						  device_sampler_func_offset, device_in_ctx_offset);
+				log_warn("device sampler function pointer offset / device in context offset invalid or not found: $X, $X",
+						 device_sampler_func_offset, device_in_ctx_offset);
 			}
 		} else {
 			log_error("failed to load CUDA lib");
