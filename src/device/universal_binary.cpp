@@ -1575,6 +1575,7 @@ namespace fl::universal_binary {
 				.name = func.name,
 				.type = func.static_function_info.type,
 				.flags = func.static_function_info.flags,
+				.is_fubar = true,
 			};
 			
 			uint32_t arg_idx = 0u;

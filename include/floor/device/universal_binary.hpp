@@ -281,6 +281,7 @@ using namespace std::literals;
 			//! if 0, no width is assumed
 			uint64_t simd_width : 8;
 			
+			// TODO: max mip level count in next version
 			uint64_t _unused : 15;
 		} vulkan;
 

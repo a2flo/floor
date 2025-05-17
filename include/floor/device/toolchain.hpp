@@ -154,6 +154,10 @@ namespace fl::toolchain {
 		
 		std::vector<arg_info> args;
 		
+		//! true if this function comes from a precompiled FUBAR binary,
+		//! false if it was compiled at run-time
+		bool is_fubar { false };
+		
 		//! returns the kernel dimensionality
 		uint32_t get_kernel_dim() const {
 			if (has_flag<toolchain::FUNCTION_FLAGS::KERNEL_3D>(flags)) {

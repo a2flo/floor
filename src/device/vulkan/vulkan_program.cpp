@@ -43,6 +43,11 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 	const uint32_t explicit_arg_count = uint32_t(info.args.size());
 	const uint32_t total_arg_count = explicit_arg_count + implicit_arg_count;
 	
+	// currently, we always build universal binaries using a fixed map mip level count of 16
+	// -> need to account for this in here if it doesn't match the device max mip level count
+	// TODO: more flexibility, add parameter to FUBAR vulkan target
+	const auto max_mip_levels = (info.is_fubar ? vulkan_device::builtin_max_mip_levels : dev.max_mip_levels);
+	
 	// create function + device specific descriptor set layout
 	vulkan_descriptor_set_layout_t layout {};
 	layout.bindings.reserve(total_arg_count);
@@ -82,11 +87,11 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 							break;
 						case ARG_ACCESS::WRITE:
 							binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-							binding.descriptorCount *= dev.max_mip_levels;
+							binding.descriptorCount *= max_mip_levels;
 							if (is_image_array) {
-								layout.write_image_desc += arg.size * dev.max_mip_levels;
+								layout.write_image_desc += arg.size * max_mip_levels;
 							} else {
-								layout.write_image_desc += dev.max_mip_levels;
+								layout.write_image_desc += max_mip_levels;
 							}
 							break;
 						case ARG_ACCESS::READ_WRITE: {
@@ -101,12 +106,12 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 							layout.bindings.emplace_back(VkDescriptorSetLayoutBinding {
 								.binding = binding_idx,
 								.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-								.descriptorCount = dev.max_mip_levels,
+								.descriptorCount = max_mip_levels,
 								.stageFlags = VkShaderStageFlags(stage),
 								.pImmutableSamplers = nullptr,
 							});
 							++layout.read_image_desc;
-							layout.write_image_desc += dev.max_mip_levels;
+							layout.write_image_desc += max_mip_levels;
 							break;
 						}
 						case ARG_ACCESS::UNSPECIFIED:

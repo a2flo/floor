@@ -210,7 +210,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 }
 
 template <ENCODER_TYPE enc_type>
-static inline void set_argument(const vulkan_device& vk_dev floor_unused,
+static inline void set_argument(const vulkan_device& vk_dev,
 								const idx_handler& idx,
 								const function_info& arg_info,
 								const std::vector<VkDeviceSize>& argument_offsets,
@@ -286,8 +286,23 @@ static inline void set_argument(const vulkan_device& vk_dev floor_unused,
 		if (has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(vk_img->get_image_type())) {
 			throw std::runtime_error("transient image can not be used as an image parameter");
 		}
+		if (arg_info.is_fubar && vk_img->get_mip_level_count() > vulkan_device::builtin_max_mip_levels) {
+			log_warn("the max mip level count for precompiled binaries is currently $, but the specified image has $ mip levels",
+					 vulkan_device::builtin_max_mip_levels, vk_img->get_mip_level_count());
+		}
 #endif
-		memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
+		if (arg_info.is_fubar) {
+			// for precompiled FUBAR binaries we need to account for the limit that the function has been compiled for
+			// -> don't write more than builtin_max_mip_levels (16) levels, zero out the remaining descriptor memory if smaller
+			const auto max_mip_levels_size = size_t(vk_dev.desc_buffer_sizes.storage_image * vulkan_device::builtin_max_mip_levels);
+			const auto write_size = std::min(desc_data.size(), max_mip_levels_size);
+			memcpy(host_desc_data.data() + write_offset, desc_data.data(), write_size);
+			if (write_size < max_mip_levels_size) {
+				memset(host_desc_data.data() + write_offset + write_size, 0, max_mip_levels_size - write_size);
+			}
+		} else {
+			memcpy(host_desc_data.data() + write_offset, desc_data.data(), desc_data.size());
+		}
 	}
 }
 
@@ -472,7 +487,7 @@ arg_pre_handler(const std::vector<std::span<uint8_t>>& mapped_host_desc_data,
 	return { entry, argument_offsets, const_buf, host_desc_data };
 }
 
-//! increments indicies dependent on the arg
+//! increments indices dependent on the arg
 static inline void arg_post_handler(const function_info& arg_info,
 									idx_handler& idx) {
 	// advance all indices
