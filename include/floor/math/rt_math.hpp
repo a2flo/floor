@@ -357,30 +357,27 @@ namespace fl::rt_math {
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t clz(const any_type& val) {
-		const uint16_t widened_val = *(const uint8_t*)&val;
+		const uint16_t widened_val = std::bit_cast<uint8_t>(val);
 		return rt_math::clz(widened_val) - 8 /* upper 8 bits */;
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t clz(const any_type& val) {
-		return rt_math::clz(*(const uint16_t*)&val);
+		return rt_math::clz(std::bit_cast<uint16_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t clz(const any_type& val) {
-		return rt_math::clz(*(const uint32_t*)&val);
+		return rt_math::clz(std::bit_cast<uint32_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t clz(const any_type& val) {
-		return rt_math::clz(*(const uint64_t*)&val);
+		return rt_math::clz(std::bit_cast<uint64_t>(val));
 	}
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 	template <typename any_type> requires(std::is_same_v<any_type, __uint128_t> || std::is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t clz(const any_type& val) {
-		union {
-			__uint128_t ui128;
-			any_type val;
-		} conv { .val = val };
-		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(~0ull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
@@ -418,30 +415,27 @@ namespace fl::rt_math {
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		const uint16_t widened_val = 0xFFu | *(const uint8_t*)&val;
+		const uint16_t widened_val = 0xFFu | std::bit_cast<uint8_t>(val);
 		return rt_math::ctz(widened_val);
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		return rt_math::ctz(*(const uint16_t*)&val);
+		return rt_math::ctz(std::bit_cast<uint16_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		return rt_math::ctz(*(const uint32_t*)&val);
+		return rt_math::ctz(std::bit_cast<uint32_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		return rt_math::ctz(*(const uint64_t*)&val);
+		return rt_math::ctz(std::bit_cast<uint64_t>(val));
 	}
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 	template <typename any_type> requires(std::is_same_v<any_type, __uint128_t> || std::is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		union {
-			__uint128_t ui128;
-			any_type val;
-		} conv { .val = val };
-		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(~0ull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
@@ -479,30 +473,27 @@ namespace fl::rt_math {
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, bool> && sizeof(any_type) == 1)
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		const uint16_t widened_val = *(const uint8_t*)&val;
+		const uint16_t widened_val = std::bit_cast<uint8_t>(val);
 		return rt_math::popcount(widened_val);
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint16_t> && sizeof(any_type) == 2)
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		return rt_math::popcount(*(const uint16_t*)&val);
+		return rt_math::popcount(std::bit_cast<uint16_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint32_t> && sizeof(any_type) == 4)
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		return rt_math::popcount(*(const uint32_t*)&val);
+		return rt_math::popcount(std::bit_cast<uint32_t>(val));
 	}
 	template <typename any_type> requires(!std::is_same_v<any_type, uint64_t> && sizeof(any_type) == 8)
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		return rt_math::popcount(*(const uint64_t*)&val);
+		return rt_math::popcount(std::bit_cast<uint64_t>(val));
 	}
 #if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
 	template <typename any_type> requires(std::is_same_v<any_type, __uint128_t> || std::is_same_v<any_type, __int128_t> || sizeof(any_type) == 16)
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		union {
-			__uint128_t ui128;
-			any_type val;
-		} conv { .val = val };
-		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(~0ull));
 		return popcount(upper) + popcount(lower);
 	}
 #endif
@@ -655,29 +646,29 @@ namespace fl::rt_math {
 	static floor_inline_always any_type reverse_bits(const any_type& value) {
 		if constexpr(sizeof(any_type) == 4) {
 #if defined(FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_32) && FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_32 == 1
-			return (any_type)fl::floor_rt_reverse_bits(*(const uint32_t*)&value);
+			return (any_type)fl::floor_rt_reverse_bits(std::bit_cast<uint32_t>(value));
 #else
-			uint32_t u32_val = *(const uint32_t*)&value;
+			uint32_t u32_val = std::bit_cast<uint32_t>(value);
 			u32_val = ((u32_val >> 1u) & 0x55555555u) | ((u32_val & 0x55555555u) << 1u);
 			u32_val = ((u32_val >> 2u) & 0x33333333u) | ((u32_val & 0x33333333u) << 2u);
 			u32_val = ((u32_val >> 4u) & 0x0F0F0F0Fu) | ((u32_val & 0x0F0F0F0Fu) << 4u);
 			u32_val = ((u32_val >> 8u) & 0x00FF00FFu) | ((u32_val & 0x00FF00FFu) << 8u);
 			u32_val = (u32_val >> 16u) | (u32_val << 16u);
-			return *(any_type*)&u32_val;
+			return std::bit_cast<any_type>(value);
 #endif
 		}
 		else {
 #if defined(FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64) && FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64 == 1
-			return (any_type)fl::floor_rt_reverse_bits(*(const uint64_t*)&value);
+			return (any_type)fl::floor_rt_reverse_bits(std::bit_cast<uint64_t>(value));
 #else
-			uint64_t u64_val = *(const uint64_t*)&value;
+			uint64_t u64_val = std::bit_cast<uint64_t>(value);
 			u64_val = ((u64_val >> 1ull) & 0x5555555555555555ull) | ((u64_val & 0x5555555555555555ull) << 1ull);
 			u64_val = ((u64_val >> 2ull) & 0x3333333333333333ull) | ((u64_val & 0x3333333333333333ull) << 2ull);
 			u64_val = ((u64_val >> 4ull) & 0x0F0F0F0F0F0F0F0Full) | ((u64_val & 0x0F0F0F0F0F0F0F0Full) << 4ull);
 			u64_val = ((u64_val >> 8ull) & 0x00FF00FF00FF00FFull) | ((u64_val & 0x00FF00FF00FF00FFull) << 8ull);
 			u64_val = ((u64_val >> 16ull) & 0x0000FFFF0000FFFFull) | ((u64_val & 0x0000FFFF0000FFFFull) << 16ull);
 			u64_val = (u64_val >> 32ull) | (u64_val << 32ull);
-			return *(any_type*)&u64_val;
+			return std::bit_cast<any_type>(value);
 #endif
 		}
 	}

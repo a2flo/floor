@@ -173,7 +173,7 @@ namespace fl::algorithm {
 			auto& arr = lmem;
 #endif
 			for(uint32_t i = 1; i < linear_work_group_size; ++i) {
-				arr[0] = op(arr[0], arr[i]);
+				arr[0] = reduced_type(op(arr[0], arr[i]));
 			}
 		}
 		return reduced_type(lmem[0]);
@@ -325,7 +325,8 @@ namespace fl::algorithm {
 	floor_inline_always static auto scan(const data_type& work_item_value,
 										 op_func_type&& op,
 										 lmem_type& lmem,
-										 const data_type zero_val = (data_type)0) {
+										 const decay_as_t<data_type> init_val) {
+		using dec_data_type = decay_as_t<data_type>;
 		const auto lid = local_id.x;
 		
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE)
@@ -338,8 +339,8 @@ namespace fl::algorithm {
 			const auto group = sub_group_id_1d;
 			
 			// scan in sub-group
-			data_type shfled_var;
-			data_type scan_value = work_item_value;
+			dec_data_type shfled_var;
+			dec_data_type scan_value = work_item_value;
 #pragma unroll
 			for (uint32_t lane_idx = 1u; lane_idx != simd_width; lane_idx <<= 1u) {
 				shfled_var = simd_shuffle_up(scan_value, lane_idx);
@@ -357,11 +358,11 @@ namespace fl::algorithm {
 			// scan per-sub-group results in the first sub-group
 			if (group == 0u) {
 				// init each lane with the result (most right) value of each sub-group
-				data_type group_scan_value {};
+				dec_data_type group_scan_value {};
 				if constexpr (group_count == simd_width) {
 					group_scan_value = lmem[lane];
 				} else {
-					group_scan_value = (lane < group_count ? lmem[lane] : zero_val);
+					group_scan_value = (lane < group_count ? lmem[lane] : init_val);
 				}
 				
 #pragma unroll
@@ -382,16 +383,16 @@ namespace fl::algorithm {
 			}
 			local_barrier();
 			
-			// broadcast final per-sub-group offsets to all sub-groups
-			const auto group_offset = (group > 0u ? lmem[group - 1u] : data_type(0));
+			// broadcast final per-sub-group values to all sub-groups
+			const auto group_offset = (group > 0u ? lmem[group - 1u] : init_val);
 			if constexpr (!inclusive) {
 				// exclusive: shift one up, #0 in each group returns the offset of the previous group (+ 0)
 				shfled_var = simd_shuffle_up(scan_value, 1u);
-				scan_value = (lane == 0u ? zero_val : shfled_var);
+				scan_value = (lane == 0u ? init_val : shfled_var);
 			}
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
-			return data_type(op(group_offset, scan_value));
+			return dec_data_type(op(group_offset, scan_value));
 #endif
 		} else {
 			// old-school scan
@@ -415,35 +416,31 @@ namespace fl::algorithm {
 				return value; // value == lmem[side_idx + lid] at this point
 			}
 			// exclusive
-			const auto ret = (lid == 0u ? zero_val : lmem[side_idx + lid - 1u]);
+			const auto ret = (lid == 0u ? init_val : lmem[side_idx + lid - 1u]);
 			local_barrier();
-			return data_type(ret);
+			return dec_data_type(ret);
 		}
 #else // -> Host-Compute
-		lmem[inclusive ? lid : lid + 1] = work_item_value;
+		lmem[lid] = work_item_value;
 		local_barrier();
 		
 		if (lid == 0) {
-			// exclusive: #0 has not been set yet -> init with zero
-			if (!inclusive) {
-				lmem[0] = zero_val;
-			}
-			
 			// just forward scan
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 			auto& arr = lmem.as_array();
 #else
 			auto& arr = lmem;
 #endif
-			for (uint32_t i = 1; i < work_group_size; ++i) {
-				arr[i] = data_type(op(data_type(arr[i - 1]), data_type(arr[i])));
+			for (uint32_t i = 1u; i < work_group_size; ++i) {
+				arr[i] = dec_data_type(op(dec_data_type(arr[i - 1]), dec_data_type(arr[i])));
 			}
 		}
 		
 		// sync once so that lmem can safely be used again outside of this function
-		const auto ret = lmem[lid];
+		// for exclusive: local id #0 always returns the init/zero val, all others the value from the previous local id
+		const auto ret = (inclusive ? lmem[lid] : (lid == 0 ? init_val : lmem[lid - 1u]));
 		local_barrier();
-		return data_type(ret);
+		return dec_data_type(ret);
 #endif
 	}
 	
@@ -455,8 +452,8 @@ namespace fl::algorithm {
 	floor_inline_always static auto inclusive_scan(const data_type& work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
-												   const data_type zero_val = (data_type)0) {
-		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
+												   const decay_as_t<data_type> init_val) {
+		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, init_val);
 	}
 
 	//! work-group inclusive-scan-$op function (aka prefix sum/min/max)
@@ -464,13 +461,14 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
 	floor_inline_always static auto inclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
-													  const data_type zero_val) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>) {
+													  const decay_as_t<data_type> init_val) {
+		using dec_data_type = decay_as_t<data_type>;
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, dec_data_type>) {
 			return group::work_group_inclusive_scan<op>(work_item_value, lmem);
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, data_type> &&
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, dec_data_type> &&
 						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
@@ -486,11 +484,11 @@ namespace fl::algorithm {
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				data_type sg_in_val {};
+				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
 					sg_in_val = lmem[sub_group_local_id];
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : zero_val);
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : init_val);
 				}
 				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
@@ -503,32 +501,32 @@ namespace fl::algorithm {
 			}
 			local_barrier();
 			
-			// finally: broadcast final per-sub-group/block offsets to all sub-groups
-			const auto sub_block_offset = data_type(sub_group_id_1d == 0u ? zero_val : lmem[sub_group_id_1d - 1u]);
+			// finally: broadcast final per-sub-group/block values to all sub-groups
+			const auto sub_block_offset = dec_data_type(sub_group_id_1d == 0u ? init_val : lmem[sub_group_id_1d - 1u]);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
 			if constexpr (op == group::OP::ADD) {
-				return data_type(sub_block_offset + sub_block_val);
+				return dec_data_type(sub_block_offset + sub_block_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return data_type(fl::floor_rt_min(sub_block_offset, sub_block_val));
+				return dec_data_type(fl::floor_rt_min(sub_block_offset, sub_block_val));
 			} else if constexpr (op == group::OP::MAX) {
-				return data_type(fl::floor_rt_max(sub_block_offset, sub_block_val));
+				return dec_data_type(fl::floor_rt_max(sub_block_offset, sub_block_val));
 			} else {
-				instantiation_trap_dependent_type(data_type, "unhandled op");
+				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
 		}
 #endif
 		else {
 			if constexpr (op == group::OP::ADD) {
-				return scan<work_group_size, true>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
+				return scan<work_group_size, true>(work_item_value, std::plus<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MIN) {
 				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
-												   lmem, zero_val);
+												   lmem, init_val);
 			} else if constexpr (op == group::OP::MAX) {
 				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
-												   lmem, zero_val);
+												   lmem, init_val);
 			} else {
-				instantiation_trap_dependent_type(data_type, "unhandled op");
+				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
 		}
 	}
@@ -538,7 +536,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto inclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, data_type(0));
+		return inclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type>(0));
 	}
 
 	//! work-group inclusive-scan-min function
@@ -546,7 +544,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto inclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<data_type>::max());
+		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
 	}
 
 	//! work-group inclusive-scan-max function
@@ -554,7 +552,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto inclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<data_type>::lowest());
+		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
 	}
 	
 	//! generic work-group exclusive-scan function
@@ -565,8 +563,8 @@ namespace fl::algorithm {
 	floor_inline_always static auto exclusive_scan(const data_type& work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
-												   const data_type zero_val = (data_type)0) {
-		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
+												   const decay_as_t<data_type> init_val) {
+		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, init_val);
 	}
 	
 	//! work-group exclusive-scan-$op function
@@ -574,13 +572,14 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
 	floor_inline_always static auto exclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
-													  const data_type zero_val) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, data_type>) {
+													  const decay_as_t<data_type> init_val) {
+		using dec_data_type = decay_as_t<data_type>;
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, dec_data_type>) {
 			return group::work_group_exclusive_scan<op>(work_item_value, lmem);
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, data_type> &&
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, dec_data_type> &&
 						   device_info::simd_width() > 0u) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
@@ -596,11 +595,11 @@ namespace fl::algorithm {
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				data_type sg_in_val {};
+				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
 					sg_in_val = lmem[sub_group_local_id];
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : zero_val);
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : init_val);
 				}
 				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
@@ -613,34 +612,34 @@ namespace fl::algorithm {
 			}
 			local_barrier();
 			
-			// finally: broadcast final per-sub-group/block offsets to all sub-groups
-			const auto sub_block_offset = data_type(sub_group_id_1d == 0u ? zero_val : lmem[sub_group_id_1d - 1u]);
-			// shift one up, #0 in each group returns the offset of the previous group (+ 0)
+			// finally: broadcast final per-sub-group/block values to all sub-groups
+			const auto sub_block_offset = dec_data_type(sub_group_id_1d == 0u ? init_val : lmem[sub_group_id_1d - 1u]);
+			// shift one up, #0 in each group returns the value of the previous group (+ 0)
 			const auto excl_sub_block_val = simd_shuffle_up(sub_block_val, 1u);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
 			if constexpr (op == group::OP::ADD) {
-				return data_type(sub_block_offset + (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val));
+				return dec_data_type(sub_block_offset + (sub_group_local_id == 0u ? init_val : excl_sub_block_val));
 			} else if constexpr (op == group::OP::MIN) {
-				return data_type(fl::floor_rt_min(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+				return dec_data_type(fl::floor_rt_min(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
 			} else if constexpr (op == group::OP::MAX) {
-				return data_type(fl::floor_rt_max(sub_block_offset, (sub_group_local_id == 0u ? data_type(0) : excl_sub_block_val)));
+				return dec_data_type(fl::floor_rt_max(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
 			} else {
-				instantiation_trap_dependent_type(data_type, "unhandled op");
+				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
 		}
 #endif
 		else {
 			if constexpr (op == group::OP::ADD) {
-				return scan<work_group_size, false>(work_item_value, std::plus<data_type> {}, lmem, zero_val);
+				return scan<work_group_size, false>(work_item_value, std::plus<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MIN) {
 				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
-													lmem, zero_val);
+													lmem, init_val);
 			} else if constexpr (op == group::OP::MAX) {
 				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
-													lmem, zero_val);
+													lmem, init_val);
 			} else {
-				instantiation_trap_dependent_type(data_type, "unhandled op");
+				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
 		}
 	}
@@ -650,7 +649,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto exclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, data_type(0));
+		return exclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type>(0));
 	}
 	
 	//! work-group exclusive-scan-min function
@@ -658,7 +657,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto exclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<data_type>::max());
+		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
 	}
 	
 	//! work-group exclusive-scan-max function
@@ -666,7 +665,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto exclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<data_type>::lowest());
+		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller

@@ -389,21 +389,18 @@ const_func floor_inline_always uint32_t floor_rt_find_nth_set(const uint32_t val
 }
 
 // non-standard bit counting functions (don't use these directly, use math::func instead)
-const_func floor_inline_always int32_t floor_rt_clz(uint16_t a) {
-	return floor_rt_clz((uint32_t)a) - 16 /* upper 16 bits */;
-}
 const_func floor_inline_always int32_t floor_rt_clz(uint32_t a) {
 	int32_t ret;
 	asm("clz.b32 %0, %1;" : "=r"(ret) : "r"(a));
 	return ret;
 }
+const_func floor_inline_always int32_t floor_rt_clz(uint16_t a) {
+	return floor_rt_clz((uint32_t)a) - 16 /* upper 16 bits */;
+}
 const_func floor_inline_always int32_t floor_rt_clz(uint64_t a) {
 	int32_t ret;
 	asm("clz.b64 %0, %1;" : "=r"(ret) : "l"(a));
 	return ret;
-}
-const_func floor_inline_always int32_t floor_rt_ctz(uint16_t a) {
-	return floor_rt_ctz(0xFFFF0000u | (uint32_t)a);
 }
 const_func floor_inline_always int32_t floor_rt_ctz(uint32_t a) {
 	int32_t ret;
@@ -412,6 +409,9 @@ const_func floor_inline_always int32_t floor_rt_ctz(uint32_t a) {
 	asm("clz.b32 %0, %1;" : "=r"(ret) : "r"(tmp));
 	return ret;
 }
+const_func floor_inline_always int32_t floor_rt_ctz(uint16_t a) {
+	return floor_rt_ctz(0xFFFF0000u | (uint32_t)a);
+}
 const_func floor_inline_always int32_t floor_rt_ctz(uint64_t a) {
 	int32_t ret;
 	uint64_t tmp;
@@ -419,13 +419,13 @@ const_func floor_inline_always int32_t floor_rt_ctz(uint64_t a) {
 	asm("clz.b64 %0, %1;" : "=r"(ret) : "l"(tmp));
 	return ret;
 }
-const_func floor_inline_always int32_t floor_rt_popcount(uint16_t a) {
-	return floor_rt_popcount((uint32_t)a);
-}
 const_func floor_inline_always int32_t floor_rt_popcount(uint32_t a) {
 	int32_t ret;
 	asm("popc.b32 %0, %1;" : "=r"(ret) : "r"(a));
 	return ret;
+}
+const_func floor_inline_always int32_t floor_rt_popcount(uint16_t a) {
+	return floor_rt_popcount((uint32_t)a);
 }
 const_func floor_inline_always int32_t floor_rt_popcount(uint64_t a) {
 	int32_t ret;

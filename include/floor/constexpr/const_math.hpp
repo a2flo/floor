@@ -1244,8 +1244,9 @@ namespace fl::const_math {
 	//! count leading zeros
 	template <typename uint_type> requires(std::is_same_v<uint_type, __uint128_t>)
 	constexpr int clz(const uint_type val) {
-		const auto upper = uint64_t((*(const __uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(const __uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
@@ -1302,8 +1303,9 @@ namespace fl::const_math {
 	//! count trailing zeros
 	template <typename uint_type> requires(std::is_same_v<uint_type, __uint128_t>)
 	constexpr int ctz(const uint_type val) {
-		const auto upper = uint64_t((*(const __uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(const __uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
@@ -1354,8 +1356,9 @@ namespace fl::const_math {
 	//! count 1-bits
 	template <typename uint_type> requires(std::is_same_v<uint_type, __uint128_t>)
 	constexpr int popcount(const uint_type val) {
-		const auto upper = uint64_t((*(const __uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(const __uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
+		const auto ui128 = std::bit_cast<__uint128_t>(val);
+		const auto upper = uint64_t(ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(ui128 & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		return popcount(upper) + popcount(lower);
 	}
 	//! count 1-bits

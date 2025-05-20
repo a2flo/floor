@@ -558,7 +558,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		return {};
 	}
 	
-	if (!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
+	if (!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug() && !floor::get_toolchain_log_binaries()) {
 		static constexpr const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
@@ -604,12 +604,6 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 		constexpr const size_t log_size { 65536 };
 		std::string error_log(log_size, 0);
 		std::string info_log(log_size, 0);
-		const auto print_error_log = [&error_log] {
-			if (error_log[0] != 0) {
-				error_log[log_size - 1] = 0;
-				log_error("PTX build errors: $", error_log);
-			}
-		};
 		
 		const union alignas(void*) {
 			void* ptr;
@@ -624,10 +618,18 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 			{ .ui = 1u },
 			{ .ptr = error_log.data() },
 			{ .ptr = info_log.data() },
-			{ .ui = log_size - 1u },
-			{ .ui = log_size - 1u },
+			{ .ui = log_size - 1u }, // @8 - do not change position
+			{ .ui = log_size - 1u }, // @9 - do not change position
 		};
 		static_assert(option_count == std::size(jit_option_values), "mismatching option count");
+		
+		const auto print_error_log = [&error_log, &jit_option_values] {
+			if (error_log[0] != 0) {
+				const auto log_size_actual = std::min(log_size - 1u, jit_option_values[8].ui);
+				error_log.resize(log_size_actual);
+				log_error("PTX build errors: $", error_log);
+			}
+		};
 		
 		// TODO: print out toolchain log
 		cu_link_state link_state;
@@ -662,17 +664,22 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 							   cu_link_destroy(link_state);
 							   return ret;
 						   })
+		if (floor::get_toolchain_log_binaries()) {
+			// for testing purposes: dump the compiled binaries again
+			auto bin_name = "binary_" + std::to_string(sm_version);
+			if (!functions.empty() && !functions[0].name.empty()) {
+				bin_name += "_" + functions[0].name;
+			}
+			bin_name += ".bin";
+			file_io::buffer_to_file(bin_name, (const char*)cubin_ptr, cubin_size);
+		}
 		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 						  "failed to destroy link state")
 		
+		const auto log_size_actual = std::min(log_size - 1u, jit_option_values[9].ui);
 		if (info_log[0] != 0 && !silence_debug_output) {
-			info_log[log_size - 1] = 0;
+			info_log.resize(log_size_actual);
 			log_debug("PTX build info: $", info_log);
-		}
-	
-		if (floor::get_toolchain_log_binaries()) {
-			// for testing purposes: dump the compiled binaries again
-			file_io::buffer_to_file("binary_" + std::to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
 		}
 	}
 	

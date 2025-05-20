@@ -406,9 +406,16 @@ void system(const std::string& cmd, std::string& output) {
 		log_error("failed to execute system command: $", cmd);
 		return;
 	}
-	while (fgets(buffer.data(), buffer_size, sys_pipe) != nullptr) {
-		output.append(buffer.data(), buffer_size);
-		memset(buffer.data(), 0, buffer_size); // size+1 is always 0
+	for (;;) {
+		const auto read_count = fread(buffer.data(), 1u, buffer_size, sys_pipe);
+		if (read_count == 0) {
+			break;
+		}
+		output.append(buffer.data(), read_count);
+		memset(buffer.data(), 0, read_count); // size+1 is always 0
+		if (feof(sys_pipe) != 0 || ferror(sys_pipe) != 0) {
+			break;
+		}
 	}
 	pclose(sys_pipe);
 }

@@ -784,20 +784,20 @@ program_data compile_input(const std::string& input,
 	// NOTE: ranges are specified as [min, max), i.e. min is inclusive, max is exclusive
 	uint2 global_id_range { 0u, ~0u };
 	uint2 global_size_range { 1u, ~0u };
-	// NOTE: nobody supports a local size > 2048 (or 1536) right now, if that changes, this needs to be updated
-	uint2 local_id_range { 0u, 2048u };
-	uint2 local_size_range { 1u, 2049u };
 	uint2 group_id_range { 0u, ~0u };
 	uint2 group_size_range { 1u, ~0u };
 	
 	// if the device has actual info about this, use that instead of the defaults
 	const auto max_global_size = dev.max_global_size.max_element();
-	if(max_global_size > 0) {
+	if (max_global_size > 0) {
 		global_id_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size));
 		global_size_range.y = (max_global_size >= 0xFFFFFFFFull ? ~0u : uint32_t(max_global_size + 1));
 	}
 	
-	if(dev.max_total_local_size != 0) {
+	// default to the common max of 1024
+	uint2 local_id_range { 0u, 1024u };
+	uint2 local_size_range { 1u, 1025u };
+	if (dev.max_total_local_size != 0) {
 		local_id_range.y = dev.max_total_local_size;
 		local_size_range.y = dev.max_total_local_size + 1;
 	}
