@@ -716,8 +716,9 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_performance_query",
 			"VK_KHR_video_maintenance1",
 			"VK_KHR_video_maintenance2",
-			"VK_KHR_shader_maximal_reconvergence",
 			"VK_KHR_shader_quad_control",
+			"VK_KHR_shader_bfloat16",
+			"VK_KHR_robustness2", // NOTE: using EXT for now
 		};
 		static constexpr const std::array filtered_exts_vk14 {
 			// deprecated, now in core 1.4
@@ -778,6 +779,14 @@ enable_renderer(enable_renderer_) {
 		// pre checks
 		if (!device_extensions_set.contains(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME)) {
 			log_error("VK_KHR_workgroup_memory_explicit_layout is not supported by $", props.deviceName);
+			continue;
+		}
+		if (!device_extensions_set.contains(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME)) {
+			log_error("VK_KHR_shader_subgroup_uniform_control_flow is not supported by $", props.deviceName);
+			continue;
+		}
+		if (!device_extensions_set.contains(VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME)) {
+			log_error("VK_KHR_shader_maximal_reconvergence is not supported by $", props.deviceName);
 			continue;
 		}
 		if (!device_supported_extensions_set.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
@@ -901,9 +910,19 @@ enable_renderer(enable_renderer_) {
 					  (void*)&device_pageable_device_local_mem_features : (void*)&robustness_features),
 			.fragmentShaderBarycentric = false,
 		};
+		VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR max_reconvergence_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR,
+			.pNext = &barycentric_features,
+			.shaderMaximalReconvergence = false,
+		};
+		VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR subgroup_uni_control_flow_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR,
+			.pNext = &max_reconvergence_features,
+			.shaderSubgroupUniformControlFlow = false,
+		};
 		VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR wg_explicit_layout_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR,
-			.pNext = &barycentric_features,
+			.pNext = &subgroup_uni_control_flow_features,
 			.workgroupMemoryExplicitLayout = false,
 			.workgroupMemoryExplicitLayoutScalarBlockLayout = false,
 			.workgroupMemoryExplicitLayout8BitAccess = false,
@@ -1383,6 +1402,16 @@ enable_renderer(enable_renderer_) {
 			(vulkan11_props.subgroupSupportedStages & sg_required_stages) != sg_required_stages ||
 			(vulkan11_props.subgroupSupportedOperations & sq_required_ops) != sq_required_ops) {
 			log_error("sub-group requirements are not fulfilled by $", props.deviceName);
+			continue;
+		}
+		
+		if (!subgroup_uni_control_flow_features.shaderSubgroupUniformControlFlow) {
+			log_error("sub-group uniform control flow is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		if (!max_reconvergence_features.shaderMaximalReconvergence) {
+			log_error("maximal reconvergence is not supported by $", props.deviceName);
 			continue;
 		}
 		
