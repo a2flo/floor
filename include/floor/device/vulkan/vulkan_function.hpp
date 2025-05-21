@@ -80,9 +80,12 @@ public:
 	
 	const function_entry* get_function_entry(const device& dev) const override;
 	
+	//! NOTE: if "simd_width" is empty, the required SIMD width or default device SIMD width will be used
+	//! NOTE: if "simd_width" is not empty and a required SIMD width is set and the specified SIMD width doesn't match, this returns nullptr!
 	VkPipeline get_pipeline_spec(const vulkan_device& dev,
 								 vulkan_function_entry& entry,
-								 const uint3& work_group_size) const;
+								 const ushort3 work_group_size,
+								 const std::optional<uint16_t> simd_width) const;
 	
 	//! returns true if the Vulkan function with the specified name should be logged/dumped
 	static bool should_log_vulkan_binary(const std::string& function_name);

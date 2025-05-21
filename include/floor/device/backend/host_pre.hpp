@@ -72,6 +72,9 @@ using size_t = __SIZE_TYPE__;
 #define kernel_1d(... /* x */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
 #define kernel_2d(... /* x, y */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
 #define kernel_3d(... /* x, y, z */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_1d_simd(req_simd_width, ... /* x */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(1), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_2d_simd(req_simd_width, ... /* x, y */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(2), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define kernel_3d_simd(req_simd_width, ... /* x, y, z */) extern "C" __attribute__((compute_kernel, used, visibility("default"), kernel_dim(3), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
 #define kernel kernel_1d()
 #define vertex extern "C" __attribute__((vertex_shader, used, visibility("default")))
 #define fragment extern "C" __attribute__((fragment_shader, used, visibility("default")))
@@ -91,6 +94,9 @@ using size_t = __SIZE_TYPE__;
 #define kernel_1d(...) FLOOR_ENTRY_POINT_SPEC_C
 #define kernel_2d(...) FLOOR_ENTRY_POINT_SPEC_C
 #define kernel_3d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_1d_simd(req_simd_width, ...) FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_2d_simd(req_simd_width, ...) FLOOR_ENTRY_POINT_SPEC_C
+#define kernel_3d_simd(req_simd_width, ...) FLOOR_ENTRY_POINT_SPEC_C
 #define vertex FLOOR_ENTRY_POINT_SPEC
 #define fragment FLOOR_ENTRY_POINT_SPEC
 #define tessellation_control FLOOR_ENTRY_POINT_SPEC

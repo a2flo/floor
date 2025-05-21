@@ -40,14 +40,9 @@ namespace fl {
 using namespace std::literals;
 using namespace toolchain;
 
-uint64_t vulkan_function_entry::make_spec_key(const uint3& work_group_size) {
-#if defined(FLOOR_DEBUG)
-	if((work_group_size.yz >= 65536u).any()) {
-		log_error("work-group size is too big: $", work_group_size);
-		return 0;
-	}
-#endif
-	return (uint64_t(work_group_size.x) << 32ull |
+uint64_t vulkan_function_entry::make_spec_key(const ushort3 work_group_size, const uint16_t simd_width) {
+	return (uint64_t(simd_width) << 48ull |
+			uint64_t(work_group_size.x) << 32ull |
 			uint64_t(work_group_size.y) << 16ull |
 			uint64_t(work_group_size.z));
 }
@@ -67,16 +62,17 @@ bool vulkan_function::should_log_vulkan_binary(const std::string& func_name) {
 }
 
 vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulkan_device& dev,
-																	 const uint3& work_group_size) {
+																	 const ushort3 work_group_size,
+																	 const uint16_t simd_width) {
 	if (info->has_valid_required_local_size() && (info->required_local_size != work_group_size).any()) {
 		log_error("function $ has fixed compiled required local size of $, it may not be specialized to a different local size of $",
 				  info->name, info->required_local_size, work_group_size);
 		return nullptr;
 	}
 	
-	const auto spec_key = vulkan_function_entry::make_spec_key(work_group_size);
+	const auto spec_key = vulkan_function_entry::make_spec_key(work_group_size, simd_width);
 	const auto iter = specializations.find(spec_key);
-	if(iter != specializations.end()) {
+	if (iter != specializations.end()) {
 		// already built this
 		return &iter->second;
 	}
@@ -104,7 +100,12 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 	};
 	stage_info.pSpecializationInfo = &spec_entry.info;
 	stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	stage_info.pNext = &stage_sub_group_info;
+	
+	// set/update SIMD width
+	VkPipelineShaderStageRequiredSubgroupSizeCreateInfo spec_stage_sub_group_info;
+	memcpy(&spec_stage_sub_group_info, &stage_sub_group_info, sizeof(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo));
+	spec_stage_sub_group_info.requiredSubgroupSize = simd_width;
+	stage_info.pNext = &spec_stage_sub_group_info;
 	
 	VkPipelineCreateFlags pipeline_flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 	
@@ -125,7 +126,7 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
 	}
 	
-	// create the compute pipeline for this kernel + device + work-group size
+	// create the compute pipeline for this kernel + device + work-group size + SIMD width
 	const VkComputePipelineCreateInfo pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
@@ -135,16 +136,18 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
-	log_debug("specializing $ for $ ...", info->name, work_group_size);
+	log_debug("specializing $ for $ SIMD $ ...", info->name, work_group_size, simd_width);
 	VK_CALL_RET(vkCreateComputePipelines(dev.device, cache, 1, &pipeline_info, nullptr, &spec_entry.pipeline),
-				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
+				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ", " +
+				std::to_string(simd_width) + ")",
 				nullptr)
 	set_vulkan_debug_label(dev, VK_OBJECT_TYPE_PIPELINE, uint64_t(spec_entry.pipeline),
-						   "pipeline:" + info->name + ":spec:" + work_group_size.to_string());
+						   "pipeline:" + info->name + ":spec:" + work_group_size.to_string() + ":simd:" + std::to_string(simd_width));
 	
 	if (cache && log_binary) {
 		vulkan_disassembly::disassemble(dev, info->name + "_" + std::to_string(work_group_size.x) + "_" + std::to_string(work_group_size.y) +
-										"_" + std::to_string(work_group_size.z), spec_entry.pipeline, &cache);
+										"_" + std::to_string(work_group_size.z) + "_simd_" + std::to_string(simd_width),
+										spec_entry.pipeline, &cache);
 		vkDestroyPipelineCache(dev.device, cache, nullptr);
 	}
 	
@@ -225,21 +228,34 @@ std::shared_ptr<vulkan_encoder> vulkan_function::create_encoder(const device_que
 
 VkPipeline vulkan_function::get_pipeline_spec(const vulkan_device& dev,
 											  vulkan_function_entry& entry,
-											  const uint3& work_group_size) const REQUIRES(!entry.specializations_lock) {
+											  const ushort3 work_group_size,
+											  const std::optional<uint16_t> simd_width) const
+REQUIRES(!entry.specializations_lock) {
+	if (simd_width && entry.required_simd_width > 0 && *simd_width != entry.required_simd_width) {
+		log_error("invalid SIMD width $ when a SIMD width of $ is required", *simd_width, entry.required_simd_width);
+		return {};
+	}
+	const auto used_simd_width = (entry.required_simd_width > 0 ?
+								  entry.required_simd_width : (simd_width ? *simd_width : dev.simd_width));
+	if (used_simd_width < 1 || used_simd_width > 128) {
+		log_error("invalid SIMD width $", used_simd_width);
+		return {};
+	}
+	
 	GUARD(entry.specializations_lock);
 	
 	// try to find a pipeline that has already been built/specialized for this work-group size
-	const auto spec_key = vulkan_function_entry::make_spec_key(work_group_size);
+	const auto spec_key = vulkan_function_entry::make_spec_key(work_group_size, uint16_t(used_simd_width));
 	const auto iter = entry.specializations.find(spec_key);
 	if(iter != entry.specializations.end()) {
 		return iter->second.pipeline;
 	}
 	
 	// not built/specialized yet, do so now
-	const auto spec_entry = entry.specialize(dev, work_group_size);
+	const auto spec_entry = entry.specialize(dev, work_group_size, uint16_t(used_simd_width));
 	if(spec_entry == nullptr) {
-		log_error("run-time specialization of function $ with work-group size $ failed",
-				  entry.info->name, work_group_size);
+		log_error("run-time specialization of function $ with work-group size $ and SIMD width $ failed",
+				  entry.info->name, work_group_size, used_simd_width);
 		return entry.specializations.begin()->second.pipeline;
 	}
 	return spec_entry->pipeline;
@@ -296,7 +312,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 	};
 	bool encoder_success = false;
 	auto encoder = create_encoder(cqueue, external_cmd_buffer,
-								  get_pipeline_spec(vk_dev, *function_iter->second, block_dim),
+								  get_pipeline_spec(vk_dev, *function_iter->second, block_dim, {} /* use default or program defined */),
 								  function_iter->second->pipeline_layout,
 								  shader_entries, debug_label, encoder_success);
 	if (!encoder_success) {

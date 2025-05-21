@@ -62,6 +62,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 			if (!prog.second.valid) continue;
 			for (const auto& info : prog.second.functions) {
 				if (info.name == function_name) {
+					if (should_ignore_function_for_device(*prog.first, info)) {
+						continue;
+					}
+					
 					cuda_function::cuda_function_entry entry;
 					entry.info = &info;
 					entry.function_args_size = device_function_args_size(info);
@@ -85,6 +89,11 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						}
 						entry.max_total_local_size = req_local_size;
 						entry.max_local_size = info.required_local_size;
+					}
+					
+					if (info.has_valid_required_simd_width()) {
+						entry.required_simd_width = info.required_simd_width;
+						assert(entry.required_simd_width == 32u && "SIMD width should always be 32 for CUDA devices");
 					}
 					
 					// we only support static local/shared memory, not dynamic

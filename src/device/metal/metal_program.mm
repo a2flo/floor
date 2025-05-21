@@ -46,11 +46,18 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 				if(!prog.second.valid) continue;
 				for(const auto& info : prog.second.functions) {
 					if(info.name == function_name) {
+						if (should_ignore_function_for_device(*prog.first, info)) {
+							continue;
+						}
+						
 						metal_function::metal_function_entry entry;
 						entry.info = &info;
 						entry.max_local_size = prog.first->max_local_size;
 						if (entry.info->type != toolchain::FUNCTION_TYPE::KERNEL) {
 							is_kernel = false;
+						}
+						if (entry.info->has_valid_required_simd_width()) {
+							entry.required_simd_width = info.required_simd_width;
 						}
 						
 						//

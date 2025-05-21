@@ -62,13 +62,13 @@ struct vulkan_function_entry : device_function::function_entry {
 	// work-group size -> spec entry
 	fl::flat_map<uint64_t, spec_entry> specializations GUARDED_BY(specializations_lock);
 	
-	//! creates a 64-bit key out of the specified uint3 work-group size
-	//! NOTE: components of the work-group size must fit into 16-bit
-	static uint64_t make_spec_key(const uint3& work_group_size);
+	//! creates a 64-bit key out of the specified ushort3 work-group size and SIMD width
+	static uint64_t make_spec_key(const ushort3 work_group_size, const uint16_t simd_width);
 	
-	//! specializes/builds a compute pipeline for the specified work-group size
+	//! specializes/builds a compute pipeline for the specified work-group size and SIMD width
 	vulkan_function_entry::spec_entry* specialize(const vulkan_device& dev,
-												  const uint3& work_group_size) REQUIRES(specializations_lock);
+												  const ushort3 work_group_size,
+												  const uint16_t simd_width) REQUIRES(specializations_lock);
 };
 
 } // namespace fl

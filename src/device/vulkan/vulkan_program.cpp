@@ -358,6 +358,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 			
 			for (const auto& info : prog.second.functions) {
 				if (info.name == func_name) {
+					if (should_ignore_function_for_device(*prog.first, info)) {
+						continue;
+					}
+					
 					auto entry = std::make_shared<vulkan_function_entry>();
 					entry->info = &info;
 					
@@ -381,6 +385,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						entry->max_total_local_size = info.required_local_size.extent();
 					}
 					
+					if (info.has_valid_required_simd_width()) {
+						entry->required_simd_width = info.required_simd_width;
+					}
+					
 					// TODO: make sure that _all_ of this is synchronized
 					if (!create_function_entry_descriptor_buffer(*entry, *dev, stage, func_name, info)) {
 						continue;
@@ -397,14 +405,13 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 					entry->stage_sub_group_info = VkPipelineShaderStageRequiredSubgroupSizeCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,
 						.pNext = nullptr,
-						// TODO: sub-group size / SIMD-width must really be stored in function info,
-						// this may not work if the device supports a SIMD-width range and the program has not been compiled for the default width
-						.requiredSubgroupSize = vk_dev.simd_width,
+						.requiredSubgroupSize = (entry->required_simd_width > 0 ?
+												 entry->required_simd_width : vk_dev.simd_width),
 					};
 					entry->stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = nullptr,
-						.flags = 0,
+						.flags = VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT,
 						.stage = stage,
 						.module = prog_entry.programs[mod_iter->second],
 						.pName = func_name.c_str(),
@@ -443,13 +450,18 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 									  work_group_size.x, func_name);
 							continue;
 						}
+						if (std::popcount(entry->stage_sub_group_info.requiredSubgroupSize) != 1u) {
+							log_error("SIMD width ($) must be a power-of-two in function \"$\"",
+									  entry->stage_sub_group_info.requiredSubgroupSize, func_name);
+							continue;
+						}
 						const auto work_group_size_extent = work_group_size.extent();
 						if ((work_group_size_extent % entry->stage_sub_group_info.requiredSubgroupSize) != 0) {
 							log_error("work-group size ($) must be a multiple of the sub-group size ($) in function \"$\"",
 									  work_group_size_extent, entry->stage_sub_group_info.requiredSubgroupSize, func_name);
 							continue;
 						}
-						if (entry->specialize(vk_dev, work_group_size) == nullptr) {
+						if (entry->specialize(vk_dev, work_group_size, uint16_t(entry->stage_sub_group_info.requiredSubgroupSize)) == nullptr) {
 							// NOTE: if specialization failed, this will have already printed an error
 							continue;
 						}

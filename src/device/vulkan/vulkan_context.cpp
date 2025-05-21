@@ -1405,6 +1405,17 @@ enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (math::popcount(vulkan13_props.minSubgroupSize) != 1 || math::popcount(vulkan13_props.maxSubgroupSize) != 1) {
+			log_error("SIMD min/max widths $/$ are not a power-of-two for device $",
+					  vulkan13_props.minSubgroupSize, vulkan13_props.maxSubgroupSize, props.deviceName);
+		}
+		if (vulkan13_props.minSubgroupSize < 1 || vulkan13_props.minSubgroupSize > 128) {
+			log_error("SIMD min range $ is out-of-bounds for device $", vulkan13_props.minSubgroupSize, props.deviceName);
+		}
+		if (vulkan13_props.maxSubgroupSize < 1 || vulkan13_props.maxSubgroupSize > 128) {
+			log_error("SIMD max range $ is out-of-bounds for device $", vulkan13_props.maxSubgroupSize, props.deviceName);
+		}
+		
 		if (!subgroup_uni_control_flow_features.shaderSubgroupUniformControlFlow) {
 			log_error("sub-group uniform control flow is not supported by $", props.deviceName);
 			continue;

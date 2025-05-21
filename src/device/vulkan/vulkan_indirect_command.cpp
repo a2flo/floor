@@ -844,7 +844,7 @@ indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execu
 	auto vk_pipeline = vk_kernel.get_pipeline_spec(vk_dev,
 												   // unfortunate, but we know this is modifiable
 												   const_cast<vulkan_function_entry&>(vk_function_entry),
-												   block_dim);
+												   block_dim, {} /* use default or program defined */);
 	
 	const auto desc_buf_count = ((has_non_arg_buffer_arguments ? 1u : 0u) /* our cmd params desc buf */ +
 								 uint32_t(arg_buffers.size()) /* user-specified argument buffers */);

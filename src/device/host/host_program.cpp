@@ -69,6 +69,10 @@ device_program(retrieve_unique_function_names(programs_)), dev(dev_), programs(s
 					continue;
 				}
 				
+				if (should_ignore_function_for_device(*prog.first, info)) {
+					continue;
+				}
+				
 				host_function::host_function_entry entry;
 				entry.info = &info;
 				entry.program = prog.second.program;
@@ -85,6 +89,10 @@ device_program(retrieve_unique_function_names(programs_)), dev(dev_), programs(s
 					// else: just assume the device/global default
 					entry.max_local_size = prog.first->max_local_size;
 					entry.max_total_local_size = host_limits::max_total_local_size;
+				}
+				
+				if (info.has_valid_required_simd_width()) {
+					entry.required_simd_width = info.required_simd_width;
 				}
 				
 				// success, insert into map

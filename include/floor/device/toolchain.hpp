@@ -145,8 +145,11 @@ namespace fl::toolchain {
 		}
 		
 		//! required SIMD-width (if non-zero)
-		//! NOTE: not implemented yet, this is for future-proofing
+		//! NOTE: if this is 0, the SIMD-width is considered unspecified
 		uint32_t required_simd_width { 0u };
+		constexpr bool has_valid_required_simd_width() const {
+			return (required_simd_width != 0u);
+		}
 		
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
 		

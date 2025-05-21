@@ -42,6 +42,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 			
 			for(const auto& info : prog.second.functions) {
 				if(info.name == function_name) {
+					if (should_ignore_function_for_device(*prog.first, info)) {
+						continue;
+					}
+					
 					opencl_function::opencl_function_entry entry;
 					entry.info = &info;
 					entry.max_local_size = prog.first->max_local_size;
@@ -55,6 +59,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 					
 					// sanity check/override if reported local size > actual supported one (especially on Intel CPUs ...)
 					entry.max_total_local_size = std::min(entry.max_total_local_size, prog.first->max_total_local_size);
+					
+					if (info.has_valid_required_simd_width()) {
+						entry.required_simd_width = info.required_simd_width;
+					}
 					
 #if 0 // dump function + function args info
 					const auto arg_count = cl_get_info<CL_KERNEL_NUM_ARGS>(entry.function);

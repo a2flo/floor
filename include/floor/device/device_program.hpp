@@ -73,6 +73,10 @@ protected:
 		return names;
 	}
 	
+	//! returns true if the specified function (info) should be ignored for the specified device,
+	//! i.e. the function has requirements that the device can't fulfill
+	bool should_ignore_function_for_device(const device& dev, const toolchain::function_info& func_info) const;
+	
 };
 
 } // namespace fl

@@ -126,6 +126,10 @@ bool create_floor_function_info(const std::string& ffi_file_name,
 			log_error("required local size must be 0 for argument buffer struct info");
 			return false;
 		}
+		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT && info.required_simd_width != 0) {
+			log_error("required SIMD width must be 0 for argument buffer struct info");
+			return false;
+		}
 		
 		// each arg: size,array_extent,address_space,access,image_type,flags
 		static constexpr const uint32_t arg_token_count { 6u };

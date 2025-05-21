@@ -49,6 +49,7 @@ public:
 		const toolchain::function_info* info { nullptr };
 		uint32_t max_total_local_size { 0u };
 		uint3 max_local_size;
+		uint32_t required_simd_width { 0u };
 	};
 	//! returns the internal function entry for the specified device
 	virtual const function_entry* get_function_entry(const device& dev) const = 0;

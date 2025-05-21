@@ -17,6 +17,7 @@
  */
 
 #include <floor/device/device_program.hpp>
+#include <floor/core/logger.hpp>
 
 namespace fl {
 
@@ -26,6 +27,20 @@ std::shared_ptr<device_function> device_program::get_function(const std::string_
 	const auto iter = find(cbegin(function_names), cend(function_names), func_name);
 	if(iter == cend(function_names)) return {};
 	return functions[(size_t)distance(cbegin(function_names), iter)];
+}
+
+bool device_program::should_ignore_function_for_device(const device& dev, const toolchain::function_info& func_info) const {
+	if (func_info.has_valid_required_simd_width()) {
+		if (func_info.required_simd_width < dev.simd_range.x ||
+			func_info.required_simd_width > dev.simd_range.y) {
+#if defined(FLOOR_DEBUG)
+			log_warn("ignoring function \"$\" that requires an unsupported SIMD width $ for device $ (SIMD range [$, $])",
+					 func_info.name, func_info.required_simd_width, dev.name, dev.simd_range.x, dev.simd_range.y);
+#endif
+			return true;
+		}
+	}
+	return false;
 }
 
 } // namespace fl
