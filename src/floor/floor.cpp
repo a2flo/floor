@@ -1079,12 +1079,12 @@ bool floor::init_internal(const init_state& state) {
 	// always create and init a device context (even in console-only mode)
 	{
 		// get the platform that was set in the config
-		PLATFORM_TYPE config_platform_type = PLATFORM_TYPE::NONE;
-		if(config.backend == "opencl") config_platform_type = PLATFORM_TYPE::OPENCL;
-		else if(config.backend == "cuda") config_platform_type = PLATFORM_TYPE::CUDA;
-		else if(config.backend == "metal") config_platform_type = PLATFORM_TYPE::METAL;
-		else if(config.backend == "host") config_platform_type = PLATFORM_TYPE::HOST;
-		else if(config.backend == "vulkan") config_platform_type = PLATFORM_TYPE::VULKAN;
+		PLATFORM_TYPE config_platform_type = state.default_platform;
+		if (config.backend == "opencl") config_platform_type = PLATFORM_TYPE::OPENCL;
+		else if (config.backend == "cuda") config_platform_type = PLATFORM_TYPE::CUDA;
+		else if (config.backend == "metal") config_platform_type = PLATFORM_TYPE::METAL;
+		else if (config.backend == "host") config_platform_type = PLATFORM_TYPE::HOST;
+		else if (config.backend == "vulkan") config_platform_type = PLATFORM_TYPE::VULKAN;
 		
 		// default compute backends (will try these in order, using the first working one)
 #if defined(__APPLE__)

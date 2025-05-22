@@ -69,6 +69,10 @@ public:
 		//! if true, will not create a window and will not create a Vulkan surface/swapchain
 		bool console_only { false };
 		
+		//! specifies the default platform type (backend) when !NONE
+		//! NOTE: the backend specified in the config file takes priority over this
+		PLATFORM_TYPE default_platform { PLATFORM_TYPE::NONE };
+		
 		//! renderer backend that should be used and initialized
 		RENDERER renderer { RENDERER::DEFAULT };
 		

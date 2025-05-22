@@ -40,6 +40,16 @@ bool device_program::should_ignore_function_for_device(const device& dev, const 
 			return true;
 		}
 	}
+	if (func_info.has_valid_required_local_size()) {
+		if (func_info.required_local_size.extent() > dev.max_total_local_size ||
+			(func_info.required_local_size > dev.max_local_size).any()) {
+#if defined(FLOOR_DEBUG)
+			log_warn("ignoring function \"$\" that requires an unsupported local size $ for device $ (max local size $, max total $)",
+					 func_info.name, func_info.required_local_size, dev.name, dev.max_local_size, dev.max_total_local_size);
+#endif
+			return true;
+		}
+	}
 	return false;
 }
 
