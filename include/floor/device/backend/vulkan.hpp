@@ -148,6 +148,8 @@ floor_inline_always static void image_write_mem_fence() __attribute__((noduplica
 	cl_write_mem_fence(4u);
 }
 
+void simd_barrier() __attribute__((noduplicate, convergent)) asm("floor.barrier.simd");
+
 namespace fl {
 
 // tessellation

@@ -138,6 +138,11 @@ const_func uint32_t get_sub_group_local_id();
 const_func uint32_t get_sub_group_size();
 const_func uint32_t get_num_sub_groups();
 
+void cl_sub_group_barrier(uint32_t flags) __attribute__((noduplicate, convergent)) asm("_Z17sub_group_barrierj");
+floor_inline_always static void simd_barrier() __attribute__((noduplicate, convergent)) {
+	cl_sub_group_barrier(1u);
+}
+
 // sub_group_reduce_*/sub_group_scan_exclusive_*/sub_group_scan_inclusive_*
 #if !defined(FLOOR_DEVICE_NO_DOUBLE)
 #define SUB_GROUP_TYPES(F, P) F(int32_t, P) F(int64_t, P) F(uint32_t, P) F(uint64_t, P) F(float, P)

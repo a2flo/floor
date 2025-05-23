@@ -507,6 +507,10 @@ floor_inline_always static void image_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 
+floor_inline_always static void simd_barrier() {
+	__nvvm_bar_warp_sync(0xFFFF'FFFFu);
+}
+
 // shuffle functionality
 floor_inline_always static float simd_shuffle(const float lane_var, const uint32_t lane_id) {
 	float ret;
