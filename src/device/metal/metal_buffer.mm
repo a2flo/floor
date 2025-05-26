@@ -210,6 +210,9 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 			assert((is_private && mtl_dev.heap_private) || (is_shared && mtl_dev.heap_shared));
 			buffer = [(is_private ? mtl_dev.heap_private : mtl_dev.heap_shared) newBufferWithLength:size options:options];
 			if (!buffer) {
+#if defined(FLOOR_DEBUG)
+				log_warn("failed to allocate heap buffer");
+#endif
 				is_heap_buffer = false;
 			}
 		}

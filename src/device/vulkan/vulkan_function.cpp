@@ -98,14 +98,21 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		.dataSize = spec_entry.data.size() * sizeof(decltype(spec_entry.data)::value_type),
 		.pData = spec_entry.data.data(),
 	};
-	stage_info.pSpecializationInfo = &spec_entry.info;
-	stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	
+	auto stage_info_for_spec = stage_info;
+	stage_info_for_spec.pSpecializationInfo = &spec_entry.info;
+	stage_info_for_spec.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 	
 	// set/update SIMD width
 	VkPipelineShaderStageRequiredSubgroupSizeCreateInfo spec_stage_sub_group_info;
 	memcpy(&spec_stage_sub_group_info, &stage_sub_group_info, sizeof(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo));
 	spec_stage_sub_group_info.requiredSubgroupSize = simd_width;
-	stage_info.pNext = &spec_stage_sub_group_info;
+	stage_info_for_spec.pNext = &spec_stage_sub_group_info;
+	
+	// clear "full subgroups" flag if the work-group size X dim is not a multiple of the SIMD width
+	if ((work_group_size.x % simd_width) != 0u) {
+		stage_info_for_spec.flags &= VkPipelineShaderStageCreateFlags(~VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT);
+	}
 	
 	VkPipelineCreateFlags pipeline_flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 	
@@ -131,7 +138,7 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = pipeline_flags,
-		.stage = stage_info,
+		.stage = stage_info_for_spec,
 		.layout = pipeline_layout,
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,

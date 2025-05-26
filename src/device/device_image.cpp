@@ -462,7 +462,7 @@ std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, co
 	}
 	
 	auto ret = dev.context->create_image(cqueue, image_dim, (image_type_override == IMAGE_TYPE::NONE ? image_type : image_type_override),
-										 host_data, clone_flags);
+										 host_data, clone_flags, mip_level_count);
 	if (ret == nullptr) {
 		return {};
 	}

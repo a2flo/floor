@@ -411,7 +411,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 					entry->stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = nullptr,
-						.flags = VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT,
+						// NOTE: only valid for compute kernels (or mesh/task) + only when the used local size X dim is a multiple of the SIMD width
+						.flags = (info.type == FUNCTION_TYPE::KERNEL &&
+								  (entry->max_local_size.x % entry->stage_sub_group_info.requiredSubgroupSize) == 0u ?
+								  VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT : 0),
 						.stage = stage,
 						.module = prog_entry.programs[mod_iter->second],
 						.pName = func_name.c_str(),
