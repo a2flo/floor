@@ -423,6 +423,10 @@ struct elf_binary::elf_info_t {
 	std::vector<symbol_t> symbols;
 	std::vector<relocation_t> exec_relocations;
 	std::vector<relocation_t> rodata_relocations;
+	std::vector<relocation_t> debug_info_relocations;
+	std::vector<relocation_t> debug_str_offsets_relocations;
+	std::vector<relocation_t> debug_addr_relocations;
+	std::vector<relocation_t> debug_line_relocations;
 	//! NOTE: this is only allocated/set when read-only data must _not_ be relocated (is global for all instances)
 	aligned_ptr<uint8_t> ro_memory;
 	bool relocate_rodata { false };
@@ -761,6 +765,14 @@ bool elf_binary::parse_elf() {
 					relocations = &info->rodata_relocations;
 					// signal that we need to relocate read-only data (-> need rodata per instance)
 					info->relocate_rodata = true;
+				} else if (section.name == ".rela.debug_info") {
+					relocations = &info->debug_info_relocations;
+				} else if (section.name == ".rela.debug_str_offsets") {
+					relocations = &info->debug_str_offsets_relocations;
+				} else if (section.name == ".rela.debug_addr") {
+					relocations = &info->debug_addr_relocations;
+				} else if (section.name == ".rela.debug_line") {
+					relocations = &info->debug_line_relocations;
 				} else {
 					log_error("relocations section $ is not supported", section.name);
 					return false;
@@ -819,7 +831,15 @@ bool elf_binary::parse_elf() {
 				const auto is_rodata = (section.name.find(".rodata") == 0);
 				const auto is_exec = (section.name.find(".text") == 0);
 				const auto is_comment = (section.name.find(".comment") == 0);
-				if (is_comment) {
+				const auto is_debug_abbrev = (section.name.find(".debug_abbrev") == 0);
+				const auto is_debug_addr = (section.name.find(".debug_addr") == 0);
+				const auto is_debug_info = (section.name.find(".debug_info") == 0);
+				const auto is_debug_line = (section.name.find(".debug_line") == 0);
+				const auto is_debug_rnglists = (section.name.find(".debug_rnglists") == 0);
+				const auto is_debug_str_offsets = (section.name.find(".debug_str_offsets") == 0);
+				const auto is_debug_str = (section.name.find(".debug_str") == 0);
+				if (is_comment || is_debug_abbrev || is_debug_addr || is_debug_info || is_debug_line ||
+					is_debug_rnglists || is_debug_str_offsets || is_debug_str) {
 					// ignore this
 					continue;
 				}

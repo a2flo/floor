@@ -37,12 +37,15 @@ struct host_function_wrapper;
 class host_function final : public device_function {
 public:
 	struct host_function_entry : function_entry {
+		//! for device Host-Compute: the loaded ELF binary program
 		std::shared_ptr<elf_binary> program;
+		//! for non-device Host-Compute: dummy function info
+		toolchain::function_info host_function_info;
 	};
 	using function_map_type = fl::flat_map<const host_device*, host_function_entry>;
 	
 	//! constructor for functions built using the host compiler / vanilla toolchain
-	host_function(const std::string_view function_name_, const void* function, device_function::function_entry&& entry);
+	host_function(const std::string_view function_name_, const void* function, host_function_entry&& entry);
 	//! constructor for functions built using the floor Host-Compute device toolchain
 	host_function(const std::string_view function_name_, function_map_type&& functions);
 	~host_function() override = default;
@@ -63,7 +66,7 @@ public:
 	
 protected:
 	const void* function { nullptr };
-	const device_function::function_entry entry;
+	host_function_entry entry;
 	
 	const function_map_type functions {};
 	

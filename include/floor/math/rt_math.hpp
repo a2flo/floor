@@ -654,10 +654,9 @@ namespace fl::rt_math {
 			u32_val = ((u32_val >> 4u) & 0x0F0F0F0Fu) | ((u32_val & 0x0F0F0F0Fu) << 4u);
 			u32_val = ((u32_val >> 8u) & 0x00FF00FFu) | ((u32_val & 0x00FF00FFu) << 8u);
 			u32_val = (u32_val >> 16u) | (u32_val << 16u);
-			return std::bit_cast<any_type>(value);
+			return std::bit_cast<any_type>(u32_val);
 #endif
-		}
-		else {
+		} else {
 #if defined(FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64) && FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64 == 1
 			return (any_type)fl::floor_rt_reverse_bits(std::bit_cast<uint64_t>(value));
 #else
@@ -668,7 +667,7 @@ namespace fl::rt_math {
 			u64_val = ((u64_val >> 8ull) & 0x00FF00FF00FF00FFull) | ((u64_val & 0x00FF00FF00FF00FFull) << 8ull);
 			u64_val = ((u64_val >> 16ull) & 0x0000FFFF0000FFFFull) | ((u64_val & 0x0000FFFF0000FFFFull) << 16ull);
 			u64_val = (u64_val >> 32ull) | (u64_val << 32ull);
-			return std::bit_cast<any_type>(value);
+			return std::bit_cast<any_type>(u64_val);
 #endif
 		}
 	}

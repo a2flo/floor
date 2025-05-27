@@ -393,6 +393,10 @@ std::shared_ptr<device_program> host_context::create_program_from_archive_binari
 }
 
 std::shared_ptr<device_program> host_context::add_universal_binary(const std::string& file_name) {
+	if (!has_host_device_support()) {
+		return std::make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
+	
 	auto bins = universal_binary::load_dev_binaries_from_archive(file_name, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
 		log_error("failed to load universal binary: $", file_name);
@@ -402,6 +406,10 @@ std::shared_ptr<device_program> host_context::add_universal_binary(const std::st
 }
 
 std::shared_ptr<device_program> host_context::add_universal_binary(const std::span<const uint8_t> data) {
+	if (!has_host_device_support()) {
+		return std::make_shared<host_program>(*fastest_device, host_program::program_map_type {});
+	}
+	
 	auto bins = universal_binary::load_dev_binaries_from_archive(data, *this);
 	if (bins.ar == nullptr || bins.dev_binaries.empty()) {
 		log_error("failed to load universal binary (in-memory data)");

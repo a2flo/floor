@@ -568,8 +568,9 @@ static void floor_alloc_host_stack_memory() {
 }
 
 //
-host_function::host_function(const std::string_view function_name_, const void* function_, device_function::function_entry&& entry_) :
+host_function::host_function(const std::string_view function_name_, const void* function_, host_function_entry&& entry_) :
 device_function(function_name_), function(function_), entry(std::move(entry_)) {
+	entry.info = &entry.host_function_info;
 }
 
 host_function::host_function(const std::string_view function_name_, function_map_type&& functions_) :

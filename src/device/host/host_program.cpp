@@ -144,9 +144,17 @@ FLOOR_POP_WARNINGS()
 		return {};
 	}
 	
-	device_function::function_entry entry;
+	host_function::host_function_entry entry;
 	entry.max_total_local_size = dev.max_total_local_size;
 	entry.max_local_size = dev.max_local_size;
+	entry.host_function_info = {
+		.name = std::string(func_name),
+		.type = toolchain::FUNCTION_TYPE::KERNEL,
+		.flags = toolchain::FUNCTION_FLAGS::KERNEL_3D,
+		// NOTE: this must always be false, even when we're pretending to load a function from a FUBAR,
+		//       since this way we have the possibility to detect that this is just dummy function info
+		.is_fubar = false,
+	};
 	
 	auto dyn_function_name = std::make_unique<std::string>(func_name); // needs to be owned by us
 	std::string_view dyn_function_name_sv(*dyn_function_name);

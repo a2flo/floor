@@ -257,10 +257,10 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 
 #define GUARD_ID_CONCAT(num) guard_ ## num
 #define GUARD_ID_EVAL(num) GUARD_ID_CONCAT(num)
-#define GUARD(mtx) fl::safe_guard<std::decay_t<decltype(mtx)>> GUARD_ID_EVAL(__LINE__) (mtx)
+#define GUARD(mtx) const fl::safe_guard<std::decay_t<decltype(mtx)>> GUARD_ID_EVAL(__LINE__) (mtx)
 
 //! all-or-nothing locking of multiple locks
 //! NOTE: this acts as a replacement for std::scoped_lock
 #define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
 #define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
-#define MULTI_GUARD(...) fl::floor_multi_guard::safe_multi_guard<decltype(fl::floor_multi_guard::make_refs_tuple(__VA_ARGS__))> MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { __VA_ARGS__ }
+#define MULTI_GUARD(...) const fl::floor_multi_guard::safe_multi_guard<decltype(fl::floor_multi_guard::make_refs_tuple(__VA_ARGS__))> MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { __VA_ARGS__ }

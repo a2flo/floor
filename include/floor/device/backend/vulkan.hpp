@@ -20,6 +20,10 @@
 
 #if defined(FLOOR_DEVICE_VULKAN)
 
+// we always have reverse bits instructions
+#define FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_32 1
+#define FLOOR_DEVICE_INFO_HAS_REVERSE_BITS_64 1
+
 // similar to Metal, Vulkan id handling functions will be handled on the compiler side and replaced with builtin variables
 FLOOR_GLOBAL_ID_RANGE_ATTR const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
 FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
