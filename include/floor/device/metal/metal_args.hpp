@@ -115,7 +115,7 @@ namespace metal_args {
 									metal_resource_tracking::resource_info_t* res_info) {
 		const auto mtl_buffer = arg->get_underlying_metal_buffer_safe();
 		auto mtl_buffer_obj = mtl_buffer->get_metal_buffer();
-		const auto is_read_only = (entry.args[idx.arg].access == ARG_ACCESS::READ);
+		const auto is_read_only = (!idx.is_implicit ? entry.args[idx.arg].access == ARG_ACCESS::READ : false);
 		// NOTE: we can only ignore heap-allocated buffers when their access is read-only
 		//       -> otherwise they are writable and we must mark them as read+write
 		const auto ignore_heap_alloc = (is_read_only && mtl_buffer->is_heap_allocated());
@@ -580,29 +580,43 @@ namespace metal_args {
 				break; // we're done here
 			}
 			
-			const auto& arg = entry->args[idx.arg];
-			if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags) ||
-				arg.image_type != ARG_IMAGE_TYPE::NONE ||
-				(arg.address_space != ARG_ADDRESS_SPACE::GLOBAL &&
-				 arg.address_space != ARG_ADDRESS_SPACE::CONSTANT)) {
-				// ignore non-buffer args
-			} else {
-				// -> buffer
-				const auto mutability = (arg.access == ARG_ACCESS::READ ? MTLMutability::MTLMutabilityImmutable : MTLMutability::MTLMutabilityMutable);
-				const auto buf_count = (entry->args[idx.arg].is_array() ? entry->args[idx.arg].array_extent : 1u);
-				if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
-					for (uint32_t i = 0; i < buf_count; ++i) {
-						pipeline_desc.buffers[idx.buffer_idx + i].mutability = mutability;
-					}
+			if (!idx.is_implicit) {
+				const auto& arg = entry->args[idx.arg];
+				if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags) ||
+					arg.image_type != ARG_IMAGE_TYPE::NONE ||
+					(arg.address_space != ARG_ADDRESS_SPACE::GLOBAL &&
+					 arg.address_space != ARG_ADDRESS_SPACE::CONSTANT)) {
+					// ignore non-buffer args
 				} else {
-					if (entry->type == FUNCTION_TYPE::FRAGMENT) {
+					// -> buffer
+					const auto mutability = (arg.access == ARG_ACCESS::READ ?
+											 MTLMutability::MTLMutabilityImmutable : MTLMutability::MTLMutabilityMutable);
+					const auto buf_count = (entry->args[idx.arg].is_array() ? entry->args[idx.arg].array_extent : 1u);
+					if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
 						for (uint32_t i = 0; i < buf_count; ++i) {
-							pipeline_desc.fragmentBuffers[idx.buffer_idx + i].mutability = mutability;
+							pipeline_desc.buffers[idx.buffer_idx + i].mutability = mutability;
 						}
 					} else {
-						for (uint32_t i = 0; i < buf_count; ++i) {
-							pipeline_desc.vertexBuffers[idx.buffer_idx + i].mutability = mutability;
+						if (entry->type == FUNCTION_TYPE::FRAGMENT) {
+							for (uint32_t i = 0; i < buf_count; ++i) {
+								pipeline_desc.fragmentBuffers[idx.buffer_idx + i].mutability = mutability;
+							}
+						} else {
+							for (uint32_t i = 0; i < buf_count; ++i) {
+								pipeline_desc.vertexBuffers[idx.buffer_idx + i].mutability = mutability;
+							}
 						}
+					}
+				}
+			} else {
+				// soft-printf implicit argument: always a single mutable buffer right now
+				if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
+					pipeline_desc.buffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
+				} else {
+					if (entry->type == FUNCTION_TYPE::FRAGMENT) {
+						pipeline_desc.fragmentBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
+					} else {
+						pipeline_desc.vertexBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
 					}
 				}
 			}
