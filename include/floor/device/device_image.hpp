@@ -404,6 +404,12 @@ public:
 		return fl::is_image_3d(image_type);
 	}
 	
+	//! returns true if this is image is read-only (non-writable and not usable as a render target)
+	constexpr bool is_image_read_only() const {
+		return (!has_flag<IMAGE_TYPE::WRITE>(image_type) &&
+				!has_flag<IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type));
+	}
+	
 	//! for debugging purposes: dumps the content of this image into a file using the specified "value_type" operator<<
 	//! NOTE: each value will printed in one line (terminated by \n)
 	template <typename value_type>

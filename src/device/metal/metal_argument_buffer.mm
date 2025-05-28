@@ -49,6 +49,7 @@ bool metal_argument_buffer::set_arguments(const device_queue& dev_queue [[maybe_
 		if (!metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::ARGUMENT>(mtl_storage_buffer->get_device(), encoder, { &arg_info }, args, {},
 																					  (!arg_indices.empty() ? &arg_indices : nullptr),
 																					  &resources)) {
+			log_error("failed to set argument buffer$ arguments", debug_label.empty() ? "" : " (" + debug_label + ")");
 			return false;
 		}
 		sort_and_unique_all_resources();
@@ -70,11 +71,6 @@ void metal_argument_buffer::make_resident(id <MTLComputeCommandEncoder> enc) con
 		[enc useResources:resources.read_only.data()
 					count:resources.read_only.size()
 					usage:MTLResourceUsageRead];
-	}
-	if (!resources.write_only.empty()) {
-		[enc useResources:resources.write_only.data()
-					count:resources.write_only.size()
-					usage:MTLResourceUsageWrite];
 	}
 	if (!resources.read_write.empty()) {
 		[enc useResources:resources.read_write.data()
@@ -115,12 +111,6 @@ void metal_argument_buffer::make_resident(id <MTLRenderCommandEncoder> enc, cons
 		[enc useResources:resources.read_only.data()
 					count:resources.read_only.size()
 					usage:MTLResourceUsageRead
-				   stages:stages];
-	}
-	if (!resources.write_only.empty()) {
-		[enc useResources:resources.write_only.data()
-					count:resources.write_only.size()
-					usage:MTLResourceUsageWrite
 				   stages:stages];
 	}
 	if (!resources.read_write.empty()) {

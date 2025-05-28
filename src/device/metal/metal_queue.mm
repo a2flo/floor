@@ -109,18 +109,22 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 			[encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
 		}
 		
+		const auto& mtl_dev = (const metal_device&)dev;
+		if (!mtl_dev.heap_residency_set) {
+			if (mtl_dev.heap_shared) {
+				[encoder useHeap:mtl_dev.heap_shared];
+			}
+			if (mtl_dev.heap_private) {
+				[encoder useHeap:mtl_dev.heap_private];
+			}
+		}
+		
 		// declare all used resources
-		// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
 		const auto& resources = mtl_indirect_pipeline_entry->get_resources();
 		if (!resources.read_only.empty()) {
 			[encoder useResources:resources.read_only.data()
 							count:resources.read_only.size()
 							usage:MTLResourceUsageRead];
-		}
-		if (!resources.write_only.empty()) {
-			[encoder useResources:resources.write_only.data()
-							count:resources.write_only.size()
-							usage:MTLResourceUsageWrite];
 		}
 		if (!resources.read_write.empty()) {
 			[encoder useResources:resources.read_write.data()
@@ -136,14 +140,6 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 			[encoder useResources:resources.read_write_images.data()
 							count:resources.read_write_images.size()
 							usage:(MTLResourceUsageRead | MTLResourceUsageWrite)];
-		}
-		
-		const auto& mtl_dev = (const metal_device&)dev;
-		if (mtl_dev.heap_shared) {
-			[encoder useHeap:mtl_dev.heap_shared];
-		}
-		if (mtl_dev.heap_private) {
-			[encoder useHeap:mtl_dev.heap_private];
 		}
 		
 		if (mtl_indirect_pipeline_entry->printf_buffer) {

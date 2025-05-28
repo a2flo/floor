@@ -125,16 +125,18 @@ void metal_function::execute(const device_queue& cqueue,
 			}
 		}
 		
+		if (!dev->heap_residency_set) {
+			if (dev->heap_shared) {
+				[encoder->encoder useHeap:dev->heap_shared];
+			}
+			if (dev->heap_private) {
+				[encoder->encoder useHeap:dev->heap_private];
+			}
+		}
+		
 		// set and handle function arguments
 		const function_entry& entry = function_iter->second;
 		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
-		
-		if (dev->heap_shared) {
-			[encoder->encoder useHeap:dev->heap_shared];
-		}
-		if (dev->heap_private) {
-			[encoder->encoder useHeap:dev->heap_private];
-		}
 		
 		// compute sizes
 		auto [grid_dim, block_dim] = compute_grid_and_block_dim(function_iter->second, dim, global_work_size, local_work_size);

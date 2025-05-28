@@ -521,11 +521,13 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 		if (is_heap_image) {
 			assert((is_private && mtl_dev.heap_private) || (is_shared && mtl_dev.heap_shared));
 			image = [(is_private ? mtl_dev.heap_private : mtl_dev.heap_shared) newTextureWithDescriptor:desc];
-			if (!image) {
+			if (image == nil) {
 #if defined(FLOOR_DEBUG)
 				log_warn("failed to allocate heap image");
 #endif
 				is_heap_image = false;
+			} else {
+				assert([image heap] && [image heap] == (is_private ? mtl_dev.heap_private : mtl_dev.heap_shared));
 			}
 		}
 		image = [mtl_device newTextureWithDescriptor:desc];

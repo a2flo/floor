@@ -373,6 +373,10 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		
 		device.barycentric_coord_support = [dev supportsShaderBarycentricCoordinates];
 		
+		if (@available(macOS 15.0, iOS 18.0, visionOS 2.0, *)) {
+			device.residency_set_support = true;
+		}
+		
 		if ([dev respondsToSelector:@selector(architecture)]) {
 			if (const auto arch_str = [[[dev architecture] name] UTF8String]; arch_str) {
 				log_msg("architecture: $", arch_str);
@@ -393,7 +397,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 	}
 	
 	// check if there is any supported / whitelisted device
-	if(devices.empty()) {
+	if (devices.empty()) {
 		log_error("no valid Metal device found!");
 		return;
 	}
@@ -425,12 +429,6 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 	@autoreleasepool {
 		for (auto& dev : devices) {
 			auto mtl_dev = (metal_device*)dev.get();
-			
-			// queue
-			auto dev_queue = create_queue(*dev);
-			dev_queue->set_debug_label("default_queue");
-			internal_queues.insert_or_assign(dev.get(), dev_queue);
-			mtl_dev->internal_queue = dev_queue.get();
 			
 			// allocate internal (experimental) heap
 			if (has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
@@ -484,7 +482,38 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 						log_error("failed to allocate share storage heap of size $'", heap_size_shared);
 					}
 				}
+				
+				// allocate residency set for all heaps if supported
+				if (mtl_dev->residency_set_support && (mtl_dev->heap_shared || mtl_dev->heap_private)) {
+					MTLResidencySetDescriptor* res_set_desc = [[MTLResidencySetDescriptor alloc] init];
+					res_set_desc.label = @"heap_residency_set";
+					res_set_desc.initialCapacity = 2;
+					NSError* res_set_error = nil;
+					mtl_dev->heap_residency_set = [mtl_dev->device newResidencySetWithDescriptor:res_set_desc
+																						   error:&res_set_error];
+					if (res_set_error) {
+						log_error("failed to create heap residency set for device $: $", mtl_dev->name,
+								  [[res_set_error localizedDescription] UTF8String]);
+						mtl_dev->heap_residency_set = nil;
+					} else {
+						if (mtl_dev->heap_shared) {
+							[mtl_dev->heap_residency_set addAllocation:mtl_dev->heap_shared];
+						}
+						if (mtl_dev->heap_private) {
+							[mtl_dev->heap_residency_set addAllocation:mtl_dev->heap_private];
+						}
+						[mtl_dev->heap_residency_set commit];
+						[mtl_dev->heap_residency_set requestResidency];
+						log_msg("using a global residency set for all heaps");
+					}
+				}
 			}
+			
+			// queue
+			auto dev_queue = create_queue(*dev);
+			dev_queue->set_debug_label("default_queue");
+			internal_queues.insert_or_assign(dev.get(), dev_queue);
+			mtl_dev->internal_queue = dev_queue.get();
 			
 			// create null buffer
 			auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
@@ -527,10 +556,16 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 
 std::shared_ptr<device_queue> metal_context::create_queue(const device& dev) const {
 	@autoreleasepool {
-		id <MTLCommandQueue> queue = [((const metal_device&)dev).device newCommandQueue];
-		if(queue == nullptr) {
+		const auto& mtl_dev = (const metal_device&)dev;
+		id <MTLCommandQueue> queue = [mtl_dev.device newCommandQueue];
+		if (queue == nullptr) {
 			log_error("failed to create command queue");
 			return {};
+		}
+		
+		// always add the heaps residency set to all queues so that they are always resident in all queues
+		if (mtl_dev.heap_residency_set) {
+			[queue addResidencySet:mtl_dev.heap_residency_set];
 		}
 		
 		auto ret = std::make_shared<metal_queue>(dev, queue);

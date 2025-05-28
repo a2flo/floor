@@ -24,6 +24,7 @@
 #include <floor/device/metal/metal_function.hpp>
 #include <floor/device/metal/metal_device.hpp>
 #include <floor/device/metal/metal_image.hpp>
+#include <floor/device/metal/metal_args.hpp>
 #include <floor/floor.hpp>
 
 namespace fl {
@@ -188,9 +189,9 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				mtl_pipeline_desc.vertexDescriptor = mtl_vertex_desc;
 			}
 			
-			// TODO: set per-buffer mutability
-			//mtl_pipeline_desc.vertexBuffers[0].mutability = MTLMutability::MTLMutabilityMutable;
-			//mtl_pipeline_desc.fragmentBuffers[0].mutability = MTLMutability::MTLMutabilityImmutable;
+			// set per-buffer mutability
+			metal_args::set_buffer_mutability<metal_args::ENCODER_TYPE::SHADER>(mtl_pipeline_desc,
+																				{ mtl_vs_entry->info, mtl_fs_entry ? mtl_fs_entry->info : nullptr });
 			
 			// finally create the pipeline object
 			metal_pipeline_entry entry;

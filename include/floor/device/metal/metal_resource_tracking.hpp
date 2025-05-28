@@ -36,10 +36,8 @@ public:
 	}
 	
 	//! contains the state of multiple/all tracked resources
-	//! TODO/NOTE: right now, all buffers are considered read+write, images may be read-only or read+write (TODO: handle write-only/read-only buffers)
 	struct resource_info_t {
 		std::vector<id <MTLResource> __unsafe_unretained> read_only;
-		std::vector<id <MTLResource> __unsafe_unretained> write_only;
 		std::vector<id <MTLResource> __unsafe_unretained> read_write;
 		std::vector<id <MTLResource> __unsafe_unretained> read_only_images;
 		std::vector<id <MTLResource> __unsafe_unretained> read_write_images;
@@ -48,7 +46,6 @@ public:
 		void add_resources(const resource_info_t& other) {
 			@autoreleasepool {
 				read_only.insert(read_only.end(), other.read_only.begin(), other.read_only.end());
-				write_only.insert(write_only.end(), other.write_only.begin(), other.write_only.end());
 				read_write.insert(read_write.end(), other.read_write.begin(), other.read_write.end());
 				read_only_images.insert(read_only_images.end(), other.read_only_images.begin(), other.read_only_images.end());
 				read_write_images.insert(read_write_images.end(), other.read_write_images.begin(), other.read_write_images.end());
@@ -98,7 +95,6 @@ protected:
 	void sort_and_unique_all_resources() {
 		@autoreleasepool {
 			sort_and_unique_resources(resources.read_only);
-			sort_and_unique_resources(resources.write_only);
 			sort_and_unique_resources(resources.read_write);
 			sort_and_unique_resources(resources.read_only_images);
 			sort_and_unique_resources(resources.read_write_images);

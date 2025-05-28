@@ -95,6 +95,9 @@ public:
 	//! true if the device has support for SIMD reduction operations
 	bool simd_reduction { false };
 	
+	//! true if the device has support residency sets
+	bool residency_set_support { false };
+	
 	// compute queue used for internal purposes (try not to use this ...)
 	device_queue* internal_queue { nullptr };
 	
@@ -106,10 +109,14 @@ public:
 	//! NOTE: only exists if the context was created with __EXP_INTERNAL_HEAP
 	id <MTLHeap> heap_private { nil };
 	id <MTLHeap> heap_shared { nil };
+	
+	//! residency set containing all valid heaps
+	id <MTLResidencySet> heap_residency_set { nil };
 #else
 	void* _device { nullptr };
 	void* _heap_private { nullptr };
 	void* _heap_shared { nullptr };
+	void* _heap_residency_set { nullptr };
 #endif
 	
 	//! returns true if the specified object is the same object as this

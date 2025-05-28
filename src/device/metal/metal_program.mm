@@ -23,6 +23,7 @@
 #include <floor/device/metal/metal_function.hpp>
 #include <floor/device/metal/metal_shader.hpp>
 #include <floor/device/metal/metal_device.hpp>
+#include <floor/device/metal/metal_args.hpp>
 #include <floor/device/toolchain.hpp>
 #include <floor/floor.hpp>
 
@@ -83,6 +84,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							
 							// optimization opt-in
 							mtl_pipeline_desc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true;
+							mtl_pipeline_desc.maxCallStackDepth = 0;
 							
 							// implicitly support indirect compute when the function doesn't take any image parameters
 							bool has_image_args = false;
@@ -96,7 +98,8 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 								mtl_pipeline_desc.supportIndirectCommandBuffers = true;
 							}
 							
-							// TODO: set buffer mutability
+							// set buffer mutability
+							metal_args::set_buffer_mutability<metal_args::ENCODER_TYPE::COMPUTE>(mtl_pipeline_desc, { &info });
 							
 							if (dump_reflection_info) {
 								MTLAutoreleasedComputePipelineReflection refl_data { nil };

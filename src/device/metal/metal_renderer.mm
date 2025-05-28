@@ -195,13 +195,15 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];
 		[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
 		
-		// make heaps implicitly resident
+		// make heaps implicitly resident (unless we're already using the heap residency set)
 		const auto& mtl_dev = (const metal_device&)cqueue.get_device();
-		if (mtl_dev.heap_shared) {
-			[encoder useHeap:mtl_dev.heap_shared stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
-		}
-		if (mtl_dev.heap_private) {
-			[encoder useHeap:mtl_dev.heap_private stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
+		if (!mtl_dev.heap_residency_set) {
+			if (mtl_dev.heap_shared) {
+				[encoder useHeap:mtl_dev.heap_shared stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
+			}
+			if (mtl_dev.heap_private) {
+				[encoder useHeap:mtl_dev.heap_private stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
+			}
 		}
 		
 		return true;
@@ -380,19 +382,12 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 		}
 		
 		// declare all used resources
-		// TODO: efficient resource usage declaration for command ranges != full range (see warning above)
 		const auto& resources = mtl_indirect_pipeline_entry->get_resources();
-		const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
+		constexpr const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
 		if (!resources.read_only.empty()) {
 			[encoder useResources:resources.read_only.data()
 							count:resources.read_only.size()
 							usage:MTLResourceUsageRead
-						   stages:stages];
-		}
-		if (!resources.write_only.empty()) {
-			[encoder useResources:resources.write_only.data()
-							count:resources.write_only.size()
-							usage:MTLResourceUsageWrite
 						   stages:stages];
 		}
 		if (!resources.read_write.empty()) {
