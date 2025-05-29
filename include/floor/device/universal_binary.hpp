@@ -275,6 +275,7 @@ using namespace std::literals;
 			
 			//! if set, enables descriptor buffer support
 			//! NOTE: this is required now
+			// TODO: remove in future version
 			uint64_t descriptor_buffer_support : 1;
 			
 			//! required device SIMD width
