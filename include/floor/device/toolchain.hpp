@@ -61,6 +61,7 @@ namespace fl::toolchain {
 		//! function makes use of soft-printf
 		USES_SOFT_PRINTF				= (1u << 0u),
 		//! function makes use of Vulkan descriptor buffers
+		//! TODO: remove in future version
 		USES_VULKAN_DESCRIPTOR_BUFFER	= (1u << 1u),
 		//! kernel dimensionality
 		KERNEL_1D						= (1u << 2u),
@@ -309,6 +310,14 @@ namespace fl::toolchain {
 			//! NOTE: use this with caution, i.e. only try to use this if the default structurization failed,
 			//!       since this pass may itself transform the CFG into an unstructured CFG that can not be recovered
 			bool pre_structurization_pass { false };
+			
+			//! run spirv-opt after toolchain compilation
+			//! NOTE: this is experimental as spirv-opt may introduce errors
+			bool run_opt { false };
+			
+			//! if specified, this must contain valid options that will be passed to spirv-opt
+			//! NOTE: this will override the default options!
+			std::optional<std::string> opt_overrides;
 		} vulkan;
 		
 		//! optional pre-compiled header that should be used for compilation

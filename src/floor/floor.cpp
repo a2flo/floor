@@ -446,6 +446,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_as= config_doc.get<std::string>("toolchain.vulkan.spirv-as", config.vulkan_spirv_as);
 		config.vulkan_spirv_dis = config_doc.get<std::string>("toolchain.vulkan.spirv-dis", config.vulkan_spirv_dis);
 		config.vulkan_spirv_validator = config_doc.get<std::string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
+		config.vulkan_spirv_opt = config_doc.get<std::string>("toolchain.vulkan.spirv-opt", config.vulkan_spirv_opt);
 		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
 		extract_string_array_set.operator()<false>(config.vulkan_log_binary_filter, "toolchain.vulkan.log_binary_filter");
 		config.vulkan_nvidia_device_diagnostics = config_doc.get<bool>("toolchain.vulkan.nvidia_device_diagnostics", false);
@@ -629,6 +630,7 @@ bool floor::init(const init_state& state) {
 			{ { 140006u, ~0u }, &config.vulkan_spirv_as },
 			{ { 140006u, ~0u }, &config.vulkan_spirv_dis },
 			{ { 140006u, ~0u }, &config.vulkan_spirv_validator },
+			{ { 140006u, ~0u }, &config.vulkan_spirv_opt },
 		});
 		if (config.vulkan_base_path == "") {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // not available on iOS/visionOS anyways
@@ -643,6 +645,7 @@ bool floor::init(const init_state& state) {
 			config.vulkan_spirv_as.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_spirv_dis.insert(0, config.vulkan_base_path + "bin/");
 			config.vulkan_spirv_validator.insert(0, config.vulkan_base_path + "bin/");
+			config.vulkan_spirv_opt.insert(0, config.vulkan_base_path + "bin/");
 		}
 		
 		// -> host toolchain
@@ -1757,6 +1760,9 @@ const std::string& floor::get_vulkan_spirv_dis() {
 }
 const std::string& floor::get_vulkan_spirv_validator() {
 	return config.vulkan_spirv_validator;
+}
+const std::string& floor::get_vulkan_spirv_opt() {
+	return config.vulkan_spirv_opt;
 }
 const bool& floor::get_vulkan_soft_printf() {
 	return config.vulkan_soft_printf;

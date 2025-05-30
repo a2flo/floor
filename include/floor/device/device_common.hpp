@@ -55,6 +55,7 @@ enum class VENDOR : uint32_t {
 	APPLE,
 	HOST,
 	KHRONOS,
+	MESA,
 };
 
 //! returns the string representation of the enum VENDOR
@@ -66,6 +67,7 @@ floor_inline_always static constexpr const char* vendor_to_string(const VENDOR& 
 		case VENDOR::APPLE: return "APPLE";
 		case VENDOR::HOST: return "HOST";
 		case VENDOR::KHRONOS: return "KHRONOS";
+		case VENDOR::MESA: return "MESA";
 		default: return "UNKNOWN";
 	}
 }

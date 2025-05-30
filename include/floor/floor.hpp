@@ -319,6 +319,7 @@ public:
 	static const std::string& get_vulkan_spirv_as();
 	static const std::string& get_vulkan_spirv_dis();
 	static const std::string& get_vulkan_spirv_validator();
+	static const std::string& get_vulkan_spirv_opt();
 	static const bool& get_vulkan_soft_printf();
 	static const std::vector<std::string>& get_vulkan_log_binary_filter();
 	static const bool& get_vulkan_nvidia_device_diagnostics();
@@ -497,6 +498,7 @@ protected:
 		std::string vulkan_spirv_as = "spirv-as";
 		std::string vulkan_spirv_dis = "spirv-dis";
 		std::string vulkan_spirv_validator = "spirv-val";
+		std::string vulkan_spirv_opt = "spirv-opt";
 		bool vulkan_soft_printf = false;
 		std::vector<std::string> vulkan_log_binary_filter;
 		bool vulkan_nvidia_device_diagnostics = false;

@@ -39,8 +39,13 @@ public:
 	
 	//! OpenCL C version of the device
 	OPENCL_VERSION c_version { OPENCL_VERSION::NONE };
+
+	//! true if the device has SPIR support
+	//! NOTE: either this is true or "spirv_version" is not NONE
+	bool has_spir_support { false };
 	
-	//! max supported spir-v version of the device
+	//! max supported SPIR-V version of the device
+	//! NOTE: either this is not NONE or "has_spir_support" is true
 	SPIRV_VERSION spirv_version { SPIRV_VERSION::NONE };
 	
 #if !defined(FLOOR_NO_OPENCL)

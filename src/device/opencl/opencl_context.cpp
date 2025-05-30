@@ -145,15 +145,15 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 		
 		// get platform vendor
 		const std::string platform_vendor_str = core::str_to_lower(cl_get_info<CL_PLATFORM_VENDOR>(platform));
-		if(platform_vendor_str.find("nvidia") != std::string::npos) {
+		if (platform_vendor_str.find("nvidia") != std::string::npos) {
 			platform_vendor = VENDOR::NVIDIA;
-		}
-		else if(platform_vendor_str.find("amd") != std::string::npos ||
-				platform_vendor_str.find("advanced micro devices") != std::string::npos) {
+		} else if (platform_vendor_str.find("amd") != std::string::npos ||
+				   platform_vendor_str.find("advanced micro devices") != std::string::npos) {
 			platform_vendor = VENDOR::AMD;
-		}
-		else if(platform_vendor_str.find("intel") != std::string::npos) {
+		} else if (platform_vendor_str.find("intel") != std::string::npos) {
 			platform_vendor = VENDOR::INTEL;
+		} else if (platform_vendor_str.starts_with("mesa")) {
+			platform_vendor = VENDOR::MESA;
 		}
 		
 		//
@@ -422,24 +422,50 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 				log_error("invalid OpenCL C version string: $", cl_c_version_str);
 			}
 			dev.c_version = extracted_cl_c_version.second;
-			
-			if(!core::contains(dev.extensions, "cl_khr_spir")) {
-				log_error("device \"$\" does not support \"cl_khr_spir\", removing it!", dev.name);
-				devices.pop_back();
-				continue;
+
+			bool has_spir_support = false;
+			if (core::contains(dev.extensions, "cl_khr_spir")) {
+				has_spir_support = true;
+				log_msg("SPIR versions: $", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 			}
-			log_msg("spir versions: $", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 			
-			// check spir-v support (core, extension, or forced for testing purposes)
+			// check SPIR-V support (core, extension, or forced for testing purposes)
+			bool has_spirv_support = false;
+			const auto check_spirv_function_support = [this, &has_spirv_support, &platform]() {
+				// check for core function first
+				bool check_extension_ptr = false;
+				if (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+					// not compiling with OpenCL 2.1+ headers, which pretty much always means that the icd loader won't have
+					// the core clCreateProgramWithIL symbol, and since I don't want to dlsym vendor libraries, fallback to
+					// the extension method
+					check_extension_ptr = true;
+				}
+				
+				// if the platform is not 2.1+, but the extension is supported, get the function pointer to it
+				if (platform_cl_version < OPENCL_VERSION::OPENCL_2_1 || check_extension_ptr) {
+					cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddressForPlatform(platform, "clCreateProgramWithILKHR");
+					if (!cl_create_program_with_il) {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(deprecated-declarations)
+						cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddress("clCreateProgramWithILKHR");
+FLOOR_POP_WARNINGS()
+					}
+				}
+				
+				if (!cl_create_program_with_il) {
+					log_error("no valid clCreateProgramWithIL function has been found, disabling SPIR-V support");
+					has_spirv_support = false;
+					
+					// disable spir-v on all devices
+					for (auto& dev_: devices) {
+						((opencl_device*)dev_.get())->spirv_version = SPIRV_VERSION::NONE;
+					}
+				}
+			};
 			if (!floor::get_opencl_disable_spirv() /* disable takes prio over force-check */ &&
 				core::contains(dev.extensions, "cl_khr_il_program")) {
 				if (platform_cl_version >= OPENCL_VERSION::OPENCL_3_0) {
 					const auto il_versions = cl_get_info<CL_DEVICE_ILS_WITH_VERSION>(cl_dev);
-					if (il_versions.empty()) {
-						log_error("device \"$\" does not support any IL version", dev.name);
-						devices.pop_back();
-						continue;
-					}
 					for (const auto& il_version : il_versions) {
 						static const auto get_spirv_version = [](const uint32_t& version) -> std::pair<uint32_t, uint32_t> {
 							return { (version & 0xFFC0'0000u) >> 22u, (version & 0x003F'F000u) >> 12u };
@@ -476,6 +502,7 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 							}
 							if (spirv_version > dev.spirv_version) {
 								dev.spirv_version = spirv_version;
+								has_spirv_support = true;
 							}
 						}
 					}
@@ -488,17 +515,17 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 					
 					// find the max supported SPIR-V OpenCL version
 					const auto il_version_tokens = core::tokenize(core::trim(il_versions), ' ');
-					for(const auto& il_token : il_version_tokens) {
+					for (const auto& il_token : il_version_tokens) {
 						static constexpr const char spirv_id[] { "SPIR-V_" };
-						if(il_token.find(spirv_id) == 0) {
+						if (il_token.find(spirv_id) == 0) {
 							const auto dot_pos = il_token.rfind('.');
-							if(dot_pos == std::string::npos) continue;
+							if (dot_pos == std::string::npos) continue;
 							const auto spirv_major = stou(il_token.substr(std::size(spirv_id) - 1,
 																		  dot_pos - std::size(spirv_id) - 1));
 							const auto spirv_minor = stou(il_token.substr(dot_pos + 1,
 																		  il_token.size() - dot_pos - 1));
 							auto spirv_version = SPIRV_VERSION::NONE;
-							switch(spirv_major) {
+							switch (spirv_major) {
 								default:
 								case 1:
 									switch(spirv_minor) {
@@ -527,19 +554,36 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 									}
 									break;
 							}
-							if(spirv_version > dev.spirv_version) {
+							if (spirv_version > dev.spirv_version) {
 								dev.spirv_version = spirv_version;
+								has_spirv_support = true;
 							}
 						}
 					}
 				}
 			}
 			
-			if(floor::get_opencl_force_spirv_check() &&
-			   !floor::get_opencl_disable_spirv() &&
-			   dev.spirv_version == SPIRV_VERSION::NONE) {
+			if (floor::get_opencl_force_spirv_check() &&
+				!floor::get_opencl_disable_spirv() &&
+				dev.spirv_version == SPIRV_VERSION::NONE) {
 				dev.spirv_version = SPIRV_VERSION::SPIRV_1_0;
+				has_spirv_support = true;
 			}
+			
+			if (has_spirv_support && check_spirv_support) {
+				check_spirv_function_support();
+			}
+
+			if (!has_spir_support && !has_spirv_support) {
+				log_error("device \"$\" does not support SPIR nor SPIR-V, removing it!", dev.name);
+				devices.pop_back();
+				continue;
+			}
+			
+			if (has_spir_support) {
+				dev.has_spir_support = true;
+			}
+			assert(!has_spirv_support || (has_spirv_support && dev.spirv_version != SPIRV_VERSION::NONE));
 			
 			//
 			log_debug("$(Units: $, Clock: $ MHz, Memory: $ MB): $ $, $ / $ / $",
@@ -602,52 +646,6 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 		if(devices.empty()) {
 			log_error("no supported device found on this platform!");
 			continue;
-		}
-		
-		// handle SPIR-V support (this is platform-specific)
-		if(check_spirv_support) {
-			// check for core function first
-			bool check_extension_ptr = false;
-			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
-#if !defined(CL_VERSION_2_1) || 1 // workaround dll hell
-				// not compiling with OpenCL 2.1+ headers, which pretty much always means that the icd loader won't have
-				// the core clCreateProgramWithIL symbol, and since I don't want to dlsym vendor libraries, fallback to
-				// the extension method
-				check_extension_ptr = true;
-#else
-				// we're compiling with OpenCL 2.1+ headers and this function *should* exist, but check for it just in case
-				cl_create_program_with_il = &clCreateProgramWithIL;
-				check_extension_ptr = (cl_create_program_with_il == nullptr);
-#endif
-			}
-			
-			// if the platform is not 2.1+, but the extension is supported, get the function pointer to it
-			if(platform_cl_version < OPENCL_VERSION::OPENCL_2_1 || check_extension_ptr) {
-				cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddressForPlatform(platform, "clCreateProgramWithILKHR");
-				if(cl_create_program_with_il == nullptr) {
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(deprecated-declarations)
-					cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddress("clCreateProgramWithILKHR");
-FLOOR_POP_WARNINGS()
-				}
-			}
-			
-			// last resort: if we compiled against a OpenCL 2.1+ header/lib, but aren't using a OpenCL 2.1+ platform,
-			// still try the core function (which might yet work)
-#if defined(CL_VERSION_2_1) && 0 // workaround dll hell
-			if(cl_create_program_with_il == nullptr) {
-				cl_create_program_with_il = &clCreateProgramWithIL;
-			}
-#endif
-			
-			if(cl_create_program_with_il == nullptr) {
-				log_error("no valid clCreateProgramWithIL function has been found, disabling SPIR-V support");
-				
-				// disable spir-v on all devices
-				for(auto& dev : devices) {
-					((opencl_device&)*dev).spirv_version = SPIRV_VERSION::NONE;
-				}
-			}
 		}
 		
 		// enable parameter workaround for all device that use spir-v

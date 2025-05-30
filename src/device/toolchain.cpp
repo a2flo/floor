@@ -1283,7 +1283,10 @@ program_data compile_input(const std::string& input,
 									floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 			
 			// run spirv-val if specified
-			if (validate) {
+			const auto run_validation = [&dev, &validate, &validator, &options, &compiled_file_or_code]() {
+				if (!validate) {
+					return true;
+				}
 				std::string validator_opts;
 				if (options.target == TARGET::SPIRV_VULKAN) {
 					validator_opts = "--target-env vulkan1.3 --uniform-buffer-standard-layout --scalar-block-layout --workgroup-scalar-block-layout";
@@ -1295,7 +1298,7 @@ program_data compile_input(const std::string& input,
 						case OPENCL_VERSION::OPENCL_1_0:
 						case OPENCL_VERSION::OPENCL_1_1:
 							log_error("unsupported OpenCL version");
-							return {};
+							return false;
 						case OPENCL_VERSION::OPENCL_1_2:
 							validator_opts = "--target-env opencl1.2";
 							break;
@@ -1328,6 +1331,41 @@ program_data compile_input(const std::string& input,
 					} else {
 						log_error("SPIR-V validator ($):\n$", (options.target == TARGET::SPIRV_VULKAN ? "Vulkan" : "OpenCL"), spirv_validator_output);
 					}
+				}
+				return true;
+			};
+			if (!run_validation()) {
+				return {};
+			}
+			
+			// run spirv-opt if specified
+			if (options.target == TARGET::SPIRV_VULKAN && options.vulkan.run_opt) {
+				const auto vk_spirv_opt = floor::get_vulkan_spirv_opt();
+				
+				const std::string opt_options = (options.vulkan.opt_overrides ? *options.vulkan.opt_overrides :
+												 "-O --unify-const --compact-ids --trim-capabilities --preserve-bindings --preserve-interface --preserve-spec-constants");
+				const std::string spirv_opt_cmd {
+					"\"" + vk_spirv_opt + "\" " + opt_options + " " + compiled_file_or_code + " -o " + compiled_file_or_code
+#if !defined(_MSC_VER)
+					+ " 2>&1"
+#endif
+				};
+				std::string spirv_opt_output;
+				core::system(spirv_opt_cmd, spirv_opt_output);
+				if (!spirv_opt_output.empty() && spirv_opt_output[spirv_opt_output.size() - 1] == '\n') {
+					spirv_opt_output.pop_back(); // trim last newline
+				}
+				if (!options.silence_debug_output) {
+					if (spirv_opt_output == "") {
+						log_msg("SPIR-V opt ($): success", (options.target == TARGET::SPIRV_VULKAN ? "Vulkan" : "OpenCL"));
+					} else {
+						log_error("SPIR-V opt ($): failure\n$", (options.target == TARGET::SPIRV_VULKAN ? "Vulkan" : "OpenCL"), spirv_opt_output);
+					}
+				}
+
+				// run validation once more
+				if (!run_validation()) {
+					return {};
 				}
 			}
 			

@@ -42,31 +42,31 @@ namespace fl::ext {
 	//! std::is_floating_point with half, float, double and long double support
 	template <typename T> struct is_floating_point :
 	public std::conditional_t<(std::is_same_v<std::remove_cv_t<T>, float> ||
-						  std::is_same_v<std::remove_cv_t<T>, double> ||
-						  std::is_same_v<std::remove_cv_t<T>, long double> ||
-						  std::is_same_v<std::remove_cv_t<T>, half>), std::true_type, std::false_type> {};
-	
+							   std::is_same_v<std::remove_cv_t<T>, double> ||
+							   std::is_same_v<std::remove_cv_t<T>, long double> ||
+							   std::is_same_v<std::remove_cv_t<T>, half>), std::true_type, std::false_type> {};
+
 	template <typename T> constexpr bool is_floating_point_v = ext::is_floating_point<T>::value;
 	
 	//! std::is_integral with std types and 128-bit int/uint
 	template <typename T> struct is_integral :
 	public std::conditional_t<(std::is_integral<T>::value ||
-						  std::is_same_v<std::remove_cv_t<T>, __int128_t> ||
-						  std::is_same_v<std::remove_cv_t<T>, __uint128_t>), std::true_type, std::false_type> {};
-	
+							   std::is_same_v<std::remove_cv_t<T>, __int128_t> ||
+							   std::is_same_v<std::remove_cv_t<T>, __uint128_t>), std::true_type, std::false_type> {};
+
 	template <typename T> constexpr bool is_integral_v = ext::is_integral<T>::value;
 	
 	//! is_signed with std types and 128-bit int
 	template <typename T> struct is_signed :
 	public std::conditional_t<(std::is_signed<T>::value ||
-						  std::is_same_v<std::remove_cv_t<T>, __int128_t>), std::true_type, std::false_type> {};
+							   std::is_same_v<std::remove_cv_t<T>, __int128_t>), std::true_type, std::false_type> {};
 	
 	template <typename T> constexpr bool is_signed_v = ext::is_signed<T>::value;
 	
 	//! is_unsigned with std types and 128-bit uint
 	template <typename T> struct is_unsigned :
 	public std::conditional_t<(std::is_unsigned<T>::value ||
-						  std::is_same_v<std::remove_cv_t<T>, __uint128_t>), std::true_type, std::false_type> {};
+							   std::is_same_v<std::remove_cv_t<T>, __uint128_t>), std::true_type, std::false_type> {};
 	
 	template <typename T> constexpr bool is_unsigned_v = ext::is_unsigned<T>::value;
 	

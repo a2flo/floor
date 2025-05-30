@@ -999,12 +999,16 @@ namespace fl::universal_binary {
 						continue;
 					}
 					
-					// check SPIR-V compat (SPIR compat is always implied)
-					if (!cl_target.is_spir) {
-						if (cl_dev.spirv_version == SPIRV_VERSION::NONE) {
-							// no SPIR-V support
-							continue;
-						}
+					// check SPIR compat
+					if (cl_target.is_spir && !cl_dev.has_spir_support) {
+						// no SPIR support
+						continue;
+					}
+					
+					// check SPIR-V compat
+					if (!cl_target.is_spir && cl_dev.spirv_version == SPIRV_VERSION::NONE) {
+						// no SPIR-V support
+						continue;
 					}
 					
 					// generic device can only match generic target

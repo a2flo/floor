@@ -32,6 +32,7 @@ namespace fl::device_info {
 		APPLE,
 		HOST,
 		KHRONOS,
+		MESA,
 		UNKNOWN
 	};
 	//! returns the device vendor

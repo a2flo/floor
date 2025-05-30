@@ -75,6 +75,14 @@ struct device_function_arg {
 	constexpr device_function_arg(const argument_buffer* arg_buf) noexcept : var((const argument_buffer*)arg_buf) {}
 	template <typename derived_arg_buffer_t> requires std::is_convertible_v<derived_arg_buffer_t*, argument_buffer*>
 	constexpr device_function_arg(const argument_buffer& arg_buf) noexcept : var((const argument_buffer*)&arg_buf) {}
+	
+	//! evaluates to true_type if T is a type pointing to device memory
+	template <typename T>
+	struct is_device_memory : public std::conditional_t<(std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, device_buffer*> ||
+														 std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, device_image*> ||
+														 std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, argument_buffer*>),
+														std::true_type, std::false_type> {};
+	template <typename T> static constexpr bool is_device_memory_v = is_device_memory<T>::value;
 
 	// span arg with CPU storage
 	template <typename data_type>
@@ -82,16 +90,16 @@ struct device_function_arg {
 	template <typename data_type>
 	constexpr device_function_arg(std::span<data_type>&& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
 	
-	// any contiguous sized range with CPU storage (e.g. std::vector)
+	// any contiguous sized range with CPU storage (e.g. std::vector), but no smart pointers
 	template <std::ranges::contiguous_range cr_type>
-	requires (std::ranges::sized_range<cr_type>)
+	requires (std::ranges::sized_range<cr_type> &&
+			  !is_device_memory_v<std::ranges::range_value_t<cr_type>> &&
+			  !ext::is_unique_ptr_v<std::ranges::range_value_t<cr_type>> &&
+			  !ext::is_shared_ptr_v<std::ranges::range_value_t<cr_type>>)
 	constexpr device_function_arg(cr_type&& cr) noexcept : device_function_arg(std::span<const std::ranges::range_value_t<cr_type>>(cr)) {}
 	
 	// generic arg with CPU storage
-	template <typename T> requires (!std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, device_buffer*> &&
-									!std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, device_image*> &&
-									!std::is_convertible_v<std::decay_t<std::remove_pointer_t<T>>*, argument_buffer*> &&
-									!ext::is_vector_v<T> && !ext::is_span_v<T>)
+	template <typename T> requires (!is_device_memory_v<T> && !ext::is_vector_v<T> && !ext::is_span_v<T>)
 	constexpr device_function_arg(const T& generic_arg) noexcept : var((const void*)&generic_arg), size(sizeof(T)) {}
 	
 	// forward generic shader_ptrs to one of the constructors above
