@@ -32,6 +32,9 @@ argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
 bool cuda_argument_buffer::set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) {
 	auto cuda_storage_buffer = (cuda_buffer*)storage_buffer.get();
 	
+	// ensure prior uses have finished
+	dev_queue.finish();
+	
 	// map the memory of the argument buffer so that we can fill it on the CPU side + set up auto unmap
 	auto mapped_arg_buffer = cuda_storage_buffer->map(dev_queue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK);
 	struct unmap_on_exit_t {

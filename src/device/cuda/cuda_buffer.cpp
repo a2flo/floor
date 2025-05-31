@@ -97,7 +97,7 @@ device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
 	}
 }
 
-bool cuda_buffer::create_internal(const bool copy_host_data, [[maybe_unused]] const device_queue& cqueue) {
+bool cuda_buffer::create_internal(const bool copy_host_data, const device_queue& cqueue) {
 	// -> use host memory
 	if(has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cu_mem_host_register(host_data.data(), size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
@@ -116,8 +116,9 @@ bool cuda_buffer::create_internal(const bool copy_host_data, [[maybe_unused]] co
 			if (copy_host_data &&
 				host_data.data() != nullptr &&
 				!has_flag<MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-				CU_CALL_RET(cu_memcpy_htod(buffer, host_data.data(), size),
+				CU_CALL_RET(cu_memcpy_htod_async(buffer, host_data.data(), size, (const_cu_stream)cqueue.get_queue_ptr()),
 							"failed to copy initial host data to device", false)
+				cqueue.finish();
 			}
 		}
 		// -> Vulkan buffer
@@ -213,9 +214,9 @@ void cuda_buffer::read(const device_queue& cqueue, void* dst, const size_t size_
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 	
-	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_dtoh_async(dst, buffer + offset, read_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to read memory from device")
+	cqueue.finish(); // TODO: non-blocking flag
 }
 
 void cuda_buffer::write(const device_queue& cqueue, const size_t size_, const size_t offset) {
@@ -228,9 +229,9 @@ void cuda_buffer::write(const device_queue& cqueue, const void* src, const size_
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset, flags)) return;
 	
-	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_htod_async(buffer + offset, src, write_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to write memory to device")
+	cqueue.finish(); // TODO: non-blocking flag
 }
 
 void cuda_buffer::copy(const device_queue& cqueue, const device_buffer& src,
@@ -242,11 +243,11 @@ void cuda_buffer::copy(const device_queue& cqueue, const device_buffer& src,
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
-	// TODO: blocking flag
 	CU_CALL_RET(cu_memcpy_dtod_async(buffer + dst_offset,
 									 ((const cuda_buffer&)src).get_cuda_buffer() + src_offset,
 									 copy_size, (const_cu_stream)cqueue.get_queue_ptr()),
 				"failed to copy memory on device")
+	cqueue.finish(); // TODO: non-blocking flag
 }
 
 bool cuda_buffer::fill(const device_queue& cqueue,
@@ -257,7 +258,6 @@ bool cuda_buffer::fill(const device_queue& cqueue,
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return false;
 	
-	// TODO: blocking flag
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
@@ -281,10 +281,11 @@ bool cuda_buffer::fill(const device_queue& cqueue,
 				memcpy(write_ptr, pattern, pattern_size);
 				write_ptr += pattern_size;
 			}
-			CU_CALL_RET(cu_memcpy_htod(buffer + offset, pattern_buffer.get(), fill_size),
+			CU_CALL_RET(cu_memcpy_htod_async(buffer + offset, pattern_buffer.get(), fill_size, (const_cu_stream)cqueue.get_queue_ptr()),
 						"failed to fill device memory (arbitrary memcpy)", false)
 			break;
 	}
+	cqueue.finish(); // TODO: non-blocking flag
 	return true;
 }
 
@@ -329,17 +330,15 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const device_queue& cqueue,
 	auto host_buffer = make_aligned_ptr<uint8_t>(map_size);
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
-	if(!write_only) {
-		if(blocking_map) {
+	if (!write_only) {
+		if (blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
 			cqueue.finish();
-			
-			CU_CALL_NO_ACTION(cu_memcpy_dtoh(host_buffer.get(), buffer + offset, map_size),
-							  "failed to copy device memory to host")
 		}
-		else {
-			CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer.get(), buffer + offset, map_size, (const_cu_stream)cqueue.get_queue_ptr()),
-							  "failed to copy device memory to host")
+		CU_CALL_NO_ACTION(cu_memcpy_dtoh_async(host_buffer.get(), buffer + offset, map_size, (const_cu_stream)cqueue.get_queue_ptr()),
+						  "failed to copy device memory to host")
+		if (blocking_map) {
+			cqueue.finish();
 		}
 	}
 	
@@ -350,7 +349,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const device_queue& cqueue,
 	return ret_ptr;
 }
 
-bool cuda_buffer::unmap(const device_queue& cqueue floor_unused,
+bool cuda_buffer::unmap(const device_queue& cqueue,
 						void* __attribute__((aligned(128))) mapped_ptr) {
 	if(buffer == 0) return false;
 	if(mapped_ptr == nullptr) return false;
@@ -366,8 +365,10 @@ bool cuda_buffer::unmap(const device_queue& cqueue floor_unused,
 	bool success = true;
 	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		CU_CALL_ERROR_EXEC(cu_memcpy_htod(buffer + iter->second.offset, mapped_ptr, iter->second.size),
+		CU_CALL_ERROR_EXEC(cu_memcpy_htod_async(buffer + iter->second.offset, mapped_ptr, iter->second.size,
+												(const_cu_stream)cqueue.get_queue_ptr()),
 						   "failed to copy host memory to device", { success = false; })
+		cqueue.finish(); // TODO: non-blocking flag
 	}
 	
 	// free host memory again and remove the mapping

@@ -53,6 +53,24 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 		return;
 	}
 	
+#if 0 // for debugging/testing purposes
+	for (auto&& prog : programs) {
+		uint32_t func_count = 0u;
+		CU_CALL_CONT(cu_module_get_function_count(&func_count, prog.second.program),
+					 "failed to retrieve function count")
+		std::vector<cu_function> funcs(func_count, nullptr);
+		CU_CALL_CONT(cu_module_enumerate_functions(funcs.data(), func_count, prog.second.program),
+					 "failed to enumerate functions")
+		log_msg("CUDA module: expected $' functions, got $'", prog.second.functions.size(), func_count);
+		for (auto& func : funcs) {
+			const char* func_name = nullptr;
+			CU_CALL_CONT(cu_func_get_name(&func_name, func), "failed to query function name")
+			log_msg("CUDA function: loading \"$\" ...", func_name ? func_name : "<invalid-func-name>");
+			CU_CALL_CONT(cu_func_load(func), "function load finalize failed")
+		}
+	}
+#endif
+	
 	// create all functions of all device programs
 	// note that this essentially reshuffles the program "device -> functions" data to "functions -> devices"
 	functions.reserve(function_names.size());

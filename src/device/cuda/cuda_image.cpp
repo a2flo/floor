@@ -51,7 +51,7 @@ static bool cuda_memcpy(const void* host,
 	cu_memcpy_3d_descriptor mcpy3d;
 	memset(&mcpy3d, 0, sizeof(cu_memcpy_3d_descriptor));
 	
-	if(src == CU_MEMORY_TYPE::HOST) {
+	if (src == CU_MEMORY_TYPE::HOST) {
 		mcpy3d.src.memory_type = CU_MEMORY_TYPE::HOST;
 		mcpy3d.src.host_ptr = host;
 		mcpy3d.src.pitch = pitch;
@@ -59,8 +59,7 @@ static bool cuda_memcpy(const void* host,
 		
 		mcpy3d.dst.memory_type = CU_MEMORY_TYPE::ARRAY;
 		mcpy3d.dst.array = device;
-	}
-	else {
+	} else {
 		mcpy3d.src.memory_type = CU_MEMORY_TYPE::ARRAY;
 		mcpy3d.src.array = device;
 		
@@ -74,11 +73,9 @@ static bool cuda_memcpy(const void* host,
 	mcpy3d.height = height;
 	mcpy3d.depth = std::max(depth, 1u);
 	
-	if(!async) {
-		CU_CALL_RET(cu_memcpy_3d(&mcpy3d), "failed to copy memory", false)
-	}
-	else {
-		CU_CALL_RET(cu_memcpy_3d_async(&mcpy3d, stream), "failed to copy memory", false)
+	CU_CALL_RET(cu_memcpy_3d_async(&mcpy3d, stream), "failed to copy memory", false)
+	if (!async) {
+		CU_CALL_RET(cu_stream_synchronize(stream), "failed to finish (synchronize) queue", false)
 	}
 	return true;
 }

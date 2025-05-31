@@ -131,8 +131,14 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.event_synchronize = load_symbol(cuda_lib, "cuEventSynchronize");
 	if(cuda_api.event_synchronize == nullptr) log_error("failed to retrieve function pointer for \"cuEventSynchronize\"");
 	
+	(void*&)cuda_api.func_get_name = load_symbol(cuda_lib, "cuFuncGetName");
+	if(cuda_api.func_get_name == nullptr) log_error("failed to retrieve function pointer for \"cuFuncGetName\"");
+	
 	(void*&)cuda_api.function_get_attribute = load_symbol(cuda_lib, "cuFuncGetAttribute");
 	if(cuda_api.function_get_attribute == nullptr) log_error("failed to retrieve function pointer for \"cuFuncGetAttribute\"");
+	
+	(void*&)cuda_api.func_load = load_symbol(cuda_lib, "cuFuncLoad");
+	if(cuda_api.func_load == nullptr) log_error("failed to retrieve function pointer for \"cuFuncLoad\"");
 	
 	(void*&)cuda_api.get_error_name = load_symbol(cuda_lib, "cuGetErrorName");
 	if(cuda_api.get_error_name == nullptr) log_error("failed to retrieve function pointer for \"cuGetErrorName\"");
@@ -200,38 +206,17 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.mem_host_unregister = load_symbol(cuda_lib, "cuMemHostUnregister");
 	if(cuda_api.mem_host_unregister == nullptr) log_error("failed to retrieve function pointer for \"cuMemHostUnregister\"");
 	
-	(void*&)cuda_api.memcpy_3d = load_symbol(cuda_lib, "cuMemcpy3D_v2");
-	if(cuda_api.memcpy_3d == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpy3D_v2\"");
-	
 	(void*&)cuda_api.memcpy_3d_async = load_symbol(cuda_lib, "cuMemcpy3DAsync_v2");
 	if(cuda_api.memcpy_3d_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpy3DAsync_v2\"");
-	
-	(void*&)cuda_api.memcpy_dtod = load_symbol(cuda_lib, "cuMemcpyDtoD_v2");
-	if(cuda_api.memcpy_dtod == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyDtoD_v2\"");
 	
 	(void*&)cuda_api.memcpy_dtod_async = load_symbol(cuda_lib, "cuMemcpyDtoDAsync_v2");
 	if(cuda_api.memcpy_dtod_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyDtoDAsync_v2\"");
 	
-	(void*&)cuda_api.memcpy_dtoh = load_symbol(cuda_lib, "cuMemcpyDtoH_v2");
-	if(cuda_api.memcpy_dtoh == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyDtoH_v2\"");
-	
 	(void*&)cuda_api.memcpy_dtoh_async = load_symbol(cuda_lib, "cuMemcpyDtoHAsync_v2");
 	if(cuda_api.memcpy_dtoh_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyDtoHAsync_v2\"");
 	
-	(void*&)cuda_api.memcpy_htod = load_symbol(cuda_lib, "cuMemcpyHtoD_v2");
-	if(cuda_api.memcpy_htod == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyHtoD_v2\"");
-	
 	(void*&)cuda_api.memcpy_htod_async = load_symbol(cuda_lib, "cuMemcpyHtoDAsync_v2");
 	if(cuda_api.memcpy_htod_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyHtoDAsync_v2\"");
-	
-	(void*&)cuda_api.memset_d16 = load_symbol(cuda_lib, "cuMemsetD16_v2");
-	if(cuda_api.memset_d16 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD16_v2\"");
-	
-	(void*&)cuda_api.memset_d32 = load_symbol(cuda_lib, "cuMemsetD32_v2");
-	if(cuda_api.memset_d32 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD32_v2\"");
-	
-	(void*&)cuda_api.memset_d8 = load_symbol(cuda_lib, "cuMemsetD8_v2");
-	if(cuda_api.memset_d8 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD8_v2\"");
 	
 	(void*&)cuda_api.memset_d16_async = load_symbol(cuda_lib, "cuMemsetD16Async");
 	if(cuda_api.memset_d16_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD16Async\"");
@@ -251,8 +236,14 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.mipmapped_array_get_level = load_symbol(cuda_lib, "cuMipmappedArrayGetLevel");
 	if(cuda_api.mipmapped_array_get_level == nullptr) log_error("failed to retrieve function pointer for \"cuMipmappedArrayGetLevel\"");
 	
+	(void*&)cuda_api.module_enumerate_functions = load_symbol(cuda_lib, "cuModuleEnumerateFunctions");
+	if(cuda_api.module_enumerate_functions == nullptr) log_error("failed to retrieve function pointer for \"cuModuleEnumerateFunctions\"");
+	
 	(void*&)cuda_api.module_get_function = load_symbol(cuda_lib, "cuModuleGetFunction");
 	if(cuda_api.module_get_function == nullptr) log_error("failed to retrieve function pointer for \"cuModuleGetFunction\"");
+	
+	(void*&)cuda_api.module_get_function_count = load_symbol(cuda_lib, "cuModuleGetFunctionCount");
+	if(cuda_api.module_get_function_count == nullptr) log_error("failed to retrieve function pointer for \"cuModuleGetFunctionCount\"");
 	
 	(void*&)cuda_api.module_load_data = load_symbol(cuda_lib, "cuModuleLoadData");
 	if(cuda_api.module_load_data == nullptr) log_error("failed to retrieve function pointer for \"cuModuleLoadData\"");

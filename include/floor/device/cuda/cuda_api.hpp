@@ -1048,7 +1048,9 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*event_synchronize)(cu_event evt);
 	CU_API CU_RESULT (*external_memory_get_mapped_buffer)(cu_device_ptr* dev_ptr, cu_external_memory ext_mem, const cu_external_memory_buffer_descriptor* buffer_desc);
 	CU_API CU_RESULT (*external_memory_get_mapped_mip_mapped_array)(cu_mip_mapped_array* mip_map, cu_external_memory ext_mem, const cu_external_memory_mip_mapped_array_descriptor* mip_map_desc);
+	CU_API CU_RESULT (*func_get_name)(const char** name, cu_function func);
 	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
+	CU_API CU_RESULT (*func_load)(cu_function func);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, const_cu_stream h_stream);
@@ -1073,26 +1075,21 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*mem_host_get_device_pointer)(cu_device_ptr* pdptr, void* p, uint32_t flags);
 	CU_API CU_RESULT (*mem_host_register)(void* p, size_t bytesize, CU_MEM_HOST_REGISTER flags);
 	CU_API CU_RESULT (*mem_host_unregister)(void* p);
-	CU_API CU_RESULT (*memcpy_3d)(const cu_memcpy_3d_descriptor* p_copy);
 	CU_API CU_RESULT (*memcpy_3d_async)(const cu_memcpy_3d_descriptor* p_copy, const_cu_stream h_stream);
-	CU_API CU_RESULT (*memcpy_dtod)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count);
 	CU_API CU_RESULT (*memcpy_dtod_async)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count, const_cu_stream h_stream);
-	CU_API CU_RESULT (*memcpy_dtoh)(void* dst_host, cu_device_ptr src_device, size_t byte_count);
 	CU_API CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, const_cu_stream h_stream);
-	CU_API CU_RESULT (*memcpy_htod)(cu_device_ptr dst_device, const void* src_host, size_t byte_count);
 	CU_API CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, const_cu_stream h_stream);
-	CU_API CU_RESULT (*memset_d16)(cu_device_ptr dst_device, uint16_t us, size_t n);
-	CU_API CU_RESULT (*memset_d32)(cu_device_ptr dst_device, uint32_t ui, size_t n);
-	CU_API CU_RESULT (*memset_d8)(cu_device_ptr dst_device, unsigned char uc, size_t n);
 	CU_API CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, const_cu_stream h_stream);
 	CU_API CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, const_cu_stream h_stream);
 	CU_API CU_RESULT (*mipmapped_array_create)(cu_mip_mapped_array* handle, const cu_array_3d_descriptor* desc, uint32_t num_mipmap_levels);
 	CU_API CU_RESULT (*mipmapped_array_destroy)(cu_mip_mapped_array handle);
 	CU_API CU_RESULT (*mipmapped_array_get_level)(cu_array* level_array, cu_mip_mapped_array mipmapped_array, uint32_t level);
+	CU_API CU_RESULT (*module_enumerate_functions)(cu_function* functions, uint32_t function_count, cu_module mod);
 	CU_API CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
-	CU_API CU_RESULT (*module_load_data)(cu_module* module, const void* image);
-	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
+	CU_API CU_RESULT (*module_get_function_count)(uint32_t* count, cu_module mod);
+	CU_API CU_RESULT (*module_load_data)(cu_module* mod, const void* image);
+	CU_API CU_RESULT (*module_load_data_ex)(cu_module* mod, const void* image, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
 	CU_API CU_RESULT (*occupancy_max_active_blocks_per_multiprocessor)(int32_t* num_blocks, cu_function func, int32_t block_size, size_t dynamic_s_mem_size);
 	CU_API CU_RESULT (*occupancy_max_active_blocks_per_multiprocessor_with_flags)(int32_t* num_blocks, cu_function func, int32_t block_size, size_t dynamic_s_mem_size, uint32_t flags);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
@@ -1141,7 +1138,9 @@ extern bool cuda_can_use_external_memory();
 #define cu_event_synchronize cuda_api.event_synchronize
 #define cu_external_memory_get_mapped_buffer cuda_api.external_memory_get_mapped_buffer
 #define cu_external_memory_get_mapped_mip_mapped_array cuda_api.external_memory_get_mapped_mip_mapped_array
+#define cu_func_get_name cuda_api.func_get_name
 #define cu_function_get_attribute cuda_api.function_get_attribute
+#define cu_func_load cuda_api.func_load
 #define cu_get_error_name cuda_api.get_error_name
 #define cu_get_error_string cuda_api.get_error_string
 #define cu_graphics_map_resources cuda_api.graphics_map_resources
@@ -1183,7 +1182,9 @@ extern bool cuda_can_use_external_memory();
 #define cu_mipmapped_array_create cuda_api.mipmapped_array_create
 #define cu_mipmapped_array_destroy cuda_api.mipmapped_array_destroy
 #define cu_mipmapped_array_get_level cuda_api.mipmapped_array_get_level
+#define cu_module_enumerate_functions cuda_api.module_enumerate_functions
 #define cu_module_get_function cuda_api.module_get_function
+#define cu_module_get_function_count cuda_api.module_get_function_count
 #define cu_module_load_data cuda_api.module_load_data
 #define cu_module_load_data_ex cuda_api.module_load_data_ex
 #define cu_occupancy_max_active_blocks_per_multiprocessor cuda_api.occupancy_max_active_blocks_per_multiprocessor

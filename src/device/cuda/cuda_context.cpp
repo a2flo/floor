@@ -681,6 +681,9 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 			info_log.resize(log_size_actual);
 			log_debug("PTX build info: $", info_log);
 		}
+		if (jit_option_values[8].ui > 0) {
+			print_error_log();
+		}
 	}
 	
 	if (!silence_debug_output) {
