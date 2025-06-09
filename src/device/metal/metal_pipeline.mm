@@ -237,7 +237,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				return;
 			}
 			
-			pipelines.insert(dev.get(), entry);
+			pipelines.emplace(dev.get(), entry);
 		}
 	}
 	

@@ -180,7 +180,7 @@ void metal_indirect_command_pipeline::complete(const device& dev) {
 }
 
 void metal_indirect_command_pipeline::complete() {
-	for (auto& pipeline : pipelines) {
+	for (auto&& pipeline : pipelines) {
 		complete_pipeline(*pipeline.first, pipeline.second);
 	}
 }
@@ -203,7 +203,7 @@ void metal_indirect_command_pipeline::complete_pipeline(const device& dev, metal
 
 void metal_indirect_command_pipeline::reset() {
 	@autoreleasepool {
-		for (auto& pipeline : pipelines) {
+		for (auto&& pipeline : pipelines) {
 			[pipeline.second.icb resetWithRange:NSRange { 0, desc.max_command_count }];
 			pipeline.second.clear_resources();
 		}

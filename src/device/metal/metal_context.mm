@@ -214,7 +214,10 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		
 		// figure out which Metal version we can use
 #if defined(FLOOR_IOS)
-		if (darwin_helper::get_system_version() >= 180000) {
+		if (darwin_helper::get_system_version() >= 260000) {
+			device.metal_software_version = METAL_VERSION::METAL_4_0;
+			device.metal_language_version = METAL_VERSION::METAL_4_0;
+		} else if (darwin_helper::get_system_version() >= 180000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
 		} else if (darwin_helper::get_system_version() >= 170000) {
@@ -225,7 +228,10 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
 #elif defined(FLOOR_VISIONOS)
-		if (darwin_helper::get_system_version() >= 20000) {
+		if (darwin_helper::get_system_version() >= 260000) {
+			device.metal_software_version = METAL_VERSION::METAL_4_0;
+			device.metal_language_version = METAL_VERSION::METAL_4_0;
+		} else if (darwin_helper::get_system_version() >= 20000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
 		}
@@ -258,7 +264,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 				device.max_total_local_size = 1024;
 				break;
 				
-			// A17 / M3 / M4
+			// A17 / A18 / M3 / M4
 			case 9:
 				device.units = 6;
 				device.mem_clock = 3200; // TODO: RAM clock
@@ -326,7 +332,10 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		device.max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
 		
 		// figure out which Metal version we can use
-		if (darwin_helper::get_system_version() >= 150000) {
+		if (darwin_helper::get_system_version() >= 260000) {
+			device.metal_software_version = METAL_VERSION::METAL_4_0;
+			device.metal_language_version = METAL_VERSION::METAL_4_0;
+		} else if (darwin_helper::get_system_version() >= 150000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
 		} else if (darwin_helper::get_system_version() >= 140000) {
@@ -844,7 +853,7 @@ std::shared_ptr<device_program> metal_context::create_metal_test_program(std::sh
 	
 	// create/return the program
 	metal_program::program_map_type prog_map;
-	prog_map.insert(metal_dev, *metal_entry);
+	prog_map.emplace(metal_dev, *metal_entry);
 	return std::make_shared<metal_program>(std::move(prog_map));
 }
 

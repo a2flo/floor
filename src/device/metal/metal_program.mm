@@ -40,13 +40,13 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 		// note that this essentially reshuffles the program "device -> functions" data to "functions -> devices"
 		static const bool dump_reflection_info = floor::get_metal_dump_reflection_info();
 		functions.reserve(function_names.size());
-		for(const auto& function_name : function_names) {
+		for (const auto& function_name : function_names) {
 			metal_function::function_map_type function_map;
 			bool is_kernel = true;
-			for(auto& prog : programs) {
-				if(!prog.second.valid) continue;
-				for(const auto& info : prog.second.functions) {
-					if(info.name == function_name) {
+			for (auto&& prog : programs) {
+				if (!prog.second.valid) continue;
+				for (const auto& info : prog.second.functions) {
+					if (info.name == function_name) {
 						if (should_ignore_function_for_device(*prog.first, info)) {
 							continue;
 						}
@@ -249,15 +249,36 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
 		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";
 		case MTLDataTypeInstanceAccelerationStructure: return "InstanceAccelerationStructure";
-#if defined(__MAC_14_0) || defined(__IPHONE_17_0)
+#if defined(__MAC_14_0) || defined(__IPHONE_17_0) || defined(__VISIONOS_2_0)
 		case MTLDataTypeBFloat: return "BFloat";
 		case MTLDataTypeBFloat2: return "BFloat2";
 		case MTLDataTypeBFloat3: return "BFloat3";
 		case MTLDataTypeBFloat4: return "BFloat4";
 #endif
+#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
+		case MTLDataTypeTensor: return "Tensor";
+#endif
 	}
 	return "<unknown>";
 }
+
+#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
+static const char* metal_tensor_data_type_to_string(const MTLTensorDataType& data_type) {
+	switch (data_type) {
+		case MTLTensorDataTypeNone: return "None";
+		case MTLTensorDataTypeFloat32: return metal_data_type_to_string(MTLDataTypeFloat);
+		case MTLTensorDataTypeFloat16: return metal_data_type_to_string(MTLDataTypeHalf);
+		case MTLTensorDataTypeBFloat16: return metal_data_type_to_string(MTLDataTypeBFloat);
+		case MTLTensorDataTypeInt8: return metal_data_type_to_string(MTLDataTypeChar);
+		case MTLTensorDataTypeUInt8: return metal_data_type_to_string(MTLDataTypeUChar);
+		case MTLTensorDataTypeInt16: return metal_data_type_to_string(MTLDataTypeShort);
+		case MTLTensorDataTypeUInt16: return metal_data_type_to_string(MTLDataTypeUShort);
+		case MTLTensorDataTypeInt32: return metal_data_type_to_string(MTLDataTypeInt);
+		case MTLTensorDataTypeUInt32: return metal_data_type_to_string(MTLDataTypeUInt);
+	}
+	return "<unknown>";
+}
+#endif
 
 static void dump_refl_array(MTLArrayType* arr_type, std::stringstream& sstr, const uint32_t level);
 static void dump_refl_struct(MTLStructType* struct_type, std::stringstream& sstr, const uint32_t level);
@@ -421,6 +442,27 @@ void metal_program::dump_bindings_reflection(const std::string& reflection_info_
 				sstr << std::endl;
 				break;
 			}
+#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
+			case MTLBindingTypeTensor: {
+				auto tensor_binding = (id<MTLTensorBinding>)binding;
+				sstr << "tensor: type: " << metal_tensor_data_type_to_string([tensor_binding tensorDataType]);
+				sstr << ", index type: " << metal_data_type_to_string([tensor_binding indexType]);
+				if (auto dims = [tensor_binding dimensions]; dims != nil) {
+					sstr << ", dim (";
+					for (uint32_t dim_idx = 0, dim_count = std::min(uint32_t(dims.rank), uint32_t(MTL_TENSOR_MAX_RANK));
+						 dim_idx < dim_count; ++dim_idx) {
+						const auto extent = [dims extentAtDimensionIndex:dim_idx];
+						if (extent < 0) {
+							break;
+						}
+						sstr << extent;
+					}
+					sstr << ")";
+				}
+				sstr << std::endl;
+				break;
+			}
+#endif
 			case MTLBindingTypeSampler:
 			case MTLBindingTypeImageblockData:
 			case MTLBindingTypeImageblock:

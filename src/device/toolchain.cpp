@@ -300,12 +300,15 @@ program_data compile_input(const std::string& input,
 					case 32:
 						metal_version = METAL_VERSION::METAL_3_2;
 						break;
+					case 40:
+						metal_version = METAL_VERSION::METAL_4_0;
+						break;
 					default:
 						log_error("invalid force_version: $", metal_force_version);
 						break;
 				}
 			}
-			if (metal_version > METAL_VERSION::METAL_3_2) {
+			if (metal_version > METAL_VERSION::METAL_4_0) {
 				log_error("unsupported Metal language version: $", metal_version_to_string(metal_version));
 				return {};
 			}
@@ -325,6 +328,9 @@ program_data compile_input(const std::string& input,
 					case METAL_VERSION::METAL_3_2:
 						os_target = "ios18.0.0";
 						break;
+					case METAL_VERSION::METAL_4_0:
+						os_target = "ios26.0.0";
+						break;
 				}
 			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS ||
 					   mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR) {
@@ -333,6 +339,9 @@ program_data compile_input(const std::string& input,
 					default:
 					case METAL_VERSION::METAL_3_2:
 						os_target = "xros2.0.0";
+						break;
+					case METAL_VERSION::METAL_4_0:
+						os_target = "xros26.0.0";
 						break;
 				}
 			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::MACOS) {
@@ -348,6 +357,9 @@ program_data compile_input(const std::string& input,
 					case METAL_VERSION::METAL_3_2:
 						os_target = "macosx15.0.0";
 						break;
+					case METAL_VERSION::METAL_4_0:
+						os_target = "macosx16.0.0"; // NOTE: for now, we're still on 16.0 ...
+						break;
 				}
 			} else {
 				log_error("unsupported Metal device family type: $", uint32_t(mtl_dev.family_type));
@@ -359,6 +371,7 @@ program_data compile_input(const std::string& input,
 			}
 			
 			std::string metal_std = "metal3.0";
+			std::string air_target = "air64";
 			switch (metal_version) {
 				case METAL_VERSION::METAL_3_0:
 					metal_std = "metal3.0";
@@ -368,6 +381,10 @@ program_data compile_input(const std::string& input,
 					break;
 				case METAL_VERSION::METAL_3_2:
 					metal_std = "metal3.2";
+					break;
+				case METAL_VERSION::METAL_4_0:
+					metal_std = "metal4.0";
+					air_target = "air64_v28";
 					break;
 				default: break;
 			}
@@ -383,7 +400,7 @@ program_data compile_input(const std::string& input,
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				" -x " + (!build_pch ? "metal" : "metal-header") +
-				" -std=" + metal_std + " -target air64-apple-" + os_target +
+				" -std=" + metal_std + " -target " + air_target + "-apple-" + os_target +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(dev.vendor == VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
