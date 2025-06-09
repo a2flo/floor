@@ -207,6 +207,26 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		device.unified_memory = (unified_memory != 0);
 		device.cooperative_kernel_support = (coop_launch != 0);
 		
+		// (de)compression support
+		int compression_support = 0;
+		int decompression_algos = 0;
+		int max_decompression_len = 0;
+		std::string decompression_algos_str;
+		CU_CALL_IGNORE(cu_device_get_attribute(&compression_support, CU_DEVICE_ATTRIBUTE::GENERIC_COMPRESSION_SUPPORTED, cuda_dev))
+		if (driver_version >= 12080) {
+			CU_CALL_IGNORE(cu_device_get_attribute(&decompression_algos, CU_DEVICE_ATTRIBUTE::MEM_DECOMPRESS_ALGORITHM_MASK, cuda_dev))
+			CU_CALL_IGNORE(cu_device_get_attribute(&max_decompression_len, CU_DEVICE_ATTRIBUTE::MEM_DECOMPRESS_MAXIMUM_LENGTH, cuda_dev))
+			if (has_flag<CU_MEM_DECOMPRESS_ALGORITHM::DEFLATE>(std::bit_cast<CU_MEM_DECOMPRESS_ALGORITHM>(decompression_algos))) {
+				decompression_algos_str += "deflate ";
+			}
+			if (has_flag<CU_MEM_DECOMPRESS_ALGORITHM::SNAPPY>(std::bit_cast<CU_MEM_DECOMPRESS_ALGORITHM>(decompression_algos))) {
+				decompression_algos_str += "snappy ";
+			}
+			if (has_flag<CU_MEM_DECOMPRESS_ALGORITHM::LZ4>(std::bit_cast<CU_MEM_DECOMPRESS_ALGORITHM>(decompression_algos))) {
+				decompression_algos_str += "LZ4 ";
+			}
+		}
+		
 		// get UUID
 		cu_uuid uuid;
 		CU_CALL_IGNORE(cu_device_get_uuid(&uuid, cuda_dev), "failed to retrieve device UUID")
@@ -272,6 +292,8 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		log_msg("max global size: $'", device.max_global_size);
 		log_msg("max grid-dim: $", max_grid_dim);
 		log_msg("max mip-levels: $", device.max_mip_levels);
+		log_msg("generic compression support: $", compression_support);
+		log_msg("decompression: max length $', algorithms $($)", max_decompression_len, decompression_algos_str, decompression_algos);
 		
 		size_t printf_buffer_size = 0;
 		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);

@@ -86,20 +86,15 @@ public:
 	//! log entry function, this will create a buffer and insert the log msgs start info (type, file name, ...) and
 	//! finally call the internal log function (that does the actual logging)
 	template <size_t computed_arg_count, typename... Args>
+	requires (computed_arg_count == sizeof...(Args) /* log argument count must match */)
 	static void log(const LOG_TYPE type, const char* file, const char* func, const char* str,
-					Args&&... args) __attribute__((enable_if(computed_arg_count == sizeof...(Args), "valid"))) {
+					Args&&... args) {
 		std::stringstream buffer;
 		if (!prepare_log(buffer, type, file, func)) {
 			return;
 		}
 		log_internal(buffer, type, str, std::forward<Args>(args)...);
 	}
-	
-	//! fail function when the argument count is incorrect
-	template <size_t computed_arg_count, typename... Args>
-	static void log(const LOG_TYPE, const char*, const char*, const char*,
-					Args&&...) __attribute__((enable_if(computed_arg_count != sizeof...(Args), "invalid"),
-											  unavailable("invalid argument count")));
 	
 	//! sets the logger verbosity to the specific LOG_TYPE verbosity level
 	static void set_verbosity(const LOG_TYPE& verbosity);
@@ -136,14 +131,14 @@ protected:
 	static void handle_format(std::stringstream& buffer, const char& format, T&& value) {
 		using decayed_type = std::decay_t<T>;
 		using print_type = std::conditional_t<std::is_enum_v<decayed_type>,
-										 typename enum_helper_type<std::is_enum_v<decayed_type>, decayed_type>::type,
-										 std::conditional_t<(std::is_pointer_v<decayed_type> &&
-														!std::is_same_v<decayed_type, char*> &&
-														!std::is_same_v<decayed_type, const char*> &&
-														!std::is_same_v<decayed_type, unsigned char*> &&
-														!std::is_same_v<decayed_type, const unsigned char*>),
-														size_t,
-														decayed_type>>;
+											  typename enum_helper_type<std::is_enum_v<decayed_type>, decayed_type>::type,
+											  std::conditional_t<(std::is_pointer_v<decayed_type> &&
+																  !std::is_same_v<decayed_type, char*> &&
+																  !std::is_same_v<decayed_type, const char*> &&
+																  !std::is_same_v<decayed_type, unsigned char*> &&
+																  !std::is_same_v<decayed_type, const unsigned char*>),
+																 size_t,
+																 decayed_type>>;
 		
 		switch (format) {
 			case 'x': // lowercase hex value

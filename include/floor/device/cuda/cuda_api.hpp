@@ -579,6 +579,14 @@ enum class CU_EVENT_FLAGS : uint32_t {
 	INTERPROCESS	= (1u << 2u),
 };
 
+enum class CU_MEM_DECOMPRESS_ALGORITHM : uint32_t {
+	UNSUPPORTED	= 0u,
+	DEFLATE		= (1u << 0u),
+	SNAPPY		= (1u << 1u),
+	LZ4			= (1u << 2u),
+};
+floor_global_enum_ext(CU_MEM_DECOMPRESS_ALGORITHM)
+
 #define CU_LAUNCH_PARAM_BUFFER_POINTER ((void*)1)
 #define CU_LAUNCH_PARAM_BUFFER_SIZE ((void*)2)
 #define CU_LAUNCH_PARAM_END nullptr
