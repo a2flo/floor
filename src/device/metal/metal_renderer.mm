@@ -88,7 +88,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		// must set/update attachments (and drawable) before creating the encoder
 		uint32_t attachment_idx = 0;
 		uint2 min_attachment_dim { ~0u };
-		for (const auto&& att : attachments_map) {
+		for (auto&& att : attachments_map) {
 			min_attachment_dim.min(att.second.image->get_image_dim().xy);
 			mtl_pass_desc.colorAttachments[att.first].texture = att.second.image->get_underlying_metal_image_safe()->get_metal_image();
 			if (att.second.resolve_image) {

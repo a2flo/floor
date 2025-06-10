@@ -76,7 +76,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						NSError* err = nullptr;
 						id <MTLComputePipelineState> kernel_state = nil;
 						bool supports_indirect_compute = false;
-						if([func functionType] == MTLFunctionTypeKernel) {
+						if ([func functionType] == MTLFunctionTypeKernel) {
 							MTLComputePipelineDescriptor* mtl_pipeline_desc = [[MTLComputePipelineDescriptor alloc] init];
 							const std::string label = info.name + " pipeline";
 							mtl_pipeline_desc.label = [NSString stringWithUTF8String:label.c_str()];
@@ -85,6 +85,15 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							// optimization opt-in
 							mtl_pipeline_desc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true;
 							mtl_pipeline_desc.maxCallStackDepth = 0;
+							if (entry.info->has_valid_required_local_size()) {
+								if (@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)) {
+									mtl_pipeline_desc.requiredThreadsPerThreadgroup = {
+										.width = entry.info->required_local_size.x,
+										.height = entry.info->required_local_size.y,
+										.depth = entry.info->required_local_size.z,
+									};
+								}
+							}
 							
 							// implicitly support indirect compute when the function doesn't take any image parameters
 							bool has_image_args = false;
@@ -105,7 +114,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 								MTLAutoreleasedComputePipelineReflection refl_data { nil };
 								kernel_state = [[prog.second.program device] newComputePipelineStateWithDescriptor:mtl_pipeline_desc
 																										   options:(
-#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
+#if defined(__MAC_15_0) || defined(__IPHONE_18_0) || defined(FLOOR_VISIONOS)
 																													MTLPipelineOptionBindingInfo |
 #else
 																													MTLPipelineOptionArgumentInfo |

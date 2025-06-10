@@ -374,7 +374,6 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		log_msg("max global size: $'", device.max_global_size);
 		log_msg("SIMD width: $", device.simd_width);
 		log_msg("argument buffer tier: $", [dev argumentBuffersSupport] + 1);
-		log_msg("indirect commands: $", device.indirect_command_support ? "yes" : "no");
 		
 		device.max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device.max_image_2d_dim.max_element(),
 																					 device.max_image_3d_dim.max_element()),

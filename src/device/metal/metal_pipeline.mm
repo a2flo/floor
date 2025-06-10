@@ -200,7 +200,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				MTLAutoreleasedRenderPipelineReflection refl_data { nil };
 				entry.pipeline_state = [mtl_dev newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
 																			 options:(
-#if defined(__MAC_15_0) || defined(__IPHONE_18_0)
+#if defined(__MAC_15_0) || defined(__IPHONE_18_0) || defined(FLOOR_VISIONOS)
 																					  MTLPipelineOptionBindingInfo |
 #else
 																					  MTLPipelineOptionArgumentInfo |

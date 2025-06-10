@@ -50,6 +50,8 @@ using wnd_type_ptr = NSWindow*;
 using wnd_type_ptr = UIWindow*;
 #endif
 
+using namespace std::literals;
+
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 // we need to create an app delegate to disable applicationSupportsSecureRestorableState warnings ...
 // however, if we do this, we also need to handle SDL things (https://wiki.libsdl.org/SDL3/README/macos/raw)
@@ -87,7 +89,6 @@ using wnd_type_ptr = UIWindow*;
 @end
 
 namespace fl {
-using namespace std::literals;
 
 static libfloor_app_delegate* libfloor_app_delegate_instance = nil;
 void darwin_helper::create_app_delegate() {
@@ -99,6 +100,7 @@ void darwin_helper::create_app_delegate() {
 		[[NSApplication sharedApplication] setDelegate:libfloor_app_delegate_instance];
 	}
 }
+} // namespace fl
 #endif
 
 // returns the underlying native NSWindow/UIWindow window
@@ -123,8 +125,6 @@ static auto get_native_window(SDL_Window* wnd) {
 // global Metal view variables
 static constexpr const uint32_t max_drawables_in_flight { 6 };
 static std::atomic<bool> window_did_resize { true };
-
-} // namespace fl
 
 // Metal renderer NSView/UIView implementation
 @interface floor_metal_view : UI_VIEW_CLASS <NSCoding> {
@@ -380,7 +380,7 @@ FLOOR_POP_WARNINGS()
 		self.metal_layer.framebufferOnly = true; // note: must be false if used for compute processing
 		self.metal_layer.contentsScale = [self get_scale_factor];
 		
-		max_scheduled_frames = fl::max_drawables_in_flight;
+		max_scheduled_frames = max_drawables_in_flight;
 		tp_prev_frame = std::chrono::high_resolution_clock::now();
 		
 #if defined(FLOOR_IOS)
@@ -466,7 +466,7 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// will force query of scaling factor in get_scale_factor()
-	fl::window_did_resize = true;
+	window_did_resize = true;
 }
 @end
 
@@ -681,51 +681,21 @@ size_t darwin_helper::get_system_version() {
 	const size_t minor_dot = (major_dot != std::string::npos ? osrelease.find(".", major_dot + 1) : std::string::npos);
 	if(major_dot != std::string::npos && minor_dot != std::string::npos) {
 		const size_t major_version = stosize(osrelease.substr(0, major_dot));
-		size_t os_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
+		const size_t os_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
 		
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		// osrelease = kernel version
-		// * <= 10.15: not macOS version -> subtract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
-		// * >= 11.0: 110000 + x * 10000
-		const size_t os_major_version = (major_version >= 20 ? 110000 + 10000 * (major_version - 20) : major_version - 4);
-#else
-		// osrelease = kernel version, not ios version -> subtract 7 (NOTE: this won't run on anything < iOS 7.0,
-		// so any differentiation below doesn't matter (5.0: darwin 11, 6.0: darwin 13, 7.0: darwin 14)
-		size_t os_major_version = major_version - 7;
-		
-		// iOS 7.x and 8.x are both based on darwin 14.x -> need to differentiate through xnu kernel version
-		// this is 24xx on iOS 7.x and 27xx on iOS 8.x
-		// NOTE: iOS 9.x is based on darwin 15, so add 1 in this case as well (and all future versions)
-		std::string kern_version(256, 0);
-		size_t kern_version_size = kern_version.size() - 1;
-		sysctlbyname("kern.version", &kern_version[0], &kern_version_size, nullptr, 0);
-		if (kern_version.find("xnu-24") != std::string::npos) {
-			// this is iOS 7.x, do nothing, os_major_version is already correct
-		} else {
-			// must be iOS 8.x or higher -> add 1 to the version
-			++os_major_version;
-		}
-#endif
-		
-		// mimic the compiled version string:
-		// macOS >= 10.10 and <= 10.15:  10xxyy, x = major, y = minor
-		// macOS >= 11.00             :  1xxyyy, x = major, y = minor
-		// iOS                        :  xxyy00, x = major, y = minor
-		size_t condensed_version;
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-		if (major_version < 20) { // 101000+
-			condensed_version = 100000;
-			condensed_version += os_major_version * 100;
-			condensed_version += os_minor_version;
-		} else {
-			condensed_version = os_major_version;
-			condensed_version += os_minor_version * 100;
-		}
-#else
-		condensed_version = os_major_version * 10000;
-		condensed_version += os_minor_version * 100;
+        // * >= 26.0 (osrelease 25+): 260000 + x * 10000
+		// * >= 11.0 (osrelease 20+): 110000 + x * 10000
+		const size_t os_major_version = (major_version >= 25 ? major_version + 1 : 11 + (major_version - 20));
+#elif defined(FLOOR_IOS)
+		const size_t os_major_version = (major_version >= 25 ? major_version + 1 : major_version - 6);
+#elif defined(FLOOR_VISIONOS)
+		const size_t os_major_version = (major_version >= 25 ? major_version + 1 : major_version - 22);
 #endif
-		return condensed_version;
+		
+		// mimic the compiled version string: xxxyyy, x = major, y = minor
+		return (os_major_version * 10000 + os_minor_version * 100);
 	}
 	
 	// just return lowest supported version
