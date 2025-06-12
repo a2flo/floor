@@ -85,6 +85,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							// optimization opt-in
 							mtl_pipeline_desc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true;
 							mtl_pipeline_desc.maxCallStackDepth = 0;
+#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 							if (entry.info->has_valid_required_local_size()) {
 								if (@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)) {
 									mtl_pipeline_desc.requiredThreadsPerThreadgroup = {
@@ -94,6 +95,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 									};
 								}
 							}
+#endif
 							
 							// implicitly support indirect compute when the function doesn't take any image parameters
 							bool has_image_args = false;

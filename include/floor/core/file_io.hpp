@@ -21,6 +21,7 @@
 #include <floor/core/platform.hpp>
 #include <floor/core/aligned_ptr.hpp>
 #include <fstream>
+#include <span>
 
 namespace fl {
 
@@ -65,7 +66,8 @@ public:
 	static std::string file_to_string_poll(const std::string& filename);
 	
 	static bool string_to_file(const std::string& filename, const std::string& str);
-	static bool buffer_to_file(const std::string& filename, const char* buffer, const size_t& size);
+	static bool buffer_to_file(const std::string& filename, const char* data, const size_t& size);
+	static bool buffer_to_file(const std::string& filename, const std::span<const uint8_t> data);
 	
 	//! opens the "filename" file with the specified "open_type" (read, write-binary, ...)
 	bool open(const std::string& filename, OPEN_TYPE open_type);

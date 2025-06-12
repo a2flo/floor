@@ -17,9 +17,11 @@
 
 #include <cstddef>
 #include <cstdlib>
-#include <memory.h>
+#include <cstring>
+#include <span>
 #if !defined(FLOOR_NO_MATH_STR)
 #include <iostream>
+#include <string>
 #endif
 
 #define SHA_256_ROTLEFT(a, b) (((a) << (b)) | ((a) >> (32 - (b))))
@@ -75,6 +77,13 @@ namespace fl::sha_256 {
 			}
 			output.flags(flags); // pop
 			return output;
+		}
+		
+		//! returns a string representation of this hash
+		std::string to_string() const {
+			std::stringstream sstr;
+			sstr << *this;
+			return sstr.str();
 		}
 #endif
 	};
@@ -229,6 +238,12 @@ namespace fl::sha_256 {
 		}
 		
 		return ret;
+	}
+	
+	//! computes the SHA-256 hash of the specified "data"
+	//! NOTE: this can also run at compile-time with constexpr data
+	static inline constexpr hash_t compute_hash(const std::span<const uint8_t> data) {
+		return compute_hash(data.data(), data.size_bytes());
 	}
 
 } // namespace fl::sha_256

@@ -685,7 +685,7 @@ size_t darwin_helper::get_system_version() {
 		
 		// osrelease = kernel version
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-        // * >= 26.0 (osrelease 25+): 260000 + x * 10000
+		// * >= 26.0 (osrelease 25+): 260000 + x * 10000
 		// * >= 11.0 (osrelease 20+): 110000 + x * 10000
 		const size_t os_major_version = (major_version >= 25 ? major_version + 1 : 11 + (major_version - 20));
 #elif defined(FLOOR_IOS)

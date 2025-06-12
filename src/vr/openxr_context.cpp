@@ -1040,7 +1040,7 @@ device_image* openxr_context::acquire_next_image() REQUIRES(!view_states_lock) {
 	};
 	uint32_t view_count = 0;
 	XR_CALL_RET(xrLocateViews(session, &view_locate_info, &view_state, uint32_t(internal->views.size()), &view_count,
-	                          internal->views.data()),
+							  internal->views.data()),
 				"failed to locate views", nullptr);
 	
 	XrSpaceLocation space_location {

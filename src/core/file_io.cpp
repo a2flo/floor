@@ -613,12 +613,22 @@ bool file_io::string_to_file(const std::string& filename, const std::string& str
 	return true;
 }
 
-bool file_io::buffer_to_file(const std::string& filename, const char* buffer, const size_t& size) {
+bool file_io::buffer_to_file(const std::string& filename, const char* data, const size_t& size) {
 	file_io file(filename, file_io::OPEN_TYPE::WRITE_BINARY);
-	if(!file.is_open()) {
+	if (!file.is_open()) {
 		return false;
 	}
-	file.write_block(buffer, size);
+	file.write_block(data, size);
+	file.close();
+	return true;
+}
+
+bool file_io::buffer_to_file(const std::string& filename, const std::span<const uint8_t> data) {
+	file_io file(filename, file_io::OPEN_TYPE::WRITE_BINARY);
+	if (!file.is_open()) {
+		return false;
+	}
+	file.write_block(data.data(), data.size_bytes());
 	file.close();
 	return true;
 }
