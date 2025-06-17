@@ -86,14 +86,14 @@ public:
 		col_2.x, col_2.y, col_2.z, col_2.w,
 		col_3.x, col_3.y, col_3.z, col_3.w }} {}
 	
-	//! copy-construct from same matrix type
-	constexpr matrix4(const matrix4<scalar_type>& m4) noexcept : data(m4.data) {}
+	//! default copy-construct from same matrix type
+	constexpr matrix4(const matrix4<scalar_type>& m4) noexcept = default;
 	
 	//! copy-construct from same matrix type (pointer)
 	constexpr matrix4(const matrix4<scalar_type>* m4) noexcept : data(m4->data) {}
 	
-	//! copy-construct from same matrix type (rvalue)
-	constexpr matrix4(matrix4&& m4) noexcept : data(m4.data) {}
+	//! default move-construct from same matrix type (rvalue)
+	constexpr matrix4(matrix4&& m4) noexcept = default;
 	
 	//! conversion construction from another matrix with a different type
 	template <typename U> constexpr explicit matrix4(const matrix4<U>& mat4) noexcept :
@@ -103,11 +103,11 @@ public:
 		(scalar_type)mat4.data[8], (scalar_type)mat4.data[9], (scalar_type)mat4.data[10], (scalar_type)mat4.data[11],
 		(scalar_type)mat4.data[12], (scalar_type)mat4.data[13], (scalar_type)mat4.data[14], (scalar_type)mat4.data[15] }} {}
 	
-	//! copy assignment
-	constexpr matrix4& operator=(const matrix4& mat) noexcept {
-		data = mat.data;
-		return *this;
-	}
+	//! default copy assignment
+	constexpr matrix4& operator=(const matrix4& mat) noexcept = default;
+	
+	//! default move assignment
+	constexpr matrix4& operator=(matrix4&& mat) noexcept = default;
 	
 	//////////////////////////////////////////
 	// I/O

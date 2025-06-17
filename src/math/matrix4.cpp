@@ -30,4 +30,15 @@ template class matrix4<int32_t>;
 template class matrix4<uint32_t>;
 #endif
 
+static_assert(std::is_trivially_copyable_v<matrix4f>);
+static_assert(std::is_standard_layout_v<matrix4f>);
+static_assert(std::is_trivially_copyable_v<matrix4d>);
+static_assert(std::is_standard_layout_v<matrix4d>);
+static_assert(std::is_trivially_copyable_v<matrix4l>);
+static_assert(std::is_standard_layout_v<matrix4l>);
+static_assert(std::is_trivially_copyable_v<matrix4i>);
+static_assert(std::is_standard_layout_v<matrix4i>);
+static_assert(std::is_trivially_copyable_v<matrix4ui>);
+static_assert(std::is_standard_layout_v<matrix4ui>);
+
 } // namespace fl

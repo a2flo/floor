@@ -64,23 +64,20 @@ public:
 	constexpr quaternion(const scalar_type& x_, const scalar_type& y_, const scalar_type& z_, const scalar_type& r_) noexcept :
 	x(x_), y(y_), z(z_), r(r_) {}
 	
-	//! copy-construct from same quaternion type
-	constexpr quaternion(const quaternion& q) noexcept : x(q.x), y(q.y), z(q.z), r(q.r) {}
+	//! default copy-construct from same quaternion type
+	constexpr quaternion(const quaternion& q) noexcept = default;
 	
-	//! copy-construct from same quaternion type (rvalue)
-	constexpr quaternion(quaternion&& q) noexcept : x(q.x), y(q.y), z(q.z), r(q.r) {}
+	//! default copy-construct from same quaternion type (rvalue)
+	constexpr quaternion(quaternion&& q) noexcept = default;
 	
 	//! copy-construct from same quaternion type (pointer)
 	constexpr quaternion(const quaternion* q) noexcept : x(q->x), y(q->y), z(q->z), r(q->r) {}
 	
-	//! copy assignment
-	constexpr quaternion& operator=(const quaternion& q) {
-		x = q.x;
-		y = q.y;
-		z = q.z;
-		r = q.r;
-		return *this;
-	}
+	//! default copy assignment
+	constexpr quaternion& operator=(const quaternion& q) noexcept = default;
+	
+	//! default move assignment
+	constexpr quaternion& operator=(quaternion&& q) noexcept = default;
 	
 	//////////////////////////////////////////
 	// I/O

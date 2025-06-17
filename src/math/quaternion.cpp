@@ -27,4 +27,11 @@ template class quaternion<double>;
 template class quaternion<long double>;
 #endif
 
+static_assert(std::is_trivially_copyable_v<quaternionf>);
+static_assert(std::is_standard_layout_v<quaternionf>);
+static_assert(std::is_trivially_copyable_v<quaterniond>);
+static_assert(std::is_standard_layout_v<quaterniond>);
+static_assert(std::is_trivially_copyable_v<quaternionl>);
+static_assert(std::is_standard_layout_v<quaternionl>);
+
 } // namespace fl

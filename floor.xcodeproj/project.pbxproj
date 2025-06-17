@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -915,7 +915,6 @@
 /* Begin PBXFrameworksBuildPhase section */
 		5C10915B17D114BC007F536E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */,
 				5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */,
@@ -923,23 +922,18 @@
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5C62E0A22C3E223200FF4E9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5C62E0A32C3E223200FF4E9A /* Foundation.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5CC2F77218678AAC0031E08D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -1589,7 +1583,6 @@
 /* Begin PBXHeadersBuildPhase section */
 		5C10915C17D114BC007F536E /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5C6DC7882DB0958100627453 /* vulkan_disassembly.hpp in Headers */,
 				5C6DC7892DB0958100627453 /* vulkan_image_internal.hpp in Headers */,
@@ -1798,7 +1791,6 @@
 				5C6DCA1C2DB0984200627453 /* metal_argument_buffer.hpp in Headers */,
 				5C6DCA1D2DB0984200627453 /* metal_renderer.hpp in Headers */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
@@ -1807,12 +1799,8 @@
 			isa = PBXLegacyTarget;
 			buildArgumentsString = "floor_remote \"cd ~/floor && export FLOOR_DEV=1 && export FLOOR_SELF_INCL_DIR=/Users/flo/sync && export FLOOR_SRC_PREFIX_DIR=/Users/flo/sync/floor/ && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug -j4; else ./build.sh $(ACTION) -j4; fi\"";
 			buildConfigurationList = 5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */;
-			buildPhases = (
-			);
 			buildToolPath = ssh;
 			buildWorkingDirectory = "";
-			dependencies = (
-			);
 			name = floor_remote;
 			passBuildSettingsInEnvironment = 1;
 			productName = floor_remote;
@@ -1831,8 +1819,6 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = floor;
 			productName = floor;
 			productReference = 5C10915E17D114BC007F536E /* libfloord.dylib */;
@@ -1847,8 +1833,6 @@
 				5C62E0A22C3E223200FF4E9A /* Frameworks */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			name = floor_visionos;
 			productName = floor_ios;
@@ -1865,8 +1849,6 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = floor_ios;
 			productName = floor_ios;
 			productReference = 5CC2F77518678AAC0031E08D /* libfloord_static.a */;
@@ -1879,7 +1861,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 2600;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1889,7 +1871,6 @@
 				};
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
-			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1897,6 +1878,7 @@
 				Base,
 			);
 			mainGroup = 5C10915517D114BC007F536E;
+			preferredProjectObjectVersion = 90;
 			productRefGroup = 5C10915F17D114BC007F536E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1913,9 +1895,6 @@
 		5C10920917D1FB91007F536E /* build version */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
 			inputFileListPaths = (
 				"$(SRCROOT)/sources.xcfilelist",
 			);
@@ -1927,16 +1906,15 @@
 				"$(SRCROOT)/include/floor/build_version.hpp",
 				"$(SRCROOT)/build_version",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "./build_version.sh\n";
+			shellScript = (
+				"./build_version.sh",
+				"",
+			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
 			inputPaths = (
 				"$(SRCROOT)/build_version.sh",
 			);
@@ -1945,16 +1923,15 @@
 				"$(SRCROOT)/include/floor/build_version.hpp",
 				"$(SRCROOT)/build_version",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "./build_version.sh\n";
+			shellScript = (
+				"./build_version.sh",
+				"",
+			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
 			inputPaths = (
 				"$(SRCROOT)/build_version.sh",
 			);
@@ -1963,16 +1940,17 @@
 				"$(SRCROOT)/include/floor/build_version.hpp",
 				"$(SRCROOT)/build_version",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "./build_version.sh\n";
+			shellScript = (
+				"./build_version.sh",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5C10915A17D114BC007F536E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5C6DC7932DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
 				5C6DC7942DB0958100627453 /* serializer.cpp in Sources */,
@@ -2084,11 +2062,9 @@
 				5C6DC7FD2DB0958100627453 /* metal_queue.mm in Sources */,
 				5C6DC7FE2DB0958100627453 /* device_program.cpp in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5C62E0372C3E223200FF4E9A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5C6DC71C2DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
 				5C6DC71D2DB0958100627453 /* serializer.cpp in Sources */,
@@ -2200,11 +2176,9 @@
 				5C6DC7862DB0958100627453 /* metal_queue.mm in Sources */,
 				5C6DC7872DB0958100627453 /* device_program.cpp in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5CC2F77118678AAC0031E08D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				5C6DC7FF2DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
 				5C6DC8002DB0958100627453 /* serializer.cpp in Sources */,
@@ -2316,12 +2290,11 @@
 				5C6DC8692DB0958100627453 /* metal_queue.mm in Sources */,
 				5C6DC86A2DB0958100627453 /* device_program.cpp in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		5C10916017D114BC007F536E /* Debug */ = {
+		5C10916017D114BC007F536E /* Debug configuration for PBXProject "floor" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -2441,6 +2414,7 @@
 				PRODUCT_NAME = libfloord;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
@@ -2500,7 +2474,7 @@
 			};
 			name = Debug;
 		};
-		5C10916117D114BC007F536E /* Release */ = {
+		5C10916117D114BC007F536E /* Release configuration for PBXProject "floor" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -2614,6 +2588,7 @@
 				PRODUCT_NAME = libfloor;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SYMROOT = "${SRCROOT}/bin";
 				WARNING_CFLAGS = (
 					"-Weverything",
@@ -2673,7 +2648,7 @@
 			};
 			name = Release;
 		};
-		5C10916317D114BC007F536E /* Debug */ = {
+		5C10916317D114BC007F536E /* Debug configuration for PBXNativeTarget "floor" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
@@ -2706,7 +2681,7 @@
 			};
 			name = Debug;
 		};
-		5C10916417D114BC007F536E /* Release */ = {
+		5C10916417D114BC007F536E /* Release configuration for PBXNativeTarget "floor" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
@@ -2734,7 +2709,7 @@
 			};
 			name = Release;
 		};
-		5C62E0A52C3E223200FF4E9A /* Debug */ = {
+		5C62E0A52C3E223200FF4E9A /* Debug configuration for PBXNativeTarget "floor_visionos" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2763,7 +2738,7 @@
 			};
 			name = Debug;
 		};
-		5C62E0A62C3E223200FF4E9A /* Release */ = {
+		5C62E0A62C3E223200FF4E9A /* Release configuration for PBXNativeTarget "floor_visionos" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2792,7 +2767,7 @@
 			};
 			name = Release;
 		};
-		5CBB61251D6367A000B09EEE /* Debug */ = {
+		5CBB61251D6367A000B09EEE /* Debug configuration for PBXLegacyTarget "floor_remote" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -2818,7 +2793,7 @@
 			};
 			name = Debug;
 		};
-		5CBB61261D6367A000B09EEE /* Release */ = {
+		5CBB61261D6367A000B09EEE /* Release configuration for PBXLegacyTarget "floor_remote" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -2838,7 +2813,7 @@
 			};
 			name = Release;
 		};
-		5CC2F79518678AAD0031E08D /* Debug */ = {
+		5CC2F79518678AAD0031E08D /* Debug configuration for PBXNativeTarget "floor_ios" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2865,7 +2840,7 @@
 			};
 			name = Debug;
 		};
-		5CC2F79618678AAD0031E08D /* Release */ = {
+		5CC2F79618678AAD0031E08D /* Release configuration for PBXNativeTarget "floor_ios" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -2898,46 +2873,41 @@
 		5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5C10916017D114BC007F536E /* Debug */,
-				5C10916117D114BC007F536E /* Release */,
+				5C10916017D114BC007F536E /* Debug configuration for PBXProject "floor" */,
+				5C10916117D114BC007F536E /* Release configuration for PBXProject "floor" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		5C10916217D114BC007F536E /* Build configuration list for PBXNativeTarget "floor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5C10916317D114BC007F536E /* Debug */,
-				5C10916417D114BC007F536E /* Release */,
+				5C10916317D114BC007F536E /* Debug configuration for PBXNativeTarget "floor" */,
+				5C10916417D114BC007F536E /* Release configuration for PBXNativeTarget "floor" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		5C62E0A42C3E223200FF4E9A /* Build configuration list for PBXNativeTarget "floor_visionos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5C62E0A52C3E223200FF4E9A /* Debug */,
-				5C62E0A62C3E223200FF4E9A /* Release */,
+				5C62E0A52C3E223200FF4E9A /* Debug configuration for PBXNativeTarget "floor_visionos" */,
+				5C62E0A62C3E223200FF4E9A /* Release configuration for PBXNativeTarget "floor_visionos" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5CBB61251D6367A000B09EEE /* Debug */,
-				5CBB61261D6367A000B09EEE /* Release */,
+				5CBB61251D6367A000B09EEE /* Debug configuration for PBXLegacyTarget "floor_remote" */,
+				5CBB61261D6367A000B09EEE /* Release configuration for PBXLegacyTarget "floor_remote" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		5CC2F79918678AAD0031E08D /* Build configuration list for PBXNativeTarget "floor_ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5CC2F79518678AAD0031E08D /* Debug */,
-				5CC2F79618678AAD0031E08D /* Release */,
+				5CC2F79518678AAD0031E08D /* Debug configuration for PBXNativeTarget "floor_ios" */,
+				5CC2F79618678AAD0031E08D /* Release configuration for PBXNativeTarget "floor_ios" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

@@ -61,21 +61,20 @@ public:
 							  const scalar_type& dx, const scalar_type& dy, const scalar_type& dz) noexcept :
 	rq(rx, ry, rz, r), dq(dx, dy, dz, scalar_type(0)) {}
 	
-	//! copy-construct from same dual quaternion type
-	constexpr dual_quaternion(const dual_quaternion& q_) noexcept : rq(q_.rq), dq(q_.dq) {}
+	//! default copy-construct from same dual quaternion type
+	constexpr dual_quaternion(const dual_quaternion& q_) noexcept = default;
 	
-	//! copy-construct from same dual quaternion type (rvalue)
-	constexpr dual_quaternion(dual_quaternion&& q_) noexcept : rq(q_.rq), dq(q_.dq) {}
+	//! default move-construct from same dual quaternion type (rvalue)
+	constexpr dual_quaternion(dual_quaternion&& q_) noexcept = default;
 	
 	//! copy-construct from same dual quaternion type (pointer)
 	constexpr dual_quaternion(const dual_quaternion* q_) noexcept : rq(q_->rq), dq(q_->dq) {}
 	
-	//! copy assignment
-	constexpr dual_quaternion& operator=(const dual_quaternion& q_) {
-		rq = q_.rq;
-		dq = q_.dq;
-		return *this;
-	}
+	//! default copy assignment
+	constexpr dual_quaternion& operator=(const dual_quaternion& q_) noexcept = default;
+	
+	//! default move assignment
+	constexpr dual_quaternion& operator=(dual_quaternion&& q_) noexcept = default;
 	
 	//////////////////////////////////////////
 	// I/O
