@@ -47,6 +47,13 @@ namespace fl::sha_256 {
 			0, 0, 0, 0, 0, 0, 0, 0,
 		};
 		
+		std::span<const uint8_t, SHA_256_BLOCK_SIZE> as_span() const {
+			return std::span<const uint8_t, SHA_256_BLOCK_SIZE> { hash, SHA_256_BLOCK_SIZE };
+		}
+		std::span<const std::byte, SHA_256_BLOCK_SIZE> as_bytes() const {
+			return std::span<const std::byte, SHA_256_BLOCK_SIZE> { (const std::byte*)&hash[0], SHA_256_BLOCK_SIZE };
+		}
+		
 		//! compares this hash with another hash for equality,
 		//! returns true if equal, false otherwise
 		constexpr bool operator==(const hash_t& h) const {
@@ -244,6 +251,9 @@ namespace fl::sha_256 {
 	//! NOTE: this can also run at compile-time with constexpr data
 	static inline constexpr hash_t compute_hash(const std::span<const uint8_t> data) {
 		return compute_hash(data.data(), data.size_bytes());
+	}
+	static inline constexpr hash_t compute_hash(const std::span<const std::byte> data) {
+		return compute_hash((const uint8_t*)data.data(), data.size_bytes());
 	}
 
 } // namespace fl::sha_256
