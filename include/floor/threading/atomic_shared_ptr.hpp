@@ -31,21 +31,21 @@ namespace fl {
 // ref thread-safety of shared_ptr: http://www.boost.org/doc/libs/1_53_0/libs/smart_ptr/shared_ptr.htm#ThreadSafety
 // ref atomic_shared_ptr: http://isocpp.org/files/papers/N4162.pdf
 //                        http://isocpp.org/files/papers/N4260.pdf
-template <class T> class atomic_shared_ptr {
+template <class T> class alignas(64u) atomic_shared_ptr {
 protected:
-	std::shared_ptr<T> ptr GUARDED_BY(mtx);
-	mutable atomic_spin_lock mtx;
+	mutable atomic_spin_lock_unaligned mtx;
+	mutable std::shared_ptr<T> ptr GUARDED_BY(mtx);
 	
 public:
 	// aka locking proxy
 	template <typename U>
 	class locked_ptr {
 	protected:
-		atomic_spin_lock& mtx_ref;
+		atomic_spin_lock_unaligned& mtx_ref;
 		std::shared_ptr<U>& ptr;
 		
 	public:
-		explicit locked_ptr(atomic_spin_lock& mtx_, std::shared_ptr<U>& ptr_) noexcept : mtx_ref(mtx_), ptr(ptr_) {
+		explicit locked_ptr(atomic_spin_lock_unaligned& mtx_, std::shared_ptr<U>& ptr_) noexcept : mtx_ref(mtx_), ptr(ptr_) {
 			mtx_ref.lock();
 		}
 		~locked_ptr() {
@@ -60,6 +60,9 @@ public:
 		}
 		floor_inline_always U* operator->() const noexcept {
 			return ptr.get();
+		}
+		floor_inline_always explicit operator bool() const noexcept {
+			return (ptr.get() != nullptr);
 		}
 	};
 	
@@ -78,26 +81,30 @@ public:
 	}
 	
 	// assignment:
-	floor_inline_always atomic_shared_ptr& operator=(std::shared_ptr<T> sptr) {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always atomic_shared_ptr& operator=(std::shared_ptr<T> sptr) REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.swap(sptr);
+		return *this;
+	}
+	floor_inline_always atomic_shared_ptr& operator=(nullptr_t) REQUIRES(!mtx) {
+		reset();
 		return *this;
 	}
 	atomic_shared_ptr& operator=(const atomic_shared_ptr&) = delete;
 	
-	floor_inline_always void store(std::shared_ptr<T> sptr) noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always void store(std::shared_ptr<T> sptr) noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.swap(sptr);
 	}
 	
-	floor_inline_always std::shared_ptr<T> exchange(std::shared_ptr<T> sptr) noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always std::shared_ptr<T> exchange(std::shared_ptr<T> sptr) noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.swap(sptr);
 		return sptr;
 	}
 	
-	floor_inline_always bool compare_exchange_strong(std::shared_ptr<T>& expected, const std::shared_ptr<T>& desired) noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always bool compare_exchange_strong(std::shared_ptr<T>& expected, const std::shared_ptr<T>& desired) noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		// check if ptr and expected share the same control block (are the same)
 		if(!ptr.owner_before(expected) && !expected.owner_before(ptr)) {
 			ptr = desired;
@@ -106,8 +113,8 @@ public:
 		expected = ptr;
 		return false;
 	}
-	floor_inline_always bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired) noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired) noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		// check if ptr and expected share the same control block (are the same)
 		if(!ptr.owner_before(expected) && !expected.owner_before(ptr)) {
 			ptr = desired;
@@ -116,65 +123,65 @@ public:
 		expected = ptr;
 		return false;
 	}
-	floor_inline_always bool compare_exchange_weak(std::shared_ptr<T>& expected, const std::shared_ptr<T>& desired) noexcept {
+	floor_inline_always bool compare_exchange_weak(std::shared_ptr<T>& expected, const std::shared_ptr<T>& desired) noexcept REQUIRES(!mtx) {
 		return compare_exchange_strong(expected, desired);
 	}
-	floor_inline_always bool compare_exchange_weak(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired) noexcept {
+	floor_inline_always bool compare_exchange_weak(std::shared_ptr<T>& expected, std::shared_ptr<T>&& desired) noexcept REQUIRES(!mtx) {
 		return compare_exchange_strong(expected, std::forward(desired));
 	}
 	
 	// modifiers:
-	floor_inline_always void reset() noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always void reset() noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.reset();
 	}
-	template<class Y> floor_inline_always void reset(Y* p) {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	template<class Y> floor_inline_always void reset(Y* p) REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.reset(p);
 	}
-	template<class Y, class D> floor_inline_always void reset(Y* p, D d) {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	template<class Y, class D> floor_inline_always void reset(Y* p, D d) REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.reset(p, d);
 	}
-	template<class Y, class D, class A> floor_inline_always void reset(Y* p, D d, A a) {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	template<class Y, class D, class A> floor_inline_always void reset(Y* p, D d, A a) REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		ptr.reset(p, d, a);
 	}
 	
 	// observers:
-	floor_inline_always locked_ptr<T> get() const noexcept {
+	floor_inline_always locked_ptr<T> get() const noexcept NO_THREAD_SAFETY_ANALYSIS {
 		return locked_ptr<T> { mtx, ptr };
 	}
 	floor_inline_always T* unsafe_get() const noexcept {
 		return ptr.get();
 	}
-	floor_inline_always locked_ptr<T> operator*() const noexcept {
+	floor_inline_always locked_ptr<T> operator*() const noexcept NO_THREAD_SAFETY_ANALYSIS {
 		return locked_ptr<T> { mtx, ptr };
 	}
-	floor_inline_always locked_ptr<T> operator->() const noexcept {
+	floor_inline_always locked_ptr<T> operator->() const noexcept NO_THREAD_SAFETY_ANALYSIS {
 		return locked_ptr<T> { mtx, ptr };
 	}
-	floor_inline_always long use_count() const noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always long use_count() const noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		return ptr.use_count();
 	}
-	floor_inline_always bool unique() const noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always bool unique() const noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		return ptr.unique();
 	}
-	floor_inline_always explicit operator bool() const noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always explicit operator bool() const noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		return ptr();
 	}
-	template<class U> floor_inline_always bool owner_before(std::shared_ptr<U> const& b) const {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	template<class U> floor_inline_always bool owner_before(std::shared_ptr<U> const& b) const REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		return ptr.owner_before(b);
 	}
 	
 	constexpr bool is_lock_free() const noexcept { return false; }
 	
-	floor_inline_always std::shared_ptr<T> load() const noexcept {
-		safe_guard<atomic_spin_lock> guard(mtx);
+	floor_inline_always std::shared_ptr<T> load() const noexcept REQUIRES(!mtx) {
+		safe_guard<atomic_spin_lock_unaligned> guard(mtx);
 		std::shared_ptr<T> ret = ptr;
 		return ret;
 	}
@@ -184,5 +191,7 @@ public:
 	}
 	
 };
+
+static_assert(sizeof(atomic_shared_ptr<int>) == 64u);
 
 } // namespace fl
