@@ -102,7 +102,7 @@ uint64_t floor::frame_time_counter = 0u;
 bool floor::new_fps_count = false;
 
 // window event handlers
-event::handler floor::event_handler_fnctr { &floor::event_handler };
+event::internal_handler_f floor::event_handler_fnctr { &floor::event_handler };
 
 // misc
 std::string floor::app_name { "libfloor" };
@@ -784,12 +784,12 @@ void floor::destroy() {
 	dev_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
-	if(evt != nullptr) {
-		evt->remove_event_handler(event_handler_fnctr);
+	if (evt != nullptr) {
+		evt->remove_internal_event_handler(event_handler_fnctr);
 		evt = nullptr;
 	}
 	
-	if(!console_only) {
+	if (!console_only) {
 		if(window != nullptr) {
 			SDL_DestroyWindow(window);
 			window = nullptr;

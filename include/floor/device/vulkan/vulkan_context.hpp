@@ -228,8 +228,8 @@ protected:
 	bool init_vr_renderer();
 	std::pair<bool, std::unique_ptr<vulkan_drawable_image_info>> acquire_next_vr_image(const device_queue& dev_queue) REQUIRES(acquisition_lock);
 	
-	std::function<bool(EVENT_TYPE, std::shared_ptr<event_object>)> resize_handler_fnctr;
-	bool resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) REQUIRES(!screen_sema_lock);
+	std::function<void(EVENT_TYPE, std::shared_ptr<event_object>)> resize_handler_fnctr;
+	void resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) REQUIRES(!screen_sema_lock);
 	
 	// sets screen.hdr_metadata from current device_context::hdr_metadata if screen.hdr_metadata is not empty
 	void set_vk_screen_hdr_metadata();

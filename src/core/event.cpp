@@ -64,6 +64,14 @@ void event::handle_events() {
 	
 	// internal engine event handler
 	const auto coord_scale = (floor::get_hidpi() ? floor::get_scale_factor() : 1.0f);
+	const auto mod_state = SDL_GetModState();
+	static constexpr const auto platform_copy_paste_modifier {
+#if defined(__APPLE__)
+		SDL_KMOD_GUI
+#else
+		SDL_KMOD_CTRL
+#endif
+	};
 	while (
 #if defined(__APPLE__)
 		   darwin_helper::sdl_poll_event_wrapper(event_handle)
@@ -103,8 +111,8 @@ void event::handle_events() {
 							break;
 						default: break;
 					}
+					break;
 				}
-				break;
 				case SDL_EVENT_MOUSE_BUTTON_UP: {
 					switch (event_handle.button.button) {
 						case SDL_BUTTON_LEFT:
@@ -115,17 +123,15 @@ void event::handle_events() {
 								if (cur_ticks - lm_double_click_timer < ldouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_LEFT_DOUBLE_CLICK,
-												 std::make_shared<mouse_left_double_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_LEFT_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_LEFT_UP]));
+												 std::make_shared<mouse_left_double_click_event>(cur_ticks,
+																								 prev_events[EVENT_TYPE::MOUSE_LEFT_DOWN],
+																								 prev_events[EVENT_TYPE::MOUSE_LEFT_UP]));
 								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_LEFT_CLICK,
-												 std::make_shared<mouse_left_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_LEFT_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_LEFT_UP]));
+												 std::make_shared<mouse_left_click_event>(cur_ticks,
+																						  prev_events[EVENT_TYPE::MOUSE_LEFT_DOWN],
+																						  prev_events[EVENT_TYPE::MOUSE_LEFT_UP]));
 								}
 								
 								lm_double_click_timer = cur_ticks;
@@ -139,17 +145,15 @@ void event::handle_events() {
 								if (cur_ticks - rm_double_click_timer < rdouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_RIGHT_DOUBLE_CLICK,
-												 std::make_shared<mouse_right_double_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_RIGHT_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_RIGHT_UP]));
+												 std::make_shared<mouse_right_double_click_event>(cur_ticks,
+																								  prev_events[EVENT_TYPE::MOUSE_RIGHT_DOWN],
+																								  prev_events[EVENT_TYPE::MOUSE_RIGHT_UP]));
 								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_RIGHT_CLICK,
-												 std::make_shared<mouse_right_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_RIGHT_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_RIGHT_UP]));
+												 std::make_shared<mouse_right_click_event>(cur_ticks,
+																						   prev_events[EVENT_TYPE::MOUSE_RIGHT_DOWN],
+																						   prev_events[EVENT_TYPE::MOUSE_RIGHT_UP]));
 								}
 								
 								rm_double_click_timer = cur_ticks;
@@ -163,17 +167,15 @@ void event::handle_events() {
 								if (cur_ticks - mm_double_click_timer < mdouble_click_time) {
 									// emit a double click event
 									handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOUBLE_CLICK,
-												 std::make_shared<mouse_middle_double_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_MIDDLE_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_MIDDLE_UP]));
+												 std::make_shared<mouse_middle_double_click_event>(cur_ticks,
+																								   prev_events[EVENT_TYPE::MOUSE_MIDDLE_DOWN],
+																								   prev_events[EVENT_TYPE::MOUSE_MIDDLE_UP]));
 								} else {
 									// only emit a normal click event
 									handle_event(EVENT_TYPE::MOUSE_MIDDLE_CLICK,
-												 std::make_shared<mouse_middle_click_event>(
-													cur_ticks,
-													prev_events[EVENT_TYPE::MOUSE_MIDDLE_DOWN],
-													prev_events[EVENT_TYPE::MOUSE_MIDDLE_UP]));
+												 std::make_shared<mouse_middle_click_event>(cur_ticks,
+																							prev_events[EVENT_TYPE::MOUSE_MIDDLE_DOWN],
+																							prev_events[EVENT_TYPE::MOUSE_MIDDLE_UP]));
 								}
 								
 								mm_double_click_timer = cur_ticks;
@@ -192,26 +194,15 @@ void event::handle_events() {
 					const float2 rel_move { event_handle.motion.xrel * coord_scale, event_handle.motion.yrel * coord_scale };
 					handle_event(EVENT_TYPE::MOUSE_MOVE,
 								 std::make_shared<mouse_move_event>(cur_ticks, abs_pos, rel_move));
+					break;
 				}
-				break;
 				case SDL_EVENT_MOUSE_WHEEL: {
-					// this sdl event contains no mouse button coordinate, so we need to get it ourselves
+					// this SDL event contains no mouse button coordinate, so we need to get it ourselves
 					float2 mouse_coord;
 					SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
-					if (event_handle.wheel.y > 0) {
-						handle_event(EVENT_TYPE::MOUSE_WHEEL_UP,
-									 std::make_shared<mouse_wheel_up_event>(cur_ticks,
-																	   mouse_coord,
-																	   uint32_t(event_handle.wheel.y)));
-					} else if (event_handle.wheel.y < 0) {
-						const auto abs_wheel_move = uint32_t(abs(event_handle.wheel.y));
-						handle_event(EVENT_TYPE::MOUSE_WHEEL_DOWN,
-									 std::make_shared<mouse_wheel_down_event>(cur_ticks,
-																		 mouse_coord,
-																		 abs_wheel_move));
-					}
+					handle_event(EVENT_TYPE::MOUSE_WHEEL, std::make_shared<mouse_wheel_event>(cur_ticks, mouse_coord, event_handle.wheel.y));
+					break;
 				}
-				break;
 				default: break;
 			}
 		} else if (event_type == SDL_EVENT_FINGER_DOWN ||
@@ -247,6 +238,12 @@ void event::handle_events() {
 								 std::make_shared<key_up_event>(cur_ticks, event_handle.key.key));
 					break;
 				case SDL_EVENT_KEY_DOWN:
+					if ((mod_state & platform_copy_paste_modifier) != 0 && event_handle.key.key == SDLK_V) {
+						handle_event(EVENT_TYPE::TEXT_PASTE,
+									 std::make_shared<text_paste_event>(cur_ticks, SDL_HasClipboardText() ? SDL_GetClipboardText() : ""));
+					}
+					
+					// always emit this, even when TEXT_PASTE is also emitted
 					handle_event(EVENT_TYPE::KEY_DOWN,
 								 std::make_shared<key_up_event>(cur_ticks, event_handle.key.key));
 					break;
@@ -256,8 +253,8 @@ void event::handle_events() {
 						handle_event(EVENT_TYPE::UNICODE_INPUT,
 									 std::make_shared<unicode_input_event>(cur_ticks, code));
 					}
+					break;
 				}
-				break;
 				case SDL_EVENT_WINDOW_RESIZED:
 				case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
 					const size2 new_size((size_t)event_handle.window.data1, (size_t)event_handle.window.data2);
@@ -307,14 +304,14 @@ void event::set_mdouble_click_time(uint32_t dctime) {
 	mdouble_click_time = dctime;
 }
 
-void event::add_event_handler(handler& handler_, EVENT_TYPE type) {
+void event::add_event_handler(handler_f& handler_, EVENT_TYPE type) {
 	GUARD(handler_lock);
-	handlers.insert(std::pair<EVENT_TYPE, handler&>(type, handler_));
+	handlers.emplace(type, handler_);
 }
 
-void event::add_internal_event_handler(handler& handler_, EVENT_TYPE type) {
+void event::add_internal_event_handler(internal_handler_f& handler_, EVENT_TYPE type) {
 	GUARD(handler_lock);
-	internal_handlers.insert(std::pair<EVENT_TYPE, handler&>(type, handler_));
+	internal_handlers.emplace(type, handler_);
 }
 
 void event::add_event(const EVENT_TYPE type, std::shared_ptr<event_object> obj) {
@@ -332,8 +329,7 @@ void event::handle_event(const EVENT_TYPE& type, std::shared_ptr<event_object> o
 	GUARD(handler_lock);
 	
 	const auto range = internal_handlers.equal_range(type);
-	for(auto iter = range.first; iter != range.second; iter++) {
-		// ignore return value for now (TODO: actually use this?)
+	for (auto iter = range.first; iter != range.second; iter++) {
 		iter->second(type, obj);
 	}
 	
@@ -344,54 +340,66 @@ void event::handle_event(const EVENT_TYPE& type, std::shared_ptr<event_object> o
 }
 
 void event::handle_user_events() {
-	while(!user_event_queue_processing.empty()) {
+	while (!user_event_queue_processing.empty()) {
 		// pop next event
-		std::pair<EVENT_TYPE, std::shared_ptr<event_object>> evt = user_event_queue_processing.front();
+		auto evt = user_event_queue_processing.front();
 		user_event_queue_processing.pop();
 		
 		// call user event handlers
 		GUARD(handler_lock);
 		
 		const auto range = handlers.equal_range(evt.first);
-		for(auto iter = range.first; iter != range.second; iter++) {
-			iter->second(evt.first, evt.second);
+		for (auto iter = range.first; iter != range.second; iter++) {
+			if (iter->second(evt.first, evt.second)) {
+				// -> event handled, abort now
+				break;
+			}
 		}
 	}
 }
 
-void event::remove_event_handler(const handler& handler_) {
+void event::remove_event_handler(const handler_f& handler_) {
 	GUARD(handler_lock);
-	
-	for(auto handler_iter = handlers.cbegin(); handler_iter != handlers.cend(); ) {
+	for (auto handler_iter = handlers.cbegin(); handler_iter != handlers.cend(); ) {
 		// good old pointer comparison ...
-		if(&handler_iter->second == &handler_) {
+		if (&handler_iter->second == &handler_) {
 			handler_iter = handlers.erase(handler_iter);
+		} else {
+			++handler_iter;
 		}
-		else ++handler_iter;
-	}
-	for(auto handler_iter = internal_handlers.cbegin(); handler_iter != internal_handlers.cend(); ) {
-		if(&handler_iter->second == &handler_) {
-			handler_iter = internal_handlers.erase(handler_iter);
-		}
-		else ++handler_iter;
 	}
 }
 
-void event::remove_event_types_from_handler(const handler& handler_, const std::set<EVENT_TYPE>& types) {
+void event::remove_event_types_from_handler(const handler_f& handler_, const std::set<EVENT_TYPE>& types) {
 	GUARD(handler_lock);
-	
-	for(const auto& type : types) {
-		const auto range_0 = handlers.equal_range(type);
-		for(auto iter = range_0.first; iter != range_0.second; iter++) {
-			if(&iter->second == &handler_) {
+	for (const auto& type : types) {
+		const auto range = handlers.equal_range(type);
+		for (auto iter = range.first; iter != range.second; iter++) {
+			if (&iter->second == &handler_) {
 				handlers.erase(iter);
 				break;
 			}
 		}
-		
-		const auto range_1 = internal_handlers.equal_range(type);
-		for(auto iter = range_1.first; iter != range_1.second; iter++) {
-			if(&iter->second == &handler_) {
+	}
+}
+
+void event::remove_internal_event_handler(const internal_handler_f& handler_) {
+	GUARD(handler_lock);
+	for(auto handler_iter = internal_handlers.cbegin(); handler_iter != internal_handlers.cend(); ) {
+		if (&handler_iter->second == &handler_) {
+			handler_iter = internal_handlers.erase(handler_iter);
+		} else {
+			++handler_iter;
+		}
+	}
+}
+
+void event::remove_internal_event_types_from_handler(const internal_handler_f& handler_, const std::set<EVENT_TYPE>& types) {
+	GUARD(handler_lock);
+	for (const auto& type : types) {
+		const auto range = internal_handlers.equal_range(type);
+		for (auto iter = range.first; iter != range.second; iter++) {
+			if (&iter->second == &handler_) {
 				internal_handlers.erase(iter);
 				break;
 			}

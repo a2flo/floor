@@ -543,7 +543,7 @@ protected:
 	static bool new_fps_count;
 	
 	// window event handlers
-	static event::handler event_handler_fnctr;
+	static event::internal_handler_f event_handler_fnctr;
 	static bool event_handler(EVENT_TYPE type, std::shared_ptr<event_object> obj);
 	
 	// misc

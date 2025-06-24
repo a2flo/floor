@@ -59,8 +59,7 @@ enum class EVENT_TYPE : uint32_t {
 	
 	MOUSE_MOVE,
 	
-	MOUSE_WHEEL_UP,
-	MOUSE_WHEEL_DOWN,
+	MOUSE_WHEEL,
 	
 	KEY_DOWN = __KEY_EVENT + 1,
 	KEY_UP,
@@ -74,6 +73,7 @@ enum class EVENT_TYPE : uint32_t {
 	QUIT = __OTHER_EVENT + 1,
 	WINDOW_RESIZE,
 	CLIPBOARD_UPDATE,
+	TEXT_PASTE,
 	
 	// NOTE: VR controller events are for both the left and right controller, differentiation is part of the event object
 	VR_APP_MENU_PRESS = __VR_CONTROLLER_EVENT + 1,
@@ -172,10 +172,10 @@ template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_even
 };
 
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
-	const uint32_t amount;
+	const int32_t amount;
 	mouse_wheel_event_base(const uint64_t& time_,
 						   const float2& position_,
-						   const uint32_t& amount_)
+						   const int32_t& amount_)
 	: mouse_event_base<event_type>(time_, position_), amount(amount_) {}
 };
 
@@ -200,8 +200,7 @@ using mouse_middle_double_click_event = mouse_click_event<EVENT_TYPE::MOUSE_MIDD
 
 using mouse_move_event = mouse_move_event_base<EVENT_TYPE::MOUSE_MOVE>;
 
-using mouse_wheel_up_event = mouse_wheel_event_base<EVENT_TYPE::MOUSE_WHEEL_UP>;
-using mouse_wheel_down_event = mouse_wheel_event_base<EVENT_TYPE::MOUSE_WHEEL_DOWN>;
+using mouse_wheel_event = mouse_wheel_event_base<EVENT_TYPE::MOUSE_WHEEL>;
 
 // key events
 template<EVENT_TYPE event_type> struct key_event : public event_object_base<event_type> {
@@ -245,6 +244,11 @@ using quit_event = event_object_base<EVENT_TYPE::QUIT>;
 struct clipboard_update_event : public event_object_base<EVENT_TYPE::CLIPBOARD_UPDATE> {
 	const std::string text;
 	clipboard_update_event(const uint64_t& time_, const std::string& text_) : event_object_base(time_), text(text_) {}
+};
+
+struct text_paste_event : public event_object_base<EVENT_TYPE::TEXT_PASTE> {
+	const std::string text;
+	text_paste_event(const uint64_t& time_, const std::string& text_) : event_object_base(time_), text(text_) {}
 };
 
 template<EVENT_TYPE event_type> struct window_resize_event_base : public event_object_base<event_type> {

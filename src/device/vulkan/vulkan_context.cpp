@@ -2091,7 +2091,7 @@ FLOOR_POP_WARNINGS()
 
 vulkan_context::~vulkan_context() {
 	if (resize_handler_fnctr) {
-		floor::get_event()->remove_event_handler(resize_handler_fnctr);
+		floor::get_event()->remove_internal_event_handler(resize_handler_fnctr);
 	}
 	
 	// destroy internal vulkan_queue structures
@@ -2155,14 +2155,12 @@ void vulkan_context::destroy_renderer_swapchain(const bool reset_present_fences)
 	internal->screen = {};
 }
 
-bool vulkan_context::resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) {
+void vulkan_context::resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) {
 	if (type == EVENT_TYPE::WINDOW_RESIZE) {
 		if (!reinit_renderer(floor::get_physical_screen_size())) {
 			log_error("failed to reinit Vulkan renderer after window resize");
 		}
-		return true;
 	}
-	return false;
 }
 
 bool vulkan_context::reinit_renderer(const uint2 screen_size) {
