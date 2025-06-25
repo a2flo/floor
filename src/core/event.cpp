@@ -200,7 +200,8 @@ void event::handle_events() {
 					// this SDL event contains no mouse button coordinate, so we need to get it ourselves
 					float2 mouse_coord;
 					SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
-					handle_event(EVENT_TYPE::MOUSE_WHEEL, std::make_shared<mouse_wheel_event>(cur_ticks, mouse_coord, event_handle.wheel.y));
+					mouse_coord *= coord_scale;
+					handle_event(EVENT_TYPE::MOUSE_WHEEL, std::make_shared<mouse_wheel_event>(cur_ticks, mouse_coord, -event_handle.wheel.y));
 					break;
 				}
 				default: break;
