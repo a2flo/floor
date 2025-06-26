@@ -197,11 +197,13 @@ void event::handle_events() {
 					break;
 				}
 				case SDL_EVENT_MOUSE_WHEEL: {
-					// this SDL event contains no mouse button coordinate, so we need to get it ourselves
-					float2 mouse_coord;
-					SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
-					mouse_coord *= coord_scale;
-					handle_event(EVENT_TYPE::MOUSE_WHEEL, std::make_shared<mouse_wheel_event>(cur_ticks, mouse_coord, -event_handle.wheel.y));
+					const float2 mouse_coord { event_handle.wheel.mouse_x * coord_scale, event_handle.wheel.mouse_y * coord_scale };
+					auto amount = event_handle.wheel.y;
+					// NOTE: we assume the opposite behavior to SDL here in that "normal" needs to be flipped and "flipped" is non-flipped
+					if (event_handle.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+						amount = -amount;
+					}
+					handle_event(EVENT_TYPE::MOUSE_WHEEL, std::make_shared<mouse_wheel_event>(cur_ticks, mouse_coord, amount));
 					break;
 				}
 				default: break;

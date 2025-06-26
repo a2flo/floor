@@ -172,10 +172,10 @@ template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_even
 };
 
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
-	const int32_t amount;
+	const float amount;
 	mouse_wheel_event_base(const uint64_t& time_,
 						   const float2& position_,
-						   const int32_t& amount_)
+						   const float& amount_)
 	: mouse_event_base<event_type>(time_, position_), amount(amount_) {}
 };
 
