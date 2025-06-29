@@ -75,6 +75,7 @@ public:
 					 const bool use_time,
 					 const bool use_color,
 					 const bool synchronous_logging,
+					 const bool file_logging,
 					 const std::string& log_filename = "",
 					 const std::string& msg_filename = "");
 	//! destroys the logger (also makes sure everything has been written to the console and log file)

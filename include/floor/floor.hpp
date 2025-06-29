@@ -384,6 +384,7 @@ protected:
 		bool log_use_time = true;
 		bool log_use_color = true;
 		bool log_synchronous = false;
+		bool file_logging = true;
 		std::string log_filename;
 		std::string msg_filename;
 		

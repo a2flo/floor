@@ -58,6 +58,7 @@ static struct logger_state_t {
 	bool use_color { true };
 	bool use_unicode_color { false };
 	bool synchronous { false };
+	bool file_logging { true };
 	
 	std::mutex run_cv_lock;
 	std::condition_variable run_cv;
@@ -102,6 +103,10 @@ static inline void write_log_entry(log_entry_t&& entry) {
 		std::cerr << entry.second;
 	}
 	
+	if (!logger_state.file_logging) {
+		return;
+	}
+	
 	if (entry.second[0] == 0x1B) {
 		// strip the color information when writing to the log file
 		entry.second.erase(0, 5);
@@ -138,7 +143,7 @@ void logger_thread::run() {
 	}
 	
 	// in append mode, close the file and reopen it in append mode
-	if (logger_state.append_mode) {
+	if (logger_state.file_logging && logger_state.append_mode) {
 		if (logger_state.log_file->is_open()) {
 			logger_state.log_file->close();
 			logger_state.log_file->clear();
@@ -161,18 +166,20 @@ void logger_thread::run() {
 	}
 	std::cout.flush();
 	std::cerr.flush();
-	logger_state.log_file->flush();
-	if (logger_state.msg_file) {
-		logger_state.msg_file->flush();
-	}
-	
-	// in append mode, always close the file after writing to it
-	if (logger_state.append_mode) {
-		logger_state.log_file->close();
-		logger_state.log_file->clear();
+	if (logger_state.file_logging) {
+		logger_state.log_file->flush();
 		if (logger_state.msg_file) {
-			logger_state.msg_file->close();
-			logger_state.msg_file->clear();
+			logger_state.msg_file->flush();
+		}
+		
+		// in append mode, always close the file after writing to it
+		if (logger_state.append_mode) {
+			logger_state.log_file->close();
+			logger_state.log_file->clear();
+			if (logger_state.msg_file) {
+				logger_state.msg_file->close();
+				logger_state.msg_file->clear();
+			}
 		}
 	}
 	
@@ -189,6 +196,7 @@ void logger::init(const size_t verbosity,
 				  const bool use_time,
 				  const bool use_color,
 				  const bool synchronous_logging,
+				  const bool file_logging,
 				  const std::string& log_filename_,
 				  const std::string& msg_filename_) {
 	// only allow single init
@@ -199,42 +207,45 @@ void logger::init(const size_t verbosity,
 	// always call destroy on program exit
 	atexit([] { logger::destroy(); });
 	
-	// if either is empty, use the default log/msg file name, with special treatment on iOS
-	if (log_filename_.empty() || msg_filename_.empty()) {
+	logger_state.file_logging = file_logging;
+	if (logger_state.file_logging) {
+		// if either is empty, use the default log/msg file name, with special treatment on iOS
+		if (log_filename_.empty() || msg_filename_.empty()) {
 #if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-		// we can/must store the log in a writable path (-> pref path)
-		const auto pref_path = darwin_helper::get_pref_path();
-		if (pref_path != "") {
-			logger_state.log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
-			logger_state.msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
+			// we can/must store the log in a writable path (-> pref path)
+			const auto pref_path = darwin_helper::get_pref_path();
+			if (pref_path != "") {
+				logger_state.log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
+				logger_state.msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
+			}
+			
+			// check if still empty and just try the default
+			if (logger_state.log_filename.empty() && log_filename_.empty()) {
+				logger_state.log_filename = "log.txt";
+			}
+			if (logger_state.msg_filename.empty() && msg_filename_.empty()) {
+				logger_state.msg_filename = "msg.txt";
+			}
+#else
+			logger_state.log_filename = (log_filename_.empty() ? "log.txt" : log_filename_);
+			logger_state.msg_filename = (msg_filename_.empty() ? "msg.txt" : msg_filename_);
+#endif
+		} else {
+			// neither is empty, use the specified paths/names
+			logger_state.log_filename = log_filename_;
+			logger_state.msg_filename = msg_filename_;
 		}
 		
-		// check if still empty and just try the default
-		if (logger_state.log_filename.empty() && log_filename_.empty()) {
-			logger_state.log_filename = "log.txt";
+		logger_state.log_file = std::make_unique<std::ofstream>(logger_state.log_filename, (append_mode ? std::ofstream::app | std::ofstream::out : std::ofstream::out));
+		if (!logger_state.log_file->is_open()) {
+			std::cerr << "LOG ERROR: couldn't open log file (" << logger_state.log_filename << ")!" << std::endl;
 		}
-		if (logger_state.msg_filename.empty() && msg_filename_.empty()) {
-			logger_state.msg_filename = "msg.txt";
-		}
-#else
-		logger_state.log_filename = (log_filename_.empty() ? "log.txt" : log_filename_);
-		logger_state.msg_filename = (msg_filename_.empty() ? "msg.txt" : msg_filename_);
-#endif
-	} else {
-		// neither is empty, use the specified paths/names
-		logger_state.log_filename = log_filename_;
-		logger_state.msg_filename = msg_filename_;
-	}
-	
-	logger_state.log_file = std::make_unique<std::ofstream>(logger_state.log_filename, (append_mode ? std::ofstream::app | std::ofstream::out : std::ofstream::out));
-	if (!logger_state.log_file->is_open()) {
-		std::cerr << "LOG ERROR: couldn't open log file (" << logger_state.log_filename << ")!" << std::endl;
-	}
-	
-	if (separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
-		logger_state.msg_file = std::make_unique<std::ofstream>(logger_state.msg_filename, (append_mode ? std::ofstream::app | std::ofstream::out : std::ofstream::out));
-		if (!logger_state.msg_file->is_open()) {
-			std::cerr << "LOG ERROR: couldn't open msg log file (" << logger_state.msg_filename << ")!" << std::endl;
+		
+		if (separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
+			logger_state.msg_file = std::make_unique<std::ofstream>(logger_state.msg_filename, (append_mode ? std::ofstream::app | std::ofstream::out : std::ofstream::out));
+			if (!logger_state.msg_file->is_open()) {
+				std::cerr << "LOG ERROR: couldn't open msg log file (" << logger_state.msg_filename << ")!" << std::endl;
+			}
 		}
 	}
 	
