@@ -75,7 +75,7 @@ std::pair<bool, uint32_t> decode_utf8_char(std::string::const_iterator& iter, co
 	return gen_iter_decode_utf8_char(iter, end_iter);
 }
 
-std::vector<uint32_t> utf8_to_unicode(const std::string& str) {
+std::vector<uint32_t> utf8_to_unicode(const std::string_view& str) {
 	std::vector<uint32_t> ret;
 	
 	const auto end_iter = str.cend();

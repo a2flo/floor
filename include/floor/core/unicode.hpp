@@ -20,12 +20,13 @@
 
 #include <vector>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <cstdint>
 
 //! unicode routines
 namespace fl::unicode {
-	std::vector<uint32_t> utf8_to_unicode(const std::string& str);
+	std::vector<uint32_t> utf8_to_unicode(const std::string_view& str);
 	std::string unicode_to_utf8(const std::vector<uint32_t>& codes);
 	
 	//! decodes a single multi-byte utf-8 character to a utf-32/32-bit uint,

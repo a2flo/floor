@@ -119,17 +119,6 @@
 		5C6DC7852DB0958100627453 /* opencl_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6CC2DB0958100627453 /* opencl_image.cpp */; };
 		5C6DC7862DB0958100627453 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6C42DB0958100627453 /* metal_queue.mm */; };
 		5C6DC7872DB0958100627453 /* device_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6F92DB0958100627453 /* device_program.cpp */; };
-		5C6DC7882DB0958100627453 /* vulkan_disassembly.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D62DB0958100627453 /* vulkan_disassembly.hpp */; };
-		5C6DC7892DB0958100627453 /* vulkan_image_internal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6DC2DB0958100627453 /* vulkan_image_internal.hpp */; };
-		5C6DC78A2DB0958100627453 /* vulkan_encoder.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D92DB0958100627453 /* vulkan_encoder.hpp */; };
-		5C6DC78B2DB0958100627453 /* openxr_internal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC7152DB0958100627453 /* openxr_internal.hpp */; };
-		5C6DC78C2DB0958100627453 /* vulkan_function_entry.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6DA2DB0958100627453 /* vulkan_function_entry.hpp */; };
-		5C6DC78D2DB0958100627453 /* vulkan_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6DB2DB0958100627453 /* vulkan_headers.hpp */; };
-		5C6DC78E2DB0958100627453 /* vulkan_drawable.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D82DB0958100627453 /* vulkan_drawable.hpp */; };
-		5C6DC78F2DB0958100627453 /* vulkan_descriptor_set.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D42DB0958100627453 /* vulkan_descriptor_set.hpp */; };
-		5C6DC7902DB0958100627453 /* vulkan_conversion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D12DB0958100627453 /* vulkan_conversion.hpp */; };
-		5C6DC7912DB0958100627453 /* vulkan_debug.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D22DB0958100627453 /* vulkan_debug.hpp */; };
-		5C6DC7922DB0958100627453 /* vulkan_args.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC6D02DB0958100627453 /* vulkan_args.hpp */; };
 		5C6DC7932DB0958100627453 /* vulkan_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6E72DB0958100627453 /* vulkan_indirect_command.cpp */; };
 		5C6DC7942DB0958100627453 /* serializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC69D2DB0958100627453 /* serializer.cpp */; };
 		5C6DC7952DB0958100627453 /* cuda_argument_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6A42DB0958100627453 /* cuda_argument_buffer.cpp */; };
@@ -346,201 +335,6 @@
 		5C6DC8682DB0958100627453 /* opencl_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6CC2DB0958100627453 /* opencl_image.cpp */; };
 		5C6DC8692DB0958100627453 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6C42DB0958100627453 /* metal_queue.mm */; };
 		5C6DC86A2DB0958100627453 /* device_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6F92DB0958100627453 /* device_program.cpp */; };
-		5C6DC95A2DB0966D00627453 /* floor.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9562DB0966D00627453 /* floor.hpp */; };
-		5C6DC95B2DB0966D00627453 /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9592DB0966D00627453 /* floor_version.hpp */; };
-		5C6DC95C2DB0966D00627453 /* build_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9552DB0966D00627453 /* build_version.hpp */; };
-		5C6DC95D2DB0966D00627453 /* floor_conf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9572DB0966D00627453 /* floor_conf.hpp */; };
-		5C6DC99C2DB097CA00627453 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9982DB097CA00627453 /* const_string.hpp */; };
-		5C6DC99D2DB097CA00627453 /* sha_256.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC99A2DB097CA00627453 /* sha_256.hpp */; };
-		5C6DC99E2DB097CA00627453 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9992DB097CA00627453 /* ext_traits.hpp */; };
-		5C6DC99F2DB097CA00627453 /* soft_f16.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC99B2DB097CA00627453 /* soft_f16.hpp */; };
-		5C6DC9A02DB097CA00627453 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9972DB097CA00627453 /* const_math.hpp */; };
-		5C6DC9A12DB097CA00627453 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9962DB097CA00627453 /* const_array.hpp */; };
-		5C6DC9B72DB097E000627453 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A62DB097E000627453 /* enum_helpers.hpp */; };
-		5C6DC9B82DB097E000627453 /* core.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A42DB097E000627453 /* core.hpp */; };
-		5C6DC9B92DB097E000627453 /* timer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B52DB097E000627453 /* timer.hpp */; };
-		5C6DC9BA2DB097E000627453 /* flat_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AB2DB097E000627453 /* flat_map.hpp */; };
-		5C6DC9BB2DB097E000627453 /* essentials.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A72DB097E000627453 /* essentials.hpp */; };
-		5C6DC9BC2DB097E000627453 /* aligned_ptr.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A22DB097E000627453 /* aligned_ptr.hpp */; };
-		5C6DC9BD2DB097E000627453 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A52DB097E000627453 /* cpp_ext.hpp */; };
-		5C6DC9BE2DB097E000627453 /* event_objects.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A92DB097E000627453 /* event_objects.hpp */; };
-		5C6DC9BF2DB097E000627453 /* json.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AD2DB097E000627453 /* json.hpp */; };
-		5C6DC9C02DB097E000627453 /* platform.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B02DB097E000627453 /* platform.hpp */; };
-		5C6DC9C12DB097E000627453 /* platform_windows.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B12DB097E000627453 /* platform_windows.hpp */; };
-		5C6DC9C22DB097E000627453 /* unicode.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B62DB097E000627453 /* unicode.hpp */; };
-		5C6DC9C32DB097E000627453 /* event.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A82DB097E000627453 /* event.hpp */; };
-		5C6DC9C42DB097E000627453 /* option_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AF2DB097E000627453 /* option_handler.hpp */; };
-		5C6DC9C52DB097E000627453 /* serializer_storage.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B32DB097E000627453 /* serializer_storage.hpp */; };
-		5C6DC9C62DB097E000627453 /* sig_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B42DB097E000627453 /* sig_handler.hpp */; };
-		5C6DC9C72DB097E000627453 /* logger.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AE2DB097E000627453 /* logger.hpp */; };
-		5C6DC9C82DB097E000627453 /* serializer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9B22DB097E000627453 /* serializer.hpp */; };
-		5C6DC9C92DB097E000627453 /* file_io.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AA2DB097E000627453 /* file_io.hpp */; };
-		5C6DC9CA2DB097E000627453 /* hdr_metadata.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9AC2DB097E000627453 /* hdr_metadata.hpp */; };
-		5C6DC9CB2DB097E000627453 /* bcm.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9A32DB097E000627453 /* bcm.hpp */; };
-		5C6DC9CD2DB097EE00627453 /* darwin_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9CC2DB097EE00627453 /* darwin_helper.hpp */; };
-		5C6DC9D92DB0980700627453 /* cuda_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D22DB0980700627453 /* cuda_context.hpp */; };
-		5C6DC9DA2DB0980700627453 /* cuda_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D32DB0980700627453 /* cuda_device.hpp */; };
-		5C6DC9DB2DB0980700627453 /* cuda_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D52DB0980700627453 /* cuda_image.hpp */; };
-		5C6DC9DC2DB0980700627453 /* cuda_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D72DB0980700627453 /* cuda_program.hpp */; };
-		5C6DC9DD2DB0980700627453 /* cuda_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D42DB0980700627453 /* cuda_function.hpp */; };
-		5C6DC9DE2DB0980700627453 /* cuda_api.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9CE2DB0980700627453 /* cuda_api.hpp */; };
-		5C6DC9DF2DB0980700627453 /* cuda_internal_api.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D62DB0980700627453 /* cuda_internal_api.hpp */; };
-		5C6DC9E02DB0980700627453 /* cuda_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D82DB0980700627453 /* cuda_queue.hpp */; };
-		5C6DC9E12DB0980700627453 /* cuda_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D12DB0980700627453 /* cuda_common.hpp */; };
-		5C6DC9E22DB0980700627453 /* cuda_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9CF2DB0980700627453 /* cuda_argument_buffer.hpp */; };
-		5C6DC9E32DB0980700627453 /* cuda_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9D02DB0980700627453 /* cuda_buffer.hpp */; };
-		5C6DC9EF2DB0982900627453 /* host_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E72DB0982900627453 /* host_common.hpp */; };
-		5C6DC9F02DB0982900627453 /* host_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E92DB0982900627453 /* host_device.hpp */; };
-		5C6DC9F12DB0982900627453 /* host_device_builtins.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9EA2DB0982900627453 /* host_device_builtins.hpp */; };
-		5C6DC9F22DB0982900627453 /* host_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9EE2DB0982900627453 /* host_queue.hpp */; };
-		5C6DC9F32DB0982900627453 /* host_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E62DB0982900627453 /* host_buffer.hpp */; };
-		5C6DC9F42DB0982900627453 /* host_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9EC2DB0982900627453 /* host_image.hpp */; };
-		5C6DC9F52DB0982900627453 /* host_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E82DB0982900627453 /* host_context.hpp */; };
-		5C6DC9F62DB0982900627453 /* host_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9EB2DB0982900627453 /* host_function.hpp */; };
-		5C6DC9F72DB0982900627453 /* host_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9ED2DB0982900627453 /* host_program.hpp */; };
-		5C6DC9F82DB0982900627453 /* elf_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E42DB0982900627453 /* elf_binary.hpp */; };
-		5C6DC9F92DB0982900627453 /* host_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9E52DB0982900627453 /* host_argument_buffer.hpp */; };
-		5C6DCA0C2DB0984200627453 /* metal_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA072DB0984200627453 /* metal_program.hpp */; };
-		5C6DCA0D2DB0984200627453 /* metal_resource_tracking.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA0A2DB0984200627453 /* metal_resource_tracking.hpp */; };
-		5C6DCA0E2DB0984200627453 /* metal_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA022DB0984200627453 /* metal_function.hpp */; };
-		5C6DCA0F2DB0984200627453 /* metal_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA012DB0984200627453 /* metal_fence.hpp */; };
-		5C6DCA102DB0984200627453 /* metal_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FF2DB0984200627453 /* metal_device.hpp */; };
-		5C6DCA112DB0984200627453 /* metal_args.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FA2DB0984200627453 /* metal_args.hpp */; };
-		5C6DCA122DB0984200627453 /* metal_device_query.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA002DB0984200627453 /* metal_device_query.hpp */; };
-		5C6DCA132DB0984200627453 /* metal_pipeline.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA062DB0984200627453 /* metal_pipeline.hpp */; };
-		5C6DCA142DB0984200627453 /* metal_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA032DB0984200627453 /* metal_image.hpp */; };
-		5C6DCA152DB0984200627453 /* metal_indirect_command.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA042DB0984200627453 /* metal_indirect_command.hpp */; };
-		5C6DCA162DB0984200627453 /* metal_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA0B2DB0984200627453 /* metal_shader.hpp */; };
-		5C6DCA172DB0984200627453 /* metal_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FD2DB0984200627453 /* metal_common.hpp */; };
-		5C6DCA182DB0984200627453 /* metal_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA082DB0984200627453 /* metal_queue.hpp */; };
-		5C6DCA192DB0984200627453 /* metal_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FE2DB0984200627453 /* metal_context.hpp */; };
-		5C6DCA1A2DB0984200627453 /* metal_pass.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA052DB0984200627453 /* metal_pass.hpp */; };
-		5C6DCA1B2DB0984200627453 /* metal_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FC2DB0984200627453 /* metal_buffer.hpp */; };
-		5C6DCA1C2DB0984200627453 /* metal_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DC9FB2DB0984200627453 /* metal_argument_buffer.hpp */; };
-		5C6DCA1D2DB0984200627453 /* metal_renderer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA092DB0984200627453 /* metal_renderer.hpp */; };
-		5C6DCA262DB0985500627453 /* opencl_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA222DB0985500627453 /* opencl_function.hpp */; };
-		5C6DCA272DB0985500627453 /* opencl_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA1E2DB0985500627453 /* opencl_buffer.hpp */; };
-		5C6DCA282DB0985500627453 /* opencl_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA242DB0985500627453 /* opencl_program.hpp */; };
-		5C6DCA292DB0985500627453 /* opencl_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA252DB0985500627453 /* opencl_queue.hpp */; };
-		5C6DCA2A2DB0985500627453 /* opencl_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA202DB0985500627453 /* opencl_context.hpp */; };
-		5C6DCA2B2DB0985500627453 /* opencl_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA1F2DB0985500627453 /* opencl_common.hpp */; };
-		5C6DCA2C2DB0985500627453 /* opencl_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA232DB0985500627453 /* opencl_image.hpp */; };
-		5C6DCA2D2DB0985500627453 /* opencl_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA212DB0985500627453 /* opencl_device.hpp */; };
-		5C6DCA402DB0986B00627453 /* vulkan_pipeline.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3A2DB0986B00627453 /* vulkan_pipeline.hpp */; };
-		5C6DCA412DB0986B00627453 /* vulkan_semaphore.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3E2DB0986B00627453 /* vulkan_semaphore.hpp */; };
-		5C6DCA422DB0986B00627453 /* vulkan_argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA2E2DB0986B00627453 /* vulkan_argument_buffer.hpp */; };
-		5C6DCA432DB0986B00627453 /* vulkan_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3F2DB0986B00627453 /* vulkan_shader.hpp */; };
-		5C6DCA442DB0986B00627453 /* vulkan_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA2F2DB0986B00627453 /* vulkan_buffer.hpp */; };
-		5C6DCA452DB0986B00627453 /* vulkan_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA332DB0986B00627453 /* vulkan_fence.hpp */; };
-		5C6DCA462DB0986B00627453 /* vulkan_indirect_command.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA372DB0986B00627453 /* vulkan_indirect_command.hpp */; };
-		5C6DCA472DB0986B00627453 /* vulkan_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA322DB0986B00627453 /* vulkan_device.hpp */; };
-		5C6DCA482DB0986B00627453 /* vulkan_fwd.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA352DB0986B00627453 /* vulkan_fwd.hpp */; };
-		5C6DCA492DB0986B00627453 /* vulkan_memory.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA382DB0986B00627453 /* vulkan_memory.hpp */; };
-		5C6DCA4A2DB0986B00627453 /* vulkan_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA362DB0986B00627453 /* vulkan_image.hpp */; };
-		5C6DCA4B2DB0986B00627453 /* vulkan_pass.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA392DB0986B00627453 /* vulkan_pass.hpp */; };
-		5C6DCA4C2DB0986B00627453 /* vulkan_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3C2DB0986B00627453 /* vulkan_queue.hpp */; };
-		5C6DCA4D2DB0986B00627453 /* vulkan_renderer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3D2DB0986B00627453 /* vulkan_renderer.hpp */; };
-		5C6DCA4E2DB0986B00627453 /* vulkan_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA342DB0986B00627453 /* vulkan_function.hpp */; };
-		5C6DCA4F2DB0986B00627453 /* vulkan_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA312DB0986B00627453 /* vulkan_context.hpp */; };
-		5C6DCA502DB0986B00627453 /* vulkan_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA302DB0986B00627453 /* vulkan_common.hpp */; };
-		5C6DCA512DB0986B00627453 /* vulkan_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA3B2DB0986B00627453 /* vulkan_program.hpp */; };
-		5C6DCA562DB0988700627453 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA522DB0988700627453 /* grammar.hpp */; };
-		5C6DCA572DB0988700627453 /* lexer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA542DB0988700627453 /* lexer.hpp */; };
-		5C6DCA582DB0988700627453 /* source_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA552DB0988700627453 /* source_types.hpp */; };
-		5C6DCA592DB0988700627453 /* lang_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA532DB0988700627453 /* lang_context.hpp */; };
-		5C6DCA672DB0989A00627453 /* vector_ops.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA652DB0989A00627453 /* vector_ops.hpp */; };
-		5C6DCA682DB0989A00627453 /* vector_lib.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA632DB0989A00627453 /* vector_lib.hpp */; };
-		5C6DCA692DB0989A00627453 /* vector_lib_checks.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA642DB0989A00627453 /* vector_lib_checks.hpp */; };
-		5C6DCA6A2DB0989A00627453 /* matrix4.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5D2DB0989A00627453 /* matrix4.hpp */; };
-		5C6DCA6B2DB0989A00627453 /* vector_ops_cleanup.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA662DB0989A00627453 /* vector_ops_cleanup.hpp */; };
-		5C6DCA6C2DB0989A00627453 /* bbox.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5A2DB0989A00627453 /* bbox.hpp */; };
-		5C6DCA6D2DB0989A00627453 /* dual_quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5C2DB0989A00627453 /* dual_quaternion.hpp */; };
-		5C6DCA6E2DB0989A00627453 /* constants.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5B2DB0989A00627453 /* constants.hpp */; };
-		5C6DCA6F2DB0989A00627453 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5F2DB0989A00627453 /* ray.hpp */; };
-		5C6DCA702DB0989A00627453 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA5E2DB0989A00627453 /* quaternion.hpp */; };
-		5C6DCA712DB0989A00627453 /* vector.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA612DB0989A00627453 /* vector.hpp */; };
-		5C6DCA722DB0989A00627453 /* rt_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA602DB0989A00627453 /* rt_math.hpp */; };
-		5C6DCA732DB0989A00627453 /* vector_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA622DB0989A00627453 /* vector_helper.hpp */; };
-		5C6DCA7B2DB098AA00627453 /* atomics.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA762DB098AA00627453 /* atomics.hpp */; };
-		5C6DCA7C2DB098AA00627453 /* atomic_spin_lock.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA752DB098AA00627453 /* atomic_spin_lock.hpp */; };
-		5C6DCA7D2DB098AA00627453 /* safe_resource_container.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA772DB098AA00627453 /* safe_resource_container.hpp */; };
-		5C6DCA7E2DB098AA00627453 /* task.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA782DB098AA00627453 /* task.hpp */; };
-		5C6DCA7F2DB098AA00627453 /* thread_safety.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA7A2DB098AA00627453 /* thread_safety.hpp */; };
-		5C6DCA802DB098AA00627453 /* thread_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA792DB098AA00627453 /* thread_base.hpp */; };
-		5C6DCA812DB098AA00627453 /* atomic_shared_ptr.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA742DB098AA00627453 /* atomic_shared_ptr.hpp */; };
-		5C6DCA862DB098B900627453 /* openxr_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA832DB098B900627453 /* openxr_common.hpp */; };
-		5C6DCA872DB098B900627453 /* openxr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA842DB098B900627453 /* openxr_context.hpp */; };
-		5C6DCA882DB098B900627453 /* vr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA852DB098B900627453 /* vr_context.hpp */; };
-		5C6DCA892DB098B900627453 /* openvr_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA822DB098B900627453 /* openvr_context.hpp */; };
-		5C6DCAB82DB098D300627453 /* vulkan_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB52DB098D300627453 /* vulkan_post.hpp */; };
-		5C6DCAB92DB098D300627453 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA02DB098D300627453 /* image_types.hpp */; };
-		5C6DCABA2DB098D300627453 /* algorithm.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8A2DB098D300627453 /* algorithm.hpp */; };
-		5C6DCABB2DB098D300627453 /* vulkan_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB42DB098D300627453 /* vulkan_image.hpp */; };
-		5C6DCABC2DB098D300627453 /* metal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA22DB098D300627453 /* metal.hpp */; };
-		5C6DCABD2DB098D300627453 /* opaque_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA82DB098D300627453 /* opaque_image.hpp */; };
-		5C6DCABE2DB098D300627453 /* opencl_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAC2DB098D300627453 /* opencl_common.hpp */; };
-		5C6DCABF2DB098D300627453 /* metal_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA42DB098D300627453 /* metal_image.hpp */; };
-		5C6DCAC02DB098D300627453 /* soft_printf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB12DB098D300627453 /* soft_printf.hpp */; };
-		5C6DCAC12DB098D300627453 /* host_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9E2DB098D300627453 /* host_pre.hpp */; };
-		5C6DCAC22DB098D300627453 /* device_info.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA962DB098D300627453 /* device_info.hpp */; };
-		5C6DCAC32DB098D300627453 /* logger.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA12DB098D300627453 /* logger.hpp */; };
-		5C6DCAC42DB098D300627453 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA72DB098D300627453 /* mip_map_minify.hpp */; };
-		5C6DCAC52DB098D300627453 /* opaque_image_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA92DB098D300627453 /* opaque_image_map.hpp */; };
-		5C6DCAC62DB098D300627453 /* host_limits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9C2DB098D300627453 /* host_limits.hpp */; };
-		5C6DCAC72DB098D300627453 /* vulkan_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB62DB098D300627453 /* vulkan_pre.hpp */; };
-		5C6DCAC82DB098D300627453 /* image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9F2DB098D300627453 /* image.hpp */; };
-		5C6DCAC92DB098D300627453 /* sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAF2DB098D300627453 /* sampler.hpp */; };
-		5C6DCACA2DB098D300627453 /* host_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9B2DB098D300627453 /* host_image.hpp */; };
-		5C6DCACB2DB098D300627453 /* cuda.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8F2DB098D300627453 /* cuda.hpp */; };
-		5C6DCACC2DB098D300627453 /* opencl_atomic.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAB2DB098D300627453 /* opencl_atomic.hpp */; };
-		5C6DCACD2DB098D300627453 /* group.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA972DB098D300627453 /* group.hpp */; };
-		5C6DCACE2DB098D300627453 /* cuda_sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA952DB098D300627453 /* cuda_sampler.hpp */; };
-		5C6DCACF2DB098D300627453 /* cuda_coop.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA912DB098D300627453 /* cuda_coop.hpp */; };
-		5C6DCAD02DB098D300627453 /* cuda_atomic.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA902DB098D300627453 /* cuda_atomic.hpp */; };
-		5C6DCAD12DB098D300627453 /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA52DB098D300627453 /* metal_post.hpp */; };
-		5C6DCAD22DB098D300627453 /* atomic_compat.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8B2DB098D300627453 /* atomic_compat.hpp */; };
-		5C6DCAD32DB098D300627453 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8D2DB098D300627453 /* atomic_fallback.hpp */; };
-		5C6DCAD42DB098D300627453 /* soft_pack.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB02DB098D300627453 /* soft_pack.hpp */; };
-		5C6DCAD52DB098D300627453 /* metal_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA62DB098D300627453 /* metal_pre.hpp */; };
-		5C6DCAD62DB098D300627453 /* common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8E2DB098D300627453 /* common.hpp */; };
-		5C6DCAD72DB098D300627453 /* metal_atomic.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAA32DB098D300627453 /* metal_atomic.hpp */; };
-		5C6DCAD82DB098D300627453 /* cuda_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA932DB098D300627453 /* cuda_image.hpp */; };
-		5C6DCAD92DB098D300627453 /* tessellation.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB22DB098D300627453 /* tessellation.hpp */; };
-		5C6DCADA2DB098D300627453 /* opencl_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAD2DB098D300627453 /* opencl_image.hpp */; };
-		5C6DCADB2DB098D300627453 /* host_id.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9A2DB098D300627453 /* host_id.hpp */; };
-		5C6DCADC2DB098D300627453 /* cuda_id.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA922DB098D300627453 /* cuda_id.hpp */; };
-		5C6DCADD2DB098D300627453 /* host_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA9D2DB098D300627453 /* host_post.hpp */; };
-		5C6DCADE2DB098D300627453 /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAE2DB098D300627453 /* opencl_pre.hpp */; };
-		5C6DCADF2DB098D300627453 /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAAA2DB098D300627453 /* opencl.hpp */; };
-		5C6DCAE02DB098D300627453 /* cuda_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA942DB098D300627453 /* cuda_pre.hpp */; };
-		5C6DCAE12DB098D300627453 /* host.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA982DB098D300627453 /* host.hpp */; };
-		5C6DCAE22DB098D300627453 /* atomic_compat_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA8C2DB098D300627453 /* atomic_compat_post.hpp */; };
-		5C6DCAE32DB098D300627453 /* host_atomic.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCA992DB098D300627453 /* host_atomic.hpp */; };
-		5C6DCAE42DB098D300627453 /* vulkan.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAB32DB098D300627453 /* vulkan.hpp */; };
-		5C6DCAFC2DB098F300627453 /* device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE62DB098F300627453 /* device.hpp */; };
-		5C6DCAFD2DB098F300627453 /* device_memory.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAEE2DB098F300627453 /* device_memory.hpp */; };
-		5C6DCAFE2DB098F300627453 /* spirv_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF92DB098F300627453 /* spirv_handler.hpp */; };
-		5C6DCAFF2DB098F300627453 /* device_fence.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAEA2DB098F300627453 /* device_fence.hpp */; };
-		5C6DCB002DB098F300627453 /* toolchain.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAFA2DB098F300627453 /* toolchain.hpp */; };
-		5C6DCB012DB098F300627453 /* universal_binary.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAFB2DB098F300627453 /* universal_binary.hpp */; };
-		5C6DCB022DB098F300627453 /* device_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAED2DB098F300627453 /* device_image.hpp */; };
-		5C6DCB032DB098F300627453 /* device_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE82DB098F300627453 /* device_common.hpp */; };
-		5C6DCB042DB098F300627453 /* soft_printf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF82DB098F300627453 /* soft_printf.hpp */; };
-		5C6DCB052DB098F300627453 /* graphics_pass.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF32DB098F300627453 /* graphics_pass.hpp */; };
-		5C6DCB062DB098F300627453 /* device_function.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAEB2DB098F300627453 /* device_function.hpp */; };
-		5C6DCB072DB098F300627453 /* device_function_arg.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAEC2DB098F300627453 /* device_function_arg.hpp */; };
-		5C6DCB082DB098F300627453 /* graphics_pipeline.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF42DB098F300627453 /* graphics_pipeline.hpp */; };
-		5C6DCB092DB098F300627453 /* device_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF02DB098F300627453 /* device_program.hpp */; };
-		5C6DCB0A2DB098F300627453 /* device_memory_flags.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAEF2DB098F300627453 /* device_memory_flags.hpp */; };
-		5C6DCB0B2DB098F300627453 /* graphics_index_type.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF22DB098F300627453 /* graphics_index_type.hpp */; };
-		5C6DCB0C2DB098F300627453 /* argument_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE52DB098F300627453 /* argument_buffer.hpp */; };
-		5C6DCB0D2DB098F300627453 /* indirect_command.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF72DB098F300627453 /* indirect_command.hpp */; };
-		5C6DCB0E2DB098F300627453 /* device_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE72DB098F300627453 /* device_buffer.hpp */; };
-		5C6DCB0F2DB098F300627453 /* device_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF12DB098F300627453 /* device_queue.hpp */; };
-		5C6DCB102DB098F300627453 /* graphics_renderer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF52DB098F300627453 /* graphics_renderer.hpp */; };
-		5C6DCB112DB098F300627453 /* graphics_vertex_format.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAF62DB098F300627453 /* graphics_vertex_format.hpp */; };
-		5C6DCB122DB098F300627453 /* device_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6DCAE92DB098F300627453 /* device_context.hpp */; };
-		5C83AE912DBD6863009E4182 /* thread_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C83AE902DBD6863009E4182 /* thread_helpers.hpp */; };
 		5C83AE932DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
 		5C83AE942DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
 		5C83AE952DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
@@ -1580,220 +1374,6 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		5C10915C17D114BC007F536E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			files = (
-				5C6DC7882DB0958100627453 /* vulkan_disassembly.hpp in Headers */,
-				5C6DC7892DB0958100627453 /* vulkan_image_internal.hpp in Headers */,
-				5C6DCA562DB0988700627453 /* grammar.hpp in Headers */,
-				5C6DCA572DB0988700627453 /* lexer.hpp in Headers */,
-				5C6DCA582DB0988700627453 /* source_types.hpp in Headers */,
-				5C6DCA592DB0988700627453 /* lang_context.hpp in Headers */,
-				5C6DC78A2DB0958100627453 /* vulkan_encoder.hpp in Headers */,
-				5C6DC78B2DB0958100627453 /* openxr_internal.hpp in Headers */,
-				5C6DC78C2DB0958100627453 /* vulkan_function_entry.hpp in Headers */,
-				5C6DC78D2DB0958100627453 /* vulkan_headers.hpp in Headers */,
-				5C6DC78E2DB0958100627453 /* vulkan_drawable.hpp in Headers */,
-				5C6DC78F2DB0958100627453 /* vulkan_descriptor_set.hpp in Headers */,
-				5C6DC7902DB0958100627453 /* vulkan_conversion.hpp in Headers */,
-				5C6DC7912DB0958100627453 /* vulkan_debug.hpp in Headers */,
-				5C6DCAB82DB098D300627453 /* vulkan_post.hpp in Headers */,
-				5C6DCAB92DB098D300627453 /* image_types.hpp in Headers */,
-				5C6DCABA2DB098D300627453 /* algorithm.hpp in Headers */,
-				5C6DCABB2DB098D300627453 /* vulkan_image.hpp in Headers */,
-				5C6DCABC2DB098D300627453 /* metal.hpp in Headers */,
-				5C6DCABD2DB098D300627453 /* opaque_image.hpp in Headers */,
-				5C6DCAFC2DB098F300627453 /* device.hpp in Headers */,
-				5C6DCAFD2DB098F300627453 /* device_memory.hpp in Headers */,
-				5C6DCAFE2DB098F300627453 /* spirv_handler.hpp in Headers */,
-				5C6DCAFF2DB098F300627453 /* device_fence.hpp in Headers */,
-				5C6DCB002DB098F300627453 /* toolchain.hpp in Headers */,
-				5C6DCB012DB098F300627453 /* universal_binary.hpp in Headers */,
-				5C6DCB022DB098F300627453 /* device_image.hpp in Headers */,
-				5C6DCB032DB098F300627453 /* device_common.hpp in Headers */,
-				5C6DCB042DB098F300627453 /* soft_printf.hpp in Headers */,
-				5C6DCB052DB098F300627453 /* graphics_pass.hpp in Headers */,
-				5C6DCB062DB098F300627453 /* device_function.hpp in Headers */,
-				5C6DCB072DB098F300627453 /* device_function_arg.hpp in Headers */,
-				5C6DCB082DB098F300627453 /* graphics_pipeline.hpp in Headers */,
-				5C6DCB092DB098F300627453 /* device_program.hpp in Headers */,
-				5C6DCB0A2DB098F300627453 /* device_memory_flags.hpp in Headers */,
-				5C6DCB0B2DB098F300627453 /* graphics_index_type.hpp in Headers */,
-				5C6DCB0C2DB098F300627453 /* argument_buffer.hpp in Headers */,
-				5C6DCB0D2DB098F300627453 /* indirect_command.hpp in Headers */,
-				5C6DCB0E2DB098F300627453 /* device_buffer.hpp in Headers */,
-				5C6DCB0F2DB098F300627453 /* device_queue.hpp in Headers */,
-				5C6DCB102DB098F300627453 /* graphics_renderer.hpp in Headers */,
-				5C6DCB112DB098F300627453 /* graphics_vertex_format.hpp in Headers */,
-				5C6DCB122DB098F300627453 /* device_context.hpp in Headers */,
-				5C6DCABE2DB098D300627453 /* opencl_common.hpp in Headers */,
-				5C6DCABF2DB098D300627453 /* metal_image.hpp in Headers */,
-				5C6DCAC02DB098D300627453 /* soft_printf.hpp in Headers */,
-				5C6DCAC12DB098D300627453 /* host_pre.hpp in Headers */,
-				5C6DCAC22DB098D300627453 /* device_info.hpp in Headers */,
-				5C6DCAC32DB098D300627453 /* logger.hpp in Headers */,
-				5C6DCAC42DB098D300627453 /* mip_map_minify.hpp in Headers */,
-				5C6DCAC52DB098D300627453 /* opaque_image_map.hpp in Headers */,
-				5C6DCAC62DB098D300627453 /* host_limits.hpp in Headers */,
-				5C6DCAC72DB098D300627453 /* vulkan_pre.hpp in Headers */,
-				5C6DCAC82DB098D300627453 /* image.hpp in Headers */,
-				5C6DCAC92DB098D300627453 /* sampler.hpp in Headers */,
-				5C6DCACA2DB098D300627453 /* host_image.hpp in Headers */,
-				5C6DCACB2DB098D300627453 /* cuda.hpp in Headers */,
-				5C6DCACC2DB098D300627453 /* opencl_atomic.hpp in Headers */,
-				5C6DCACD2DB098D300627453 /* group.hpp in Headers */,
-				5C6DCACE2DB098D300627453 /* cuda_sampler.hpp in Headers */,
-				5C6DCACF2DB098D300627453 /* cuda_coop.hpp in Headers */,
-				5C6DCAD02DB098D300627453 /* cuda_atomic.hpp in Headers */,
-				5C6DCAD12DB098D300627453 /* metal_post.hpp in Headers */,
-				5C6DCAD22DB098D300627453 /* atomic_compat.hpp in Headers */,
-				5C6DCAD32DB098D300627453 /* atomic_fallback.hpp in Headers */,
-				5C6DCAD42DB098D300627453 /* soft_pack.hpp in Headers */,
-				5C6DCAD52DB098D300627453 /* metal_pre.hpp in Headers */,
-				5C6DCAD62DB098D300627453 /* common.hpp in Headers */,
-				5C6DCAD72DB098D300627453 /* metal_atomic.hpp in Headers */,
-				5C6DCAD82DB098D300627453 /* cuda_image.hpp in Headers */,
-				5C6DCAD92DB098D300627453 /* tessellation.hpp in Headers */,
-				5C6DCADA2DB098D300627453 /* opencl_image.hpp in Headers */,
-				5C6DCADB2DB098D300627453 /* host_id.hpp in Headers */,
-				5C6DCADC2DB098D300627453 /* cuda_id.hpp in Headers */,
-				5C6DCADD2DB098D300627453 /* host_post.hpp in Headers */,
-				5C6DCADE2DB098D300627453 /* opencl_pre.hpp in Headers */,
-				5C6DCADF2DB098D300627453 /* opencl.hpp in Headers */,
-				5C6DCAE02DB098D300627453 /* cuda_pre.hpp in Headers */,
-				5C6DCAE12DB098D300627453 /* host.hpp in Headers */,
-				5C6DCAE22DB098D300627453 /* atomic_compat_post.hpp in Headers */,
-				5C6DCAE32DB098D300627453 /* host_atomic.hpp in Headers */,
-				5C6DCAE42DB098D300627453 /* vulkan.hpp in Headers */,
-				5C6DC9B72DB097E000627453 /* enum_helpers.hpp in Headers */,
-				5C6DC9B82DB097E000627453 /* core.hpp in Headers */,
-				5C6DC9B92DB097E000627453 /* timer.hpp in Headers */,
-				5C6DC9BA2DB097E000627453 /* flat_map.hpp in Headers */,
-				5C6DC9BB2DB097E000627453 /* essentials.hpp in Headers */,
-				5C6DC9CD2DB097EE00627453 /* darwin_helper.hpp in Headers */,
-				5C6DC9BC2DB097E000627453 /* aligned_ptr.hpp in Headers */,
-				5C6DCA7B2DB098AA00627453 /* atomics.hpp in Headers */,
-				5C6DCA7C2DB098AA00627453 /* atomic_spin_lock.hpp in Headers */,
-				5C6DCA7D2DB098AA00627453 /* safe_resource_container.hpp in Headers */,
-				5C6DCA7E2DB098AA00627453 /* task.hpp in Headers */,
-				5C6DCA7F2DB098AA00627453 /* thread_safety.hpp in Headers */,
-				5C6DCA802DB098AA00627453 /* thread_base.hpp in Headers */,
-				5C6DCA812DB098AA00627453 /* atomic_shared_ptr.hpp in Headers */,
-				5C6DC9BD2DB097E000627453 /* cpp_ext.hpp in Headers */,
-				5C6DC9BE2DB097E000627453 /* event_objects.hpp in Headers */,
-				5C6DC9BF2DB097E000627453 /* json.hpp in Headers */,
-				5C6DC9C02DB097E000627453 /* platform.hpp in Headers */,
-				5C6DC9C12DB097E000627453 /* platform_windows.hpp in Headers */,
-				5C6DC9C22DB097E000627453 /* unicode.hpp in Headers */,
-				5C6DC9C32DB097E000627453 /* event.hpp in Headers */,
-				5C6DCA672DB0989A00627453 /* vector_ops.hpp in Headers */,
-				5C6DCA682DB0989A00627453 /* vector_lib.hpp in Headers */,
-				5C6DCA692DB0989A00627453 /* vector_lib_checks.hpp in Headers */,
-				5C6DCA6A2DB0989A00627453 /* matrix4.hpp in Headers */,
-				5C6DCA6B2DB0989A00627453 /* vector_ops_cleanup.hpp in Headers */,
-				5C6DCA6C2DB0989A00627453 /* bbox.hpp in Headers */,
-				5C6DCA6D2DB0989A00627453 /* dual_quaternion.hpp in Headers */,
-				5C6DCA6E2DB0989A00627453 /* constants.hpp in Headers */,
-				5C6DCA6F2DB0989A00627453 /* ray.hpp in Headers */,
-				5C6DCA702DB0989A00627453 /* quaternion.hpp in Headers */,
-				5C6DCA712DB0989A00627453 /* vector.hpp in Headers */,
-				5C6DCA722DB0989A00627453 /* rt_math.hpp in Headers */,
-				5C6DCA732DB0989A00627453 /* vector_helper.hpp in Headers */,
-				5C6DC9C42DB097E000627453 /* option_handler.hpp in Headers */,
-				5C6DC9C52DB097E000627453 /* serializer_storage.hpp in Headers */,
-				5C6DC9C62DB097E000627453 /* sig_handler.hpp in Headers */,
-				5C6DC9C72DB097E000627453 /* logger.hpp in Headers */,
-				5C6DC9C82DB097E000627453 /* serializer.hpp in Headers */,
-				5C6DC9C92DB097E000627453 /* file_io.hpp in Headers */,
-				5C83AE912DBD6863009E4182 /* thread_helpers.hpp in Headers */,
-				5C6DC9CA2DB097E000627453 /* hdr_metadata.hpp in Headers */,
-				5C6DC9D92DB0980700627453 /* cuda_context.hpp in Headers */,
-				5C6DC9DA2DB0980700627453 /* cuda_device.hpp in Headers */,
-				5C6DC9DB2DB0980700627453 /* cuda_image.hpp in Headers */,
-				5C6DC9DC2DB0980700627453 /* cuda_program.hpp in Headers */,
-				5C6DC9DD2DB0980700627453 /* cuda_function.hpp in Headers */,
-				5C6DC9DE2DB0980700627453 /* cuda_api.hpp in Headers */,
-				5C6DC9DF2DB0980700627453 /* cuda_internal_api.hpp in Headers */,
-				5C6DC9E02DB0980700627453 /* cuda_queue.hpp in Headers */,
-				5C6DC9EF2DB0982900627453 /* host_common.hpp in Headers */,
-				5C6DC9F02DB0982900627453 /* host_device.hpp in Headers */,
-				5C6DC9F12DB0982900627453 /* host_device_builtins.hpp in Headers */,
-				5C6DC9F22DB0982900627453 /* host_queue.hpp in Headers */,
-				5C6DC9F32DB0982900627453 /* host_buffer.hpp in Headers */,
-				5C6DC9F42DB0982900627453 /* host_image.hpp in Headers */,
-				5C6DC9F52DB0982900627453 /* host_context.hpp in Headers */,
-				5C6DC9F62DB0982900627453 /* host_function.hpp in Headers */,
-				5C6DC9F72DB0982900627453 /* host_program.hpp in Headers */,
-				5C6DC9F82DB0982900627453 /* elf_binary.hpp in Headers */,
-				5C6DC9F92DB0982900627453 /* host_argument_buffer.hpp in Headers */,
-				5C6DC9E12DB0980700627453 /* cuda_common.hpp in Headers */,
-				5C6DC9E22DB0980700627453 /* cuda_argument_buffer.hpp in Headers */,
-				5C6DC9E32DB0980700627453 /* cuda_buffer.hpp in Headers */,
-				5C6DC9CB2DB097E000627453 /* bcm.hpp in Headers */,
-				5C6DC7922DB0958100627453 /* vulkan_args.hpp in Headers */,
-				5C6DC95A2DB0966D00627453 /* floor.hpp in Headers */,
-				5C6DC95B2DB0966D00627453 /* floor_version.hpp in Headers */,
-				5C6DC95C2DB0966D00627453 /* build_version.hpp in Headers */,
-				5C6DC95D2DB0966D00627453 /* floor_conf.hpp in Headers */,
-				5C6DC99C2DB097CA00627453 /* const_string.hpp in Headers */,
-				5C6DCA402DB0986B00627453 /* vulkan_pipeline.hpp in Headers */,
-				5C6DCA412DB0986B00627453 /* vulkan_semaphore.hpp in Headers */,
-				5C6DCA422DB0986B00627453 /* vulkan_argument_buffer.hpp in Headers */,
-				5C6DCA432DB0986B00627453 /* vulkan_shader.hpp in Headers */,
-				5C6DCA442DB0986B00627453 /* vulkan_buffer.hpp in Headers */,
-				5C6DCA452DB0986B00627453 /* vulkan_fence.hpp in Headers */,
-				5C6DCA462DB0986B00627453 /* vulkan_indirect_command.hpp in Headers */,
-				5C6DCA472DB0986B00627453 /* vulkan_device.hpp in Headers */,
-				5C6DCA482DB0986B00627453 /* vulkan_fwd.hpp in Headers */,
-				5C6DCA492DB0986B00627453 /* vulkan_memory.hpp in Headers */,
-				5C6DCA4A2DB0986B00627453 /* vulkan_image.hpp in Headers */,
-				5C6DCA4B2DB0986B00627453 /* vulkan_pass.hpp in Headers */,
-				5C6DCA4C2DB0986B00627453 /* vulkan_queue.hpp in Headers */,
-				5C6DCA4D2DB0986B00627453 /* vulkan_renderer.hpp in Headers */,
-				5C6DCA4E2DB0986B00627453 /* vulkan_function.hpp in Headers */,
-				5C6DCA4F2DB0986B00627453 /* vulkan_context.hpp in Headers */,
-				5C6DCA502DB0986B00627453 /* vulkan_common.hpp in Headers */,
-				5C6DCA512DB0986B00627453 /* vulkan_program.hpp in Headers */,
-				5C6DC99D2DB097CA00627453 /* sha_256.hpp in Headers */,
-				5C6DC99E2DB097CA00627453 /* ext_traits.hpp in Headers */,
-				5C6DC99F2DB097CA00627453 /* soft_f16.hpp in Headers */,
-				5C6DC9A02DB097CA00627453 /* const_math.hpp in Headers */,
-				5C6DC9A12DB097CA00627453 /* const_array.hpp in Headers */,
-				5C6DCA0C2DB0984200627453 /* metal_program.hpp in Headers */,
-				5C6DCA0D2DB0984200627453 /* metal_resource_tracking.hpp in Headers */,
-				5C6DCA0E2DB0984200627453 /* metal_function.hpp in Headers */,
-				5C6DCA262DB0985500627453 /* opencl_function.hpp in Headers */,
-				5C6DCA272DB0985500627453 /* opencl_buffer.hpp in Headers */,
-				5C6DCA282DB0985500627453 /* opencl_program.hpp in Headers */,
-				5C6DCA292DB0985500627453 /* opencl_queue.hpp in Headers */,
-				5C6DCA2A2DB0985500627453 /* opencl_context.hpp in Headers */,
-				5C6DCA2B2DB0985500627453 /* opencl_common.hpp in Headers */,
-				5C6DCA2C2DB0985500627453 /* opencl_image.hpp in Headers */,
-				5C6DCA2D2DB0985500627453 /* opencl_device.hpp in Headers */,
-				5C6DCA0F2DB0984200627453 /* metal_fence.hpp in Headers */,
-				5C6DCA862DB098B900627453 /* openxr_common.hpp in Headers */,
-				5C6DCA872DB098B900627453 /* openxr_context.hpp in Headers */,
-				5C6DCA882DB098B900627453 /* vr_context.hpp in Headers */,
-				5C6DCA892DB098B900627453 /* openvr_context.hpp in Headers */,
-				5C6DCA102DB0984200627453 /* metal_device.hpp in Headers */,
-				5C6DCA112DB0984200627453 /* metal_args.hpp in Headers */,
-				5C6DCA122DB0984200627453 /* metal_device_query.hpp in Headers */,
-				5C6DCA132DB0984200627453 /* metal_pipeline.hpp in Headers */,
-				5C6DCA142DB0984200627453 /* metal_image.hpp in Headers */,
-				5C6DCA152DB0984200627453 /* metal_indirect_command.hpp in Headers */,
-				5C6DCA162DB0984200627453 /* metal_shader.hpp in Headers */,
-				5C6DCA172DB0984200627453 /* metal_common.hpp in Headers */,
-				5C6DCA182DB0984200627453 /* metal_queue.hpp in Headers */,
-				5C6DCA192DB0984200627453 /* metal_context.hpp in Headers */,
-				5C6DCA1A2DB0984200627453 /* metal_pass.hpp in Headers */,
-				5C6DCA1B2DB0984200627453 /* metal_buffer.hpp in Headers */,
-				5C6DCA1C2DB0984200627453 /* metal_argument_buffer.hpp in Headers */,
-				5C6DCA1D2DB0984200627453 /* metal_renderer.hpp in Headers */,
-			);
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXLegacyTarget section */
 		5CBB61241D6367A000B09EEE /* floor_remote */ = {
 			isa = PBXLegacyTarget;
@@ -1815,7 +1395,6 @@
 				5C10920917D1FB91007F536E /* build version */,
 				5C10915A17D114BC007F536E /* Sources */,
 				5C10915B17D114BC007F536E /* Frameworks */,
-				5C10915C17D114BC007F536E /* Headers */,
 			);
 			buildRules = (
 			);
@@ -1910,6 +1489,7 @@
 			shellScript = (
 				"./build_version.sh",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1927,6 +1507,7 @@
 			shellScript = (
 				"./build_version.sh",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1943,6 +1524,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 			);
 		};
