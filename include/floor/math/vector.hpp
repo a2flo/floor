@@ -469,6 +469,36 @@ public:
 		}
 	}
 	
+	//! uses ternary select rather than array access to select the vector component identified by "index" in [0, vector-dim)
+	//! NOTE: out-of-bounds indices will return the last component
+	constexpr scalar_type& component_select(const uint32_t index) {
+#if FLOOR_VECTOR_WIDTH == 1
+		(void)index;
+		return x;
+#elif FLOOR_VECTOR_WIDTH == 2
+		return (index == 0 ? x : y);
+#elif FLOOR_VECTOR_WIDTH == 3
+		return (index == 0 ? x : (index == 1 ? y : z));
+#elif FLOOR_VECTOR_WIDTH == 4
+		return (index == 0 ? x : (index == 1 ? y : (index == 2 ? z : w)));
+#endif
+	}
+	
+	//! uses ternary select rather than array access to select the vector component identified by "index" in [0, vector-dim)
+	//! NOTE: out-of-bounds indices will return the last component
+	constexpr const scalar_type& component_select(const uint32_t index) const {
+#if FLOOR_VECTOR_WIDTH == 1
+		(void)index;
+		return x;
+#elif FLOOR_VECTOR_WIDTH == 2
+		return (index == 0 ? x : y);
+#elif FLOOR_VECTOR_WIDTH == 3
+		return (index == 0 ? x : (index == 1 ? y : z));
+#elif FLOOR_VECTOR_WIDTH == 4
+		return (index == 0 ? x : (index == 1 ? y : (index == 2 ? z : w)));
+#endif
+	}
+	
 	//! swizzles this vector, according to the specified component indices
 	template <uint32_t c0
 #if FLOOR_VECTOR_WIDTH >= 2
