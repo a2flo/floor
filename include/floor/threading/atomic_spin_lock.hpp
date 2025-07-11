@@ -20,10 +20,51 @@
 
 #include <atomic>
 #include <thread>
+#include <functional>
 #include <floor/threading/thread_safety.hpp>
 #include <floor/core/essentials.hpp>
 
+//! instruct/hint the CPU that a spin-loop wait is performed
+#if defined(__x86_64__)
+#define FLOOR_SPIN_WAIT() asm volatile("pause" : : : "memory")
+#elif defined(__aarch64__)
+#define FLOOR_SPIN_WAIT() asm volatile("yield" : : : "memory")
+#else
+#error "unknown arch"
+#endif
+
 namespace fl {
+
+//! performs a spin-wait loop until "conditional()" returns true
+template <typename conditional_type, typename... Args>
+static floor_inline_always void spin_wait_condition(conditional_type&& conditional, Args&&... args) {
+#pragma nounroll
+	for (uint32_t trial = 0; ; ++trial) {
+		// "conditional" is an invocable function
+		if constexpr (std::is_invocable_v<conditional_type, Args...>) {
+			if (conditional(args...)) {
+				break;
+			}
+		}
+		// "conditional" evaluates to a bool (no args)
+		else {
+			static_assert(sizeof...(args) == 0);
+			if (conditional) {
+				break;
+			}
+		}
+		
+		if (trial < 16) {
+			// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
+			// Malte recommendation: to improve latency, only try this 16 times ...
+			FLOOR_SPIN_WAIT();
+		} else {
+			// ... and after the 16th attempt: actually yield the thread (then start again)
+			std::this_thread::yield();
+			trial = 0;
+		}
+	}
+}
 
 // improved atomic spin lock based on:
 // https://probablydance.com/2019/12/30/measuring-mutexes-spinlocks-and-how-bad-the-linux-scheduler-really-is/
@@ -46,24 +87,7 @@ public:
 	}
 	
 	floor_inline_always void lock() ACQUIRE() {
-#pragma nounroll
-		for (uint32_t trial = 0; !try_lock(); ++trial) {
-			if (trial < 16) {
-				// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
-				// Malte recommendation: to improve latency, only try this 16 times ...
-#if defined(__x86_64__)
-				asm volatile("pause" : : : "memory");
-#elif defined(__aarch64__)
-				asm volatile("yield" : : : "memory");
-#else
-#error "unknown arch"
-#endif
-			} else {
-				// ... and after the 16th attempt: actually yield the thread (then start again)
-				std::this_thread::yield();
-				trial = 0;
-			}
-		}
+		spin_wait_condition([this]() { return this->try_lock(); });
 	}
 	floor_inline_always bool try_lock() TRY_ACQUIRE(true) {
 		// AMD recommendation to prevent unnecessary cache line invalidation (due to write):
