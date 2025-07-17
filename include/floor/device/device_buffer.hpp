@@ -55,12 +55,17 @@ public:
 	//! writes all of "src" to this buffer, from "offset" on onwards
 	template <typename data_type>
 	void write(const device_queue& cqueue, const std::vector<data_type>& src, const size_t offset_ = 0) {
-		write(cqueue, (const void*)&src[0], sizeof(data_type) * src.size(), offset_);
+		write(cqueue, (const void*)src.data(), sizeof(data_type) * src.size(), offset_);
 	}
 	//! writes all of "src" to this buffer, from "offset" on onwards
 	template <typename data_type, size_t n>
 	void write(const device_queue& cqueue, const std::array<data_type, n>& src, const size_t offset_ = 0) {
-		write(cqueue, (const void*)&src[0], sizeof(data_type) * n, offset_);
+		write(cqueue, (const void*)src.data(), sizeof(data_type) * n, offset_);
+	}
+	//! writes all of "src" to this buffer, from "offset" on onwards
+	template <typename data_type>
+	void write(const device_queue& cqueue, const std::span<data_type> src, const size_t offset_ = 0) {
+		write(cqueue, (const void*)src.data(), src.size_bytes(), offset_);
 	}
 	
 	//! writes sizeof("src") bytes from "src" to "offset" onwards to this buffer
