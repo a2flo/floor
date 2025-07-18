@@ -69,9 +69,11 @@ public:
 	
 	//! creates an argument buffer for the specified argument index,
 	//! "add_mem_flags" may set additional memory flags (already read-write and using host-memory by default)
+	//! "zero_init" specifies if the argument buffer data is zero-initialized (default)
 	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size
 	virtual std::unique_ptr<argument_buffer> create_argument_buffer(const device_queue& cqueue, const uint32_t& arg_index,
-															   const MEMORY_FLAG add_mem_flags = MEMORY_FLAG::NONE) const;
+																	const MEMORY_FLAG add_mem_flags = MEMORY_FLAG::NONE,
+																	const bool zero_init = true) const;
 	
 	//! checks the specified local work size against the max local work size in the function_entry,
 	//! and will compute a proper local work size if the specified one is invalid
@@ -92,11 +94,12 @@ protected:
 	
 	//! internal function to create the actual argument buffer (should be implemented by backends)
 	virtual std::unique_ptr<argument_buffer> create_argument_buffer_internal(const device_queue& cqueue,
-																		const function_entry& entry,
-																		const toolchain::arg_info& arg,
-																		const uint32_t& user_arg_index,
-																		const uint32_t& ll_arg_index,
-																		const MEMORY_FLAG& add_mem_flags) const;
+																			 const function_entry& entry,
+																			 const toolchain::arg_info& arg,
+																			 const uint32_t& user_arg_index,
+																			 const uint32_t& ll_arg_index,
+																			 const MEMORY_FLAG& add_mem_flags,
+																			 const bool zero_init) const;
 	
 };
 

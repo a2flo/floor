@@ -576,11 +576,12 @@ const device_function::function_entry* vulkan_function::get_function_entry(const
 }
 
 std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_internal(const device_queue& cqueue,
-																		   const function_entry& kern_entry,
-																		   const toolchain::arg_info& arg floor_unused,
-																		   const uint32_t& user_arg_index,
-																		   const uint32_t& ll_arg_index,
-																		   const MEMORY_FLAG& add_mem_flags) const {
+																				  const function_entry& kern_entry,
+																				  const toolchain::arg_info& arg floor_unused,
+																				  const uint32_t& user_arg_index,
+																				  const uint32_t& ll_arg_index,
+																				  const MEMORY_FLAG& add_mem_flags,
+																				  const bool zero_init) const {
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	const auto& vk_ctx = (const vulkan_context&)*vk_dev.context;
 	const auto& vulkan_entry = (const vulkan_function_entry&)kern_entry;
@@ -646,6 +647,10 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 												   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
 												   add_mem_flags);
 	arg_buffer_storage->set_debug_label(arg_buf_name);
+	if (zero_init && has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(add_mem_flags)) {
+		// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
+		arg_buffer_storage->zero(cqueue);
+	}
 	auto mapped_host_ptr = arg_buffer_storage->map(cqueue, (MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 															MEMORY_MAP_FLAG::BLOCK));
 	std::span<uint8_t> mapped_host_memory { (uint8_t*)mapped_host_ptr, arg_buffer_size };
@@ -678,7 +683,7 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 	
 	// create the argument buffer
 	return std::make_unique<vulkan_argument_buffer>(*this, arg_buffer_storage, *arg_info, arg_buf_info.layout, std::move(argument_offsets),
-											   mapped_host_memory, constant_buffer_storage, constant_buffer_mapping);
+													mapped_host_memory, constant_buffer_storage, constant_buffer_mapping);
 }
 
 } // namespace fl

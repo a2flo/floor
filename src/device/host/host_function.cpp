@@ -1166,11 +1166,12 @@ void host_function::execute_device(const host_function_entry& func_entry,
 }
 
 std::unique_ptr<argument_buffer> host_function::create_argument_buffer_internal(const device_queue& cqueue,
-																		 const function_entry& kern_entry,
-																		 const toolchain::arg_info& arg floor_unused,
-																		 const uint32_t& user_arg_index,
-																		 const uint32_t& ll_arg_index,
-																		 const MEMORY_FLAG& add_mem_flags) const {
+																				const function_entry& kern_entry,
+																				const toolchain::arg_info& arg floor_unused,
+																				const uint32_t& user_arg_index,
+																				const uint32_t& ll_arg_index,
+																				const MEMORY_FLAG& add_mem_flags,
+																				const bool zero_init) const {
 	const auto& dev = cqueue.get_device();
 	const auto& host_entry = (const host_function_entry&)kern_entry;
 	
@@ -1190,6 +1191,9 @@ std::unique_ptr<argument_buffer> host_function::create_argument_buffer_internal(
 	// create the argument buffer
 	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags);
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
+	if (zero_init) {
+		buf->zero(cqueue);
+	}
 	return std::make_unique<host_argument_buffer>(*this, buf, *arg_info);
 }
 

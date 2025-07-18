@@ -194,11 +194,12 @@ const device_function::function_entry* metal_function::get_function_entry(const 
 }
 
 std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal(const device_queue& cqueue,
-																		  const function_entry& entry,
-																		  const toolchain::arg_info& arg floor_unused,
-																		  const uint32_t& user_arg_index,
-																		  const uint32_t& ll_arg_index,
-																		  const MEMORY_FLAG& add_mem_flags) const {
+																				 const function_entry& entry,
+																				 const toolchain::arg_info& arg floor_unused,
+																				 const uint32_t& user_arg_index,
+																				 const uint32_t& ll_arg_index,
+																				 const MEMORY_FLAG& add_mem_flags,
+																				 const bool zero_init) const {
 	@autoreleasepool {
 		const auto& dev = cqueue.get_device();
 		const auto& mtl_entry = (const metal_function_entry&)entry;
@@ -274,7 +275,9 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 											 MEMORY_FLAG::HOST_WRITE |
 											 MEMORY_FLAG::__EXP_HEAP_ALLOC |
 											 add_mem_flags);
-			buf->zero(cqueue);
+			if (zero_init) {
+				buf->zero(cqueue);
+			}
 		} else {
 			storage_buffer_backing = make_aligned_ptr<uint8_t>(arg_buffer_size_page);
 			memset(storage_buffer_backing.get(), 0, arg_buffer_size_page);
@@ -283,6 +286,10 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 											 MEMORY_FLAG::HOST_WRITE |
 											 MEMORY_FLAG::USE_HOST_MEMORY |
 											 add_mem_flags);
+			if (zero_init && has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(add_mem_flags)) {
+				// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
+				buf->zero(cqueue);
+			}
 		}
 		buf->set_debug_label(entry.info->name + "_arg_buffer");
 		return std::make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));

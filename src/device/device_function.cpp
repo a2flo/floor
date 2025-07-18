@@ -55,7 +55,8 @@ uint3 device_function::check_local_work_size(const device_function::function_ent
 }
 
 std::unique_ptr<argument_buffer> device_function::create_argument_buffer(const device_queue& cqueue, const uint32_t& arg_index,
-																   const MEMORY_FLAG add_mem_flags) const {
+																		 const MEMORY_FLAG add_mem_flags,
+																		 const bool zero_init) const {
 	const auto& dev = cqueue.get_device();
 	const auto entry = get_function_entry(dev);
 	if (!entry || !entry->info) {
@@ -91,15 +92,16 @@ std::unique_ptr<argument_buffer> device_function::create_argument_buffer(const d
 		}
 	}
 	
-	return create_argument_buffer_internal(cqueue, *entry, entry->info->args[idx], arg_index, idx, add_mem_flags);
+	return create_argument_buffer_internal(cqueue, *entry, entry->info->args[idx], arg_index, idx, add_mem_flags, zero_init);
 }
 
 std::unique_ptr<argument_buffer> device_function::create_argument_buffer_internal(const device_queue&,
-																			const function_entry&,
-																			const toolchain::arg_info&,
-																			const uint32_t&,
-																			const uint32_t&,
-																			const MEMORY_FLAG&) const {
+																				  const function_entry&,
+																				  const toolchain::arg_info&,
+																				  const uint32_t&,
+																				  const uint32_t&,
+																				  const MEMORY_FLAG&,
+																				  const bool) const {
 	log_error("argument buffer creation not implemented for this backend");
 	return {};
 }

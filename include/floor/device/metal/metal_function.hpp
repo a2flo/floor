@@ -73,11 +73,12 @@ protected:
 	typename function_map_type::const_iterator get_function(const device_queue& queue) const;
 	
 	std::unique_ptr<argument_buffer> create_argument_buffer_internal(const device_queue& cqueue,
-																const function_entry& entry,
-																const toolchain::arg_info& arg,
-																const uint32_t& user_arg_index,
-																const uint32_t& ll_arg_index,
-																const MEMORY_FLAG& add_mem_flags) const override;
+																	 const function_entry& entry,
+																	 const toolchain::arg_info& arg,
+																	 const uint32_t& user_arg_index,
+																	 const uint32_t& ll_arg_index,
+																	 const MEMORY_FLAG& add_mem_flags,
+																	 const bool zero_init) const override;
 	
 };
 

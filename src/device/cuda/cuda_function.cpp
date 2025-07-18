@@ -236,11 +236,12 @@ const device_function::function_entry* cuda_function::get_function_entry(const d
 }
 
 std::unique_ptr<argument_buffer> cuda_function::create_argument_buffer_internal(const device_queue& cqueue,
-																		 const function_entry& kern_entry,
-																		 const toolchain::arg_info& arg floor_unused,
-																		 const uint32_t& user_arg_index,
-																		 const uint32_t& ll_arg_index,
-																		 const MEMORY_FLAG& add_mem_flags) const {
+																				const function_entry& kern_entry,
+																				const toolchain::arg_info& arg floor_unused,
+																				const uint32_t& user_arg_index,
+																				const uint32_t& ll_arg_index,
+																				const MEMORY_FLAG& add_mem_flags,
+																				const bool zero_init) const {
 	const auto& dev = cqueue.get_device();
 	const auto& cuda_entry = (const cuda_function_entry&)kern_entry;
 	
@@ -259,6 +260,7 @@ std::unique_ptr<argument_buffer> cuda_function::create_argument_buffer_internal(
 	
 	// create the argument buffer
 	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags);
+	(void)zero_init; // newly created buffers are zero-initialized
 	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
 	return std::make_unique<cuda_argument_buffer>(*this, buf, *arg_info);
 }
