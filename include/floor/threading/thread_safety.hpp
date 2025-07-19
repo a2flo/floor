@@ -205,7 +205,7 @@ public:
 namespace floor_multi_guard {
 
 //! contains all the mutexes of a multi-guard and performs the intial locking and final unlocking (used for the MULTI_GUARD(...))
-//! NOTE: this is currently limited to a maximum of 6 mutexes (sadly can't use variadic templates here, because thread safety analysis can't handle them)
+//! NOTE: this is currently limited to a maximum of 9 mutexes (sadly can't use variadic templates here, because thread safety analysis can't handle them)
 template <typename mtxs_tuple_type>
 class SCOPED_CAPABILITY safe_multi_guard {
 protected:
@@ -223,32 +223,82 @@ protected:
 	}
 	
 public:
-	template <typename mtx_type_0> requires(mutex_count == 1)
-	explicit safe_multi_guard(mtx_type_0& mtx_0) ACQUIRE(mtx_0) : mtxs(mtx_0) {
+	template <typename mtx_type_0>
+	requires(mutex_count == 1)
+	explicit safe_multi_guard(mtx_type_0& mtx_0)
+	ACQUIRE(mtx_0) :
+	mtxs(mtx_0) {
 		std::lock(mtx_0);
 	}
-	template <typename mtx_type_0, typename mtx_type_1> requires(mutex_count == 2)
-	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1) ACQUIRE(mtx_0, mtx_1) : mtxs(mtx_0, mtx_1) {
+	
+	template <typename mtx_type_0, typename mtx_type_1>
+	requires(mutex_count == 2)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1)
+	ACQUIRE(mtx_0, mtx_1) :
+	mtxs(mtx_0, mtx_1) {
 		std::lock(mtx_0, mtx_1);
 	}
-	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2> requires(mutex_count == 3)
-	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2) ACQUIRE(mtx_0, mtx_1, mtx_2) : mtxs(mtx_0, mtx_1, mtx_2) {
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2>
+	requires(mutex_count == 3)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2)
+	ACQUIRE(mtx_0, mtx_1, mtx_2) :
+	mtxs(mtx_0, mtx_1, mtx_2) {
 		std::lock(mtx_0, mtx_1, mtx_2);
 	}
-	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3> requires(mutex_count == 4)
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3>
+	requires(mutex_count == 4)
 	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3)
-	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3) {
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3) {
 		std::lock(mtx_0, mtx_1, mtx_2, mtx_3);
 	}
-	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4> requires(mutex_count == 5)
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4>
+	requires(mutex_count == 5)
 	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4)
-	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) {
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) {
 		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4);
 	}
-	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5> requires(mutex_count == 6)
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5>
+	requires(mutex_count == 6)
 	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4, mtx_type_5& mtx_5)
-	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) : mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) {
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) {
 		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5);
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6>
+	requires(mutex_count == 7)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+							  mtx_type_5& mtx_5, mtx_type_6& mtx_6)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6);
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6, typename mtx_type_7>
+	requires(mutex_count == 8)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+							  mtx_type_5& mtx_5, mtx_type_6& mtx_6, mtx_type_7& mtx_7)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7);
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6, typename mtx_type_7, typename mtx_type_8>
+	requires(mutex_count == 9)
+	explicit safe_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+							  mtx_type_5& mtx_5, mtx_type_6& mtx_6, mtx_type_7& mtx_7, mtx_type_8& mtx_8)
+	ACQUIRE(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7, mtx_8) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7, mtx_8) {
+		std::lock(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7, mtx_8);
 	}
 	
 	~safe_multi_guard() RELEASE() {
@@ -260,6 +310,152 @@ public:
 	safe_multi_guard(safe_multi_guard&&) = delete;
 	safe_multi_guard& operator=(const safe_multi_guard&) = delete;
 	safe_multi_guard& operator=(safe_multi_guard&&) = delete;
+	
+};
+
+//! contains all the mutexes of a shared-multi-guard and performs the intial locking and final unlocking (used for the SHARED_MULTI_GUARD(...))
+//! NOTE: this is currently limited to a maximum of 9 mutexes
+template <typename mtxs_tuple_type>
+class SCOPED_CAPABILITY safe_shared_multi_guard {
+protected:
+	//! contained mutexes
+	mtxs_tuple_type mtxs;
+	
+	//! number of mutexes in this multi-guard
+	static constexpr const auto mutex_count = std::tuple_size<mtxs_tuple_type>::value;
+	
+	//! unlocks all contained mutexes
+	//! NOTE: disabled thread-safety analysis here, because it can't be properly handled here and RELEASE() in destructor already signals it
+	template <size_t... indices>
+	void unlock_all(std::index_sequence<indices...>) NO_THREAD_SAFETY_ANALYSIS {
+		((void)std::get<indices>(mtxs).unlock_shared(), ...);
+	}
+	
+public:
+	template <typename mtx_type_0>
+	requires(mutex_count == 1)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0)
+	ACQUIRE_SHARED(mtx_0) :
+	mtxs(mtx_0) {
+		mtx_0.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1>
+	requires(mutex_count == 2)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1)
+	ACQUIRE_SHARED(mtx_0, mtx_1) :
+	mtxs(mtx_0, mtx_1) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2>
+	requires(mutex_count == 3)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2) :
+	mtxs(mtx_0, mtx_1, mtx_2) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3>
+	requires(mutex_count == 4)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4>
+	requires(mutex_count == 5)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+		mtx_4.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5>
+	requires(mutex_count == 6)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+									 mtx_type_5& mtx_5)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+		mtx_4.lock_shared();
+		mtx_5.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6>
+	requires(mutex_count == 7)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+									 mtx_type_5& mtx_5, mtx_type_6& mtx_6)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+		mtx_4.lock_shared();
+		mtx_5.lock_shared();
+		mtx_6.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6, typename mtx_type_7>
+	requires(mutex_count == 8)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+									 mtx_type_5& mtx_5, mtx_type_6& mtx_6, mtx_type_7& mtx_7)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+		mtx_4.lock_shared();
+		mtx_5.lock_shared();
+		mtx_6.lock_shared();
+		mtx_7.lock_shared();
+	}
+	
+	template <typename mtx_type_0, typename mtx_type_1, typename mtx_type_2, typename mtx_type_3, typename mtx_type_4, typename mtx_type_5,
+			  typename mtx_type_6, typename mtx_type_7, typename mtx_type_8>
+	requires(mutex_count == 9)
+	explicit safe_shared_multi_guard(mtx_type_0& mtx_0, mtx_type_1& mtx_1, mtx_type_2& mtx_2, mtx_type_3& mtx_3, mtx_type_4& mtx_4,
+									 mtx_type_5& mtx_5, mtx_type_6& mtx_6, mtx_type_7& mtx_7, mtx_type_8& mtx_8)
+	ACQUIRE_SHARED(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7, mtx_8) :
+	mtxs(mtx_0, mtx_1, mtx_2, mtx_3, mtx_4, mtx_5, mtx_6, mtx_7, mtx_8) {
+		mtx_0.lock_shared();
+		mtx_1.lock_shared();
+		mtx_2.lock_shared();
+		mtx_3.lock_shared();
+		mtx_4.lock_shared();
+		mtx_5.lock_shared();
+		mtx_6.lock_shared();
+		mtx_7.lock_shared();
+		mtx_8.lock_shared();
+	}
+	
+	~safe_shared_multi_guard() RELEASE_GENERIC() {
+		unlock_all(std::make_index_sequence<mutex_count> {});
+	}
+	
+	// copy and move are not allowed
+	safe_shared_multi_guard(const safe_shared_multi_guard&) = delete;
+	safe_shared_multi_guard(safe_shared_multi_guard&&) = delete;
+	safe_shared_multi_guard& operator=(const safe_shared_multi_guard&) = delete;
+	safe_shared_multi_guard& operator=(safe_shared_multi_guard&&) = delete;
 	
 };
 
@@ -285,3 +481,8 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 #define MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
 #define MULTI_GUARD_NAME(prefix, num, suffix) MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
 #define MULTI_GUARD(...) const fl::floor_multi_guard::safe_multi_guard<decltype(fl::floor_multi_guard::make_refs_tuple(__VA_ARGS__))> MULTI_GUARD_NAME(multi_guard_, __LINE__, _object) { __VA_ARGS__ }
+
+//! all-or-nothing shared locking of multiple shared locks
+#define SHARED_MULTI_GUARD_NAME_CONCAT(prefix, num, suffix) prefix ## num ## suffix
+#define SHARED_MULTI_GUARD_NAME(prefix, num, suffix) SHARED_MULTI_GUARD_NAME_CONCAT(prefix, num, suffix)
+#define SHARED_MULTI_GUARD(...) const fl::floor_multi_guard::safe_shared_multi_guard<decltype(fl::floor_multi_guard::make_refs_tuple(__VA_ARGS__))> SHARED_MULTI_GUARD_NAME(shared_multi_guard_, __LINE__, _object) { __VA_ARGS__ }
