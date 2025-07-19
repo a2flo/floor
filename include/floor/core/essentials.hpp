@@ -107,10 +107,21 @@
 #define FLOOR_POP_WARNINGS() _Pragma("clang diagnostic pop")
 #define FLOOR_IGNORE_WARNING_FWD(warning_str) _Pragma(#warning_str)
 #define FLOOR_IGNORE_WARNING(warning) FLOOR_IGNORE_WARNING_FWD(clang diagnostic ignored "-W"#warning)
+#define FLOOR_PUSH_AND_IGNORE_WARNING(warning) _Pragma("clang diagnostic push") FLOOR_IGNORE_WARNING_FWD(clang diagnostic ignored "-W"#warning)
+
+// shortcut for returning a value that would get flagged as "not eliding copy on return"
+#define floor_return_no_nrvo(val) \
+FLOOR_PUSH_WARNINGS() \
+FLOOR_IGNORE_WARNING(nrvo) \
+do { return val; } while (false) \
+FLOOR_POP_WARNINGS()
+
 #else
 #define FLOOR_PUSH_WARNINGS()
 #define FLOOR_POP_WARNINGS()
 #define FLOOR_IGNORE_WARNING(warning)
+#define FLOOR_PUSH_AND_IGNORE_WARNING(warning)
+#define floor_return_no_nrvo(val) return val
 #endif
 
 // on Windows: even with auto-export of all symbols, we still need to manually export global variables -> add API macros

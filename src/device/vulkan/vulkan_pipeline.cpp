@@ -59,7 +59,7 @@ static std::unique_ptr<vulkan_pass> create_vulkan_base_pass_desc(const render_pi
 		log_error("failed to create$ Vulkan base pass for pipeline", (is_multi_view ? " multi-view" : ""));
 		return {};
 	}
-	return vulkan_base_pass;
+	floor_return_no_nrvo(vulkan_base_pass);
 }
 
 static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,

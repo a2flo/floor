@@ -127,23 +127,23 @@ public:
 												  const uint32_t first_instance = 0u,
 												  const INDEX_TYPE index_type = INDEX_TYPE::UINT) override;
 	
-	indirect_render_command_encoder& draw_patches(const std::vector<const device_buffer*> control_point_buffers,
-												  const device_buffer& tessellation_factors_buffer,
-												  const uint32_t patch_control_point_count,
-												  const uint32_t patch_count,
-												  const uint32_t first_patch = 0u,
-												  const uint32_t instance_count = 1u,
-												  const uint32_t first_instance = 0u) override;
+	[[noreturn]] indirect_render_command_encoder& draw_patches(const std::vector<const device_buffer*> control_point_buffers,
+															   const device_buffer& tessellation_factors_buffer,
+															   const uint32_t patch_control_point_count,
+															   const uint32_t patch_count,
+															   const uint32_t first_patch = 0u,
+															   const uint32_t instance_count = 1u,
+															   const uint32_t first_instance = 0u) override;
 	
-	indirect_render_command_encoder& draw_patches_indexed(const std::vector<const device_buffer*> control_point_buffers,
-														  const device_buffer& control_point_index_buffer,
-														  const device_buffer& tessellation_factors_buffer,
-														  const uint32_t patch_control_point_count,
-														  const uint32_t patch_count,
-														  const uint32_t first_index = 0u,
-														  const uint32_t first_patch = 0u,
-														  const uint32_t instance_count = 1u,
-														  const uint32_t first_instance = 0u) override;
+	[[noreturn]] indirect_render_command_encoder& draw_patches_indexed(const std::vector<const device_buffer*> control_point_buffers,
+																	   const device_buffer& control_point_index_buffer,
+																	   const device_buffer& tessellation_factors_buffer,
+																	   const uint32_t patch_control_point_count,
+																	   const uint32_t patch_count,
+																	   const uint32_t first_index = 0u,
+																	   const uint32_t first_patch = 0u,
+																	   const uint32_t instance_count = 1u,
+																	   const uint32_t first_instance = 0u) override;
 	
 protected:
 	const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry;

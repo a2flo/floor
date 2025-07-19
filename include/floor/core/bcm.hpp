@@ -29,11 +29,9 @@ size_t bcm_compress(const std::span<const uint8_t> input, std::span<uint8_t> out
 //! returns the compressed data as a vector of the correct size on success, or returns on empty vector on failure
 inline std::vector<uint8_t> bcm_compress(const std::span<const uint8_t> input) {
 	std::vector<uint8_t> compressed_data(bcm_estimate_max_compression_size(input.size_bytes()));
-	if (const auto compressed_size = bcm_compress(input, compressed_data); compressed_size > 0) {
-		compressed_data.resize(compressed_size);
-		return compressed_data;
-	}
-	return {};
+	const auto compressed_size = bcm_compress(input, compressed_data);
+	compressed_data.resize(compressed_size);
+	return compressed_data;
 }
 
 //! decompresses the data in "input" and writes it to "output" (that must be appropriately sized),

@@ -34,8 +34,8 @@
 #define FLOOR_VEC_EXPAND_DUAL_ENCLOSED(prefix_second, sep_one_two, front, back, sep, ...) \
 	front (x sep_one_two prefix_second x) back __VA_ARGS__
 
-#define FLOOR_VEC_UNARY_OP_EXPAND(op, rhs, sep) \
-	op rhs x
+#define FLOOR_VEC_UNARY_OP_EXPAND(op, op_end, rhs, sep) \
+	op rhs x op_end
 #define FLOOR_VEC_OP_EXPAND(lhs, op, rhs, sep, rhs_sel) \
 	lhs x op rhs_sel(rhs, x)
 #define FLOOR_VEC_FUNC_OP_EXPAND(lhs, func, rhs, sep, rhs_sel, func_sep, assign, ...) \
@@ -52,9 +52,9 @@
 	front (x sep_one_two prefix_second x) back sep \
 	front (y sep_one_two prefix_second y) back __VA_ARGS__
 
-#define FLOOR_VEC_UNARY_OP_EXPAND(op, rhs, sep) \
-	op rhs x sep \
-	op rhs y
+#define FLOOR_VEC_UNARY_OP_EXPAND(op, op_end, rhs, sep) \
+	op rhs x op_end sep \
+	op rhs y op_end
 #define FLOOR_VEC_OP_EXPAND(lhs, op, rhs, sep, rhs_sel) \
 	lhs x op rhs_sel(rhs, x) sep \
 	lhs y op rhs_sel(rhs, y)
@@ -75,10 +75,10 @@
 	front (y sep_one_two prefix_second y) back sep \
 	front (z sep_one_two prefix_second z) back __VA_ARGS__
 
-#define FLOOR_VEC_UNARY_OP_EXPAND(op, rhs, sep) \
-	op rhs x sep \
-	op rhs y sep \
-	op rhs z
+#define FLOOR_VEC_UNARY_OP_EXPAND(op, op_end, rhs, sep) \
+	op rhs x op_end sep \
+	op rhs y op_end sep \
+	op rhs z op_end
 #define FLOOR_VEC_OP_EXPAND(lhs, op, rhs, sep, rhs_sel) \
 	lhs x op rhs_sel(rhs, x) sep \
 	lhs y op rhs_sel(rhs, y) sep \
@@ -103,11 +103,11 @@
 	front (z sep_one_two prefix_second z) back sep \
 	front (w sep_one_two prefix_second w) back __VA_ARGS__
 
-#define FLOOR_VEC_UNARY_OP_EXPAND(op, rhs, sep) \
-	op rhs x sep \
-	op rhs y sep \
-	op rhs z sep \
-	op rhs w
+#define FLOOR_VEC_UNARY_OP_EXPAND(op, op_end, rhs, sep) \
+	op rhs x op_end sep \
+	op rhs y op_end sep \
+	op rhs z op_end sep \
+	op rhs w op_end
 #define FLOOR_VEC_OP_EXPAND(lhs, op, rhs, sep, rhs_sel) \
 	lhs x op rhs_sel(rhs, x) sep \
 	lhs y op rhs_sel(rhs, y) sep \
@@ -150,7 +150,7 @@
 		return { FLOOR_VEC_OP_EXPAND(this->, op, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC) }; \
 	} \
 	constexpr friend vector_type operator op (const scalar_type& val, const vector_type& v) { \
-		return { FLOOR_VEC_UNARY_OP_EXPAND(val op, v., FLOOR_COMMA) }; \
+		return { FLOOR_VEC_UNARY_OP_EXPAND(val op, , v., FLOOR_COMMA) }; \
 	} \
 	constexpr vector_type& operator op##= (const scalar_type& val) noexcept { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR); \
@@ -185,7 +185,7 @@
 //
 #define FLOOR_VEC_UNARY_OP(op) \
 	constexpr vector_type operator op () const { \
-		return { FLOOR_VEC_UNARY_OP_EXPAND(op, this->, FLOOR_COMMA) }; \
+		return { FLOOR_VEC_UNARY_OP_EXPAND(decayed_scalar_type FLOOR_PAREN_LEFT op, FLOOR_PAREN_RIGHT, this->, FLOOR_COMMA) }; \
 	}
 
 //
@@ -198,7 +198,7 @@
 #define FLOOR_VEC_UNARY_OP_NON_CONST(op) \
 	template <typename non_bool_type = scalar_type> requires(!std::is_same_v<non_bool_type, bool>) \
 	constexpr vector_type operator op () { \
-		return { FLOOR_VEC_UNARY_OP_EXPAND(op, this->, FLOOR_COMMA) }; \
+		return { FLOOR_VEC_UNARY_OP_EXPAND(decayed_scalar_type FLOOR_PAREN_LEFT op, FLOOR_PAREN_RIGHT, this->, FLOOR_COMMA) }; \
 	}
 
 //

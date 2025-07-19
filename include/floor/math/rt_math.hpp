@@ -679,10 +679,10 @@ namespace fl::rt_math {
 		if constexpr (ext::is_signed_v<int_type>) {
 			if constexpr (sizeof(int_type) <= 8) {
 				const auto abs_a = int_type(std::abs(a));
-				return (b < int_type(0) ? -abs_a : abs_a);
+				return int_type(b < int_type(0) ? -abs_a : abs_a);
 			} else { // we don't have std::abs for integers > 64-bit
 				const auto abs_a = int_type(const_math::abs(a));
-				return (b < int_type(0) ? -abs_a : abs_a);
+				return int_type(b < int_type(0) ? -abs_a : abs_a);
 			}
 		} else {
 			return a;

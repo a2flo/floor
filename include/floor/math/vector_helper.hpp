@@ -961,8 +961,8 @@ F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
 F2_INT(bit_xor, constexpr, (lhs ^ rhs)) \
-F2_INT(bit_left_shift, constexpr, (lhs << rhs)) \
-F2_INT(bit_right_shift, constexpr, (lhs >> rhs)) \
+F2_INT(bit_left_shift, constexpr, false) \
+F2_INT(bit_right_shift, constexpr, false) \
 F1(unary_not, constexpr, (!val)) \
 F1(unary_complement, constexpr, (val ^ true)) \
 F1(clz, constexpr, math::__clz(val)) \

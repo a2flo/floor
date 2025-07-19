@@ -374,12 +374,12 @@ namespace host_image_impl {
 					if(bpc[i] % 8u != 0u &&
 					   *((uchannel_type*)&ret[i]) & high_bits[i] != 0u) {
 						ret[i] ^= high_bits[i];
-						ret[i] = -ret[i];
+						ret[i] = channel_type(-ret[i]);
 					}
 				}
 			}
 			
-			return ret;
+			floor_return_no_nrvo(ret);
 		}
 		template <size_t N> requires(data_type == IMAGE_TYPE::FLOAT)
 		floor_inline_always static auto extract_channels(const uint8_t (&raw_data)[N] floor_unused) {
@@ -456,7 +456,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 FLOOR_POP_WARNINGS()
 			}
 			
-			return raw_data;
+			floor_return_no_nrvo(raw_data);
 		}
 		
 		// determines which lod/bias value to use and clamps it to [0, max #mip-levels - 1]
@@ -481,6 +481,7 @@ FLOOR_POP_WARNINGS()
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
+FLOOR_IGNORE_WARNING(nrvo) // clang can't deal with this
 
 		// image read functions
 		template <typename coord_type, typename offset_type>
@@ -504,7 +505,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			
 			// extract channel bits/bytes
 			vector4<std::conditional_t<(image_bits_of_channel(fixed_image_type, 0) <= 32 ||
-								   data_type != IMAGE_TYPE::FLOAT), float, double>> ret;
+										data_type != IMAGE_TYPE::FLOAT), float, double>> ret;
 			if constexpr(data_type == IMAGE_TYPE::FLOAT) {
 				if constexpr(image_format == IMAGE_TYPE::FORMAT_32 ||
 				   			 image_format == IMAGE_TYPE::FORMAT_64) {
@@ -521,7 +522,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 #endif
 					}
 				} else {
-					floor_unreachable();
+					static_assert(false, "unhandled format");
 				}
 			} else {
 				// extract all channels from the raw data
@@ -630,7 +631,7 @@ FLOOR_POP_WARNINGS()
 					__builtin_memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + depth_bytes], sizeof(uint8_t));
 				}
 			}
-			return ret;
+			floor_return_no_nrvo(ret);
 		}
 
 FLOOR_PUSH_WARNINGS()

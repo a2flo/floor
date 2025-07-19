@@ -46,7 +46,7 @@ std::unique_ptr<uint32_t[]> load_binary(const std::string& file_name, size_t& co
 		return {};
 	}
 	
-	return code;
+	floor_return_no_nrvo(code);
 }
 
 spirv_handler::container load_container(const std::string& file_name) {
@@ -169,7 +169,7 @@ spirv_handler::container load_container_from_memory(const uint8_t* data_ptr_,
 	
 	// done
 	ret.valid = true;
-	return ret;
+	floor_return_no_nrvo(ret);
 }
 
 } // namespace fl::spirv_handler

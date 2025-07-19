@@ -349,7 +349,7 @@ public:
 	const generic_indirect_pipeline_entry* get_pipeline_entry(const device& dev) const;
 	generic_indirect_pipeline_entry* get_pipeline_entry(const device& dev);
 	
-	indirect_render_command_encoder& add_render_command(const device&, const graphics_pipeline&, const bool) override {
+	[[noreturn]] indirect_render_command_encoder& add_render_command(const device&, const graphics_pipeline&, const bool) override {
 		throw std::runtime_error("render commands are not supported");
 	}
 	indirect_compute_command_encoder& add_compute_command(const device& dev, const device_function& kernel_obj) override;

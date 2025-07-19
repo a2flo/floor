@@ -662,6 +662,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 								   (const void* const*)&jit_option_values[0],
 								   &link_state),
 					"failed to create link state", {})
+FLOOR_PUSH_AND_IGNORE_WARNING(nrvo)
 		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
 											program.data(), program.size_bytes(),
 											nullptr, 0, nullptr, nullptr),
@@ -686,6 +687,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 							   cu_link_destroy(link_state);
 							   return ret;
 						   })
+FLOOR_POP_WARNINGS()
 		if (floor::get_toolchain_log_binaries()) {
 			// for testing purposes: dump the compiled binaries again
 			auto bin_name = "binary_" + std::to_string(sm_version);
@@ -713,7 +715,7 @@ cuda_program::cuda_program_entry cuda_context::create_cuda_program_internal(cons
 	}
 	
 	ret.valid = true;
-	return ret;
+	floor_return_no_nrvo(ret);
 }
 
 std::shared_ptr<device_program> cuda_context::add_precompiled_program_file(const std::string& file_name floor_unused,

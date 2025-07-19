@@ -761,7 +761,7 @@ std::shared_ptr<device_queue> opencl_context::create_queue(const device& dev) co
 		if(!user_accessed) {
 			// signal that the user has accessed the default queue, any subsequent create_queue calls will actually create a new queue
 			default_queues_user_accessed.emplace(&dev, 1u);
-			return dev_default_queue;
+			floor_return_no_nrvo(dev_default_queue);
 		}
 	}
 	

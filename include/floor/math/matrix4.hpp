@@ -150,11 +150,11 @@ public:
 	
 	//! constexpr subscript access, with index out of bounds
 	constexpr scalar_type& operator[](const size_t& index)
-	__attribute__((enable_if(index >= 16, "index out of bounds"), unavailable("index out of bounds")));
+	__attribute__((enable_if(__builtin_constant_p(index) && index >= 16, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! constexpr subscript access, with index out of bounds
 	constexpr const scalar_type& operator[](const size_t& index) const
-	__attribute__((enable_if(index >= 16, "index out of bounds"), unavailable("index out of bounds")));
+	__attribute__((enable_if(__builtin_constant_p(index) && index >= 16, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! returns the specified matrix column as a vector4
 	template<size_t col> constexpr vector4<scalar_type> column() const {

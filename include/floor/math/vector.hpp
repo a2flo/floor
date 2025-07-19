@@ -434,10 +434,10 @@ public:
 	
 	//! constexpr subscript access, with index out of bounds
 	constexpr const scalar_type& operator[](const uint32_t& index) const
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
+	__attribute__((enable_if(__builtin_constant_p(index) && index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	//! constexpr subscript access, with index out of bounds
 	constexpr scalar_type& operator[](const uint32_t& index)
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
+	__attribute__((enable_if(__builtin_constant_p(index) && index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! c array style access (not enabled if scalar_type is a reference)
 	template <typename ptr_base_type = scalar_type> requires(!std::is_reference_v<ptr_base_type>)
@@ -1155,13 +1155,13 @@ public:
 	//! sets this vector to a vector perpendicular to this vector (-90° rotation)
 	constexpr vector_type& perpendicular() {
 		const scalar_type tmp = x;
-		x = -y;
+		x = decayed_scalar_type(-y);
 		y = tmp;
 		return *this;
 	}
 	//! returns a vector perpendicular to this vector (-90° rotation)
 	constexpr vector_type perpendiculared() const {
-		return { -y, x };
+		return { decayed_scalar_type(-y), x };
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3

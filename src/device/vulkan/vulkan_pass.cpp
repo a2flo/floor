@@ -218,7 +218,7 @@ static std::unique_ptr<vulkan_render_pass_info> create_vulkan_render_pass_info_f
 		info->mv_render_pass_info.pCorrelatedViewMasks = &info->mv_correlation_mask;
 	}
 
-	return info;
+	floor_return_no_nrvo(info);
 }
 
 vulkan_pass::vulkan_pass(const render_pass_description& pass_desc_,

@@ -220,7 +220,7 @@ namespace fl::const_math {
 	//! computes |x|, the absolute value of x
 	template <typename arithmetic_type> requires(ext::is_arithmetic_v<arithmetic_type>)
 	constexpr arithmetic_type abs(const arithmetic_type val) {
-		return (val < (arithmetic_type)0 ? -val : val);
+		return arithmetic_type(val < (arithmetic_type)0 ? -val : val);
 	}
 	
 	//! computes min(x, y), returning x if x <= y, else y
@@ -1148,7 +1148,7 @@ namespace fl::const_math {
 	constexpr arithmetic_type copysign(const arithmetic_type a, const arithmetic_type b) {
 		if constexpr (ext::is_signed_v<arithmetic_type>) {
 			const auto abs_a = const_math::abs(a);
-			return (b < arithmetic_type(0) ? -abs_a : abs_a);
+			return arithmetic_type(b < arithmetic_type(0) ? -abs_a : abs_a);
 		} else {
 			return a;
 		}

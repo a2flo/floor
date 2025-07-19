@@ -40,7 +40,7 @@ static constexpr auto bcm_init_counter_2(auto& dst) {
 				}
 			}
 		}
-		return arr;
+		floor_return_no_nrvo(arr);
 	}();
 	__builtin_memcpy(&dst, counter_2_init.data(), sizeof(dst));
 }
@@ -281,10 +281,8 @@ size_t bcm_compress(const std::span<const uint8_t> input, std::span<uint8_t> out
 
 std::vector<uint8_t> bcm_decompress(const std::span<const uint8_t> input) {
 	std::vector<uint8_t> ret(bcm_decoder(input).get32() /* block size */);
-	if (const auto decomp_size = bcm_decompress(input, ret); decomp_size && *decomp_size > 0) {
-		return ret;
-	}
-	return {};
+	const auto decomp_size = bcm_decompress(input, ret);
+	return (decomp_size && *decomp_size > 0 ? ret : std::vector<uint8_t> {});
 }
 
 std::optional<size_t> bcm_decompress(const std::span<const uint8_t> input, std::span<uint8_t> output) {

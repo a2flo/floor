@@ -81,7 +81,7 @@ namespace fl::universal_binary {
 		const auto& bin_count = ar->header.static_header.binary_count;
 		if (bin_count == 0) {
 			// no binaries -> return early
-			return ar;
+			floor_return_no_nrvo(ar);
 		}
 		
 		// parse dynamic header
@@ -270,7 +270,7 @@ namespace fl::universal_binary {
 			ar->binaries.emplace_back(bin);
 		}
 		
-		return ar;
+		floor_return_no_nrvo(ar);
 	}
 	
 	struct compile_return_t {
@@ -1630,7 +1630,7 @@ namespace fl::universal_binary {
 			}
 		}
 		
-		return ret;
+		floor_return_no_nrvo(ret);
 	}
 	
 	static archive_binaries make_device_binaries_from_archive(std::unique_ptr<archive>&& ar, const std::vector<const device*>& devices) {

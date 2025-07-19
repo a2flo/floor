@@ -228,7 +228,9 @@ lexer::lex_return_type json_lexer::lex_keyword(const translation_unit& tu,
 	switch(*iter) {
 		case 'n': { // null
 			const auto len_ret = check_len(4);
-			if(!len_ret.first) return len_ret;
+			if (!len_ret.first) {
+				floor_return_no_nrvo(len_ret);
+			}
 			
 			static constexpr const char* error_msg { "invalid keyword - expected 'null'!" };
 			if(*++iter != 'u') return handle_error(tu, iter, error_msg);
@@ -239,7 +241,9 @@ lexer::lex_return_type json_lexer::lex_keyword(const translation_unit& tu,
 		
 		case 't': { // true
 			const auto len_ret = check_len(4);
-			if(!len_ret.first) return len_ret;
+			if (!len_ret.first) {
+				floor_return_no_nrvo(len_ret);
+			}
 			
 			static constexpr const char* error_msg { "invalid keyword - expected 'true'!" };
 			if(*++iter != 'r') return handle_error(tu, iter, error_msg);
@@ -250,7 +254,9 @@ lexer::lex_return_type json_lexer::lex_keyword(const translation_unit& tu,
 		
 		case 'f': { // false
 			const auto len_ret = check_len(5);
-			if(!len_ret.first) return len_ret;
+			if (!len_ret.first) {
+				floor_return_no_nrvo(len_ret);
+			}
 			
 			static constexpr const char* error_msg { "invalid keyword - expected 'false'!" };
 			if(*++iter != 'a') return handle_error(tu, iter, error_msg);
@@ -833,7 +839,7 @@ document create_document_from_string(const std::string& json_data, const std::st
 		log_error("parsing of JSON data \"$\" failed!", identifier);
 		return {};
 	}
-	return doc;
+	floor_return_no_nrvo(doc);
 }
 
 template <typename T> static std::pair<bool, T> extract_value(const document& doc, const std::string& path) {

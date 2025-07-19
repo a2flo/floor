@@ -177,7 +177,7 @@ using namespace std::literals;
 		for(const auto& entry : container) {
 			ret.emplace_back(entry.first);
 		}
-		return ret;
+		floor_return_no_nrvo(ret);
 	}
 	
 	//! returns a vector of the values of the specified (associative) container
@@ -188,7 +188,7 @@ using namespace std::literals;
 		for(const auto& entry : container) {
 			ret.emplace_back(entry.second);
 		}
-		return ret;
+		floor_return_no_nrvo(ret);
 	}
 	
 	// misc functions

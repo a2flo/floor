@@ -125,7 +125,7 @@ openxr_context::openxr_context() : vr_context(), internal(std::make_shared<openx
 		for (const auto& ext : extensions) {
 			ret += ext.first + "(" + std::to_string(ext.second.extensionVersion) + ")" + " "s;
 		}
-		return ret;
+		floor_return_no_nrvo(ret);
 	};
 	
 	auto supported_extensions = query_extensions(nullptr);

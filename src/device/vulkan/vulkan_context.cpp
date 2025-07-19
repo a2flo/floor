@@ -285,7 +285,7 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 	}
 	
 	ret.valid = true;
-	return ret;
+	floor_return_no_nrvo(ret);
 }
 
 FLOOR_PUSH_WARNINGS()

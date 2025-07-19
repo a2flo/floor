@@ -35,40 +35,40 @@ struct const_array {
 	constexpr bool empty() const { return false; }
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
-	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(index < array_size, "index is const"))) {
+	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(__builtin_constant_p(index) && index < array_size, "index is const"))) {
 		return elems[index];
 	}
-	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(__builtin_constant_p(index) && index >= array_size, "index is invalid"), unavailable("index is invalid")));
 #endif
 	constexpr data_type& operator[](const size_t& index) /* run-time index */ {
 		return elems[index];
 	}
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
-	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(index < array_size, "index is const"))) {
+	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(__builtin_constant_p(index) && index < array_size, "index is const"))) {
 		return elems[index];
 	}
-	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(__builtin_constant_p(index) && index >= array_size, "index is invalid"), unavailable("index is invalid")));
 #endif
 	constexpr const data_type& operator[](const size_t& index) const /* run-time index */ {
 		return elems[index];
 	}
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
-	constexpr data_type& at(const size_t& index) __attribute__((enable_if(index < array_size, "index is const"))) {
+	constexpr data_type& at(const size_t& index) __attribute__((enable_if(__builtin_constant_p(index) && index < array_size, "index is const"))) {
 		return elems[index];
 	}
-	constexpr data_type& at(const size_t& index) __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr data_type& at(const size_t& index) __attribute__((enable_if(__builtin_constant_p(index) && index >= array_size, "index is invalid"), unavailable("index is invalid")));
 #endif
 	constexpr data_type& at(const size_t& index) /* run-time index */ {
 		return elems[index];
 	}
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
-	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(index < array_size, "index is const"))) {
+	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(__builtin_constant_p(index) && index < array_size, "index is const"))) {
 		return elems[index];
 	}
-	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(__builtin_constant_p(index) && index >= array_size, "index is invalid"), unavailable("index is invalid")));
 #endif
 	constexpr const data_type& at(const size_t& index) const /* run-time index */ {
 		return elems[index];

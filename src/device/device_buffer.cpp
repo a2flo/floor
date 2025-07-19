@@ -80,14 +80,9 @@ std::shared_ptr<device_buffer> device_buffer::clone(const device_queue& cqueue, 
 	} else {
 		ret = dev.context->create_buffer(cqueue, size, clone_flags);
 	}
-	if (ret == nullptr) {
-		return {};
-	}
-	
-	if (copy_contents) {
+	if (ret && copy_contents) {
 		ret->copy(cqueue, *this);
 	}
-	
 	return ret;
 }
 

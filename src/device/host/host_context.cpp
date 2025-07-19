@@ -520,7 +520,7 @@ host_program::host_program_entry host_context::create_host_program_internal(cons
 	}
 	
 	ret.valid = true;
-	return ret;
+	floor_return_no_nrvo(ret);
 }
 
 std::shared_ptr<device_program> host_context::add_precompiled_program_file(const std::string& file_name floor_unused,
