@@ -22,91 +22,49 @@
 
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
-#if defined(__clang__) && !defined(_MSC_VER)
+#if defined(__clang__)
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) __attribute__((x))
 #else
-#define THREAD_ANNOTATION_ATTRIBUTE__(x) // no-op
+// must use clang
+#error "unsupported compiler"
 #endif
 
-#define CAPABILITY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(capability(x))
+#define CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(capability(x))
+#define REENTRANT_CAPABILITY THREAD_ANNOTATION_ATTRIBUTE__(reentrant_capability)
+#define SCOPED_CAPABILITY THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
+#define GUARDED_BY(x) THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
+#define PT_GUARDED_BY(x) THREAD_ANNOTATION_ATTRIBUTE__(pt_guarded_by(x))
+#define ACQUIRED_BEFORE(...) THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(__VA_ARGS__))
+#define ACQUIRED_AFTER(...) THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(__VA_ARGS__))
+#define REQUIRES(...) THREAD_ANNOTATION_ATTRIBUTE__(requires_capability(__VA_ARGS__))
+#define REQUIRES_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(requires_shared_capability(__VA_ARGS__))
+#define ACQUIRE(...) THREAD_ANNOTATION_ATTRIBUTE__(acquire_capability(__VA_ARGS__))
+#define ACQUIRE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(__VA_ARGS__))
+#define RELEASE(...) THREAD_ANNOTATION_ATTRIBUTE__(release_capability(__VA_ARGS__))
+#define RELEASE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(release_shared_capability(__VA_ARGS__))
+#define RELEASE_GENERIC(...) THREAD_ANNOTATION_ATTRIBUTE__(release_generic_capability(__VA_ARGS__))
+#define TRY_ACQUIRE(...) THREAD_ANNOTATION_ATTRIBUTE__(exclusive_trylock_function(__VA_ARGS__))
+#define TRY_ACQUIRE_SHARED(...) THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_shared_capability(__VA_ARGS__))
+#define EXCLUDES(...) THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
+#define ASSERT_CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))
+#define ASSERT_SHARED_CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))
+#define RETURN_CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
+#define NO_THREAD_SAFETY_ANALYSIS THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 
-#define SCOPED_CAPABILITY \
-	THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
-
-#define GUARDED_BY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
-
-#define PT_GUARDED_BY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(pt_guarded_by(x))
-
-#define ACQUIRED_BEFORE(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(__VA_ARGS__))
-
-#define ACQUIRED_AFTER(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(__VA_ARGS__))
-
-#define REQUIRES(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(requires_capability(__VA_ARGS__))
-
-#define REQUIRES_SHARED(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(requires_shared_capability(__VA_ARGS__))
-
-#define ACQUIRE(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(acquire_capability(__VA_ARGS__))
-
-#define ACQUIRE_SHARED(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(__VA_ARGS__))
-
-#define RELEASE(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(release_capability(__VA_ARGS__))
-
-#define RELEASE_SHARED(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(release_shared_capability(__VA_ARGS__))
-
-#define TRY_ACQUIRE(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(exclusive_trylock_function(__VA_ARGS__))
-
-#define TRY_ACQUIRE_SHARED(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_shared_capability(__VA_ARGS__))
-
-#define EXCLUDES(...) \
-	THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
-
-#define ASSERT_CAPABILITY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))
-
-#define ASSERT_SHARED_CAPABILITY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))
-
-#define RETURN_CAPABILITY(x) \
-	THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
-
-#define NO_THREAD_SAFETY_ANALYSIS \
-	THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
-
-//
-#if defined(__clang__)
+// attribute to disable thread sanitizer
 #if __has_feature(thread_sanitizer)
 #define ds_no_sanitize_thread __attribute__((no_sanitize_thread))
-#else
-#define ds_no_sanitize_thread
-#endif
 #else
 #define ds_no_sanitize_thread
 #endif
 
 // wrappers / replacements
 #include <mutex>
-
-// must use clang
-#if !defined(__clang__)
-#error "unsupported compiler"
-#endif
+#include <shared_mutex>
 
 namespace fl {
 
-// wrapper around std::mutex, based on libc++
+// wrapper around std::mutex
 class CAPABILITY("mutex") safe_mutex {
 protected:
 	std::mutex mtx;
@@ -136,7 +94,7 @@ public:
 	
 };
 
-// wrapper around std::recursive_mutex, based on libc++
+// wrapper around std::recursive_mutex
 class CAPABILITY("mutex") safe_recursive_mutex {
 protected:
 	std::recursive_mutex mtx;
@@ -163,7 +121,44 @@ public:
 	
 };
 
-// replacement for std::lock_guard, based on libc++
+// wrapper around std::shared_mutex
+class CAPABILITY("shared_mutex") safe_shared_mutex {
+protected:
+	std::shared_mutex mtx;
+	
+public:
+	safe_shared_mutex() noexcept = default;
+	~safe_shared_mutex() {}
+	
+	safe_shared_mutex(const safe_shared_mutex&) = delete;
+	safe_shared_mutex& operator=(const safe_shared_mutex&) = delete;
+	
+	void lock() ACQUIRE() {
+		mtx.lock();
+	}
+	bool try_lock() TRY_ACQUIRE(true) {
+		return mtx.try_lock();
+	}
+	void unlock() RELEASE() {
+		mtx.unlock();
+	}
+	
+	void lock_shared() ACQUIRE_SHARED() {
+		mtx.lock_shared();
+	}
+	bool try_lock_shared() TRY_ACQUIRE_SHARED(true) {
+		return mtx.try_lock_shared();
+	}
+	void unlock_shared() RELEASE_SHARED() {
+		mtx.unlock_shared();
+	}
+	
+	// for negative capabilities
+	const safe_shared_mutex& operator!() const { return *this; }
+	
+};
+
+// replacement for std::lock_guard
 template <class Mutex>
 class SCOPED_CAPABILITY safe_guard {
 public:
@@ -183,6 +178,28 @@ public:
 	
 	safe_guard(safe_guard const&) = delete;
 	safe_guard& operator=(safe_guard const&) = delete;
+};
+
+// replacement for std::shared_lock
+template <class Mutex>
+class SCOPED_CAPABILITY safe_shared_guard {
+public:
+	using mutex_type = Mutex;
+	
+protected:
+	mutex_type& mtx_ref;
+	
+public:
+	explicit safe_shared_guard(mutex_type& m_ref) ACQUIRE_SHARED(m_ref) : mtx_ref(m_ref) {
+		mtx_ref.lock_shared();
+	}
+	safe_shared_guard(mutex_type& m_ref, std::adopt_lock_t) REQUIRES_SHARED(m_ref) : mtx_ref(m_ref) {}
+	~safe_shared_guard() RELEASE_GENERIC() /* NOTE: RELEASE_SHARED() does not work ... */ {
+		mtx_ref.unlock_shared();
+	}
+	
+	safe_shared_guard(safe_shared_guard const&) = delete;
+	safe_shared_guard& operator=(safe_shared_guard const&) = delete;
 };
 
 namespace floor_multi_guard {
@@ -258,6 +275,10 @@ static constexpr inline auto make_refs_tuple(Args&&... args) {
 #define GUARD_ID_CONCAT(num) guard_ ## num
 #define GUARD_ID_EVAL(num) GUARD_ID_CONCAT(num)
 #define GUARD(mtx) const fl::safe_guard<std::decay_t<decltype(mtx)>> GUARD_ID_EVAL(__LINE__) (mtx)
+
+#define SHARED_GUARD_ID_CONCAT(num) shared_guard_ ## num
+#define SHARED_GUARD_ID_EVAL(num) SHARED_GUARD_ID_CONCAT(num)
+#define SHARED_GUARD(mtx) const fl::safe_shared_guard<std::decay_t<decltype(mtx)>> SHARED_GUARD_ID_EVAL(__LINE__) (mtx)
 
 //! all-or-nothing locking of multiple locks
 //! NOTE: this acts as a replacement for std::scoped_lock
