@@ -522,7 +522,7 @@ FLOOR_IGNORE_WARNING(nrvo) // clang can't deal with this
 #endif
 					}
 				} else {
-					static_assert(false, "unhandled format");
+					instantiation_trap("unhandled format");
 				}
 			} else {
 				// extract all channels from the raw data
