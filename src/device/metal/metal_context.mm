@@ -673,7 +673,7 @@ std::shared_ptr<device_program> metal_context::create_program_from_archive_binar
 		for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 			const auto mtl_dev = (const metal_device*)devices[i].get();
 			const auto& dev_best_bin = bins.dev_binaries[i];
-			const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
+			const auto func_info = universal_binary::translate_function_info(dev_best_bin);
 			
 			metal_program::metal_program_entry entry;
 			entry.archive = ar; // ensure we keep the archive memory

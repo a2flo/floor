@@ -77,7 +77,7 @@ bool create_floor_function_info(const std::string& ffi_file_name,
 		const auto& token_arg_num = tokens[4];
 		
 		//
-		static constexpr const char floor_functions_version[] { "5" };
+		static constexpr const char floor_functions_version[] { "6" };
 		if (token_version != floor_functions_version) {
 			log_error("invalid floor function info version, expected $, got $!",
 					  floor_functions_version, token_version);

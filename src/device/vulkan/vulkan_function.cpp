@@ -586,12 +586,6 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 	const auto& vk_ctx = (const vulkan_context&)*vk_dev.context;
 	const auto& vulkan_entry = (const vulkan_function_entry&)kern_entry;
 	
-	if (!has_flag<toolchain::FUNCTION_FLAGS::USES_VULKAN_DESCRIPTOR_BUFFER>(vulkan_entry.info->flags)) {
-		log_error("can't use a function that has not been built with descriptor buffer support with descriptor/argument buffers: in function $",
-				  vulkan_entry.info->name);
-		return {};
-	}
-	
 	// check if info exists
 	const auto& arg_info = vulkan_entry.info->args[ll_arg_index].argument_buffer_info;
 	if (!arg_info) {

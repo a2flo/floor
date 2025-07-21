@@ -60,13 +60,10 @@ namespace fl::toolchain {
 		NONE							= (0u),
 		//! function makes use of soft-printf
 		USES_SOFT_PRINTF				= (1u << 0u),
-		//! function makes use of Vulkan descriptor buffers
-		//! TODO: remove in future version
-		USES_VULKAN_DESCRIPTOR_BUFFER	= (1u << 1u),
 		//! kernel dimensionality
-		KERNEL_1D						= (1u << 2u),
-		KERNEL_2D						= (1u << 3u),
-		KERNEL_3D						= (1u << 4u),
+		KERNEL_1D						= (1u << 1u),
+		KERNEL_2D						= (1u << 2u),
+		KERNEL_3D						= (1u << 3u),
 	};
 	floor_global_enum_ext(FUNCTION_FLAGS)
 
@@ -161,6 +158,8 @@ namespace fl::toolchain {
 		//! true if this function comes from a precompiled FUBAR binary,
 		//! false if it was compiled at run-time
 		bool is_fubar { false };
+		//! if "is_fubar" is true and this is a Vulkan function/binary, this contains the max allowed mip level count
+		uint32_t max_mip_levels { 0u };
 		
 		//! returns the kernel dimensionality
 		uint32_t get_kernel_dim() const {

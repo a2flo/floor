@@ -76,7 +76,8 @@
 		"primitive_id_support": false,
 		"barycentric_coord_support": false,
 		"tessellation_support": false,
-		"simd_width": 0
+		"simd_width": 0,
+		"max_mip_levels": 16
 	},
 	// Host-Compute x86 + ARM
 	{

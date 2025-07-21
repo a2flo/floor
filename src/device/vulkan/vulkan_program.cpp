@@ -43,10 +43,9 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 	const uint32_t explicit_arg_count = uint32_t(info.args.size());
 	const uint32_t total_arg_count = explicit_arg_count + implicit_arg_count;
 	
-	// currently, we always build universal binaries using a fixed map mip level count of 16
+	// we build universal binaries using a fixed map mip level count (possibly user-specified, default is 16)
 	// -> need to account for this in here if it doesn't match the device max mip level count
-	// TODO: more flexibility, add parameter to FUBAR vulkan target
-	const auto max_mip_levels = (info.is_fubar ? vulkan_device::builtin_max_mip_levels : dev.max_mip_levels);
+	const auto max_mip_levels = (info.is_fubar ? info.max_mip_levels : dev.max_mip_levels);
 	
 	// create function + device specific descriptor set layout
 	vulkan_descriptor_set_layout_t layout {};
@@ -268,11 +267,6 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 	auto& vk_ctx = *(vulkan_context*)vk_dev.context;
 	const auto dev_queue = vk_ctx.get_device_default_queue(vk_dev);
 	assert(dev_queue != nullptr);
-	
-	if (!has_flag<toolchain::FUNCTION_FLAGS::USES_VULKAN_DESCRIPTOR_BUFFER>(info.flags)) {
-		log_error("can't use a function that has not been built with descriptor buffer support with descriptor buffers: in function $", func_name);
-		return false;
-	}
 	
 	auto layout = build_descriptor_set_layout(dev, func_name, info, stage);
 	if (!layout) {

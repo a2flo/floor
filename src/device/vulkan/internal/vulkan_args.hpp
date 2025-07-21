@@ -286,15 +286,15 @@ static inline void set_argument(const vulkan_device& vk_dev,
 		if (has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(vk_img->get_image_type())) {
 			throw std::runtime_error("transient image can not be used as an image parameter");
 		}
-		if (arg_info.is_fubar && vk_img->get_mip_level_count() > vulkan_device::builtin_max_mip_levels) {
-			log_warn("the max mip level count for precompiled binaries is currently $, but the specified image has $ mip levels",
-					 vulkan_device::builtin_max_mip_levels, vk_img->get_mip_level_count());
+		if (arg_info.is_fubar && vk_img->get_mip_level_count() > arg_info.max_mip_levels) {
+			log_warn("the max mip level count for the precompiled binary is $, but the specified image has $ mip levels",
+					 arg_info.max_mip_levels, vk_img->get_mip_level_count());
 		}
 #endif
 		if (arg_info.is_fubar) {
 			// for precompiled FUBAR binaries we need to account for the limit that the function has been compiled for
-			// -> don't write more than builtin_max_mip_levels (16) levels, zero out the remaining descriptor memory if smaller
-			const auto max_mip_levels_size = size_t(vk_dev.desc_buffer_sizes.storage_image * vulkan_device::builtin_max_mip_levels);
+			// -> don't write more levels than the binary has, zero out the remaining descriptor memory if smaller
+			const auto max_mip_levels_size = size_t(vk_dev.desc_buffer_sizes.storage_image * arg_info.max_mip_levels);
 			const auto write_size = std::min(desc_data.size(), max_mip_levels_size);
 			memcpy(host_desc_data.data() + write_offset, desc_data.data(), write_size);
 			if (write_size < max_mip_levels_size) {

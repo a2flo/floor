@@ -380,7 +380,7 @@ std::shared_ptr<device_program> host_context::create_program_from_archive_binari
 	for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
 		const auto host_dev = (const host_device*)devices[i].get();
 		const auto& dev_best_bin = bins.dev_binaries[i];
-		const auto func_info = universal_binary::translate_function_info(dev_best_bin.first->function_info);
+		const auto func_info = universal_binary::translate_function_info(dev_best_bin);
 		prog_map.insert_or_assign(host_dev,
 								  create_host_program_internal(*host_dev,
 															   {},

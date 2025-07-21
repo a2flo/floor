@@ -49,7 +49,7 @@ vulkan_device::vulkan_device() : device() {
 	image_read_write_support = false;
 	
 	// will be overwritten later
-	max_mip_levels = builtin_max_mip_levels; // 32768px
+	max_mip_levels = default_max_mip_levels; // 32768px
 	
 	// init IUB vars with min requirement (will be overwritten on init, but devices need to at least support this)
 	max_inline_uniform_block_size = min_required_inline_uniform_block_size;

@@ -33,15 +33,15 @@
 #include <deque>
 
 namespace std {
-	template <> struct hash<fl::universal_binary::target_v5> : public hash<uint64_t> {
-		size_t operator()(fl::universal_binary::target_v5 target) const noexcept {
+	template <> struct hash<fl::universal_binary::target_v6> : public hash<uint64_t> {
+		size_t operator()(fl::universal_binary::target_v6 target) const noexcept {
 			return std::hash<uint64_t>::operator()(target.value);
 		}
 	};
 }
 
 namespace fl::universal_binary {
-	static constexpr const uint32_t min_required_toolchain_version_v5 { 140000u };
+	static constexpr const uint32_t min_required_toolchain_version_v6 { 140000u };
 	
 	std::unique_ptr<archive> load_archive(const std::string& file_name) {
 		auto [data, data_size] = file_io::file_to_buffer(file_name);
@@ -59,14 +59,14 @@ namespace fl::universal_binary {
 		auto ar = std::make_unique<archive>();
 		
 		// parse header
-		cur_size += sizeof(header_v5);
+		cur_size += sizeof(header_v6);
 		if (cur_size > data_size) {
 			log_error("universal binary $: invalid header size, expected $, got $",
 					  filename_hint, cur_size, data_size);
 			return {};
 		}
-		const header_v5& header = *(const header_v5*)data.data();
-		data = data.subspan(sizeof(header_v5));
+		const header_v6& header = *(const header_v6*)data.data();
+		data = data.subspan(sizeof(header_v6));
 		
 		if (memcmp(header.magic, "FUBA", 4) != 0) {
 			log_error("universal binary $: invalid header magic", filename_hint);
@@ -76,7 +76,7 @@ namespace fl::universal_binary {
 			log_error("universal binary $: unsupported binary version $", filename_hint, header.binary_format_version);
 			return {};
 		}
-		memcpy(&ar->header.static_header, &header, sizeof(header_v5));
+		memcpy(&ar->header.static_header, &header, sizeof(header_v6));
 		
 		const auto& bin_count = ar->header.static_header.binary_count;
 		if (bin_count == 0) {
@@ -90,10 +90,10 @@ namespace fl::universal_binary {
 		ar->header.toolchain_versions.resize(bin_count);
 		ar->header.hashes.resize(bin_count);
 		
-		const auto targets_size = sizeof(target_v5) * bin_count;
-		const auto offsets_size = sizeof(typename decltype(header_dynamic_v5::offsets)::value_type) * bin_count;
-		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v5::toolchain_versions)::value_type) * bin_count;
-		const auto hashes_size = sizeof(typename decltype(header_dynamic_v5::hashes)::value_type) * bin_count;
+		const auto targets_size = sizeof(target_v6) * bin_count;
+		const auto offsets_size = sizeof(typename decltype(header_dynamic_v6::offsets)::value_type) * bin_count;
+		const auto toolchain_versions_size = sizeof(typename decltype(header_dynamic_v6::toolchain_versions)::value_type) * bin_count;
+		const auto hashes_size = sizeof(typename decltype(header_dynamic_v6::hashes)::value_type) * bin_count;
 		const auto dyn_header_size = targets_size + offsets_size + toolchain_versions_size + hashes_size;
 		cur_size += dyn_header_size;
 		if (cur_size > data_size) {
@@ -125,9 +125,9 @@ namespace fl::universal_binary {
 		
 		// verify toolchain versions
 		for (const auto& toolchain_version : ar->header.toolchain_versions) {
-			if (toolchain_version < min_required_toolchain_version_v5) {
+			if (toolchain_version < min_required_toolchain_version_v6) {
 				log_error("universal binary $: unsupported toolchain version, expected $, got $",
-						  filename_hint, min_required_toolchain_version_v5, toolchain_version);
+						  filename_hint, min_required_toolchain_version_v6, toolchain_version);
 				return {};
 			}
 		}
@@ -149,7 +149,7 @@ namespace fl::universal_binary {
 		
 		// parse binaries
 		for (uint32_t bin_idx = 0; bin_idx < bin_count; ++bin_idx) {
-			binary_dynamic_v5 bin;
+			binary_dynamic_v6 bin;
 			
 			// verify binary offset
 			if (cur_size != ar->header.offsets[bin_idx]) {
@@ -159,14 +159,14 @@ namespace fl::universal_binary {
 			}
 			
 			// static binary header
-			cur_size += sizeof(binary_v5);
+			cur_size += sizeof(binary_v6);
 			if (cur_size > data_size) {
 				log_error("universal binary $: invalid static binary header size, expected $, got $",
 						  filename_hint, cur_size, data_size);
 				return {};
 			}
-			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v5));
-			data = data.subspan(sizeof(binary_v5));
+			memcpy(&bin.static_binary_header, data.data(), sizeof(binary_v6));
+			data = data.subspan(sizeof(binary_v6));
 			
 			// pre-check sizes (we're still going to do on-the-fly checks while parsing the actual data)
 			if (cur_size + bin.static_binary_header.function_info_size > data_size) {
@@ -187,17 +187,17 @@ namespace fl::universal_binary {
 			// function info
 			const auto func_info_start_size = cur_size;
 			for (uint32_t func_idx = 0; func_idx < bin.static_binary_header.function_count; ++func_idx) {
-				function_info_dynamic_v5 func_info;
+				function_info_dynamic_v6 func_info;
 				
 				// static function info
-				cur_size += sizeof(function_info_v5);
+				cur_size += sizeof(function_info_v6);
 				if (cur_size > data_size) {
 					log_error("universal binary $: invalid static function info size, expected $, got $",
 							  filename_hint, cur_size, data_size);
 					return {};
 				}
-				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v5));
-				data = data.subspan(sizeof(function_info_v5));
+				memcpy(&func_info.static_function_info, data.data(), sizeof(function_info_v6));
+				data = data.subspan(sizeof(function_info_v6));
 				
 				if (func_info.static_function_info.function_info_version != function_info_version) {
 					log_error("universal binary $: unsupported function info version $",
@@ -224,16 +224,16 @@ namespace fl::universal_binary {
 				}
 				
 				for (uint32_t arg_idx = 0; arg_idx < func_info.static_function_info.arg_count; ++arg_idx) {
-					function_info_dynamic_v5::arg_info arg;
+					function_info_dynamic_v6::arg_info arg;
 					
-					cur_size += sizeof(function_info_dynamic_v5::arg_info);
+					cur_size += sizeof(function_info_dynamic_v6::arg_info);
 					if (cur_size > data_size) {
 						log_error("universal binary $: invalid function info arg size, expected $, got $",
 								  filename_hint, cur_size, data_size);
 						return {};
 					}
-					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v5::arg_info));
-					data = data.subspan(sizeof(function_info_dynamic_v5::arg_info));
+					memcpy(&arg, data.data(), sizeof(function_info_dynamic_v6::arg_info));
+					data = data.subspan(sizeof(function_info_dynamic_v6::arg_info));
 					
 					func_info.args.emplace_back(arg);
 				}
@@ -539,10 +539,6 @@ namespace fl::universal_binary {
 			case PLATFORM_TYPE::VULKAN: {
 				dev = std::make_shared<vulkan_device>();
 				const auto& vlk_target = build_target.vulkan;
-				if (!vlk_target.descriptor_buffer_support) {
-					log_error("descriptor buffer support is required now");
-					return {};
-				}
 				auto& vlk_dev = (vulkan_device&)*dev;
 				
 				toolchain_version = floor::get_vulkan_toolchain_version();
@@ -563,6 +559,7 @@ namespace fl::universal_binary {
 				vlk_dev.barycentric_coord_support = vlk_target.barycentric_coord_support;
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;
 				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
+				vlk_dev.max_mip_levels = vlk_dev.max_mip_levels;
 				vlk_dev.argument_buffer_support = true;
 				vlk_dev.argument_buffer_image_support = true;
 				vlk_dev.indirect_command_support = true;
@@ -696,7 +693,7 @@ namespace fl::universal_binary {
 		
 		// enqueue + sanitize targets
 		safe_mutex targets_lock;
-		std::vector<target_v5> targets;
+		std::vector<target_v6> targets;
 		std::deque<std::pair<size_t, target>> remaining_targets;
 		auto unique_target_iter = unique_targets_in.begin();
 		for (size_t i = 0; i < target_count; ++i, ++unique_target_iter) {
@@ -808,7 +805,7 @@ namespace fl::universal_binary {
 		}
 		
 		// write binary
-		header_dynamic_v5 header {
+		header_dynamic_v6 header {
 			.static_header = {
 				.binary_format_version = binary_format_version,
 				.binary_count = uint32_t(targets_prog_data.size()),
@@ -826,7 +823,7 @@ namespace fl::universal_binary {
 		
 		// header
 		auto& ar_stream = *archive.get_filestream();
-		archive.write_block(&header.static_header, sizeof(header_v5));
+		archive.write_block(&header.static_header, sizeof(header_v6));
 		archive.write_block(header.targets.data(), target_count * sizeof(typename decltype(header.targets)::value_type));
 		const auto header_offsets_pos = ar_stream.tellp();
 		archive.write_block(header.offsets.data(), header.offsets.size() * sizeof(typename decltype(header.offsets)::value_type));
@@ -845,7 +842,7 @@ namespace fl::universal_binary {
 			header.offsets[i] = binary_base_offset + binaries_data.size();
 			
 			// static header
-			binary_dynamic_v5 bin_data {
+			binary_dynamic_v6 bin_data {
 				.static_binary_header = {
 					.function_count = 0u, // -> will be incremented below
 					.function_info_size = 0, // N/A yet
@@ -861,7 +858,7 @@ namespace fl::universal_binary {
 			bin_data.function_info.reserve(bin.function_info.size());
 			const std::function<bool(const toolchain::function_info&, const uint32_t)> create_bin_function_info =
 			[&bin_data, &create_bin_function_info](const toolchain::function_info& func, const uint32_t argument_buffer_index) {
-				function_info_dynamic_v5 finfo {
+				function_info_dynamic_v6 finfo {
 					.static_function_info = {
 						.function_info_version = function_info_version,
 						.type = func.type,
@@ -882,7 +879,7 @@ namespace fl::universal_binary {
 				std::vector<std::pair<const toolchain::function_info*, uint32_t>> arg_buffers;
 				for (uint32_t arg_idx = 0, arg_count = (uint32_t)func.args.size(); arg_idx < arg_count; ++arg_idx) {
 					const auto& arg = func.args[arg_idx];
-					finfo.args.emplace_back(function_info_dynamic_v5::arg_info {
+					finfo.args.emplace_back(function_info_dynamic_v6::arg_info {
 						.size = arg.size,
 						.array_extent = arg.array_extent,
 						.address_space = arg.address_space,
@@ -900,7 +897,7 @@ namespace fl::universal_binary {
 					}
 				}
 				++bin_data.static_binary_header.function_count;
-				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v5::arg_info) * finfo.args.size();
+				bin_data.static_binary_header.function_info_size += sizeof(function_info_dynamic_v6::arg_info) * finfo.args.size();
 				bin_data.function_info.emplace_back(std::move(finfo));
 				
 				// write argument buffer info
@@ -968,7 +965,7 @@ namespace fl::universal_binary {
 		return build_archive(src_code, false, dst_archive_file_name, options, targets, use_precompiled_header);
 	}
 	
-	std::pair<const binary_dynamic_v5*, const target_v5>
+	std::pair<const binary_dynamic_v6*, const target_v6>
 	find_best_match_for_device(const device& dev, const archive& ar) {
 		if (dev.context == nullptr) return { nullptr, {} };
 		
@@ -985,7 +982,7 @@ namespace fl::universal_binary {
 		for (size_t i = 0, count = ar.header.targets.size(); i < count; ++i) {
 			const auto& target = ar.header.targets[i];
 			if (target.common.type != type) continue;
-			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v5) continue;
+			if (ar.header.toolchain_versions[i] < min_required_toolchain_version_v6) continue;
 			
 			switch (target.common.type) {
 				case PLATFORM_TYPE::NONE: continue;
@@ -1416,9 +1413,6 @@ namespace fl::universal_binary {
 				}
 				case PLATFORM_TYPE::VULKAN: {
 					const auto& vlk_target = target.vulkan;
-					if (!vlk_target.descriptor_buffer_support) {
-						continue;
-					}
 					
 					// version check
 					const auto vlk_version = vulkan_version_from_uint(vlk_target.vulkan_major, vlk_target.vulkan_minor);
@@ -1532,14 +1526,16 @@ namespace fl::universal_binary {
 											  vlk_target.basic_32_bit_float_atomics_support +
 											  vlk_target.primitive_id_support +
 											  vlk_target.barycentric_coord_support +
-											  vlk_target.tessellation_support);
+											  vlk_target.tessellation_support +
+											  (vlk_target.max_mip_levels >= dev.max_mip_levels ? 1u : 0u));
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
 												   best_vlk.extended_64_bit_atomics_support +
 												   best_vlk.basic_32_bit_float_atomics_support +
 												   best_vlk.primitive_id_support +
 												   best_vlk.barycentric_coord_support +
-												   best_vlk.tessellation_support);
+												   best_vlk.tessellation_support +
+												   (best_vlk.max_mip_levels >= dev.max_mip_levels ? 1u : 0u));
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;
@@ -1571,15 +1567,18 @@ namespace fl::universal_binary {
 		return { nullptr, {} };
 	}
 	
-	std::vector<toolchain::function_info> translate_function_info(const std::vector<function_info_dynamic_v5>& functions) {
+	std::vector<toolchain::function_info> translate_function_info(const std::pair<const binary_dynamic_v6*, const target_v6>& bin) {
 		std::vector<toolchain::function_info> ret;
 		
-		for (const auto& func : functions) {
+		const uint32_t max_mip_levels = (bin.second.common.type != PLATFORM_TYPE::VULKAN ? 0u : bin.second.vulkan.max_mip_levels);
+		
+		for (const auto& func : bin.first->function_info) {
 			toolchain::function_info entry {
 				.name = func.name,
 				.type = func.static_function_info.type,
 				.flags = func.static_function_info.flags,
 				.is_fubar = true,
+				.max_mip_levels = max_mip_levels,
 			};
 			
 			uint32_t arg_idx = 0u;
@@ -1635,7 +1634,7 @@ namespace fl::universal_binary {
 	
 	static archive_binaries make_device_binaries_from_archive(std::unique_ptr<archive>&& ar, const std::vector<const device*>& devices) {
 		// find the best matching binary for each device
-		std::vector<std::pair<const universal_binary::binary_dynamic_v5*, const universal_binary::target_v5>> dev_binaries;
+		std::vector<std::pair<const universal_binary::binary_dynamic_v6*, const universal_binary::target_v6>> dev_binaries;
 		dev_binaries.reserve(devices.size());
 		for (const auto& dev : devices) {
 			const auto best_bin = universal_binary::find_best_match_for_device(*dev, *ar);

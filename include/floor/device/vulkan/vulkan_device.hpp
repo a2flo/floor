@@ -135,8 +135,9 @@ public:
 		uint32_t sampler { 0u };
 	} desc_buffer_sizes;
 	
-	//! max mip level count we use as the default for precompiled FUBAR binaries
-	static constexpr const uint32_t builtin_max_mip_levels { 16u };
+	//! default max mip level count we use for precompiled FUBAR binaries
+	//! NOTE: this can be overwritten when building FUBAR binaries
+	static constexpr const uint32_t default_max_mip_levels { 16u };
 	
 	//! alignment requirement when setting descriptor buffer offsets (i.e. per sub-set within a buffer)
 	uint32_t descriptor_buffer_offset_alignment { 0u };
