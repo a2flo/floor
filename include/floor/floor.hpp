@@ -310,6 +310,7 @@ public:
 	static const uint32_t& get_vulkan_toolchain_version();
 	static const std::vector<std::string>& get_vulkan_whitelist();
 	static bool get_vulkan_validation();
+	static bool get_vulkan_validation_best_practices();
 	static bool get_vulkan_validate_spirv();
 	static const std::string& get_vulkan_compiler();
 	static const std::string& get_vulkan_as();
@@ -489,6 +490,7 @@ protected:
 		uint32_t vulkan_toolchain_version = 0;
 		std::string vulkan_base_path;
 		bool vulkan_validation = false;
+		bool vulkan_validation_best_practices = false;
 		bool vulkan_validate_spirv = false;
 		std::vector<std::string> vulkan_whitelist;
 		std::string vulkan_compiler = default_compiler;

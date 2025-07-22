@@ -353,6 +353,7 @@ enable_renderer(enable_renderer_) {
 	if (enable_renderer && !internal->screen.x11_forwarding) {
 		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
 		instance_extensions.emplace(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+		// TODO: VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME
 		instance_extensions.emplace(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
 #if defined(SDL_PLATFORM_WIN32)
 		instance_extensions.emplace(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
@@ -424,27 +425,6 @@ enable_renderer(enable_renderer_) {
 			.valueCount = 1,
 			.pValues = &enable_setting
 		},
-		{
-			.pLayerName = "VK_LAYER_KHRONOS_validation",
-			.pSettingName = "validate_best_practices",
-			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
-			.valueCount = 1,
-			.pValues = &enable_setting
-		},
-		{
-			.pLayerName = "VK_LAYER_KHRONOS_validation",
-			.pSettingName = "validate_best_practices_amd",
-			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
-			.valueCount = 1,
-			.pValues = &enable_setting
-		},
-		{
-			.pLayerName = "VK_LAYER_KHRONOS_validation",
-			.pSettingName = "validate_best_practices_nvidia",
-			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
-			.valueCount = 1,
-			.pValues = &enable_setting
-		},
 #if 0
 		{
 			.pLayerName = "VK_LAYER_KHRONOS_validation",
@@ -489,11 +469,33 @@ enable_renderer(enable_renderer_) {
 			.valueCount = 1,
 			.pValues = &duplicate_message_limit
 		},
+		// NOTE: these must be the last 3 layers in the array (see below)
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices_amd",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
+		{
+			.pLayerName = "VK_LAYER_KHRONOS_validation",
+			.pSettingName = "validate_best_practices_nvidia",
+			.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+			.valueCount = 1,
+			.pValues = &enable_setting
+		},
 	};
 	const VkLayerSettingsCreateInfoEXT layer_settings_info {
 		.sType = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
 		.pNext = nullptr,
-		.settingCount = std::size(layer_settings),
+		.settingCount = std::size(layer_settings) - (floor::get_vulkan_validation_best_practices() ? 0 : 3),
 		.pSettings = layer_settings,
 	};
 #endif
@@ -718,7 +720,6 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_video_maintenance2",
 			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_bfloat16",
-			"VK_KHR_robustness2", // NOTE: using EXT for now
 		};
 		static constexpr const std::array filtered_exts_vk14 {
 			// deprecated, now in core 1.4
@@ -832,11 +833,17 @@ enable_renderer(enable_renderer_) {
 			}
 			device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 #else
-			if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-				log_warn("$ extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-			} else {
-				device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+			// prefer KHR over EXT
+			if (device_supported_extensions_set.contains(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+				device_extensions_set.emplace(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 				swapchain_maintenance1_support = true;
+			} else {
+				if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
+					log_warn("$ (nor KHR) extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+				} else {
+					device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+					swapchain_maintenance1_support = true;
+				}
 			}
 #endif
 		} else {
@@ -890,8 +897,8 @@ enable_renderer(enable_renderer_) {
 			.nestedCommandBufferRendering = false,
 			.nestedCommandBufferSimultaneousUse = false,
 		};
-		VkPhysicalDeviceRobustness2FeaturesEXT robustness_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
+		VkPhysicalDeviceRobustness2FeaturesKHR robustness_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_KHR,
 			.pNext = (device_supported_extensions_set.count(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME) ?
 					  (void*)&nested_cmds_features : (void*)&desc_buf_features),
 			.robustBufferAccess2 = false,
@@ -944,15 +951,16 @@ enable_renderer(enable_renderer_) {
 			.sparseImageFloat32Atomics = false,
 			.sparseImageFloat32AtomicAdd = false,
 		};
-		VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_maintenance_features {
-			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT,
+		VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR swapchain_maintenance_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_KHR,
 			.pNext = &shader_atomic_float_features,
 			.swapchainMaintenance1 = false,
 		};
 		VkPhysicalDeviceVulkan11Features vulkan11_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
 			.pNext = (// NOTE: already added to device_extensions_set at this point!
-					  device_extensions_set.count(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) ?
+					  device_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) ||
+					  device_extensions_set.contains(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) ?
 					  (void*)&swapchain_maintenance_features : (void*)&shader_atomic_float_features),
 			.storageBuffer16BitAccess = true,
 			.uniformAndStorageBuffer16BitAccess = true,
@@ -1464,7 +1472,8 @@ enable_renderer(enable_renderer_) {
 		}
 		
 		if (enable_renderer && !internal->screen.x11_forwarding &&
-			device_extensions_set.count(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) &&
+			(device_extensions_set.contains(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME) ||
+			 device_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) &&
 			!swapchain_maintenance_features.swapchainMaintenance1) {
 			log_error("swapchainMaintenance1 is not supported by $", props.deviceName);
 			continue;
@@ -1552,7 +1561,9 @@ enable_renderer(enable_renderer_) {
 
 		// add other required or optional extensions
 		device_extensions_set.emplace(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
-		device_extensions_set.emplace(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
+		// prefer KHR over EXT if available
+		device_extensions_set.emplace(device_supported_extensions_set.contains(VK_KHR_ROBUSTNESS_2_EXTENSION_NAME) ?
+									  VK_KHR_ROBUSTNESS_2_EXTENSION_NAME : VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
 #if defined(__WINDOWS__)
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 		device_extensions_set.emplace(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -1566,7 +1577,7 @@ enable_renderer(enable_renderer_) {
 			device_extensions_set.emplace(VK_KHR_MAINTENANCE_6_EXTENSION_NAME);
 		}
 		if (enable_renderer && !internal->screen.x11_forwarding) {
-			if (device_supported_extensions_set.count(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
+			if (device_supported_extensions_set.contains(VK_EXT_HDR_METADATA_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_EXT_HDR_METADATA_EXTENSION_NAME);
 			} else {
 				hdr_supported = false;
@@ -1716,11 +1727,13 @@ enable_renderer(enable_renderer_) {
 			device_extensions_ptrs.emplace_back(ext.c_str());
 		}
 		
-		// ext feature enablement
-		// we only want the "null descriptor" feature from the robustness extension
+		// we only want the "null descriptor" feature from the robustness extension, disable all other robustness features
 		robustness_features.robustBufferAccess2 = false;
 		robustness_features.robustImageAccess2 = false;
-		// NOTE: shaderFloat16 is optional
+		vulkan13_features.robustImageAccess = false;
+		if (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			vulkan14_features.pipelineRobustness = false;
+		}
 		
 		// create device
 		const VkDeviceCreateInfo dev_info {
@@ -2504,8 +2517,8 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 	
 	// swap chain creation
 	const auto is_concurrent_sharing = (screen.render_device->all_queue_family_index != screen.render_device->compute_queue_family_index);
-	const VkSwapchainPresentModesCreateInfoEXT swapchain_present_modes_info {
-		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_EXT,
+	const VkSwapchainPresentModesCreateInfoKHR swapchain_present_modes_info {
+		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODES_CREATE_INFO_KHR,
 		.pNext = nullptr,
 		// TODO: support more than one present mode
 		.presentModeCount = 1,
@@ -2994,8 +3007,8 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 
 		// present window image
 		screen.swapchain_prev_layouts[drawable.index] = drawable.present_layout;
-		const VkSwapchainPresentFenceInfoEXT present_fence_info {
-			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT,
+		const VkSwapchainPresentFenceInfoKHR present_fence_info {
+			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_KHR,
 			.pNext = nullptr,
 			.swapchainCount = 1,
 			.pFences = &drawable.present_fence,
@@ -3017,7 +3030,7 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 		}
 		
 		if (!screen.render_device->swapchain_maintenance1_support) {
-			// when VK_EXT_swapchain_maintenance1 is not supported, perform a dummy queue submit to signal "present_fence"
+			// when VK_KHR_swapchain_maintenance1 is not supported, perform a dummy queue submit to signal "present_fence"
 			// NOTE: this may or may not be correct and properly ordered, but we can't do much else here ...
 			const VkSubmitInfo2 submit_info {
 				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,

@@ -84,6 +84,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
 			1829508205, // BestPractices-Pipeline-SortAndBind
 			-267480408, // BestPractices-NVIDIA-CreateImage-Depth32Format
 			-1819900685, // BestPractices-AMD-VkCommandBuffer-AvoidSecondaryCmdBuffers
+			1063606403, // BestPractices-AMD-vkImage-DontUseStorageRenderTargets
 
 			// TODO: implement/fix/use these
 			-1955647590, // BestPractices-NVIDIA-AllocateMemory-SetPriority
