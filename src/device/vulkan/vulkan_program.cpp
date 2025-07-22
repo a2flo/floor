@@ -402,15 +402,23 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						.requiredSubgroupSize = (entry->required_simd_width > 0 ?
 												 entry->required_simd_width : vk_dev.simd_width),
 					};
+					const auto& shader_code = prog_entry.programs[mod_iter->second].code;
+					entry->shader_module_info = VkShaderModuleCreateInfo {
+						.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+						.pNext = nullptr,
+						.flags = 0,
+						.codeSize = shader_code.size_bytes(),
+						.pCode = shader_code.data(),
+					};
 					entry->stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-						.pNext = nullptr,
+						.pNext = &entry->shader_module_info,
 						// NOTE: only valid for compute kernels (or mesh/task) + only when the used local size X dim is a multiple of the SIMD width
 						.flags = (info.type == FUNCTION_TYPE::KERNEL &&
 								  (entry->max_local_size.x % entry->stage_sub_group_info.requiredSubgroupSize) == 0u ?
 								  VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT : 0),
 						.stage = stage,
-						.module = prog_entry.programs[mod_iter->second],
+						.module = nullptr,
 						.pName = func_name.c_str(),
 						.pSpecializationInfo = nullptr,
 					};

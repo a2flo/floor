@@ -35,7 +35,13 @@ class vulkan_program final : public device_program {
 public:
 	//! stores a Vulkan program + function infos for an individual device
 	struct vulkan_program_entry : program_entry {
-		std::vector<VkShaderModule> programs;
+		struct program_data_t {
+			//! program storage
+			std::shared_ptr<uint32_t[]> storage;
+			//! program code for use in VkShaderModuleCreateInfo
+			std::span<const uint32_t> code;
+		};
+		std::vector<program_data_t> programs;
 		std::unordered_map<std::string, uint32_t> func_to_mod_map;
 	};
 	

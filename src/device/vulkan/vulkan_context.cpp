@@ -1728,6 +1728,7 @@ enable_renderer(enable_renderer_) {
 		}
 		
 		// we only want the "null descriptor" feature from the robustness extension, disable all other robustness features
+		features_2.features.robustBufferAccess = false;
 		robustness_features.robustBufferAccess2 = false;
 		robustness_features.robustImageAccess2 = false;
 		vulkan13_features.robustImageAccess = false;
@@ -3199,8 +3200,7 @@ std::shared_ptr<device_program> vulkan_context::create_program_from_archive_bina
 																   identifier);
 		if(!container.valid) return {}; // already prints an error
 		
-		prog_map.insert_or_assign(vlk_dev,
-								  create_vulkan_program_internal(*vlk_dev, container, func_info, identifier));
+		prog_map.insert_or_assign(vlk_dev, create_vulkan_program_internal(container, func_info));
 	}
 	return add_program(std::move(prog_map));
 }
@@ -3247,7 +3247,7 @@ std::shared_ptr<device_program> vulkan_context::add_program_file(const std::stri
 	options.target = toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((const vulkan_device*)dev.get(),
-								  create_vulkan_program(*dev, toolchain::compile_program_file(*dev, file_name, options)));
+								  create_vulkan_program(toolchain::compile_program_file(*dev, file_name, options)));
 	}
 	return add_program(std::move(prog_map));
 }
@@ -3265,13 +3265,12 @@ std::shared_ptr<device_program> vulkan_context::add_program_source(const std::st
 	options.target = toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((const vulkan_device*)dev.get(),
-								  create_vulkan_program(*dev, toolchain::compile_program(*dev, source_code, options)));
+								  create_vulkan_program(toolchain::compile_program(*dev, source_code, options)));
 	}
 	return add_program(std::move(prog_map));
 }
 
-vulkan_program::vulkan_program_entry vulkan_context::create_vulkan_program(const device& dev,
-																		   toolchain::program_data program) {
+vulkan_program::vulkan_program_entry vulkan_context::create_vulkan_program(toolchain::program_data program) {
 	if(!program.valid) {
 		return {};
 	}
@@ -3284,15 +3283,12 @@ vulkan_program::vulkan_program_entry vulkan_context::create_vulkan_program(const
 	}
 	if(!container.valid) return {}; // already prints an error
 	
-	return create_vulkan_program_internal((const vulkan_device&)dev, container, program.function_info,
-										  program.data_or_filename);
+	return create_vulkan_program_internal(container, program.function_info);
 }
 
 vulkan_program::vulkan_program_entry
-vulkan_context::create_vulkan_program_internal(const vulkan_device& dev,
-											   const spirv_handler::container& container,
-											   const std::vector<toolchain::function_info>& functions,
-											   const std::string& identifier) {
+vulkan_context::create_vulkan_program_internal(const spirv_handler::container& container,
+											   const std::vector<toolchain::function_info>& functions) {
 	vulkan_program::vulkan_program_entry ret;
 	ret.functions = functions;
 	
@@ -3301,22 +3297,15 @@ vulkan_context::create_vulkan_program_internal(const vulkan_device& dev,
 	for(const auto& entry : container.entries) {
 		// map functions (names) to the module index
 		const auto mod_idx = (uint32_t)ret.programs.size();
-		for(const auto& func_name : entry.function_names) {
+		for (const auto& func_name : entry.function_names) {
 			ret.func_to_mod_map.emplace(func_name, mod_idx);
 		}
 		
-		const VkShaderModuleCreateInfo module_info {
-			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = 0,
-			.codeSize = entry.data_word_count * 4,
-			.pCode = &container.spirv_data[entry.data_offset],
-		};
-		VkShaderModule module { nullptr };
-		VK_CALL_RET(vkCreateShaderModule(dev.device, &module_info, nullptr, &module),
-					"failed to create shader module (\"" + identifier + "\") for device \"" + dev.name + "\"", ret)
-		set_vulkan_debug_label(dev, VK_OBJECT_TYPE_SHADER_MODULE, uint64_t(module), identifier);
-		ret.programs.emplace_back(module);
+		// we must create a copy of the program data
+		auto program_storage = std::make_shared<uint32_t[]>(entry.data_word_count);
+		memcpy(program_storage.get(), &container.spirv_data[entry.data_offset], entry.data_word_count * sizeof(uint32_t));
+		std::span<const uint32_t> code_span { program_storage.get(), entry.data_word_count };
+		ret.programs.emplace_back(std::move(program_storage), code_span);
 	}
 
 	ret.valid = true;
@@ -3324,32 +3313,25 @@ vulkan_context::create_vulkan_program_internal(const vulkan_device& dev,
 }
 
 std::shared_ptr<device_program> vulkan_context::add_precompiled_program_file(const std::string& file_name,
-																		 const std::vector<toolchain::function_info>& functions) {
+																			 const std::vector<toolchain::function_info>& functions) {
 	// TODO: allow spir-v container?
 	size_t code_size = 0;
 	auto code = spirv_handler::load_binary(file_name, code_size);
-	if(code == nullptr) return {};
-	
-	const VkShaderModuleCreateInfo module_info {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.codeSize = code_size,
-		.pCode = code.get(),
-	};
+	if (code == nullptr) {
+		return {};
+	}
 	
 	// assume pre-compiled program is the same for all devices
 	vulkan_program::program_map_type prog_map;
-	for(const auto& dev : devices) {
+	for (const auto& dev : devices) {
 		vulkan_program::vulkan_program_entry entry;
 		entry.functions = functions;
 		
-		VkShaderModule module { nullptr };
-		const auto& vk_dev = (const vulkan_device&)dev;
-		VK_CALL_CONT(vkCreateShaderModule(vk_dev.device, &module_info, nullptr, &module),
-					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"")
-		set_vulkan_debug_label(vk_dev, VK_OBJECT_TYPE_SHADER_MODULE, uint64_t(module), file_name);
-		entry.programs.emplace_back(module);
+		// we must create a copy of the program data
+		auto program_storage = std::make_shared<uint32_t[]>(code_size);
+		memcpy(program_storage.get(), code.get(), code_size * sizeof(uint32_t));
+		std::span<const uint32_t> code_span { program_storage.get(), code_size };
+		entry.programs.emplace_back(std::move(program_storage), code_span);
 		entry.valid = true;
 		
 		prog_map.insert_or_assign((const vulkan_device*)dev.get(), entry);
@@ -3357,10 +3339,10 @@ std::shared_ptr<device_program> vulkan_context::add_precompiled_program_file(con
 	return add_program(std::move(prog_map));
 }
 
-std::shared_ptr<device_program::program_entry> vulkan_context::create_program_entry(const device& dev,
-																				toolchain::program_data program,
-																				const toolchain::TARGET) {
-	return std::make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program((const vulkan_device&)dev, program));
+std::shared_ptr<device_program::program_entry> vulkan_context::create_program_entry([[maybe_unused]] const device& dev,
+																					toolchain::program_data program,
+																					const toolchain::TARGET) {
+	return std::make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(program));
 }
 
 void vulkan_context::create_fixed_sampler_set() const {

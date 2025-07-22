@@ -28,6 +28,7 @@ namespace fl {
 struct vulkan_function_entry : device_function::function_entry {
 	VkPipelineLayout pipeline_layout { nullptr };
 	VkPipelineShaderStageRequiredSubgroupSizeCreateInfo stage_sub_group_info;
+	VkShaderModuleCreateInfo shader_module_info;
 	VkPipelineShaderStageCreateInfo stage_info;
 	VkDescriptorSetLayout desc_set_layout { nullptr };
 	

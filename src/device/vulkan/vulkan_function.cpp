@@ -107,7 +107,8 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 	VkPipelineShaderStageRequiredSubgroupSizeCreateInfo spec_stage_sub_group_info;
 	memcpy(&spec_stage_sub_group_info, &stage_sub_group_info, sizeof(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo));
 	spec_stage_sub_group_info.requiredSubgroupSize = simd_width;
-	stage_info_for_spec.pNext = &spec_stage_sub_group_info;
+	assert(stage_info_for_spec.pNext);
+	const_cast<VkShaderModuleCreateInfo*>((const VkShaderModuleCreateInfo*)stage_info_for_spec.pNext)->pNext = &spec_stage_sub_group_info;
 	
 	// clear "full subgroups" flag if the work-group size X dim is not a multiple of the SIMD width
 	if ((work_group_size.x % simd_width) != 0u) {
@@ -143,7 +144,9 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
+#if defined(FLOOR_DEBUG)
 	log_debug("specializing $ for $ SIMD $ ...", info->name, work_group_size, simd_width);
+#endif
 	VK_CALL_RET(vkCreateComputePipelines(dev.device, cache, 1, &pipeline_info, nullptr, &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ", " +
 				std::to_string(simd_width) + ")",

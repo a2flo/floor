@@ -129,15 +129,14 @@ public:
 															 const std::vector<toolchain::function_info>& functions) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
-	vulkan_program::vulkan_program_entry create_vulkan_program(const device& dev,
-															   toolchain::program_data program);
+	vulkan_program::vulkan_program_entry create_vulkan_program(toolchain::program_data program);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	std::shared_ptr<vulkan_program> add_program(vulkan_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program::program_entry> create_program_entry(const device& dev,
-																	toolchain::program_data program,
-																	const toolchain::TARGET target) override REQUIRES(!programs_lock);
+																		toolchain::program_data program,
+																		const toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
 	// execution functionality
@@ -247,10 +246,8 @@ protected:
 	std::vector<std::shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
 	
 	vulkan_program::vulkan_program_entry
-	create_vulkan_program_internal(const vulkan_device& dev,
-								   const spirv_handler::container& container,
-								   const std::vector<toolchain::function_info>& functions,
-								   const std::string& identifier);
+	create_vulkan_program_internal(const spirv_handler::container& container,
+								   const std::vector<toolchain::function_info>& functions);
 	
 	// creates the fixed sampler set for all devices
 	void create_fixed_sampler_set() const;
@@ -260,11 +257,11 @@ protected:
 	
 	//! internal device queue creation handler
 	std::shared_ptr<device_queue> create_queue_internal(const device& dev, const uint32_t family_index,
-													const device_queue::QUEUE_TYPE queue_type,
-													uint32_t& queue_index) const;
+														const device_queue::QUEUE_TYPE queue_type,
+														uint32_t& queue_index) const;
 	
 	std::shared_ptr<device_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins,
-																	 const std::string& identifier) REQUIRES(!programs_lock);
+																		 const std::string& identifier) REQUIRES(!programs_lock);
 	
 };
 
