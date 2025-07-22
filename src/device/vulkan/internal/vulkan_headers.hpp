@@ -30,8 +30,8 @@
 #endif
 #include "../../../../external/volk/volk.h"
 
-#if VK_HEADER_VERSION < 309
-#error "Vulkan header version must at least be 309"
+#if VK_HEADER_VERSION < 321
+#error "Vulkan header version must at least be 321"
 #endif
 
 #endif // FLOOR_NO_VULKAN
