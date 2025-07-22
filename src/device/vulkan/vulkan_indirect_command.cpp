@@ -360,7 +360,7 @@ void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_init(const 
 }
 
 void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(const device_queue& dev_queue, vulkan_command_buffer cmd_buffer) const {
-	auto internal_dev_queue = ((const vulkan_context*)dev_queue.get_device().context)->get_device_default_queue(dev_queue.get_device());
+	auto internal_dev_queue = ((const vulkan_context&)dev_queue.get_context()).get_device_default_queue(dev_queue.get_device());
 	((const vulkan_queue&)dev_queue).add_completion_handler(cmd_buffer, [this, internal_dev_queue]() {
 		auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
 		printf_buffer->read(*internal_dev_queue, cpu_printf_buffer.get());

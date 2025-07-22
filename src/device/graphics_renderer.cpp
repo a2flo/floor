@@ -26,7 +26,7 @@
 namespace fl {
 
 graphics_renderer::graphics_renderer(const device_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_) :
-cqueue(cqueue_), ctx(*cqueue.get_device().context), pass(pass_), cur_pipeline(&pipeline), multi_view(multi_view_),
+cqueue(cqueue_), ctx(cqueue.get_mutable_context()), pass(pass_), cur_pipeline(&pipeline), multi_view(multi_view_),
 is_indirect(pipeline.get_description(multi_view_).support_indirect_rendering) {
 	// TODO: check validity, check compat between pass <-> pipeline, check if cqueue dev is in pass+pipeline
 	

@@ -260,11 +260,11 @@ static inline void handle_printf_buffer(const std::span<uint32_t> buf) {
 }
 
 static inline std::shared_ptr<device_buffer> allocate_printf_buffer(const device_queue& dev_queue) {
-	auto printf_buffer = dev_queue.get_device().context->create_buffer(dev_queue, printf_buffer_size,
-																	   MEMORY_FLAG::READ_WRITE |
-																	   MEMORY_FLAG::HOST_READ_WRITE |
-																	   MEMORY_FLAG::NO_RESOURCE_TRACKING |
-																	   MEMORY_FLAG::__EXP_HEAP_ALLOC);
+	auto printf_buffer = dev_queue.get_context().create_buffer(dev_queue, printf_buffer_size,
+															   MEMORY_FLAG::READ_WRITE |
+															   MEMORY_FLAG::HOST_READ_WRITE |
+															   MEMORY_FLAG::NO_RESOURCE_TRACKING |
+															   MEMORY_FLAG::__EXP_HEAP_ALLOC);
 	printf_buffer->set_debug_label("printf_buffer");
 	return printf_buffer;
 }

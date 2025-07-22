@@ -789,10 +789,10 @@ bool metal_image::zero(const device_queue& cqueue) {
 			
 			const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 			
-			auto zero_buffer = cqueue.get_device().context->create_buffer(cqueue, bytes_per_slice,
-																		  MEMORY_FLAG::READ_WRITE |
-																		  MEMORY_FLAG::NO_RESOURCE_TRACKING |
-																		  MEMORY_FLAG::__EXP_HEAP_ALLOC);
+			auto zero_buffer = cqueue.get_context().create_buffer(cqueue, bytes_per_slice,
+																  MEMORY_FLAG::READ_WRITE |
+																  MEMORY_FLAG::NO_RESOURCE_TRACKING |
+																  MEMORY_FLAG::__EXP_HEAP_ALLOC);
 			zero_buffer->set_debug_label("zero_buffer");
 			auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 			

@@ -328,7 +328,7 @@ public:
 	
 protected:
 	const device_queue& cqueue;
-	const device_context& ctx;
+	device_context& ctx;
 	const graphics_pass& pass;
 	const graphics_pipeline* floor_nullable cur_pipeline { nullptr };
 	fl::flat_map<uint32_t, attachment_t> attachments_map;

@@ -132,4 +132,12 @@ void device_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	}
 }
 
+const device_context& device_queue::get_context() const {
+	return *dev.context;
+}
+
+device_context& device_queue::get_mutable_context() const {
+	return *dev.context;
+}
+
 } // namespace fl

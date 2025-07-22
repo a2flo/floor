@@ -31,6 +31,7 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
 class device;
+class device_context;
 class device_memory;
 class device_function;
 class indirect_command_pipeline;
@@ -267,6 +268,9 @@ public:
 	
 	//! returns the device associated with this queue
 	const device& get_device() const { return dev; }
+	//! returns the context associated with this queue
+	const device_context& get_context() const;
+	device_context& get_mutable_context() const;
 	
 	//! returns true if this queue has profiling support
 	virtual bool has_profiling_support() const {

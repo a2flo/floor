@@ -129,9 +129,9 @@ std::pair<std::unique_ptr<uint8_t[]>, size_t> device_image::rgba_to_rgb(const IM
 namespace fl {
 
 // embed the compiled mip-map-minify FUBAR file if it is available
-#if __has_embed("../etc/mip_map_minify/mmm.fubar")
+#if __has_embed("../../etc/mip_map_minify/mmm.fubar")
 static constexpr const uint8_t mmm_fubar[] {
-#embed "../etc/mip_map_minify/mmm.fubar"
+#embed "../../etc/mip_map_minify/mmm.fubar"
 };
 #define FLOOR_HAS_EMBEDDED_MMM_FUBAR 1
 #endif
@@ -241,10 +241,10 @@ void device_image::generate_mip_map_chain(const device_queue& cqueue) {
 	// this signals whether we have already tried loading the FUBAR and if it was successful or not
 	static std::unordered_map<device_context*, bool> did_add_embedded_program GUARDED_BY(did_add_embedded_program_lock);
 	{
-		auto ctx = cqueue.get_device().context;
+		auto& ctx = cqueue.get_mutable_context();
 		GUARD(did_add_embedded_program_lock);
-		if (!did_add_embedded_program.contains(ctx)) {
-			did_add_embedded_program[ctx] = add_embedded_minify_program(*ctx);
+		if (!did_add_embedded_program.contains(&ctx)) {
+			did_add_embedded_program[&ctx] = add_embedded_minify_program(ctx);
 		}
 	}
 #endif
