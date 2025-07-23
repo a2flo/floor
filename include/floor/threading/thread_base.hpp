@@ -62,14 +62,6 @@ public:
 	//! NOTE: this is a blocking call that won't return until the thread has been joined (or immediately returns
 	//! if the thread object doesn't exist, the thread is still in its initialized state or has already finished)
 	void finish();
-	//! basically finished the current thread execution (similar to finish()) and restarts the thread in a new thread object
-	virtual void restart();
-	//! "locks" the thread (this makes sure that the thread doesn't call the run method)
-	void lock();
-	//! tries to lock the thread, returns true on success, false on failure
-	bool try_lock();
-	//! unlocks the thread again
-	void unlock();
 	
 	//! sets the thread status (this should usually not be called from the outside)
 	void set_thread_status(const thread_base::THREAD_STATUS status);
@@ -103,7 +95,6 @@ public:
 protected:
 	const std::string thread_name;
 	std::unique_ptr<std::thread> thread_obj { nullptr };
-	std::recursive_mutex thread_lock {};
 	// there is no way in C++ to figure out if a lock is still held -> count the locks/unlocks manually
 	std::atomic<uint32_t> thread_lock_count { 0 };
 	std::atomic<THREAD_STATUS> thread_status { THREAD_STATUS::INIT };

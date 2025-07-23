@@ -25,17 +25,11 @@ namespace fl {
 using namespace std::literals;
 
 thread_base::thread_base(const std::string name) : thread_name(name) {
-	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running
 	thread_obj = std::make_unique<std::thread>(_thread_run, this);
 }
 
 thread_base::~thread_base() {
 	finish();
-	
-	// when destructing a mutex it must not be locked!
-	for(uint32_t i = 0, unlocks = thread_lock_count; i < unlocks; ++i) {
-		this->unlock();
-	}
 }
 
 void thread_base::start() {
@@ -46,70 +40,42 @@ void thread_base::start() {
 	}
 	
 	thread_status = THREAD_STATUS::RUNNING;
-	this->unlock();
-}
-
-void thread_base::restart() {
-	this->lock();
-	
-	// terminate old thread if it is still running
-	if(thread_obj != nullptr) {
-		if(thread_obj->joinable()) {
-			thread_should_finish_flag = true;
-			thread_obj->join();
-		}
-	}
-	thread_should_finish_flag = false;
-	
-	thread_obj = std::make_unique<std::thread>(_thread_run, this);
-	start();
 }
 
 int thread_base::_thread_run(thread_base* this_thread_obj) {
-	this_thread_obj->lock();
 	set_current_thread_name(this_thread_obj->thread_name);
-	this_thread_obj->unlock();
 	
-	while(true) {
-		// wait until we get the thread lock
-		if(this_thread_obj->try_lock()) {
-			// if the "finish flag" has been set in the mean time, don't call the run method!
-			if(!this_thread_obj->thread_should_finish()) {
-				try {
-					this_thread_obj->run();
-				} catch(std::exception& exc) {
-					log_error("encountered an unhandled exception while running a thread \"$\": $",
-							  get_current_thread_name(), exc.what());
-				} catch(...) {
-					log_error("encountered an unhandled exception while running a thread \"$\"",
-							  get_current_thread_name());
-				}
-			}
-			this_thread_obj->unlock();
-			
-			// again: if the "finish flag" has been set, don't wait, but continue immediately
-			if(!this_thread_obj->thread_should_finish()) {
-				// reduce system load and make other locks possible
-				const size_t thread_delay = this_thread_obj->get_thread_delay();
-				if(thread_delay > 0) {
-					std::this_thread::sleep_for(std::chrono::milliseconds(thread_delay));
-				}
-				else {
-					if(this_thread_obj->get_yield_after_run()) {
-						// just yield when delay == 0 and "yield after run" flag is set
-						std::this_thread::yield();
-					}
-				}
-			}
-		}
-		else {
-			if(this_thread_obj->get_yield_after_run()) {
-				std::this_thread::yield();
-			}
+	// wait until start() was called
+	while (this_thread_obj->thread_status != THREAD_STATUS::RUNNING &&
+		   !this_thread_obj->thread_should_finish()) {
+		std::this_thread::sleep_for(20ms);
+	}
+	
+	// if the "finish flag" has been set in the mean time, don't rerun
+	while (!this_thread_obj->thread_should_finish()) {
+		// run
+		try {
+			this_thread_obj->run();
+		} catch(std::exception& exc) {
+			log_error("encountered an unhandled exception while running a thread \"$\": $",
+					  get_current_thread_name(), exc.what());
+		} catch(...) {
+			log_error("encountered an unhandled exception while running a thread \"$\"",
+					  get_current_thread_name());
 		}
 		
-		if(this_thread_obj->thread_should_finish()) {
-			break;
+		// again: if the "finish flag" has been set, don't wait, but continue immediately
+		if (!this_thread_obj->thread_should_finish()) {
+			// reduce system load and make other locks possible
+			const size_t thread_delay = this_thread_obj->get_thread_delay();
+			if (thread_delay > 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(thread_delay));
+			} else {
+				if (this_thread_obj->get_yield_after_run()) {
+					// just yield when delay == 0 and "yield after run" flag is set
+					std::this_thread::yield();
+				}
+			}
 		}
 	}
 	this_thread_obj->set_thread_status(THREAD_STATUS::FINISHED);
@@ -141,41 +107,6 @@ void thread_base::finish() {
 	// else: thread doesn't exist
 	
 	set_thread_status(THREAD_STATUS::FINISHED);
-}
-
-void thread_base::lock() {
-	try {
-		thread_lock.lock();
-		thread_lock_count++;
-	} catch(std::system_error& sys_err) {
-		std::cout << "unable to lock thread: " << sys_err.code() << ": " << sys_err.what() << std::endl;
-	} catch(...) {
-		std::cout << "unable to lock thread" << std::endl;
-	}
-}
-
-bool thread_base::try_lock() {
-	try {
-		const bool ret = thread_lock.try_lock();
-		if(ret) thread_lock_count++;
-		return ret;
-	} catch(std::system_error& sys_err) {
-		std::cout << "unable to try-lock thread: " << sys_err.code() << ": " << sys_err.what() << std::endl;
-	} catch(...) {
-		std::cout << "unable to try-lock thread" << std::endl;
-	}
-	return false;
-}
-
-void thread_base::unlock() {
-	try {
-		thread_lock.unlock();
-		thread_lock_count--;
-	} catch(std::system_error& sys_err) {
-		std::cout << "unable to unlock thread: " << sys_err.code() << ": " << sys_err.what() << std::endl;
-	} catch(...) {
-		std::cout << "unable to unlock thread" << std::endl;
-	}
 }
 
 void thread_base::set_thread_status(const thread_base::THREAD_STATUS status) {

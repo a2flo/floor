@@ -218,6 +218,7 @@ struct vulkan_command_pool_t {
 	const bool is_secondary { false };
 	const bool no_blocking { false };
 	const bool sema_wait_polling { false };
+	static inline std::atomic<bool> is_ctx_shutdown { false };
 	
 	vulkan_command_pool_t(const vulkan_device& dev_, const vulkan_queue& queue_, const bool is_secondary_) :
 	dev(dev_), queue(queue_), is_secondary(is_secondary_),
@@ -225,6 +226,11 @@ struct vulkan_command_pool_t {
 	sema_wait_polling(floor::get_vulkan_sema_wait_polling()) {}
 	
 	~vulkan_command_pool_t() {
+		// if the Vulkan context has already been shut down, don't do anything in here
+		if (is_ctx_shutdown) {
+			return;
+		}
+		
 		// NOTE: this is called via vulkan_command_pool_destructor_t on thread exit
 		{
 			// if the work sema is still in use, try to wait for (but no longer than 5s)
@@ -658,6 +664,7 @@ void vulkan_queue::init() {
 void vulkan_queue::destroy() {
 	if (did_init_vulkan_queue) {
 		vk_cmd_completion_handler = nullptr;
+		vulkan_command_pool_t::is_ctx_shutdown = true;
 	}
 }
 

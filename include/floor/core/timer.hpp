@@ -19,6 +19,7 @@
 #pragma once
 
 #include <floor/core/platform.hpp>
+#include <chrono>
 
 namespace fl {
 

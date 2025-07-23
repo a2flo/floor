@@ -720,6 +720,9 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_video_maintenance2",
 			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_bfloat16",
+			// these are not needed and interfere with Nsight
+			"VK_KHR_pipeline_binary",
+			"VK_KHR_pipeline_library",
 		};
 		static constexpr const std::array filtered_exts_vk14 {
 			// deprecated, now in core 1.4

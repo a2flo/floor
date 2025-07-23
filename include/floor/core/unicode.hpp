@@ -33,7 +33,10 @@ namespace fl::unicode {
 	//! returns <false, 0> if the utf-8 code point is invalid and <true, utf-32 code> if valid
 	//! NOTE: the specified 'iter' is advanced while doing this (will point to the last code point byte)
 	std::pair<bool, uint32_t> decode_utf8_char(const char*& iter, const char* const& end_iter);
-	std::pair<bool, uint32_t> decode_utf8_char(std::string::const_iterator& iter, const std::string ::const_iterator& end_iter);
+	std::pair<bool, uint32_t> decode_utf8_char(std::string::const_iterator& iter, const std::string::const_iterator& end_iter);
+#if defined(_MSVC_STL_UPDATE)
+	std::pair<bool, uint32_t> decode_utf8_char(std::string_view::const_iterator& iter, const std::string_view::const_iterator& end_iter);
+#endif
 	
 	//! checks if a string is a valid utf-8 string, returns <true, cend> if valid
 	//! and <false, iterator to invalid code sequence> if invalid

@@ -460,7 +460,7 @@ void disassemble(const vulkan_device& dev, const std::string& identifier, const 
 				}
 				vkGetPipelineExecutableInternalRepresentationsKHR(dev.device, &exec_info, &ir_count, ir_data.data());
 				for (const auto& ir : ir_data) {
-					file_io::buffer_to_file(identifier + "_ir_" + ir.name + ".txt", (const char*)ir.pData, ir.dataSize);
+					file_io::buffer_to_file(identifier + "_" + std::to_string(exec_idx) + "_ir_" + ir.name + ".txt", (const char*)ir.pData, ir.dataSize);
 				}
 			}
 			

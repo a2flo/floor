@@ -24,10 +24,10 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/platform.hpp>
 
-#if defined(SDL_PLATFORM_LINUX)
+#if defined(__linux__)
 #define VK_USE_PLATFORM_XLIB_KHR 1
 #define VK_USE_PLATFORM_WAYLAND_KHR 1
-#elif defined(SDL_PLATFORM_WIN32)
+#elif defined(__WINDOWS__)
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #endif
 #define VK_NO_PROTOTYPES 1

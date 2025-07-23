@@ -71,9 +71,15 @@ std::pair<bool, uint32_t> decode_utf8_char(const char*& iter, const char* const&
 	return gen_iter_decode_utf8_char(iter, end_iter);
 }
 
-std::pair<bool, uint32_t> decode_utf8_char(std::string::const_iterator& iter, const std::string ::const_iterator& end_iter) {
+std::pair<bool, uint32_t> decode_utf8_char(std::string::const_iterator& iter, const std::string::const_iterator& end_iter) {
 	return gen_iter_decode_utf8_char(iter, end_iter);
 }
+
+#if defined(_MSVC_STL_UPDATE)
+std::pair<bool, uint32_t> decode_utf8_char(std::string_view::const_iterator& iter, const std::string_view::const_iterator& end_iter) {
+	return gen_iter_decode_utf8_char(iter, end_iter);
+}
+#endif
 
 std::vector<uint32_t> utf8_to_unicode(const std::string_view& str) {
 	std::vector<uint32_t> ret;
