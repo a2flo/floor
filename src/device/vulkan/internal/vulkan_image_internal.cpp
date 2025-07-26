@@ -20,9 +20,11 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include "vulkan_image_internal.hpp"
+#include <floor/device/device_context.hpp>
 #include <floor/device/vulkan/vulkan_queue.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include "vulkan_conversion.hpp"
+#include "vulkan_heap.hpp"
 #include <cassert>
 #include <cstring>
 
@@ -160,6 +162,27 @@ vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_lim
 		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 	
+	if (has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags) &&
+		!vk_dev.has_device_host_coherent_opt_image_support) {
+		log_error("device-local/host-coherent images are not supported by the Vulkan device");
+		return;
+	}
+	
+	// both heap flags must be enabled for this to be viable + must obviously not be backed by CPU memory
+	const auto ctx_flags = dev.context->get_context_flags();
+	if ((has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) ||
+		 has_flag<DEVICE_CONTEXT_FLAGS::__EXP_VULKAN_ALWAYS_HEAP>(ctx_flags)) &&
+		!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
+		// TODO: support sharing
+		!has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags) &&
+		// TODO: support aliasing
+		!has_flag<MEMORY_FLAG::VULKAN_ALIASING>(flags) &&
+		// TODO: support transient
+		!has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(image_type) &&
+		has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(ctx_flags)) {
+		is_heap_allocation = true;
+	}
+	
 	// actually create the image
 	if (!create_internal(true, cqueue_, usage)) {
 		return; // can't do much else
@@ -260,6 +283,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 	}
 	const auto is_concurrent_sharing = ((vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index) &&
 										!is_render_target);
+	const auto is_aliased_array = (is_aliasing && is_array);
 	const VkImageCreateInfo image_create_info {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.pNext = (is_sharing ? &ext_create_info : nullptr),
@@ -277,133 +301,146 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 		.initialLayout = initial_layout,
 	};
-	VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
-				"image creation failed", false)
-	
-	// aliased array: create images for each plane
-	const auto is_aliased_array = (is_aliasing && is_array);
-	if (is_aliased_array) {
-		const auto layer_count = image_layer_count(image_dim, image_type);
-		image_aliased_layers.resize(layer_count, nullptr);
+	if (!is_heap_allocation) {
+		VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
+					"image creation failed", false)
 		
-		auto image_layer_create_info = image_create_info;
-		image_layer_create_info.arrayLayers = 1;
-		image_layer_create_info.extent.depth = 1;
-		for (uint32_t layer = 0; layer < layer_count; ++layer) {
-			VK_CALL_RET(vkCreateImage(vulkan_dev, &image_layer_create_info, nullptr, &image_aliased_layers[layer]),
-						"image layer creation failed", false)
+		// aliased array: create images for each plane
+		if (is_aliased_array) {
+			const auto layer_count = image_layer_count(image_dim, image_type);
+			image_aliased_layers.resize(layer_count, nullptr);
+			
+			auto image_layer_create_info = image_create_info;
+			image_layer_create_info.arrayLayers = 1;
+			image_layer_create_info.extent.depth = 1;
+			for (uint32_t layer = 0; layer < layer_count; ++layer) {
+				VK_CALL_RET(vkCreateImage(vulkan_dev, &image_layer_create_info, nullptr, &image_aliased_layers[layer]),
+							"image layer creation failed", false)
+			}
 		}
-	}
-	
-	// export memory alloc info (if sharing is enabled)
-	VkExportMemoryAllocateInfo export_alloc_info;
-#if defined(__WINDOWS__)
-	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
-#endif
-	if (is_sharing) {
-#if defined(__WINDOWS__)
-		// Windows 8+ needs more detailed sharing info
-		export_mem_win32_info = {
-			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-			.pNext = nullptr,
-			// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
-			//       -> we don't need this, so set it to nullptr
-			.pAttributes = nullptr,
-			.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
-			.name = nullptr,
-		};
-#endif
 		
-		export_alloc_info = {
-			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+		// export memory alloc info (if sharing is enabled)
+		VkExportMemoryAllocateInfo export_alloc_info;
 #if defined(__WINDOWS__)
-			.pNext = &export_mem_win32_info,
-			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
-#else
-			.pNext = nullptr,
-			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+		VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
-		};
-	}
-	
-	// allocate / back it up
-	VkMemoryDedicatedRequirements ded_req {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
-		.pNext = nullptr,
-		.prefersDedicatedAllocation = false,
-		.requiresDedicatedAllocation = false,
-	};
-	VkMemoryRequirements2 mem_req2 {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-		.pNext = (!is_aliasing ? &ded_req : nullptr),
-		.memoryRequirements = {},
-	};
-	const VkImageMemoryRequirementsInfo2 mem_req_info {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
-		.pNext = nullptr,
-		.image = image,
-	};
-	vkGetImageMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
-	const auto is_dedicated = (!is_aliasing && (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation));
-	const auto& mem_req = mem_req2.memoryRequirements;
-	allocation_size = mem_req.size;
-	
-	const VkMemoryDedicatedAllocateInfo ded_alloc_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.image = image,
-		.buffer = VK_NULL_HANDLE,
-	};
-	if (is_sharing && is_dedicated) {
-		export_alloc_info.pNext = &ded_alloc_info;
-	}
-	const VkMemoryAllocateInfo alloc_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
-		.allocationSize = allocation_size,
-		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
-												  is_sharing /* sharing requires device memory */,
-												  false /* host-coherent is not required */),
-	};
-	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem),
-				"image allocation (" + std::to_string(allocation_size) + " bytes) failed", false)
-	const VkBindImageMemoryInfo bind_info {
-		.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
-		.pNext = nullptr,
-		.image = image,
-		.memory = mem,
-		.memoryOffset = 0,
-	};
-	VK_CALL_RET(vkBindImageMemory2(vulkan_dev, 1, &bind_info), "image allocation binding failed", false)
-
-	// aliased array: back each layer
-	if (is_aliased_array) {
-		VkMemoryRequirements2 layer_mem_req2 {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-			.pNext = nullptr,
-			.memoryRequirements = {},
-		};
-		const VkImageMemoryRequirementsInfo2 layer_mem_req_info {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
-			.pNext = nullptr,
-			.image = image_aliased_layers[0],
-		};
-		vkGetImageMemoryRequirements2(vulkan_dev, &layer_mem_req_info, &layer_mem_req2);
-		const auto& layer_mem_req = layer_mem_req2.memoryRequirements;
-		
-		const auto per_layer_size = layer_mem_req.size;
-		std::vector<VkBindImageMemoryInfo> per_layer_bind_info(layer_count);
-		for (uint32_t layer = 0; layer < layer_count; ++layer) {
-			per_layer_bind_info[layer] = {
-				.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+		if (is_sharing) {
+#if defined(__WINDOWS__)
+			// Windows 8+ needs more detailed sharing info
+			export_mem_win32_info = {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
 				.pNext = nullptr,
-				.image = image_aliased_layers[layer],
-				.memory = mem,
-				.memoryOffset = per_layer_size * layer,
+				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+				//       -> we don't need this, so set it to nullptr
+				.pAttributes = nullptr,
+				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+				.name = nullptr,
+			};
+#endif
+			
+			export_alloc_info = {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#if defined(__WINDOWS__)
+				.pNext = &export_mem_win32_info,
+				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+#else
+				.pNext = nullptr,
+				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
 			};
 		}
-		VK_CALL_RET(vkBindImageMemory2(vulkan_dev, (uint32_t)per_layer_bind_info.size(), per_layer_bind_info.data()),
-					"image layer allocation binding failed", false)
+		
+		// allocate / back it up
+		VkMemoryDedicatedRequirements ded_req {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+			.pNext = nullptr,
+			.prefersDedicatedAllocation = false,
+			.requiresDedicatedAllocation = false,
+		};
+		VkMemoryRequirements2 mem_req2 {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+			.pNext = (!is_aliasing ? &ded_req : nullptr),
+			.memoryRequirements = {},
+		};
+		const VkImageMemoryRequirementsInfo2 mem_req_info {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+			.pNext = nullptr,
+			.image = image,
+		};
+		vkGetImageMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+		const auto is_dedicated = (!is_aliasing && (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation));
+		const auto& mem_req = mem_req2.memoryRequirements;
+		allocation_size = mem_req.size;
+		
+		const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+			.pNext = nullptr,
+			.image = image,
+			.buffer = VK_NULL_HANDLE,
+		};
+		if (is_sharing && is_dedicated) {
+			export_alloc_info.pNext = &ded_alloc_info;
+		}
+		const VkMemoryAllocateInfo alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
+			.allocationSize = allocation_size,
+			.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
+													  is_sharing /* sharing requires device memory */,
+													  false /* host-coherent is not required */),
+		};
+		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem),
+					"image allocation (" + std::to_string(allocation_size) + " bytes) failed", false)
+		const VkBindImageMemoryInfo bind_info {
+			.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+			.pNext = nullptr,
+			.image = image,
+			.memory = mem,
+			.memoryOffset = 0,
+		};
+		VK_CALL_RET(vkBindImageMemory2(vulkan_dev, 1, &bind_info), "image allocation binding failed", false)
+		
+		// aliased array: back each layer
+		if (is_aliased_array) {
+			VkMemoryRequirements2 layer_mem_req2 {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+				.pNext = nullptr,
+				.memoryRequirements = {},
+			};
+			const VkImageMemoryRequirementsInfo2 layer_mem_req_info {
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+				.pNext = nullptr,
+				.image = image_aliased_layers[0],
+			};
+			vkGetImageMemoryRequirements2(vulkan_dev, &layer_mem_req_info, &layer_mem_req2);
+			const auto& layer_mem_req = layer_mem_req2.memoryRequirements;
+			
+			const auto per_layer_size = layer_mem_req.size;
+			std::vector<VkBindImageMemoryInfo> per_layer_bind_info(layer_count);
+			for (uint32_t layer = 0; layer < layer_count; ++layer) {
+				per_layer_bind_info[layer] = {
+					.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
+					.pNext = nullptr,
+					.image = image_aliased_layers[layer],
+					.memory = mem,
+					.memoryOffset = per_layer_size * layer,
+				};
+			}
+			VK_CALL_RET(vkBindImageMemory2(vulkan_dev, (uint32_t)per_layer_bind_info.size(), per_layer_bind_info.data()),
+						"image layer allocation binding failed", false)
+		}
+	} else {
+		// NOTE: if VMA fails to perform a heap allocation, it will automatically fall back to a dedicated allocation -> no fallback needed
+		auto alloc = vk_dev.heap->create_image(image_create_info, flags, image_type);
+		if (!alloc.is_valid()) {
+			log_error("image heap creation failed");
+			return false;
+		}
+		image = alloc.image;
+		heap_allocation = alloc.allocation;
+		mem = alloc.memory;
+		allocation_size = alloc.allocation_size;
+		is_heap_allocation_host_visible = alloc.is_host_visible;
 	}
 	
 	// create the view

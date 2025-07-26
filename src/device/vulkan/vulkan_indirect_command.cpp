@@ -177,6 +177,13 @@ indirect_command_pipeline(desc_) {
 }
 
 vulkan_indirect_command_pipeline::~vulkan_indirect_command_pipeline() {
+	// ensure buffers are unmapped when they are heap-allocated
+	for (const auto&& pipeline : pipelines) {
+		if (pipeline.second.cmd_parameters && pipeline.second.cmd_parameters->is_heap_allocated()) {
+			auto dev_queue = pipeline.first->context->get_device_default_queue(*pipeline.first);
+			pipeline.second.cmd_parameters->unmap(*dev_queue, pipeline.second.mapped_cmd_parameters);
+		}
+	}
 }
 
 const vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command_pipeline::get_vulkan_pipeline_entry(const device& dev) const {

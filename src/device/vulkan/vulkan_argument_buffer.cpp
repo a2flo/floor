@@ -55,6 +55,17 @@ mapped_host_memory(mapped_host_memory_), constant_buffer_storage(constant_buffer
 #endif
 }
 
+vulkan_argument_buffer::~vulkan_argument_buffer() {
+	// ensure buffers are unmapped when they are heap-allocated
+	if (storage_buffer->is_heap_allocated()) {
+		storage_buffer->unmap(*storage_buffer->get_default_queue_for_memory(*storage_buffer), mapped_host_memory.data());
+	}
+	if (constant_buffer_storage && constant_buffer_storage->is_heap_allocated()) {
+		constant_buffer_storage->unmap(*constant_buffer_storage->get_default_queue_for_memory(*constant_buffer_storage),
+									   constant_buffer_mapping.data());
+	}
+}
+
 bool vulkan_argument_buffer::set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) {
 	const auto& vk_dev = (const vulkan_device&)dev_queue.get_device();
 	const vulkan_args::constant_buffer_wrapper_t const_buf {

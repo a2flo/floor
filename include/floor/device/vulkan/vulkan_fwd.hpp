@@ -77,4 +77,9 @@ using VkAccessFlags2 = VkFlags64;
 
 union VkClearValue;
 
+// from volk
 struct VolkDeviceTable;
+
+// from VMA
+struct VmaAllocation_T;
+using VmaAllocation = VmaAllocation_T*;

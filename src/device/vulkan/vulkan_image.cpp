@@ -25,6 +25,7 @@
 #include "internal/vulkan_debug.hpp"
 #include "internal/vulkan_conversion.hpp"
 #include "internal/vulkan_image_internal.hpp"
+#include "internal/vulkan_heap.hpp"
 #include <floor/device/vulkan/vulkan_queue.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>
@@ -64,21 +65,26 @@ vulkan_image::~vulkan_image() {
 	auto vulkan_dev = ((const vulkan_device&)dev).device;
 	
 	if (!is_external) {
-		if(image_view != nullptr) {
+		if (image_view != nullptr) {
 			vkDestroyImageView(vulkan_dev, image_view, nullptr);
 			image_view = nullptr;
 		}
 		
 		// mip-map image views
-		if(is_mip_mapped && (generate_mip_maps || has_flag<IMAGE_TYPE::WRITE>(image_type))) {
+		if (is_mip_mapped && (generate_mip_maps || has_flag<IMAGE_TYPE::WRITE>(image_type))) {
 			// only need to destroy all created ones (not up to dev->max_mip_levels)
-			for(uint32_t i = 0; i < mip_level_count; ++i) {
+			for (uint32_t i = 0; i < mip_level_count; ++i) {
 				vkDestroyImageView(vulkan_dev, mip_map_image_view[i], nullptr);
 			}
 		}
 		
-		if(image != nullptr) {
-			vkDestroyImage(vulkan_dev, image, nullptr);
+		if (image != nullptr) {
+			if (is_heap_allocation) {
+				vk_dev.heap->destroy_allocation(heap_allocation, image);
+				heap_allocation = nullptr;
+			} else {
+				vkDestroyImage(vulkan_dev, image, nullptr);
+			}
 			image = nullptr;
 		}
 	}

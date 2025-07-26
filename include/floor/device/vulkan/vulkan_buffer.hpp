@@ -82,6 +82,10 @@ public:
 	
 	void set_debug_label(const std::string& label) override;
 	
+	bool is_heap_allocated() const override {
+		return is_heap_allocation;
+	}
+	
 	//! max size of an SSBO descriptor
 	static constexpr const uint32_t max_ssbo_descriptor_size { 16u };
 	

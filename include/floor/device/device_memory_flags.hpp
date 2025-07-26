@@ -109,6 +109,7 @@ enum class MEMORY_FLAG : uint32_t {
 	VULKAN_ALIASING				= (1u << 14u),
 	
 	//! Vulkan-only: allocate memory in device-local / host-coherent memory
+	//! NOTE: must have HOST_READ and/or HOST_WRITE set
 	VULKAN_HOST_COHERENT		= (1u << 15u),
 	
 	//! Metal-only: disables any automatic resource tracking on the allocated Metal object
@@ -140,7 +141,7 @@ enum class MEMORY_FLAG : uint32_t {
 	//! NOTE: this is the default
 	SHARING_COMPUTE_READ_WRITE	= (SHARING_COMPUTE_READ | SHARING_COMPUTE_WRITE),
 	
-	//! Metal-only (for now): *experimental* heap allocation from an internal memory heap
+	//! Metal/Vulkan-only: *experimental* heap allocation from an internal memory heap
 	//! NOTE: if other flags prevent the use of heap memory, a normal allocation will be made instead
 	__EXP_HEAP_ALLOC			= (1u << 23u),
 	

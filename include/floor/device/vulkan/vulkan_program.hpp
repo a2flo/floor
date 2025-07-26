@@ -49,6 +49,7 @@ public:
 	using program_map_type = fl::flat_map<const vulkan_device*, vulkan_program_entry>;
 	
 	vulkan_program(program_map_type&& programs);
+	~vulkan_program() override;
 	
 	//! returns a static empty descriptor set layout for the specified device
 	static VkDescriptorSetLayout get_empty_descriptor_set(const device& dev);

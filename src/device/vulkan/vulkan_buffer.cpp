@@ -26,6 +26,7 @@
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>
 #include "internal/vulkan_debug.hpp"
+#include "internal/vulkan_heap.hpp"
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
@@ -43,21 +44,31 @@ vulkan_buffer::vulkan_buffer(const device_queue& cqueue,
 							 const MEMORY_FLAG flags_) :
 device_buffer(cqueue, size_, host_data_, flags_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
-	if(size < min_multiple()) return;
+	if (size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
 	if (host_data.data() != nullptr && !has_flag<MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// TODO: flag?
 	}
 	
+	// both heap flags must be enabled for this to be viable + must obviously not be backed by CPU memory
+	const auto ctx_flags = dev.context->get_context_flags();
+	if ((has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) ||
+		 has_flag<DEVICE_CONTEXT_FLAGS::__EXP_VULKAN_ALWAYS_HEAP>(ctx_flags)) &&
+		!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
+		// TODO: support sharing
+		!has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags) &&
+		has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(ctx_flags)) {
+		is_heap_allocation = true;
+	}
+	
 	// actually create the buffer
-	if(!create_internal(true, cqueue)) {
+	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
 }
 
 bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queue& cqueue) {
-	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	const auto& vulkan_dev = vk_dev.device;
 	
 	// create the buffer
@@ -103,94 +114,109 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 		.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
 		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 	};
-	VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
-				"buffer creation failed", false)
 	
-	// export memory alloc info (if sharing is enabled)
-	VkExportMemoryAllocateInfo export_alloc_info;
-#if defined(__WINDOWS__)
-	VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
-#endif
-	if (is_sharing) {
-#if defined(__WINDOWS__)
-		// Windows 8+ needs more detailed sharing info
-		export_mem_win32_info = {
-			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-			.pNext = nullptr,
-			// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
-			//       -> we don't need this, so set it to nullptr
-			.pAttributes = nullptr,
-			.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
-			.name = nullptr,
-		};
-#endif
+	if (!is_heap_allocation) {
+		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
+					"buffer creation failed", false)
 		
-		export_alloc_info = {
-			.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+		// export memory alloc info (if sharing is enabled)
+		VkExportMemoryAllocateInfo export_alloc_info;
 #if defined(__WINDOWS__)
-			.pNext = &export_mem_win32_info,
-			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
-#else
-			.pNext = nullptr,
-			.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+		VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
+		if (is_sharing) {
+#if defined(__WINDOWS__)
+			// Windows 8+ needs more detailed sharing info
+			export_mem_win32_info = {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+				.pNext = nullptr,
+				// NOTE: SECURITY_ATTRIBUTES are only required if we want a child process to inherit this handle
+				//       -> we don't need this, so set it to nullptr
+				.pAttributes = nullptr,
+				.dwAccess = (DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE),
+				.name = nullptr,
+			};
+#endif
+			
+			export_alloc_info = {
+				.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#if defined(__WINDOWS__)
+				.pNext = &export_mem_win32_info,
+				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+#else
+				.pNext = nullptr,
+				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
+			};
+		}
+		
+		// allocate / back it up
+		VkMemoryDedicatedRequirements ded_req {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+			.pNext = nullptr,
+			.prefersDedicatedAllocation = false,
+			.requiresDedicatedAllocation = false,
 		};
+		VkMemoryRequirements2 mem_req2 {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+			.pNext = &ded_req,
+			.memoryRequirements = {},
+		};
+		const VkBufferMemoryRequirementsInfo2 mem_req_info {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+			.pNext = nullptr,
+			.buffer = buffer,
+		};
+		vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+		const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
+		const auto& mem_req = mem_req2.memoryRequirements;
+		allocation_size = mem_req.size;
+		
+		const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+			.pNext = nullptr,
+			.image = VK_NULL_HANDLE,
+			.buffer = buffer,
+		};
+		if (is_sharing && is_dedicated) {
+			export_alloc_info.pNext = &ded_alloc_info;
+		}
+		const VkMemoryAllocateFlagsInfo alloc_flags_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+			.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
+			.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+			.deviceMask = 0,
+		};
+		const VkMemoryAllocateInfo alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.pNext = &alloc_flags_info,
+			.allocationSize = allocation_size,
+			.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
+													  is_sharing || is_host_coherent /* sharing or host-coherent requires device memory */,
+													  is_host_coherent /* require host-coherent if set */),
+		};
+		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
+		const VkBindBufferMemoryInfo bind_info {
+			.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+			.pNext = nullptr,
+			.buffer = buffer,
+			.memory = mem,
+			.memoryOffset = 0,
+		};
+		VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "buffer allocation binding failed", false)
+	} else {
+		// NOTE: if VMA fails to perform a heap allocation, it will automatically fall back to a dedicated allocation -> no fallback needed
+		auto alloc = vk_dev.heap->create_buffer(buffer_create_info, flags);
+		if (!alloc.is_valid()) {
+			log_error("buffer heap creation failed");
+			return false;
+		}
+		buffer = alloc.buffer;
+		heap_allocation = alloc.allocation;
+		mem = alloc.memory;
+		allocation_size = alloc.allocation_size;
+		is_heap_allocation_host_visible = alloc.is_host_visible;
 	}
-	
-	// allocate / back it up
-	VkMemoryDedicatedRequirements ded_req {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
-		.pNext = nullptr,
-		.prefersDedicatedAllocation = false,
-		.requiresDedicatedAllocation = false,
-	};
-	VkMemoryRequirements2 mem_req2 {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-		.pNext = &ded_req,
-		.memoryRequirements = {},
-	};
-	const VkBufferMemoryRequirementsInfo2 mem_req_info {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
-		.pNext = nullptr,
-		.buffer = buffer,
-	};
-	vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
-	const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
-	const auto& mem_req = mem_req2.memoryRequirements;
-	allocation_size = mem_req.size;
-	
-	const VkMemoryDedicatedAllocateInfo ded_alloc_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.image = VK_NULL_HANDLE,
-		.buffer = buffer,
-	};
-	if (is_sharing && is_dedicated) {
-		export_alloc_info.pNext = &ded_alloc_info;
-	}
-	const VkMemoryAllocateFlagsInfo alloc_flags_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-		.pNext = (is_sharing ? (void*)&export_alloc_info : (is_dedicated ? (void*)&ded_alloc_info : nullptr)),
-		.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
-		.deviceMask = 0,
-	};
-	const VkMemoryAllocateInfo alloc_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.pNext = &alloc_flags_info,
-		.allocationSize = allocation_size,
-		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
-												  is_sharing || is_host_coherent /* sharing or host-coherent requires device memory */,
-												  is_host_coherent /* require host-coherent if set */),
-	};
-	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
-	const VkBindBufferMemoryInfo bind_info {
-		.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
-		.pNext = nullptr,
-		.buffer = buffer,
-		.memory = mem,
-		.memoryOffset = 0,
-	};
-	VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "buffer allocation binding failed", false)
 	
 	// query device address
 	const VkBufferDeviceAddressInfo dev_addr_info {
@@ -203,7 +229,6 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 		log_error("failed to query buffer device address");
 		return false;
 	}
-	//log_debug("dev addr: $X", buffer_device_address);
 	
 	// query descriptor data
 	const VkDescriptorAddressInfoEXT addr_info {
@@ -260,8 +285,13 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 }
 
 vulkan_buffer::~vulkan_buffer() {
-	if(buffer != nullptr) {
-		vkDestroyBuffer(((const vulkan_device&)dev).device, buffer, nullptr);
+	if (buffer != nullptr) {
+		if (is_heap_allocation) {
+			vk_dev.heap->destroy_allocation(heap_allocation, buffer);
+			heap_allocation = nullptr;
+		} else {
+			vkDestroyBuffer(vk_dev.device, buffer, nullptr);
+		}
 		buffer = nullptr;
 	}
 }
@@ -400,7 +430,9 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(const device_queue& cqueu
 													   const MEMORY_MAP_FLAG flags_,
 													   const size_t size_, const size_t offset) {
 	const size_t map_size = (size_ == 0 ? size : size_);
-	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
+	if (!map_check(size, map_size, flags, flags_, offset)) {
+		return nullptr;
+	}
 	return vulkan_memory::map(cqueue, flags_, map_size, offset);
 }
 

@@ -48,9 +48,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
 			return VK_FALSE;
 		}
 		if (cb_data->pMessage && cb_data->messageIdNumber == -628989766 &&
-			strstr(cb_data->pMessage, "VK_KHR_maintenance6") != nullptr) {
-			// ignore warning about deprecated VK_KHR_maintenance6 in Vulkan 1.4,
-			// since we still need to enable it for VK_EXT_descriptor_buffer functionality ...
+			(strstr(cb_data->pMessage, "VK_KHR_maintenance6") != nullptr ||
+			 strstr(cb_data->pMessage, "VK_EXT_robustness2") != nullptr ||
+			 strstr(cb_data->pMessage, "VK_EXT_swapchain_maintenance1") != nullptr)) {
+			// ignore warnings about deprecated extensions:
+			//  * VK_KHR_maintenance6: still needed in Vulkan 1.4, since we still need to enable it for VK_EXT_descriptor_buffer functionality ...
+			//  * VK_EXT_robustness2/VK_EXT_swapchain_maintenance1: we support the KHR variants, but still need to support the EXT variants as well
 			return VK_FALSE;
 		}
 	}
@@ -58,18 +61,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
 	std::string debug_message;
 	if (cb_data != nullptr) {
 		static const std::unordered_set<int32_t> ignore_msg_ids {
-			-602362517, // UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation
-			-40745094, // BestPractices-vkAllocateMemory-small-allocation
-			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
-			280337739, // BestPractices-vkBindBufferMemory-small-dedicated-allocation
-			1147161417, // BestPractices-vkBindImageMemory-small-dedicated-allocation
 			-2027362524, // UNASSIGNED-BestPractices-vkCreateCommandPool-command-buffer-reset
 			141128897, // BestPractices-vkCreateCommandPool-command-buffer-reset
 			1218486124, // UNASSIGNED-BestPractices-pipeline-stage-flags
 			561140764, // BestPractices-pipeline-stage-flags2-compute
 			-298369678, // BestPractices-pipeline-stage-flags2-graphics
-			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
-			-1265507290, // BestPractices-vkAllocateMemory-too-many-objects
 			-394667308, // UNASSIGNED-BestPractices-vkBeginCommandBuffer-simultaneous-use
 			1231549373, // BestPractices-vkBeginCommandBuffer-simultaneous-use
 			-1993010233, // UNASSIGNED-Descriptor uninitialized (NOTE/TODO: not updated for descriptor buffer use?)
@@ -85,14 +81,27 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
 			-267480408, // BestPractices-NVIDIA-CreateImage-Depth32Format
 			-1819900685, // BestPractices-AMD-VkCommandBuffer-AvoidSecondaryCmdBuffers
 			1063606403, // BestPractices-AMD-vkImage-DontUseStorageRenderTargets
-
-			// TODO: implement/fix/use these
+		};
+		// separate list for when heap allocations are disabled
+		static const std::unordered_set<int32_t> ignore_msg_ids_no_heap {
+			-602362517, // UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation
+			-40745094, // BestPractices-vkAllocateMemory-small-allocation
+			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
+			280337739, // BestPractices-vkBindBufferMemory-small-dedicated-allocation
+			1147161417, // BestPractices-vkBindImageMemory-small-dedicated-allocation
+			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
+			-1265507290, // BestPractices-vkAllocateMemory-too-many-objects
 			-1955647590, // BestPractices-NVIDIA-AllocateMemory-SetPriority
 			11102936, // BestPractices-NVIDIA-BindMemory-NoPriority
 			-954943182, // BestPractices-NVIDIA-AllocateMemory-ReuseAllocations
 		};
+		
 		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
 			// ignore and don't abort
+			return VK_FALSE;
+		}
+		if (!vk_ctx->has_vulkan_device_heaps() &&
+			ignore_msg_ids_no_heap.contains(cb_data->messageIdNumber)) {
 			return VK_FALSE;
 		}
 		

@@ -221,48 +221,52 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 									  const device& dev,
 									  const std::string& func_name,
 									  const vulkan_descriptor_set_layout_t& layout) {
-	if (layout.constant_buffer_size > 0) {
-		assert(!entry.constant_buffer_info.empty() && "should have already moved the constant buffer info");
-		
-		// align size to 16 bytes
-		const uint32_t alignment_pot = 4u, alignment = 1u << alignment_pot;
-		const auto constant_buffer_size = ((layout.constant_buffer_size + alignment - 1u) / alignment) * alignment;
-		const auto& ctx = *(const vulkan_context*)dev.context;
-		const auto dev_queue = ctx.get_device_default_queue(dev);
-		assert(dev_queue != nullptr);
-		
-		// we need to allocate as many buffers as we have descriptor sets
-		std::array<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count> constant_buffers;
-#if defined(FLOOR_DEBUG)
-		std::string const_buffer_label_stem = "const_buf:" + func_name + "#";
-#endif
-		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
-			// allocate in device-local/host-coherent memory
-			entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
-																		MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
-																		MEMORY_FLAG::VULKAN_HOST_COHERENT);
-#if defined(FLOOR_DEBUG)
-			entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + std::to_string(buf_idx));
-#endif
-			entry.constant_buffer_mappings[buf_idx] = entry.constant_buffers_storage[buf_idx]->map(*dev_queue,
-																								   MEMORY_MAP_FLAG::WRITE_INVALIDATE |
-																								   MEMORY_MAP_FLAG::BLOCK);
-			if (entry.constant_buffer_mappings[buf_idx] == nullptr) {
-				log_error("failed to memory map constant buffer #$ for function $", buf_idx, func_name);
-				return false;
-			}
-			constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
-		}
-		entry.constant_buffers = std::make_unique<safe_resource_container<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count>>(std::move(constant_buffers));
+	if (layout.constant_buffer_size == 0) {
+		return true;
 	}
+	
+	assert(!entry.constant_buffer_info.empty() && "should have already moved the constant buffer info");
+	
+	// align size to 16 bytes
+	const uint32_t alignment_pot = 4u, alignment = 1u << alignment_pot;
+	const auto constant_buffer_size = ((layout.constant_buffer_size + alignment - 1u) / alignment) * alignment;
+	const auto& ctx = *(const vulkan_context*)dev.context;
+	const auto dev_queue = ctx.get_device_default_queue(dev);
+	assert(dev_queue != nullptr);
+	
+	// we need to allocate as many buffers as we have descriptor sets
+	std::array<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count> constant_buffers;
+#if defined(FLOOR_DEBUG)
+	std::string const_buffer_label_stem = "const_buf:" + func_name + "#";
+#endif
+	for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
+		// allocate in device-local/host-coherent memory
+		entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
+																	MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
+																	MEMORY_FLAG::__EXP_HEAP_ALLOC |
+																	MEMORY_FLAG::VULKAN_HOST_COHERENT);
+#if defined(FLOOR_DEBUG)
+		entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + std::to_string(buf_idx));
+#endif
+		entry.constant_buffer_mappings[buf_idx] = entry.constant_buffers_storage[buf_idx]->map(*dev_queue,
+																							   MEMORY_MAP_FLAG::WRITE_INVALIDATE |
+																							   MEMORY_MAP_FLAG::BLOCK);
+		if (entry.constant_buffer_mappings[buf_idx] == nullptr) {
+			log_error("failed to memory map constant buffer #$ for function $", buf_idx, func_name);
+			return false;
+		}
+		constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
+	}
+	entry.constant_buffers = std::make_unique<safe_resource_container<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count>>(std::move(constant_buffers));
+	
 	return true;
 }
 
 static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry,
-												  const device& dev,
-												  const VkShaderStageFlagBits stage,
-												  const std::string& func_name,
-												  const toolchain::function_info& info) {
+													const device& dev,
+													const VkShaderStageFlagBits stage,
+													const std::string& func_name,
+													const toolchain::function_info& info) {
 	const auto& vk_dev = (const vulkan_device&)dev;
 	auto& vk_ctx = *(vulkan_context*)vk_dev.context;
 	const auto dev_queue = vk_ctx.get_device_default_queue(vk_dev);
@@ -298,11 +302,13 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 															   MEMORY_FLAG::READ |
 															   MEMORY_FLAG::HOST_READ_WRITE |
 															   MEMORY_FLAG::VULKAN_HOST_COHERENT |
-															   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
+															   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
+															   MEMORY_FLAG::__EXP_HEAP_ALLOC);
 			desc_buffers[buf_idx].first->set_debug_label("desc_buf:" + func_name + "#" + std::to_string(buf_idx));
 			auto mapped_host_ptr = desc_buffers[buf_idx].first->map(*dev_queue, (MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 																				 MEMORY_MAP_FLAG::BLOCK));
 			desc_buffers[buf_idx].second = { (uint8_t*)mapped_host_ptr, entry.desc_buffer.layout_size_in_bytes };
+			entry.desc_buffer.desc_buffer_ptrs[buf_idx] = { desc_buffers[buf_idx].first.get(), mapped_host_ptr };
 		}
 		entry.desc_buffer.desc_buffer_container = std::make_unique<vulkan_descriptor_buffer_container>(std::move(desc_buffers));
 		
@@ -479,6 +485,41 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 		}
 		
 		functions.emplace_back(std::make_shared<vulkan_function>(func_name, std::move(function_map)));
+	}
+}
+
+vulkan_program::~vulkan_program() {
+	// ensure buffers are unmapped when they are heap-allocated
+	for (const auto& prog_func : functions) {
+		for (const auto&& func : ((const std::shared_ptr<vulkan_function>&)prog_func)->functions) {
+			if (!func.second) {
+				continue;
+			}
+			
+			auto& entry = *func.second;
+			if (entry.constant_buffer_info.empty() &&
+				!entry.desc_buffer.desc_buffer_container) {
+				continue;
+			}
+			
+			const auto dev_queue = func.first->context->get_device_default_queue(*func.first);
+			
+			if (!entry.constant_buffer_info.empty()) {
+				for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
+					if (entry.constant_buffer_mappings[buf_idx]) {
+						entry.constant_buffers_storage[buf_idx]->unmap(*dev_queue, entry.constant_buffer_mappings[buf_idx]);
+					}
+				}
+			}
+			
+			if (entry.desc_buffer.desc_buffer_container) {
+				for (auto& desc_buffer_ptrs : entry.desc_buffer.desc_buffer_ptrs) {
+					if (desc_buffer_ptrs.first && desc_buffer_ptrs.second) {
+						desc_buffer_ptrs.first->unmap(*dev_queue, desc_buffer_ptrs.second);
+					}
+				}
+			}
+		}
 	}
 }
 

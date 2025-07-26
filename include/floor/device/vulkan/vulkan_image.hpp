@@ -80,6 +80,10 @@ public:
 	
 	void set_debug_label(const std::string& label) override;
 	
+	bool is_heap_allocated() const override {
+		return is_heap_allocation;
+	}
+	
 	//! returns the descriptor data for this buffer (for use in descriptor buffers)
 	std::span<const uint8_t> get_vulkan_descriptor_data_sampled() const {
 		return { descriptor_data_sampled.get(), descriptor_sampled_size };

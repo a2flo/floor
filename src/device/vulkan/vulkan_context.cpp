@@ -37,6 +37,7 @@
 #include <floor/floor_version.hpp>
 #include <floor/device/backend/sampler.hpp>
 #include <floor/device/vulkan/vulkan_fence.hpp>
+#include "internal/vulkan_heap.hpp"
 #include <floor/device/vulkan/vulkan_pipeline.hpp>
 #include <floor/device/vulkan/vulkan_pass.hpp>
 #include <floor/device/vulkan/vulkan_renderer.hpp>
@@ -184,6 +185,8 @@ struct device_mem_info_t {
 	std::vector<uint32_t> device_mem_indices;
 	std::vector<uint32_t> host_mem_cached_indices;
 	std::vector<uint32_t> device_mem_host_coherent_indices;
+	std::vector<uint32_t> host_visible_indices;
+	std::vector<uint32_t> device_heap_indices;
 	bool prefer_host_coherent_mem { false };
 };
 static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice& dev, const decltype(VkPhysicalDeviceProperties::deviceName)& dev_name) {
@@ -235,6 +238,7 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 	static constexpr const auto prop_flags_device_host_coherent = (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
 																   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 																   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	static constexpr const auto prop_flags_host_visible = (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 	
 	// find largest device-local memory
 	const auto largest_device_mem = find_largest_memory(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT, prop_flags_device_local);
@@ -276,6 +280,13 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 		}
 	}
 	
+	// find all host-visible memory
+	for (uint32_t type_idx = 0; type_idx < props.memoryTypeCount; ++type_idx) {
+		if ((props.memoryTypes[type_idx].propertyFlags & prop_flags_host_visible) == prop_flags_host_visible) {
+			ret.host_visible_indices.emplace_back(type_idx);
+		}
+	}
+	
 	// prefer device-local/host-coherent if it is the same size as the device-local memory or it's larger than host-cached memory
 	if (props.memoryHeaps[props.memoryTypes[ret.device_mem_host_coherent_index].heapIndex].size ==
 		props.memoryHeaps[props.memoryTypes[ret.device_mem_index].heapIndex].size ||
@@ -284,8 +295,85 @@ static device_mem_info_t handle_and_select_device_memory(const VkPhysicalDevice&
 		ret.prefer_host_coherent_mem = true;
 	}
 	
+	// find and add all device-local heap indices
+	for (uint32_t heap_idx = 0; heap_idx < props.memoryHeapCount; ++heap_idx) {
+		if ((props.memoryHeaps[heap_idx].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) == VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+			ret.device_heap_indices.emplace_back(heap_idx);
+		}
+	}
+	
 	ret.valid = true;
 	floor_return_no_nrvo(ret);
+}
+
+static void check_and_set_device_host_coherent_opt_image_support(vulkan_device& dev) {
+	// query basic 2D color image memory type requirements for device-local/host-coherent testing:
+	// using a similar approach as vulkaninfo here, since we can't really test all image formats/types
+	const VkPhysicalDeviceImageFormatInfo2 format_info {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+		.pNext = nullptr,
+		.format = VK_FORMAT_R8G8B8A8_UNORM,
+		.type = VK_IMAGE_TYPE_2D,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		.flags = 0,
+	};
+	VkImageFormatProperties2 format_props {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+		.pNext = nullptr,
+		.imageFormatProperties = {},
+	};
+	vkGetPhysicalDeviceImageFormatProperties2(dev.physical_device, &format_info, &format_props);
+	
+	const VkImageCreateInfo image_create_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = format_info.flags,
+		.imageType = format_info.type,
+		.format = format_info.format,
+		.extent = {
+			.width = 128,
+			.height = 128,
+			.depth = 1,
+		},
+		.mipLevels = 1u,
+		.arrayLayers = 1u,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = format_info.tiling,
+		.usage = format_info.usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.queueFamilyIndexCount = 0,
+		.pQueueFamilyIndices = nullptr,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+	};
+	VkImage test_image {};
+	if (vkCreateImage(dev.device, &image_create_info, nullptr, &test_image) != VK_SUCCESS) {
+		// shouldn't happen, but still fail gracefully ...
+		log_warn("failed to create test image for device-local/host-coherent support test");
+		return;
+	}
+	
+	VkMemoryRequirements2 mem_req {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+		.pNext = nullptr,
+		.memoryRequirements = {},
+	};
+	const VkImageMemoryRequirementsInfo2 mem_req_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
+		.pNext = nullptr,
+		.image = test_image,
+	};
+	vkGetImageMemoryRequirements2(dev.device, &mem_req_info, &mem_req);
+	
+	vkDestroyImage(dev.device, test_image, nullptr);
+	
+	for (const auto dev_mem_host_coherent_idx : dev.device_mem_host_coherent_indices) {
+		if (mem_req.memoryRequirements.memoryTypeBits & (1u << dev_mem_host_coherent_idx)) {
+			dev.has_device_host_coherent_opt_image_support = true;
+			log_msg("device has device-local/host-coherent image with optimal-tiling support");
+			break;
+		}
+	}
 }
 
 FLOOR_PUSH_WARNINGS()
@@ -697,20 +785,22 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_fragment_shading_rate",
 			"VK_KHR_ray_query",
 			"VK_KHR_ray_tracing_pipeline",
-			"VK_KHR_video_queue",
-			"VK_KHR_video_decode_queue",
-			"VK_KHR_video_encode_queue",
 			"VK_KHR_present_id",
 			"VK_KHR_present_wait",
 			"VK_KHR_ray_tracing_maintenance1",
 			"VK_KHR_incremental_present",
+			"VK_KHR_video_queue",
 			"VK_KHR_video_decode_h264",
 			"VK_KHR_video_decode_h265",
 			"VK_KHR_video_decode_av1",
+			"VK_KHR_video_decode_vp9",
+			"VK_KHR_video_decode_queue",
 			"VK_KHR_video_encode_h264",
 			"VK_KHR_video_encode_h265",
 			"VK_KHR_video_encode_av1",
+			"VK_KHR_video_encode_intra_refresh",
 			"VK_KHR_video_encode_quantization_map",
+			"VK_KHR_video_encode_queue",
 			"VK_KHR_ray_tracing_position_fetch",
 			"VK_KHR_pipeline_executable_properties",
 			"VK_KHR_shared_presentable_image",
@@ -2013,7 +2103,10 @@ enable_renderer(enable_renderer_) {
 		device.device_mem_indices = std::move(dev_mem_info.device_mem_indices);
 		device.host_mem_cached_indices = std::move(dev_mem_info.host_mem_cached_indices);
 		device.device_mem_host_coherent_indices = std::move(dev_mem_info.device_mem_host_coherent_indices);
+		device.host_visible_indices = std::move(dev_mem_info.host_visible_indices);
+		device.device_heap_indices = std::move(dev_mem_info.device_heap_indices);
 		device.prefer_host_coherent_mem = dev_mem_info.prefer_host_coherent_mem;
+		check_and_set_device_host_coherent_opt_image_support(device);
 		
 		device.global_mem_size = device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.device_mem_index].heapIndex].size;
 		device.max_mem_alloc = std::min(device.global_mem_size,
@@ -2021,10 +2114,19 @@ enable_renderer(enable_renderer_) {
 									device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.device_mem_host_coherent_index].heapIndex].size :
 									device.mem_props->memoryHeaps[device.mem_props->memoryTypes[device.host_mem_cached_index].heapIndex].size));
 		
-		log_msg("using memory type #$ for device allocations", device.device_mem_index);
-		log_msg("using memory type #$ for device host-coherent/host-visible allocations", device.device_mem_host_coherent_index);
-		log_msg("using memory type #$ for cached host-visible allocations", device.host_mem_cached_index);
 		log_msg("prefer device-local/host-coherent over host-cached (ReBAR/SAM): $", device.prefer_host_coherent_mem);
+		
+		// allocate internal heap
+		if (has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
+			auto heap = std::make_shared<vulkan_heap>(device);
+			device.heap = heap.get();
+			log_msg("allocated memory heap and allocator");
+			device_heaps.emplace(&device, std::move(heap));
+		}
+		
+		log_msg("using memory type #$ for direct device allocations", device.device_mem_index);
+		log_msg("using memory type #$ for direct device host-coherent/host-visible allocations", device.device_mem_host_coherent_index);
+		log_msg("using memory type #$ for direct cached host-visible allocations", device.host_mem_cached_index);
 		
 		log_msg("max mem alloc: $' bytes / $' MB",
 				device.max_mem_alloc,
@@ -2120,6 +2222,7 @@ vulkan_context::~vulkan_context() {
 	}
 #endif
 	
+	GUARD(screen_sema_lock);
 	destroy_renderer_swapchain(false);
 	
 	// TODO: destroy all else
@@ -2128,16 +2231,27 @@ vulkan_context::~vulkan_context() {
 void vulkan_context::destroy_renderer_swapchain(const bool reset_present_fences) {
 	if (!internal->screen.x11_forwarding) {
 		// ensure all presents are done before we kill any resources
-		GUARD(screen_sema_lock);
+		bool did_wait = false;
 		for (uint32_t i = 0, fence_count = uint32_t(present_fences.size()); i < fence_count; ++i) {
 			auto& fence = present_fences[i];
 			if (semas_in_use[i]) {
-				if (const auto fence_status = vkGetFenceStatus(internal->screen.render_device->device, fence);
-					fence_status != VK_SUCCESS && fence_status != VK_ERROR_DEVICE_LOST) {
-					log_warn("waiting on present fence ...");
-					(void)vkWaitForFences(internal->screen.render_device->device, 1, &fence, true, 1'000'000'000ull);
+				static constexpr const uint32_t max_wait_runs { 16u };
+				for (uint32_t wait_run = 0; wait_run < 16; ++wait_run) {
+					const auto fence_status = vkGetFenceStatus(internal->screen.render_device->device, fence);
+					if (fence_status != VK_SUCCESS && fence_status != VK_ERROR_DEVICE_LOST) {
+						if (wait_run == max_wait_runs - 1u) {
+							log_warn("waited on present fence #$ (status $), but fence is still not done ...", i, fence_status);
+						}
+						did_wait = true;
+						(void)vkWaitForFences(internal->screen.render_device->device, 1, &fence, true, 100'000'000ull);
+					} else {
+						break;
+					}
 				}
 			}
+		}
+		if (did_wait) {
+			log_warn("wait done - destroying swapchain regardless");
 		}
 		if (!reset_present_fences) {
 			// -> fully destroy fences
@@ -2190,6 +2304,10 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 		// skip if the size is the same
 		return true;
 	}
+	
+	// lock down everything while we do this, we don't want new image acquisitions while this is running
+	MULTI_GUARD(acquisition_lock, screen_sema_lock);
+	log_msg("reinit_renderer with screen size $", screen_size); logger::flush();
 	
 	// clear previous
 	destroy_renderer_swapchain(true /* only reset fences */);
@@ -2568,7 +2686,6 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 	screen.swapchain_image_views.resize(screen.image_count);
 	screen.swapchain_prev_layouts.resize(screen.image_count, VK_IMAGE_LAYOUT_UNDEFINED);
 	{
-		GUARD(screen_sema_lock);
 		next_sema_index = 0;
 		semas_in_use.reset();
 		const auto sync_object_count = screen.image_count * semaphore_multiplier;
@@ -2641,6 +2758,7 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 		}
 	}
 #endif
+	log_msg("renderer reinit completed");
 	
 	return true;
 #else
@@ -3573,8 +3691,8 @@ device_context::memory_usage_t vulkan_context::get_memory_usage(const device& de
 	memory_usage_t ret {
 		.global_mem_used = (usage <= budget ? usage : budget),
 		.global_mem_total = budget,
-		.heap_used = 0u,
-		.heap_total = 0u,
+		.heap_used = (vk_dev.heap ? vk_dev.heap->query_total_usage() : 0u),
+		.heap_total = (vk_dev.heap ? budget : 0u),
 	};
 	return ret;
 }

@@ -38,6 +38,7 @@ public:
 						   std::span<uint8_t> mapped_host_memory_,
 						   std::shared_ptr<device_buffer> constant_buffer_storage_,
 						   std::span<uint8_t> constant_buffer_mapping_);
+	~vulkan_argument_buffer() override;
 	
 	bool set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) override;
 	

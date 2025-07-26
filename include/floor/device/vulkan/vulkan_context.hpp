@@ -35,6 +35,7 @@
 namespace fl {
 
 class vr_context;
+class vulkan_heap;
 
 struct vulkan_context_internal;
 struct vulkan_drawable_image_info;
@@ -198,6 +199,11 @@ public:
 		ignore_validation = state;
 	}
 	
+	//! returns true if any device heap was created
+	bool has_vulkan_device_heaps() const {
+		return !device_heaps.empty();
+	}
+	
 	//! amount of fixed/embedded samplers: 6 bits (used 75%) -> 48 combinations
 	static constexpr const uint32_t max_sampler_combinations { 48 };
 	
@@ -215,20 +221,20 @@ protected:
 	//! multiplier against the actual image count (conservative estimate) -> use in acquisition_semas/present_semas
 	static constexpr const uint32_t semaphore_multiplier { 2u };
 	//! NOTE: semaphores do not map 1:1 to swapchain_images
-	safe_mutex screen_sema_lock;
+	safe_mutex screen_sema_lock ACQUIRED_AFTER(acquisition_lock);
 	std::vector<VkFence> present_fences GUARDED_BY(screen_sema_lock);
 	uint32_t next_sema_index GUARDED_BY(screen_sema_lock) { 0 };
 	std::bitset<32u> semas_in_use GUARDED_BY(screen_sema_lock);
 	std::vector<std::unique_ptr<device_fence>> acquisition_semas GUARDED_BY(screen_sema_lock);
 	std::vector<std::unique_ptr<device_fence>> present_semas GUARDED_BY(screen_sema_lock);
 	
-	bool reinit_renderer(const uint2 screen_size) REQUIRES(!screen_sema_lock);
-	void destroy_renderer_swapchain(const bool reset_present_fences) REQUIRES(!screen_sema_lock);
+	bool reinit_renderer(const uint2 screen_size) REQUIRES(!acquisition_lock, !screen_sema_lock);
+	void destroy_renderer_swapchain(const bool reset_present_fences) REQUIRES(screen_sema_lock);
 	bool init_vr_renderer();
 	std::pair<bool, std::unique_ptr<vulkan_drawable_image_info>> acquire_next_vr_image(const device_queue& dev_queue) REQUIRES(acquisition_lock);
 	
 	std::function<void(EVENT_TYPE, std::shared_ptr<event_object>)> resize_handler_fnctr;
-	void resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) REQUIRES(!screen_sema_lock);
+	void resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) REQUIRES(!acquisition_lock, !screen_sema_lock);
 	
 	// sets screen.hdr_metadata from current device_context::hdr_metadata if screen.hdr_metadata is not empty
 	void set_vk_screen_hdr_metadata();
@@ -239,6 +245,8 @@ protected:
 	
 	fl::flat_map<const device*, std::shared_ptr<device_queue>> default_queues;
 	fl::flat_map<const device*, std::shared_ptr<device_queue>> default_device_queues;
+	
+	fl::flat_map<const device*, std::shared_ptr<vulkan_heap>> device_heaps;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_3 };
 	

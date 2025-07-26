@@ -25,6 +25,7 @@
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/device/vulkan/vulkan_queue.hpp>
 #include <floor/device/vulkan/vulkan_image.hpp>
+#include "internal/vulkan_heap.hpp"
 
 namespace fl {
 
@@ -33,15 +34,30 @@ vk_dev(vk_dev_), object(object_), is_image(is_image_), memory_flags(memory_flags
 }
 
 vulkan_memory::~vulkan_memory() noexcept {
-	if(mem != nullptr) {
-		vkFreeMemory(vk_dev.device, mem, nullptr);
+	if (mem != nullptr) {
+		if (!is_heap_allocation) {
+			vkFreeMemory(vk_dev.device, mem, nullptr);
+		}
+		// else: heap allocation destroyed in vulkan_buffer/vulkan_image destructor
 		mem = nullptr;
 	}
 }
 
 bool vulkan_memory::write_memory_data(const device_queue& cqueue, const std::span<const uint8_t> data, const size_t& offset,
 									  const size_t shim_input_size, const char* error_msg_on_failure) {
-	// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
+	// use VMA copy if this is just a simple memcpy (no shim conversion necessary)
+	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u) {
+		if (!vk_dev.heap->host_to_device_copy(data.data(), heap_allocation, offset, data.size_bytes())) {
+			if (error_msg_on_failure == nullptr) {
+				log_error("failed to write Vulkan memory data");
+			} else {
+				log_error("$", error_msg_on_failure);
+			}
+			return false;
+		}
+		return true;
+	}
+	
 	const auto mapping_size = (shim_input_size != 0 ? shim_input_size : data.size_bytes());
 	auto mapped_ptr = map(cqueue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
 	if (mapped_ptr != nullptr) {
@@ -63,6 +79,20 @@ bool vulkan_memory::write_memory_data(const device_queue& cqueue, const std::spa
 
 bool vulkan_memory::read_memory_data(const device_queue& cqueue, std::span<uint8_t> data, const size_t& offset,
 									 const size_t shim_input_size, const char* error_msg_on_failure) {
+	// use VMA copy if this is just a simple memcpy (no shim conversion necessary)
+	// NOTE: while VMA recommends VK_MEMORY_PROPERTY_HOST_CACHED_BIT, it is not required
+	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u) {
+		if (!vk_dev.heap->device_to_host_copy(heap_allocation, data.data(), offset, data.size_bytes())) {
+			if (error_msg_on_failure == nullptr) {
+				log_error("failed to read Vulkan memory data");
+			} else {
+				log_error("$", error_msg_on_failure);
+			}
+			return false;
+		}
+		return true;
+	}
+	
 	const auto mapping_size = (shim_input_size != 0 ? shim_input_size : data.size_bytes());
 	auto mapped_ptr = map(cqueue, MEMORY_MAP_FLAG::READ | MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
 	if (mapped_ptr != nullptr) {
@@ -85,15 +115,16 @@ bool vulkan_memory::read_memory_data(const device_queue& cqueue, std::span<uint8
 void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueue,
 													   const MEMORY_MAP_FLAG flags,
 													   const size_t size, const size_t offset) {
-	if(*object == 0) return nullptr;
+	if (*object == 0) {
+		return nullptr;
+	}
 	
 	const bool blocking_map = has_flag<MEMORY_MAP_FLAG::BLOCK>(flags);
 	bool does_read = false, does_write = false;
-	if(has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags)) {
+	if (has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags)) {
 		does_write = true;
-	}
-	else {
-		switch(flags & MEMORY_MAP_FLAG::READ_WRITE) {
+	} else {
+		switch (flags & MEMORY_MAP_FLAG::READ_WRITE) {
 			case MEMORY_MAP_FLAG::READ:
 				does_read = true;
 				break;
@@ -122,8 +153,6 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 	
 	// create the host-visible buffer if necessary
 	vulkan_mapping mapping {
-		.buffer = nullptr,
-		.mem = nullptr,
 		.size = size,
 		.offset = offset,
 		.flags = flags,
@@ -153,50 +182,64 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 			.queueFamilyIndexCount = (is_concurrent_sharing ? uint32_t(vk_dev.queue_families.size()) : 0),
 			.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 		};
-		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
 		
-		// allocate / back it up
-		VkMemoryDedicatedRequirements ded_req {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
-			.pNext = nullptr,
-			.prefersDedicatedAllocation = false,
-			.requiresDedicatedAllocation = false,
-		};
-		VkMemoryRequirements2 mem_req2 {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
-			.pNext = &ded_req,
-			.memoryRequirements = {},
-		};
-		const VkBufferMemoryRequirementsInfo2 mem_req_info {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
-			.pNext = nullptr,
-			.buffer = mapping.buffer,
-		};
-		vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
-		const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
-		const auto& mem_req = mem_req2.memoryRequirements;
-		
-		const VkMemoryDedicatedAllocateInfo ded_alloc_info {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
-			.pNext = nullptr,
-			.image = VK_NULL_HANDLE,
-			.buffer = mapping.buffer,
-		};
-		const VkMemoryAllocateInfo alloc_info {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.pNext = (is_dedicated ? &ded_alloc_info : nullptr),
-			.allocationSize = mem_req.size,
-			.memoryTypeIndex = vk_dev.host_mem_cached_index,
-		};
-		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
-		const VkBindBufferMemoryInfo bind_info {
-			.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
-			.pNext = nullptr,
-			.buffer = mapping.buffer,
-			.memory = mapping.mem,
-			.memoryOffset = 0,
-		};
-		VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "map buffer allocation binding failed", nullptr)
+		if (!is_heap_allocation) {
+			VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr)
+			
+			// allocate / back it up
+			VkMemoryDedicatedRequirements ded_req {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,
+				.pNext = nullptr,
+				.prefersDedicatedAllocation = false,
+				.requiresDedicatedAllocation = false,
+			};
+			VkMemoryRequirements2 mem_req2 {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
+				.pNext = &ded_req,
+				.memoryRequirements = {},
+			};
+			const VkBufferMemoryRequirementsInfo2 mem_req_info {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
+				.pNext = nullptr,
+				.buffer = mapping.buffer,
+			};
+			vkGetBufferMemoryRequirements2(vulkan_dev, &mem_req_info, &mem_req2);
+			const auto is_dedicated = (ded_req.prefersDedicatedAllocation || ded_req.requiresDedicatedAllocation);
+			const auto& mem_req = mem_req2.memoryRequirements;
+			
+			const VkMemoryDedicatedAllocateInfo ded_alloc_info {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+				.pNext = nullptr,
+				.image = VK_NULL_HANDLE,
+				.buffer = mapping.buffer,
+			};
+			const VkMemoryAllocateInfo alloc_info {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+				.pNext = (is_dedicated ? &ded_alloc_info : nullptr),
+				.allocationSize = mem_req.size,
+				.memoryTypeIndex = vk_dev.host_mem_cached_index,
+			};
+			VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr)
+			const VkBindBufferMemoryInfo bind_info {
+				.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
+				.pNext = nullptr,
+				.buffer = mapping.buffer,
+				.memory = mapping.mem,
+				.memoryOffset = 0,
+			};
+			VK_CALL_RET(vkBindBufferMemory2(vulkan_dev, 1, &bind_info), "map buffer allocation binding failed", nullptr)
+		} else {
+			// if this memory object is a heap-allocation, also make the staging buffer a heap-allocation
+			auto alloc = vk_dev.heap->create_buffer(buffer_create_info,
+													write_only ? MEMORY_FLAG::HOST_WRITE : MEMORY_FLAG::HOST_READ_WRITE);
+			if (!alloc.is_valid()) {
+				log_error("map heap buffer creation failed");
+				return nullptr;
+			}
+			mapping.buffer = alloc.buffer;
+			mapping.staging_allocation = alloc.allocation;
+			mapping.mem = alloc.memory;
+		}
 	} else {
 		mapping.buffer = (VkBuffer)*object;
 		mapping.mem = mem;
@@ -235,7 +278,6 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 				}
 			}), blocking_map);
 		} else {
-			// TODO: make this actually work
 			VK_CMD_BLOCK(vk_queue, "dev -> host memory barrier", ({
 				const VkBufferMemoryBarrier2 buffer_barrier {
 					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
@@ -243,7 +285,8 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 					.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 					.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
 					.dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
-					.dstAccessMask = VkAccessFlags2(VK_ACCESS_2_HOST_READ_BIT | (does_write ? VK_ACCESS_2_HOST_WRITE_BIT : VkAccessFlagBits2(0u))),
+					.dstAccessMask = VkAccessFlags2(VK_ACCESS_2_HOST_READ_BIT |
+													(does_write ? VK_ACCESS_2_HOST_WRITE_BIT : VkAccessFlagBits2(0u))),
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.buffer = mapping.buffer,
@@ -270,18 +313,32 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 	
 	// map the host buffer
 	void* __attribute__((aligned(128))) host_ptr { nullptr };
-	const VkMemoryMapInfo map_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_MAP_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.memory = mapping.mem,
-		.offset = host_buffer_offset,
-		.size = size,
-	};
-	if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-		VK_CALL_RET(vkMapMemory2(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+	if (!is_heap_allocation) {
+		const VkMemoryMapInfo map_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_MAP_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.memory = mapping.mem,
+			.offset = host_buffer_offset,
+			.size = size,
+		};
+		if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			VK_CALL_RET(vkMapMemory2(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+		} else {
+			VK_CALL_RET(vkMapMemory2KHR(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+		}
+		mapping.base_address = host_ptr;
 	} else {
-		VK_CALL_RET(vkMapMemory2KHR(vulkan_dev, &map_info, &host_ptr), "failed to map host buffer", nullptr)
+		// use VMA if heap-allocated
+		host_ptr = ((const vulkan_device&)cqueue.get_device()).heap->map_memory(mapping.staging_allocation ?
+																				mapping.staging_allocation : heap_allocation);
+		if (!host_ptr) {
+			return nullptr; // error already reported in map_memory()
+		}
+		
+		// VMA currently does not support partial buffer mappings, so we need to take care of this
+		mapping.base_address = host_ptr;
+		host_ptr = (uint8_t*)host_ptr + host_buffer_offset;
 	}
 	
 	// need to remember how much we mapped and where (so the host -> device write-back copies the right amount of bytes)
@@ -291,76 +348,81 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 }
 
 bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(*object == 0) return false;
-	if(mapped_ptr == nullptr) return false;
+	if (*object == 0 || mapped_ptr == nullptr) {
+		return false;
+	}
 	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	auto vulkan_dev = vk_dev.device;
 	
 	// check if this is actually a mapped pointer (+get the mapped size)
 	const auto iter = mappings.find(mapped_ptr);
-	if(iter == mappings.end()) {
+	if (iter == mappings.end()) {
 		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
+	const auto& mapping = iter->second;
 	
 	const auto is_host_coherent = has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(memory_flags);
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
+		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags)) {
 		if (!is_host_coherent || is_image) {
 			do {
 				// host -> device copy
-				// TODO: sync ...
 				VK_CMD_BLOCK(vk_queue, "host -> dev memory copy", ({
-					if(!is_image) {
+					if (!is_image) {
 						const VkBufferCopy2 region {
 							.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
 							.pNext = nullptr,
 							.srcOffset = 0,
-							.dstOffset = iter->second.offset,
-							.size = iter->second.size,
+							.dstOffset = mapping.offset,
+							.size = mapping.size,
 						};
 						const VkCopyBufferInfo2 info {
 							.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
 							.pNext = nullptr,
-							.srcBuffer = iter->second.buffer,
+							.srcBuffer = mapping.buffer,
 							.dstBuffer = (VkBuffer)*object,
 							.regionCount = 1,
 							.pRegions = &region,
 						};
 						vkCmdCopyBuffer2(block_cmd_buffer.cmd_buffer, &info);
 					} else {
-						std::span<uint8_t> host_buffer { (uint8_t*)mapped_ptr, iter->second.size };
-						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, iter->second.buffer, host_buffer);
+						std::span<uint8_t> host_buffer { (uint8_t*)mapped_ptr, mapping.size };
+						image_copy_host_to_dev(cqueue, block_cmd_buffer.cmd_buffer, mapping.buffer, host_buffer);
 					}
-				}), has_flag<MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+				}), has_flag<MEMORY_MAP_FLAG::BLOCK>(mapping.flags));
 			} while(false);
 		}
 	}
 	
 	// unmap
-	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ...
+	// TODO/NOTE: we can only unmap the whole buffer with Vulkan, not individual mappings ...
 	// -> can only unmap if this is the last mapping (if is_host_coherent, if the buffer was just created/allocated for this, then it doesn't matter)
 	// also: TODO: SYNC!
-	const VkMemoryUnmapInfo unmap_info {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.memory = iter->second.mem,
-	};
-	// NOTE: can't do much more than ignore errors at this point
-	if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-		VK_CALL_IGNORE(vkUnmapMemory2(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+	if (!is_heap_allocation) {
+		const VkMemoryUnmapInfo unmap_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.memory = mapping.mem,
+		};
+		// NOTE: can't do much more than ignore errors at this point
+		if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			VK_CALL_IGNORE(vkUnmapMemory2(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+		} else {
+			VK_CALL_IGNORE(vkUnmapMemory2KHR(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+		}
 	} else {
-		VK_CALL_IGNORE(vkUnmapMemory2KHR(vulkan_dev, &unmap_info), "failed to unmap Vulkan memory")
+		// use VMA if heap-allocated
+		vk_dev.heap->unmap_memory(mapping.staging_allocation ? mapping.staging_allocation : heap_allocation);
 	}
 	
 	// barrier after unmap when using unified memory
-	// TODO: make this actually work
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
+		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags)) {
 		if (is_host_coherent && !is_image) {
 			VK_CMD_BLOCK(vk_queue, "host -> dev memory barrier", ({
 				const VkBufferMemoryBarrier2 buffer_barrier {
@@ -368,7 +430,7 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 					.pNext = nullptr,
 					.srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
 					.srcAccessMask = VkAccessFlags2(VK_ACCESS_2_HOST_WRITE_BIT |
-													(has_flag<MEMORY_MAP_FLAG::READ>(iter->second.flags) ?
+													(has_flag<MEMORY_MAP_FLAG::READ>(mapping.flags) ?
 													 VK_ACCESS_2_HOST_READ_BIT : VkAccessFlagBits2(0u))),
 					.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 					.dstAccessMask = (VK_ACCESS_2_MEMORY_READ_BIT |
@@ -377,9 +439,9 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 									  VK_ACCESS_2_SHADER_WRITE_BIT),
 					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-					.buffer = iter->second.buffer,
-					.offset = iter->second.offset,
-					.size = iter->second.size,
+					.buffer = mapping.buffer,
+					.offset = mapping.offset,
+					.size = mapping.size,
 				};
 				const VkDependencyInfo dep_info {
 					.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -393,17 +455,21 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 					.pImageMemoryBarriers = nullptr,
 				};
 				vkCmdPipelineBarrier2(block_cmd_buffer.cmd_buffer, &dep_info);
-			}), has_flag<MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+			}), has_flag<MEMORY_MAP_FLAG::BLOCK>(mapping.flags));
 		}
 	}
 	
 	// delete host buffer
 	if (!is_host_coherent || is_image) {
-		if(iter->second.buffer != nullptr) {
-			vkDestroyBuffer(vulkan_dev, iter->second.buffer, nullptr);
-		}
-		if(iter->second.mem != nullptr) {
-			vkFreeMemory(vulkan_dev, iter->second.mem, nullptr);
+		if (!mapping.staging_allocation) {
+			if (mapping.buffer != nullptr) {
+				vkDestroyBuffer(vulkan_dev, mapping.buffer, nullptr);
+			}
+			if (mapping.mem != nullptr) {
+				vkFreeMemory(vulkan_dev, mapping.mem, nullptr);
+			}
+		} else {
+			vk_dev.heap->destroy_allocation(mapping.staging_allocation, mapping.buffer);
 		}
 	}
 	

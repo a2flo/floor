@@ -33,6 +33,7 @@ namespace fl {
 
 class vulkan_device;
 class vulkan_queue;
+class vulkan_program;
 struct vulkan_encoder;
 struct vulkan_command_buffer;
 struct vulkan_function_entry;
@@ -91,6 +92,7 @@ public:
 	static bool should_log_vulkan_binary(const std::string& function_name);
 	
 protected:
+	friend vulkan_program;
 	mutable function_map_type functions;
 	
 	typename function_map_type::iterator get_function(const device_queue& queue) const;

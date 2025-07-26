@@ -319,6 +319,8 @@ add_library(${PROJECT_NAME}
 	src/device/vulkan/internal/vulkan_encoder.hpp
 	src/device/vulkan/internal/vulkan_function_entry.hpp
 	src/device/vulkan/internal/vulkan_headers.hpp
+	src/device/vulkan/internal/vulkan_heap.cpp
+	src/device/vulkan/internal/vulkan_heap.hpp
 	src/device/vulkan/internal/vulkan_image_internal.cpp
 	src/device/vulkan/internal/vulkan_image_internal.hpp
 	src/device/vulkan/vulkan_argument_buffer.cpp

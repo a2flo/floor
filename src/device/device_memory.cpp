@@ -50,11 +50,17 @@ static constexpr MEMORY_FLAG handle_memory_flags(MEMORY_FLAG flags) {
 	}
 	
 	// handle host read/write flags
-	if ((flags & MEMORY_FLAG::HOST_READ_WRITE) == MEMORY_FLAG::NONE &&
-		has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		// can't be using host memory and declaring that the host doesn't access the memory
-		log_error("USE_HOST_MEMORY specified, but host read/write flags set to NONE!");
-		flags |= MEMORY_FLAG::HOST_READ_WRITE;
+	if ((flags & MEMORY_FLAG::HOST_READ_WRITE) == MEMORY_FLAG::NONE) {
+		if (has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+			// can't be using host memory and declaring that the host doesn't access the memory
+			log_error("USE_HOST_MEMORY specified, but host read/write flags set to NONE!");
+			flags |= MEMORY_FLAG::HOST_READ_WRITE;
+		}
+		if (has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags)) {
+			// can't be using host coherent memory and declaring that the host doesn't access the memory
+			log_error("VULKAN_HOST_COHERENT specified, but host read/write flags set to NONE!");
+			flags |= MEMORY_FLAG::HOST_READ_WRITE;
+		}
 	}
 	
 	// handle SHARING_SYNC and related flags

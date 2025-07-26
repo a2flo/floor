@@ -642,6 +642,7 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 												   MEMORY_FLAG::HOST_READ_WRITE |
 												   MEMORY_FLAG::VULKAN_HOST_COHERENT |
 												   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
+												   MEMORY_FLAG::__EXP_HEAP_ALLOC |
 												   add_mem_flags);
 	arg_buffer_storage->set_debug_label(arg_buf_name);
 	if (zero_init && has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(add_mem_flags)) {

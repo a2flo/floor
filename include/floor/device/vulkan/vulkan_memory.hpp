@@ -58,12 +58,19 @@ protected:
 	const bool is_image { false };
 	const MEMORY_FLAG memory_flags { MEMORY_FLAG::NONE };
 	
+	// heap allocation vars
+	VmaAllocation heap_allocation { nullptr };
+	bool is_heap_allocation { false };
+	bool is_heap_allocation_host_visible { false };
+	
 	struct vulkan_mapping {
-		VkBuffer buffer;
-		VkDeviceMemory mem;
-		const size_t size;
-		const size_t offset;
-		const MEMORY_MAP_FLAG flags;
+		void* base_address { nullptr };
+		VkBuffer buffer { nullptr };
+		VkDeviceMemory mem { nullptr };
+		VmaAllocation staging_allocation { nullptr };
+		const size_t size { 0u };
+		const size_t offset { 0u };
+		const MEMORY_MAP_FLAG flags {};
 	};
 	// stores all mapped pointers and the mapped buffer
 	std::unordered_map<void*, vulkan_mapping> mappings;

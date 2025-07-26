@@ -338,6 +338,9 @@
 		5C83AE932DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
 		5C83AE942DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
 		5C83AE952DBD692B009E4182 /* thread_helpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C83AE922DBD692B009E4182 /* thread_helpers.cpp */; };
+		5CAC49BB2E323F5C006377F5 /* vulkan_heap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */; };
+		5CAC49BC2E323F5C006377F5 /* vulkan_heap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */; };
+		5CAC49BD2E323F5C006377F5 /* vulkan_heap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */; };
 		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
@@ -680,6 +683,8 @@
 		5C83AE922DBD692B009E4182 /* thread_helpers.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thread_helpers.cpp; sourceTree = "<group>"; };
 		5C84964D261284D50009DBCA /* README.asciidoc */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.asciidoc; sourceTree = "<group>"; };
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
+		5CAC49B92E323F5C006377F5 /* vulkan_heap.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vulkan_heap.hpp; sourceTree = "<group>"; };
+		5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vulkan_heap.cpp; sourceTree = "<group>"; };
 		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -994,6 +999,8 @@
 				5C6DC6D92DB0958100627453 /* vulkan_encoder.hpp */,
 				5C6DC6DA2DB0958100627453 /* vulkan_function_entry.hpp */,
 				5C6DC6DB2DB0958100627453 /* vulkan_headers.hpp */,
+				5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */,
+				5CAC49B92E323F5C006377F5 /* vulkan_heap.hpp */,
 				5C6DC6DD2DB0958100627453 /* vulkan_image_internal.cpp */,
 				5C6DC6DC2DB0958100627453 /* vulkan_image_internal.hpp */,
 			);
@@ -1490,6 +1497,7 @@
 				"./build_version.sh",
 				"",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1508,6 +1516,7 @@
 				"./build_version.sh",
 				"",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1524,6 +1533,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 				"",
 			);
@@ -1576,6 +1586,7 @@
 				5C6DC7B92DB0958100627453 /* cuda_context.cpp in Sources */,
 				5C6DC7BA2DB0958100627453 /* unicode.cpp in Sources */,
 				5C6DC7BB2DB0958100627453 /* metal_image.mm in Sources */,
+				5CAC49BB2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC7BC2DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
 				5C6DC7BD2DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC7BE2DB0958100627453 /* graphics_pipeline.cpp in Sources */,
@@ -1690,6 +1701,7 @@
 				5C6DC7422DB0958100627453 /* cuda_context.cpp in Sources */,
 				5C6DC7432DB0958100627453 /* unicode.cpp in Sources */,
 				5C6DC7442DB0958100627453 /* metal_image.mm in Sources */,
+				5CAC49BD2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC7452DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
 				5C6DC7462DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC7472DB0958100627453 /* graphics_pipeline.cpp in Sources */,
@@ -1804,6 +1816,7 @@
 				5C6DC8252DB0958100627453 /* cuda_context.cpp in Sources */,
 				5C6DC8262DB0958100627453 /* unicode.cpp in Sources */,
 				5C6DC8272DB0958100627453 /* metal_image.mm in Sources */,
+				5CAC49BC2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC8282DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
 				5C6DC8292DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC82A2DB0958100627453 /* graphics_pipeline.cpp in Sources */,

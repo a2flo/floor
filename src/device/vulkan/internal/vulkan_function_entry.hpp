@@ -36,6 +36,8 @@ struct vulkan_function_entry : device_function::function_entry {
 		VkDeviceSize layout_size_in_bytes { 0u };
 		std::vector<VkDeviceSize> argument_offsets;
 		std::unique_ptr<vulkan_descriptor_buffer_container> desc_buffer_container;
+		//! for internal (clean up) use only
+		std::array<std::pair<device_buffer*, void*>, vulkan_descriptor_buffer_container::descriptor_count> desc_buffer_ptrs {};
 	} desc_buffer;
 	
 	//! buffers/storage for constant data

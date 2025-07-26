@@ -32,6 +32,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 #if !defined(FLOOR_NO_VULKAN)
 class vulkan_context;
 #endif
+class vulkan_heap;
 
 class vulkan_device final : public device {
 public:
@@ -61,6 +62,10 @@ public:
 	std::shared_ptr<void*> _mem_props;
 #endif
 	
+	//! internal memory heap
+	//! NOTE: only exists if the context was created with __EXP_INTERNAL_HEAP
+	vulkan_heap* heap { nullptr };
+	
 	//! Vulkan physical device index inside the parent context/instance
 	uint32_t physical_device_index { 0u };
 	
@@ -87,27 +92,36 @@ public:
 	//! max push constants size
 	uint32_t max_push_constants_size { 0u };
 	
-	//! preferred memory type index for device memory allocation
+	//! preferred memory type index for device memory allocations
 	uint32_t device_mem_index { ~0u };
 	
-	//! preferred memory type index for cached host + device-visible memory allocation
+	//! preferred memory type index for cached host + device-visible memory allocations
 	uint32_t host_mem_cached_index { ~0u };
 	
-	//! preferred memory type index for coherent host + device-local memory allocation
+	//! preferred memory type index for coherent host + device-local memory allocations
 	uint32_t device_mem_host_coherent_index { ~0u };
 	
-	//! all available memory type indices for device memory allocation
+	//! all available memory type indices for device memory allocations
 	std::vector<uint32_t> device_mem_indices;
 	
-	//! all available memory type indices for cached host + device-visible memory allocation
+	//! all available memory type indices for cached host + device-visible memory allocations
 	std::vector<uint32_t> host_mem_cached_indices;
 	
-	//! all available memory type indices for coherent host + device-local memory allocation
+	//! all available memory type indices for coherent host + device-local memory allocations
 	std::vector<uint32_t> device_mem_host_coherent_indices;
+	
+	//! all available memory type indices for host-visible memory allocations
+	std::vector<uint32_t> host_visible_indices;
+	
+	//! all heap indices that are device-local
+	std::vector<uint32_t> device_heap_indices;
 	
 	//! if set, prefer host coherent memory over host cached memory,
 	//! i.e. this is the case on systems all device memory is host coherent ("Resizable BAR"/"SAM")
 	bool prefer_host_coherent_mem { false };
+	
+	//! if set, the device supports optimal image layouts in host-coherent device-local memory
+	bool has_device_host_coherent_opt_image_support { false };
 	
 	//! feature support: can use 16-bit float types in SPIR-V
 	bool float16_support { false };

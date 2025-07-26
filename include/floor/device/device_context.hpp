@@ -71,9 +71,13 @@ enum class DEVICE_CONTEXT_FLAGS : uint32_t {
 	//! Vulkan-only: flag that disables blocking queue submission
 	VULKAN_NO_BLOCKING = (1u << 1u),
 	
-	//! Metal-only (for now): experimental option to allocate and use an internal heap for supported memory allocations
+	//! Metal/Vulkan-only: experimental option to allocate and use an internal heap for supported memory allocations
 	//! NOTE: this enables the use of MEMORY_FLAG::__EXP_HEAP_ALLOC
 	__EXP_INTERNAL_HEAP = (1u << 2u),
+	
+	//! Vulkan-only: experimental option to automatically add MEMORY_FLAG::__EXP_HEAP_ALLOC to all allocations
+	//! NOTE: requires __EXP_INTERNAL_HEAP
+	__EXP_VULKAN_ALWAYS_HEAP = (1u << 3u),
 };
 floor_global_enum_ext(DEVICE_CONTEXT_FLAGS)
 
