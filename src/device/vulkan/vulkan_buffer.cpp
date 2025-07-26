@@ -115,12 +115,12 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 	};
 	
+	VkExportMemoryAllocateInfo export_alloc_info;
 	if (!is_heap_allocation) {
 		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer),
 					"buffer creation failed", false)
 		
 		// export memory alloc info (if sharing is enabled)
-		VkExportMemoryAllocateInfo export_alloc_info;
 #if defined(__WINDOWS__)
 		VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
