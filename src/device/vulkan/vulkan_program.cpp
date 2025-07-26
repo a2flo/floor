@@ -491,7 +491,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 vulkan_program::~vulkan_program() {
 	// ensure buffers are unmapped when they are heap-allocated
 	for (const auto& prog_func : functions) {
-		for (const auto&& func : ((const std::shared_ptr<vulkan_function>&)prog_func)->functions) {
+		for (auto&& func : ((const std::shared_ptr<vulkan_function>&)prog_func)->functions) {
 			if (!func.second) {
 				continue;
 			}

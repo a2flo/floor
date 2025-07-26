@@ -301,6 +301,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 		.pQueueFamilyIndices = (is_concurrent_sharing ? vk_dev.queue_families.data() : nullptr),
 		.initialLayout = initial_layout,
 	};
+	VkExportMemoryAllocateInfo export_alloc_info;
 	if (!is_heap_allocation) {
 		VK_CALL_RET(vkCreateImage(vulkan_dev, &image_create_info, nullptr, &image),
 					"image creation failed", false)
@@ -320,7 +321,6 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 		}
 		
 		// export memory alloc info (if sharing is enabled)
-		VkExportMemoryAllocateInfo export_alloc_info;
 #if defined(__WINDOWS__)
 		VkExportMemoryWin32HandleInfoKHR export_mem_win32_info;
 #endif
