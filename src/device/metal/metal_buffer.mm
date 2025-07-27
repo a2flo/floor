@@ -109,9 +109,8 @@ is_staging_buffer(is_staging_buffer_) {
 	}
 	
 	// both heap flags must be enabled for this to be viable + must obviously not be backed by CPU memory
-	if (has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) &&
-		!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
-		has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags())) {
+	if (!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
+		should_heap_allocate_device_memory(dev.context->get_context_flags(), flags)) {
 		// must also be untracked and in private or shared storage mode
 		if ((options & MTLResourceHazardTrackingModeMask) == MTLResourceHazardTrackingModeUntracked &&
 			((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate ||

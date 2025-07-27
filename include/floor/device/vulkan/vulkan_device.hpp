@@ -63,7 +63,7 @@ public:
 #endif
 	
 	//! internal memory heap
-	//! NOTE: only exists if the context was created with __EXP_INTERNAL_HEAP
+	//! NOTE: this exists by default, unless DEVICE_CONTEXT_FLAGS::DISABLE_HEAP was specified
 	vulkan_heap* heap { nullptr };
 	
 	//! Vulkan physical device index inside the parent context/instance

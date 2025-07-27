@@ -709,6 +709,7 @@
 		5CCB82432BF970130037975D /* volk.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = volk.c; sourceTree = "<group>"; };
 		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
 		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		5CE959F02E368441001965FB /* device_context_flags.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = device_context_flags.hpp; path = include/floor/device/device_context_flags.hpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1062,6 +1063,7 @@
 				5C6DCAE82DB098F300627453 /* device_common.hpp */,
 				5C6DC6F42DB0958100627453 /* device_context.cpp */,
 				5C6DCAE92DB098F300627453 /* device_context.hpp */,
+				5CE959F02E368441001965FB /* device_context_flags.hpp */,
 				5C6DC6F52DB0958100627453 /* device_fence.cpp */,
 				5C6DCAEA2DB098F300627453 /* device_fence.hpp */,
 				5C6DC6F62DB0958100627453 /* device_function.cpp */,
@@ -1498,6 +1500,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1517,6 +1520,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1533,6 +1537,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 				"",
 				"",

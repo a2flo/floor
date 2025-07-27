@@ -642,10 +642,10 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 												   MEMORY_FLAG::HOST_READ_WRITE |
 												   MEMORY_FLAG::VULKAN_HOST_COHERENT |
 												   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
-												   MEMORY_FLAG::__EXP_HEAP_ALLOC |
+												   MEMORY_FLAG::HEAP_ALLOCATION |
 												   add_mem_flags);
 	arg_buffer_storage->set_debug_label(arg_buf_name);
-	if (zero_init && has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(add_mem_flags)) {
+	if (zero_init && arg_buffer_storage->is_heap_allocated()) {
 		// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
 		arg_buffer_storage->zero(cqueue);
 	}

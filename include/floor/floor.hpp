@@ -234,9 +234,9 @@ public:
 	static uint32_t get_rdouble_click_time();
 	
 	// memory
-	static float get_heap_private_size();
-	static float get_heap_shared_size();
 	static bool get_metal_shared_only_with_unified_memory();
+	static float get_metal_heap_private_size();
+	static float get_metal_heap_shared_size();
 	
 	// toolchain
 	static const std::string& get_toolchain_backend();
@@ -413,9 +413,9 @@ protected:
 		uint32_t internal_claim_toolchain_version = 0u;
 		
 		// memory
-		float heap_private_size { 0.25f };
-		float heap_shared_size { 0.25f };
 		bool metal_shared_only_with_unified_memory { false };
+		float metal_heap_private_size { -1.0f };
+		float metal_heap_shared_size { -1.0f };
 		
 		// compute toolchain
 		std::string default_compiler = "clang";

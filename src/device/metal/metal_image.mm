@@ -78,14 +78,13 @@ device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true 
 	const auto is_host_accessible = ((flags & MEMORY_FLAG::HOST_READ_WRITE) != MEMORY_FLAG::NONE);
 	
 	// for this to be put into a heap, the following must be fulfilled:
-	//  * both heap flags must be enabled for this to be viable
+	//  * no heap disable flag must be set for this to be viable
 	//  * the image must be untracked
-	//  * the image must be in private or shared storage mode (!managed and !transient)
+	//  * the image must be in private or shared storage mode (!managed, !transient, !render-target)
 	// NOTE: we don't have any support for images being backed by host memory
 	assert(!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags));
-	if (has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) &&
-		has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(dev.context->get_context_flags()) &&
-		!is_transient && is_untracked && (dev.unified_memory || !is_host_accessible)) {
+	if (should_heap_allocate_device_memory(dev.context->get_context_flags(), flags) &&
+		!is_transient && !is_render_target && is_untracked && (dev.unified_memory || !is_host_accessible)) {
 		// enable (for now), may get disabled in create_internal() if other conditions aren't met
 		is_heap_image = true;
 		// always use default
@@ -792,7 +791,7 @@ bool metal_image::zero(const device_queue& cqueue) {
 			auto zero_buffer = cqueue.get_context().create_buffer(cqueue, bytes_per_slice,
 																  MEMORY_FLAG::READ_WRITE |
 																  MEMORY_FLAG::NO_RESOURCE_TRACKING |
-																  MEMORY_FLAG::__EXP_HEAP_ALLOC);
+																  MEMORY_FLAG::HEAP_ALLOCATION);
 			zero_buffer->set_debug_label("zero_buffer");
 			auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 			

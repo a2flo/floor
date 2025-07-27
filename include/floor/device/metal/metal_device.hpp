@@ -106,7 +106,8 @@ public:
 	id <MTLDevice> device { nil };
 	
 	//! internal memory heaps
-	//! NOTE: only exists if the context was created with __EXP_INTERNAL_HEAP
+	//! NOTE: these exists by default, unless DEVICE_CONTEXT_FLAGS::DISABLE_HEAP was specified,
+	//!       or "shared_only_with_unified_memory" config option was set to disable private heaps
 	id <MTLHeap> heap_private { nil };
 	id <MTLHeap> heap_shared { nil };
 	

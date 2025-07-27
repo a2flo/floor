@@ -123,6 +123,12 @@ metal_context::metal_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 							 vr_context* vr_ctx_,
 							 const std::vector<std::string> whitelist) :
 device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enable_renderer_) {
+	if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(ctx_flags) &&
+		has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(ctx_flags)) {
+		log_error("DEVICE_CONTEXT_FLAGS::DISABLE_HEAP and EVICE_CONTEXT_FLAGS::EXPLICIT_HEAP are mutually exclusive");
+		return;
+	}
+	
 #if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
@@ -439,14 +445,25 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			auto mtl_dev = (metal_device*)dev.get();
 			
 			// allocate internal (experimental) heap
-			if (has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
+			if (!has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
 				// determine heap sizes
 				// NOTE: global_mem_size may be >= max_mem_alloc, but also ensure we don't allocate too much memory (10% safety margin)
 				const auto safety_global_mem_size = uint64_t(double(dev->global_mem_size) * 0.9);
-				uint64_t heap_size_private = std::min(uint64_t(double(safety_global_mem_size) * double(floor::get_heap_private_size())),
-													  dev->max_mem_alloc);
-				uint64_t heap_size_shared = std::min(uint64_t(double(safety_global_mem_size) * double(floor::get_heap_shared_size())),
-													 dev->max_mem_alloc);
+				auto private_size_scaler = std::min(!floor::get_metal_shared_only_with_unified_memory() ?
+													floor::get_metal_heap_private_size() : 0.0f, 1.0f); // in [-inf, 1] now
+				auto shared_size_scaler = std::min(dev->unified_memory ?
+												   floor::get_metal_heap_shared_size() : 0.0f, 1.0f); // in [-inf, 1] now
+				// for both if < 0: determine default -> always 25% if explicit heap, otherwise 50% if memory needs to be split between the two, or 100% if all can be used
+				if (private_size_scaler < 0.0f) {
+					private_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
+										   (!dev->unified_memory ? 1.0f : 0.5f));
+				}
+				if (shared_size_scaler < 0.0f) {
+					shared_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
+										  (private_size_scaler <= 0.0f ? 1.0f : 0.5f));
+				}
+				uint64_t heap_size_private = std::min(uint64_t(double(safety_global_mem_size) * double(private_size_scaler)), dev->max_mem_alloc);
+				uint64_t heap_size_shared = std::min(uint64_t(double(safety_global_mem_size) * double(shared_size_scaler)),dev->max_mem_alloc);
 				assert(heap_size_private <= dev->max_mem_alloc && heap_size_shared <= dev->max_mem_alloc);
 				if (!dev->unified_memory) {
 					// we don't have any shared storage mode memory on GPUs w/o unified memory
@@ -526,7 +543,8 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			// create null buffer
 			auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
 											 MEMORY_FLAG::READ | MEMORY_FLAG::HOST_READ_WRITE |
-											 MEMORY_FLAG::NO_RESOURCE_TRACKING | MEMORY_FLAG::__EXP_HEAP_ALLOC);
+											 MEMORY_FLAG::NO_RESOURCE_TRACKING |
+											 MEMORY_FLAG::HEAP_ALLOCATION);
 			null_buffer->zero(*dev_queue);
 			internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
 			

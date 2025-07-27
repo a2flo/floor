@@ -21,6 +21,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_safety.hpp>
+#include <floor/device/device_context_flags.hpp>
 #include <floor/device/device_memory_flags.hpp>
 #include <fstream>
 
@@ -28,6 +29,16 @@ namespace fl {
 
 class device_queue;
 class device;
+
+//! returns true if device memory should be heap-allocated given the specified context and memory flags
+static inline bool should_heap_allocate_device_memory(const DEVICE_CONTEXT_FLAGS ctx_flags, const MEMORY_FLAG mem_flags) {
+	if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(ctx_flags)) {
+		return false;
+	} else if (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(ctx_flags)) {
+		return has_flag<MEMORY_FLAG::HEAP_ALLOCATION>(mem_flags);
+	}
+	return !has_flag<MEMORY_FLAG::NO_HEAP_ALLOCATION>(mem_flags);
+}
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)

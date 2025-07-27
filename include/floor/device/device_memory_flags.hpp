@@ -50,19 +50,8 @@ enum class MEMORY_FLAG : uint32_t {
 	//! but won't initialize the device memory with that data
 	NO_INITIAL_COPY				= (1u << 4u),
 	
-	//! the specified (host pointer) data will be copied back to the
-	//! device memory each time it is used by a function
-	//! -> copy before function execution
-	//! NOTE: the user must make sure that this is thread-safe!
-	//! NOTE/TODO: not yet implemented!
-	__COPY_ON_USE				= (1u << 5u),
-	
-	//! every time a function using this memory has finished execution,
-	//! the memory data will be copied back to the specified host pointer
-	//! -> copy after function execution
-	//! NOTE: the user must make sure that this is thread-safe!
-	//! NOTE/TODO: not yet implemented!
-	__READ_BACK_RESULT			= (1u << 6u),
+	// unused					= (1u << 5u),
+	// unused					= (1u << 6u),
 	
 	//! memory is allocated in host memory, i.e. the specified host pointer
 	//! will be used for all memory operations
@@ -141,9 +130,14 @@ enum class MEMORY_FLAG : uint32_t {
 	//! NOTE: this is the default
 	SHARING_COMPUTE_READ_WRITE	= (SHARING_COMPUTE_READ | SHARING_COMPUTE_WRITE),
 	
-	//! Metal/Vulkan-only: *experimental* heap allocation from an internal memory heap
-	//! NOTE: if other flags prevent the use of heap memory, a normal allocation will be made instead
-	__EXP_HEAP_ALLOC			= (1u << 23u),
+	//! Metal/Vulkan-only: request a heap allocation when heap allocations are disabled by default in the context
+	//! NOTE: to be used in conjunction with DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP
+	//! NOTE: mutually exclusive with NO_HEAP_ALLOCATION
+	HEAP_ALLOCATION				= (1u << 23u),
+	
+	//! Metal/Vulkan-only: explicitly request a dedicated allocation when heap allocations are enabled by default in the context
+	//! NOTE: mutually exclusive with HEAP_ALLOCATION
+	NO_HEAP_ALLOCATION			= (1u << 24u),
 	
 };
 floor_global_enum_ext(MEMORY_FLAG)

@@ -170,6 +170,13 @@ bool floor::init(const init_state& state) {
 #error "can not retrieve page size"
 #endif
 	
+	if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(state.context_flags) &&
+		has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(state.context_flags)) {
+		std::cerr << "DEVICE_CONTEXT_FLAGS::DISABLE_HEAP and EVICE_CONTEXT_FLAGS::EXPLICIT_HEAP are mutually exclusive";
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
+		return false;
+	}
+	
 	//
 	register_segfault_handler();
 	
@@ -351,9 +358,9 @@ bool floor::init(const init_state& state) {
 		config.mdouble_click_time = config_doc.get<uint32_t>("input.mdouble_click_time", 200);
 		config.rdouble_click_time = config_doc.get<uint32_t>("input.rdouble_click_time", 200);
 		
-		config.heap_private_size = math::clamp(config_doc.get<float>("memory.heap.private_size", 0.25f), 0.0f, 1.0f);
-		config.heap_shared_size = math::clamp(config_doc.get<float>("memory.heap.shared_size", 0.25f), 0.0f, 1.0f);
-		config.metal_shared_only_with_unified_memory = config_doc.get<bool>("memory.metal.shared_only_with_unified_memory", false);
+		config.metal_shared_only_with_unified_memory = config_doc.get<bool>("memory.metal.shared_only_with_unified_memory", true);
+		config.metal_heap_private_size = config_doc.get<float>("memory.metal.heap_private_size", -1.0f);
+		config.metal_heap_shared_size = config_doc.get<float>("memory.metal.heap_shared_size", -1.0f);
 		
 		config.backend = config_doc.get<std::string>("toolchain.backend", "");
 		config.debug = config_doc.get<bool>("toolchain.debug", false);
@@ -1364,12 +1371,12 @@ uint32_t floor::get_rdouble_click_time() {
 	return config.rdouble_click_time;
 }
 
-float floor::get_heap_private_size() {
-	return config.heap_private_size;
+float floor::get_metal_heap_private_size() {
+	return config.metal_heap_private_size;
 }
 
-float floor::get_heap_shared_size() {
-	return config.heap_shared_size;
+float floor::get_metal_heap_shared_size() {
+	return config.metal_heap_shared_size;
 }
 
 bool floor::get_metal_shared_only_with_unified_memory() {

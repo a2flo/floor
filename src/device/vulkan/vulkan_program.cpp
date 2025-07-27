@@ -243,8 +243,8 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 		// allocate in device-local/host-coherent memory
 		entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
 																	MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
-																	MEMORY_FLAG::__EXP_HEAP_ALLOC |
-																	MEMORY_FLAG::VULKAN_HOST_COHERENT);
+																	MEMORY_FLAG::VULKAN_HOST_COHERENT |
+																	MEMORY_FLAG::HEAP_ALLOCATION);
 #if defined(FLOOR_DEBUG)
 		entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + std::to_string(buf_idx));
 #endif
@@ -303,7 +303,7 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 															   MEMORY_FLAG::HOST_READ_WRITE |
 															   MEMORY_FLAG::VULKAN_HOST_COHERENT |
 															   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
-															   MEMORY_FLAG::__EXP_HEAP_ALLOC);
+															   MEMORY_FLAG::HEAP_ALLOCATION);
 			desc_buffers[buf_idx].first->set_debug_label("desc_buf:" + func_name + "#" + std::to_string(buf_idx));
 			auto mapped_host_ptr = desc_buffers[buf_idx].first->map(*dev_queue, (MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 																				 MEMORY_MAP_FLAG::BLOCK));

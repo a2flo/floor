@@ -23,6 +23,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/device/toolchain.hpp>
 #include <floor/device/device_common.hpp>
+#include <floor/device/device_context_flags.hpp>
 #include <floor/device/device_buffer.hpp>
 #include <floor/device/device_image.hpp>
 #include <floor/device/device.hpp>
@@ -59,27 +60,6 @@ struct render_pass_description;
 class graphics_renderer;
 
 class vr_context;
-
-//! global context flags that can be specified during context creation
-enum class DEVICE_CONTEXT_FLAGS : uint32_t {
-	NONE = 0u,
-	
-	//! Metal-only (right now): disables any automatic resource tracking on the allocated Metal object
-	//! NOTE: this is achieved by automatically adding MEMORY_FLAG::NO_RESOURCE_TRACKING for all buffers/images that are created
-	NO_RESOURCE_TRACKING = (1u << 0u),
-	
-	//! Vulkan-only: flag that disables blocking queue submission
-	VULKAN_NO_BLOCKING = (1u << 1u),
-	
-	//! Metal/Vulkan-only: experimental option to allocate and use an internal heap for supported memory allocations
-	//! NOTE: this enables the use of MEMORY_FLAG::__EXP_HEAP_ALLOC
-	__EXP_INTERNAL_HEAP = (1u << 2u),
-	
-	//! Vulkan-only: experimental option to automatically add MEMORY_FLAG::__EXP_HEAP_ALLOC to all allocations
-	//! NOTE: requires __EXP_INTERNAL_HEAP
-	__EXP_VULKAN_ALWAYS_HEAP = (1u << 3u),
-};
-floor_global_enum_ext(DEVICE_CONTEXT_FLAGS)
 
 //! pure abstract base class that provides the interface for all device implementations (CUDA/Host-Compute/Metal/OpenCL/Vulkan)
 class device_context {

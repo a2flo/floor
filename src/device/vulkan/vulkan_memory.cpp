@@ -46,7 +46,9 @@ vulkan_memory::~vulkan_memory() noexcept {
 bool vulkan_memory::write_memory_data(const device_queue& cqueue, const std::span<const uint8_t> data, const size_t& offset,
 									  const size_t shim_input_size, const char* error_msg_on_failure) {
 	// use VMA copy if this is just a simple memcpy (no shim conversion necessary)
-	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u) {
+	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u &&
+		// TODO: properly support this if host-coherent image memory is supported (currently leads to invalid data)
+		!is_image) {
 		if (!vk_dev.heap->host_to_device_copy(data.data(), heap_allocation, offset, data.size_bytes())) {
 			if (error_msg_on_failure == nullptr) {
 				log_error("failed to write Vulkan memory data");
@@ -81,7 +83,9 @@ bool vulkan_memory::read_memory_data(const device_queue& cqueue, std::span<uint8
 									 const size_t shim_input_size, const char* error_msg_on_failure) {
 	// use VMA copy if this is just a simple memcpy (no shim conversion necessary)
 	// NOTE: while VMA recommends VK_MEMORY_PROPERTY_HOST_CACHED_BIT, it is not required
-	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u) {
+	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u &&
+		// TODO: properly support this if host-coherent image memory is supported (currently leads to invalid data)
+		!is_image) {
 		if (!vk_dev.heap->device_to_host_copy(heap_allocation, data.data(), offset, data.size_bytes())) {
 			if (error_msg_on_failure == nullptr) {
 				log_error("failed to read Vulkan memory data");

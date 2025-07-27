@@ -86,6 +86,7 @@ include/floor/device/cuda/cuda_queue.hpp
 include/floor/device/device_buffer.hpp
 include/floor/device/device_common.hpp
 include/floor/device/device_context.hpp
+include/floor/device/device_context_flags.hpp
 include/floor/device/device_fence.hpp
 include/floor/device/device_function_arg.hpp
 include/floor/device/device_function.hpp

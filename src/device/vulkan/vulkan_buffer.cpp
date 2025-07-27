@@ -52,13 +52,10 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	}
 	
 	// both heap flags must be enabled for this to be viable + must obviously not be backed by CPU memory
-	const auto ctx_flags = dev.context->get_context_flags();
-	if ((has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(flags) ||
-		 has_flag<DEVICE_CONTEXT_FLAGS::__EXP_VULKAN_ALWAYS_HEAP>(ctx_flags)) &&
+	if (should_heap_allocate_device_memory(dev.context->get_context_flags(), flags) &&
 		!has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags) &&
 		// TODO: support sharing
-		!has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags) &&
-		has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(ctx_flags)) {
+		!has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 		is_heap_allocation = true;
 	}
 	

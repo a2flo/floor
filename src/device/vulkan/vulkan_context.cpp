@@ -386,6 +386,12 @@ vulkan_context::vulkan_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool 
 							   const bool enable_renderer_, vr_context* vr_ctx_, const std::vector<std::string> whitelist) :
 device_context(ctx_flags, has_toolchain_), internal(std::make_shared<vulkan_context_internal>()), vr_ctx(vr_ctx_),
 enable_renderer(enable_renderer_) {
+	if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(ctx_flags) &&
+		has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(ctx_flags)) {
+		log_error("DEVICE_CONTEXT_FLAGS::DISABLE_HEAP and EVICE_CONTEXT_FLAGS::EXPLICIT_HEAP are mutually exclusive");
+		return;
+	}
+	
 	if(enable_renderer) {
 		internal->screen.x11_forwarding = floor::is_x11_forwarding();
 
@@ -2117,7 +2123,7 @@ enable_renderer(enable_renderer_) {
 		log_msg("prefer device-local/host-coherent over host-cached (ReBAR/SAM): $", device.prefer_host_coherent_mem);
 		
 		// allocate internal heap
-		if (has_flag<DEVICE_CONTEXT_FLAGS::__EXP_INTERNAL_HEAP>(context_flags)) {
+		if (!has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
 			auto heap = std::make_shared<vulkan_heap>(device);
 			device.heap = heap.get();
 			log_msg("allocated memory heap and allocator");

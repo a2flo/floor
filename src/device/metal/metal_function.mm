@@ -273,7 +273,7 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 			buf = dev.context->create_buffer(cqueue, arg_buffer_size_page,
 											 MEMORY_FLAG::READ |
 											 MEMORY_FLAG::HOST_WRITE |
-											 MEMORY_FLAG::__EXP_HEAP_ALLOC |
+											 MEMORY_FLAG::HEAP_ALLOCATION |
 											 add_mem_flags);
 			if (zero_init) {
 				buf->zero(cqueue);
@@ -286,7 +286,7 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 											 MEMORY_FLAG::HOST_WRITE |
 											 MEMORY_FLAG::USE_HOST_MEMORY |
 											 add_mem_flags);
-			if (zero_init && has_flag<MEMORY_FLAG::__EXP_HEAP_ALLOC>(add_mem_flags)) {
+			if (zero_init && buf->is_heap_allocated()) {
 				// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
 				buf->zero(cqueue);
 			}

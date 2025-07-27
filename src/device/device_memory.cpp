@@ -100,6 +100,16 @@ static constexpr MEMORY_FLAG handle_memory_flags(MEMORY_FLAG flags) {
 		}
 	}
 	
+	// handle heap flags
+	if (has_flag<MEMORY_FLAG::HEAP_ALLOCATION>(flags) &&
+		has_flag<MEMORY_FLAG::NO_HEAP_ALLOCATION>(flags)) {
+		log_error("HEAP_ALLOCATION and NO_HEAP_ALLOCATION are mutually exclusive");
+		
+		// clear both and fall back to the context default
+		flags &= ~MEMORY_FLAG::HEAP_ALLOCATION;
+		flags &= ~MEMORY_FLAG::NO_HEAP_ALLOCATION;
+	}
+	
 	return flags;
 }
 
