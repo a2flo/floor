@@ -115,8 +115,13 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		
 		// create the context for this device
 		cu_context ctx;
-		CU_CALL_CONT(cu_ctx_create(&ctx, nullptr, 0, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
-					 "failed to create context for device")
+		if (cu_ctx_create_v4) {
+			CU_CALL_CONT(cu_ctx_create_v4(&ctx, nullptr, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
+						 "failed to create context for device")
+		} else {
+			CU_CALL_CONT(cu_ctx_create(&ctx, nullptr, 0, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
+						 "failed to create context for device")
+		}
 		CU_CALL_IGNORE(cu_ctx_set_current(ctx))
 		
 		//
@@ -263,11 +268,14 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 			device.ptx = { 8, 6 };
 		} else if (driver_version < 12090) {
 			device.ptx = { 8, 7 };
+		} else if (driver_version < 13000) {
+			device.ptx = { 8, 9 };
 		} else {
-			device.ptx = { 8, 8 };
+			device.ptx = { 9, 0 };
 		}
 		
-		if (device.sm.x < 9 || (device.sm.x == 9 && device.sm.y == 0)) {
+		if ((device.sm.x < 9 && !(device.sm.x == 8 && device.sm.y == 8)) ||
+			(device.sm.x == 9 && device.sm.y == 0)) {
 			device.min_req_ptx = { 8, 0 };
 		} else if (device.sm.x < 10 || (device.sm.x == 10 && device.sm.y <= 1)) {
 			device.min_req_ptx = { 8, 6 };
@@ -276,8 +284,11 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		} else if ((device.sm.x == 10 && device.sm.y <= 3) ||
 				   (device.sm.x == 12 && device.sm.y <= 1)) {
 			device.min_req_ptx = { 8, 8 };
+		} else if ((device.sm.x == 8 && device.sm.y == 8) ||
+				   (device.sm.x == 11 && device.sm.y == 0)) {
+			device.min_req_ptx = { 9, 0 };
 		} else {
-			device.min_req_ptx = { 8, 8 };
+			device.min_req_ptx = { 9, 0 };
 		}
 		
 		// additional info
@@ -346,7 +357,8 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 					multiplier = 128;
 					break;
 				case 10:
-					// sm_100/sm_101: 128 cores/sm
+				case 11:
+					// sm_100/sm_101/sm_110: 128 cores/sm
 					multiplier = 128;
 					break;
 				case 12:

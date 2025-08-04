@@ -45,6 +45,7 @@ enum class CU_RESULT : uint32_t {
 	PROFILER_ALREADY_STARTED = 7,
 	PROFILER_ALREADY_STOPPED = 8,
 	STUB_LIBRARY = 34,
+	CALL_REQUIRES_NEWER_DRIVER = 36,
 	DEVICE_UNAVAILABLE = 46,
 	NO_DEVICE = 100,
 	INVALID_DEVICE = 101,
@@ -299,6 +300,11 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	HOST_NUMA_MEMORY_POOLS_SUPPORTED = 142,
 	// CUDA 12.8+
 	HOST_NUMA_MULTINODE_IPC_SUPPORTED = 143,
+	// CUDA 13.0+
+	HOST_MEMORY_POOLS_SUPPORTED = 144,
+	HOST_VIRTUAL_MEMORY_MANAGEMENT_SUPPORTED = 145,
+	HOST_ALLOC_DMA_BUF_SUPPORTED = 146,
+	ONLY_PARTIAL_HOST_NATIVE_ATOMIC_SUPPORTED = 147,
 };
 enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
 	MAX_THREADS_PER_BLOCK = 0,
@@ -359,6 +365,8 @@ enum class CU_JIT_OPTION : uint32_t {
 	// CUDA 12.4+
 	MAX_THREADS_PER_BLOCK = 32,
 	OVERRIDE_DIRECTIVE_VALUES = 33,
+	// CUDA 13.0+
+	SPLIT_COMPILE = 34,
 };
 enum class CU_JIT_INPUT_TYPE : uint32_t {
 	CUBIN = 0,
@@ -767,6 +775,8 @@ enum class CU_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t {
 	D3D11_RESOURCE __attribute__((unavailable("unsupported"))) = 6,
 	D3D11_RESOURCE_KMT __attribute__((unavailable("unsupported"))) = 7,
 	NVSCIBUF = 8,
+	// CUDA 13.0+
+	DMABUF_FD = 9,
 };
 
 enum class CU_EXTERNAL_MEMORY_FLAGS : uint32_t {
@@ -891,6 +901,8 @@ enum class CU_LAUNCH_ATTRIBUTE {
 	DEVICE_UPDATABLE_KERNEL_NODE = 13,
 	// CUDA 12.5+
 	PREFERRED_SHARED_MEMORY_CARVEOUT = 14,
+	// CUDA 13.0+
+	NVLINK_UTIL_CENTRIC_SCHEDULING = 16,
 };
 
 enum class CU_ACCESS_PROPERTY {
@@ -964,6 +976,8 @@ union cu_launch_attribute_value {
 		cu_graph_device_node dev_node;
 	} device_updatable_kernel_node;
 	uint32_t shared_memory_carveout;
+	// CUDA 13.0+
+	uint32_t nvlink_util_centric_scheduling;
 };
 
 struct cu_launch_attribute {

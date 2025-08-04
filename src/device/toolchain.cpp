@@ -449,13 +449,18 @@ program_data compile_input(const std::string& input,
 			// * 8.6 for sm_100/sm_101
 			// * 8.7 for sm_120
 			// * 8.8 for sm_103/sm_121
-			// * 8.8 for anything else
+			// * 9.0 for sm_110/sm_88
+			// * 9.0 for anything else
 			switch (cuda_dev.sm.x) {
 				case 5:
 				case 6:
 				case 7:
 				case 8:
 					// already 80
+					if (cuda_dev.sm.y == 8) {
+						// sm_88 needs PTX 9.0 now
+						ptx_version = std::max(90u, ptx_version);
+					}
 					break;
 				case 9:
 					ptx_version = std::max(cuda_dev.sm.y == 0 ? 80u : 86u, ptx_version);
@@ -463,11 +468,14 @@ program_data compile_input(const std::string& input,
 				case 10:
 					ptx_version = std::max(cuda_dev.sm.y <= 1 ? 86u : 88u, ptx_version);
 					break;
+				case 11:
+					ptx_version = std::max(90u, ptx_version);
+					break;
 				case 12:
 					ptx_version = std::max(cuda_dev.sm.y == 0 ? 87u : 88u, ptx_version);
 					break;
 				default:
-					ptx_version = std::max(88u, ptx_version);
+					ptx_version = std::max(90u, ptx_version);
 					break;
 			}
 			if (!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {

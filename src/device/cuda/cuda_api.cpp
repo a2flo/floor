@@ -107,8 +107,12 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.device_get_name = load_symbol(cuda_lib, "cuDeviceGetName");
 	if(cuda_api.device_get_name == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceGetName\"");
 	
-	(void*&)cuda_api.device_get_uuid = load_symbol(cuda_lib, "cuDeviceGetUuid");
-	if(cuda_api.device_get_uuid == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceGetUuid\"");
+	if (auto device_get_uuid_v2 = load_symbol(cuda_lib, "cuDeviceGetUuid_v2"); device_get_uuid_v2) {
+		(void*&)cuda_api.device_get_uuid = device_get_uuid_v2;
+	} else {
+		(void*&)cuda_api.device_get_uuid = load_symbol(cuda_lib, "cuDeviceGetUuid");
+		if(cuda_api.device_get_uuid == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceGetUuid\"");
+	}
 	
 	(void*&)cuda_api.device_total_mem = load_symbol(cuda_lib, "cuDeviceTotalMem_v2");
 	if(cuda_api.device_total_mem == nullptr) log_error("failed to retrieve function pointer for \"cuDeviceTotalMem_v2\"");
@@ -122,8 +126,12 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.event_destroy = load_symbol(cuda_lib, "cuEventDestroy_v2");
 	if(cuda_api.event_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuEventDestroy_v2\"");
 	
-	(void*&)cuda_api.event_elapsed_time = load_symbol(cuda_lib, "cuEventElapsedTime");
-	if(cuda_api.event_elapsed_time == nullptr) log_error("failed to retrieve function pointer for \"cuEventElapsedTime\"");
+	if (auto event_elapsed_time_v2 = load_symbol(cuda_lib, "cuEventElapsedTime_v2"); event_elapsed_time_v2) {
+		(void*&)cuda_api.event_elapsed_time = event_elapsed_time_v2;
+	} else {
+		(void*&)cuda_api.event_elapsed_time = load_symbol(cuda_lib, "cuEventElapsedTime");
+		if(cuda_api.event_elapsed_time == nullptr) log_error("failed to retrieve function pointer for \"cuEventElapsedTime\"");
+	}
 	
 	(void*&)cuda_api.event_record = load_symbol(cuda_lib, "cuEventRecord");
 	if(cuda_api.event_record == nullptr) log_error("failed to retrieve function pointer for \"cuEventRecord\"");
