@@ -176,12 +176,12 @@ typename vulkan_function::function_map_type::iterator vulkan_function::get_funct
 }
 
 std::shared_ptr<vulkan_encoder> vulkan_function::create_encoder(const device_queue& cqueue,
-														 const vulkan_command_buffer* cmd_buffer_,
-														 const VkPipeline pipeline,
-														 const VkPipelineLayout pipeline_layout,
-														 const std::vector<const vulkan_function_entry*>& entries,
-														 const char* debug_label floor_unused_if_release,
-														 bool& success) const {
+																const vulkan_command_buffer* cmd_buffer_,
+																const VkPipeline pipeline,
+																const VkPipelineLayout pipeline_layout,
+																const std::vector<const vulkan_function_entry*>& entries,
+																const char* debug_label floor_unused_if_release,
+																bool& success) const {
 	success = false;
 	if (entries.empty()) return {};
 	
@@ -515,11 +515,18 @@ void vulkan_function::execute(const device_queue& cqueue,
 }
 
 bool vulkan_function::set_and_handle_arguments(const bool is_shader, vulkan_encoder& encoder,
-											 const std::vector<const vulkan_function_entry*>& shader_entries,
-											 const std::vector<device_function_arg>& args,
-											 const std::vector<device_function_arg>& implicit_args,
-											 vulkan_args::transition_info_t& transition_info) const {
-	if (encoder.acquired_descriptor_buffers.empty()) {
+											   const std::vector<const vulkan_function_entry*>& shader_entries,
+											   const std::vector<device_function_arg>& args,
+											   const std::vector<device_function_arg>& implicit_args,
+											   vulkan_args::transition_info_t& transition_info) const {
+	bool has_argument_buffers = false;
+	for (const auto& entry : shader_entries) {
+		if (entry && !entry->argument_buffers.empty()) {
+			has_argument_buffers = true;
+			break;
+		}
+	}
+	if (encoder.acquired_descriptor_buffers.empty() && !has_argument_buffers) {
 		return true;
 	}
 	

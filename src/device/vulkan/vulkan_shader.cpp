@@ -57,14 +57,14 @@ void vulkan_shader::execute(const device_queue& cqueue floor_unused,
 }
 
 std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueue,
-												  const vulkan_command_buffer& cmd_buffer,
-												  const VkPipeline pipeline,
-												  const VkPipelineLayout pipeline_layout,
-												  const vulkan_function_entry* vertex_shader,
-												  const vulkan_function_entry* fragment_shader,
-												  const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
-												  const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
-												  const std::vector<device_function_arg>& args) const {
+													   const vulkan_command_buffer& cmd_buffer,
+													   const VkPipeline pipeline,
+													   const VkPipelineLayout pipeline_layout,
+													   const vulkan_function_entry* vertex_shader,
+													   const vulkan_function_entry* fragment_shader,
+													   const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
+													   const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+													   const std::vector<device_function_arg>& args) const {
 	if (vertex_shader == nullptr) {
 		log_error("must specify a vertex shader!");
 		return {};

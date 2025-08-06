@@ -53,27 +53,27 @@ public:
 	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s),
 	//! returns all required image layout transition barriers
 	std::vector<VkImageMemoryBarrier2> draw(const device_queue& cqueue,
-									   const vulkan_command_buffer& cmd_buffer,
-									   const VkPipeline pipeline,
-									   const VkPipelineLayout pipeline_layout,
-									   const vulkan_function_entry* vertex_shader,
-									   const vulkan_function_entry* fragment_shader,
-									   const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
-									   const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
-									   const std::vector<device_function_arg>& args) const;
+											const vulkan_command_buffer& cmd_buffer,
+											const VkPipeline pipeline,
+											const VkPipelineLayout pipeline_layout,
+											const vulkan_function_entry* vertex_shader,
+											const vulkan_function_entry* fragment_shader,
+											const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
+											const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+											const std::vector<device_function_arg>& args) const;
 	
 	//! sets and handles all vertex and fragment shader arguments and enqueue draw call(s),
 	//! returns all required image layout transition barriers
 	template <typename... Args>
 	std::vector<VkImageMemoryBarrier2> draw(const device_queue& cqueue,
-									   const vulkan_command_buffer& cmd_buffer,
-									   const VkPipeline pipeline,
-									   const VkPipelineLayout pipeline_layout,
-									   const vulkan_function_entry* vertex_shader,
-									   const vulkan_function_entry* fragment_shader,
-									   const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
-									   const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
-									   const Args&... args) const {
+											const vulkan_command_buffer& cmd_buffer,
+											const VkPipeline pipeline,
+											const VkPipelineLayout pipeline_layout,
+											const vulkan_function_entry* vertex_shader,
+											const vulkan_function_entry* fragment_shader,
+											const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
+											const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+											const Args&... args) const {
 		return draw(cqueue, cmd_buffer, pipeline, pipeline_layout, vertex_shader, fragment_shader, draw_entries, draw_indexed_entries, { args... });
 	}
 	
