@@ -401,6 +401,69 @@ void vulkan_image::set_debug_label(const std::string& label) {
 	}
 }
 
+const VkImageView& vulkan_image::get_vulkan_image_layer_view(const uint32_t layer_idx) {
+	if (!has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+		log_error("image is not an image array");
+		return image_view;
+	} else if (layer_idx >= layer_count) {
+		log_error("layer index $' is out-of-bounds (layer count: $')", layer_idx, layer_count);
+		return image_view;
+	}
+	
+	if (layer_image_views.empty()) {
+		layer_image_views.resize(layer_count, nullptr);
+	}
+	
+	auto& layer_image_view = layer_image_views[layer_idx];
+	if (!layer_image_view) {
+		// create the layer image view
+		VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
+		switch (image_dim_count(image_type)) {
+			case 1:
+				view_type = VK_IMAGE_VIEW_TYPE_1D;
+				break;
+			case 2:
+				view_type = (has_flag<IMAGE_TYPE::FLAG_CUBE>(image_type) ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D);
+				break;
+			case 3:
+				view_type = VK_IMAGE_VIEW_TYPE_3D;
+				break;
+			default: floor_unreachable();
+		}
+		
+		auto vulkan_dev = vk_dev.device;
+		auto& internal = (vulkan_image_internal&)*this;
+		VkImageAspectFlags aspect = vk_aspect_flags_from_type(image_type);
+		
+		const VkImageSubresourceRange sub_rsrc_range {
+			.aspectMask = aspect,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = layer_idx,
+			.layerCount = 1,
+		};
+		const VkImageViewCreateInfo image_view_create_info {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.image = image,
+			.viewType = view_type,
+			.format = internal.vk_format,
+			.components = {
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY,
+				VK_COMPONENT_SWIZZLE_IDENTITY
+			},
+			.subresourceRange = sub_rsrc_range,
+		};
+		VK_CALL_RET(vkCreateImageView(vulkan_dev, &image_view_create_info, nullptr, &layer_image_view),
+					"image layer view creation failed", image_view /* fall back */)
+	}
+	
+	return layer_image_view;
+}
+
 } // namespace fl
 
 #endif

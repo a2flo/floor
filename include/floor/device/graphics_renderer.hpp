@@ -128,32 +128,35 @@ public:
 	
 	//! identifies an attachment at an specific index in the pass/pipeline
 	struct attachment_t {
-		//! index of the attachment in graphics_pipeline/graphics_pass,
-		//! if ~0u -> determine index automatically
-		uint32_t index { ~0u };
 		//! pointer to the backing image
 		device_image* floor_nonnull image;
 		//! only set when using resolve_and_store_attachment_t/MSAA: this is the resolve_image
 		device_image* floor_nullable resolve_image { nullptr };
+		//! index of the attachment in graphics_pipeline/graphics_pass,
+		//! if ~0u -> determine index automatically
+		uint32_t index { ~0u };
+		//! if image is an array, this specifies the index of the image layer that should be used for rendering
+		uint32_t layer { 0u };
 		
-		attachment_t(const attachment_t& att) noexcept : index(att.index), image(att.image), resolve_image(att.resolve_image) {}
+		attachment_t(const attachment_t& att) noexcept : image(att.image), resolve_image(att.resolve_image), index(att.index), layer(att.layer) {}
 		attachment_t& operator=(const attachment_t& att) {
-			index = att.index;
 			image = att.image;
 			resolve_image = att.resolve_image;
+			index = att.index;
+			layer = att.layer;
 			return *this;
 		}
 		
 #if !defined(FLOOR_DEBUG)
-		attachment_t(device_image& image_) noexcept : image(&image_) {}
-		attachment_t(device_image* floor_nonnull image_) noexcept : image(image_) {}
-		attachment_t(std::shared_ptr<device_image>& image_) noexcept : image(image_.get()) {}
-		attachment_t(std::unique_ptr<device_image>& image_) noexcept : image(image_.get()) {}
+		attachment_t(device_image& image_, const uint32_t layer_ = 0u) noexcept : image(&image_), layer(layer_) {}
+		attachment_t(device_image* floor_nonnull image_, const uint32_t layer_ = 0u) noexcept : image(image_), layer(layer_) {}
+		attachment_t(std::shared_ptr<device_image>& image_, const uint32_t layer_ = 0u) noexcept : image(image_.get()), layer(layer_) {}
+		attachment_t(std::unique_ptr<device_image>& image_, const uint32_t layer_ = 0u) noexcept : image(image_.get()), layer(layer_) {}
 		attachment_t(drawable_t& drawable) noexcept : image(drawable.image) {}
 		attachment_t(drawable_t* floor_nonnull drawable) noexcept : image(drawable->image) {}
 		
-		attachment_t(const uint32_t& index_, device_image& image_) : index(index_), image(&image_) {}
-		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(drawable.image) {}
+		attachment_t(const uint32_t index_, device_image& image_, const uint32_t layer_ = 0u) : image(&image_), index(index_), layer(layer_) {}
+		attachment_t(const uint32_t index_, drawable_t& drawable) :image(drawable.image), index(index_) {}
 #else
 		device_image* floor_null_unspecified image_sanity_check(device_image* floor_null_unspecified image_) {
 			if (image_ == nullptr) {
@@ -168,21 +171,26 @@ public:
 			return image_sanity_check(drawable_->image);
 		}
 		
-		attachment_t(device_image& image_) noexcept : image(&image_) {}
-		attachment_t(device_image* floor_nonnull image_) noexcept : image(image_sanity_check(image_)) {}
-		attachment_t(std::shared_ptr<device_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
-		attachment_t(std::unique_ptr<device_image>& image_) noexcept : image(image_sanity_check(image_.get())) {}
+		attachment_t(device_image& image_, const uint32_t layer_ = 0u) noexcept : image(&image_), layer(layer_) {}
+		attachment_t(device_image* floor_nonnull image_, const uint32_t layer_ = 0u) noexcept :
+		image(image_sanity_check(image_)), layer(layer_) {}
+		attachment_t(std::shared_ptr<device_image>& image_, const uint32_t layer_ = 0u) noexcept :
+		image(image_sanity_check(image_.get())), layer(layer_) {}
+		attachment_t(std::unique_ptr<device_image>& image_, const uint32_t layer_ = 0u) noexcept :
+		image(image_sanity_check(image_.get())), layer(layer_) {}
 		attachment_t(drawable_t& drawable) noexcept : image(image_sanity_check(drawable.image)) {}
 		attachment_t(drawable_t* floor_nonnull drawable) noexcept : image(drawable_sanity_check(drawable)) {}
 		
-		attachment_t(const uint32_t& index_, device_image& image_) : index(index_), image(&image_) {}
-		attachment_t(const uint32_t& index_, drawable_t& drawable) : index(index_), image(image_sanity_check(drawable.image)) {}
+		attachment_t(const uint32_t index_, device_image& image_, const uint32_t layer_ = 0u) :
+		image(&image_), index(index_), layer(layer_) {}
+		attachment_t(const uint32_t index_, drawable_t& drawable) : image(image_sanity_check(drawable.image)), index(index_) {}
 #endif
 		
-		attachment_t(resolve_and_store_attachment_t& resolve_and_store_attachment) noexcept :
-		image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image) {}
-		attachment_t(const uint32_t& index_, resolve_and_store_attachment_t& resolve_and_store_attachment) noexcept :
-		index(index_), image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image) {}
+		attachment_t(resolve_and_store_attachment_t& resolve_and_store_attachment, const uint32_t layer_ = 0u) noexcept :
+		image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image), layer(layer_) {}
+		attachment_t(const uint32_t index_, resolve_and_store_attachment_t& resolve_and_store_attachment, const uint32_t layer_ = 0u) noexcept :
+		image(&resolve_and_store_attachment.store_image), resolve_image(&resolve_and_store_attachment.resolve_image),
+		index(index_), layer(layer_) {}
 	};
 	
 	//! set all pass/pipeline attachments

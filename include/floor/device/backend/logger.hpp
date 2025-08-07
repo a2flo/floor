@@ -182,7 +182,7 @@ public:
 		// map types to ARG_TYPEs
 		const_array<ARG_TYPE, dollar_count + 1> arg_types {};
 		handle_arg_types<Args...>(arg_types, 0);
-		return arg_types;
+		floor_return_no_nrvo(arg_types);
 	}
 	
 	// count '$' symbols

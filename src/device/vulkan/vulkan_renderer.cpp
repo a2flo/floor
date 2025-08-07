@@ -108,13 +108,19 @@ VkFramebuffer vulkan_renderer::create_vulkan_framebuffer(const VkRenderPass& vk_
 	
 	std::vector<VkImageView> vk_attachments;
 	for (auto&& att : attachments_map) {
-		vk_attachments.emplace_back(att.second.image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
+		auto att_image = att.second.image->get_underlying_vulkan_image_safe();
+		vk_attachments.emplace_back(att.second.layer == 0u ? att_image->get_vulkan_image_view() :
+									att_image->get_vulkan_image_layer_view(att.second.layer));
 		if (att.second.resolve_image) {
-			vk_attachments.emplace_back(att.second.resolve_image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
+			auto att_resolve_image = att.second.resolve_image->get_underlying_vulkan_image_safe();
+			vk_attachments.emplace_back(att.second.layer == 0u ? att_resolve_image->get_vulkan_image_view() :
+										att_resolve_image->get_vulkan_image_layer_view(att.second.layer));
 		}
 	}
 	if (depth_attachment) {
-		vk_attachments.emplace_back(depth_attachment->image->get_underlying_vulkan_image_safe()->get_vulkan_image_view());
+		auto att_depth_image = depth_attachment->image->get_underlying_vulkan_image_safe();
+		vk_attachments.emplace_back(depth_attachment->layer == 0u ? att_depth_image->get_vulkan_image_view() :
+									att_depth_image->get_vulkan_image_layer_view(depth_attachment->layer));
 	}
 	
 	VkFramebufferCreateInfo framebuffer_create_info {

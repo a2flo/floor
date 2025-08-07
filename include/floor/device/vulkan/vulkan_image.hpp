@@ -54,6 +54,12 @@ public:
 		return image_view;
 	}
 	
+	//! returns the Vulkan specific image view object of only a specified layer in an image array
+	//! NOTE: this may only be called for image arrays
+	//! NOTE: this will be created on-the-fly on the first call to this image
+	//! NOTE: this is not thread safe!
+	const VkImageView& get_vulkan_image_layer_view(const uint32_t layer_idx);
+	
 	//! returns the current Vulkan specific access mask
 	const VkAccessFlags2& get_vulkan_access_mask() const {
 		return cur_access_mask;
@@ -107,6 +113,10 @@ protected:
 	// similar to image_info, but these contain per-level image views and infos
 	// NOTE: image views are only created/used when the image is writable
 	std::vector<VkImageView> mip_map_image_view;
+	
+	//! if this is an image array: this (may) contain an image view of each individual layer
+	//! NOTE: this is created on-the-fly and only contains the layers that were requests (but its size is still #layers)
+	std::vector<VkImageView> layer_image_views;
 	
 	//! when using descriptor buffers, this contains the descriptor data (sampled and storage descriptor)
 	size_t descriptor_sampled_size = 0, descriptor_storage_size = 0;
