@@ -95,6 +95,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			if (att.second.resolve_image) {
 				min_attachment_dim.min(att.second.resolve_image->get_image_dim().xy);
 				mtl_pass_desc.colorAttachments[att.first].resolveTexture = att.second.resolve_image->get_underlying_metal_image_safe()->get_metal_image();
+				mtl_pass_desc.colorAttachments[att.first].resolveSlice = att.second.layer;
 			}
 			if (dynamic_render_state.clear_values) {
 				const auto dbl_clear_color = (*dynamic_render_state.clear_values)[attachment_idx].color.cast<double>();
@@ -110,6 +111,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 			if (depth_attachment->resolve_image) {
 				min_attachment_dim.min(depth_attachment->resolve_image->get_image_dim().xy);
 				mtl_pass_desc.depthAttachment.resolveTexture = depth_attachment->resolve_image->get_underlying_metal_image_safe()->get_metal_image();
+				mtl_pass_desc.depthAttachment.resolveSlice = depth_attachment->layer;
 			}
 			if (dynamic_render_state.clear_values) {
 				mtl_pass_desc.depthAttachment.clearDepth = double((*dynamic_render_state.clear_values)[attachment_idx].depth);
