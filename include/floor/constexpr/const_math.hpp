@@ -857,10 +857,14 @@ namespace fl::const_math {
 	}
 	
 	//! wraps val to the range [0, max)
+	//! NOTE: assumes max > 0
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type wrap(const fp_type val, const fp_type max) {
+		// essentially std::nexttoward(max, 0.0), but at compile-time
+		using uint_type = ext::sized_unsigned_int_eqv_t<fp_type>;
+		const auto next_towords_zero = std::bit_cast<fp_type>(uint_type(std::bit_cast<uint_type>(max) - 1u));
 		return (val < fp_type(0) ?
-				(max - const_math::fmod(const_math::abs(val), max)) :
+				const_math::min(max + const_math::fmod(val, max), next_towords_zero) :
 				const_math::fmod(val, max));
 	}
 	

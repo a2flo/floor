@@ -155,9 +155,21 @@ namespace fl::rt_math {
 	}
 	
 	//! wraps val to the range [0, max)
+	//! NOTE: assumes max > 0
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
-		return (val < fp_type(0) ? (max - std::fmod(std::abs(val), max)) : std::fmod(val, max));
+		fp_type next_towords_zero {};
+#if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
+		if constexpr (std::is_same_v<fp_type, half>) {
+			next_towords_zero = std::bit_cast<half>(uint16_t(std::bit_cast<uint16_t>(max) - 1u));
+		} else {
+			next_towords_zero = std::nexttoward(max, 0.0);
+		}
+#else
+		using uint_type = ext::sized_unsigned_int_eqv_t<fp_type>;
+		next_towords_zero = std::bit_cast<fp_type>(uint_type(std::bit_cast<uint_type>(max) - 1u));
+#endif
+		return (val < fp_type(0) ? std::min(max + std::fmod(val, max), next_towords_zero) : std::fmod(val, max));
 	}
 	
 	//! wraps val to the range [0, max)
