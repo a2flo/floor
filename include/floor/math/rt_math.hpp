@@ -163,7 +163,7 @@ namespace fl::rt_math {
 		if constexpr (std::is_same_v<fp_type, half>) {
 			next_towords_zero = std::bit_cast<half>(uint16_t(std::bit_cast<uint16_t>(max) - 1u));
 		} else {
-			next_towords_zero = std::nexttoward(max, 0.0);
+			next_towords_zero = std::nexttoward(max, 0.0L);
 		}
 #else
 		using uint_type = ext::sized_unsigned_int_eqv_t<fp_type>;
