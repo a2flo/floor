@@ -159,7 +159,7 @@ namespace fl::rt_math {
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
 		fp_type next_towords_zero {};
-#if !defined(FLOOR_DEVICE) || defined(FLOOR_DEVICE_HOST_COMPUTE)
+#if !defined(FLOOR_DEVICE)
 		if constexpr (std::is_same_v<fp_type, half>) {
 			next_towords_zero = std::bit_cast<half>(uint16_t(std::bit_cast<uint16_t>(max) - 1u));
 		} else {
