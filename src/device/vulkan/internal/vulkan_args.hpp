@@ -96,7 +96,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 			// -> plain old SSBO
 			assert(const_buf);
 #if defined(FLOOR_DEBUG)
-			if (write_offset + vulkan_buffer::max_ssbo_descriptor_size > host_desc_data.size_bytes()) {
+			if (write_offset + vk_dev.desc_buffer_sizes.ssbo > host_desc_data.size_bytes()) {
 				throw std::runtime_error("out-of-bounds descriptor/argument buffer write");
 			}
 #endif
@@ -139,7 +139,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const std::span<uint8_t>& host_desc_data,
 								const device_buffer* arg) {
 	const auto vk_buffer = arg->get_underlying_vulkan_buffer_safe();
-	const std::span<const uint8_t> desc_data { &vk_buffer->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
+	const std::span<const uint8_t> desc_data { vk_buffer->get_vulkan_descriptor_data(), vk_dev.desc_buffer_sizes.ssbo };
 	const auto write_offset = argument_offsets[idx.binding];
 #if defined(FLOOR_DEBUG)
 	if (!idx.is_implicit && !has_flag<ARG_FLAG::SSBO>(arg_info.args[idx.arg].flags)) {
@@ -182,7 +182,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 			memset(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, 0, vk_dev.desc_buffer_sizes.ssbo);
 			continue;
 		}
-		const std::span<const uint8_t> desc_data { &buf_ptr->get_vulkan_descriptor_data()[0], vk_dev.desc_buffer_sizes.ssbo };
+		const std::span<const uint8_t> desc_data { buf_ptr->get_vulkan_descriptor_data(), vk_dev.desc_buffer_sizes.ssbo };
 		memcpy(host_desc_data.data() + write_offset + vk_dev.desc_buffer_sizes.ssbo * i, desc_data.data(), vk_dev.desc_buffer_sizes.ssbo);
 	}
 }
@@ -523,6 +523,24 @@ set_arguments(const vulkan_device& dev,
 	assert(((enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER) && transition_info) ||
 		   ((enc_type != ENCODER_TYPE::COMPUTE && enc_type != ENCODER_TYPE::SHADER) && !transition_info));
 	
+	// check for low IUB/DS function flags if necessitated by the device
+	if (dev.max_inline_uniform_block_count < vulkan_device::min_required_high_inline_uniform_block_count) {
+		for (const auto& entry : entries) {
+			if (!has_flag<FUNCTION_FLAGS::VULKAN_LOW_IUB>(entry->flags)) {
+				log_error("specified function \"$\" doesn't support low IUB count that is required by the device", entry->name);
+				return { false, {} };
+			}
+		}
+	}
+	if (dev.max_descriptor_set_count < vulkan_device::min_required_high_bound_descriptor_sets) {
+		for (const auto& entry : entries) {
+			if (!has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(entry->flags)) {
+				log_error("specified function \"$\" doesn't support low descriptor set count that is required by the device", entry->name);
+				return { false, {} };
+			}
+		}
+	}
+	
 	idx_handler idx;
 	const size_t arg_count = args.size() + implicit_args.size();
 	size_t explicit_idx = 0, implicit_idx = 0;
@@ -574,6 +592,38 @@ set_arguments(const vulkan_device& dev,
 			return { false, {} };
 		}
 #endif
+	}
+	
+	// validate argument buffer counts
+	for (uint32_t entry_idx = 0, entry_count = uint32_t(entries.size()); entry_idx < entry_count; ++entry_idx) {
+		const auto& entry = entries[entry_idx];
+		if (!entry) {
+			continue;
+		}
+		
+		uint32_t arg_buffer_count = 0u;
+		for (const auto& arg_buffer : argument_buffers) {
+			if (arg_buffer.first == entry_idx) {
+				++arg_buffer_count;
+			}
+		}
+		
+		const auto is_low_desc_set_count = has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(entry->flags);
+		if (entry->type == FUNCTION_TYPE::KERNEL) {
+			if ((is_low_desc_set_count && arg_buffer_count > vulkan_device::kernel_arg_buffer_count_low) ||
+				arg_buffer_count > vulkan_device::kernel_arg_buffer_count_high) {
+				log_error("specified amount of argument buffers ($) exceeds supported device limits in kernel \"$\"",
+						  arg_buffer_count, entry->name);
+				return { false, {} };
+			}
+		} else {
+			if ((is_low_desc_set_count && arg_buffer_count > vulkan_device::shader_arg_buffer_count_low) ||
+				arg_buffer_count > vulkan_device::shader_arg_buffer_count_high) {
+				log_error("specified amount of argument buffers ($) exceeds supported device limits in shader \"$\"",
+						  arg_buffer_count, entry->name);
+				return { false, {} };
+			}
+		}
 	}
 	
 	return { true, argument_buffers };

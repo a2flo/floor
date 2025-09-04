@@ -77,7 +77,7 @@ bool create_floor_function_info(const std::string& ffi_file_name,
 		const auto& token_arg_num = tokens[4];
 		
 		//
-		static constexpr const char floor_functions_version[] { "6" };
+		static constexpr const char floor_functions_version[] { "7" };
 		if (token_version != floor_functions_version) {
 			log_error("invalid floor function info version, expected $, got $!",
 					  floor_functions_version, token_version);
@@ -548,6 +548,9 @@ program_data compile_input(const std::string& input,
 				" -Xclang -vulkan-iub-count=" + std::to_string(vk_device.max_inline_uniform_block_count) +
 				(soft_printf ? " -Xclang -vulkan-soft-printf -DFLOOR_DEVICE_HAS_SOFT_PRINTF=1" : "") +
 				(options.vulkan.pre_structurization_pass ? " -Xclang -vulkan-llvm-pre-structurization-pass" : "") +
+				(vk_device.subgroup_uniform_cf_support ? " -Xclang -vulkan-subgroup-uniform-cf" : "") +
+				(vk_device.max_descriptor_set_count < vulkan_device::min_required_high_bound_descriptor_sets ?
+				 " -Xclang -vulkan-low-descriptor-set-count" : "") +
 				" -DFLOOR_DEVICE_VULKAN" \
 				" -DFLOOR_DEVICE_SPIRV" \
 				" -DFLOOR_DEVICE_NO_DOUBLE"

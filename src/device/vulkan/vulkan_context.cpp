@@ -816,6 +816,7 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_video_maintenance2",
 			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_bfloat16",
+			"VK_KHR_shader_untyped_pointers",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
@@ -881,10 +882,6 @@ enable_renderer(enable_renderer_) {
 			log_error("VK_KHR_workgroup_memory_explicit_layout is not supported by $", props.deviceName);
 			continue;
 		}
-		if (!device_extensions_set.contains(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME)) {
-			log_error("VK_KHR_shader_subgroup_uniform_control_flow is not supported by $", props.deviceName);
-			continue;
-		}
 		if (!device_extensions_set.contains(VK_KHR_SHADER_MAXIMAL_RECONVERGENCE_EXTENSION_NAME)) {
 			log_error("VK_KHR_shader_maximal_reconvergence is not supported by $", props.deviceName);
 			continue;
@@ -895,11 +892,13 @@ enable_renderer(enable_renderer_) {
 		}
 		device_extensions_set.emplace(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 		
+		bool memory_priority_support = false;
 		if (!device_supported_extensions_set.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
-			log_error("VK_EXT_memory_priority is not supported by $", props.deviceName);
-			continue;
+			log_warn("VK_EXT_memory_priority is not supported by $", props.deviceName);
+		} else {
+			device_extensions_set.emplace(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
+			memory_priority_support = true;
 		}
-		device_extensions_set.emplace(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 		
 		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
 			if (!device_extensions_set.contains(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME)) {
@@ -1499,6 +1498,7 @@ enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		// TODO: optional VK_SHADER_STAGE_VERTEX_BIT?
 		const auto sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
 		const auto sq_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
 									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT);
@@ -1523,9 +1523,10 @@ enable_renderer(enable_renderer_) {
 			log_error("SIMD max range $ is out-of-bounds for device $", vulkan13_props.maxSubgroupSize, props.deviceName);
 		}
 		
+		bool subgroup_uniform_cf_support = true;
 		if (!subgroup_uni_control_flow_features.shaderSubgroupUniformControlFlow) {
-			log_error("sub-group uniform control flow is not supported by $", props.deviceName);
-			continue;
+			log_warn("sub-group uniform control flow is not supported by $", props.deviceName);
+			subgroup_uniform_cf_support = false;
 		}
 		
 		if (!max_reconvergence_features.shaderMaximalReconvergence) {
@@ -1610,16 +1611,17 @@ enable_renderer(enable_renderer_) {
 					  desc_buf_props.storageBufferDescriptorSize, vulkan_buffer::max_ssbo_descriptor_size);
 			continue;
 		}
-		if (desc_buf_props.maxDescriptorBufferBindings < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
-			log_error("failed argument buffer support: max number of bound descriptor buffer bindings $ < required count $",
-					  desc_buf_props.maxDescriptorBufferBindings, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
+		if (desc_buf_props.maxDescriptorBufferBindings < vulkan_device::min_required_bound_descriptor_sets) {
+			log_error("failed descriptor set count support: max number of bound descriptor buffer bindings $ < required count $",
+					  desc_buf_props.maxDescriptorBufferBindings, vulkan_device::min_required_bound_descriptor_sets);
 			continue;
 		}
-		if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support) {
-			log_error("failed argument buffer support: max number of bound descriptor sets $ < required count $",
-					  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets_for_argument_buffer_support);
+		if (props.limits.maxBoundDescriptorSets < vulkan_device::min_required_bound_descriptor_sets) {
+			log_error("failed descriptor set count support: max number of bound descriptor sets $ < required count $",
+					  props.limits.maxBoundDescriptorSets, vulkan_device::min_required_bound_descriptor_sets);
 			continue;
 		}
+		const auto descriptor_set_count = std::min(desc_buf_props.maxDescriptorBufferBindings, props.limits.maxBoundDescriptorSets);
 		
 		// handle/retrieve/check device memory properties / heaps / types and select appropriate ones
 		auto dev_mem_info = handle_and_select_device_memory(phys_dev, props.deviceName);
@@ -2005,18 +2007,25 @@ enable_renderer(enable_renderer_) {
 		device.constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
 		device.local_mem_size = limits.maxComputeSharedMemorySize;
 		
-		device.max_total_local_size = limits.maxComputeWorkGroupInvocations;
-		device.max_resident_local_size = device.max_total_local_size;
-		device.max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
-		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
-		device.max_global_size = device.max_local_size * device.max_group_size;
-		device.max_push_constants_size = limits.maxPushConstantsSize;
 		device.simd_range = { vulkan13_props.minSubgroupSize, vulkan13_props.maxSubgroupSize };
 		if (32u >= device.simd_range.x && 32u <= device.simd_range.y) {
 			device.simd_width = 32; // prefer 32 if we can
 		} else {
 			device.simd_width = vulkan11_props.subgroupSize;
 		}
+		// we need to limit the max local size to SIMD-width * #max-subgroups, which may be less than
+		// maxComputeWorkGroupInvocations/maxComputeWorkGroupSize[*]
+		const auto max_subgroups = vulkan13_props.maxComputeWorkgroupSubgroups;
+		const auto max_local_size = device.simd_width * max_subgroups;
+		
+		device.max_total_local_size = std::min(limits.maxComputeWorkGroupInvocations, max_local_size);
+		device.max_resident_local_size = device.max_total_local_size;
+		device.max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
+		device.max_local_size.min(max_local_size);
+		device.max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
+		device.max_global_size = device.max_local_size * device.max_group_size;
+		device.max_push_constants_size = limits.maxPushConstantsSize;
+		device.max_descriptor_set_count = descriptor_set_count;
 		if (device_supported_extensions_set.contains(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME)) {
 			device.units = nv_sm_builtins_props.shaderSMCount;
 			device.max_coop_total_local_size = nv_sm_builtins_props.shaderWarpsPerSM * 32u;
@@ -2082,6 +2091,8 @@ enable_renderer(enable_renderer_) {
 		
 		device.swapchain_maintenance1_support = swapchain_maintenance1_support;
 		
+		device.subgroup_uniform_cf_support = subgroup_uniform_cf_support;
+		
 		// descriptor buffer support handling
 		device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);
 		device.desc_buffer_sizes.storage_image = uint32_t(desc_buf_props.storageImageDescriptorSize);
@@ -2123,6 +2134,7 @@ enable_renderer(enable_renderer_) {
 		log_msg("prefer device-local/host-coherent over host-cached (ReBAR/SAM): $", device.prefer_host_coherent_mem);
 		
 		// allocate internal heap
+		device.memory_priority_support = memory_priority_support;
 		if (!has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
 			auto heap = std::make_shared<vulkan_heap>(device);
 			device.heap = heap.get();
@@ -2235,7 +2247,8 @@ vulkan_context::~vulkan_context() {
 }
 
 void vulkan_context::destroy_renderer_swapchain(const bool reset_present_fences) {
-	if (!internal->screen.x11_forwarding) {
+	const auto x11_forwarding = internal->screen.x11_forwarding;
+	if (!x11_forwarding) {
 		// ensure all presents are done before we kill any resources
 		bool did_wait = false;
 		for (uint32_t i = 0, fence_count = uint32_t(present_fences.size()); i < fence_count; ++i) {
@@ -2290,6 +2303,7 @@ void vulkan_context::destroy_renderer_swapchain(const bool reset_present_fences)
 	}
 	
 	internal->screen = {};
+	internal->screen.x11_forwarding = x11_forwarding;
 }
 
 void vulkan_context::resize_handler(EVENT_TYPE type, std::shared_ptr<event_object>) {

@@ -156,6 +156,9 @@ public:
 	//! alignment requirement when setting descriptor buffer offsets (i.e. per sub-set within a buffer)
 	uint32_t descriptor_buffer_offset_alignment { 0u };
 	
+	//! max amount of descriptor sets that can be used universally
+	uint32_t max_descriptor_set_count { 0u };
+	
 	//! feature support: VK_NV_inherited_viewport_scissor
 	bool inherited_viewport_scissor_support { false };
 	
@@ -164,6 +167,13 @@ public:
 	
 	//! feature support: VK_EXT_swapchain_maintenance1
 	bool swapchain_maintenance1_support { false };
+	
+	//! feature support: VK_EXT_memory_priority
+	bool memory_priority_support { false };
+	
+	//! feature support: VK_KHR_shader_subgroup_uniform_control_flow
+	//! NOTE: enabled by default, since most implementations support this
+	bool subgroup_uniform_cf_support { true };
 	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
@@ -180,13 +190,27 @@ public:
 #endif
 	
 	//! minimum required inline uniform block size that must be supported by a device
-	static constexpr const uint32_t min_required_inline_uniform_block_size { 256 };
+	static constexpr const uint32_t min_required_inline_uniform_block_size { 256u };
 	
 	//! minimum required inline uniform block count that must be supported by a device
-	static constexpr const uint32_t min_required_inline_uniform_block_count { 16 };
+	static constexpr const uint32_t min_required_inline_uniform_block_count { 4u };
+	//! minimum required inline uniform block count that must be supported by a device to enable "high IUB count" functionality
+	static constexpr const uint32_t min_required_high_inline_uniform_block_count { 16u };
 	
-	//! minimum required number of bindable descriptor sets for "argument_buffer_support"
-	static constexpr const uint32_t min_required_bound_descriptor_sets_for_argument_buffer_support { 16u };
+	//! minimum required number of bindable descriptor sets
+	static constexpr const uint32_t min_required_bound_descriptor_sets { 7u };
+	//! minimum required number of bindable descriptor to enable "high descriptor set count" functionality
+	static constexpr const uint32_t min_required_high_bound_descriptor_sets { 16u };
+	
+	//! max supported number of argument buffers in a kernel (with low descriptor set count)
+	static constexpr const uint32_t kernel_arg_buffer_count_low { min_required_bound_descriptor_sets - 2u };
+	//! max supported number of argument buffers in a kernel (with high descriptor set count)
+	static constexpr const uint32_t kernel_arg_buffer_count_high { min_required_high_bound_descriptor_sets - 2u };
+	
+	//! max supported number of argument buffers per shader stage (with low descriptor set count)
+	static constexpr const uint32_t shader_arg_buffer_count_low { 2u };
+	//! max supported number of argument buffers per shader stage (with high descriptor set count)
+	static constexpr const uint32_t shader_arg_buffer_count_high { 6u };
 	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const vulkan_device& dev) const {

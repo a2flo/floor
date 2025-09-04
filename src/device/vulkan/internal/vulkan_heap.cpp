@@ -178,16 +178,21 @@ vulkan_heap::vulkan_heap(const vulkan_device& dev_) : dev(dev_) {
 		heap_block_size = 512ull * 1024ull * 1024ull;
 	}
 	
-	const VmaAllocatorCreateInfo create_info {
-		.flags = (VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT |
-				  VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT |
-				  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT |
-				  VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT |
-				  VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT
+	VmaAllocatorCreateFlags create_flags {
+		VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT |
+		VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT |
+		VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT |
+		VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT
 #if defined(__WINDOWS__)
-				  | VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT
+		| VMA_ALLOCATOR_CREATE_KHR_EXTERNAL_MEMORY_WIN32_BIT
 #endif
-				  ),
+	};
+	if (dev.memory_priority_support) {
+		create_flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+	}
+	
+	const VmaAllocatorCreateInfo create_info {
+		.flags = create_flags,
 		.physicalDevice = dev.physical_device,
 		.device = dev.device,
 		.preferredLargeHeapBlockSize = heap_block_size,

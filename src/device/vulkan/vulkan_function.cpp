@@ -272,17 +272,17 @@ REQUIRES(!entry.specializations_lock) {
 }
 
 void vulkan_function::execute(const device_queue& cqueue,
-							vulkan_command_buffer* external_cmd_buffer,
-							const bool& is_cooperative,
-							const bool& wait_until_completion,
-							const uint32_t& dim floor_unused,
-							const uint3& global_work_size,
-							const uint3& local_work_size_,
-							const std::vector<device_function_arg>& args,
-							const std::vector<const device_fence*>& wait_fences_,
-							const std::vector<device_fence*>& signal_fences_,
-							const char* debug_label,
-							kernel_completion_handler_f&& completion_handler) const {
+							  vulkan_command_buffer* external_cmd_buffer,
+							  const bool& is_cooperative,
+							  const bool& wait_until_completion,
+							  const uint32_t& dim floor_unused,
+							  const uint3& global_work_size,
+							  const uint3& local_work_size_,
+							  const std::vector<device_function_arg>& args,
+							  const std::vector<const device_fence*>& wait_fences_,
+							  const std::vector<device_fence*>& signal_fences_,
+							  const char* debug_label,
+							  kernel_completion_handler_f&& completion_handler) const {
 	// no cooperative support yet
 	if (is_cooperative) {
 		log_error("cooperative kernel execution is not supported for Vulkan");

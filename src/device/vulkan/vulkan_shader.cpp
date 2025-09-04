@@ -256,12 +256,16 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 		if (arg_buf_fs_set_count > 0) {
+			const auto is_fs_low_desc_count = (fragment_shader != nullptr &&
+											   has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(fragment_shader->info->flags));
 			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 				.pNext = nullptr,
 				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
 				.layout = encoder->pipeline_layout,
-				.firstSet = vulkan_pipeline::argument_buffer_fs_start_set,
+				.firstSet = (is_fs_low_desc_count ?
+							 vulkan_pipeline::argument_buffer_fs_start_set_low :
+							 vulkan_pipeline::argument_buffer_fs_start_set_high),
 				.setCount = arg_buf_fs_set_count,
 				.pBufferIndices = arg_buf_fs_buf_indices.data(),
 				.pOffsets = arg_buf_offsets.data(),

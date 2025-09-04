@@ -48,12 +48,13 @@ vulkan_device::vulkan_device() : device() {
 	image_gather_support = false; // for now (needs floor support)
 	image_read_write_support = false;
 	
-	// will be overwritten later
+	// these will be overwritten later on init
 	max_mip_levels = default_max_mip_levels; // 32768px
 	
-	// init IUB vars with min requirement (will be overwritten on init, but devices need to at least support this)
 	max_inline_uniform_block_size = min_required_inline_uniform_block_size;
-	max_inline_uniform_block_count = min_required_inline_uniform_block_count;
+	max_inline_uniform_block_count = min_required_high_inline_uniform_block_count;
+	
+	max_descriptor_set_count = min_required_high_bound_descriptor_sets;
 }
 
 } // namespace fl

@@ -92,23 +92,24 @@ static void sighandler(int, siginfo_t*, void*) {
 	
 	// proper stacktrace via glibc backtrace, dl* functionality, cxxabi demangle and addr2line/atos
 	Dl_info dl_info;
-	for(int i = 0; i < ptr_count; ++i) {
-		if(dladdr(stack_ptrs[i], &dl_info) != 0) {
+	for (int i = 0; i < ptr_count; ++i) {
+		if (dladdr(stack_ptrs[i], &dl_info) != 0) {
 			const char* nearest_symbol_name = dl_info.dli_sname;
 			
 			int demangle_status = 0;
 			char* demangled_func_name = abi::__cxa_demangle(nearest_symbol_name, nullptr, nullptr, &demangle_status);
 			
-			log_error("[$][$Y] $ -> $ $",
-					  i, stack_ptrs[i],
+			log_error("[$][$Y][base:$Y] $ -> $ $",
+					  i, stack_ptrs[i], dl_info.dli_fbase,
 					  (dl_info.dli_fname != nullptr ? dl_info.dli_fname : "<unknown>"),
 					  (demangled_func_name != nullptr ? demangled_func_name :
 					   (nearest_symbol_name != nullptr ? nearest_symbol_name : "<unknown>")),
 					  core::trim(addr_to_source_info(dl_info.dli_fname, dl_info.dli_fbase, stack_ptrs[i])));
 			
-			if(demangled_func_name != nullptr) free(demangled_func_name);
-		}
-		else {
+			if (demangled_func_name) {
+				free(demangled_func_name);
+			}
+		} else {
 			log_error("[$][$Y] <unknown> -> <unknown>", i, stack_ptrs[i]);
 		}
 	}

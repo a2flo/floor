@@ -94,7 +94,9 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		}
 	}
 	if (has_arg_buffers_fs) {
-		desc_set_layouts.resize(vulkan_pipeline::argument_buffer_fs_start_set, empty_desc_set);
+		desc_set_layouts.resize(has_flag<toolchain::FUNCTION_FLAGS::VULKAN_LOW_DS>(vk_fs_entry->info->flags) ?
+								vulkan_pipeline::argument_buffer_fs_start_set_low :
+								vulkan_pipeline::argument_buffer_fs_start_set_high, empty_desc_set);
 		for (const auto& arg_buf : vk_fs_entry->argument_buffers) {
 			desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
 		}

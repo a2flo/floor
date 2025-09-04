@@ -27,10 +27,10 @@
 //!
 //! binary format:
 //! [magic: char[4] = "FUBA"]
-//! [binary format version: uint32_t = 6]
+//! [binary format version: uint32_t = 7]
 //! [binary count: uint32_t]
 //! [FUBAR flags: uint32_t]
-//! [binary targets: target_v6[binary count]]
+//! [binary targets: target_v7[binary count]]
 //! [binary offsets: uint64_t[binary count]]
 //! [binary toolchain versions: uint32_t[binary count]]
 //! [binary SHA-256 hashes: sha_256::hash_t[binary count]]
@@ -41,7 +41,7 @@
 //!     [binary size: uint32_t]
 //!     [binary flags: uint32_t]
 //!     functions[function count]...:
-//!         [function info version: uint32_t = 6]
+//!         [function info version: uint32_t = 7]
 //!         [type: FUNCTION_TYPE (uint32_t)]
 //!         [argument count: uint32_t]
 //!         [local size: uint3]
@@ -61,16 +61,16 @@ namespace fl::universal_binary {
 using namespace std::literals;
 
 	//! current version of the binary format
-	static constexpr const uint32_t binary_format_version { 6u };
+	static constexpr const uint32_t binary_format_version { 7u };
 	//! current version of the target format
-	static constexpr const uint32_t target_format_version { 6u };
+	static constexpr const uint32_t target_format_version { 7u };
 	//! current version of the function info
-	static constexpr const uint32_t function_info_version { 6u };
+	static constexpr const uint32_t function_info_version { 7u };
 	
 	//! target information (64-bit)
 	//! NOTE: right now this is still subject to change until said otherwise!
 	//!       -> can change without version update
-	union __attribute__((packed)) target_v6 {
+	union __attribute__((packed)) target_v7 {
 		
 		//! NOTE: due to bitfield and alignment restrictions/requirements, these common variables can't simply be
 		//!       put into a base struct or a surrounding union/struct -> put them into every struct manually
@@ -280,22 +280,31 @@ using namespace std::literals;
 			//! max mip level count in [1, 31]
 			uint64_t max_mip_levels : 5;
 			
-			uint64_t _unused : 11;
+			//! if set, enables subgroup uniform control flow support
+			uint64_t subgroup_uniform_cf_support : 1;
+			
+			//! if set, only assumes 4 rather than 16 IUBs are available
+			uint64_t low_iub_count : 1;
+			
+			//! if set, only assumes 7 rather than 16 descriptor sets are available
+			uint64_t low_desc_set_count : 1;
+			
+			uint64_t _unused : 8;
 		} vulkan;
 
 		//! packed value
 		uint64_t value { 0u };
 		
-		bool operator==(const target_v6& cmp) const {
+		bool operator==(const target_v7& cmp) const {
 			return (value == cmp.value);
 		}
 		
 #undef FLOOR_FUBAR_VERSION_AND_TYPE // cleanup
 	};
-	static_assert(sizeof(target_v6) == sizeof(uint64_t));
+	static_assert(sizeof(target_v7) == sizeof(uint64_t));
 	
 	//! static part of the universal binary archive header (these are the first bytes)
-	struct __attribute__((packed)) header_v6 {
+	struct __attribute__((packed)) header_v7 {
 		//! magic identifier
 		char magic[4] { 'F', 'U', 'B', 'A' }; // floor universal binary archive
 		//! == binary_format_version
@@ -309,14 +318,14 @@ using namespace std::literals;
 			uint32_t _unused_flags : 31 { 0u };
 		} flags;
 	};
-	static_assert(sizeof(header_v6) == sizeof(uint32_t) * 4u);
+	static_assert(sizeof(header_v7) == sizeof(uint32_t) * 4u);
 	
 	//! extended/dynamic part of the header
-	struct header_dynamic_v6 {
+	struct header_dynamic_v7 {
 		//! static part of the header
-		header_v6 static_header;
+		header_v7 static_header;
 		//! binary targets
-		std::vector<target_v6> targets;
+		std::vector<target_v7> targets;
 		//! binary offsets inside the file
 		std::vector<uint64_t> offsets;
 		//! binary toolchain versions (currently 140000)
@@ -326,7 +335,7 @@ using namespace std::literals;
 	};
 	
 	//! per-function information inside a binary (static part)
-	struct function_info_v6 {
+	struct function_info_v7 {
 		//! == function_info_version
 		uint32_t function_info_version { 0u };
 		//! function type (kernel, fragment, vertex, ...)
@@ -342,12 +351,12 @@ using namespace std::literals;
 		//! argument buffer: index of the argument buffer in the function
 		uint32_t argument_buffer_index { 0u };
 	};
-	static_assert(sizeof(function_info_v6) == sizeof(uint32_t) * 9u);
+	static_assert(sizeof(function_info_v7) == sizeof(uint32_t) * 9u);
 	
 	//! per-function information inside a binary (dynamic part)
-	struct function_info_dynamic_v6 {
+	struct function_info_dynamic_v7 {
 		//! static part of the function info
-		function_info_v6 static_function_info;
+		function_info_v7 static_function_info;
 		//! function name
 		std::string name;
 		//! per-argument specific information
@@ -364,7 +373,7 @@ using namespace std::literals;
 	};
 	
 	//! per-binary header (static part)
-	struct __attribute__((packed)) binary_v6 {
+	struct __attribute__((packed)) binary_v7 {
 		//! count of all contained functions
 		uint32_t function_count;
 		//! size of the function info data
@@ -376,32 +385,32 @@ using namespace std::literals;
 			uint32_t _unused_flags : 32 { 0u };
 		} flags;
 	};
-	static_assert(sizeof(binary_v6) == sizeof(uint32_t) * 4);
+	static_assert(sizeof(binary_v7) == sizeof(uint32_t) * 4);
 	
 	//! per-binary header (dynamic part)
-	struct binary_dynamic_v6 {
+	struct binary_dynamic_v7 {
 		//! static part of the binary header
-		binary_v6 static_binary_header;
+		binary_v7 static_binary_header;
 		//! function info for all contained functions
-		std::vector<function_info_dynamic_v6> function_info;
+		std::vector<function_info_dynamic_v7> function_info;
 		//! binary data
 		std::vector<uint8_t> data;
 	};
 	
 	//! in-memory floor universal binary archive
 	struct archive {
-		header_dynamic_v6 header;
-		std::vector<binary_dynamic_v6> binaries;
+		header_dynamic_v7 header;
+		std::vector<binary_dynamic_v7> binaries;
 	};
 	
 	//! aliases for current formats
-	using target = target_v6;
-	using header = header_v6;
-	using header_dynamic = header_dynamic_v6;
-	using function_info = function_info_v6;
-	using function_info_dynamic = function_info_dynamic_v6;
-	using binary = binary_v6;
-	using binary_dynamic = binary_dynamic_v6;
+	using target = target_v7;
+	using header = header_v7;
+	using header_dynamic = header_dynamic_v7;
+	using function_info = function_info_v7;
+	using function_info_dynamic = function_info_dynamic_v7;
+	using binary = binary_v7;
+	using binary_dynamic = binary_dynamic_v7;
 	
 	//! loads a binary archive into memory and returns it if successful (nullptr if not)
 	std::unique_ptr<archive> load_archive(const std::string& file_name);
@@ -416,7 +425,7 @@ using namespace std::literals;
 		//! loaded archive
 		std::unique_ptr<archive> ar;
 		//! matching binaries
-		std::vector<std::pair<const binary_dynamic_v6*, const target_v6>> dev_binaries;
+		std::vector<std::pair<const binary_dynamic_v7*, const target_v7>> dev_binaries;
 	};
 	archive_binaries load_dev_binaries_from_archive(const std::string& file_name, const std::vector<const device*>& devices);
 	archive_binaries load_dev_binaries_from_archive(const std::string& file_name, const device_context& ctx);
@@ -440,11 +449,11 @@ using namespace std::literals;
 	
 	//! finds the best matching binary for the specified device inside the specified archive,
 	//! returns nullptr if no compatible binary has been found at all
-	std::pair<const binary_dynamic_v6*, const target_v6>
+	std::pair<const binary_dynamic_v7*, const target_v7>
 	find_best_match_for_device(const device& dev,
 							   const archive& ar);
 	
 	//! translates universal binary function info to toolchain function info
-	std::vector<toolchain::function_info> translate_function_info(const std::pair<const binary_dynamic_v6*, const target_v6>& bin);
+	std::vector<toolchain::function_info> translate_function_info(const std::pair<const binary_dynamic_v7*, const target_v7>& bin);
 	
 } // namespace fl::universal_binary

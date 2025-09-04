@@ -57,11 +57,10 @@ public:
 															 const bool get_indirect) const;
 	
 	//! the descriptor set index where vertex shader argument buffers start at
-	static constexpr const uint32_t argument_buffer_vs_start_set { 5u };
+	static constexpr const uint32_t argument_buffer_vs_start_set { 3u };
 	//! the descriptor set index where fragment shader argument buffers start at
-	static constexpr const uint32_t argument_buffer_fs_start_set { 9u };
-	//! the descriptor set index where tessellation control shader argument buffers start at
-	static constexpr const uint32_t argument_buffer_tcs_start_set { 13u };
+	static constexpr const uint32_t argument_buffer_fs_start_set_low { 5u };
+	static constexpr const uint32_t argument_buffer_fs_start_set_high { 9u };
 	
 	//! returns the underlying/associated vulkan_pass for this pipeline,
 	//! returns nullptr if there is none

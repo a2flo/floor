@@ -77,7 +77,10 @@
 		"barycentric_coord_support": false,
 		"tessellation_support": false,
 		"simd_width": 0,
-		"max_mip_levels": 16
+		"max_mip_levels": 16,
+		"subgroup_uniform_cf_support": false,
+		"low_iub_count": true,
+		"low_desc_set_count": true
 	},
 	// Host-Compute x86 + ARM
 	{

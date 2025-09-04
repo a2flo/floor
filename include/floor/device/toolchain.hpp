@@ -64,6 +64,10 @@ namespace fl::toolchain {
 		KERNEL_1D						= (1u << 1u),
 		KERNEL_2D						= (1u << 2u),
 		KERNEL_3D						= (1u << 3u),
+		//! Vulkan-only: low inline uniform block count
+		VULKAN_LOW_IUB					= (1u << 4u),
+		//! Vulkan-only: low descriptor set count
+		VULKAN_LOW_DS					= (1u << 5u),
 	};
 	floor_global_enum_ext(FUNCTION_FLAGS)
 

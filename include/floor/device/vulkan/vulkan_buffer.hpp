@@ -24,6 +24,7 @@
 
 #include <floor/device/device_buffer.hpp>
 #include <floor/device/vulkan/vulkan_memory.hpp>
+#include <variant>
 
 namespace fl {
 
@@ -87,11 +88,12 @@ public:
 	}
 	
 	//! max size of an SSBO descriptor
-	static constexpr const uint32_t max_ssbo_descriptor_size { 16u };
+	static constexpr const uint32_t max_ssbo_descriptor_size { 256u };
 	
 	//! returns the descriptor data for this buffer (for use in descriptor buffers)
-	const auto& get_vulkan_descriptor_data() const {
-		return descriptor_data;
+	const uint8_t* get_vulkan_descriptor_data() const {
+		return (descriptor_data.index() == 0 ?
+				std::get<0>(descriptor_data).data() : std::get<1>(descriptor_data).data());
 	}
 	
 	//! returns the usage flags that this Vulkan buffer was created with
@@ -106,10 +108,11 @@ protected:
 	VkBufferUsageFlags2 buffer_usage { 0 };
 	
 	//! when using descriptor buffers, this contains the descriptor data (as a SSBO descriptor)
-	std::array<uint8_t, max_ssbo_descriptor_size> descriptor_data {{
-		0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-		0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-	}};
+	//! TODO: inplace_vector
+	static constexpr const size_t inline_descriptor_size { std::max(sizeof(std::vector<uint8_t>), 16uz) };
+	std::variant<std::array<uint8_t, inline_descriptor_size> /* inline */, std::vector<uint8_t> /* external */> descriptor_data {
+		std::array<uint8_t, inline_descriptor_size> {{}}
+	};
 	
 	// shared memory handle when the buffer has been created with VULKAN_SHARING
 #if defined(__WINDOWS__)

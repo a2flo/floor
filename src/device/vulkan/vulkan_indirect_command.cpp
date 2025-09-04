@@ -694,12 +694,15 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
 	}
 	if (arg_buf_fs_set_count > 0) {
+		const auto is_fs_low_desc_count = (fs != nullptr && has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(fs->info->flags));
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
 			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
 			.layout = pipeline_state->layout,
-			.firstSet = vulkan_pipeline::argument_buffer_fs_start_set,
+			.firstSet = (is_fs_low_desc_count ?
+						 vulkan_pipeline::argument_buffer_fs_start_set_low :
+						 vulkan_pipeline::argument_buffer_fs_start_set_high),
 			.setCount = arg_buf_fs_set_count,
 			.pBufferIndices = arg_buf_fs_buf_indices.data(),
 			.pOffsets = arg_buf_offsets.data(),

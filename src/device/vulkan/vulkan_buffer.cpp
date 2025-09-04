@@ -243,7 +243,13 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 			.pStorageBuffer = &addr_info,
 		},
 	};
-	vkGetDescriptorEXT(vulkan_dev, &desc_info, vk_dev.desc_buffer_sizes.ssbo, &descriptor_data[0]);
+	if (vk_dev.desc_buffer_sizes.ssbo > inline_descriptor_size) {
+		descriptor_data = std::vector<uint8_t> {};
+		std::get<1>(descriptor_data).resize(vk_dev.desc_buffer_sizes.ssbo);
+	}
+	vkGetDescriptorEXT(vulkan_dev, &desc_info, vk_dev.desc_buffer_sizes.ssbo,
+					   vk_dev.desc_buffer_sizes.ssbo <= inline_descriptor_size ?
+					   std::get<0>(descriptor_data).data() : std::get<1>(descriptor_data).data());
 	
 	// buffer init from host data pointer
 	if (copy_host_data &&
