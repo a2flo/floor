@@ -779,7 +779,8 @@ static constexpr size_t image_mip_level_data_offset_from_types(const uint4& imag
 //! NOTE: if the mip level is out-of-bounds, this returns 0
 static constexpr size_t image_mip_level_data_size_from_types(const uint4& image_dim,
 															 const IMAGE_TYPE& image_type,
-															 const uint32_t mip_level) {
+															 const uint32_t mip_level,
+															 const uint32_t layer_limit = ~0u) {
 	const auto dim_count = image_dim_count(image_type);
 	if (mip_level >= image_mip_level_count(image_dim, image_type)) {
 		return 0u;
@@ -798,7 +799,7 @@ static constexpr size_t image_mip_level_data_size_from_types(const uint4& image_
 	size_t size = image_slice_data_size_from_types(mip_image_dim, image_type);
 	if (has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
 		// array count after: width (, height (, depth))
-		size *= (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+		size *= std::min(layer_limit, (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y)));
 	}
 	if (has_flag<IMAGE_TYPE::FLAG_CUBE>(image_type)) {
 		// 6 cube sides

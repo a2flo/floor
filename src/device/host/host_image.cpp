@@ -160,6 +160,74 @@ bool host_image::create_internal(const bool copy_host_data, const device_queue& 
 host_image::~host_image() {
 }
 
+bool host_image::write(const device_queue& cqueue, const void* src, const size_t src_size,
+					   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) {
+	if (!src) {
+		return false;
+	}
+	
+	if (!write_check(src_size, offset, extent, mip_level_range, layer_range)) {
+		return false;
+	}
+	
+	// TODO: support this
+	if ((offset != 0u).any() || (extent != image_dim.xyz).any()) {
+		log_error("host image write to offset != 0 and extent != image dim is currently not supported");
+		return false;
+	}
+	if (layer_range.x != 0 || layer_range.y != layer_count - 1) {
+		log_error("host image write to layer range != [0, layer-count - 1] is currently not supported");
+		return false;
+	}
+	
+	const auto write_layer_count = (layer_range.y - layer_range.x) + 1u;
+	const auto bpp = image_bits_per_pixel(image_type);
+	std::span cpy_host_data { (const uint8_t*)src, src_size };
+	size_t level_offset = 0u;
+	
+	if (!apply_on_levels([this, &cpy_host_data, extent, offset, mip_level_range, write_layer_count,
+						  bpp, &level_offset](const uint32_t& level, const uint4& mip_image_dim, const uint32_t&,
+											  const uint32_t& level_data_size) {
+		auto image_dst_ptr = image.get() + level_offset;
+		level_offset += level_data_size;
+		
+		if (level < mip_level_range.x || level > mip_level_range.y) {
+			return true;
+		}
+		
+		// derive mip extent/dim from user-specified extent
+		[[maybe_unused]] const auto mip_extent = (extent >> level).maxed(1u);
+		const auto mip_offset = (offset >> level);
+		
+		const auto write_data_size = image_mip_level_data_size_from_types(extent /* original extent! */, image_type, level, write_layer_count);
+		assert(write_data_size > 0);
+		if (cpy_host_data.size_bytes() < write_data_size) {
+			log_error("image write: insufficient host data at mip-level $", level);
+			return false;
+		}
+		
+		const auto offset_x_in_bytes = (mip_offset.x * bpp + 7u) / 8u;
+		const auto offset_y_in_bytes = mip_image_dim.x * ((mip_offset.y * bpp + 7u) / 8u);
+		const auto offset_z_in_bytes = mip_image_dim.x * mip_image_dim.y * ((mip_offset.y * bpp + 7u) / 8u);
+		image_dst_ptr += offset_x_in_bytes + offset_y_in_bytes + offset_z_in_bytes;
+		memcpy(image_dst_ptr, cpy_host_data.data(), write_data_size);
+		// TODO: handled offset != 0, extent != mip_image_dim and layer_range
+		
+		cpy_host_data = cpy_host_data.subspan(write_data_size, cpy_host_data.size_bytes() - write_data_size);
+		
+		return true;
+	})) {
+		return false;
+	}
+	
+	// update mip-map chain
+	if (generate_mip_maps) {
+		generate_mip_map_chain(cqueue);
+	}
+	
+	return true;
+}
+
 bool host_image::zero(const device_queue& cqueue) {
 	if (!image) return false;
 	

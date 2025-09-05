@@ -584,6 +584,92 @@ cuda_image::~cuda_image() {
 #endif
 }
 
+bool cuda_image::write(const device_queue& cqueue, const void* src, const size_t src_size,
+					   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) {
+	if (!src) {
+		return false;
+	}
+	
+	if (!write_check(src_size, offset, extent, mip_level_range, layer_range)) {
+		return false;
+	}
+	
+	const auto stream = (const_cu_stream)cqueue.get_queue_ptr();
+	const auto write_layer_count = (layer_range.y - layer_range.x) + 1u;
+	const auto bpp = image_bits_per_pixel(image_type);
+	std::span cpy_host_data { (const uint8_t*)src, src_size };
+	
+	if (!apply_on_levels([this, stream, &cpy_host_data, extent, offset, mip_level_range, layer_range, write_layer_count,
+						  bpp](const uint32_t& level, const uint4& mip_image_dim, const uint32_t&, const uint32_t&) {
+		if (level < mip_level_range.x || level > mip_level_range.y) {
+			return true;
+		}
+		
+		// derive mip extent/dim from user-specified extent
+		const auto mip_extent = (extent >> level).maxed(1u);
+		const auto mip_offset = (offset >> level);
+		
+		const auto write_data_size = image_mip_level_data_size_from_types(extent /* original extent! */, image_type, level, write_layer_count);
+		assert(write_data_size > 0);
+		if (cpy_host_data.size_bytes() < write_data_size) {
+			log_error("image write: insufficient host data at mip-level $", level);
+			return false;
+		}
+		
+		const auto offset_x_in_bytes = (mip_offset.x * bpp + 7u) / 8u;
+		const auto extent_x_in_bytes = (mip_extent.x * bpp + 7u) / 8u;
+		const auto pitch = (mip_image_dim.x * bpp + 7u) / 8u;
+		cu_memcpy_3d_descriptor mcpy3d {
+			.src = {
+				.x_in_bytes = offset_x_in_bytes,
+				.y = mip_offset.y,
+				.z = mip_offset.z,
+				.lod = 0,
+				.memory_type = CU_MEMORY_TYPE::HOST,
+				.host_ptr = cpy_host_data.data(),
+				.device_ptr = 0u,
+				.array = nullptr,
+				._reserved = nullptr,
+				.pitch = pitch,
+				.height = mip_extent.y,
+			},
+			.dst = {
+				.x_in_bytes = offset_x_in_bytes,
+				.y = mip_offset.y,
+				.z = mip_offset.z + layer_range.x,
+				.lod = 0,
+				.memory_type = CU_MEMORY_TYPE::ARRAY,
+				.host_ptr = nullptr,
+				.device_ptr = 0u,
+				.array = (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
+				._reserved = nullptr,
+				.pitch = 0,
+				.height = 0,
+			},
+			.width_in_bytes = extent_x_in_bytes,
+			.height = mip_extent.y,
+			.depth = mip_extent.z * write_layer_count,
+		};
+		cpy_host_data = cpy_host_data.subspan(write_data_size, cpy_host_data.size_bytes() - write_data_size);
+		
+		CU_CALL_RET(cu_memcpy_3d_async(&mcpy3d, stream), "image write: failed to copy host memory to device", false)
+		
+		return true;
+	})) {
+		return false;
+	}
+	
+	// sync all at the end
+	CU_CALL_RET(cu_stream_synchronize(stream), "failed to finish (synchronize) queue", false)
+	
+	// update mip-map chain
+	if (generate_mip_maps) {
+		generate_mip_map_chain(cqueue);
+	}
+	
+	return true;
+}
+
 bool cuda_image::zero(const device_queue& cqueue) {
 	if(image == nullptr) return false;
 	

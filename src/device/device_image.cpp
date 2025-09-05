@@ -448,8 +448,8 @@ std::string device_image::image_type_to_string(const IMAGE_TYPE& type) {
 }
 
 std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, const bool copy_contents,
-											   const MEMORY_FLAG flags_override,
-											   const IMAGE_TYPE image_type_override) {
+												  const MEMORY_FLAG flags_override,
+												  const IMAGE_TYPE image_type_override) {
 	if (dev.context == nullptr) {
 		log_error("invalid image/device state");
 		return {};
@@ -499,6 +499,50 @@ bool device_image::blit_check(const device_queue&, const device_image& src) {
 		log_error("blit: blitting of compressed formats is not supported");
 		return false;
 	}
+	
+	return true;
+}
+
+bool device_image::write_check(const size_t src_size, const uint3 offset, const uint3 extent,
+							   const uint2 mip_level_range, const uint2 layer_range) {
+	if (!has_flag<MEMORY_FLAG::HOST_WRITE>(flags)) {
+		log_error("write: image is not host-writable");
+		return false;
+	}
+	if (src_size == 0) {
+		log_error("write: trying to write 0 bytes!");
+		return false;
+	}
+	if (offset >= image_dim.xyz) {
+		log_error("write: offset $ is out-of-bounds (image dim: $)", offset, image_dim.xyz);
+		return false;
+	}
+	if (offset + extent > image_dim.xyz) {
+		log_error("write: offset $ + extent $ = $ are out-of-bounds (image dim: $)", offset, extent, offset + extent, image_dim.xyz);
+		return false;
+	}
+	if (mip_level_range.y < mip_level_range.x || mip_level_range.x >= mip_level_count || mip_level_range.y >= mip_level_count) {
+		log_error("write: invalid mip level range: $ (image mip-levels: $)", mip_level_range, mip_level_count);
+		return false;
+	}
+	if (layer_range.y < layer_range.x || layer_range.x >= layer_count || layer_range.y >= layer_count) {
+		log_error("write: invalid layer range: $ (image layers: $)", layer_range, layer_count);
+		return false;
+	}
+	
+#if defined(FLOOR_DEBUG) // as this is somewhat costly, only do the size check in debug mode
+	size_t req_size = 0u;
+	const auto write_layer_count = (layer_range.y - layer_range.x) + 1u;
+	// NOTE: always using the original image type here, not the shim type, as the host data is user-provided, the shim data is not
+	const auto img_type = image_type;
+	for (uint32_t level = mip_level_range.x; level <= mip_level_range.y; ++level) {
+		req_size += image_mip_level_data_size_from_types(extent >> level, img_type, level, write_layer_count);
+	}
+	if (src_size < req_size) {
+		log_error("write: src size $' is less than the required size $'", src_size, req_size);
+		return false;
+	}
+#endif
 	
 	return true;
 }

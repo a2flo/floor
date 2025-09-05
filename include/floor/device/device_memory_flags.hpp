@@ -139,6 +139,10 @@ enum class MEMORY_FLAG : uint32_t {
 	//! NOTE: mutually exclusive with HEAP_ALLOCATION
 	NO_HEAP_ALLOCATION			= (1u << 24u),
 	
+	//! Vulkan-only: in situations where not enough device-local host-coherent/host-accessible memory is available,
+	//! allow an allocation to be made in host memory (not device-local)
+	VULKAN_MAY_USE_HOST_MEMORY	= (1u << 25u),
+	
 };
 floor_global_enum_ext(MEMORY_FLAG)
 

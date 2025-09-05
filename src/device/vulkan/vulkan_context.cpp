@@ -913,6 +913,10 @@ enable_renderer(enable_renderer_) {
 				log_error("VK_KHR_maintenance6 is not supported by $", props.deviceName);
 				continue;
 			}
+			
+			if (device_supported_extensions_set.contains(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME)) {
+				device_extensions_set.emplace(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+			}
 		}
 		
 		// deal with swapchain ext
@@ -1144,9 +1148,15 @@ enable_renderer(enable_renderer_) {
 			.maintenance4 = false,
 		};
 		// Vulkan 1.3 only:
+		VkPhysicalDeviceHostImageCopyFeatures host_image_copy_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES,
+			.pNext = &vulkan13_features,
+			.hostImageCopy = false,
+		};
 		VkPhysicalDeviceMaintenance5Features maintenance5_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES,
-			.pNext = &vulkan13_features,
+			.pNext = (device_extensions_set.contains(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME) ?
+					  (void*)&host_image_copy_features : (void*)&vulkan13_features),
 			.maintenance5 = false,
 		};
 		VkPhysicalDeviceMaintenance6Features maintenance6_features {
@@ -1364,9 +1374,21 @@ enable_renderer(enable_renderer_) {
 			.maxBufferSize = 0,
 		};
 		// Vulkan 1.3 only:
+		std::array<VkImageLayout, 64u> host_image_copy_dst_layouts {};
+		VkPhysicalDeviceHostImageCopyProperties host_image_copy_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES,
+			.pNext = &vulkan13_props,
+			.copySrcLayoutCount = 0,
+			.pCopySrcLayouts = nullptr,
+			.copyDstLayoutCount = uint32_t(host_image_copy_dst_layouts.size()),
+			.pCopyDstLayouts = host_image_copy_dst_layouts.data(),
+			.optimalTilingLayoutUUID = {},
+			.identicalMemoryTypeRequirements = false,
+		};
 		VkPhysicalDeviceMaintenance5Properties maintenance5_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES,
-			.pNext = &vulkan13_props,
+			.pNext = (device_extensions_set.contains(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME) ?
+					  (void*)&host_image_copy_props : (void*)&vulkan13_props),
 			.earlyFragmentMultisampleCoverageAfterSampleCounting = false,
 			.earlyFragmentSampleMaskTestBeforeSampleCounting = false,
 			.depthStencilSwizzleOneSupport = false,
@@ -1406,8 +1428,8 @@ enable_renderer(enable_renderer_) {
 			.defaultRobustnessImages = VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DEVICE_DEFAULT,
 			.copySrcLayoutCount = 0u,
 			.pCopySrcLayouts = nullptr,
-			.copyDstLayoutCount = 0u,
-			.pCopyDstLayouts = nullptr,
+			.copyDstLayoutCount = uint32_t(host_image_copy_dst_layouts.size()),
+			.pCopyDstLayouts = host_image_copy_dst_layouts.data(),
 			.optimalTilingLayoutUUID = {},
 			.identicalMemoryTypeRequirements = false,
 		};
@@ -2092,6 +2114,23 @@ enable_renderer(enable_renderer_) {
 		device.swapchain_maintenance1_support = swapchain_maintenance1_support;
 		
 		device.subgroup_uniform_cf_support = subgroup_uniform_cf_support;
+		
+		// check host image copy support (via extension or core)
+		if ((device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ?
+			 vulkan14_features.hostImageCopy : host_image_copy_features.hostImageCopy)) {
+			const auto copy_dst_layout_count = (device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ?
+												vulkan14_props.copyDstLayoutCount : host_image_copy_props.copyDstLayoutCount);
+			const std::span copy_dst_layouts {
+				host_image_copy_dst_layouts.data(), copy_dst_layout_count
+			};
+			if (std::find(copy_dst_layouts.begin(), copy_dst_layouts.end(), VK_IMAGE_LAYOUT_GENERAL) != copy_dst_layouts.end() &&
+				std::find(copy_dst_layouts.begin(), copy_dst_layouts.end(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) != copy_dst_layouts.end() &&
+				std::find(copy_dst_layouts.begin(), copy_dst_layouts.end(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) != copy_dst_layouts.end() &&
+				std::find(copy_dst_layouts.begin(), copy_dst_layouts.end(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) != copy_dst_layouts.end()) {
+				device.host_image_copy_support = true;
+				log_msg("direct host image copy is supported");
+			}
+		}
 		
 		// descriptor buffer support handling
 		device.desc_buffer_sizes.sampled_image = uint32_t(desc_buf_props.sampledImageDescriptorSize);

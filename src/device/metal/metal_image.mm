@@ -742,6 +742,84 @@ bool metal_image::blit_async(const device_queue& cqueue, device_image& src,
 	return blit_internal(true, cqueue, src, wait_fences, signal_fences);
 }
 
+bool metal_image::write(const device_queue& cqueue, const void* src, const size_t src_size,
+						const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) {
+	if (!src) {
+		return false;
+	}
+	
+	if (!write_check(src_size, offset, extent, mip_level_range, layer_range)) {
+		return false;
+	}
+	
+	@autoreleasepool {
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		const bool is_compressed = image_compressed(image_type);
+		
+		// need to convert RGB to RGBA if necessary
+		std::span<const uint8_t> host_buffer { (const uint8_t*)src, src_size };
+		std::unique_ptr<uint8_t[]> host_shim_buffer;
+		size_t host_shim_buffer_size = 0;
+		if (image_type != shim_image_type) {
+			std::tie(host_shim_buffer, host_shim_buffer_size) = rgb_to_rgba(image_type, shim_image_type, host_buffer, generate_mip_maps);
+		}
+		
+		// run on all levels, skip those not in range
+		auto cpy_host_data = (image_type != shim_image_type ?
+							  std::span<const uint8_t> { host_shim_buffer.get(), host_shim_buffer_size } :
+							  host_buffer);
+		bool success = apply_on_levels([this, &cpy_host_data, offset, extent, mip_level_range, layer_range,
+										is_compressed](const uint32_t& level, const uint4&, const uint32_t&, const uint32_t&) {
+			if (level < mip_level_range.x || level > mip_level_range.y) {
+				return true;
+			}
+			
+			// derive mip extent/dim from user-specified extent
+			const auto mip_extent = (extent >> level).maxed(1u);
+			const auto mip_offset = (offset >> level);
+			
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * mip_extent.x;
+			const MTLRegion mipmap_region {
+				.origin = { mip_offset.x, mip_offset.y, mip_offset.z },
+				.size = { mip_extent.x, mip_extent.y, mip_extent.z }
+			};
+			for (size_t slice = layer_range.x; slice <= std::min(layer_count - 1, layer_range.y); ++slice) {
+				const auto write_slice_data_size = image_slice_data_size_from_types(uint4 { mip_extent, 1u }, shim_image_type);
+				assert(write_slice_data_size > 0);
+				if (cpy_host_data.size_bytes() < write_slice_data_size) {
+					log_error("image write: insufficient host data at mip-level $, layer $", level, slice);
+					return false;
+				}
+				[image replaceRegion:mipmap_region
+						 mipmapLevel:level
+							   slice:slice
+						   withBytes:cpy_host_data.data()
+						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+					   bytesPerImage:write_slice_data_size];
+				cpy_host_data = cpy_host_data.subspan(write_slice_data_size, cpy_host_data.size_bytes() - write_slice_data_size);
+			}
+			return true;
+		}, shim_image_type);
+		
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			[blit_encoder synchronizeResource:image];
+		}
+#endif
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+		
+		// update mip-map chain
+		if (generate_mip_maps) {
+			generate_mip_map_chain(cqueue);
+		}
+		
+		return success;
+	}
+}
+
 bool metal_image::zero(const device_queue& cqueue) {
 	if(image == nil) return false;
 	

@@ -160,6 +160,9 @@ vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_lim
 		// always need this for now
 		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		if (vk_dev.host_image_copy_support) {
+			usage |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT;
+		}
 	}
 	
 	if (has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags) &&
@@ -606,16 +609,24 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 		if (is_render_target) {
 			log_error("can't initialize a render target with host data!");
 		} else {
-			if (!write_memory_data(cqueue, host_data, 0,
-								   (shim_image_type != image_type ? shim_image_data_size : 0),
-								   "failed to initialize image with host data (map failed)")) {
-				return false;
+			// try direct copy if available, otherwise fall back to staging copy
+			if (vk_dev.host_image_copy_support &&
+				device_image::write(cqueue, host_data,
+									// NOTE: reusing extent here, because we want the dim specific extent, not the image dim itself
+									{}, { extent.width, extent.height, extent.depth }, { 0u, mip_level_count - 1u }, { 0u, layer_count - 1u })) {
+				// success
+			} else {
+				if (!write_memory_data(cqueue, host_data, 0,
+									   (shim_image_type != image_type ? shim_image_data_size : 0),
+									   "failed to initialize image with host data (map failed)")) {
+					return false;
+				}
 			}
 		}
 	}
 	
 	// manually create mip-map chain
-	if(generate_mip_maps) {
+	if (generate_mip_maps) {
 		generate_mip_map_chain(cqueue);
 	}
 	

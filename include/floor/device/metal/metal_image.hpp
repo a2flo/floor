@@ -58,6 +58,9 @@ public:
 					std::vector<const device_fence*>&& wait_fences,
 					std::vector<device_fence*>&& signal_fences) override;
 	
+	bool write(const device_queue& cqueue, const void* floor_nullable src, const size_t src_size,
+			   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) override;
+	
 	bool zero(const device_queue& cqueue) override;
 	
 	void* floor_nullable __attribute__((aligned(128))) map(const device_queue& cqueue,

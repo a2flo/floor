@@ -219,9 +219,12 @@ static allocation_flags_t compute_common_allocation_flags(const vulkan_device& d
 	// TODO: VMA_ALLOCATION_CREATE_DONT_BIND_BIT/VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT when allocating image with is_aliased_array
 	// TODO: VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED if transient (+must have VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
 	
-	allocation_flags_t alloc_flags {
-		.req_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	};
+	allocation_flags_t alloc_flags {};
+	if (has_flag<MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY>(flags)) {
+		alloc_flags.pref_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	} else {
+		alloc_flags.req_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	}
 	
 	const auto is_host_coherent = has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags);
 	bool is_host_accessible = is_host_coherent;

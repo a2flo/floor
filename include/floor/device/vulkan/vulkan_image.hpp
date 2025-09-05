@@ -39,6 +39,9 @@ public:
 					std::vector<const device_fence*>&& wait_fences,
 					std::vector<device_fence*>&& signal_fences) override;
 	
+	bool write(const device_queue& cqueue, const void* src, const size_t src_size,
+			   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) override;
+	
 	void* __attribute__((aligned(128))) map(const device_queue& cqueue,
 											const MEMORY_MAP_FLAG flags = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK)) override;
 	

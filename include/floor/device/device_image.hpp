@@ -79,7 +79,7 @@ public:
 	
 	~device_image() override = default;
 	
-	// TODO: read, write, copy, fill
+	// TODO: read, copy, fill
 	// TODO: map with dim size and dim coords/offset
 	
 	//! blits the "src" image onto this image, returns true on success
@@ -96,6 +96,25 @@ public:
 							std::vector<const device_fence*>&& wait_fences floor_unused,
 							std::vector<device_fence*>&& signal_fences floor_unused) { return false; }
 	
+	//! writes/copies host data from "src" with "src_size" bytes into this image,
+	//! at 3D offset/coordinate "offset", with extent/size "extent",
+	//! with inclusive "mip_level_range" [start, end] range and inclusive "layer_range" [start, end] range
+	//! TODO: implement this everywhere
+	virtual bool write(const device_queue& cqueue floor_unused, const void* src floor_unused, const size_t src_size floor_unused,
+					   const uint3 offset floor_unused, const uint3 extent floor_unused,
+					   const uint2 mip_level_range floor_unused, const uint2 layer_range floor_unused) {
+		return false;
+	}
+	//! writes/copies host data from "src" into this image,
+	//! at 3D offset/coordinate "offset", with extent/size "extent",
+	//! with inclusive "mip_level_range" [start, end] range and inclusive "layer_range" [start, end] range
+	//! TODO: implement this everywhere
+	template <typename data_type>
+	bool write(const device_queue& cqueue, const std::span<data_type> src,
+			   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) {
+		return write(cqueue, (const void*)src.data(), src.size_bytes(), offset, extent, mip_level_range, layer_range);
+	}
+	
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
@@ -108,7 +127,7 @@ public:
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	template <typename data_type, size_t n>
 	std::array<data_type, n>* map(const device_queue& cqueue,
-							 const MEMORY_MAP_FLAG flags_ = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK)) {
+								  const MEMORY_MAP_FLAG flags_ = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK)) {
 		return (std::array<data_type, n>*)map(cqueue, flags_);
 	}
 	
@@ -121,8 +140,8 @@ public:
 	//! NOTE: contents can only be copied if the image is READ_WRITE
 	//! NOTE: if "image_type_override" is set (not NONE), the cloned image type will be set to this (caller must ensure compatibility!)
 	virtual std::shared_ptr<device_image> clone(const device_queue& cqueue, const bool copy_contents = false,
-											const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
-											const IMAGE_TYPE image_type_override = IMAGE_TYPE::NONE);
+												const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
+												const IMAGE_TYPE image_type_override = IMAGE_TYPE::NONE);
 	
 	//! creates the mip-map chain for this image (if not manually generating mip-maps)
 	virtual void generate_mip_map_chain(const device_queue& cqueue);
@@ -524,9 +543,9 @@ protected:
 	
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
 	std::pair<std::unique_ptr<uint8_t[]>, size_t> rgb_to_rgba(const IMAGE_TYPE& rgb_type,
-													const IMAGE_TYPE& rgba_type,
-													const std::span<const uint8_t> rgb_data,
-													const bool ignore_mip_levels = false);
+															  const IMAGE_TYPE& rgba_type,
+															  const std::span<const uint8_t> rgb_data,
+															  const bool ignore_mip_levels = false);
 	
 	//! in-place converts RGB data to RGBA data
 	//! NOTE: 'rgb_to_rgba_data' must point to sufficient enough memory that can hold the RGBA data
@@ -538,10 +557,10 @@ protected:
 	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
 	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
 	std::pair<std::unique_ptr<uint8_t[]>, size_t> rgba_to_rgb(const IMAGE_TYPE& rgba_type,
-													const IMAGE_TYPE& rgb_type,
-													const std::span<const uint8_t> rgba_data,
-													std::span<uint8_t> dst_rgb_data = {},
-													const bool ignore_mip_levels = false);
+															  const IMAGE_TYPE& rgb_type,
+															  const std::span<const uint8_t> rgba_data,
+															  std::span<uint8_t> dst_rgb_data = {},
+															  const bool ignore_mip_levels = false);
 	
 	// calls function "F" with (level, mip image dim, slice data size, mip-level size, args...) for each level of
 	// the mip-map chain or only the single level of a non-mip-mapped image.
@@ -550,7 +569,7 @@ protected:
 	template <bool all_levels = false, typename F>
 	bool apply_on_levels(F&& func, IMAGE_TYPE override_image_type = IMAGE_TYPE::NONE) const {
 		const IMAGE_TYPE mip_image_type = (override_image_type != IMAGE_TYPE::NONE ?
-												   override_image_type : image_type);
+										   override_image_type : image_type);
 		const auto dim_count = image_dim_count(mip_image_type);
 		const auto slice_count = image_layer_count(image_dim, mip_image_type);
 		const auto handled_level_count = (generate_mip_maps && !all_levels ? 1 : mip_level_count);
@@ -593,6 +612,9 @@ protected:
 	
 	//! returns true if "src" can be blitted onto this image, false if not (prints errors)
 	bool blit_check(const device_queue& cqueue, const device_image& src);
+	
+	//! returns true if host data can be written into this image using the specified parameters, false if not (prints errors)
+	bool write_check(const size_t src_size, const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range);
 	
 };
 

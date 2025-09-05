@@ -41,6 +41,9 @@ public:
 	
 	~host_image() override;
 	
+	bool write(const device_queue& cqueue, const void* src, const size_t src_size,
+			   const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) override;
+	
 	bool zero(const device_queue& cqueue) override;
 	
 	void* __attribute__((aligned(128))) map(const device_queue& cqueue,

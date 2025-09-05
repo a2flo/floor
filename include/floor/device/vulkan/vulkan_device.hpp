@@ -175,6 +175,9 @@ public:
 	//! NOTE: enabled by default, since most implementations support this
 	bool subgroup_uniform_cf_support { true };
 	
+	//! feature support: VK_EXT_host_image_copy or resp. Vulkan 1.4 functionality
+	bool host_image_copy_support { false };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set

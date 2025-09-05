@@ -254,6 +254,172 @@ bool vulkan_image::blit_async(const device_queue& cqueue, device_image& src,
 	return blit_internal(true, cqueue, src, wait_fences, signal_fences);
 }
 
+bool vulkan_image::write(const device_queue& cqueue, const void* src, const size_t src_size,
+						 const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range) {
+	if (!src) {
+		return false;
+	}
+	
+	if (!write_check(src_size, offset, extent, mip_level_range, layer_range)) {
+		return false;
+	}
+	
+	// need to convert RGB to RGBA if necessary
+	std::span<const uint8_t> host_buffer { (const uint8_t*)src, src_size };
+	std::unique_ptr<uint8_t[]> host_shim_buffer;
+	size_t host_shim_buffer_size = 0;
+	if (image_type != shim_image_type) {
+		std::tie(host_shim_buffer, host_shim_buffer_size) = rgb_to_rgba(image_type, shim_image_type, host_buffer, generate_mip_maps);
+	}
+	auto cpy_host_data = (image_type != shim_image_type ?
+						  std::span<const uint8_t> { host_shim_buffer.get(), host_shim_buffer_size } :
+						  host_buffer);
+	
+	// compute copy/write regions
+	auto& internal = (vulkan_image_internal&)*this;
+	const bool is_compressed = image_compressed(image_type);
+	const auto write_level_count = (mip_level_range.y - mip_level_range.x) + 1u;
+	const auto write_layer_count = (layer_range.y - layer_range.x) + 1u;
+	const auto img_type = (shim_image_type != IMAGE_TYPE::NONE ? shim_image_type : image_type);
+	// run on all levels, skip those not in range
+	uint64_t total_buffer_offset = 0u;
+	std::vector<VkMemoryToImageCopy> mem_regions;
+	std::vector<VkBufferImageCopy2> buffer_regions;
+	if (vk_dev.host_image_copy_support) {
+		mem_regions.reserve(write_level_count);
+	} else {
+		buffer_regions.reserve(write_level_count);
+	}
+	auto region_cpy_host_data = cpy_host_data;
+	if (!apply_on_levels([this, &region_cpy_host_data, &total_buffer_offset, is_compressed, img_type,
+						  offset, extent, mip_level_range, layer_range, write_layer_count,
+						  &mem_regions, &buffer_regions](const uint32_t& level,
+														 const uint4&,
+														 const uint32_t&,
+														 const uint32_t&) {
+		if (level < mip_level_range.x || level > mip_level_range.y) {
+			return true;
+		}
+		
+		// derive mip extent/dim from user-specified extent
+		const auto mip_extent = (extent >> level).maxed(1u);
+		const auto mip_offset = (offset >> level);
+		
+		uint2 compression_block_dim;
+		if (is_compressed) {
+			// for compressed formats, we need to consider the actual bits-per-pixel and full block size per row -> need to multiply with Y block size
+			compression_block_dim = image_compression_block_size(img_type);
+			compression_block_dim.max(mip_extent.xy);
+		}
+		
+		const auto write_data_size = image_mip_level_data_size_from_types(extent /* original extent! */, img_type, level, write_layer_count);
+		assert(write_data_size > 0);
+		if (region_cpy_host_data.size_bytes() < write_data_size) {
+			log_error("image write: insufficient host data at mip-level $", level);
+			return false;
+		}
+		
+		if (vk_dev.host_image_copy_support) {
+			mem_regions.emplace_back(VkMemoryToImageCopy {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY,
+				.pNext = nullptr,
+				.pHostPointer = region_cpy_host_data.data(),
+				.memoryRowLength = (is_compressed ? compression_block_dim.x : 0 /* tightly packed */),
+				.memoryImageHeight = (is_compressed ? compression_block_dim.y : 0 /* tightly packed */),
+				.imageSubresource = {
+					.aspectMask = vk_aspect_flags_from_type(img_type),
+					.mipLevel = level,
+					.baseArrayLayer = layer_range.x,
+					.layerCount = write_layer_count,
+				},
+				.imageOffset = { int(mip_offset.x), int(mip_offset.y), int(mip_offset.z) },
+				.imageExtent = { mip_extent.x, mip_extent.y, mip_extent.z },
+			});
+		} else {
+			buffer_regions.emplace_back(VkBufferImageCopy2 {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+				.pNext = nullptr,
+				.bufferOffset = total_buffer_offset,
+				.bufferRowLength = (is_compressed ? compression_block_dim.x : 0 /* tightly packed */),
+				.bufferImageHeight = (is_compressed ? compression_block_dim.y : 0 /* tightly packed */),
+				.imageSubresource = {
+					.aspectMask = vk_aspect_flags_from_type(img_type),
+					.mipLevel = level,
+					.baseArrayLayer = layer_range.x,
+					.layerCount = write_layer_count,
+				},
+				.imageOffset = { int(mip_offset.x), int(mip_offset.y), int(mip_offset.z) },
+				.imageExtent = { mip_extent.x, mip_extent.y, mip_extent.z },
+			});
+		}
+		region_cpy_host_data = region_cpy_host_data.subspan(write_data_size, region_cpy_host_data.size_bytes() - write_data_size);
+		total_buffer_offset += write_data_size;
+		
+		return true;
+	}, img_type)) {
+		return false;
+	}
+	
+	// use host image copy if available
+	if (vk_dev.host_image_copy_support) {
+		const VkCopyMemoryToImageInfo copy_info {
+			.sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.dstImage = image,
+			.dstImageLayout = internal.image_info.imageLayout,
+			.regionCount = uint32_t(mem_regions.size()),
+			.pRegions = mem_regions.data(),
+		};
+		if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
+			VK_CALL_RET(vkCopyMemoryToImage(vk_dev.device, &copy_info), "failed to copy host memory to device image", false)
+		} else {
+			VK_CALL_RET(vkCopyMemoryToImageEXT(vk_dev.device, &copy_info), "failed to copy host memory to device image", false)
+		}
+		return true;
+	}
+	
+	// create device copy buffer
+	auto copy_buffer = cqueue.get_context().create_buffer(cqueue, cpy_host_data,
+														  MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | MEMORY_FLAG::HEAP_ALLOCATION |
+														  MEMORY_FLAG::VULKAN_HOST_COHERENT |
+														  MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY);
+	
+	const auto& vk_queue = (const vulkan_queue&)cqueue;
+	VK_CMD_BLOCK(vk_queue, "image write", ({
+		// transition to dst-optimal, b/c of perf
+		internal.transition(&vk_queue, block_cmd_buffer.cmd_buffer,
+							VK_ACCESS_2_TRANSFER_WRITE_BIT,
+							VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+							VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+		
+		const VkCopyBufferToImageInfo2 info {
+			.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
+			.pNext = nullptr,
+			.srcBuffer = copy_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer(),
+			.dstImage = image,
+			.dstImageLayout = internal.image_info.imageLayout,
+			.regionCount = uint32_t(buffer_regions.size()),
+			.pRegions = buffer_regions.data(),
+		};
+		vkCmdCopyBufferToImage2(block_cmd_buffer.cmd_buffer, &info);
+		
+		// transition back to previous
+		if (has_flag<IMAGE_TYPE::READ>(image_type) && !has_flag<IMAGE_TYPE::WRITE>(image_type)) {
+			internal.transition_read(&cqueue, block_cmd_buffer.cmd_buffer);
+		} else {
+			internal.transition_write(&cqueue, block_cmd_buffer.cmd_buffer);
+		}
+	}), true);
+	
+	// update mip-map chain
+	if (generate_mip_maps) {
+		generate_mip_map_chain(cqueue);
+	}
+	
+	return true;
+}
+
 void* __attribute__((aligned(128))) vulkan_image::map(const device_queue& cqueue,
 													  const MEMORY_MAP_FLAG flags_) {
 	return vulkan_memory::map(cqueue, flags_, (image_type == shim_image_type ?
