@@ -237,5 +237,7 @@ using namespace std::literals;
 	//! returns true if the CPU has AVX-512 with IFMA, VBMI, VBMI2, VAES, BITALG, VPCLMULQDQ, GFNI, VNNI, VPOPCNTDQ, BF16 instruction support
 	//! NOTE: this is used to determine Host-Compute X86_TIER_5 support
 	bool cpu_has_avx512_tier_5();
+	//! returns the CPU name (if available)
+	std::string get_cpu_name();
 
 } // namespace fl::core

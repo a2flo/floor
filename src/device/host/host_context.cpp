@@ -65,43 +65,11 @@ host_context::host_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	device.context = this;
 	
 	// gather "device"/CPU information, this is very platform dependent
-	std::string cpu_name;
+	std::string cpu_name = core::get_cpu_name();
+	if (cpu_name.empty()) {
+		cpu_name = "UNKNOWN CPU";
+	}
 	uint64_t cpu_clock = 0;
-	
-	// we can get the actual CPU name quite easily on x86 through cpuid instructions
-#if defined(__x86_64__)
-	// cpuid magic
-	uint32_t eax, ebx, ecx, edx;
-	__cpuid(0x80000000u, eax, ebx, ecx, edx);
-	if(eax >= 0x80000004u) {
-		char cpuid_name[49];
-		memset(cpuid_name, 0, std::size(cpuid_name));
-		size_t i = 0;
-		for(uint32_t id = 0x80000002u; id <= 0x80000004u; ++id) {
-			uint32_t vals[4];
-			__cpuid(id, vals[0], vals[1], vals[2], vals[3]);
-			for(size_t vidx = 0; vidx < std::size(vals); ++vidx) {
-				for(size_t bidx = 0; bidx < 4; ++bidx) {
-					cpuid_name[i++] = char(vals[vidx] & 0xFFu);
-					vals[vidx] >>= 8u;
-				}
-			}
-		}
-		cpu_name = core::trim(cpuid_name);
-	}
-#elif defined(__APPLE__) && defined(__aarch64__)
-	cpu_name = "Apple ARMv8";
-	
-	// if brand_string contains a proper non-generic name, use that as the CPU name
-	std::string cpu_brand(64, 0);
-	size_t cpu_brand_size = cpu_brand.size() - 1;
-	sysctlbyname("machdep.cpu.brand_string", &cpu_brand[0], &cpu_brand_size, nullptr, 0);
-	if (cpu_brand != "Apple processor") {
-		cpu_name = cpu_brand;
-	}
-#else
-#error "unhandled arch"
-#endif
 	
 	// now onto getting the CPU clock speed:
 #if (defined(__APPLE__) && !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)) || defined(__FreeBSD__)
@@ -159,7 +127,6 @@ host_context::host_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 #else
 #error "unsupported platform"
 #endif
-	if(cpu_name == "") cpu_name = "UNKNOWN CPU";
 	
 	device.name = cpu_name;
 	device.units = get_logical_core_count();
