@@ -47,21 +47,31 @@ public:
 	}
 	
 	//! returns true if handled, called with (pointer to object, event type)
+	//! NOTE: this is used both for normal (async) event handlers and inline (sync) event handlers
 	using handler_f = std::function<bool(EVENT_TYPE, std::shared_ptr<event_object>)>;
 	//! no return value, called with (pointer to object, event type)
 	using internal_handler_f = std::function<void(EVENT_TYPE, std::shared_ptr<event_object>)>;
 	
 	//! add an event handler for the specified event type
 	void add_event_handler(handler_f& handler_, EVENT_TYPE type) REQUIRES(!handler_lock);
+	//! add an inline event handler for the specified event type
+	void add_inline_event_handler(handler_f& handler_, EVENT_TYPE type) REQUIRES(!handler_lock);
 	//! add an event handler for multiple event types
 	template <typename... event_types> void add_event_handler(handler_f& handler_, event_types&&... types) REQUIRES(!handler_lock) {
 		// unwind types, always call the simple add handler for each type
-		unwind_add_event_handler(handler_, std::forward<event_types>(types)...);
+		unwind_add_event_handler<false>(handler_, std::forward<event_types>(types)...);
+	}
+	//! add an inline event handler for multiple event types
+	template <typename... event_types> void add_inline_event_handler(handler_f& handler_, event_types&&... types) REQUIRES(!handler_lock) {
+		// unwind types, always call the simple add handler for each type
+		unwind_add_event_handler<true>(handler_, std::forward<event_types>(types)...);
 	}
 	
 	//! completely remove an event handler or only remove event types that are handled by an event handler
 	void remove_event_handler(const handler_f& handler_) REQUIRES(!handler_lock);
+	void remove_inline_event_handler(const handler_f& handler_) REQUIRES(!handler_lock);
 	void remove_event_types_from_handler(const handler_f& handler_, const std::set<EVENT_TYPE>& types) REQUIRES(!handler_lock);
+	void remove_event_types_from_inline_handler(const handler_f& handler_, const std::set<EVENT_TYPE>& types) REQUIRES(!handler_lock);
 	
 	//! returns the mouse position
 	float2 get_mouse_pos() const;
@@ -93,6 +103,7 @@ protected:
 	atomic_spin_lock handler_lock;
 	std::unordered_multimap<EVENT_TYPE, internal_handler_f&> internal_handlers GUARDED_BY(handler_lock);
 	std::unordered_multimap<EVENT_TYPE, handler_f&> handlers GUARDED_BY(handler_lock);
+	std::unordered_multimap<EVENT_TYPE, handler_f&> inline_handlers GUARDED_BY(handler_lock);
 	std::queue<std::pair<EVENT_TYPE, std::shared_ptr<event_object>>> user_event_queue, user_event_queue_processing;
 	std::recursive_mutex user_queue_lock;
 	void handle_user_events() REQUIRES(!handler_lock);
@@ -115,12 +126,16 @@ protected:
 	uint32_t mdouble_click_time { 200u };
 	
 	//
-	template<typename... event_types> void unwind_add_event_handler(handler_f& handler_, EVENT_TYPE type,
-																	event_types&&... types) REQUIRES(!handler_lock) {
+	template <bool is_inline, typename... event_types> void unwind_add_event_handler(handler_f& handler_, EVENT_TYPE type,
+																					 event_types&&... types) REQUIRES(!handler_lock) {
 		// unwind types, always call the simple add handler for each type
-		add_event_handler(handler_, type);
+		if constexpr (!is_inline) {
+			add_event_handler(handler_, type);
+		} else {
+			add_inline_event_handler(handler_, type);
+		}
 		if constexpr (sizeof...(types) > 0) {
-			unwind_add_event_handler(handler_, std::forward<event_types>(types)...);
+			unwind_add_event_handler<is_inline>(handler_, std::forward<event_types>(types)...);
 		}
 	}
 	template<typename... event_types> void unwind_add_internal_event_handler(internal_handler_f& handler_, EVENT_TYPE type,

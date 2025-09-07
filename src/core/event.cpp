@@ -312,6 +312,11 @@ void event::add_event_handler(handler_f& handler_, EVENT_TYPE type) {
 	handlers.emplace(type, handler_);
 }
 
+void event::add_inline_event_handler(handler_f& handler_, EVENT_TYPE type) {
+	GUARD(handler_lock);
+	inline_handlers.emplace(type, handler_);
+}
+
 void event::add_internal_event_handler(internal_handler_f& handler_, EVENT_TYPE type) {
 	GUARD(handler_lock);
 	internal_handlers.emplace(type, handler_);
@@ -331,8 +336,13 @@ void event::handle_event(const EVENT_TYPE& type, std::shared_ptr<event_object> o
 	// call internal event handlers directly
 	GUARD(handler_lock);
 	
+	const auto inline_range = inline_handlers.equal_range(type);
+	for (auto iter = inline_range.first; iter != inline_range.second; ++iter) {
+		iter->second(type, obj);
+	}
+	
 	const auto range = internal_handlers.equal_range(type);
-	for (auto iter = range.first; iter != range.second; iter++) {
+	for (auto iter = range.first; iter != range.second; ++iter) {
 		iter->second(type, obj);
 	}
 	
@@ -373,6 +383,18 @@ void event::remove_event_handler(const handler_f& handler_) {
 	}
 }
 
+void event::remove_inline_event_handler(const handler_f& handler_) {
+	GUARD(handler_lock);
+	for (auto handler_iter = inline_handlers.cbegin(); handler_iter != inline_handlers.cend(); ) {
+		// good old pointer comparison ...
+		if (&handler_iter->second == &handler_) {
+			handler_iter = inline_handlers.erase(handler_iter);
+		} else {
+			++handler_iter;
+		}
+	}
+}
+
 void event::remove_event_types_from_handler(const handler_f& handler_, const std::set<EVENT_TYPE>& types) {
 	GUARD(handler_lock);
 	for (const auto& type : types) {
@@ -380,6 +402,19 @@ void event::remove_event_types_from_handler(const handler_f& handler_, const std
 		for (auto iter = range.first; iter != range.second; iter++) {
 			if (&iter->second == &handler_) {
 				handlers.erase(iter);
+				break;
+			}
+		}
+	}
+}
+
+void event::remove_event_types_from_inline_handler(const handler_f& handler_, const std::set<EVENT_TYPE>& types) {
+	GUARD(handler_lock);
+	for (const auto& type : types) {
+		const auto range = inline_handlers.equal_range(type);
+		for (auto iter = range.first; iter != range.second; iter++) {
+			if (&iter->second == &handler_) {
+				inline_handlers.erase(iter);
 				break;
 			}
 		}
