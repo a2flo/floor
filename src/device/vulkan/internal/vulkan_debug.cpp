@@ -81,19 +81,21 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverity
 			-267480408, // BestPractices-NVIDIA-CreateImage-Depth32Format
 			-1819900685, // BestPractices-AMD-VkCommandBuffer-AvoidSecondaryCmdBuffers
 			1063606403, // BestPractices-AMD-vkImage-DontUseStorageRenderTargets
+			
+			// NOTE: we can't really do anything about this even (or especially when) using a heap
+			-954943182, // BestPractices-NVIDIA-AllocateMemory-ReuseAllocations
+			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
+			280337739, // BestPractices-vkBindBufferMemory-small-dedicated-allocation
+			1147161417, // BestPractices-vkBindImageMemory-small-dedicated-allocation
 		};
 		// separate list for when heap allocations are disabled
 		static const std::unordered_set<int32_t> ignore_msg_ids_no_heap {
 			-602362517, // UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation
 			-40745094, // BestPractices-vkAllocateMemory-small-allocation
-			-1277938581, // UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation
-			280337739, // BestPractices-vkBindBufferMemory-small-dedicated-allocation
-			1147161417, // BestPractices-vkBindImageMemory-small-dedicated-allocation
 			1484263523, // UNASSIGNED-BestPractices-vkAllocateMemory-too-many-objects
 			-1265507290, // BestPractices-vkAllocateMemory-too-many-objects
 			-1955647590, // BestPractices-NVIDIA-AllocateMemory-SetPriority
 			11102936, // BestPractices-NVIDIA-BindMemory-NoPriority
-			-954943182, // BestPractices-NVIDIA-AllocateMemory-ReuseAllocations
 		};
 		
 		if (ignore_msg_ids.contains(cb_data->messageIdNumber)) {
