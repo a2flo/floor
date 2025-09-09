@@ -209,7 +209,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 #endif
 		
 		// find max supported Apple* family
-		static constexpr const auto max_gpu_family = MTLGPUFamily(1009) /* MTLGPUFamilyApple9 */;
+		static constexpr const auto max_gpu_family = MTLGPUFamily(1010) /* MTLGPUFamilyApple10 */;
 		device.family_tier = 0;
 		for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
 			if ([dev supportsFamily:family]) {
@@ -272,6 +272,15 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 				
 			// A17 / A18 / M3 / M4
 			case 9:
+				device.units = 6;
+				device.mem_clock = 3200; // TODO: RAM clock
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_total_local_size = 1024;
+				break;
+				
+			// A19
+			case 10:
 				device.units = 6;
 				device.mem_clock = 3200; // TODO: RAM clock
 				device.max_image_1d_dim = { 16384 };

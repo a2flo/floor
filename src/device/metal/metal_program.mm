@@ -267,6 +267,7 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeBFloat4: return "BFloat4";
 #endif
 #if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
+		case MTLDataTypeDepthStencilState: return "DepthStencilState";
 		case MTLDataTypeTensor: return "Tensor";
 #endif
 	}
