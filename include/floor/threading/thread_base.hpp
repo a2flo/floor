@@ -23,6 +23,7 @@
 #include <mutex>
 #include <string>
 #include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <floor/threading/thread_safety.hpp>
 
