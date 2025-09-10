@@ -4,6 +4,9 @@
 
 ## compile flags
 target_compile_definitions(${PROJECT_NAME} PUBLIC _ENABLE_EXTENDED_ALIGNED_STORAGE FLOOR_EXPORT)
+if (BUILD_REPRODUCIBLE)
+	target_compile_definitions(${PROJECT_NAME} PUBLIC FLOOR_REPRODUCIBLE_BUILD)
+endif (BUILD_REPRODUCIBLE)
 
 if (MSVC)
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")

@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 ## build options
 option(BUILD_SHARED_LIBS "build libfloor as a shared library (otherwise builds as a static library)" ON)
+option(BUILD_REPRODUCIBLE "perform a reproducible build" OFF)
 option(WITH_ASAN "build with address sanitizer" OFF)
 option(WITH_TSAN "build with thread sanitizer" OFF)
 option(WITH_LIBCXX "build with libc++" OFF)

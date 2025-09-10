@@ -44,6 +44,11 @@
 
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__
+#if !defined(FLOOR_REPRODUCIBLE_BUILD)
+#define FLOOR_BUILD_DATE_TIME " (" + FLOOR_BUILD_DATE + " " + FLOOR_BUILD_TIME + ")"
+#else
+#define FLOOR_BUILD_DATE_TIME ""
+#endif
 
 #if defined(FLOOR_DEBUG) || defined(DEBUG)
 #define FLOOR_DEBUG_STR " (debug)"
@@ -79,9 +84,8 @@
 #error "unhandled arch"
 #endif
 
-#define FLOOR_VERSION_STRING (std::string("floor ")+FLOOR_PLATFORM+FLOOR_DEBUG_STR \
-" v"+(FLOOR_FULL_VERSION)+\
-" ("+FLOOR_BUILD_DATE+" "+FLOOR_BUILD_TIME+") built with " FLOOR_COMPILER FLOOR_LIBCXX)
+#define FLOOR_VERSION_STRING (std::string("floor ") + FLOOR_PLATFORM+FLOOR_DEBUG_STR \
+" v" + (FLOOR_FULL_VERSION) + FLOOR_BUILD_DATE_TIME + " built with " FLOOR_COMPILER FLOOR_LIBCXX)
 
 #define FLOOR_SOURCE_URL "https://github.com/a2flo/floor"
 
