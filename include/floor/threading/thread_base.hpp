@@ -47,15 +47,23 @@ public:
 		INVALID = -1,	//!< the thread is in an invalid state (do panic!)
 		INIT = 0,		//!< the thread is currently being initialized (start hasn't been called yet)
 		RUNNING = 1,	//!< start has been called and the thread is still running
-		FINISHED = 2	//!< the thread has finished execution
+		PAUSED = 2,		//!< the thread has been paused
+		FINISHED = 3,	//!< the thread has finished execution
 	};
 	
 	//! this is the main run method of the thread, which must be overridden by a custom run method.
 	//! NOTE: an infinite loop inside the run method is not needed and highly discouraged, as this will
 	//! interfere with the thread communication and render all thread_base functions useless.
 	//! the run() method will be called continuously from inside thread_base while making sure that
-	//! all thread communication is being processed (finish execution, thread delay, ...).
+	//! all thread communication is being processed (finish execution, thread delay, pausing, ...).
 	virtual void run() = 0;
+	
+	//! pauses/halts the thread prior to the next run() iteration
+	//! NOTE: this is only viable if run() ever returns
+	void pause();
+	
+	//! unpauses a previously halted thread
+	void unpause();
 	
 	//! this signals the thread to finish its execution and will actually finish after the current or next
 	//! run() call has returned. after that, it will kill the thread object and set the state to FINISHED.
@@ -95,12 +103,13 @@ public:
 protected:
 	const std::string thread_name;
 	std::unique_ptr<std::thread> thread_obj { nullptr };
-	// there is no way in C++ to figure out if a lock is still held -> count the locks/unlocks manually
-	std::atomic<uint32_t> thread_lock_count { 0 };
 	std::atomic<THREAD_STATUS> thread_status { THREAD_STATUS::INIT };
 	std::atomic<size_t> thread_delay { 50 };
 	std::atomic<bool> thread_should_finish_flag { false };
 	std::atomic<bool> yield_after_run { true };
+	std::atomic<bool> thread_pause { false };
+	std::condition_variable pause_cv;
+	std::condition_variable delay_cv;
 	
 	//! this _must_ be called from the inheriting class to actually start the thread
 	void start();
