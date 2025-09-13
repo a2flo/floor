@@ -27,12 +27,16 @@
 #endif
 
 #if defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <mach/thread_policy.h>
 #include <mach/thread_act.h>
 #elif defined(__linux__)
 #include <floor/core/core.hpp>
 #include <pthread.h>
 #include <sys/sysinfo.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #elif defined(__FreeBSD__)
 #include <pthread.h>
 #include <pthread_np.h>
@@ -110,6 +114,65 @@ FLOOR_POP_WARNINGS()
 	return core_count;
 }
 
+#if defined(__APPLE__)
+static uint2 get_pe_core_info() {
+	static const auto pe_cores = []() -> uint2{
+		uint32_t p_cores = 0u;
+		uint32_t e_cores = 0u;
+		
+		// query how many CPU performance levels we have
+		uint32_t nperflevels = 0;
+		size_t size = sizeof(nperflevels);
+		sysctlbyname("hw.nperflevels", &nperflevels, &size, nullptr, 0);
+		for (uint32_t perf_level = 0; perf_level < nperflevels; ++perf_level) {
+			const auto perf_level_prefix = "hw.perflevel" + std::to_string(perf_level) + ".";
+			
+			// figure out whether this perf level specifies the performance cores or the efficiency cores
+			static constexpr const size_t max_perf_level_name_length { 32u };
+			char perf_level_name[max_perf_level_name_length] {};
+			size = max_perf_level_name_length;
+			sysctlbyname((perf_level_prefix + "name").c_str(), perf_level_name, &size, nullptr, 0);
+			std::string_view perf_level_name_sv { perf_level_name, std::min(size, max_perf_level_name_length) };
+			
+			const auto is_p_core = (perf_level_name_sv.starts_with("Performance"));
+			const auto is_e_core = (perf_level_name_sv.starts_with("Efficiency"));
+			if (!is_p_core && !is_e_core) {
+				continue;
+			}
+			
+			// query the amount of physical CPUs
+			uint32_t physical_core_count = 0;
+			size = sizeof(physical_core_count);
+			sysctlbyname((perf_level_prefix + "physicalcpu").c_str(), &physical_core_count, &size, nullptr, 0);
+			if (is_p_core) {
+				p_cores = physical_core_count;
+			} else if (is_e_core) {
+				e_cores = physical_core_count;
+			}
+		}
+		
+		return { p_cores, e_cores };
+	}();
+	return pe_cores;
+}
+#endif
+
+uint32_t get_performance_core_count() {
+#if defined(__APPLE__)
+	return get_pe_core_info().x;
+#else
+	return get_physical_core_count();
+#endif
+}
+
+uint32_t get_efficiency_core_count() {
+#if defined(__APPLE__)
+	return get_pe_core_info().y;
+#else
+	return 0;
+#endif
+}
+
 void set_thread_affinity(const uint32_t affinity) {
 #if defined(__APPLE__)
 	thread_port_t thread_port = pthread_mach_thread_np(pthread_self());
@@ -156,6 +219,33 @@ void set_current_thread_name([[maybe_unused]] const std::string& thread_name) {
 	 if (err != 0) {
 		 log_error("failed to set thread name: $", err);
 	 }
+#endif
+}
+
+bool set_high_process_priority() {
+#if defined(__APPLE__)
+	bool success = true;
+	auto this_task = mach_task_self();
+	
+	task_category_policy category_policy {
+		.role = TASK_FOREGROUND_APPLICATION,
+	};
+	success &= (task_policy_set(this_task, TASK_CATEGORY_POLICY, reinterpret_cast<task_policy_t>(&category_policy),
+								TASK_CATEGORY_POLICY_COUNT) == KERN_SUCCESS);
+	
+	task_qos_policy qos_policy {
+		.task_latency_qos_tier = LATENCY_QOS_TIER_0,
+		.task_throughput_qos_tier = THROUGHPUT_QOS_TIER_0,
+	};
+	success &= (task_policy_set(this_task, TASK_BASE_QOS_POLICY, reinterpret_cast<task_policy_t>(&qos_policy),
+								TASK_QOS_POLICY_COUNT) == KERN_SUCCESS);
+	
+	return success;
+#elif defined(__WINDOWS__)
+	return (SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS) != 0);
+#else
+	// NOTE: this will very likely fail when run as a normal user -> need a "sudo setcap CAP_SYS_NICE+ep $binary" to allow this
+	return (setpriority(PRIO_PROCESS, 0 /* this process */, -10) == 0);
 #endif
 }
 
