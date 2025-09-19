@@ -330,6 +330,20 @@ floor_inline_always int64_t atom_load(const local int64_t* addr) {
 }
 #endif
 
+// inc/dec + cmp
+floor_inline_always uint32_t atomic_inc_cmp(global uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_INC, global, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_dec_cmp(global uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_DEC, global, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_inc_cmp(local uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_INC, local, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_dec_cmp(local uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_DEC, local, p, cmp_val)
+}
+
 // fallback for non-natively supported float atomics
 #if !defined(FLOOR_DEVICE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
 floor_inline_always float atom_add(global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }

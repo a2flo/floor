@@ -162,6 +162,18 @@ floor_inline_always double atomic_inc(volatile double* addr) {
 	return atomic_add(addr, 1.0);
 }
 
+// inc/dec + cmp
+floor_inline_always uint32_t atomic_inc_cmp(volatile uint32_t* addr, const uint32_t cmp_val) {
+	uint32_t ret;
+	asm volatile("atom" FLOOR_CUDA_MEM_ORDER_DEFAULT ".inc.u32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(cmp_val));
+	return ret;
+}
+floor_inline_always uint32_t atomic_dec_cmp(volatile uint32_t* addr, const uint32_t cmp_val) {
+	uint32_t ret;
+	asm volatile("atom" FLOOR_CUDA_MEM_ORDER_DEFAULT ".dec.u32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(cmp_val));
+	return ret;
+}
+
 // dec
 floor_inline_always int32_t atomic_dec(volatile int32_t* addr) {
 	int32_t ret;

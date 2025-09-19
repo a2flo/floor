@@ -136,6 +136,14 @@ floor_inline_always double atomic_inc(volatile double* p) {
 	return floor_host_atomic_fetch_add((volatile _Atomic(double)*)p, 1.0, floor_memory_order_seq_cst);
 }
 
+// inc/dec + cmp
+floor_inline_always uint32_t atomic_inc_cmp(volatile uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_INC, , p, cmp_val)
+}
+floor_inline_always uint32_t atomic_dec_cmp(volatile uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_DEC, , p, cmp_val)
+}
+
 // dec
 floor_inline_always int32_t atomic_dec(volatile int32_t* p) {
 	return floor_host_atomic_fetch_sub((volatile _Atomic(int32_t)*)p, 1, floor_memory_order_seq_cst);

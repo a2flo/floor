@@ -374,6 +374,20 @@ floor_inline_always float atomic_load(const volatile local float* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_DEFAULT, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
+// inc/dec + cmp
+floor_inline_always uint32_t atomic_inc_cmp(volatile global uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_INC, global, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_dec_cmp(volatile global uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_DEC, global, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_inc_cmp(volatile local uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_INC, local, p, cmp_val)
+}
+floor_inline_always uint32_t atomic_dec_cmp(volatile local uint32_t* p, const uint32_t cmp_val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(FLOOR_ATOMIC_FALLBACK_DEC, local, p, cmp_val)
+}
+
 // fallback for non-natively supported float atomics
 floor_inline_always float atomic_min(volatile global float* p, float val) {
 	if(val < 0.0f) {
