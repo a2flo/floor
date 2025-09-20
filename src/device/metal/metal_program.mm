@@ -53,9 +53,15 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						
 						metal_function::metal_function_entry entry;
 						entry.info = &info;
-						entry.max_local_size = prog.first->max_local_size;
 						if (entry.info->type != toolchain::FUNCTION_TYPE::KERNEL) {
 							is_kernel = false;
+						}
+						if (entry.info->has_valid_required_local_size()) {
+							entry.max_local_size = info.required_local_size;
+							entry.max_total_local_size = info.required_local_size.extent();
+						} else {
+							entry.max_local_size = prog.first->max_local_size;
+							entry.max_total_local_size = prog.first->max_total_local_size;
 						}
 						if (entry.info->has_valid_required_simd_width()) {
 							entry.required_simd_width = info.required_simd_width;
@@ -151,8 +157,14 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						entry.function = (__bridge void*)func;
 						entry.kernel_state = (__bridge void*)kernel_state;
 						entry.supports_indirect_compute = supports_indirect_compute;
-						if(kernel_state != nil) {
-							entry.max_total_local_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
+						if (kernel_state != nil) {
+							// adjust downwards from reported max local size
+							entry.max_total_local_size = std::min(uint32_t([kernel_state maxTotalThreadsPerThreadgroup]),
+																  entry.max_total_local_size);
+							if (entry.max_total_local_size < entry.max_local_size.extent()) {
+								entry.max_local_size = device_function::check_local_work_size(entry.max_local_size, entry.max_local_size,
+																							  entry.max_total_local_size);
+							}
 						}
 						function_map.insert_or_assign(prog.first, entry);
 						break;

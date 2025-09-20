@@ -22,13 +22,33 @@
 
 namespace fl {
 
-uint3 device_function::check_local_work_size(const device_function::function_entry& entry, const uint3& local_work_size) const {
-	// make sure all elements are always at least 1
-	uint3 ret = local_work_size.maxed(1u);
+uint3 device_function::check_local_work_size(const uint3 wanted_local_work_size,
+											 const uint3 max_local_size,
+											 const uint32_t max_total_local_size) {
+	assert((max_local_size > 0u).all());
 	
-	const auto work_group_size = ret.x * ret.y * ret.z;
-	if(entry.max_total_local_size > 0 &&
-	   work_group_size > entry.max_total_local_size) {
+	// make sure all elements are always at least 1
+	uint3 ret = wanted_local_work_size.maxed(1u);
+	
+	const auto wanted_max_local_size = ret.extent();
+	if (max_total_local_size > 0 && wanted_max_local_size > max_total_local_size) {
+		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2
+		// NOTE: this is usually a good idea for image accesses / cache use
+		if (wanted_local_work_size.y > 1 && max_total_local_size > 1 && max_local_size.y > 1) {
+			ret = { max_total_local_size / 2u, 2, 1 };
+			// TODO: might want to have/keep a specific shape
+		} else {
+			// just return max possible local work size "{ max, 1, 1 }"
+			ret = { max_total_local_size, 1, 1 };
+		}
+	}
+	
+	return ret;
+}
+
+uint3 device_function::check_local_work_size(const device_function::function_entry& entry, const uint3& local_work_size) const {
+	const auto checked_local_work_size = check_local_work_size(local_work_size, entry.max_local_size, entry.max_total_local_size);
+	if (checked_local_work_size != local_work_size) {
 		// only warn/error once about this, don't want to spam the console/log unnecessarily
 		bool do_warn = false;
 		{
@@ -37,21 +57,13 @@ uint3 device_function::check_local_work_size(const device_function::function_ent
 			warn_map.emplace(&entry, 1u);
 		}
 		
-		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2
-		// note that this is usually a good idea for image accesses / cache use
-		if(local_work_size.y > 1 && entry.max_total_local_size > 1 && entry.max_local_size.y > 1) {
-			ret = { (uint32_t)(entry.max_total_local_size / 2u), 2, 1 };
-			// TODO: might want to have/keep a specific shape
-		}
-		// just return max possible local work size "{ max, 1, 1 }"
-		else ret = { (uint32_t)entry.max_total_local_size, 1, 1 };
-		
-		if(do_warn) {
+		if (do_warn) {
 			log_error("$: specified work-group size ($) too large for this device (max: $) - using $ now!",
-					  (entry.info ? entry.info->name : "<unknown>"), work_group_size, entry.max_total_local_size, ret);
+					  (entry.info ? entry.info->name : "<unknown>"), local_work_size.maxed(1u).extent(), entry.max_total_local_size,
+					  checked_local_work_size);
 		}
 	}
-	return ret;
+	return checked_local_work_size;
 }
 
 std::unique_ptr<argument_buffer> device_function::create_argument_buffer(const device_queue& cqueue, const uint32_t& arg_index,

@@ -127,7 +127,7 @@ namespace fl::algorithm {
 	//! NOTE: the reduce function/op must be a binary function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type, typename F>
 	requires(supported_work_group_size_type<work_group_size>)
-	floor_inline_always static reduced_type reduce(const reduced_type& work_item_value,
+	floor_inline_always static reduced_type reduce(const reduced_type work_item_value,
 												   local_memory_type& lmem,
 												   F&& op) {
 		// init/set all work-item values
@@ -185,7 +185,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type>
 	requires(supported_work_group_size_type<work_group_size>)
-	floor_inline_always static reduced_type reduce_add(const reduced_type& work_item_value,
+	floor_inline_always static reduced_type reduce_add(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
 			return group::work_group_reduce<group::OP::ADD>(work_item_value, lmem);
@@ -222,7 +222,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type>
 	requires(supported_work_group_size_type<work_group_size>)
-	floor_inline_always static reduced_type reduce_min(const reduced_type& work_item_value,
+	floor_inline_always static reduced_type reduce_min(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
 			return group::work_group_reduce<group::OP::MIN>(work_item_value, lmem);
@@ -260,7 +260,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	template <auto work_group_size, typename reduced_type, typename local_memory_type>
 	requires(supported_work_group_size_type<work_group_size>)
-	floor_inline_always static reduced_type reduce_max(const reduced_type& work_item_value,
+	floor_inline_always static reduced_type reduce_max(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
 			return group::work_group_reduce<group::OP::MAX>(work_item_value, lmem);
@@ -294,11 +294,11 @@ namespace fl::algorithm {
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
-	template <uint32_t work_group_size, group::OP op = group::OP::NONE>
+	template <uint32_t work_group_size, typename data_type, group::OP op = group::OP::NONE>
 	static constexpr uint32_t reduce_local_memory_elements() {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, op, float>) {
-			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_REDUCE, op, float>::count;
-		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, op, float> &&
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, op, data_type>) {
+			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_REDUCE, op, data_type>::count;
+		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, op, data_type> &&
 							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
 			return work_group_size / device_info::simd_width_min();
 		}
@@ -322,7 +322,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, bool inclusive, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto scan(const data_type& work_item_value,
+	floor_inline_always static auto scan(const data_type work_item_value,
 										 op_func_type&& op,
 										 lmem_type& lmem,
 										 const decay_as_t<data_type> init_val) {
@@ -330,7 +330,7 @@ namespace fl::algorithm {
 		const auto lid = local_id.x;
 		
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE)
-		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
+		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u && !is_floor_vector<dec_data_type>::value) {
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
@@ -449,7 +449,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan(const data_type& work_item_value,
+	floor_inline_always static auto inclusive_scan(const data_type work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
 												   const decay_as_t<data_type> init_val) {
@@ -460,7 +460,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
-	floor_inline_always static auto inclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
+	floor_inline_always static auto inclusive_scan_op(const data_type work_item_value, lmem_type& lmem,
 													  const decay_as_t<data_type> init_val) {
 		using dec_data_type = decay_as_t<data_type>;
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, dec_data_type>) {
@@ -535,15 +535,15 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type>(0));
+	floor_inline_always static auto inclusive_scan_add(const data_type work_item_value, lmem_type& lmem) {
+		return inclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type> {});
 	}
 
 	//! work-group inclusive-scan-min function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
+	floor_inline_always static auto inclusive_scan_min(const data_type work_item_value, lmem_type& lmem) {
 		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
 	}
 
@@ -551,7 +551,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
+	floor_inline_always static auto inclusive_scan_max(const data_type work_item_value, lmem_type& lmem) {
 		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
 	}
 	
@@ -560,7 +560,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan(const data_type& work_item_value,
+	floor_inline_always static auto exclusive_scan(const data_type work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
 												   const decay_as_t<data_type> init_val) {
@@ -571,7 +571,7 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, group::OP op, typename data_type, typename lmem_type> requires (op != group::OP::NONE)
-	floor_inline_always static auto exclusive_scan_op(const data_type& work_item_value, lmem_type& lmem,
+	floor_inline_always static auto exclusive_scan_op(const data_type work_item_value, lmem_type& lmem,
 													  const decay_as_t<data_type> init_val) {
 		using dec_data_type = decay_as_t<data_type>;
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_EXCLUSIVE_SCAN, op, dec_data_type>) {
@@ -648,15 +648,15 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan_add(const data_type& work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type>(0));
+	floor_inline_always static auto exclusive_scan_add(const data_type work_item_value, lmem_type& lmem) {
+		return exclusive_scan_op<work_group_size, group::OP::ADD>(work_item_value, lmem, decay_as_t<data_type> {});
 	}
 	
 	//! work-group exclusive-scan-min function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan_min(const data_type& work_item_value, lmem_type& lmem) {
+	floor_inline_always static auto exclusive_scan_min(const data_type work_item_value, lmem_type& lmem) {
 		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
 	}
 	
@@ -664,21 +664,22 @@ namespace fl::algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan_max(const data_type& work_item_value, lmem_type& lmem) {
+	floor_inline_always static auto exclusive_scan_max(const data_type work_item_value, lmem_type& lmem) {
 		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
-	template <uint32_t work_group_size, group::OP op = group::OP::NONE>
+	template <uint32_t work_group_size, typename data_type, group::OP op = group::OP::NONE>
 	static constexpr uint32_t scan_local_memory_elements() {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, uint32_t>) {
-			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, uint32_t>::count;
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>) {
+			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>::count;
 		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, uint32_t> &&
 							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
 			return work_group_size / device_info::simd_width_min();
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
+		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u &&
+						   !is_floor_vector<data_type>::value) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_DEVICE_METAL) && defined(FLOOR_DEVICE_INFO_VENDOR_AMD)

@@ -358,7 +358,7 @@ program_data compile_input(const std::string& input,
 						os_target = "macosx15.0.0";
 						break;
 					case METAL_VERSION::METAL_4_0:
-						os_target = "macosx16.0.0"; // NOTE: for now, we're still on 16.0 ...
+						os_target = "macosx26.0.0";
 						break;
 				}
 			} else {

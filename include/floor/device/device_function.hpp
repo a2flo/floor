@@ -80,6 +80,11 @@ public:
 	//! NOTE: will only warn/error once per function per device
 	uint3 check_local_work_size(const function_entry& entry,
 								const uint3& local_work_size) const REQUIRES(!warn_map_lock);
+	//! static standalone variant of the above
+	//! NOTE: this will not warn/error
+	static uint3 check_local_work_size(const uint3 wanted_local_work_size,
+									   const uint3 max_local_size,
+									   const uint32_t max_total_local_size);
 	
 protected:
 	//! function name of this function
