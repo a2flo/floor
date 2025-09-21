@@ -301,7 +301,7 @@ namespace fl::algorithm {
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										lmem[sub_group_local_id] : max_value<reduced_type>());
+										reduced_type(lmem[sub_group_local_id]) : max_value<reduced_type>());
 				total_min = group::sub_group_reduce<group::OP::MIN>(sg_in_val);
 			}
 			local_barrier();
@@ -339,7 +339,7 @@ namespace fl::algorithm {
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										lmem[sub_group_local_id] : min_value<reduced_type>());
+										reduced_type(lmem[sub_group_local_id]) : min_value<reduced_type>());
 				total_max = group::sub_group_reduce<group::OP::MAX>(sg_in_val);
 			}
 			local_barrier();
