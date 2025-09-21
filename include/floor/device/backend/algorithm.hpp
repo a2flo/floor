@@ -43,6 +43,62 @@ namespace fl::algorithm {
 		}
 	}
 	
+	//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
+	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+	static inline constexpr data_type min_value() {
+		return std::numeric_limits<decay_as_t<data_type>>::lowest();
+	}
+	
+	//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
+	template <typename data_type> requires (is_floor_vector_v<data_type>)
+	static inline constexpr data_type min_value() {
+		return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::lowest() };
+	}
+	
+	//! returns the maximum value representable by "data_type" (used to init _min algorithms)
+	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+	static inline constexpr data_type max_value() {
+		return std::numeric_limits<decay_as_t<data_type>>::max();
+	}
+	
+	//! returns the maximum value representable by "data_type" (used to init _min algorithms)
+	template <typename data_type> requires (is_floor_vector_v<data_type>)
+	static inline constexpr data_type max_value() {
+		return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::max() };
+	}
+	
+	template <typename data_type> struct min_op;
+	template <typename data_type> struct max_op;
+	
+	//! scalar min(lhs, rhs) function op
+	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+	struct min_op<data_type> {
+		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
+			return fl::floor_rt_min(lhs, rhs);
+		}
+	};
+	//! vector min(lhs, rhs) function op
+	template <typename data_type> requires (is_floor_vector_v<data_type>)
+	struct min_op<data_type> {
+		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
+			return lhs.minned(rhs);
+		}
+	};
+	//! scalar max(lhs, rhs) function op
+	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+	struct max_op<data_type> {
+		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
+			return fl::floor_rt_max(lhs, rhs);
+		}
+	};
+	//! vector max(lhs, rhs) function op
+	template <typename data_type> requires (is_floor_vector_v<data_type>)
+	struct max_op<data_type> {
+		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
+			return lhs.maxed(rhs);
+		}
+	};
+	
 	//////////////////////////////////////////
 	// sub-group reduce functions
 	
@@ -245,14 +301,14 @@ namespace fl::algorithm {
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										lmem[sub_group_local_id] : std::numeric_limits<reduced_type>::max());
+										lmem[sub_group_local_id] : max_value<reduced_type>());
 				total_min = group::sub_group_reduce<group::OP::MIN>(sg_in_val);
 			}
 			local_barrier();
 			return total_min;
 		}
 #endif
-		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
+		return reduce<work_group_size>(work_item_value, lmem, min_op<reduced_type> {});
 	}
 	
 	//! work-group max reduce function
@@ -283,14 +339,14 @@ namespace fl::algorithm {
 			if (sub_group_id_1d == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										lmem[sub_group_local_id] : std::numeric_limits<reduced_type>::lowest());
+										lmem[sub_group_local_id] : min_value<reduced_type>());
 				total_max = group::sub_group_reduce<group::OP::MAX>(sg_in_val);
 			}
 			local_barrier();
 			return total_max;
 		}
 #endif
-		return reduce<work_group_size>(work_item_value, lmem, [](auto& lhs, auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
+		return reduce<work_group_size>(work_item_value, lmem, max_op<reduced_type> {});
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
@@ -330,7 +386,7 @@ namespace fl::algorithm {
 		const auto lid = local_id.x;
 		
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE)
-		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u && !is_floor_vector<dec_data_type>::value) {
+		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
@@ -508,9 +564,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return dec_data_type(sub_block_offset + sub_block_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return dec_data_type(fl::floor_rt_min(sub_block_offset, sub_block_val));
+				return dec_data_type(min_op<dec_data_type>()(sub_block_offset, sub_block_val));
 			} else if constexpr (op == group::OP::MAX) {
-				return dec_data_type(fl::floor_rt_max(sub_block_offset, sub_block_val));
+				return dec_data_type(max_op<dec_data_type>()(sub_block_offset, sub_block_val));
 			} else {
 				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
@@ -520,11 +576,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return scan<work_group_size, true>(work_item_value, std::plus<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
-												   lmem, init_val);
+				return scan<work_group_size, true>(work_item_value, min_op<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MAX) {
-				return scan<work_group_size, true>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
-												   lmem, init_val);
+				return scan<work_group_size, true>(work_item_value, max_op<dec_data_type> {}, lmem, init_val);
 			} else {
 				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
@@ -544,7 +598,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto inclusive_scan_min(const data_type work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
+		return inclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, max_value<data_type>());
 	}
 
 	//! work-group inclusive-scan-max function
@@ -552,7 +606,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto inclusive_scan_max(const data_type work_item_value, lmem_type& lmem) {
-		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
+		return inclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, min_value<data_type>());
 	}
 	
 	//! generic work-group exclusive-scan function
@@ -621,9 +675,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return dec_data_type(sub_block_offset + (sub_group_local_id == 0u ? init_val : excl_sub_block_val));
 			} else if constexpr (op == group::OP::MIN) {
-				return dec_data_type(fl::floor_rt_min(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
+				return dec_data_type(min_op<dec_data_type>()(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
 			} else if constexpr (op == group::OP::MAX) {
-				return dec_data_type(fl::floor_rt_max(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
+				return dec_data_type(max_op<dec_data_type>()(sub_block_offset, (sub_group_local_id == 0u ? init_val : excl_sub_block_val)));
 			} else {
 				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
@@ -633,11 +687,9 @@ namespace fl::algorithm {
 			if constexpr (op == group::OP::ADD) {
 				return scan<work_group_size, false>(work_item_value, std::plus<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MIN) {
-				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); },
-													lmem, init_val);
+				return scan<work_group_size, false>(work_item_value, min_op<dec_data_type> {}, lmem, init_val);
 			} else if constexpr (op == group::OP::MAX) {
-				return scan<work_group_size, false>(work_item_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); },
-													lmem, init_val);
+				return scan<work_group_size, false>(work_item_value, max_op<dec_data_type> {}, lmem, init_val);
 			} else {
 				instantiation_trap_dependent_type(dec_data_type, "unhandled op");
 			}
@@ -657,7 +709,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto exclusive_scan_min(const data_type work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::max());
+		return exclusive_scan_op<work_group_size, group::OP::MIN>(work_item_value, lmem, max_value<data_type>());
 	}
 	
 	//! work-group exclusive-scan-max function
@@ -665,7 +717,7 @@ namespace fl::algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	template <uint32_t work_group_size, typename data_type, typename lmem_type>
 	floor_inline_always static auto exclusive_scan_max(const data_type work_item_value, lmem_type& lmem) {
-		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, std::numeric_limits<decay_as_t<data_type>>::lowest());
+		return exclusive_scan_op<work_group_size, group::OP::MAX>(work_item_value, lmem, min_value<data_type>());
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
@@ -678,8 +730,7 @@ namespace fl::algorithm {
 			return work_group_size / device_info::simd_width_min();
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u &&
-						   !is_floor_vector<data_type>::value) {
+		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_DEVICE_METAL) && defined(FLOOR_DEVICE_INFO_VENDOR_AMD)

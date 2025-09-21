@@ -84,6 +84,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/backend/common.hpp
 	include/floor/device/backend/cuda_atomic.hpp
 	include/floor/device/backend/cuda_coop.hpp
+	include/floor/device/backend/cuda_group.hpp
 	include/floor/device/backend/cuda_id.hpp
 	include/floor/device/backend/cuda_image.hpp
 	include/floor/device/backend/cuda_pre.hpp
@@ -102,6 +103,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/backend/image.hpp
 	include/floor/device/backend/logger.hpp
 	include/floor/device/backend/metal_atomic.hpp
+	include/floor/device/backend/metal_group.hpp
 	include/floor/device/backend/metal_image.hpp
 	include/floor/device/backend/metal_post.hpp
 	include/floor/device/backend/metal_pre.hpp
@@ -118,6 +120,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/backend/soft_pack.hpp
 	include/floor/device/backend/soft_printf.hpp
 	include/floor/device/backend/tessellation.hpp
+	include/floor/device/backend/vulkan_group.hpp
 	include/floor/device/backend/vulkan_image.hpp
 	include/floor/device/backend/vulkan_post.hpp
 	include/floor/device/backend/vulkan_pre.hpp

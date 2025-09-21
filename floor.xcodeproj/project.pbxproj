@@ -355,6 +355,9 @@
 		5C1091F617D148C5007F536E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		5C1091F817D148CB007F536E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		5C1091FA17D148D0007F536E /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		5C1E536C2E7EED0E0035371D /* metal_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = metal_group.hpp; sourceTree = "<group>"; };
+		5C1E536D2E7F16780035371D /* vulkan_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vulkan_group.hpp; sourceTree = "<group>"; };
+		5C1E536E2E7F1AF40035371D /* cuda_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cuda_group.hpp; sourceTree = "<group>"; };
 		5C38EC1122A2D00B001E7086 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		5C3B3772272F520600FD708D /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm140/deploy_dev.sh; sourceTree = "<group>"; };
 		5C3B3773272F520600FD708D /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm140/build.sh; sourceTree = "<group>"; };
@@ -1219,6 +1222,7 @@
 				5C6DCA8F2DB098D300627453 /* cuda.hpp */,
 				5C6DCA902DB098D300627453 /* cuda_atomic.hpp */,
 				5C6DCA912DB098D300627453 /* cuda_coop.hpp */,
+				5C1E536E2E7F1AF40035371D /* cuda_group.hpp */,
 				5C6DCA922DB098D300627453 /* cuda_id.hpp */,
 				5C6DCA932DB098D300627453 /* cuda_image.hpp */,
 				5C6DCA942DB098D300627453 /* cuda_pre.hpp */,
@@ -1237,6 +1241,7 @@
 				5C6DCAA12DB098D300627453 /* logger.hpp */,
 				5C6DCAA22DB098D300627453 /* metal.hpp */,
 				5C6DCAA32DB098D300627453 /* metal_atomic.hpp */,
+				5C1E536C2E7EED0E0035371D /* metal_group.hpp */,
 				5C6DCAA42DB098D300627453 /* metal_image.hpp */,
 				5C6DCAA52DB098D300627453 /* metal_post.hpp */,
 				5C6DCAA62DB098D300627453 /* metal_pre.hpp */,
@@ -1253,6 +1258,7 @@
 				5C6DCAB12DB098D300627453 /* soft_printf.hpp */,
 				5C6DCAB22DB098D300627453 /* tessellation.hpp */,
 				5C6DCAB32DB098D300627453 /* vulkan.hpp */,
+				5C1E536D2E7F16780035371D /* vulkan_group.hpp */,
 				5C6DCAB42DB098D300627453 /* vulkan_image.hpp */,
 				5C6DCAB52DB098D300627453 /* vulkan_post.hpp */,
 				5C6DCAB62DB098D300627453 /* vulkan_pre.hpp */,
@@ -1502,6 +1508,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1523,6 +1530,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1539,6 +1547,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 				"",
 				"",

@@ -25,13 +25,13 @@ namespace fl {
 uint3 device_function::check_local_work_size(const uint3 wanted_local_work_size,
 											 const uint3 max_local_size,
 											 const uint32_t max_total_local_size) {
-	assert((max_local_size > 0u).all());
-	
 	// make sure all elements are always at least 1
 	uint3 ret = wanted_local_work_size.maxed(1u);
 	
 	const auto wanted_max_local_size = ret.extent();
 	if (max_total_local_size > 0 && wanted_max_local_size > max_total_local_size) {
+		assert((max_local_size > 0u).all());
+		
 		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2
 		// NOTE: this is usually a good idea for image accesses / cache use
 		if (wanted_local_work_size.y > 1 && max_total_local_size > 1 && max_local_size.y > 1) {

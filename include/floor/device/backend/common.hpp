@@ -179,10 +179,10 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
 
-// parallel group ops
+// parallel group ops interface
 #include <floor/device/backend/group.hpp>
 
-// compute implementation specific headers
+// implementation specific headers
 #if defined(FLOOR_DEVICE_CUDA)
 #include <floor/device/backend/cuda.hpp>
 #elif defined(FLOOR_DEVICE_OPENCL)
@@ -300,6 +300,15 @@ static constexpr inline half operator""_h (long double val) {
 // image types / enum (+enum helpers as this depends on it)
 #include <floor/core/enum_helpers.hpp>
 #include <floor/device/backend/image_types.hpp>
+
+// implementation specific group op headers
+#if defined(FLOOR_DEVICE_CUDA)
+#include <floor/device/backend/cuda_group.hpp>
+#elif defined(FLOOR_DEVICE_VULKAN)
+#include <floor/device/backend/vulkan_group.hpp>
+#elif defined(FLOOR_DEVICE_METAL)
+#include <floor/device/backend/metal_group.hpp>
+#endif
 
 // device logging functions
 #include <floor/device/backend/logger.hpp>

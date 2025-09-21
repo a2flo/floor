@@ -52,35 +52,35 @@ template <ALGORITHM algo, OP op, typename data_type> constexpr bool supports_v =
 //! specifies the amount of required local memory that is needed for the specified combination of algorithm, operation and data_type
 //! NOTE: sub-group level algorithms may not use any local memory
 template <ALGORITHM algo, OP op, typename data_type>
-requires(algo != ALGORITHM::SUB_GROUP_REDUCE &&
-		 algo != ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN &&
-		 algo != ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN)
+requires (algo != ALGORITHM::SUB_GROUP_REDUCE &&
+		  algo != ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN &&
+		  algo != ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN)
 struct required_local_memory_elements {
-	static constexpr const size_t count = 0;
+	static constexpr const size_t count { 0 };
 };
 
 //! stub for reduce with a specific operation and data_type
 template <OP op, typename data_type, typename lmem_type>
-[[maybe_unused]] static auto work_group_reduce(const data_type& input_value, lmem_type& lmem);
+[[maybe_unused]] static auto work_group_reduce(const data_type input_value, lmem_type& lmem);
 
 //! stub for inclusive scan with a specific operation and data_type
 template <OP op, typename data_type, typename lmem_type>
-[[maybe_unused]] static auto work_group_inclusive_scan(const data_type& input_value, lmem_type& lmem);
+[[maybe_unused]] static auto work_group_inclusive_scan(const data_type input_value, lmem_type& lmem);
 
 //! stub for exclusive scan with a specific operation and data_type
 template <OP op, typename data_type, typename lmem_type>
-[[maybe_unused]] static auto work_group_exclusive_scan(const data_type& input_value, lmem_type& lmem);
+[[maybe_unused]] static auto work_group_exclusive_scan(const data_type input_value, lmem_type& lmem);
 
 //! stub for reduce with a specific operation and data_type
 template <OP op, typename data_type>
-[[maybe_unused]] static auto sub_group_reduce(const data_type& input_value);
+[[maybe_unused]] static auto sub_group_reduce(const data_type input_value);
 
 //! stub for inclusive scan with a specific operation and data_type
 template <OP op, typename data_type>
-[[maybe_unused]] static auto sub_group_inclusive_scan(const data_type& input_value);
+[[maybe_unused]] static auto sub_group_inclusive_scan(const data_type input_value);
 
 //! stub for exclusive scan with a specific operation and data_type
 template <OP op, typename data_type>
-[[maybe_unused]] static auto sub_group_exclusive_scan(const data_type& input_value);
+[[maybe_unused]] static auto sub_group_exclusive_scan(const data_type input_value);
 
 } // namespace fl::algorithm::group
