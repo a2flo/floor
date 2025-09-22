@@ -260,9 +260,6 @@ _LIBCPP_END_NAMESPACE_STD
 #define group_id fl::uint3 { get_group_id(0), get_group_id(1), get_group_id(2) }
 #define group_size fl::uint3 { get_group_size(0), get_group_size(1), get_group_size(2) }
 #define sub_group_id get_sub_group_id()
-#define sub_group_id_1d sub_group_id
-#define sub_group_id_2d sub_group_id
-#define sub_group_id_3d sub_group_id
 #define sub_group_local_id get_sub_group_local_id()
 #define sub_group_size get_sub_group_size()
 #define sub_group_count get_num_sub_groups()
@@ -308,6 +305,8 @@ static constexpr inline half operator""_h (long double val) {
 #include <floor/device/backend/vulkan_group.hpp>
 #elif defined(FLOOR_DEVICE_METAL)
 #include <floor/device/backend/metal_group.hpp>
+#elif defined(FLOOR_DEVICE_HOST_COMPUTE)
+#include <floor/device/backend/host_group.hpp>
 #endif
 
 // device logging functions

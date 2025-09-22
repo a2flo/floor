@@ -33,9 +33,16 @@ host_device::host_device() : device() {
 	local_mem_size = host_limits::local_memory_size;
 	local_mem_dedicated = false;
 	
-	// always at least 4 (SSE, newer NEON), 8-wide if AVX/AVX2, 16-wide if AVX-512
-	simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+	// we always emulate a SIMD-width of 32
+	simd_width = 32u;
 	simd_range = { 1, simd_width };
+	
+	// always at least 4 (SSE, newer NEON), 8-wide if AVX/AVX2, 16-wide if AVX-512
+	native_simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+	
+	sub_group_support = true;
+	// TODO: sub_group_shuffle_support = true;
+	sub_group_ballot_support = true;
 	
 	max_global_size = { 0xFFFFFFFFu };
 	

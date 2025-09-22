@@ -146,10 +146,12 @@ public:
 	bool extended_64_bit_atomics_support { false };
 	//! true if the device has native support for base 32-bit float operations (add/ld/st/xchg)
 	bool basic_32_bit_float_atomics_support { false };
-	//! true if the device supports sub-groups (OpenCL with extension; aka warp in cuda)
+	//! true if the device supports sub-groups
 	bool sub_group_support { false };
 	//! true if the device supports sub-group shuffle/swizzle
 	bool sub_group_shuffle_support { false };
+	//! true if the device supports sub-group ballot
+	bool sub_group_ballot_support { false };
 	//! true if the device supports cooperative kernel launchs
 	bool cooperative_kernel_support { false };
 	//! true if the device supports retrieving the primitive ID in the fragment shader

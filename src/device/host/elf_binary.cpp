@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/device/host/elf_binary.hpp>
 #include <floor/device/host/host_device_builtins.hpp>
+#include <floor/device/backend/host_limits.hpp>
 #include <floor/core/enum_helpers.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
@@ -458,7 +459,11 @@ void elf_binary::instance_t::reset(const uint3& global_work_size,
 	ids.instance_group_idx = {};
 	ids.instance_group_size = group_size;
 	ids.instance_work_dim = work_dim;
-	ids.instance_local_linear_idx = 0;
+	ids.instance_local_linear_idx = 0u;
+	ids.instance_sub_group_id = 0u;
+	ids.instance_sub_group_local_id = 0u;
+	ids.instance_sub_group_size = host_limits::simd_width;
+	ids.instance_num_sub_groups = (local_work_size.maxed(1u).extent() + host_limits::simd_width - 1u) / host_limits::simd_width;
 	
 	// reset r/w memory (aka BSS, aka local memory)
 	if (rw_memory && rw_memory_size > 0) {
@@ -1232,8 +1237,17 @@ const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t
 		ext_sym_ptr = &ext_instance.ids.instance_group_size;
 	} else if (sym.name == "floor_work_dim") {
 		ext_sym_ptr = &ext_instance.ids.instance_work_dim;
+	} else if (sym.name == "floor_sub_group_id") {
+		ext_sym_ptr = &ext_instance.ids.instance_sub_group_id;
+	} else if (sym.name == "floor_sub_group_local_id") {
+		ext_sym_ptr = &ext_instance.ids.instance_sub_group_local_id;
+	} else if (sym.name == "floor_sub_group_size") {
+		ext_sym_ptr = &ext_instance.ids.instance_sub_group_size;
+	} else if (sym.name == "floor_num_sub_groups") {
+		ext_sym_ptr = &ext_instance.ids.instance_num_sub_groups;
 	} else if (sym.name == "global_barrier" ||
 			   sym.name == "local_barrier" ||
+			   sym.name == "simd_barrier" ||
 			   sym.name == "barrier" ||
 			   sym.name == "image_barrier" ||
 			   sym.name == "floor_host_compute_device_barrier") {

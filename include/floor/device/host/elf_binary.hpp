@@ -82,8 +82,12 @@ public:
 		uint3 instance_local_work_size;
 		uint3 instance_group_idx;
 		uint3 instance_group_size;
-		uint32_t instance_work_dim { 0 };
-		uint32_t instance_local_linear_idx { 0 };
+		uint32_t instance_work_dim { 0u };
+		uint32_t instance_local_linear_idx { 0u };
+		uint32_t instance_sub_group_id { 0u };
+		uint32_t instance_sub_group_local_id { 0u };
+		uint32_t instance_sub_group_size { 0u };
+		uint32_t instance_num_sub_groups { 0u };
 	};
 	
 	//! execution instance

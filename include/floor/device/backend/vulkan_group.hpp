@@ -89,6 +89,18 @@ FLOOR_VULKAN_SUB_GROUP_DATA_TYPES_VECTOR(SUB_GROUP_VECTOR_FUNC, simd_shuffle_up)
 FLOOR_VULKAN_SUB_GROUP_DATA_TYPES_VECTOR(SUB_GROUP_VECTOR_FUNC, simd_shuffle_xor)
 #undef SUB_GROUP_VECTOR_FUNC
 
+// native Vulkan ballot: always returns a 4x32-bit uint vector (if SIMD-width is less than 128, upper bits are undefined)
+clang_uint4 simd_ballot_native(bool predicate) __attribute__((noduplicate, convergent)) asm("floor.sub_group.simd_ballot.ballot");
+
+floor_inline_always static uint32_t simd_ballot(bool predicate) __attribute__((noduplicate, convergent)) {
+	return simd_ballot_native(predicate).x;
+}
+
+floor_inline_always static uint64_t simd_ballot_64(bool predicate) __attribute__((noduplicate, convergent)) {
+	const auto ballot_result = simd_ballot_native(predicate);
+	return uint64_t(ballot_result.x) | (uint64_t(ballot_result.y) << 32ull);
+}
+
 // Vulkan parallel group operation implementations / support
 namespace algorithm::group {
 

@@ -89,6 +89,17 @@ FLOOR_METAL_SUB_GROUP_DATA_TYPES_VECTOR(SUB_GROUP_VECTOR_FUNC, simd_shuffle_up)
 FLOOR_METAL_SUB_GROUP_DATA_TYPES_VECTOR(SUB_GROUP_VECTOR_FUNC, simd_shuffle_xor)
 #undef SUB_GROUP_VECTOR_FUNC
 
+// native Metal ballot: always returns a 64-bit uint mask (if SIMD-width is less than 64, upper bits are undefined)
+uint64_t simd_ballot_native(bool predicate) __attribute__((noduplicate, convergent)) asm("air.simd_ballot.i64");
+
+floor_inline_always static uint32_t simd_ballot(bool predicate) __attribute__((noduplicate, convergent)) {
+	return uint32_t(simd_ballot_native(predicate));
+}
+
+floor_inline_always static uint64_t simd_ballot_64(bool predicate) __attribute__((noduplicate, convergent)) {
+	return simd_ballot_native(predicate);
+}
+
 // Metal parallel group operation implementations / support
 namespace algorithm::group {
 

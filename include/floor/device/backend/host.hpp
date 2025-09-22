@@ -237,6 +237,19 @@ floor_inline_always const_func static uint32_t get_work_dim() {
 	return floor_work_dim;
 }
 
+floor_inline_always const_func static uint32_t get_sub_group_id() {
+	return floor_sub_group_id;
+}
+floor_inline_always const_func static uint32_t get_sub_group_local_id() {
+	return floor_sub_group_local_id;
+}
+floor_inline_always const_func static uint32_t get_sub_group_size() {
+	return floor_sub_group_size;
+}
+floor_inline_always const_func static uint32_t get_num_sub_groups() {
+	return floor_num_sub_groups;
+}
+
 // barrier and mem_fence functionality (NOTE: implemented in host_function.cpp)
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 void global_barrier() FLOOR_HOST_COMPUTE_CC;
@@ -247,6 +260,7 @@ void local_barrier() FLOOR_HOST_COMPUTE_CC;
 void local_mem_fence();
 void local_read_mem_fence();
 void local_write_mem_fence();
+void simd_barrier() FLOOR_HOST_COMPUTE_CC;
 void barrier() FLOOR_HOST_COMPUTE_CC;
 
 void image_barrier() FLOOR_HOST_COMPUTE_CC;
@@ -273,6 +287,8 @@ void local_barrier();
 void local_mem_fence();
 void local_read_mem_fence();
 void local_write_mem_fence();
+
+void simd_barrier();
 
 void barrier();
 

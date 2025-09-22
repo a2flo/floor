@@ -200,6 +200,19 @@ FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(SUB_GROUP_VECTOR_FUNC, simd_shuffle
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(SUB_GROUP_VECTOR_FUNC, simd_shuffle_xor)
 #undef SUB_GROUP_CLANG_FUNC
 
+// native CUDA ballot: always returns a 32-bit uint mask
+floor_inline_always static uint32_t simd_ballot_native(bool predicate) {
+	return __nvvm_vote_ballot_sync(0xFFFF'FFFFu, predicate);
+}
+
+floor_inline_always static uint32_t simd_ballot(bool predicate) {
+	return simd_ballot_native(predicate);
+}
+
+floor_inline_always static uint64_t simd_ballot_64(bool predicate) {
+	return simd_ballot_native(predicate);
+}
+
 // CUDA parallel group operation implementations / support
 namespace algorithm::group {
 

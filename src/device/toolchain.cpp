@@ -239,6 +239,7 @@ program_data compile_input(const std::string& input,
 	std::string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	bool disable_sub_groups = false; // in case something needs to override device capabilities
+	bool disable_sub_group_ballot = false;
 	std::string metal_emit_format;
 	const bool metal_preprocess = (options.target == TARGET::AIR && options.debug.preprocess_condense);
 	bool primitive_id_support = dev.primitive_id_support;
@@ -249,6 +250,9 @@ program_data compile_input(const std::string& input,
 				log_error("can not compile OpenCL source code without a toolchain");
 				return {};
 			}
+			
+			// nope
+			disable_sub_group_ballot = true;
 			
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
@@ -576,12 +580,42 @@ program_data compile_input(const std::string& input,
 				return {};
 			}
 			
+			uint32_t spirv_version = 0x10000u;
+			switch (cl_device.spirv_version) {
+				case SPIRV_VERSION::NONE:
+				case SPIRV_VERSION::SPIRV_1_0:
+					break;
+				case SPIRV_VERSION::SPIRV_1_1:
+					spirv_version = 0x10100u;
+					break;
+				case SPIRV_VERSION::SPIRV_1_2:
+					spirv_version = 0x10200u;
+					break;
+				case SPIRV_VERSION::SPIRV_1_3:
+					spirv_version = 0x10300u;
+					break;
+				case SPIRV_VERSION::SPIRV_1_4:
+					spirv_version = 0x10400u;
+					break;
+				case SPIRV_VERSION::SPIRV_1_5:
+					spirv_version = 0x10500u;
+					break;
+				case SPIRV_VERSION::SPIRV_1_6:
+					spirv_version = 0x10600u;
+					break;
+			}
+			
+			if (cl_device.spirv_version < SPIRV_VERSION::SPIRV_1_3) {
+				disable_sub_group_ballot = true;
+			}
+			
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max OpenCL standard that is supported by the device
 				" -x " + (!build_pch ? "cl" : "cl-header") +
 				(!build_pch ? " -Xclang -emit-spirv -cl-no-stdinc" : "") +
 				" -Xclang -cl-std=CL" + cl_version_to_string(cl_device.cl_version) +
+				" -Xclang -spirv-version=" + std::to_string(spirv_version) +
 				" -target spir64-unknown-unknown" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -918,21 +952,28 @@ program_data compile_input(const std::string& input,
 	
 	
 	// handle sub-group support
-	if(dev.sub_group_support && !disable_sub_groups) {
+	if (dev.sub_group_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUPS=1 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUPS_1";
 	} else {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUPS=0 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUPS_0";
 	}
 	
 	// handle sub-group shuffle support
-	if(dev.sub_group_shuffle_support && !disable_sub_groups) {
+	if (dev.sub_group_shuffle_support && !disable_sub_groups) {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE=1 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE_1";
 	} else {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE=0 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE_0";
 	}
 	
+	// handle sub-group ballot support
+	if (dev.sub_group_ballot_support && !disable_sub_groups && !disable_sub_group_ballot) {
+		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT=1 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT_1";
+	} else {
+		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT=0 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT_0";
+	}
+	
 	// handle cooperative kernel support
-	if(dev.cooperative_kernel_support) {
+	if (dev.cooperative_kernel_support) {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL=1 -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL_1";
 	} else {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL=0 -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL_0";

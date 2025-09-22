@@ -236,13 +236,23 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_DEVICE_INFO_HAS_DEDICATED_LOCAL_MEMORY_0
 
 // we still support local memory however -> fixed amount is defined by host_limits
-#define FLOOR_DEVICE_INFO_DEDICATED_LOCAL_MEMORY (host_limits::local_memory_size)
+#define FLOOR_DEVICE_INFO_DEDICATED_LOCAL_MEMORY (fl::host_limits::local_memory_size)
 
-// Host-Compute doesn't support sub-groups or sub-group shuffle right now
-#define FLOOR_DEVICE_INFO_HAS_SUB_GROUPS 0
-#define FLOOR_DEVICE_INFO_HAS_SUB_GROUPS_0
+// Host-Compute does support sub-groups
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUPS 1
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUPS_1
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT 1
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT_1
+// Host-Compute doesn't support sub-group shuffle yet
 #define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE 0
 #define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE_0
+
+// we always emulate a SIMD-width of 32
+#define FLOOR_DEVICE_INFO_SIMD_WIDTH 32u
+#define FLOOR_DEVICE_INFO_SIMD_WIDTH_32
+#define FLOOR_DEVICE_INFO_SIMD_WIDTH_MIN FLOOR_DEVICE_INFO_SIMD_WIDTH
+#define FLOOR_DEVICE_INFO_SIMD_WIDTH_MAX FLOOR_DEVICE_INFO_SIMD_WIDTH
+static_assert(FLOOR_DEVICE_INFO_SIMD_WIDTH == fl::host_limits::simd_width);
 
 // Host-Compute doesn't support cooperative kernels right now
 #define FLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL 0
@@ -253,23 +263,6 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_DEVICE_INFO_HAS_PRIMITIVE_ID_0
 #define FLOOR_DEVICE_INFO_HAS_BARYCENTRIC_COORD 0
 #define FLOOR_DEVICE_INFO_HAS_BARYCENTRIC_COORD_0
-
-// handle SIMD-width, as this obviously needs to be known at compile-time (even though it might be different at run-time),
-// make this dependent on compiler specific defines
-#if !defined(FLOOR_DEVICE_INFO_SIMD_WIDTH_OVERRIDE) && !defined(FLOOR_DEVICE_INFO_SIMD_WIDTH) // use these to override
-#if defined(__AVX512F__)
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH 16u
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH_16
-#elif defined(__AVX__)
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH 8u
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH_8
-#else // fallback to always 4 (sse/neon)
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH 4u
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH_4
-#endif
-#endif
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH_MIN 1u
-#define FLOOR_DEVICE_INFO_SIMD_WIDTH_MAX FLOOR_DEVICE_INFO_SIMD_WIDTH
 
 // image info
 #define FLOOR_DEVICE_INFO_HAS_IMAGE_SUPPORT 1

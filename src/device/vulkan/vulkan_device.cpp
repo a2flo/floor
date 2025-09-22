@@ -27,6 +27,7 @@ vulkan_device::vulkan_device() : device() {
 	primitive_id_support = true;
 	sub_group_support = true;
 	sub_group_shuffle_support = true;
+	sub_group_ballot_support = true;
 	
 	// enable all the things
 	image_support = true;

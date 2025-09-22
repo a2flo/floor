@@ -131,7 +131,7 @@ floor_inline_always static void image_write_mem_fence() __attribute__((noduplica
 	cl_write_mem_fence(4u);
 }
 
-// sub-group functionality (OpenCL 2.1+, cl_khr_subgroups, cl_intel_subgroups)
+// sub-group functionality (OpenCL 2.1+, cl_khr_subgroups, cl_intel_subgroups, cl_khr_subgroup_ballot)
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 const_func uint32_t get_sub_group_id();
 const_func uint32_t get_sub_group_local_id();
@@ -142,6 +142,20 @@ void cl_sub_group_barrier(uint32_t flags) __attribute__((noduplicate, convergent
 floor_inline_always static void simd_barrier() __attribute__((noduplicate, convergent)) {
 	cl_sub_group_barrier(1u);
 }
+
+#if FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT != 0
+// native OpenCL ballot: always returns a 4x32-bit uint vector (if SIMD-width is less than 128, upper bits are undefined)
+clang_uint4 simd_ballot_native(bool predicate) __attribute__((noduplicate, convergent)) asm("floor.sub_group.simd_ballot.ballot");
+
+floor_inline_always static uint32_t simd_ballot(bool predicate) __attribute__((noduplicate, convergent)) {
+	return simd_ballot_native(predicate).x;
+}
+
+floor_inline_always static uint64_t simd_ballot_64(bool predicate) __attribute__((noduplicate, convergent)) {
+	const auto ballot_result = simd_ballot_native(predicate);
+	return uint64_t(ballot_result.x) | (uint64_t(ballot_result.y) << 32ull);
+}
+#endif
 
 // sub_group_reduce_*/sub_group_scan_exclusive_*/sub_group_scan_inclusive_*
 #if !defined(FLOOR_DEVICE_NO_DOUBLE)

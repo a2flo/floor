@@ -706,6 +706,9 @@ struct device_exec_context_t {
 	// current active function
 	host_function_wrapper func;
 	
+	// SIMD exchange storage, 1 value per fiber/work-item
+	uint32_t simd_storage[host_limits::max_total_local_size];
+	
 	// -> sanity check for correct barrier use
 #if defined(FLOOR_DEBUG)
 	uint32_t unfinished_items { 0 };
@@ -730,6 +733,9 @@ struct host_exec_context_t {
 	// current active function
 	const host_function_wrapper* func { nullptr };
 	
+	// SIMD exchange storage, 1 value per fiber/work-item
+	uint32_t simd_storage[host_limits::max_total_local_size];
+	
 	// -> sanity check for correct barrier use
 #if defined(FLOOR_DEBUG)
 	uint32_t unfinished_items { 0 };
@@ -738,16 +744,16 @@ struct host_exec_context_t {
 static thread_local host_exec_context_t host_exec_context;
 
 void host_function::execute(const device_queue& cqueue,
-						  const bool& is_cooperative,
-						  const bool& wait_until_completion floor_unused /* will always wait anyways */,
-						  const uint32_t& work_dim,
-						  const uint3& global_work_size,
-						  const uint3& local_work_size,
-						  const std::vector<device_function_arg>& args,
-						  const std::vector<const device_fence*>& wait_fences floor_unused,
-						  const std::vector<device_fence*>& signal_fences floor_unused,
-						  const char* debug_label floor_unused,
-						  kernel_completion_handler_f&& completion_handler) const {
+							const bool& is_cooperative,
+							const bool& wait_until_completion floor_unused /* will always wait anyways */,
+							const uint32_t& work_dim,
+							const uint3& global_work_size,
+							const uint3& local_work_size,
+							const std::vector<device_function_arg>& args,
+							const std::vector<const device_fence*>& wait_fences floor_unused,
+							const std::vector<device_fence*>& signal_fences floor_unused,
+							const char* debug_label floor_unused,
+							kernel_completion_handler_f&& completion_handler) const {
 	// TODO: implement waiting for "wait_fences" and signaling "signal_fences" (for now, this is blocking anyways)
 	
 	// no cooperative support yet
@@ -908,12 +914,12 @@ extern "C" void run_exec(floor_fiber_context& main_ctx, floor_fiber_context& fir
 }
 
 void host_function::execute_host(const host_function_wrapper& func,
-							   const uint32_t& cpu_count,
-							   const uint3& group_dim,
-							   const uint3& group_size,
-							   const uint3& global_dim,
-							   const uint3& local_dim,
-							   const uint32_t& work_dim) const {
+								 const uint32_t& cpu_count,
+								 const uint3& group_dim,
+								 const uint3& group_size,
+								 const uint3& global_dim,
+								 const uint3& local_dim,
+								 const uint32_t& work_dim) const {
 	// #work-groups
 	const auto group_count = group_dim.x * group_dim.y * group_dim.z;
 	// #work-items per group
@@ -928,8 +934,8 @@ void host_function::execute_host(const host_function_wrapper& func,
 	std::vector<std::unique_ptr<std::thread>> worker_threads(cpu_count);
 	for (uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
 		worker_threads[cpu_idx] = std::make_unique<std::thread>([this, &func, cpu_idx,
-													   &group_idx, group_count, group_dim, group_size,
-													   global_dim, local_size, local_dim, work_dim] {
+																 &group_idx, group_count, group_dim, group_size,
+																 global_dim, local_size, local_dim, work_dim] {
 			// set CPU affinity for this thread to a particular CPU to prevent this thread from being constantly moved/scheduled
 			// on different CPUs (starting at index 1, with 0 representing no affinity)
 			set_thread_affinity(cpu_idx + 1);
@@ -945,6 +951,10 @@ void host_function::execute_host(const host_function_wrapper& func,
 				.instance_group_size = group_size,
 				.instance_work_dim = work_dim,
 				.instance_local_linear_idx = 0u,
+				.instance_sub_group_id = 0u,
+				.instance_sub_group_local_id = 0u,
+				.instance_sub_group_size = host_limits::simd_width,
+				.instance_num_sub_groups = (local_size + host_limits::simd_width - 1u) / host_limits::simd_width,
 			};
 			exec_ctx.linear_local_work_size = local_size;
 			exec_ctx.func = &func;
@@ -1032,6 +1042,8 @@ extern "C" void run_host_group_item(const uint32_t local_linear_idx) FLOOR_HOST_
 	};
 	exec_ctx.ids.instance_local_idx = local_id;
 	exec_ctx.ids.instance_local_linear_idx = local_linear_idx;
+	exec_ctx.ids.instance_sub_group_id = local_linear_idx / host_limits::simd_width;
+	exec_ctx.ids.instance_sub_group_local_id = local_linear_idx % host_limits::simd_width;
 	
 	const uint3 global_id {
 		exec_ctx.ids.instance_group_idx.x * exec_ctx.ids.instance_local_work_size.x + local_id.x,
@@ -1050,11 +1062,11 @@ extern "C" void run_host_group_item(const uint32_t local_linear_idx) FLOOR_HOST_
 }
 
 void host_function::execute_device(const host_function_entry& func_entry,
-								 const uint32_t& cpu_count,
-								 const uint3& group_dim,
-								 const uint3& local_dim,
-								 const uint32_t& work_dim,
-								 const std::vector<const void*>& vptr_args) const {
+								   const uint32_t& cpu_count,
+								   const uint3& group_dim,
+								   const uint3& local_dim,
+								   const uint32_t& work_dim,
+								   const std::vector<const void*>& vptr_args) const {
 	// #work-groups
 	const auto group_count = group_dim.x * group_dim.y * group_dim.z;
 	// #work-items per group
@@ -1070,8 +1082,8 @@ void host_function::execute_device(const host_function_entry& func_entry,
 	std::vector<std::unique_ptr<std::thread>> worker_threads(cpu_count);
 	for (uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
 		worker_threads[cpu_idx] = std::make_unique<std::thread>([this, &success, cpu_idx, &func_entry, &vptr_args,
-													   &group_idx, group_count, group_dim,
-													   local_size, local_dim, work_dim] {
+																 &group_idx, group_count, group_dim,
+																 local_size, local_dim, work_dim] {
 			// set CPU affinity for this thread to a particular CPU to prevent this thread from being constantly moved/scheduled
 			// on different CPUs (starting at index 1, with 0 representing no affinity)
 			set_thread_affinity(cpu_idx + 1);
@@ -1215,6 +1227,8 @@ extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOO
 			ids.instance_group_idx.y * ids.instance_local_work_size.y + ids.instance_local_idx.y,
 			ids.instance_group_idx.z * ids.instance_local_work_size.z + ids.instance_local_idx.z
 		};
+		ids.instance_sub_group_id = local_linear_idx / fl::host_limits::simd_width;
+		ids.instance_sub_group_local_id = local_linear_idx % fl::host_limits::simd_width;
 	}
 	
 	// execute work-item / function
@@ -1229,25 +1243,37 @@ extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOO
 // -> function lib function implementations
 #include <floor/device/backend/host.hpp>
 
-// barrier handling (all the same)
-// NOTE: the same barrier _must_ be encountered at the same point for all work-items
-void global_barrier() FLOOR_HOST_COMPUTE_CC {
+// swaps to the next fiber context, used for general barrier implementations
+template <typename exec_context_t>
+floor_inline_always static void fiber_swap_context(exec_context_t& exec_ctx, fl::elf_binary::instance_ids_t& ids) {
 	// save indices, switch to next fiber and restore indices again
-	auto& exec_ctx = fl::host_exec_context;
-	const auto saved_global_id = exec_ctx.ids.instance_global_idx;
-	const auto saved_local_id = exec_ctx.ids.instance_local_idx;
-	const auto saved_item_local_linear_idx = exec_ctx.ids.instance_local_linear_idx;
+	const auto saved_global_id = ids.instance_global_idx;
+	const auto saved_local_id = ids.instance_local_idx;
+	const auto saved_item_local_linear_idx = ids.instance_local_linear_idx;
+	const auto saved_sub_group_id = ids.instance_sub_group_id;
+	const auto saved_sub_group_local_id = ids.instance_sub_group_local_id;
 	
 	fl::floor_fiber_context* this_ctx = &exec_ctx.item_contexts[saved_item_local_linear_idx];
 	fl::floor_fiber_context* next_ctx = &exec_ctx.item_contexts[(saved_item_local_linear_idx + 1u) % exec_ctx.linear_local_work_size];
 	this_ctx->swap_context(next_ctx);
 	
 	// restore
-	exec_ctx.ids.instance_local_linear_idx = saved_item_local_linear_idx;
-	exec_ctx.ids.instance_local_idx = saved_local_id;
-	exec_ctx.ids.instance_global_idx = saved_global_id;
+	ids.instance_local_linear_idx = saved_item_local_linear_idx;
+	ids.instance_local_idx = saved_local_id;
+	ids.instance_global_idx = saved_global_id;
+	ids.instance_sub_group_id = saved_sub_group_id;
+	ids.instance_sub_group_local_id = saved_sub_group_local_id;
+}
+
+// barrier handling (all the same)
+// NOTE: the same barrier _must_ be encountered at the same point for all work-items
+void global_barrier() FLOOR_HOST_COMPUTE_CC {
+	fiber_swap_context(fl::host_exec_context, fl::host_exec_context.ids);
 }
 void local_barrier() FLOOR_HOST_COMPUTE_CC {
+	global_barrier();
+}
+void simd_barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
 }
 void image_barrier() FLOOR_HOST_COMPUTE_CC {
@@ -1258,21 +1284,7 @@ void barrier() FLOOR_HOST_COMPUTE_CC {
 }
 
 void floor_host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC {
-	auto& exec_ctx = fl::device_exec_context;
-	auto& ids = *exec_ctx.ids;
-	
-	// save indices, switch to next fiber and restore indices again
-	const auto saved_global_id = ids.instance_global_idx;
-	const auto saved_local_id = ids.instance_local_idx;
-	const auto saved_item_local_linear_idx = ids.instance_local_linear_idx;
-	
-	fl::floor_fiber_context* this_ctx = &exec_ctx.item_contexts[ids.instance_local_linear_idx];
-	fl::floor_fiber_context* next_ctx = &exec_ctx.item_contexts[(ids.instance_local_linear_idx + 1u) % exec_ctx.linear_local_work_size];
-	this_ctx->swap_context(next_ctx);
-	
-	ids.instance_local_linear_idx = saved_item_local_linear_idx;
-	ids.instance_local_idx = saved_local_id;
-	ids.instance_global_idx = saved_global_id;
+	fiber_swap_context(fl::device_exec_context, *fl::device_exec_context.ids);
 }
 
 uint32_t* floor_host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC {
@@ -1357,6 +1369,46 @@ fl::uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC {
 }
 fl::uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC {
 	return fl::host_exec_context.ids.instance_group_size;
+}
+uint32_t floor_host_compute_sub_group_id_get() FLOOR_HOST_COMPUTE_CC {
+	return fl::host_exec_context.ids.instance_sub_group_id;
+}
+uint32_t floor_host_compute_sub_group_local_id_get() FLOOR_HOST_COMPUTE_CC {
+	return fl::host_exec_context.ids.instance_sub_group_local_id;
+}
+uint32_t floor_host_compute_sub_group_size_get() FLOOR_HOST_COMPUTE_CC {
+	return fl::host_exec_context.ids.instance_sub_group_size;
+}
+uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC {
+	return fl::host_exec_context.ids.instance_num_sub_groups;
+}
+
+// SIMD functions
+template <typename exec_context_t>
+floor_inline_always static uint32_t floor_host_compute_simd_ballot_impl(exec_context_t& exec_ctx, fl::elf_binary::instance_ids_t& ids,
+																		const bool predicate) {
+	exec_ctx.simd_storage[ids.instance_local_linear_idx] = (predicate ? 1u : 0u);
+	fiber_swap_context(exec_ctx, ids);
+	
+	// once this returns, the first SIMD lane in each sub-group computes the final ballot output and distributes the result to all other lanes
+	// NOTE: we need to do it this way, because another SIMD call might be made right after, overwriting the result(s)
+	if (ids.instance_sub_group_local_id == 0u) {
+		uint32_t ballot_mask = 0u;
+		const auto group_offset = ids.instance_sub_group_id * fl::host_limits::simd_width;
+		for (uint32_t i = 0; i < fl::host_limits::simd_width; ++i) {
+			ballot_mask |= ((exec_ctx.simd_storage[group_offset + i] & 0x1u) << i);
+		}
+		for (uint32_t i = 0; i < fl::host_limits::simd_width; ++i) {
+			exec_ctx.simd_storage[group_offset + i] = ballot_mask;
+		}
+	}
+	return exec_ctx.simd_storage[ids.instance_local_linear_idx];
+}
+uint32_t floor_host_compute_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC {
+	return floor_host_compute_simd_ballot_impl(fl::host_exec_context, fl::host_exec_context.ids, predicate);
+}
+uint32_t floor_host_compute_device_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC {
+	return floor_host_compute_simd_ballot_impl(fl::device_exec_context, *fl::device_exec_context.ids, predicate);
 }
 
 #endif

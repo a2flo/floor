@@ -57,15 +57,9 @@
 	__nvvm_read_ptx_sreg_nctaid_y(), \
 	__nvvm_read_ptx_sreg_nctaid_z() \
 }
-#define sub_group_id ((uint32_t(__nvvm_read_ptx_sreg_tid_x()) + \
-					   uint32_t(__nvvm_read_ptx_sreg_tid_y()) * uint32_t(__nvvm_read_ptx_sreg_nctaid_x()) + \
-					   uint32_t(__nvvm_read_ptx_sreg_tid_z()) * uint32_t(__nvvm_read_ptx_sreg_nctaid_y()) * uint32_t(__nvvm_read_ptx_sreg_nctaid_x())) \
-					  / FLOOR_DEVICE_INFO_SIMD_WIDTH)
-// faster alternatives to sub_group_id if kernel execution dim is known
-#define sub_group_id_1d (uint32_t(__nvvm_read_ptx_sreg_tid_x()) / FLOOR_DEVICE_INFO_SIMD_WIDTH)
-#define sub_group_id_2d ((uint32_t(__nvvm_read_ptx_sreg_tid_x()) + uint32_t(__nvvm_read_ptx_sreg_tid_y()) * uint32_t(__nvvm_read_ptx_sreg_nctaid_x())) \
-						 / FLOOR_DEVICE_INFO_SIMD_WIDTH)
-#define sub_group_id_3d sub_group_id
+
+FLOOR_SUB_GROUP_ID_RANGE_ATTR const_func uint32_t get_sub_group_id() asm("floor.get_sub_group_id.i32");
+#define sub_group_id get_sub_group_id()
 #define sub_group_local_id __nvvm_read_ptx_sreg_laneid()
 #define sub_group_size FLOOR_DEVICE_INFO_SIMD_WIDTH
 #define sub_group_count __nvvm_read_ptx_sreg_nwarpid()
@@ -204,11 +198,6 @@ FLOOR_GROUP_SIZE_RANGE_ATTR const_func static uint32_t get_group_size(uint32_t d
 	}
 	// else: -> Z is not 1, must always be 3D
 	return 3;
-}
-
-const_func static uint32_t get_sub_group_id() {
-	// NOTE: %warpid should not be used as per PTX ISA spec
-	return sub_group_id;
 }
 
 const_func static uint32_t get_sub_group_local_id() {

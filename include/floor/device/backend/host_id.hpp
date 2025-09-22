@@ -29,21 +29,29 @@ extern uint32_t floor_host_compute_thread_local_memory_offset_get() FLOOR_HOST_C
 extern fl::uint3 floor_host_compute_global_idx_get() FLOOR_HOST_COMPUTE_CC;
 extern fl::uint3 floor_host_compute_local_idx_get() FLOOR_HOST_COMPUTE_CC;
 extern fl::uint3 floor_host_compute_group_idx_get() FLOOR_HOST_COMPUTE_CC;
+extern uint32_t floor_host_compute_sub_group_id_get() FLOOR_HOST_COMPUTE_CC;
+extern uint32_t floor_host_compute_sub_group_local_id_get() FLOOR_HOST_COMPUTE_CC;
 
 #define floor_thread_local_memory_offset floor_host_compute_thread_local_memory_offset_get()
 #define floor_global_idx floor_host_compute_global_idx_get()
 #define floor_local_idx floor_host_compute_local_idx_get()
 #define floor_group_idx floor_host_compute_group_idx_get()
+#define floor_sub_group_id floor_host_compute_sub_group_id_get()
+#define floor_sub_group_local_id floor_host_compute_sub_group_local_id_get()
 
 // globally constant vars/functions
 extern uint32_t floor_host_compute_work_dim_get() FLOOR_HOST_COMPUTE_CC;
 extern fl::uint3 floor_host_compute_global_work_size_get() FLOOR_HOST_COMPUTE_CC;
 extern fl::uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC;
 extern fl::uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC;
+extern uint32_t floor_host_compute_sub_group_size_get() FLOOR_HOST_COMPUTE_CC;
+extern uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC;
 #define floor_work_dim floor_host_compute_work_dim_get()
 #define floor_global_work_size floor_host_compute_global_work_size_get()
 #define floor_local_work_size floor_host_compute_local_work_size_get()
 #define floor_group_size floor_host_compute_group_size_get()
+#define floor_sub_group_size floor_host_compute_sub_group_size_get()
+#define floor_num_sub_groups floor_host_compute_num_sub_groups_get()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Host-Compute device
@@ -58,6 +66,10 @@ extern fl::uint3 floor_local_work_size;
 extern fl::uint3 floor_group_idx;
 extern fl::uint3 floor_group_size;
 extern uint32_t floor_work_dim;
+extern uint32_t floor_sub_group_id;
+extern uint32_t floor_sub_group_local_id;
+extern uint32_t floor_sub_group_size;
+extern uint32_t floor_num_sub_groups;
 // we don't need to handle an offset per thread, this is always 0
 static constexpr const uint32_t floor_thread_local_memory_offset { 0u };
 

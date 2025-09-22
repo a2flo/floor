@@ -41,6 +41,7 @@ cuda_device::cuda_device() : device() {
 	extended_64_bit_atomics_support = true; // always true since Kepler/sm_32
 	sub_group_support = true;
 	sub_group_shuffle_support = true; // since Kepler/sm_30
+	sub_group_ballot_support = true;
 	argument_buffer_support = true;
 	
 	image_support = true;

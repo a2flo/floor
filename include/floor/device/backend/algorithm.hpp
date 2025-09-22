@@ -255,13 +255,13 @@ namespace fl::algorithm {
 			const auto sub_block_red_val = group::sub_group_reduce<group::OP::ADD>(work_item_value);
 			// first sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id_1d] = sub_block_red_val;
+				lmem[sub_group_id] = sub_block_red_val;
 			}
 			local_barrier();
 			
 			// second pass: reduction of the partial sums in each sub-group to compute the total sum, executed in the first sub-group
 			reduced_type total_sum {};
-			if (sub_group_id_1d == 0u) {
+			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
 				total_sum = group::sub_group_reduce<group::OP::ADD>(sg_in_val);
@@ -292,13 +292,13 @@ namespace fl::algorithm {
 			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MIN>(work_item_value);
 			// first sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id_1d] = sub_block_red_val;
+				lmem[sub_group_id] = sub_block_red_val;
 			}
 			local_barrier();
 			
 			// second pass: reduction of the partial minima in each sub-group to compute the total min, executed in the first sub-group
 			reduced_type total_min {};
-			if (sub_group_id_1d == 0u) {
+			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
 										reduced_type(lmem[sub_group_local_id]) : max_value<reduced_type>());
@@ -330,13 +330,13 @@ namespace fl::algorithm {
 			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MAX>(work_item_value);
 			// first sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id_1d] = sub_block_red_val;
+				lmem[sub_group_id] = sub_block_red_val;
 			}
 			local_barrier();
 			
 			// second pass: reduction of the partial maxima in each sub-group to compute the total max, executed in the first sub-group
 			reduced_type total_max {};
-			if (sub_group_id_1d == 0u) {
+			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
 										reduced_type(lmem[sub_group_local_id]) : min_value<reduced_type>());
@@ -392,7 +392,7 @@ namespace fl::algorithm {
 			constexpr const auto group_count = work_group_size / simd_width;
 			static_assert((work_group_size % simd_width) == 0u, "work-group size must be a multiple of SIMD-width");
 			const auto lane = sub_group_local_id;
-			const auto group = sub_group_id_1d;
+			const auto group = sub_group_id;
 			
 			// scan in sub-group
 			dec_data_type shfled_var;
@@ -533,12 +533,12 @@ namespace fl::algorithm {
 			const auto sub_block_val = group::sub_group_inclusive_scan<op>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == sub_group_size - 1u) {
-				lmem[sub_group_id_1d] = sub_block_val;
+				lmem[sub_group_id] = sub_block_val;
 			}
 			local_barrier();
 			
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
-			if (sub_group_id_1d == 0u) {
+			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
@@ -558,7 +558,7 @@ namespace fl::algorithm {
 			local_barrier();
 			
 			// finally: broadcast final per-sub-group/block values to all sub-groups
-			const auto sub_block_offset = dec_data_type(sub_group_id_1d == 0u ? init_val : lmem[sub_group_id_1d - 1u]);
+			const auto sub_block_offset = dec_data_type(sub_group_id == 0u ? init_val : lmem[sub_group_id - 1u]);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem
 			local_barrier();
 			if constexpr (op == group::OP::ADD) {
@@ -642,12 +642,12 @@ namespace fl::algorithm {
 			const auto sub_block_val = group::sub_group_inclusive_scan<op>(work_item_value);
 			// last sub-group item writes its result into local memory for the second pass
 			if (sub_group_local_id == sub_group_size - 1u) {
-				lmem[sub_group_id_1d] = sub_block_val;
+				lmem[sub_group_id] = sub_block_val;
 			}
 			local_barrier();
 			
 			// second pass: inclusive scan of the last values in each sub-group to compute the per-sub-group/block offset, executed in the first sub-group
-			if (sub_group_id_1d == 0u) {
+			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
@@ -667,7 +667,7 @@ namespace fl::algorithm {
 			local_barrier();
 			
 			// finally: broadcast final per-sub-group/block values to all sub-groups
-			const auto sub_block_offset = dec_data_type(sub_group_id_1d == 0u ? init_val : lmem[sub_group_id_1d - 1u]);
+			const auto sub_block_offset = dec_data_type(sub_group_id == 0u ? init_val : lmem[sub_group_id - 1u]);
 			// shift one up, #0 in each group returns the value of the previous group (+ 0)
 			const auto excl_sub_block_val = simd_shuffle_up(sub_block_val, 1u);
 			// force barrier for consistency with other scan implementations + we can safely overwrite lmem

@@ -30,6 +30,7 @@ metal_device::metal_device() : device() {
 	
 	sub_group_support = true;
 	sub_group_shuffle_support = true;
+	sub_group_ballot_support = true;
 	basic_32_bit_float_atomics_support = true;
 	simd_reduction = true;
 	

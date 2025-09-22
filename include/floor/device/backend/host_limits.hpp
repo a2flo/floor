@@ -24,33 +24,38 @@
 #define FLOOR_DEVICE_INFO_GLOBAL_SIZE_RANGE_MIN 0u
 #define FLOOR_DEVICE_INFO_GLOBAL_SIZE_RANGE_MAX 0xFFFFFFFFu
 #define FLOOR_DEVICE_INFO_LOCAL_ID_RANGE_MIN 0u
+#define FLOOR_DEVICE_INFO_LOCAL_ID_RANGE_MAX 1024u
 #define FLOOR_DEVICE_INFO_LOCAL_SIZE_RANGE_MIN 1u
+#define FLOOR_DEVICE_INFO_LOCAL_SIZE_RANGE_MAX (FLOOR_DEVICE_INFO_LOCAL_ID_RANGE_MAX + 1u)
 #define FLOOR_DEVICE_INFO_GROUP_ID_RANGE_MIN 0u
 #define FLOOR_DEVICE_INFO_GROUP_ID_RANGE_MAX 0xFFFFFFFFu
 #define FLOOR_DEVICE_INFO_GROUP_SIZE_RANGE_MIN 1u
 #define FLOOR_DEVICE_INFO_GROUP_SIZE_RANGE_MAX 0xFFFFFFFFu
+#define FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MIN 0u
+#define FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX 32u
+#define FLOOR_DEVICE_INFO_SUB_GROUP_SIZE_RANGE_MIN 1u
+#define FLOOR_DEVICE_INFO_SUB_GROUP_SIZE_RANGE_MAX (FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX + 1u)
 #define FLOOR_DEVICE_INFO_SUB_GROUP_ID_RANGE_MIN 0u
-#define FLOOR_DEVICE_INFO_SUB_GROUP_ID_RANGE_MAX 0xFFFFFFFFu
-#define FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MIN 1u
-#define FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX 0xFFFFFFFFu
-#define FLOOR_DEVICE_INFO_SUB_GROUP_SIZE_RANGE_MIN 0u
-#define FLOOR_DEVICE_INFO_SUB_GROUP_SIZE_RANGE_MAX 0xFFFFFFFFu
+#define FLOOR_DEVICE_INFO_SUB_GROUP_ID_RANGE_MAX (FLOOR_DEVICE_INFO_LOCAL_ID_RANGE_MAX / FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX)
 #define FLOOR_DEVICE_INFO_NUM_SUB_GROUPS_RANGE_MIN 1u
-#define FLOOR_DEVICE_INFO_NUM_SUB_GROUPS_RANGE_MAX 0xFFFFFFFFu
-
-#define FLOOR_DEVICE_INFO_LOCAL_ID_RANGE_MAX 1024u
-#define FLOOR_DEVICE_INFO_LOCAL_SIZE_RANGE_MAX 1025u
+#define FLOOR_DEVICE_INFO_NUM_SUB_GROUPS_RANGE_MAX (FLOOR_DEVICE_INFO_SUB_GROUP_ID_RANGE_MAX + 1u)
 
 //! various host limits that are known at compile-time
 namespace fl::host_limits {
 	//! max amout of local memory that can be allocated per work-group
 	static constexpr const size_t local_memory_size { 128ull * 1024ull };
 	
+	//! fixed SIMD-width
+	static constexpr const uint32_t simd_width { FLOOR_DEVICE_INFO_SUB_GROUP_LOCAL_ID_RANGE_MAX };
+	
+	//! max amount of SIMD groups
+	static constexpr const uint32_t max_simd_groups { FLOOR_DEVICE_INFO_SUB_GROUP_ID_RANGE_MAX };
+	
 	//! max supported image dim, identical for all image types
-	static constexpr const uint32_t max_image_dim { 32768 };
+	static constexpr const uint32_t max_image_dim { 32768u };
 	
 	//! max amount of mip-map/lod levels that can exist (log2(max_image_dim) + 1)
-	static constexpr const uint32_t max_mip_levels { 16 };
+	static constexpr const uint32_t max_mip_levels { 16u };
 	static_assert((1u << (max_mip_levels - 1u)) == max_image_dim, "max #lod-levels must match max image dim");
 #if defined(FLOOR_DEVICE_INFO_MAX_MIP_LEVELS)
 	static_assert(FLOOR_DEVICE_INFO_MAX_MIP_LEVELS == max_mip_levels,

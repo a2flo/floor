@@ -290,6 +290,15 @@ namespace fl::device_info {
 #endif
 	}
 	
+	//! returns true if the device supports sub-group ballot
+	constexpr bool has_sub_group_ballot() {
+#if FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT != 0
+		return true;
+#else
+		return false;
+#endif
+	}
+	
 	//! returns true if the device supports cooperative kernel launchs (currently CUDA with sm_60+)
 	constexpr bool has_cooperative_kernel_support() {
 #if FLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL != 0

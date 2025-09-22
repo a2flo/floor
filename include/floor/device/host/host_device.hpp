@@ -43,6 +43,9 @@ public:
 #endif
 	};
 	
+	//! this represents the actual native SIMD/vector-width rather than the emulated SIMD-width
+	uint32_t native_simd_width { 1u };
+	
 	//! returns true if the specified object is the same object as this
 	bool operator==(const host_device& dev) const {
 		return (this == &dev);

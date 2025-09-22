@@ -131,7 +131,10 @@ using namespace std::literals;
 			//! if 0, no width is assumed
 			uint64_t simd_width : 8;
 			
-			uint64_t _unused : 24;
+			//! NOTE: requires SPIR-V + enabling this sets the SPIR-V version to at least 1.3
+			uint64_t sub_group_ballot_support : 1;
+			
+			uint64_t _unused : 23;
 		} opencl;
 		
 		struct __attribute__((packed)) {

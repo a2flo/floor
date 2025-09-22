@@ -124,5 +124,17 @@ extern fl::uint3 floor_host_compute_global_work_size_get() FLOOR_HOST_COMPUTE_CC
 extern fl::uint3 floor_host_compute_local_work_size_get() FLOOR_HOST_COMPUTE_CC;
 //! Host-Compute (host) group size/dim retrieval
 extern fl::uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC;
+//! Host-Compute (host) sub-group index retrieval
+extern uint32_t floor_host_compute_sub_group_id_get() FLOOR_HOST_COMPUTE_CC;
+//! Host-Compute (host) sub-group local index retrieval
+extern uint32_t floor_host_compute_sub_group_local_id_get() FLOOR_HOST_COMPUTE_CC;
+//! Host-Compute (host) sub-group size/dim retrieval
+extern uint32_t floor_host_compute_sub_group_size_get() FLOOR_HOST_COMPUTE_CC;
+//! Host-Compute (host) sub-group count retrieval
+extern uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC;
+
+//! Host-Compute SIMD ballot
+extern "C" uint32_t floor_host_compute_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC;
+extern "C" uint32_t floor_host_compute_device_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC;
 
 #endif

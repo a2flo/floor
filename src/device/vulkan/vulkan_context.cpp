@@ -1523,7 +1523,8 @@ enable_renderer(enable_renderer_) {
 		// TODO: optional VK_SHADER_STAGE_VERTEX_BIT?
 		const auto sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
 		const auto sq_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
-									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT);
+									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT |
+									  VK_SUBGROUP_FEATURE_BALLOT_BIT);
 		if (!vulkan12_features.shaderSubgroupExtendedTypes ||
 			!vulkan13_features.subgroupSizeControl ||
 			!vulkan13_features.computeFullSubgroups ||

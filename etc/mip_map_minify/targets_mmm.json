@@ -24,6 +24,7 @@
 		"basic_64_bit_atomics_support": false,
 		"extended_64_bit_atomics_support": false,
 		"sub_group_support": false,
+		"sub_group_ballot_support": false,
 		"simd_width": 0
 	},
 	// OpenCL SPIR-V
@@ -41,6 +42,7 @@
 		"basic_64_bit_atomics_support": false,
 		"extended_64_bit_atomics_support": false,
 		"sub_group_support": false,
+		"sub_group_ballot_support": false,
 		"simd_width": 0
 	},
 	// Metal 3.0+ macOS + iOS

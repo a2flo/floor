@@ -332,8 +332,9 @@ opencl_context::opencl_context(const DEVICE_CONTEXT_FLAGS ctx_flags,
 			dev.basic_64_bit_atomics_support = core::contains(dev.extensions, "cl_khr_int64_base_atomics");
 			dev.extended_64_bit_atomics_support = core::contains(dev.extensions, "cl_khr_int64_extended_atomics");
 			dev.sub_group_support = (core::contains(dev.extensions, "cl_khr_subgroups") ||
-										core::contains(dev.extensions, "cl_intel_subgroups") ||
-										(dev.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
+									 core::contains(dev.extensions, "cl_intel_subgroups") ||
+									 (dev.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
+			dev.sub_group_ballot_support = (dev.sub_group_support && core::contains(dev.extensions, "cl_khr_subgroup_ballot"));
 			if(dev.sub_group_support) {
 				check_sub_group_support = true;
 			}

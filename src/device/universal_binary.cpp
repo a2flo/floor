@@ -303,7 +303,9 @@ namespace fl::universal_binary {
 				
 				cl_dev.cl_version = cl_version_from_uint(cl_target.major, cl_target.minor);
 				cl_dev.c_version = cl_dev.cl_version;
-				cl_dev.spirv_version = (cl_target.is_spir ? SPIRV_VERSION::NONE : SPIRV_VERSION::SPIRV_1_0);
+				cl_dev.spirv_version = (cl_target.is_spir ? SPIRV_VERSION::NONE :
+										(cl_target.sub_group_ballot_support ?
+										 SPIRV_VERSION::SPIRV_1_3 : SPIRV_VERSION::SPIRV_1_0));
 				
 				cl_dev.image_depth_support = cl_target.image_depth_support;
 				cl_dev.image_msaa_support = cl_target.image_msaa_support;
@@ -314,6 +316,7 @@ namespace fl::universal_binary {
 				cl_dev.basic_64_bit_atomics_support = cl_target.basic_64_bit_atomics_support;
 				cl_dev.extended_64_bit_atomics_support = cl_target.extended_64_bit_atomics_support;
 				cl_dev.sub_group_support = cl_target.sub_group_support;
+				cl_dev.sub_group_ballot_support = (cl_target.sub_group_ballot_support && !cl_target.is_spir);
 				
 				if (cl_target.simd_width > 0) {
 					cl_dev.simd_width = cl_target.simd_width;
@@ -1077,6 +1080,9 @@ namespace fl::universal_binary {
 					if (cl_target.sub_group_support && !dev.sub_group_support) {
 						continue;
 					}
+					if (cl_target.sub_group_ballot_support && !dev.sub_group_ballot_support) {
+						continue;
+					}
 					
 					// check SIMD width
 					if (cl_target.simd_width > 0 && (cl_target.simd_width < dev.simd_range.x ||
@@ -1128,7 +1134,8 @@ namespace fl::universal_binary {
 											  cl_target.double_support +
 											  cl_target.basic_64_bit_atomics_support +
 											  cl_target.extended_64_bit_atomics_support +
-											  cl_target.sub_group_support);
+											  cl_target.sub_group_support +
+											  cl_target.sub_group_ballot_support);
 						const auto best_cap_sum = (best_cl.image_depth_support +
 												   best_cl.image_msaa_support +
 												   best_cl.image_mipmap_support +
@@ -1137,7 +1144,8 @@ namespace fl::universal_binary {
 												   best_cl.double_support +
 												   best_cl.basic_64_bit_atomics_support +
 												   best_cl.extended_64_bit_atomics_support +
-												   best_cl.sub_group_support);
+												   best_cl.sub_group_support +
+												   best_cl.sub_group_ballot_support);
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
 							continue;

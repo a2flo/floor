@@ -92,6 +92,11 @@ device_program(retrieve_unique_function_names(programs_)), dev(dev_), programs(s
 				}
 				
 				if (info.has_valid_required_simd_width()) {
+					if (info.required_simd_width != host_limits::simd_width) {
+						log_error("function $ required SIMD-width of $ is not supported (device SIMD-width: $)",
+								  info.name, info.required_simd_width, host_limits::simd_width);
+						continue;
+					}
 					entry.required_simd_width = info.required_simd_width;
 				}
 				
