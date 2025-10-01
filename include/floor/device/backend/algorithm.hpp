@@ -42,6 +42,15 @@ namespace fl::algorithm {
 			instantiation_trap("invalid work_group_size type");
 		}
 	}
+
+	//! NOTE: generally true except for Host-Compute (can be enabled there for testing purposes)
+	static constexpr const bool prefer_simd_operations {
+	#if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+		true
+	#else
+		false
+	#endif
+	};
 	
 	//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
 	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
@@ -67,37 +76,8 @@ namespace fl::algorithm {
 		return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::max() };
 	}
 	
-	template <typename data_type> struct min_op;
-	template <typename data_type> struct max_op;
-	
-	//! scalar min(lhs, rhs) function op
-	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
-	struct min_op<data_type> {
-		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
-			return fl::floor_rt_min(lhs, rhs);
-		}
-	};
-	//! vector min(lhs, rhs) function op
-	template <typename data_type> requires (is_floor_vector_v<data_type>)
-	struct min_op<data_type> {
-		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
-			return lhs.minned(rhs);
-		}
-	};
-	//! scalar max(lhs, rhs) function op
-	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
-	struct max_op<data_type> {
-		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
-			return fl::floor_rt_max(lhs, rhs);
-		}
-	};
-	//! vector max(lhs, rhs) function op
-	template <typename data_type> requires (is_floor_vector_v<data_type>)
-	struct max_op<data_type> {
-		inline constexpr data_type operator()(const data_type& lhs, const data_type& rhs) const {
-			return lhs.maxed(rhs);
-		}
-	};
+	using fl::algorithm::group::min_op;
+	using fl::algorithm::group::max_op;
 	
 	//////////////////////////////////////////
 	// sub-group reduce functions
@@ -248,7 +228,8 @@ namespace fl::algorithm {
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::ADD, reduced_type> &&
+						   prefer_simd_operations) {
 			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
 			
 			// first pass: inclusive scan in each sub-group
@@ -285,7 +266,8 @@ namespace fl::algorithm {
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MIN, reduced_type> &&
+						   prefer_simd_operations) {
 			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
 			
 			// first pass: inclusive scan in each sub-group
@@ -323,7 +305,8 @@ namespace fl::algorithm {
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, reduced_type> &&
+						   prefer_simd_operations) {
 			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
 			
 			// first pass: inclusive scan in each sub-group
@@ -355,7 +338,8 @@ namespace fl::algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, op, data_type>) {
 			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_REDUCE, op, data_type>::count;
 		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, op, data_type> &&
-							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
+							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min() &&
+							 prefer_simd_operations) {
 			return work_group_size / device_info::simd_width_min();
 		}
 		return work_group_size;
@@ -370,6 +354,7 @@ namespace fl::algorithm {
 		return (device_info::has_sub_group_shuffle() &&
 				device_info::has_fixed_known_simd_width() &&
 				device_info::simd_width() > 0u &&
+				prefer_simd_operations &&
 				pot_simd);
 	}
 	
@@ -385,7 +370,6 @@ namespace fl::algorithm {
 		using dec_data_type = decay_as_t<data_type>;
 		const auto lid = local_id.x;
 		
-#if !defined(FLOOR_DEVICE_HOST_COMPUTE)
 		if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 			constexpr const auto simd_width = device_info::simd_width();
@@ -401,7 +385,7 @@ namespace fl::algorithm {
 			for (uint32_t lane_idx = 1u; lane_idx != simd_width; lane_idx <<= 1u) {
 				shfled_var = simd_shuffle_up(scan_value, lane_idx);
 				if (lane >= lane_idx) {
-					scan_value = op(shfled_var, scan_value);
+					scan_value = dec_data_type(op(shfled_var, scan_value));
 				}
 			}
 			
@@ -425,7 +409,7 @@ namespace fl::algorithm {
 				for (uint32_t lane_idx = 1u; lane_idx != simd_width; lane_idx <<= 1u) {
 					shfled_var = simd_shuffle_up(group_scan_value, lane_idx);
 					if (lane >= lane_idx) {
-						group_scan_value = op(shfled_var, group_scan_value);
+						group_scan_value = dec_data_type(op(shfled_var, group_scan_value));
 					}
 				}
 				
@@ -451,6 +435,7 @@ namespace fl::algorithm {
 			return dec_data_type(op(group_offset, scan_value));
 #endif
 		} else {
+#if !defined(FLOOR_DEVICE_HOST_COMPUTE)
 			// old-school scan
 			auto value = work_item_value;
 			lmem[lid] = value;
@@ -475,29 +460,29 @@ namespace fl::algorithm {
 			const auto ret = (lid == 0u ? init_val : lmem[side_idx + lid - 1u]);
 			local_barrier();
 			return dec_data_type(ret);
-		}
 #else // -> Host-Compute
-		lmem[lid] = work_item_value;
-		local_barrier();
-		
-		if (lid == 0) {
-			// just forward scan
+			lmem[lid] = work_item_value;
+			local_barrier();
+			
+			if (lid == 0) {
+				// just forward scan
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-			auto& arr = lmem.as_array();
+				auto& arr = lmem.as_array();
 #else
-			auto& arr = lmem;
+				auto& arr = lmem;
 #endif
-			for (uint32_t i = 1u; i < work_group_size; ++i) {
-				arr[i] = dec_data_type(op(dec_data_type(arr[i - 1]), dec_data_type(arr[i])));
+				for (uint32_t i = 1u; i < work_group_size; ++i) {
+					arr[i] = dec_data_type(op(dec_data_type(arr[i - 1]), dec_data_type(arr[i])));
+				}
 			}
-		}
-		
-		// sync once so that lmem can safely be used again outside of this function
-		// for exclusive: local id #0 always returns the init/zero val, all others the value from the previous local id
-		const auto ret = (inclusive ? lmem[lid] : (lid == 0 ? init_val : lmem[lid - 1u]));
-		local_barrier();
-		return dec_data_type(ret);
+			
+			// sync once so that lmem can safely be used again outside of this function
+			// for exclusive: local id #0 always returns the init/zero val, all others the value from the previous local id
+			const auto ret = (inclusive ? lmem[lid] : (lid == 0 ? init_val : lmem[lid - 1u]));
+			local_barrier();
+			return dec_data_type(ret);
 #endif
+		}
 	}
 	
 	//! generic work-group inclusive-scan function
@@ -525,7 +510,7 @@ namespace fl::algorithm {
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
 		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, dec_data_type> &&
-						   device_info::simd_width() > 0u) {
+						   device_info::simd_width() > 0u && prefer_simd_operations) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
@@ -542,9 +527,9 @@ namespace fl::algorithm {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
-					sg_in_val = lmem[sub_group_local_id];
+					sg_in_val = dec_data_type(lmem[sub_group_local_id]);
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : init_val);
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? dec_data_type(lmem[sub_group_local_id]) : init_val);
 				}
 				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
@@ -634,7 +619,7 @@ namespace fl::algorithm {
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
 		// can we fallback to a sub-group level implementation?
 		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, dec_data_type> &&
-						   device_info::simd_width() > 0u) {
+						   device_info::simd_width() > 0u && prefer_simd_operations) {
 			constexpr const auto simd_width = device_info::simd_width();
 			constexpr const auto group_count = work_group_size / simd_width;
 			
@@ -651,9 +636,9 @@ namespace fl::algorithm {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
 				dec_data_type sg_in_val {};
 				if constexpr (group_count == simd_width) {
-					sg_in_val = lmem[sub_group_local_id];
+					sg_in_val = dec_data_type(lmem[sub_group_local_id]);
 				} else {
-					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? lmem[sub_group_local_id] : init_val);
+					sg_in_val = (sub_group_local_id < (work_group_size / sub_group_size) ? dec_data_type(lmem[sub_group_local_id]) : init_val);
 				}
 				const auto wg_offset = group::sub_group_inclusive_scan<op>(sg_in_val);
 				if constexpr (group_count == simd_width) {
@@ -726,11 +711,13 @@ namespace fl::algorithm {
 		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>) {
 			return group::required_local_memory_elements<group::ALGORITHM::WORK_GROUP_INCLUSIVE_SCAN, op, data_type>::count;
 		} else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, op, uint32_t> &&
-							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min()) {
+							 device_info::simd_width_min() > 1 && device_info::simd_width_max() >= device_info::simd_width_min() &&
+							 prefer_simd_operations) {
 			return work_group_size / device_info::simd_width_min();
 		}
 #if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u) {
+		else if constexpr (has_sub_group_scan() && device_info::simd_width() > 0u &&
+						   device_info::vendor() != device_info::VENDOR::HOST /* Host-Compute scan uses oldschool scan */) {
 			static_assert(device_info::simd_width() * device_info::simd_width() >= work_group_size,
 						  "unexpected SIMD-width / max work-group size");
 #if defined(FLOOR_DEVICE_METAL) && defined(FLOOR_DEVICE_INFO_VENDOR_AMD)

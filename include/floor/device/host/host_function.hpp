@@ -26,6 +26,7 @@
 
 namespace fl {
 
+class host_context;
 class host_device;
 class elf_binary;
 struct host_function_wrapper;
@@ -99,12 +100,17 @@ protected:
 																	 const MEMORY_FLAG& add_mem_flags,
 																	 const bool zero_init) const override;
 	
+	friend host_context;
+	static void init();
+	
 };
 
 } // namespace fl
 
 //! Host-Compute device specific barrier
 extern "C" void floor_host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC;
+//! Host-Compute device specific SIMD barrier
+extern "C" void floor_host_compute_device_simd_barrier() FLOOR_HOST_COMPUTE_CC;
 //! Host-Compute device specific printf buffer
 extern "C" uint32_t* floor_host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC;
 
@@ -132,9 +138,5 @@ extern uint32_t floor_host_compute_sub_group_local_id_get() FLOOR_HOST_COMPUTE_C
 extern uint32_t floor_host_compute_sub_group_size_get() FLOOR_HOST_COMPUTE_CC;
 //! Host-Compute (host) sub-group count retrieval
 extern uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC;
-
-//! Host-Compute SIMD ballot
-extern "C" uint32_t floor_host_compute_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC;
-extern "C" uint32_t floor_host_compute_device_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC;
 
 #endif

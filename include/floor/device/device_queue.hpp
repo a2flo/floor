@@ -250,7 +250,6 @@ public:
 	//! executes the compute commands from an indirect command pipeline, additionally using the specified execution parameters,
 	//! calling the specified "completion_handler" on indirect command completion,
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
-	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								  const indirect_execution_parameters_t& params,
 								  kernel_completion_handler_f&& completion_handler = {},
@@ -259,7 +258,6 @@ public:
 	
 	//! executes the compute commands from an indirect command pipeline
 	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
-	//! NOTE: the device/backend this is executed on requires "indirect_compute_command_support"
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 						  const uint32_t command_offset = 0u,
 						  const uint32_t command_count = ~0u) const {

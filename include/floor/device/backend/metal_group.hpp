@@ -204,13 +204,13 @@ static auto sub_group_inclusive_scan(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
+	return metal_sub_group_scan<false>(input_value, min_op<data_type> {});
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<false>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
+	return metal_sub_group_scan<false>(input_value, max_op<data_type> {});
 }
 
 template <OP op, typename data_type>
@@ -226,13 +226,13 @@ static auto sub_group_exclusive_scan(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_min(lhs, rhs); });
+	return metal_sub_group_scan<true>(input_value, min_op<data_type> {});
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<true>(input_value, [](const auto& lhs, const auto& rhs) { return fl::floor_rt_max(lhs, rhs); });
+	return metal_sub_group_scan<true>(input_value, max_op<data_type> {});
 }
 
 } // namespace algorithm::group

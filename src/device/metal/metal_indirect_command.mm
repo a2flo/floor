@@ -44,19 +44,6 @@ indirect_command_pipeline(desc_) {
 		valid = false;
 		return;
 	}
-	bool tessellation_support = true;
-	for (const auto& dev : devices) {
-		// NOTE: only need to check for general indirect command support here (if it's supported, both compute and render commands are supported as well)
-		if (!dev->indirect_command_support) {
-			log_error("specified device \"$\" has no support for indirect commands in indirect command pipeline \"$\"",
-					  dev->name, desc.debug_label);
-			valid = false;
-			return;
-		}
-		if (!dev->tessellation_support) {
-			tessellation_support = false;
-		}
-	}
 	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
 		log_error("max supported command count by Metal is 16384, in indirect command pipeline \"$\"",
 				  desc.debug_label);
@@ -71,11 +58,9 @@ indirect_command_pipeline(desc_) {
 		icb_desc.commandTypes = 0;
 		if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
 			icb_desc.commandTypes |= (MTLIndirectCommandTypeDraw |
-									  MTLIndirectCommandTypeDrawIndexed);
-			if (tessellation_support) {
-				icb_desc.commandTypes |= (MTLIndirectCommandTypeDrawPatches |
-										  MTLIndirectCommandTypeDrawIndexedPatches);
-			}
+									  MTLIndirectCommandTypeDrawIndexed |
+									  MTLIndirectCommandTypeDrawPatches |
+									  MTLIndirectCommandTypeDrawIndexedPatches);
 			icb_desc.maxVertexBufferBindCount = desc.max_vertex_buffer_count;
 			icb_desc.maxFragmentBufferBindCount = desc.max_fragment_buffer_count;
 			icb_desc.maxKernelBufferBindCount = 0;

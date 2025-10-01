@@ -194,14 +194,6 @@ indirect_command_pipeline(desc_) {
 		valid = false;
 		return;
 	}
-	for (const auto& dev : devices) {
-		if (!dev->indirect_command_support || !dev->indirect_compute_command_support) {
-			log_error("specified device \"$\" has no support for indirect commands in indirect command pipeline \"$\"",
-					  dev->name, desc.debug_label);
-			valid = false;
-			return;
-		}
-	}
 	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
 		log_error("max supported command count is 16384, in indirect command pipeline \"$\"", desc.debug_label);
 		valid = false;

@@ -179,9 +179,6 @@ template <typename T> using decay_as_t = typename decay_as<T>::type;
 #include <floor/core/cpp_ext.hpp>
 #include <floor/constexpr/ext_traits.hpp>
 
-// parallel group ops interface
-#include <floor/device/backend/group.hpp>
-
 // implementation specific headers
 #if defined(FLOOR_DEVICE_CUDA)
 #include <floor/device/backend/cuda.hpp>
@@ -298,6 +295,8 @@ static constexpr inline half operator""_h (long double val) {
 #include <floor/core/enum_helpers.hpp>
 #include <floor/device/backend/image_types.hpp>
 
+// parallel group ops interface
+#include <floor/device/backend/group.hpp>
 // implementation specific group op headers
 #if defined(FLOOR_DEVICE_CUDA)
 #include <floor/device/backend/cuda_group.hpp>
@@ -399,7 +398,7 @@ public:
 #else // -> host-device
 // NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
 // NOTE: for host-device execution this can be a simple array (-> part of the per-instance BSS)
-#define local_buffer static __attribute__((aligned(1024))) device_local_buffer
+#define local_buffer alignas(1024) static __attribute__((used)) device_local_buffer
 template <typename T, size_t count_1, size_t count_2 = 1, size_t count_3 = 1>
 using device_local_buffer = T[count_1 * count_2 * count_3];
 #endif

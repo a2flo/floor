@@ -82,10 +82,6 @@ void device_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 	if (command_count == 0) {
 		return;
 	}
-	if (!dev.indirect_command_support || !dev.indirect_compute_command_support) {
-		log_error("device $ has no support for indirect command pipelines", dev.name);
-		return;
-	}
 	
 #if defined(FLOOR_DEBUG)
 	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::COMPUTE) {

@@ -264,21 +264,29 @@ protected:
 };
 
 //! creates an aligned_ptr of the specified type, with the specified element count
-template <typename T>
+//! NOTE: optionally allows to specify a "wanted_alignment" >= page-size (but must be an integer multiple)
+template <typename T, uint32_t wanted_alignment = aligned_ptr<T>::page_size>
+requires (wanted_alignment >= aligned_ptr<T>::page_size && (wanted_alignment % aligned_ptr<T>::page_size) == 0u)
 aligned_ptr<T> make_aligned_ptr(const size_t count = 1u) {
 	auto size = count * sizeof(T);
-	if (size % aligned_ptr<T>::page_size != 0u) {
-		size += aligned_ptr<T>::page_size - (size % aligned_ptr<T>::page_size);
+	if (size % wanted_alignment != 0u) {
+		size += wanted_alignment - (size % wanted_alignment);
 	}
 	T* ptr = nullptr;
 #if !defined(__WINDOWS__)
-	if (posix_memalign((void**)&ptr, aligned_ptr<T>::page_size, size) != 0 || ptr == nullptr) {
+	if (posix_memalign((void**)&ptr, wanted_alignment, size) != 0 || ptr == nullptr) {
 		throw std::runtime_error("failed to allocate aligned_ptr");
 	}
 #else
-	ptr = (T*)VirtualAlloc(nullptr, size,
-						   MEM_COMMIT | MEM_RESERVE,
-						   PAGE_EXECUTE_READWRITE);
+	MEM_EXTENDED_PARAMETER ext_param {};
+	MEM_ADDRESS_REQUIREMENTS addr_req {};
+	addr_req.Alignment = wanted_alignment;
+	ext_param.Type = MemExtendedParameterAddressRequirements;
+	ext_param.Pointer = &addr_req;
+	ptr = (T*)VirtualAlloc2(nullptr, nullptr, size,
+							MEM_COMMIT | MEM_RESERVE,
+							PAGE_EXECUTE_READWRITE,
+							&ext_param, 1);
 	if (ptr == nullptr) {
 		throw std::runtime_error("failed to allocate aligned_ptr: " + std::to_string(GetLastError()));
 	}

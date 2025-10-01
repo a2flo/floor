@@ -41,7 +41,7 @@ host_device::host_device() : device() {
 	native_simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 	
 	sub_group_support = true;
-	// TODO: sub_group_shuffle_support = true;
+	sub_group_shuffle_support = true;
 	sub_group_ballot_support = true;
 	
 	max_global_size = { 0xFFFFFFFFu };
@@ -78,10 +78,6 @@ host_device::host_device() : device() {
 	image_read_write_support = true;
 	
 	argument_buffer_support = true;
-	
-	// indirect compute pipelines are always supported
-	indirect_command_support = true;
-	indirect_compute_command_support = true;
 }
 
 } // namespace fl

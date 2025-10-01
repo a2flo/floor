@@ -460,8 +460,8 @@ void elf_binary::instance_t::reset(const uint3& global_work_size,
 	ids.instance_group_size = group_size;
 	ids.instance_work_dim = work_dim;
 	ids.instance_local_linear_idx = 0u;
-	ids.instance_sub_group_id = 0u;
-	ids.instance_sub_group_local_id = 0u;
+	ids.instance_sub_group_idx = 0u;
+	ids.instance_sub_group_local_idx = 0u;
 	ids.instance_sub_group_size = host_limits::simd_width;
 	ids.instance_num_sub_groups = (local_work_size.maxed(1u).extent() + host_limits::simd_width - 1u) / host_limits::simd_width;
 	
@@ -1238,22 +1238,26 @@ const void* elf_binary::resolve_symbol(internal_instance_t& instance, instance_t
 	} else if (sym.name == "floor_work_dim") {
 		ext_sym_ptr = &ext_instance.ids.instance_work_dim;
 	} else if (sym.name == "floor_sub_group_id") {
-		ext_sym_ptr = &ext_instance.ids.instance_sub_group_id;
+		ext_sym_ptr = &ext_instance.ids.instance_sub_group_idx;
 	} else if (sym.name == "floor_sub_group_local_id") {
-		ext_sym_ptr = &ext_instance.ids.instance_sub_group_local_id;
+		ext_sym_ptr = &ext_instance.ids.instance_sub_group_local_idx;
 	} else if (sym.name == "floor_sub_group_size") {
 		ext_sym_ptr = &ext_instance.ids.instance_sub_group_size;
 	} else if (sym.name == "floor_num_sub_groups") {
 		ext_sym_ptr = &ext_instance.ids.instance_num_sub_groups;
 	} else if (sym.name == "global_barrier" ||
 			   sym.name == "local_barrier" ||
-			   sym.name == "simd_barrier" ||
 			   sym.name == "barrier" ||
 			   sym.name == "image_barrier" ||
 			   sym.name == "floor_host_compute_device_barrier") {
 		ext_sym_ptr = get_external_symbol_ptr<true>("floor_host_compute_device_barrier");
+	} else if (sym.name == "simd_barrier" ||
+			   sym.name == "floor_host_compute_device_simd_barrier") {
+		ext_sym_ptr = get_external_symbol_ptr<true>("floor_host_compute_device_simd_barrier");
 	} else if (sym.name == "floor_host_compute_device_printf_buffer") {
 		ext_sym_ptr = get_external_symbol_ptr<true>("floor_host_compute_device_printf_buffer");
+	} else if (sym.name.starts_with("floor_host_compute_device_simd_shuffle_")) {
+		ext_sym_ptr = get_external_symbol_ptr<true>(sym.name);
 	} else if (sym.name == "_GLOBAL_OFFSET_TABLE_") {
 		if (!instance.GOT) {
 			log_error("GOT is empty");

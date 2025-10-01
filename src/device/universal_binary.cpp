@@ -566,9 +566,7 @@ namespace fl::universal_binary {
 				vlk_dev.max_mip_levels = vlk_dev.max_mip_levels;
 				vlk_dev.argument_buffer_support = true;
 				vlk_dev.argument_buffer_image_support = true;
-				vlk_dev.indirect_command_support = true;
 				vlk_dev.indirect_render_command_support = true;
-				vlk_dev.indirect_compute_command_support = true;
 				
 				// assume minimum required support for these
 				vlk_dev.max_inline_uniform_block_size = vulkan_device::min_required_inline_uniform_block_size;

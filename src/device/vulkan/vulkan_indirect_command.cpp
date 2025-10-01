@@ -58,14 +58,7 @@ indirect_command_pipeline(desc_) {
 			valid = false;
 			return;
 		}
-		// NOTE: only need to check for general indirect command support here (if it's supported, both compute and render commands are supported as well)
-		if (!dev->indirect_command_support) {
-			log_error("specified device \"$\" has no support for indirect commands in indirect command pipeline \"$\"",
-					  dev->name, desc.debug_label);
-			valid = false;
-			return;
-		}
-		assert(dev->indirect_compute_command_support && dev->indirect_render_command_support);
+		assert(dev->indirect_render_command_support);
 		if (!dev->tessellation_support) {
 			tessellation_support = false;
 		}

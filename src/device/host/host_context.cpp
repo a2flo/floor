@@ -26,6 +26,7 @@
 #include <floor/core/file_io.hpp>
 #include <floor/device/backend/host_limits.hpp>
 #include <floor/device/host/elf_binary.hpp>
+#include <floor/device/host/host_function.hpp>
 #include <floor/threading/thread_helpers.hpp>
 #include <floor/floor.hpp>
 
@@ -233,6 +234,7 @@ host_context::host_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	supported = true;
 	fastest_cpu_device = devices[0].get();
 	fastest_device = fastest_cpu_device;
+	host_function::init();
 	
 	log_debug("CPU ($, Units: $, Clock: $ MHz, Memory: $ MB): $",
 			  host_cpu_tier_to_string(device.cpu_tier),

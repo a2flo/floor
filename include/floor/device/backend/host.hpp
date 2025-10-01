@@ -271,8 +271,9 @@ void image_write_mem_fence();
 
 extern "C" {
 // Host-Compute device handling is slightly different:
-// since all barriers are identical in function, forward everything to a single barrier function
+// since all non-SIMD barriers are identical in function, forward everything to a single barrier function
 void floor_host_compute_device_barrier() __attribute__((noduplicate)) FLOOR_HOST_COMPUTE_CC;
+void floor_host_compute_device_simd_barrier() __attribute__((noduplicate)) FLOOR_HOST_COMPUTE_CC;
 
 #pragma clang attribute push (__attribute__((noduplicate)), apply_to=function)
 #pragma clang attribute push (__attribute__((internal_linkage)), apply_to=function)
@@ -288,8 +289,6 @@ void local_mem_fence();
 void local_read_mem_fence();
 void local_write_mem_fence();
 
-void simd_barrier();
-
 void barrier();
 
 void image_barrier();
@@ -298,8 +297,14 @@ void image_read_mem_fence();
 void image_write_mem_fence();
 
 #pragma clang attribute pop
+
+#pragma clang attribute push (__attribute__((weakref("floor_host_compute_device_simd_barrier"))), apply_to=function)
+void simd_barrier();
+#pragma clang attribute pop
+
 #pragma clang attribute pop
 #pragma clang attribute pop
+
 }
 
 #endif

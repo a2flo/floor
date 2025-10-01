@@ -410,6 +410,7 @@ program_data compile_input(const std::string& input,
 				(dev.vendor == VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
 #endif
 				(soft_printf ? " -Xclang -metal-soft-printf -DFLOOR_DEVICE_HAS_SOFT_PRINTF=1" : "") +
+				(options.metal.restrictive_vectorization ? " -Xclang -metal-restrictive-vectorization" : "") +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
@@ -697,10 +698,12 @@ program_data compile_input(const std::string& input,
 			}
 			
 			std::string target;
+			std::string no_unaligned_access;
 			if (cpu_device.cpu_tier >= HOST_CPU_TIER::__X86_OFFSET && cpu_device.cpu_tier <= HOST_CPU_TIER::__X86_RANGE) {
 				target = "x86_64";
 			} else if (cpu_device.cpu_tier >= HOST_CPU_TIER::__ARM_OFFSET && cpu_device.cpu_tier <= HOST_CPU_TIER::__ARM_RANGE) {
 				target = "aarch64";
+				no_unaligned_access = " -mno-unaligned-access";
 			} else {
 				log_error("unhandled CPU tier/arch");
 				return {};
@@ -716,6 +719,7 @@ program_data compile_input(const std::string& input,
 				" -march=" + arch +
 				(!tune.empty() ? " -mtune=" + tune : "") +
 				prefer_vec_width +
+				no_unaligned_access +
 				" -mcmodel=large" +
 				" -DFLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE -DFLOOR_DEVICE_HOST_COMPUTE" +
 				// TODO/NOTE: for now, doubles are not supported
@@ -1059,13 +1063,11 @@ program_data compile_input(const std::string& input,
 	clang_cmd += " -DFLOOR_DEVICE_INFO_MAX_MIP_LEVELS="s + std::to_string(dev.max_mip_levels) + "u";
 	
 	// indirect command support
-	const auto has_indirect_cmd_str = std::to_string(dev.indirect_command_support);
-	const auto has_indirect_compute_cmd_str = std::to_string(dev.indirect_compute_command_support);
 	const auto has_indirect_render_cmd_str = std::to_string(dev.indirect_render_command_support);
-	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMMAND_SUPPORT="s + has_indirect_cmd_str;
-	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMMAND_SUPPORT_"s + has_indirect_cmd_str;
-	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT="s + has_indirect_compute_cmd_str;
-	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_"s + has_indirect_compute_cmd_str;
+	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMMAND_SUPPORT=1"; // TODO: remove in future version
+	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMMAND_SUPPORT_1";
+	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT=1"; // TODO: remove in future version
+	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_COMPUTE_COMMAND_SUPPORT_1";
 	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT="s + has_indirect_render_cmd_str;
 	clang_cmd += " -DFLOOR_DEVICE_INFO_INDIRECT_RENDER_COMMAND_SUPPORT_"s + has_indirect_render_cmd_str;
 	

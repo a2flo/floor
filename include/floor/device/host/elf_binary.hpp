@@ -84,10 +84,23 @@ public:
 		uint3 instance_group_size;
 		uint32_t instance_work_dim { 0u };
 		uint32_t instance_local_linear_idx { 0u };
-		uint32_t instance_sub_group_id { 0u };
-		uint32_t instance_sub_group_local_id { 0u };
+		uint32_t instance_sub_group_idx { 0u };
+		uint32_t instance_sub_group_local_idx { 0u };
 		uint32_t instance_sub_group_size { 0u };
 		uint32_t instance_num_sub_groups { 0u };
+		
+		//! explicitly restore dynamic instance IDs
+		void restore(const uint3 global_idx,
+					 const uint3 local_idx,
+					 const uint32_t local_linear_idx,
+					 const uint32_t sub_group_idx,
+					 const uint32_t sub_group_local_idx) {
+			instance_global_idx = global_idx;
+			instance_local_idx = local_idx;
+			instance_local_linear_idx = local_linear_idx;
+			instance_sub_group_idx = sub_group_idx;
+			instance_sub_group_local_idx = sub_group_local_idx;
+		}
 	};
 	
 	//! execution instance

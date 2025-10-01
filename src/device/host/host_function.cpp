@@ -16,14 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if !defined(_WIN32)
-// need to include this before all else
-#if defined(__APPLE__) && !defined(_XOPEN_SOURCE) && !defined(_STRUCT_UCONTEXT)
-#define _XOPEN_SOURCE
-#endif
-#include <ucontext.h>
-#endif
-
 #include <floor/device/host/host_function.hpp>
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
@@ -47,11 +39,6 @@
 #include <floor/core/timer.hpp>
 #endif
 
-#if !defined(_WIN32)
-// sanity check (mostly necessary on macOS where some fool had the idea to make the size of ucontext_t define dependent)
-static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
-#endif
-
 #include <floor/core/platform_windows.hpp>
 #include <floor/core/essentials.hpp> // cleanup
 
@@ -71,8 +58,8 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 namespace fl {
 struct floor_fiber_context;
 } // namespace fl
-extern "C" void run_host_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC;
-extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC;
+extern "C" void run_host_group_item(const uint32_t local_linear_idx) noexcept FLOOR_HOST_COMPUTE_CC;
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) noexcept FLOOR_HOST_COMPUTE_CC;
 extern "C" void run_exec(fl::floor_fiber_context& main_ctx, fl::floor_fiber_context& first_item) FLOOR_HOST_COMPUTE_CC_MAYBE_NOINLINE;
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
@@ -201,9 +188,9 @@ asm(".extern exit;"
 	"movq 0x8(%rsp), %rax;"
 	// floor_fiber_context->init_func
 	"movq 0x50(%rax), %rcx;"
-	// floor_fiber_context->init_arg
+	// floor_fiber_context->local_linear_idx
 	"movl 0x68(%rax), %edi;"
-	// call init_func(init_arg)
+	// call init_func(local_linear_idx)
 	"callq *%rcx;"
 	// context is done, -> exit to set exit context, or exit(0)
 	// retrieve floor_fiber_context* again
@@ -218,6 +205,7 @@ asm(".extern exit;"
 extern "C" void floor_get_context(void* ctx) asm("floor_get_context_sysv_x86_64");
 extern "C" void floor_set_context(void* ctx) asm("floor_set_context_sysv_x86_64");
 extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
+extern "C" fl::floor_fiber_context* floor_current_context();
 
 #elif defined(__aarch64__)
 asm("floor_get_context_aarch64:"
@@ -256,9 +244,9 @@ asm("floor_enter_context_aarch64:"
 	"ldr x9, [sp, #8]\n"
 	// floor_fiber_context->init_func
 	"ldr x10, [x9, #184]\n"
-	// floor_fiber_context->init_arg
+	// floor_fiber_context->local_linear_idx
 	"ldr w0, [x9, #208]\n"
-	// call init_func(init_arg)
+	// call init_func(local_linear_idx)
 	"blr x10\n"
 	// context is done, -> exit to set exit context, or exit(0)
 	// retrieve floor_fiber_context* again
@@ -273,29 +261,21 @@ asm("floor_enter_context_aarch64:"
 extern "C" void floor_get_context(void* ctx) asm("floor_get_context_aarch64");
 extern "C" void floor_set_context(void* ctx) asm("floor_set_context_aarch64");
 extern "C" void floor_enter_context() asm("floor_enter_context_aarch64");
+extern "C" fl::floor_fiber_context* floor_current_context();
 
 #endif
 
 namespace fl {
 
-static constexpr const size_t floor_fiber_context_alignment {
-#if defined(__x86_64__)
-	128u
-#elif defined(__aarch64__)
-	256u
-#else
-#error "unhandled arch"
-#endif
-};
+static constexpr const size_t floor_fiber_context_alignment { 256u };
 
 struct alignas(floor_fiber_context_alignment) floor_fiber_context {
-	using init_func_type = void (FLOOR_HOST_COMPUTE_CC *)(const uint32_t);
+	using init_func_type = void (FLOOR_HOST_COMPUTE_CC *)(const uint32_t) noexcept;
 	
-#if defined(__x86_64__) || defined(__aarch64__)
+	static constexpr const size_t stack_size { 16384zu };
+	static_assert(aligned_ptr<int>::page_size <= stack_size);
+	
 	// SysV x86-64 ABI / ARM AArch64 AAPCS64 compliant implementation
-	static constexpr const size_t min_stack_size { std::max(size_t(8192u), size_t(aligned_ptr<int>::page_size)) };
-	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
-	
 	// callee-saved registers
 #if defined(__x86_64__)
 	uint64_t rbp { 0 };
@@ -331,10 +311,17 @@ struct alignas(floor_fiber_context_alignment) floor_fiber_context {
 	// return address / instruction pointer
 	uint64_t ip { 0 };
 	
-	void init(void* stack_ptr_, const size_t& stack_size_,
-			  init_func_type init_func_, const uint32_t& init_arg_,
+	void init(void* stack_ptr_, init_func_type init_func_, const uint32_t local_linear_idx_, const uint32_t local_size,
 			  floor_fiber_context* exit_ctx_, floor_fiber_context* main_ctx_) noexcept {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
+		stack_ptr = stack_ptr_;
+		init_func = init_func_;
+		exit_ctx = exit_ctx_;
+		main_ctx = main_ctx_;
+		local_linear_idx = local_linear_idx_;
+		
+		next_linear_ctx_idx = (local_linear_idx + 1u) % local_size;
+		const auto next_lane_idx = ((local_linear_idx % fl::host_limits::simd_width) + 1u) % fl::host_limits::simd_width;
+		next_simd_ctx_idx = (local_linear_idx & ~(fl::host_limits::simd_width - 1u)) + next_lane_idx;
 		
 		if (size_t(this) % floor_fiber_context_alignment != 0u) {
 			log_error("floor_fiber_context must be $-byte aligned!", floor_fiber_context_alignment); logger::flush();
@@ -342,9 +329,9 @@ struct alignas(floor_fiber_context_alignment) floor_fiber_context {
 		}
 		
 		if (stack_ptr != nullptr) {
-			// check stack pointer validity (must be 16-byte aligned)
-			if (size_t(stack_ptr) % 16u != 0u) {
-				log_error("stack must be 16-byte aligned!"); logger::flush();
+			// check stack pointer validity (must be 16384-byte aligned)
+			if (size_t(stack_ptr) % 16384zu != 0u) {
+				log_error("stack must be 16384-byte aligned!"); logger::flush();
 				return;
 			}
 			
@@ -439,74 +426,27 @@ FLOOR_POP_WARNINGS()
 		}
 	}
 	
-#else
-	// fallback to posix ucontext_t/etc
-	static constexpr const size_t min_stack_size { 32768 };
-	
-	ucontext_t ctx;
-	
-	void init(void* stack_ptr_, const size_t& stack_size_,
-			  init_func_type init_func_, const uint32_t& init_arg_,
-			  floor_fiber_context* exit_ctx_, floor_fiber_context* main_ctx_) noexcept {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
-		
-		memset(&ctx, 0, sizeof(ucontext_t));
-		getcontext(&ctx);
-		
-		// unknown context vars -> query external
-		if (stack_ptr == nullptr) {
-			stack_ptr = ctx.uc_stack.ss_sp;
-			stack_size = ctx.uc_stack.ss_size;
-		}
-	}
-	
-	void reset() noexcept {
-		if (exit_ctx != nullptr) {
-			ctx.uc_link = &exit_ctx->ctx;
-		}
-		else ctx.uc_link = nullptr;
-		ctx.uc_stack.ss_sp = stack_ptr;
-		ctx.uc_stack.ss_size = stack_size;
-		makecontext(&ctx, (void (*)())init_func, 1, init_arg);
-	}
-	
-	void get_context() noexcept {
-		getcontext(&ctx);
-	}
-	
-	void set_context() noexcept {
-		setcontext(&ctx);
-	}
-	
-	void swap_context(floor_fiber_context* next_ctx) noexcept {
-		swapcontext(&ctx, &next_ctx->ctx);
-	}
-#endif
-	
-	void init_common(void* stack_ptr_, const size_t& stack_size_,
-					 init_func_type init_func_, const uint32_t& init_arg_,
-					 floor_fiber_context* exit_ctx_, floor_fiber_context* main_ctx_) noexcept {
-		stack_ptr = stack_ptr_;
-		stack_size = stack_size_;
-		init_func = init_func_;
-		exit_ctx = exit_ctx_;
-		main_ctx = main_ctx_;
-		init_arg = init_arg_;
-	}
-	
 	void exit_to_main() noexcept {
 		swap_context(main_ctx);
 	}
 	
 	// ctx vars
 	void* stack_ptr { nullptr };
-	size_t stack_size { 0 };
+	uint32_t sub_group_idx { 0u };
+	uint32_t sub_group_local_idx { 0u };
 	
 	// do not change the order of these vars
 	init_func_type init_func { nullptr };
 	floor_fiber_context* exit_ctx { nullptr };
 	floor_fiber_context* main_ctx { nullptr };
-	uint32_t init_arg { 0 };
+	uint32_t local_linear_idx { 0 };
+	
+	uint3 global_idx;
+	uint3 local_idx;
+	
+	// precomputed indices for faster fiber context switching
+	uint32_t next_linear_ctx_idx { 0u };
+	uint32_t next_simd_ctx_idx { 0u };
 	
 };
 static_assert(sizeof(floor_fiber_context) <= floor_fiber_context_alignment, "floor_fiber_context alignment is not large enough");
@@ -516,13 +456,27 @@ static_assert(sizeof(floor_fiber_context) <= floor_fiber_context_alignment, "flo
 static_assert(offsetof(floor_fiber_context, init_func) == 0x50);
 static_assert(offsetof(floor_fiber_context, exit_ctx) == 0x58);
 static_assert(offsetof(floor_fiber_context, main_ctx) == 0x60);
-static_assert(offsetof(floor_fiber_context, init_arg) == 0x68);
+static_assert(offsetof(floor_fiber_context, local_linear_idx) == 0x68);
 #elif defined(__aarch64__) && !defined(__WINDOWS__)
 static_assert(offsetof(floor_fiber_context, init_func) == 184);
 static_assert(offsetof(floor_fiber_context, exit_ctx) == 192);
 static_assert(offsetof(floor_fiber_context, main_ctx) == 200);
-static_assert(offsetof(floor_fiber_context, init_arg) == 208);
+static_assert(offsetof(floor_fiber_context, local_linear_idx) == 208);
 #endif
+
+extern "C" fl::floor_fiber_context* floor_current_context() {
+#if defined(__x86_64__)
+	register uint64_t stack_ptr asm("rsp");
+#elif defined(__aarch64__) && !defined(__WINDOWS__)
+	register uint64_t stack_ptr asm("sp");
+#endif
+	asm("" : "=r"(stack_ptr));
+	// NOTE: this is possible as long as the stack is aligned to "stack_size" (16KiB)
+	const auto stack_start = (((stack_ptr + floor_fiber_context::stack_size - 1u) / floor_fiber_context::stack_size) *
+							  floor_fiber_context::stack_size);
+	const auto ctx = *((const uint64_t*)stack_start - 1u);
+	return (fl::floor_fiber_context*)ctx;
+}
 
 // will be initialized to "max h/w threads", note that this is stored in a global var,
 // so that get_logical_core_count() doesn't have to called over and over again, and
@@ -539,9 +493,7 @@ static aligned_ptr<uint8_t> floor_local_memory_data;
 static aligned_ptr<uint8_t> floor_host_device_printf_buffer;
 
 // stack memory management
-// 8k stack should be enough, considering this runs on GPUs (min 32k with ucontext)
 // TODO: stack protection?
-static constexpr const size_t item_stack_size { floor_fiber_context::min_stack_size };
 static aligned_ptr<uint8_t> floor_stack_memory_data;
 
 static void floor_alloc_host_local_memory() {
@@ -563,7 +515,16 @@ static void floor_alloc_host_device_printf_buffer() {
 
 static void floor_alloc_host_stack_memory() {
 	if (!floor_stack_memory_data) {
-		floor_stack_memory_data = make_aligned_ptr<uint8_t>(floor_max_thread_count * item_stack_size * host_limits::max_total_local_size);
+		floor_stack_memory_data = make_aligned_ptr<uint8_t, floor_fiber_context::stack_size>(floor_max_thread_count *
+																							 floor_fiber_context::stack_size *
+																							 host_limits::max_total_local_size);
+	}
+}
+
+void host_function::init() {
+	// init max thread count (once!)
+	if (floor_max_thread_count == 0) {
+		floor_max_thread_count = get_logical_core_count();
 	}
 }
 
@@ -692,54 +653,81 @@ static host_function_wrapper make_callable_host_function(const void* function_pt
 
 FLOOR_POP_WARNINGS()
 
-// Host-Compute device execution context (per work-group / logical CPU)
-struct device_exec_context_t {
-	// dynamic and constant IDs + sizes
-	elf_binary::instance_ids_t* ids { nullptr };
+// all possible SIMD value types for use in execution context SIMD storage
+union simd_value_t {
+	half f16;
+	uint16_t u16;
+	int16_t s16;
+	float f32;
+	uint32_t u32;
+	int32_t s32;
 	
+	half2 v2f16;
+	ushort2 v2u16;
+	short2 v2s16;
+	float2 v2f32;
+	uint2 v2u32;
+	int2 v2s32;
+	
+	half3 v3f16;
+	ushort3 v3u16;
+	short3 v3s16;
+	float3 v3f32;
+	uint3 v3u32;
+	int3 v3s32;
+	
+	half4 v4f16;
+	ushort4 v4u16;
+	short4 v4s16;
+	float4 v4f32;
+	uint4 v4u32;
+	int4 v4s32;
+	
+	uint8_t bytes[16];
+	
+	constexpr simd_value_t() noexcept : v4u32() {}
+};
+static_assert(sizeof(simd_value_t) == 16u);
+static_assert(std::is_trivially_copyable_v<simd_value_t>);
+static_assert(std::is_standard_layout_v<simd_value_t>);
+
+// common base class for both device and host execution contexts
+struct base_exec_context_t {
 	// linear 1D local size (for barrier handling)
 	uint32_t linear_local_work_size { 0 };
 	
 	// all fiber contexts in this work-group
 	floor_fiber_context* item_contexts { nullptr };
 	
-	// current active function
-	host_function_wrapper func;
-	
 	// SIMD exchange storage, 1 value per fiber/work-item
-	uint32_t simd_storage[host_limits::max_total_local_size];
+	simd_value_t simd_storage[host_limits::max_total_local_size];
 	
 	// -> sanity check for correct barrier use
 #if defined(FLOOR_DEBUG)
 	uint32_t unfinished_items { 0 };
 #endif
 };
+
+// Host-Compute device execution context (per work-group / logical CPU)
+struct device_exec_context_t : public base_exec_context_t {
+	// dynamic and constant IDs + sizes
+	elf_binary::instance_ids_t* ids { nullptr };
+	
+	// current active function
+	host_function_wrapper func;
+};
 static thread_local device_exec_context_t device_exec_context;
 
 // Host-Compute host execution context (per work-group / logical CPU)
-struct host_exec_context_t {
+struct host_exec_context_t : public base_exec_context_t {
 	// dynamic and constant IDs + sizes
 	elf_binary::instance_ids_t ids {};
 	
 	// offset in global "local memory" buffer
 	uint32_t thread_local_memory_offset { 0 };
 	
-	// linear 1D local size (for barrier handling)
-	uint32_t linear_local_work_size { 0 };
-	
-	// all fiber contexts in this work-group
-	floor_fiber_context* item_contexts { nullptr };
-	
 	// current active function
 	const host_function_wrapper* func { nullptr };
-	
-	// SIMD exchange storage, 1 value per fiber/work-item
-	uint32_t simd_storage[host_limits::max_total_local_size];
-	
-	// -> sanity check for correct barrier use
-#if defined(FLOOR_DEBUG)
-	uint32_t unfinished_items { 0 };
-#endif
 };
 static thread_local host_exec_context_t host_exec_context;
 
@@ -814,16 +802,12 @@ void host_function::execute(const device_queue& cqueue,
 		}
 	}
 	
-	// init max thread count (once!)
-	if (floor_max_thread_count == 0) {
-		floor_max_thread_count = get_logical_core_count();
-	}
-	
 	// device CPU count must be <= h/w thread count, b/c local memory is only allocated for such many threads
 	auto cpu_count = cqueue.get_device().units;
 	if (const auto max_core_count = floor::get_host_max_core_count(); max_core_count > 0) {
 		cpu_count = std::min(cpu_count, max_core_count);
 	}
+	assert(floor_max_thread_count > 0);
 	if (cpu_count > floor_max_thread_count) {
 		log_error("device CPU count exceeds h/w count");
 		return;
@@ -951,8 +935,8 @@ void host_function::execute_host(const host_function_wrapper& func,
 				.instance_group_size = group_size,
 				.instance_work_dim = work_dim,
 				.instance_local_linear_idx = 0u,
-				.instance_sub_group_id = 0u,
-				.instance_sub_group_local_id = 0u,
+				.instance_sub_group_idx = 0u,
+				.instance_sub_group_local_idx = 0u,
 				.instance_sub_group_size = host_limits::simd_width,
 				.instance_num_sub_groups = (local_size + host_limits::simd_width - 1u) / host_limits::simd_width,
 			};
@@ -962,15 +946,14 @@ void host_function::execute_host(const host_function_wrapper& func,
 			
 			// init contexts (aka fibers)
 			floor_fiber_context main_ctx;
-			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr, nullptr);
+			main_ctx.init(nullptr, nullptr, ~0u, local_size, nullptr, nullptr);
 			auto items = std::make_unique<floor_fiber_context[]>(local_size);
 			exec_ctx.item_contexts = items.get();
 			
 			// init fibers
 			for (uint32_t i = 0; i < local_size; ++i) {
-				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * floor_fiber_context::min_stack_size],
-							  floor_fiber_context::min_stack_size,
-							  run_host_group_item, i,
+				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * floor_fiber_context::stack_size],
+							  run_host_group_item, i, local_size,
 							  // continue with next on return, or return to main ctx when the last item returns
 							  // TODO: add option to use randomized order?
 							  (i + 1 < local_size ? &items[i + 1] : &main_ctx),
@@ -1031,7 +1014,7 @@ void host_function::execute_host(const host_function_wrapper& func,
 #endif
 }
 
-extern "C" void run_host_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC {
+extern "C" void run_host_group_item(const uint32_t local_linear_idx) noexcept FLOOR_HOST_COMPUTE_CC {
 	auto& exec_ctx = host_exec_context;
 	
 	// set local + global id
@@ -1042,8 +1025,8 @@ extern "C" void run_host_group_item(const uint32_t local_linear_idx) FLOOR_HOST_
 	};
 	exec_ctx.ids.instance_local_idx = local_id;
 	exec_ctx.ids.instance_local_linear_idx = local_linear_idx;
-	exec_ctx.ids.instance_sub_group_id = local_linear_idx / host_limits::simd_width;
-	exec_ctx.ids.instance_sub_group_local_id = local_linear_idx % host_limits::simd_width;
+	exec_ctx.ids.instance_sub_group_idx = local_linear_idx / host_limits::simd_width;
+	exec_ctx.ids.instance_sub_group_local_idx = local_linear_idx % host_limits::simd_width;
 	
 	const uint3 global_id {
 		exec_ctx.ids.instance_group_idx.x * exec_ctx.ids.instance_local_work_size.x + local_id.x,
@@ -1119,15 +1102,14 @@ void host_function::execute_device(const host_function_entry& func_entry,
 			
 			// init contexts (aka fibers)
 			floor_fiber_context main_ctx;
-			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr, nullptr);
+			main_ctx.init(nullptr, nullptr, ~0u, local_size, nullptr, nullptr);
 			auto items = std::make_unique<floor_fiber_context[]>(local_size);
 			exec_ctx.item_contexts = items.get();
 			
 			// init fibers
 			for (uint32_t i = 0; i < local_size; ++i) {
-				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * floor_fiber_context::min_stack_size],
-							  floor_fiber_context::min_stack_size,
-							  run_host_device_group_item, i,
+				items[i].init(&floor_stack_memory_data.get()[(i + local_size * cpu_idx) * floor_fiber_context::stack_size],
+							  run_host_device_group_item, i, local_size,
 							  // continue with next on return, or return to main ctx when the last item returns
 							  (i + 1 < local_size ? &items[i + 1] : &main_ctx),
 							  &main_ctx);
@@ -1211,7 +1193,7 @@ std::unique_ptr<argument_buffer> host_function::create_argument_buffer_internal(
 
 } // namespace fl
 
-extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOOR_HOST_COMPUTE_CC {
+extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) noexcept FLOOR_HOST_COMPUTE_CC {
 	// set ids for work-item
 	auto& exec_ctx = fl::device_exec_context;
 	{
@@ -1227,8 +1209,15 @@ extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOO
 			ids.instance_group_idx.y * ids.instance_local_work_size.y + ids.instance_local_idx.y,
 			ids.instance_group_idx.z * ids.instance_local_work_size.z + ids.instance_local_idx.z
 		};
-		ids.instance_sub_group_id = local_linear_idx / fl::host_limits::simd_width;
-		ids.instance_sub_group_local_id = local_linear_idx % fl::host_limits::simd_width;
+		ids.instance_sub_group_idx = local_linear_idx / fl::host_limits::simd_width;
+		ids.instance_sub_group_local_idx = local_linear_idx % fl::host_limits::simd_width;
+		
+		auto this_ctx = floor_current_context();
+		assert(this_ctx->local_linear_idx == local_linear_idx);
+		this_ctx->sub_group_idx = ids.instance_sub_group_idx;
+		this_ctx->sub_group_local_idx = ids.instance_sub_group_local_idx;
+		this_ctx->global_idx = ids.instance_global_idx;
+		this_ctx->local_idx = ids.instance_local_idx;
 	}
 	
 	// execute work-item / function
@@ -1244,37 +1233,26 @@ extern "C" void run_host_device_group_item(const uint32_t local_linear_idx) FLOO
 #include <floor/device/backend/host.hpp>
 
 // swaps to the next fiber context, used for general barrier implementations
-template <typename exec_context_t>
+template <bool simd_swap, typename exec_context_t>
 floor_inline_always static void fiber_swap_context(exec_context_t& exec_ctx, fl::elf_binary::instance_ids_t& ids) {
-	// save indices, switch to next fiber and restore indices again
-	const auto saved_global_id = ids.instance_global_idx;
-	const auto saved_local_id = ids.instance_local_idx;
-	const auto saved_item_local_linear_idx = ids.instance_local_linear_idx;
-	const auto saved_sub_group_id = ids.instance_sub_group_id;
-	const auto saved_sub_group_local_id = ids.instance_sub_group_local_id;
+	// switch to next fiber context based on if this is a linear swap or a SIMD group swap
+	const auto this_ctx = floor_current_context();
+	this_ctx->swap_context(&exec_ctx.item_contexts[simd_swap ? this_ctx->next_simd_ctx_idx : this_ctx->next_linear_ctx_idx]);
 	
-	fl::floor_fiber_context* this_ctx = &exec_ctx.item_contexts[saved_item_local_linear_idx];
-	fl::floor_fiber_context* next_ctx = &exec_ctx.item_contexts[(saved_item_local_linear_idx + 1u) % exec_ctx.linear_local_work_size];
-	this_ctx->swap_context(next_ctx);
-	
-	// restore
-	ids.instance_local_linear_idx = saved_item_local_linear_idx;
-	ids.instance_local_idx = saved_local_id;
-	ids.instance_global_idx = saved_global_id;
-	ids.instance_sub_group_id = saved_sub_group_id;
-	ids.instance_sub_group_local_id = saved_sub_group_local_id;
+	// restore IDs for fiber context
+	ids.restore(this_ctx->global_idx, this_ctx->local_idx, this_ctx->local_linear_idx, this_ctx->sub_group_idx, this_ctx->sub_group_local_idx);
 }
 
 // barrier handling (all the same)
 // NOTE: the same barrier _must_ be encountered at the same point for all work-items
 void global_barrier() FLOOR_HOST_COMPUTE_CC {
-	fiber_swap_context(fl::host_exec_context, fl::host_exec_context.ids);
+	fiber_swap_context<false>(fl::host_exec_context, fl::host_exec_context.ids);
 }
 void local_barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
 }
 void simd_barrier() FLOOR_HOST_COMPUTE_CC {
-	global_barrier();
+	fiber_swap_context<true>(fl::host_exec_context, fl::host_exec_context.ids);
 }
 void image_barrier() FLOOR_HOST_COMPUTE_CC {
 	global_barrier();
@@ -1284,7 +1262,10 @@ void barrier() FLOOR_HOST_COMPUTE_CC {
 }
 
 void floor_host_compute_device_barrier() FLOOR_HOST_COMPUTE_CC {
-	fiber_swap_context(fl::device_exec_context, *fl::device_exec_context.ids);
+	fiber_swap_context<false>(fl::device_exec_context, *fl::device_exec_context.ids);
+}
+void floor_host_compute_device_simd_barrier() FLOOR_HOST_COMPUTE_CC {
+	fiber_swap_context<true>(fl::device_exec_context, *fl::device_exec_context.ids);
 }
 
 uint32_t* floor_host_compute_device_printf_buffer() FLOOR_HOST_COMPUTE_CC {
@@ -1371,10 +1352,10 @@ fl::uint3 floor_host_compute_group_size_get() FLOOR_HOST_COMPUTE_CC {
 	return fl::host_exec_context.ids.instance_group_size;
 }
 uint32_t floor_host_compute_sub_group_id_get() FLOOR_HOST_COMPUTE_CC {
-	return fl::host_exec_context.ids.instance_sub_group_id;
+	return fl::host_exec_context.ids.instance_sub_group_idx;
 }
 uint32_t floor_host_compute_sub_group_local_id_get() FLOOR_HOST_COMPUTE_CC {
-	return fl::host_exec_context.ids.instance_sub_group_local_id;
+	return fl::host_exec_context.ids.instance_sub_group_local_idx;
 }
 uint32_t floor_host_compute_sub_group_size_get() FLOOR_HOST_COMPUTE_CC {
 	return fl::host_exec_context.ids.instance_sub_group_size;
@@ -1383,26 +1364,30 @@ uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC {
 	return fl::host_exec_context.ids.instance_num_sub_groups;
 }
 
-// SIMD functions
+// Host-Compute SIMD group functions
+#include <floor/device/backend/group.hpp>
+#include <floor/device/backend/host_group.hpp>
+
 template <typename exec_context_t>
 floor_inline_always static uint32_t floor_host_compute_simd_ballot_impl(exec_context_t& exec_ctx, fl::elf_binary::instance_ids_t& ids,
 																		const bool predicate) {
-	exec_ctx.simd_storage[ids.instance_local_linear_idx] = (predicate ? 1u : 0u);
-	fiber_swap_context(exec_ctx, ids);
+	const auto this_ctx = floor_current_context();
+	exec_ctx.simd_storage[this_ctx->local_linear_idx].u32 = (predicate ? 1u : 0u);
+	fiber_swap_context<true /* SIMD */>(exec_ctx, ids);
 	
 	// once this returns, the first SIMD lane in each sub-group computes the final ballot output and distributes the result to all other lanes
 	// NOTE: we need to do it this way, because another SIMD call might be made right after, overwriting the result(s)
-	if (ids.instance_sub_group_local_id == 0u) {
+	if (this_ctx->sub_group_local_idx == 0u) {
 		uint32_t ballot_mask = 0u;
-		const auto group_offset = ids.instance_sub_group_id * fl::host_limits::simd_width;
+		const auto group_offset = this_ctx->sub_group_idx * fl::host_limits::simd_width;
 		for (uint32_t i = 0; i < fl::host_limits::simd_width; ++i) {
-			ballot_mask |= ((exec_ctx.simd_storage[group_offset + i] & 0x1u) << i);
+			ballot_mask |= ((exec_ctx.simd_storage[group_offset + i].u32 & 0x1u) << i);
 		}
 		for (uint32_t i = 0; i < fl::host_limits::simd_width; ++i) {
-			exec_ctx.simd_storage[group_offset + i] = ballot_mask;
+			exec_ctx.simd_storage[group_offset + i].u32 = ballot_mask;
 		}
 	}
-	return exec_ctx.simd_storage[ids.instance_local_linear_idx];
+	return exec_ctx.simd_storage[this_ctx->local_linear_idx].u32;
 }
 uint32_t floor_host_compute_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC {
 	return floor_host_compute_simd_ballot_impl(fl::host_exec_context, fl::host_exec_context.ids, predicate);
@@ -1410,5 +1395,73 @@ uint32_t floor_host_compute_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC {
 uint32_t floor_host_compute_device_simd_ballot(bool predicate) FLOOR_HOST_COMPUTE_CC {
 	return floor_host_compute_simd_ballot_impl(fl::device_exec_context, *fl::device_exec_context.ids, predicate);
 }
+
+enum class SIMD_OP_TYPE {
+	simd_shuffle,
+	simd_shuffle_down,
+	simd_shuffle_up,
+	simd_shuffle_xor,
+};
+
+template <SIMD_OP_TYPE op_type, typename exec_context_t, typename data_type>
+floor_inline_always static void floor_host_compute_simd_shuffle_impl(exec_context_t& exec_ctx, fl::elf_binary::instance_ids_t& ids,
+																	 data_type& ret, const data_type value,
+																	 const uint32_t lane_idx_delta_or_mask) {
+	// store all values into SIMD storage first
+	const auto this_ctx = floor_current_context();
+	__builtin_memcpy(exec_ctx.simd_storage[this_ctx->local_linear_idx].bytes, &value, sizeof(data_type));
+	
+	// swap to next fiber in SIMD group
+	fiber_swap_context<true /* SIMD */>(exec_ctx, ids);
+	
+	// perform operation
+	const auto lane_idx = this_ctx->sub_group_local_idx;
+	uint32_t src_lane_idx = 0u;
+	if constexpr (op_type == SIMD_OP_TYPE::simd_shuffle) {
+		src_lane_idx = lane_idx_delta_or_mask;
+	} else if constexpr (op_type == SIMD_OP_TYPE::simd_shuffle_down) {
+		src_lane_idx = lane_idx + lane_idx_delta_or_mask;
+	} else if constexpr (op_type == SIMD_OP_TYPE::simd_shuffle_up) {
+		src_lane_idx = lane_idx - lane_idx_delta_or_mask;
+	} else if constexpr (op_type == SIMD_OP_TYPE::simd_shuffle_xor) {
+		src_lane_idx = lane_idx ^ lane_idx_delta_or_mask;
+	} else {
+		static_assert(false, "unhandled SIMD operation");
+	}
+	src_lane_idx = (src_lane_idx >= fl::host_limits::simd_width ? lane_idx : src_lane_idx);
+	
+	// copy from source lane into provided output
+	__builtin_memcpy(&ret, exec_ctx.simd_storage[this_ctx->sub_group_idx * fl::host_limits::simd_width + src_lane_idx].bytes,
+					 sizeof(data_type));
+	
+	// sync again to ensure all values have been computed/read and we can safely continue (overwrite the memory again)
+	fiber_swap_context<true /* SIMD */>(exec_ctx, ids);
+}
+
+// host
+#define SUB_GROUP_FUNC(func, device_suffix, floor_data_type, type_suffix) \
+void floor_host_compute ## device_suffix ## func ## _ ## type_suffix(floor_data_type& ret, floor_data_type value, uint32_t lane_idx_delta_or_mask) \
+__attribute__((noduplicate, convergent)) FLOOR_HOST_COMPUTE_CC { \
+	return floor_host_compute_simd_shuffle_impl<SIMD_OP_TYPE::func>(fl::host_exec_context, fl::host_exec_context.ids, \
+																	ret, value, lane_idx_delta_or_mask); \
+}
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle, _)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_down, _)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_up, _)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_xor, _)
+#undef SUB_GROUP_FUNC
+
+// device
+#define SUB_GROUP_FUNC(func, device_suffix, floor_data_type, type_suffix) \
+void floor_host_compute ## device_suffix ## func ## _ ## type_suffix(floor_data_type& ret, floor_data_type value, uint32_t lane_idx_delta_or_mask) \
+__attribute__((noduplicate, convergent)) FLOOR_HOST_COMPUTE_CC { \
+	floor_host_compute_simd_shuffle_impl<SIMD_OP_TYPE::func>(fl::device_exec_context, *fl::device_exec_context.ids, \
+															 ret, value, lane_idx_delta_or_mask); \
+}
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle, _device_)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_down, _device_)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_up, _device_)
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(SUB_GROUP_FUNC, simd_shuffle_xor, _device_)
+#undef SUB_GROUP_FUNC
 
 #endif

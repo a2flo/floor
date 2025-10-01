@@ -18,10 +18,11 @@
 
 #include "device/vulkan/internal/vulkan_heap.hpp"
 
+#if !defined(FLOOR_NO_VULKAN)
+
 //! set to 1 to enable more in-depth and costly debugging functionality in VMA
 #define FLOOR_VMA_DEBUGGING 0
 
-#if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/logger.hpp>
 #include <floor/constexpr/const_string.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>

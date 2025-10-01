@@ -2148,9 +2148,7 @@ enable_renderer(enable_renderer_) {
 		// descriptor buffer support also enables argument buffer support as well as indirect command support
 		device.argument_buffer_support = true;
 		device.argument_buffer_image_support = true;
-		device.indirect_command_support = true;
 		device.indirect_render_command_support = true;
-		device.indirect_compute_command_support = true;
 		
 		// set memory info
 		device.mem_props = dev_mem_info.mem_props;

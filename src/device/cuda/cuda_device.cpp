@@ -66,10 +66,6 @@ cuda_device::cuda_device() : device() {
 	
 	// will be overwritten later
 	max_mip_levels = 16u; // 32768px
-	
-	// indirect compute pipelines are always supported
-	indirect_command_support = true;
-	indirect_compute_command_support = true;
 }
 
 bool cuda_device::make_context_current() const {

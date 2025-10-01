@@ -103,15 +103,15 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							}
 #endif
 							
-							// implicitly support indirect compute when the function doesn't take any image parameters
-							bool has_image_args = false;
+							// implicitly support indirect compute when the function doesn't take any non-global-AS parameters
+							bool has_non_global_args = false;
 							for (const auto& func_arg : info.args) {
-								if (func_arg.image_type != toolchain::ARG_IMAGE_TYPE::NONE) {
-									has_image_args = true;
+								if (func_arg.address_space != toolchain::ARG_ADDRESS_SPACE::GLOBAL) {
+									has_non_global_args = true;
 									break;
 								}
 							}
-							if (!has_image_args) {
+							if (!has_non_global_args) {
 								mtl_pipeline_desc.supportIndirectCommandBuffers = true;
 							}
 							
@@ -146,9 +146,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							}
 							supports_indirect_compute = [kernel_state supportIndirectCommandBuffers];
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-							log_debug("$ ($): max work-items: $, simd width: $, local mem: $",
+							log_debug("$ ($): max work-items: $, simd width: $, local mem: $, indirect: $",
 									  info.name, prog.first->name,
-									  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth], [kernel_state staticThreadgroupMemoryLength]);
+									  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth],
+									  [kernel_state staticThreadgroupMemoryLength], supports_indirect_compute ? "yes" : "no");
 #endif
 						}
 						

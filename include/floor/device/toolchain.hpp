@@ -301,6 +301,10 @@ namespace fl::toolchain {
 			//! if true, enable soft-printf support
 			//! if unset, use the global floor option
 			std::optional<bool> soft_printf;
+			
+			//! restricts rather than enables various scalar->vector transformations
+			//! NOTE: enabling this puts the vectorization on the same level as Vulkan
+			bool restrictive_vectorization { false };
 		} metal;
 		
 		//! Vulkan specific options

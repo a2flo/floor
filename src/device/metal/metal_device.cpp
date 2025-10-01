@@ -66,9 +66,7 @@ metal_device::metal_device() : device() {
 	argument_buffer_image_support = true;
 	
 	// we always have indirect command support
-	indirect_command_support = true;
 	indirect_render_command_support = true;
-	indirect_compute_command_support = true;
 	
 	// always the case on Metal3 GPUs
 	max_total_local_size = 1024;

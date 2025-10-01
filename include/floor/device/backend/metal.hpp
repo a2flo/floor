@@ -252,7 +252,7 @@ floor_inline_always static void image_write_mem_fence() __attribute__((noduplica
 }
 
 floor_inline_always static void simd_barrier() __attribute__((noduplicate, convergent)) {
-	air_wg_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_SUB_GROUP);
+	air_simdgroup_barrier(FLOOR_METAL_MEM_FLAGS_LOCAL, FLOOR_METAL_SYNC_SCOPE_SUB_GROUP);
 }
 
 #if !defined(FLOOR_DEVICE_HAS_SOFT_PRINTF) || (FLOOR_DEVICE_HAS_SOFT_PRINTF == 0)

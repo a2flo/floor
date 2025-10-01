@@ -60,9 +60,9 @@
 
 FLOOR_SUB_GROUP_ID_RANGE_ATTR const_func uint32_t get_sub_group_id() asm("floor.get_sub_group_id.i32");
 #define sub_group_id get_sub_group_id()
-#define sub_group_local_id __nvvm_read_ptx_sreg_laneid()
+#define sub_group_local_id uint32_t(__nvvm_read_ptx_sreg_laneid())
 #define sub_group_size FLOOR_DEVICE_INFO_SIMD_WIDTH
-#define sub_group_count __nvvm_read_ptx_sreg_nwarpid()
+#define sub_group_count uint32_t(__nvvm_read_ptx_sreg_nwarpid())
 
 FLOOR_GLOBAL_ID_RANGE_ATTR const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_ctaid_x() * __nvvm_read_ptx_sreg_ntid_x() + __nvvm_read_ptx_sreg_tid_x();

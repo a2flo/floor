@@ -83,4 +83,38 @@ template <OP op, typename data_type>
 template <OP op, typename data_type>
 [[maybe_unused]] static auto sub_group_exclusive_scan(const data_type input_value);
 
+
+//! helper min/max functions that work on both scalar and vector types
+template <typename data_type> struct min_op;
+template <typename data_type> struct max_op;
+
+//! scalar min(lhs, rhs) function op
+template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+struct min_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return fl::floor_rt_min(lhs, rhs);
+	}
+};
+//! vector min(lhs, rhs) function op
+template <typename data_type> requires (is_floor_vector_v<data_type>)
+struct min_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return lhs.minned(rhs);
+	}
+};
+//! scalar max(lhs, rhs) function op
+template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+struct max_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return fl::floor_rt_max(lhs, rhs);
+	}
+};
+//! vector max(lhs, rhs) function op
+template <typename data_type> requires (is_floor_vector_v<data_type>)
+struct max_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return lhs.maxed(rhs);
+	}
+};
+
 } // namespace fl::algorithm::group
