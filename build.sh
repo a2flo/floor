@@ -515,7 +515,7 @@ if [ $BUILD_OS != "macos" -a $BUILD_OS != "ios" ]; then
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} Xxf86vm"
 	elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} gdi32"
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} gdi32 mincore"
 	fi
 	
 	# linux:

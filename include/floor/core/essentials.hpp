@@ -182,22 +182,29 @@ FLOOR_POP_WARNINGS()
 #undef INTEL
 #endif
 
-// MSVC workarounds
-#if defined(_MSC_VER)
+// Windows defines + workarounds
+#if defined(_WIN32)
 
 #if !defined(_WIN32_WINNT)
 #define _WIN32_WINNT 0x0A00
 #elif _WIN32_WINNT < 0x0A00
-#error "must target Windows 10+"
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
 #endif
+
+#if !defined(WDK_NTDDI_VERSION)
+#define WDK_NTDDI_VERSION 0x0A000006 // Windows 10 RS5
+#endif
+
 #if !defined(WIN32_LEAN_AND_MEAN)
 #define WIN32_LEAN_AND_MEAN
 #endif
+
 #if !defined(NOMINMAX)
 #define NOMINMAX
 #endif
 
-#endif // _MSC_VER
+#endif // _WIN32
 
 #if defined(MINGW)
 #define __unused__ used

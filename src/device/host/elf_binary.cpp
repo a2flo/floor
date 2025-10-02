@@ -965,21 +965,23 @@ static bool map_memory(aligned_ptr<uint8_t>& mem,
 		ro_size += sec.size;
 	}
 	
-	mem = make_aligned_ptr<uint8_t>(ro_size);
-	memset(mem.get(), 0, mem.allocation_size());
-	for (auto& section : alloc_sections) {
-		const auto& sec = *section.first->header_ptr;
-		const auto& offset = section.second;
-		if (sec.type == ELF_SECTION_TYPE::BSS) {
-			memset(mem.get() + offset, 0, sec.size);
-		} else {
-			memcpy(mem.get() + offset, &binary[sec.offset], sec.size);
+	if (ro_size > 0) {
+		mem = make_aligned_ptr<uint8_t>(ro_size);
+		memset(mem.get(), 0, mem.allocation_size());
+		for (auto& section : alloc_sections) {
+			const auto& sec = *section.first->header_ptr;
+			const auto& offset = section.second;
+			if (sec.type == ELF_SECTION_TYPE::BSS) {
+				memset(mem.get() + offset, 0, sec.size);
+			} else {
+				memcpy(mem.get() + offset, &binary[sec.offset], sec.size);
+			}
+			section_map.emplace(section.first, mem.get() + offset);
 		}
-		section_map.emplace(section.first, mem.get() + offset);
-	}
-	if (!mem.pin()) {
-		log_error("failed to pin memory: $", core::get_system_error());
-		return false;
+		if (!mem.pin()) {
+			log_error("failed to pin memory: $", core::get_system_error());
+			return false;
+		}
 	}
 	
 	return true;

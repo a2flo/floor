@@ -30,6 +30,7 @@ if (WIN32)
 	if (MINGW)
 		target_compile_definitions(${PROJECT_NAME} PUBLIC MINGW)
 	endif (MINGW)
+	target_link_libraries(${PROJECT_NAME} PRIVATE mincore)
 endif (WIN32)
 
 if (CMAKE_BUILD_TYPE MATCHES "RELEASE" OR CMAKE_BUILD_TYPE MATCHES "Release")

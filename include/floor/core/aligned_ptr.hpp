@@ -280,7 +280,8 @@ aligned_ptr<T> make_aligned_ptr(const size_t count = 1u) {
 #else
 	MEM_EXTENDED_PARAMETER ext_param {};
 	MEM_ADDRESS_REQUIREMENTS addr_req {};
-	addr_req.Alignment = wanted_alignment;
+	// NOTE: can't actually use a smaller alignment than 64KiB here
+	addr_req.Alignment = (wanted_alignment < 65536u ? 65536u : wanted_alignment);
 	ext_param.Type = MemExtendedParameterAddressRequirements;
 	ext_param.Pointer = &addr_req;
 	ptr = (T*)VirtualAlloc2(nullptr, nullptr, size,
