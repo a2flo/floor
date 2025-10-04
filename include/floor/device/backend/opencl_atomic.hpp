@@ -197,7 +197,7 @@ int64_t atom_and(local int64_t* p, int64_t val);
 floor_inline_always uint64_t atom_and(global uint64_t* p, uint64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(&, global, p, val)
 }
-floor_inline_always int64_t atom_and(volatie global int64_t* p, int64_t val) {
+floor_inline_always int64_t atom_and(global int64_t* p, int64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(&, global, p, val)
 }
 floor_inline_always uint64_t atom_and(local uint64_t* p, uint64_t val) {
@@ -222,7 +222,7 @@ int64_t atom_or(local int64_t* p, int64_t val);
 floor_inline_always uint64_t atom_or(global uint64_t* p, uint64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(|, global, p, val)
 }
-floor_inline_always int64_t atom_or(volatie global int64_t* p, int64_t val) {
+floor_inline_always int64_t atom_or(global int64_t* p, int64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(|, global, p, val)
 }
 floor_inline_always uint64_t atom_or(local uint64_t* p, uint64_t val) {
@@ -247,7 +247,7 @@ int64_t atom_xor(local int64_t* p, int64_t val);
 floor_inline_always uint64_t atom_xor(global uint64_t* p, uint64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(^, global, p, val)
 }
-floor_inline_always int64_t atom_xor(volatie global int64_t* p, int64_t val) {
+floor_inline_always int64_t atom_xor(global int64_t* p, int64_t val) {
 	FLOOR_ATOMIC_FALLBACK_OP_64(^, global, p, val)
 }
 floor_inline_always uint64_t atom_xor(local uint64_t* p, uint64_t val) {

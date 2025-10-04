@@ -2090,6 +2090,9 @@ enable_renderer(enable_renderer_) {
 													 shader_atomic_float_features.shaderBufferFloat32AtomicAdd &&
 													 shader_atomic_float_features.shaderSharedFloat32Atomics &&
 													 shader_atomic_float_features.shaderSharedFloat32AtomicAdd);
+		device.basic_64_bit_atomics_support = (vulkan12_features.shaderBufferInt64Atomics &&
+											   vulkan12_features.shaderSharedInt64Atomics);
+		device.extended_64_bit_atomics_support = device.basic_64_bit_atomics_support;
 		
 		device.max_inline_uniform_block_size = vulkan13_props.maxInlineUniformBlockSize;
 		device.max_inline_uniform_block_count = vulkan13_props.maxDescriptorSetInlineUniformBlocks;
