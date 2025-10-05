@@ -28,45 +28,60 @@
 
 namespace fl {
 
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(non-virtual-dtor)
-
-class __attribute__((packed, aligned(4))) bbox {
+//! axis-aligned bounding box
+template <typename bbox_vector_type = float3>
+class bbox {
 public:
-	float3 min { std::numeric_limits<float>::max() };
-	float3 max { -std::numeric_limits<float>::max() };
+	using vector_type = bbox_vector_type;
+	using scalar_type = typename vector_type::decayed_scalar_type;
+	using intersection_type = vector_n<scalar_type, 2>;
 	
+	vector_type min { ext::limits<scalar_type>::max };
+	vector_type max { ext::limits<scalar_type>::lowest };
+	
+	//! default construct with invalid extent
 	constexpr bbox() noexcept = default;
+	//! default copy-construct from same bbox
 	constexpr bbox(const bbox& box) noexcept = default;
-	constexpr bbox(const float3& bmin, const float3& bmax) noexcept : min(bmin), max(bmax) {}
+	//! default move-construct from same bbox
+	constexpr bbox(bbox&& box) noexcept = default;
+	constexpr bbox(const vector_type bmin, const vector_type bmax) noexcept : min(bmin), max(bmax) {}
 	
-	constexpr void extend(const float3& v) {
+	//! default copy assignment
+	constexpr bbox& operator=(const bbox& vec) noexcept = default;
+	
+	//! default move assignment
+	constexpr bbox& operator=(bbox&& vec) noexcept = default;
+	
+	constexpr bbox& extend(const vector_type v) {
 		min.min(v);
 		max.max(v);
+		return *this;
+	}
+	constexpr bbox extended(const vector_type v) const {
+		return bbox(*this).extend(v);
 	}
 	
-	constexpr void extend(const bbox& box) {
+	constexpr bbox& extend(const bbox& box) {
 		min.min(box.min);
 		max.max(box.max);
+		return *this;
+	}
+	constexpr bbox extended(const bbox& box) const {
+		return bbox(*this).extend(box);
 	}
 	
-	constexpr float3 diagonal() const {
+	constexpr vector_type diagonal() const {
 		return max - min;
 	}
 	
-	constexpr float3 center() const {
-		return (min + max) * 0.5f;
-	}
-	
-	constexpr bbox& operator=(const bbox& box) {
-		min = box.min;
-		max = box.max;
-		return *this;
+	constexpr vector_type center() const {
+		return (min + max) * scalar_type(0.5);
 	}
 	
 #if !defined(FLOOR_NO_MATH_STR)
 	friend std::ostream& operator<<(std::ostream& output, const bbox& box) {
-		output << "(Min: " << box.min << ", Max: " << box.max << ")";
+		output << "(min: " << box.min << ", max: " << box.max << ")";
 		return output;
 	}
 	std::string to_string() const {
@@ -76,43 +91,45 @@ public:
 	}
 #endif
 	
-	static constexpr const float2 invalid_intersection { std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+	static constexpr const intersection_type invalid_intersection {
+		std::numeric_limits<scalar_type>::max(), -std::numeric_limits<scalar_type>::max()
+	};
 	
 	//! intersects the specified ray with this bbox, returning the { min, max } intersection distances
 	//! how to interpret return values:
 	//!  * no intersection if min >= max
 	//!  * proper intersection if min < max && min >= 0
 	//!  * self-intersection if min < max && min < 0 && this->contains(r.origin)
-	constexpr float2 intersect(const ray& r) const {
+	constexpr intersection_type intersect(const ray r) const {
 		// http://www.cs.utah.edu/~awilliam/box/box.pdf
 		// https://tavianator.com/fast-branchless-raybounding-box-intersections-part-2-nans
-		const auto inv_dir = 1.0f / r.direction;
+		const auto inv_dir = (decltype(ray::direction)::decayed_scalar_type(1.0) / r.direction).cast<scalar_type>();
 		const auto t1 = (min - r.origin) * inv_dir;
 		const auto t2 = (max - r.origin) * inv_dir;
 		
-		auto tmin = std::min(t1.x, t2.x);
-		auto tmax = std::max(t1.x, t2.x);
+		auto tmin = math::min(t1.x, t2.x);
+		auto tmax = math::max(t1.x, t2.x);
 		
-		tmin = std::max(tmin, std::min(std::min(t1.y, t2.y), tmax));
-		tmax = std::min(tmax, std::max(std::max(t1.y, t2.y), tmin));
+		tmin = math::max(tmin, math::min(std::min(t1.y, t2.y), tmax));
+		tmax = math::min(tmax, math::max(std::max(t1.y, t2.y), tmin));
 		
-		tmin = std::max(tmin, std::min(std::min(t1.z, t2.z), tmax));
-		tmax = std::min(tmax, std::max(std::max(t1.z, t2.z), tmin));
+		tmin = math::max(tmin, math::min(std::min(t1.z, t2.z), tmax));
+		tmax = math::min(tmax, math::max(std::max(t1.z, t2.z), tmin));
 		
 		return { tmin, tmax };
 	}
 	
 	//! returns true if the ray properly intersects this bbox
 	//! NOTE: self-intersection return false
-	constexpr bool is_intersection(const ray& r) const {
+	constexpr bool is_intersection(const ray r) const {
 		const auto ret = intersect(r);
-		return (ret.x < ret.y && ret.x >= 0.0f);
+		return (ret.x < ret.y && ret.x >= scalar_type(0.0));
 	}
 	
-	constexpr bool contains(const float3& p) const {
-		if(((p.x >= min.x && p.x <= max.x) || (p.x <= min.x && p.x >= max.x)) &&
-		   ((p.y >= min.y && p.y <= max.y) || (p.y <= min.y && p.y >= max.y)) &&
-		   ((p.z >= min.z && p.z <= max.z) || (p.z <= min.z && p.z >= max.z))) {
+	constexpr bool contains(const vector_type p) const {
+		if (((p.x >= min.x && p.x <= max.x) || (p.x <= min.x && p.x >= max.x)) &&
+			((p.y >= min.y && p.y <= max.y) || (p.y <= min.y && p.y >= max.y)) &&
+			((p.z >= min.z && p.z <= max.z) || (p.z <= min.z && p.z >= max.z))) {
 			return true;
 		}
 		return false;
@@ -120,8 +137,28 @@ public:
 	
 };
 
-//! extended bound box (including position and model view matrix)
-class __attribute__((packed)) extbbox : public bbox {
+using bboxh = bbox<half3>;
+using bboxf = bbox<float3>;
+#if !defined(FLOOR_DEVICE_NO_DOUBLE) // disable double + long double if specified
+using bboxd = bbox<double3>;
+// always disable long double on device platforms
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
+using bboxl = bbox<ldouble3>;
+#endif
+#endif
+
+#if defined(FLOOR_EXPORT)
+// only instantiate this in the bbox.cpp
+extern template class bbox<half3>;
+extern template class bbox<float3>;
+#if !defined(FLOOR_DEVICE_NO_DOUBLE)
+extern template class bbox<double3>;
+extern template class bbox<ldouble3>;
+#endif
+#endif
+
+//! extended bounding box (including position and model view matrix)
+class __attribute__((packed)) extbbox : public bbox<float3> {
 public:
 	float3 pos;
 	matrix4f mview;
@@ -190,7 +227,5 @@ public:
 #endif
 	
 };
-
-FLOOR_POP_WARNINGS()
 
 } // namespace fl

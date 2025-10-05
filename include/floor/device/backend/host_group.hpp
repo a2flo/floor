@@ -20,6 +20,11 @@
 
 #if defined(FLOOR_DEVICE_HOST_COMPUTE)
 
+#if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+// loop unrolling in any of the functions below doesn't work on non-device Host-Compute, stop complaining about it
+FLOOR_PUSH_AND_IGNORE_WARNING(pass-failed)
+#endif
+
 extern "C" {
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 uint32_t floor_host_compute_simd_ballot(bool predicate) __attribute__((noduplicate)) FLOOR_HOST_COMPUTE_CC;
@@ -139,11 +144,6 @@ namespace algorithm::group {
 // defines a list of all supported subgroup data types as: ", type1, type2, type3"
 #define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_LIST(func, device_suffix, floor_data_type, type_suffix) , floor_data_type
 
-#if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-// loop unrolling below doesn't work on non-device Host-Compute, stop complaining about it
-FLOOR_PUSH_AND_IGNORE_WARNING(pass-failed)
-#endif
-
 //! performs a butterfly reduction inside the sub-group using the specific operation/function
 template <typename T, typename F>
 requires (ext::is_same_as_any_v<T FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_LIST, , )>)
@@ -180,10 +180,6 @@ floor_inline_always static T host_compute_sub_group_scan(T lane_var, F&& op) {
 		return lane_var;
 	}
 }
-
-#if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-FLOOR_POP_WARNINGS()
-#endif
 
 #undef FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_LIST
 
@@ -263,5 +259,8 @@ static inline auto sub_group_exclusive_scan(const data_type input_value) {
 
 } // namespace fl
 
+#if !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+FLOOR_POP_WARNINGS()
 #endif
 
+#endif

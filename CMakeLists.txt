@@ -349,6 +349,7 @@ add_library(${PROJECT_NAME}
 	src/lang/grammar.cpp
 	src/lang/lexer.cpp
 	src/lang/source_types.cpp
+	src/math/bbox.cpp
 	src/math/dual_quaternion.cpp
 	src/math/matrix4.cpp
 	src/math/quaternion.cpp

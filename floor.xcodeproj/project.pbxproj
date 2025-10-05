@@ -344,6 +344,9 @@
 		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
+		5CFE62E82E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
+		5CFE62E92E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
+		5CFE62EA2E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -714,6 +717,7 @@
 		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
 		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		5CE959F02E368441001965FB /* device_context_flags.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = device_context_flags.hpp; path = include/floor/device/device_context_flags.hpp; sourceTree = SOURCE_ROOT; };
+		5CFE62E72E922CC900C5CBFA /* bbox.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bbox.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1142,6 +1146,7 @@
 		5C6DC7122DB0958100627453 /* math */ = {
 			isa = PBXGroup;
 			children = (
+				5CFE62E72E922CC900C5CBFA /* bbox.cpp */,
 				5C6DCA5A2DB0989A00627453 /* bbox.hpp */,
 				5C6DCA5B2DB0989A00627453 /* constants.hpp */,
 				5C6DC7092DB0958100627453 /* dual_quaternion.cpp */,
@@ -1511,6 +1516,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1533,6 +1539,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1549,6 +1556,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 				"",
 				"",
@@ -1607,6 +1615,7 @@
 				5C6DC7BB2DB0958100627453 /* metal_image.mm in Sources */,
 				5CAC49BB2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC7BC2DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
+				5CFE62EA2E922CC900C5CBFA /* bbox.cpp in Sources */,
 				5C6DC7BD2DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC7BE2DB0958100627453 /* graphics_pipeline.cpp in Sources */,
 				5C6DC7BF2DB0958100627453 /* vector_1d.cpp in Sources */,
@@ -1722,6 +1731,7 @@
 				5C6DC7442DB0958100627453 /* metal_image.mm in Sources */,
 				5CAC49BD2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC7452DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
+				5CFE62E92E922CC900C5CBFA /* bbox.cpp in Sources */,
 				5C6DC7462DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC7472DB0958100627453 /* graphics_pipeline.cpp in Sources */,
 				5C6DC7482DB0958100627453 /* vector_1d.cpp in Sources */,
@@ -1837,6 +1847,7 @@
 				5C6DC8272DB0958100627453 /* metal_image.mm in Sources */,
 				5CAC49BC2E323F5C006377F5 /* vulkan_heap.cpp in Sources */,
 				5C6DC8282DB0958100627453 /* vulkan_descriptor_set.cpp in Sources */,
+				5CFE62E82E922CC900C5CBFA /* bbox.cpp in Sources */,
 				5C6DC8292DB0958100627453 /* sig_handler.cpp in Sources */,
 				5C6DC82A2DB0958100627453 /* graphics_pipeline.cpp in Sources */,
 				5C6DC82B2DB0958100627453 /* vector_1d.cpp in Sources */,

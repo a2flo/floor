@@ -175,5 +175,26 @@ namespace fl::ext {
 	};
 	
 	template <typename T> using integral_eqv_t = typename integral_eqv<T>::type;
-
+	
+	//! numeric_limits extension
+	template <typename T> struct limits;
+	template <typename stl_arith_type>
+	requires (std::is_arithmetic_v<stl_arith_type>)
+	struct limits<stl_arith_type> {
+		static constexpr const auto min = std::numeric_limits<stl_arith_type>::min();
+		static constexpr const auto max = std::numeric_limits<stl_arith_type>::max();
+		static constexpr const auto lowest = std::numeric_limits<stl_arith_type>::lowest();
+	};
+	template <> struct limits<half> {
+#if !defined(FLOOR_DEVICE_CUDA) && !defined(FLOOR_DEVICE_OPENCL) && !defined(FLOOR_DEVICE_METAL) && !defined(FLOOR_DEVICE_VULKAN) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+		static constexpr const half min { half::direct_u16_value_init(0x03FFu) };
+		static constexpr const half max { half::direct_u16_value_init(0x7BFFu) };
+		static constexpr const half lowest { half::direct_u16_value_init(0xFBFFu) };
+#else
+		static constexpr const half min { std::bit_cast<half>(uint16_t(0x03FFu)) };
+		static constexpr const half max { std::bit_cast<half>(uint16_t(0x7BFFu)) };
+		static constexpr const half lowest { std::bit_cast<half>(uint16_t(0xFBFFu)) };
+#endif
+	};
+	
 } // namespace fl::ext
