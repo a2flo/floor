@@ -92,7 +92,7 @@ public:
 #endif
 	
 	static constexpr const intersection_type invalid_intersection {
-		std::numeric_limits<scalar_type>::max(), -std::numeric_limits<scalar_type>::max()
+		ext::limits<scalar_type>::max, ext::limits<scalar_type>::lowest
 	};
 	
 	//! intersects the specified ray with this bbox, returning the { min, max } intersection distances
