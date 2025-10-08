@@ -325,6 +325,10 @@ namespace fl::toolchain {
 			//! if specified, this must contain valid options that will be passed to spirv-opt
 			//! NOTE: this will override the default options!
 			std::optional<std::string> opt_overrides;
+			
+			//! if true, enables workarounds for certain pointer uses in SPIR-V
+			//! NOTE: it is generally not recommended to enable this as this will cause performance and potential correctness issues
+			bool pointer_workarounds { false };
 		} vulkan;
 		
 		//! optional pre-compiled header that should be used for compilation

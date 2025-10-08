@@ -817,6 +817,7 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_bfloat16",
 			"VK_KHR_shader_untyped_pointers",
+			"VK_KHR_copy_memory_indirect",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
