@@ -35,6 +35,7 @@
 #include "internal/vulkan_descriptor_set.hpp"
 #include <floor/floor.hpp>
 #include <floor/device/soft_printf.hpp>
+#include <floor/core/file_io.hpp>
 
 namespace fl {
 using namespace std::literals;
@@ -155,6 +156,8 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 						   "pipeline:" + info->name + ":spec:" + work_group_size.to_string() + ":simd:" + std::to_string(simd_width));
 	
 	if (cache && log_binary) {
+		const auto module_create_info = (const VkShaderModuleCreateInfo*)stage_info.pNext;
+		file_io::buffer_to_file(info->name + ".spv", (const char*)module_create_info->pCode, module_create_info->codeSize);
 		vulkan_disassembly::disassemble(dev, info->name + "_" + std::to_string(work_group_size.x) + "_" + std::to_string(work_group_size.y) +
 										"_" + std::to_string(work_group_size.z) + "_simd_" + std::to_string(simd_width),
 										spec_entry.pipeline, &cache);

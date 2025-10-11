@@ -313,13 +313,17 @@ static constexpr inline half operator""_h (long double val) {
 
 //! global memory buffer
 //! TODO: set proper base alignment on the compiler side
-#if !defined(FLOOR_DEVICE_METAL)
 #define buffer __restrict device_global_buffer
-#else // align is not supported with metal
-// all global buffers are noalias/restrict with Metal 2.1+
-#define buffer __restrict device_global_buffer
-#endif
 template <typename T> using device_global_buffer = global T*;
+
+//! global coherent memory buffer
+//! TODO: set proper base alignment on the compiler side
+#if defined(FLOOR_DEVICE_METAL) || defined(FLOOR_DEVICE_VULKAN)
+#define coherent_buffer __attribute__((floor_coherent)) __restrict device_coherent_global_buffer
+#else
+#define coherent_buffer __restrict device_coherent_global_buffer
+#endif
+template <typename T> using device_coherent_global_buffer = global T*;
 
 //! local memory buffer:
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE)
