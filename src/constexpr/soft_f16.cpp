@@ -22,5 +22,6 @@
 static_assert(sizeof(fl::soft_f16) == 2, "invalid soft 16-bit half floating point type size");
 
 // this must be ensured
+static_assert(std::is_trivially_constructible_v<fl::soft_f16>, "soft 16-bit half floating point type must be trivially constructible");
 static_assert(std::is_trivially_copyable_v<fl::soft_f16>, "soft 16-bit half floating point type must be trivially copyable");
 static_assert(std::is_standard_layout_v<fl::soft_f16>);

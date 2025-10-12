@@ -159,13 +159,7 @@ public:
 #if !defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 		using clang_scalar_type = scalar_type;
 #else
-		using clang_scalar_type = std::conditional_t<!std::is_same_v<scalar_type, half>, scalar_type,
-#if FLOOR_HAS_NATIVE_FP16 == 1
-												__fp16
-#else
-												uint16_t
-#endif
-												>;
+		using clang_scalar_type = std::conditional_t<!std::is_same_v<scalar_type, half>, scalar_type, __fp16>;
 #endif
 		
 		using clang_vector_type = __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH))) clang_scalar_type;
