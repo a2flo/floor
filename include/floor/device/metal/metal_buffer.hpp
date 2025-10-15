@@ -59,8 +59,8 @@ public:
 	
 	~metal_buffer() override;
 	
-	void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void read(const device_queue& cqueue, void* floor_nullable dst, const size_t size = 0, const size_t offset = 0) override;
+	void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) const override;
+	void read(const device_queue& cqueue, void* floor_nullable dst, const size_t size = 0, const size_t offset = 0) const override;
 	
 	void write(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
 	void write(const device_queue& cqueue, const void* floor_nonnull src, const size_t size = 0, const size_t offset = 0) override;

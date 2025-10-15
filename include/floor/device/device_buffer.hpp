@@ -36,10 +36,10 @@ public:
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
-	virtual void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) const = 0;
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the specified "dst" pointer
-	virtual void read(const device_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(const device_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) const = 0;
 	
 	//! reads sizeof("dst") bytes from "offset" onwards to "dst"
 	template <typename T> floor_inline_always void read_to(T& dst, const device_queue& cqueue, const size_t offset_ = 0) {

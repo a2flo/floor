@@ -84,7 +84,7 @@ protected:
 	bool read_memory_data(const device_queue& cqueue,
 						  std::span<uint8_t> data, const size_t& offset,
 						  const size_t shim_input_size = 0,
-						  const char* error_msg_on_failure = nullptr);
+						  const char* error_msg_on_failure = nullptr) const;
 	
 	void* __attribute__((aligned(128))) map(const device_queue& cqueue,
 											const MEMORY_MAP_FLAG flags,

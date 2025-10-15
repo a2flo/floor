@@ -80,7 +80,7 @@ bool vulkan_memory::write_memory_data(const device_queue& cqueue, const std::spa
 }
 
 bool vulkan_memory::read_memory_data(const device_queue& cqueue, std::span<uint8_t> data, const size_t& offset,
-									 const size_t shim_input_size, const char* error_msg_on_failure) {
+									 const size_t shim_input_size, const char* error_msg_on_failure) const {
 	// use VMA copy if this is just a simple memcpy (no shim conversion necessary)
 	// NOTE: while VMA recommends VK_MEMORY_PROPERTY_HOST_CACHED_BIT, it is not required
 	if (is_heap_allocation && is_heap_allocation_host_visible && shim_input_size == 0u &&
@@ -98,11 +98,13 @@ bool vulkan_memory::read_memory_data(const device_queue& cqueue, std::span<uint8
 	}
 	
 	const auto mapping_size = (shim_input_size != 0 ? shim_input_size : data.size_bytes());
-	auto mapped_ptr = map(cqueue, MEMORY_MAP_FLAG::READ | MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
+	// unfortunate, but don't want separate const and non-const map() implementation
+	auto mutable_mem = const_cast<vulkan_memory*>(this);
+	auto mapped_ptr = mutable_mem->map(cqueue, MEMORY_MAP_FLAG::READ | MEMORY_MAP_FLAG::BLOCK, mapping_size, offset);
 	if (mapped_ptr != nullptr) {
 		assert(mapping_size >= data.size_bytes());
 		memcpy(data.data(), mapped_ptr, data.size_bytes());
-		if (!unmap(cqueue, mapped_ptr)) {
+		if (!mutable_mem->unmap(cqueue, mapped_ptr)) {
 			return false;
 		}
 	} else {

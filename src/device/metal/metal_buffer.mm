@@ -318,11 +318,11 @@ metal_buffer::~metal_buffer() {
 #endif
 }
 
-void metal_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) {
+void metal_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) const {
 	read(cqueue, host_data.data(), size_, offset);
 }
 
-void metal_buffer::read(const device_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
+void metal_buffer::read(const device_queue& cqueue, void* dst, const size_t size_, const size_t offset) const {
 	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);

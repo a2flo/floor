@@ -105,11 +105,11 @@ bool host_buffer::create_internal(const bool copy_host_data, const device_queue&
 host_buffer::~host_buffer() {
 }
 
-void host_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) {
+void host_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) const {
 	read(cqueue, host_data.data(), size_, offset);
 }
 
-void host_buffer::read(const device_queue& cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
+void host_buffer::read(const device_queue& cqueue floor_unused, void* dst, const size_t size_, const size_t offset) const {
 	if (!buffer) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);

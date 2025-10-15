@@ -48,8 +48,8 @@ public:
 	
 	~cuda_buffer() override;
 	
-	void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
-	void read(const device_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
+	void read(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) const override;
+	void read(const device_queue& cqueue, void* dst, const size_t size = 0, const size_t offset = 0) const override;
 	
 	void write(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) override;
 	void write(const device_queue& cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;

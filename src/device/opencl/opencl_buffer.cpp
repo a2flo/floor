@@ -100,11 +100,11 @@ opencl_buffer::~opencl_buffer() {
 	}
 }
 
-void opencl_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) {
+void opencl_buffer::read(const device_queue& cqueue, const size_t size_, const size_t offset) const {
 	read(cqueue, host_data.data(), size_, offset);
 }
 
-void opencl_buffer::read(const device_queue& cqueue, void* dst, const size_t size_, const size_t offset) {
+void opencl_buffer::read(const device_queue& cqueue, void* dst, const size_t size_, const size_t offset) const {
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
