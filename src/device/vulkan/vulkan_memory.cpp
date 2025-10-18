@@ -488,20 +488,21 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 											   const bool want_device_memory,
 											   const bool requires_device_memory,
-											   const bool requires_host_coherent) const {
+											   const bool requires_host_coherent,
+											   const bool want_host_cached) const {
 	const auto find_index = [](const std::vector<uint32_t>& indices,
 							   const uint32_t& preferred_index,
 							   const uint32_t& type_bits) -> std::pair<bool, uint32_t> {
 		// check if preferred index is possible
 		const uint32_t preferred_mask = 1u << preferred_index;
-		if((type_bits & preferred_mask) == preferred_mask) {
+		if ((type_bits & preferred_mask) == preferred_mask) {
 			return { true, preferred_index };
 		}
 		
 		// check all other supported indices
-		for(const auto& idx : indices) {
+		for (const auto& idx : indices) {
 			const uint32_t idx_mask = 1u << idx;
-			if((type_bits & idx_mask) == idx_mask) {
+			if ((type_bits & idx_mask) == idx_mask) {
 				return { true, idx };
 			}
 		}
@@ -512,8 +513,16 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 	
 	std::pair<bool, uint32_t> ret { false, 0 };
 	
-	// if device memory is wanted or required, try this first
-	if(want_device_memory || requires_device_memory) {
+	// preempt all others if host-cached is wanted and device memory is explicitly not required
+	if (want_host_cached && !requires_device_memory) {
+		ret = find_index(vk_dev.host_mem_cached_indices, vk_dev.host_mem_cached_index, memory_type_bits);
+		if (ret.first) {
+			return ret.second;
+		}
+	}
+	
+	// if device memory is wanted or required
+	if (want_device_memory || requires_device_memory) {
 		// select between device-only and device+host-coherent memory
 		ret = (!requires_host_coherent ?
 			   find_index(vk_dev.device_mem_indices, vk_dev.device_mem_index, memory_type_bits) :
@@ -529,13 +538,19 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 	
 	if (requires_host_coherent) {
 		ret = find_index(vk_dev.device_mem_host_coherent_indices, vk_dev.device_mem_host_coherent_index, memory_type_bits);
-		if(ret.first) return ret.second;
+		if(ret.first) {
+			return ret.second;
+		}
 	} else {
 		// check cached first, then coherent
 		ret = find_index(vk_dev.host_mem_cached_indices, vk_dev.host_mem_cached_index, memory_type_bits);
-		if(ret.first) return ret.second;
+		if (ret.first) {
+			return ret.second;
+		}
 		ret = find_index(vk_dev.device_mem_host_coherent_indices, vk_dev.device_mem_host_coherent_index, memory_type_bits);
-		if(ret.first) return ret.second;
+		if (ret.first) {
+			return ret.second;
+		}
 	}
 	
 	// no memory found for this

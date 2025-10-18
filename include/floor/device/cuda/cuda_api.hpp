@@ -1093,7 +1093,9 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*link_destroy)(cu_link_state state);
 	CU_API CU_RESULT (*mem_alloc)(cu_device_ptr* dptr, size_t bytesize);
 	CU_API CU_RESULT (*mem_free)(cu_device_ptr dptr);
+	CU_API CU_RESULT (*mem_free_host)(void* hptr);
 	CU_API CU_RESULT (*mem_get_info)(size_t* free, size_t* total);
+	CU_API CU_RESULT (*mem_host_alloc)(void** hptr, size_t bytesize);
 	CU_API CU_RESULT (*mem_host_get_device_pointer)(cu_device_ptr* pdptr, void* p, uint32_t flags);
 	CU_API CU_RESULT (*mem_host_register)(void* p, size_t bytesize, CU_MEM_HOST_REGISTER flags);
 	CU_API CU_RESULT (*mem_host_unregister)(void* p);
@@ -1183,7 +1185,9 @@ extern bool cuda_can_use_external_memory();
 #define cu_link_destroy cuda_api.link_destroy
 #define cu_mem_alloc cuda_api.mem_alloc
 #define cu_mem_free cuda_api.mem_free
+#define cu_mem_free_host cuda_api.mem_free_host
 #define cu_mem_get_info cuda_api.mem_get_info
+#define cu_mem_host_alloc cuda_api.mem_host_alloc
 #define cu_mem_host_get_device_pointer cuda_api.mem_host_get_device_pointer
 #define cu_mem_host_register cuda_api.mem_host_register
 #define cu_mem_host_unregister cuda_api.mem_host_unregister

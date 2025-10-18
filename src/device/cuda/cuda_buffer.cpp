@@ -99,10 +99,16 @@ device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
 
 bool cuda_buffer::create_internal(const bool copy_host_data, const device_queue& cqueue) {
 	// -> use host memory
-	if(has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+	if (has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cu_mem_host_register(host_data.data(), size, CU_MEM_HOST_REGISTER::DEVICE_MAP | CU_MEM_HOST_REGISTER::PORTABLE),
 					"failed to register host pointer", false)
 		CU_CALL_RET(cu_mem_host_get_device_pointer(&buffer, host_data.data(), 0),
+					"failed to get device pointer for mapped host memory", false)
+	}
+	// -> alloc host memory
+	else if (has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags)) {
+		CU_CALL_RET(cu_mem_host_alloc(&host_alloc_ptr, size), "failed to allocate host memory", false)
+		CU_CALL_RET(cu_mem_host_get_device_pointer(&buffer, host_alloc_ptr, 0),
 					"failed to get device pointer for mapped host memory", false)
 	}
 	// -> alloc and use device memory
@@ -172,9 +178,14 @@ cuda_buffer::~cuda_buffer() {
 	// kill the buffer
 	
 	// -> host memory
-	if(has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-		CU_CALL_RET(cu_mem_host_unregister(host_data.data()),
-					"failed to unregister mapped host memory")
+	if (has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+		CU_CALL_RET(cu_mem_host_unregister(host_data.data()), "failed to unregister mapped host memory")
+	}
+	// -> host allocated memory
+	else if (has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags)) {
+		CU_CALL_RET(cu_mem_host_unregister(host_alloc_ptr), "failed to unregister mapped host memory")
+		CU_CALL_RET(cu_mem_free_host(host_alloc_ptr), "failed to free host memory")
+		host_alloc_ptr = nullptr;
 	}
 	// -> device memory
 	else {

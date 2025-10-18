@@ -218,6 +218,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 	const bool is_render_target = has_flag<IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	const bool is_aliasing = has_flag<MEMORY_FLAG::VULKAN_ALIASING>(flags);
+	const auto is_read_back = has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags);
 	
 	// format conversion
 	const auto vk_format_opt = vulkan_format_from_image_type(image_type);
@@ -387,7 +388,8 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 			.allocationSize = allocation_size,
 			.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
 													  is_sharing /* sharing requires device memory */,
-													  false /* host-coherent is not required */),
+													  false /* host-coherent is not required */,
+													  is_read_back /* want host-cached */),
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem),
 					"image allocation (" + std::to_string(allocation_size) + " bytes) failed", false)

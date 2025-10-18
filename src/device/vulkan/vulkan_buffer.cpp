@@ -72,6 +72,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 	const auto is_sharing = has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags);
 	const auto is_host_coherent = has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags);
 	const auto is_desc_buffer = has_flag<MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER>(flags);
+	const auto is_read_back = has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags);
 	// set all the bits here, might need some better restrictions later on
 	// NOTE: not setting vertex bit here, b/c we're always using SSBOs
 	buffer_usage = (VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT |
@@ -190,7 +191,8 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, const device_queu
 			.allocationSize = allocation_size,
 			.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */,
 													  is_sharing || is_host_coherent /* sharing or host-coherent requires device memory */,
-													  is_host_coherent /* require host-coherent if set */),
+													  is_host_coherent /* require host-coherent if set */,
+													  is_read_back /* want host-cached */),
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false)
 		const VkBindBufferMemoryInfo bind_info {
@@ -303,13 +305,29 @@ void vulkan_buffer::read(const device_queue& cqueue, const size_t size_, const s
 	read(cqueue, host_data.data(), size_, offset);
 }
 
-void vulkan_buffer::read(const device_queue& cqueue, void* dst,  const size_t size_, const size_t offset) const {
+void vulkan_buffer::read(const device_queue& cqueue, void* dst, const size_t size_, const size_t offset) const {
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset, flags)) return;
 	
 	GUARD(lock);
+	
+	// if this is not a read back optimized buffer (host-cached) and tmp staging buffer creation was requested,
+	// do so if the read size is not too small (TODO: what is a good size?)
+	if (has_flag<MEMORY_FLAG::HOST_READ_STAGING>(memory_flags) &&
+		!has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(memory_flags) &&
+		read_size > 4096u) {
+		auto tmp_read_back = cqueue.get_context().create_buffer(cqueue, read_size,
+																MEMORY_FLAG::WRITE | MEMORY_FLAG::HOST_READ |
+																MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE |
+																MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
+																MEMORY_FLAG::HEAP_ALLOCATION);
+		tmp_read_back->copy(cqueue, *this, read_size, offset);
+		tmp_read_back->read(cqueue, dst, read_size, 0u);
+		return;
+	}
+	
 	read_memory_data(cqueue, { (uint8_t*)dst, read_size }, offset, 0, "failed to read buffer");
 }
 

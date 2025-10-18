@@ -84,6 +84,7 @@ public:
 protected:
 	cu_device_ptr buffer { 0ull };
 	cu_graphics_resource rsrc { nullptr };
+	void* host_alloc_ptr { nullptr };
 	
 	struct cuda_mapping {
 		aligned_ptr<uint8_t> ptr;

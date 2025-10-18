@@ -50,8 +50,13 @@ enum class MEMORY_FLAG : uint32_t {
 	//! but won't initialize the device memory with that data
 	NO_INITIAL_COPY				= (1u << 4u),
 	
-	// unused					= (1u << 5u),
-	// unused					= (1u << 6u),
+	//! optimizes the allocation for host read back (device -> host copy)
+	//! NOTE: likely performs a host-side allocation that is sub-optimal for device-side operations
+	HOST_READ_BACK_OPTIMIZE		= (1u << 5u),
+	
+	//! when beneficial, creates a temporary staging buffer during device -> host reads/copies that is optimized for host read back,
+	//! copying the device memory to the staging buffer first before copying from it to the host
+	HOST_READ_STAGING			= (1u << 6u),
 	
 	//! memory is allocated in host memory, i.e. the specified host pointer
 	//! will be used for all memory operations

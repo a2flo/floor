@@ -100,7 +100,8 @@ protected:
 	uint32_t find_memory_type_index(const uint32_t memory_type_bits,
 									const bool want_device_memory,
 									const bool requires_device_memory = false,
-									const bool requires_host_coherent = false) const;
+									const bool requires_host_coherent = false,
+									const bool want_host_cached = false) const;
 	
 };
 

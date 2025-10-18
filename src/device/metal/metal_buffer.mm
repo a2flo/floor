@@ -56,6 +56,7 @@ is_staging_buffer(is_staging_buffer_) {
 	// no special MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
 	
 	const auto shared_only = (floor::get_metal_shared_only_with_unified_memory() && dev.unified_memory);
+	const auto is_read_back = has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags);
 	switch (flags & MEMORY_FLAG::HOST_READ_WRITE) {
 		case MEMORY_FLAG::HOST_READ:
 		case MEMORY_FLAG::HOST_READ_WRITE:
@@ -64,7 +65,7 @@ is_staging_buffer(is_staging_buffer_) {
 		case MEMORY_FLAG::NONE:
 		case MEMORY_FLAG::HOST_WRITE:
 			// host will only write or not read/write at all -> can use write combined
-			if (!shared_only) {
+			if (!shared_only && !is_read_back) {
 				options = MTLCPUCacheModeWriteCombined;
 			}
 			break;
@@ -72,7 +73,7 @@ is_staging_buffer(is_staging_buffer_) {
 		default: floor_unreachable();
 	}
 	
-	if (!shared_only && (flags & MEMORY_FLAG::HOST_READ_WRITE) == MEMORY_FLAG::NONE) {
+	if (!shared_only && !is_read_back && (flags & MEMORY_FLAG::HOST_READ_WRITE) == MEMORY_FLAG::NONE) {
 		// if buffer is not accessed by the host at all, use private storage
 		// note that this disables pretty much all functionality of this class!
 		options |= MTLResourceStorageModePrivate;
@@ -84,8 +85,8 @@ is_staging_buffer(is_staging_buffer_) {
 				// that we'll use to copy memory to and from the private storage buffer
 				options |= MTLResourceStorageModePrivate;
 				staging_buffer = std::make_unique<metal_buffer>(true, cqueue, size, std::span<uint8_t> {},
-														   MEMORY_FLAG::READ_WRITE |
-														   (flags & MEMORY_FLAG::HOST_READ_WRITE));
+																MEMORY_FLAG::READ_WRITE |
+																(flags & MEMORY_FLAG::HOST_READ_WRITE));
 				staging_buffer->set_debug_label(debug_label + "_staging_buffer");
 			} else {
 				// use managed storage for the staging buffer or host memory backed buffer

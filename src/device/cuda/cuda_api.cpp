@@ -202,8 +202,14 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.mem_free = load_symbol(cuda_lib, "cuMemFree_v2");
 	if(cuda_api.mem_free == nullptr) log_error("failed to retrieve function pointer for \"cuMemFree_v2\"");
 	
+	(void*&)cuda_api.mem_free_host = load_symbol(cuda_lib, "cuMemFreeHost");
+	if(cuda_api.mem_free_host == nullptr) log_error("failed to retrieve function pointer for \"cuMemFreeHost\"");
+	
 	(void*&)cuda_api.mem_get_info = load_symbol(cuda_lib, "cuMemGetInfo_v2");
 	if(cuda_api.mem_get_info == nullptr) log_error("failed to retrieve function pointer for \"cuMemGetInfo_v2\"");
+	
+	(void*&)cuda_api.mem_host_alloc = load_symbol(cuda_lib, "cuMemAllocHost_v2");
+	if(cuda_api.mem_host_alloc == nullptr) log_error("failed to retrieve function pointer for \"cuMemAllocHost_v2\"");
 	
 	(void*&)cuda_api.mem_host_get_device_pointer = load_symbol(cuda_lib, "cuMemHostGetDevicePointer_v2");
 	if(cuda_api.mem_host_get_device_pointer == nullptr) log_error("failed to retrieve function pointer for \"cuMemHostGetDevicePointer_v2\"");

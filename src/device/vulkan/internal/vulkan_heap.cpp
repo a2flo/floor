@@ -221,14 +221,19 @@ static allocation_flags_t compute_common_allocation_flags(const vulkan_device& d
 	// TODO: VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED if transient (+must have VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
 	
 	allocation_flags_t alloc_flags {};
-	if (has_flag<MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY>(flags)) {
-		alloc_flags.pref_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	const auto is_host_read_back = has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(flags);
+	if (!is_host_read_back) {
+		if (has_flag<MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY>(flags)) {
+			alloc_flags.pref_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		} else {
+			alloc_flags.req_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		}
 	} else {
-		alloc_flags.req_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		alloc_flags.req_flags = VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 	}
 	
 	const auto is_host_coherent = has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(flags);
-	bool is_host_accessible = is_host_coherent;
+	bool is_host_accessible = is_host_coherent || is_host_read_back;
 	if (has_flag<MEMORY_FLAG::HOST_READ>(flags)) {
 		// read-only or read-write
 		alloc_flags.vma_flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
@@ -237,8 +242,8 @@ static allocation_flags_t compute_common_allocation_flags(const vulkan_device& d
 		// write-only
 		alloc_flags.vma_flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 		is_host_accessible = true;
-	} else if (is_host_coherent) {
-		// neither host-read or host-write was requested, but host-coherent was -> assume random access
+	} else if (is_host_coherent || is_host_read_back) {
+		// neither host-read or host-write was requested, but host-coherent/host-read-back were -> assume random access
 		alloc_flags.vma_flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 	}
 	
