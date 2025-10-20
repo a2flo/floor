@@ -106,7 +106,8 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							// implicitly support indirect compute when the function doesn't take any non-global-AS parameters
 							bool has_non_global_args = false;
 							for (const auto& func_arg : info.args) {
-								if (func_arg.address_space != toolchain::ARG_ADDRESS_SPACE::GLOBAL) {
+								if (func_arg.address_space != toolchain::ARG_ADDRESS_SPACE::GLOBAL &&
+									!has_flag<toolchain::ARG_FLAG::ARGUMENT_BUFFER>(func_arg.flags)) {
 									has_non_global_args = true;
 									break;
 								}
