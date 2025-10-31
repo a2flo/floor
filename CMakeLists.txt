@@ -7,9 +7,6 @@ if (VCPKG_TARGET_TRIPLET)
 else (VCPKG_TARGET_TRIPLET)
 	project(floor)
 endif (VCPKG_TARGET_TRIPLET)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)
 
 ## build options
 option(BUILD_SHARED_LIBS "build libfloor as a shared library (otherwise builds as a static library)" ON)
@@ -17,6 +14,16 @@ option(BUILD_REPRODUCIBLE "perform a reproducible build" OFF)
 option(WITH_ASAN "build with address sanitizer" OFF)
 option(WITH_TSAN "build with thread sanitizer" OFF)
 option(WITH_LIBCXX "build with libc++" OFF)
+option(WITH_CXX26 OFF)
+
+## set wanted C++ standard + always enable GNU/MSVC extensions
+if (WITH_CXX26)
+	set(CMAKE_CXX_STANDARD 26)
+else ()
+	set(CMAKE_CXX_STANDARD 23)
+endif (WITH_CXX26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
 
 if (BUILD_SHARED_LIBS)
 	message(">> building libfloor as a shared library")

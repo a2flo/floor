@@ -89,6 +89,9 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++23-compat -Wno-c++23-compa
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-gnu -Wno-gcc-compat)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
+if (WITH_CXX26)
+	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++26-compat -Wno-c++26-compat-pedantic -Wno-c++26-extensions)
+endif (WITH_CXX26)
 # don't be too pedantic
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command
 	-Wno-old-style-cast -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro
