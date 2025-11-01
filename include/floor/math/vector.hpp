@@ -200,10 +200,6 @@ public:
 	//! default copy-construct from same vector_type
 	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept = default;
 	
-	//! copy-construct from same vector_type (pointer)
-	constexpr FLOOR_VECNAME(const vector_type* vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec->, FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
-	
 	//! default move-construct from same vector_type (rvalue)
 	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept = default;
 	

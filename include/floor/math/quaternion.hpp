@@ -70,9 +70,6 @@ public:
 	//! default copy-construct from same quaternion type (rvalue)
 	constexpr quaternion(quaternion&& q) noexcept = default;
 	
-	//! copy-construct from same quaternion type (pointer)
-	constexpr quaternion(const quaternion* q) noexcept : x(q->x), y(q->y), z(q->z), r(q->r) {}
-	
 	//! default copy assignment
 	constexpr quaternion& operator=(const quaternion& q) noexcept = default;
 	

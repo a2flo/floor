@@ -278,19 +278,19 @@ std::unique_ptr<device_fence> host_context::create_fence(const device_queue&) co
 }
 
 std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue,
-													   const size_t& size, const MEMORY_FLAG flags) const {
+														   const size_t size, const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<host_buffer>(cqueue, size, flags));
 }
 
 std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue,
-													   std::span<uint8_t> data,
-													   const MEMORY_FLAG flags) const {
+														   std::span<uint8_t> data,
+														   const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<host_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue,
-													 metal_buffer& mtl_buffer,
-													 const MEMORY_FLAG flags) const {
+														 metal_buffer& mtl_buffer,
+														 const MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_METAL)
 	return add_resource(std::make_shared<host_buffer>(cqueue, ((const device_buffer&)mtl_buffer).get_size(), std::span<uint8_t> {},
 												 flags | MEMORY_FLAG::METAL_SHARING, (device_buffer*)&mtl_buffer));
@@ -300,8 +300,8 @@ std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqu
 }
 
 std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue,
-													 vulkan_buffer& vk_buffer,
-													 const MEMORY_FLAG flags) const {
+														 vulkan_buffer& vk_buffer,
+														 const MEMORY_FLAG flags) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(std::make_shared<host_buffer>(cqueue, ((const device_buffer&)vk_buffer).get_size(), std::span<uint8_t> {},
 												 flags | MEMORY_FLAG::VULKAN_SHARING, (device_buffer*)&vk_buffer));

@@ -31,6 +31,11 @@
 #include <floor/device/metal/metal_shader.hpp>
 #include <floor/core/logger.hpp>
 
+#if __cplusplus > 202302L
+#define CGBitmapInfoMake(...) CGBitmapInfoMakeDummy(uint32_t alpha, uint32_t component, uint32_t byteOrder, uint32_t pixelFormat)
+#endif
+#import <QuartzCore/CAMetalLayer.h>
+
 namespace fl {
 
 metal_renderer::metal_renderer(const device_queue& cqueue_,

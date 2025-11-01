@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <CoreGraphics/CoreGraphics.h>
 #include <floor/core/platform.hpp>
 
 #if defined(FLOOR_IOS)
@@ -40,8 +39,9 @@
 
 #if defined(__OBJC__)
 @class floor_metal_view;
-#import <QuartzCore/CAMetalLayer.h>
-#import <Metal/Metal.h>
+@class CAMetalLayer;
+@protocol MTLCommandBuffer;
+@protocol CAMetalDrawable;
 #endif
 
 namespace fl {

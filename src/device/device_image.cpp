@@ -140,7 +140,7 @@ bool device_image::add_embedded_minify_program([[maybe_unused]] device_context& 
 #if defined(FLOOR_HAS_EMBEDDED_MMM_FUBAR)
 	// try to load embedded mip-map minify programs/functions
 	static_assert(std::size(mmm_fubar) > 0, "mmm.fubar is missing or empty");
-	const std::span<const uint8_t> mmm_fubar_data{ mmm_fubar, std::size(mmm_fubar) };
+	const std::span<const uint8_t> mmm_fubar_data { mmm_fubar };
 	auto embedded_mmm_program = ctx.add_universal_binary(mmm_fubar_data);
 	if (!embedded_mmm_program) {
 		return false;

@@ -649,18 +649,18 @@ void metal_context::release_soft_printf_buffer(const device& dev, const std::pai
 }
 
 std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue,
-														const size_t& size, const MEMORY_FLAG flags) const {
+															const size_t size, const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<metal_buffer>(cqueue, size,
-												  flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														   MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
+													   flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
+																MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
 }
 
 std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue,
-														std::span<uint8_t> data,
-														const MEMORY_FLAG flags) const {
+															std::span<uint8_t> data,
+															const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<metal_buffer>(cqueue, data.size_bytes(), data,
-												  flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														   MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
+													   flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
+																MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
 }
 
 std::shared_ptr<device_image> metal_context::create_image(const device_queue& cqueue,

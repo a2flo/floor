@@ -178,85 +178,99 @@ public:
 	
 	//! constructs an uninitialized buffer of the specified size on the specified device
 	virtual std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-													 const size_t& size,
-													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																						MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+														 const size_t size,
+														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	virtual std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-													 std::span<uint8_t> data,
-													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																						MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+														 std::span<uint8_t> data,
+														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 std::span<data_type> data,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const {
+												 std::span<data_type> data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
+		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
+	}
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
+	template <typename data_type, size_t count>
+	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
+												 std::span<data_type, count> data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
 		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 const std::vector<data_type>& data,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const {
+												 const std::vector<data_type>& data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
 		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type, size_t n>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 const std::array<data_type, n>& data,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const {
+												 const std::array<data_type, n>& data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
 		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags);
 	}
 	
 	//! wraps an already existing Vulkan buffer, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
-												   vulkan_buffer& vk_buffer,
-												   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																					  MEMORY_FLAG::HOST_READ_WRITE)) const;
+													   vulkan_buffer& vk_buffer,
+													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	//! wraps an already existing Metal buffer, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
-												   metal_buffer& mtl_buffer,
-												   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																					  MEMORY_FLAG::HOST_READ_WRITE)) const;
+													   metal_buffer& mtl_buffer,
+													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	//////////////////////////////////////////
 	// image creation
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	virtual std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-												   const uint4 image_dim,
-												   const IMAGE_TYPE image_type,
-												   std::span<uint8_t> data,
-												   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-												   const uint32_t mip_level_limit = 0u) const = 0;
+													   const uint4 image_dim,
+													   const IMAGE_TYPE image_type,
+													   std::span<uint8_t> data,
+													   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+													   const uint32_t mip_level_limit = 0u) const = 0;
 	
 	//! constructs an uninitialized image of the specified dimensions, types and channel count on the specified device
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const {
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u) const {
 		return create_image(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, mip_level_limit);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   std::span<data_type> data,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const {
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   std::span<data_type> data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u) const {
+		return create_image(cqueue, image_dim, image_type,
+							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
+							flags, mip_level_limit);
+	}
+	
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
+	template <typename data_type, size_t count>
+	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   std::span<data_type, count> data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u) const {
 		return create_image(cqueue, image_dim, image_type,
 							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
 							flags, mip_level_limit);
@@ -265,11 +279,11 @@ public:
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   const std::vector<data_type>& data,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const {
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   const std::vector<data_type>& data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u) const {
 		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) },
 							flags, mip_level_limit);
 	}
@@ -277,11 +291,11 @@ public:
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type, size_t n>
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   const std::array<data_type, n>& data,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const {
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   const std::array<data_type, n>& data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u) const {
 		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) },
 							flags, mip_level_limit);
 	}
@@ -289,16 +303,14 @@ public:
 	//! wraps an already existing Vulkan image, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual std::shared_ptr<device_image> wrap_image(const device_queue& cqueue,
-												 vulkan_image& vk_image,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																					MEMORY_FLAG::HOST_READ_WRITE)) const;
+													 vulkan_image& vk_image,
+													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	//! wraps an already existing Metal image, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual std::shared_ptr<device_image> wrap_image(const device_queue& cqueue,
-												 metal_image& mtl_image,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																					MEMORY_FLAG::HOST_READ_WRITE)) const;
+													 metal_image& mtl_image,
+													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
 	
 	// TODO: add is_image_format_supported(...) function
 	
@@ -316,30 +328,30 @@ public:
 	
 	//! adds and compiles a program and its functions from a file
 	virtual std::shared_ptr<device_program> add_program_file(const std::string& file_name,
-														 const std::string additional_options) = 0;
+															 const std::string additional_options) = 0;
 	
 	//! adds and compiles a program and its functions from a file
 	virtual std::shared_ptr<device_program> add_program_file(const std::string& file_name,
-														 compile_options options = {}) = 0;
+															 compile_options options = {}) = 0;
 	
 	//! adds and compiles a program and its functions from the provided source code
 	virtual std::shared_ptr<device_program> add_program_source(const std::string& source_code,
-														   const std::string additional_options = "") = 0;
+															   const std::string additional_options = "") = 0;
 	
 	//! adds and compiles a program and its functions from the provided source code
 	virtual std::shared_ptr<device_program> add_program_source(const std::string& source_code,
-														   compile_options options = {}) = 0;
+															   compile_options options = {}) = 0;
 	
 	//! adds a precompiled program and its functions, using the provided file name and function infos
 	virtual std::shared_ptr<device_program> add_precompiled_program_file(const std::string& file_name,
-																	 const std::vector<toolchain::function_info>& functions) = 0;
+																		 const std::vector<toolchain::function_info>& functions) = 0;
 	
 	//! creates a program entry from pre-existing program data and function information on the specified device
 	//! NOTE: this is intended for rolling custom or semi-custom compilation, for normal code use the add_program_* functions
 	//! NOTE: this usually leads to final program compilation on most platforms (but not all!)
 	virtual std::shared_ptr<device_program::program_entry> create_program_entry(const device& dev,
-																			toolchain::program_data program,
-																			const toolchain::TARGET target) = 0;
+																				toolchain::program_data program,
+																				const toolchain::TARGET target) = 0;
 	
 	//////////////////////////////////////////
 	// execution functionality
@@ -355,20 +367,20 @@ public:
 	//! if "with_multi_view_support" is false, neither manual nor automatic multi-view support will be enabled
 	//! NOTE: only available on backends with graphics support
 	virtual std::unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
-																   const bool with_multi_view_support = true) const;
+																		const bool with_multi_view_support = true) const;
 	
 	//! creates a graphics render pass with the specified description
 	//! if "with_multi_view_support" is false, neither manual nor automatic multi-view support will be enabled
 	//! NOTE: only available on backends with graphics support
 	virtual std::unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc,
-														   const bool with_multi_view_support = true) const;
+																const bool with_multi_view_support = true) const;
 	
 	//! creates a graphics renderer
 	//! NOTE: only available on backends with graphics support
 	virtual std::unique_ptr<graphics_renderer> create_graphics_renderer(const device_queue& cqueue,
-																   const graphics_pass& pass,
-																   const graphics_pipeline& pipeline,
-																   const bool create_multi_view_renderer = false) const;
+																		const graphics_pass& pass,
+																		const graphics_pipeline& pipeline,
+																		const bool create_multi_view_renderer = false) const;
 	
 	//! returns the underlying image type (pixel format) of the renderer/screen
 	virtual IMAGE_TYPE get_renderer_image_type() const;

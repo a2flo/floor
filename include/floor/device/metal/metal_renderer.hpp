@@ -24,8 +24,9 @@
 #include <floor/device/graphics_renderer.hpp>
 #include <floor/device/metal/metal_pipeline.hpp>
 #include <floor/device/metal/metal_image.hpp>
-#import <QuartzCore/CAMetalLayer.h>
+
 #include <Metal/Metal.h>
+@protocol CAMetalDrawable;
 
 namespace fl {
 

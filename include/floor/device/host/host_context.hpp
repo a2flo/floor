@@ -73,23 +73,23 @@ public:
 	// buffer creation
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 const size_t& size,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const override;
+												 const size_t size,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 std::span<uint8_t> data,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const override;
+												 std::span<uint8_t> data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
-										   metal_buffer& mtl_buffer,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			  MEMORY_FLAG::HOST_READ_WRITE)) const override;
+											   metal_buffer& mtl_buffer,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																		  MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
-										   vulkan_buffer& vk_buffer,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			  MEMORY_FLAG::HOST_READ_WRITE)) const override;
+											   vulkan_buffer& vk_buffer,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																		  MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation

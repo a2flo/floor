@@ -65,14 +65,14 @@ public:
 	// buffer creation
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 const size_t& size,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const override;
+												 const size_t size,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
-											 std::span<uint8_t> data,
-											 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																				MEMORY_FLAG::HOST_READ_WRITE)) const override;
+												 std::span<uint8_t> data,
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
 	
 	//////////////////////////////////////////
 	// image creation

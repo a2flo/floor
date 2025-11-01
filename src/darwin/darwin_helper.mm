@@ -16,9 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#if __cplusplus > 202302L
+// work around invalid enum arithmetic
+#define CGBitmapInfoMake(...) CGBitmapInfoMakeDummy(uint32_t alpha, uint32_t component, uint32_t byteOrder, uint32_t pixelFormat)
+// prevent include of ColorSyncDeprecated.h
+#define __COLORSYNCDEPRECATED__ 1
+#endif
+
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 #include <Cocoa/Cocoa.h>
 #endif
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
 #include <sys/types.h>
@@ -41,6 +49,8 @@
 #define UI_VIEW_CLASS UIView
 #endif
 
+#import <QuartzCore/CAMetalLayer.h>
+#import <Metal/Metal.h>
 #import <Foundation/NSData.h>
 
 // cocoa or uikit window type

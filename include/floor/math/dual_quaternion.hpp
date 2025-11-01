@@ -67,9 +67,6 @@ public:
 	//! default move-construct from same dual quaternion type (rvalue)
 	constexpr dual_quaternion(dual_quaternion&& q_) noexcept = default;
 	
-	//! copy-construct from same dual quaternion type (pointer)
-	constexpr dual_quaternion(const dual_quaternion* q_) noexcept : rq(q_->rq), dq(q_->dq) {}
-	
 	//! default copy assignment
 	constexpr dual_quaternion& operator=(const dual_quaternion& q_) noexcept = default;
 	

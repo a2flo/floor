@@ -3350,13 +3350,13 @@ std::unique_ptr<device_fence> vulkan_context::create_fence(const device_queue& c
 }
 
 std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue,
-														 const size_t& size, const MEMORY_FLAG flags) const {
+															 const size_t size, const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<vulkan_buffer>(cqueue, size, flags));
 }
 
 std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue,
-														 std::span<uint8_t> data,
-														 const MEMORY_FLAG flags) const {
+															 std::span<uint8_t> data,
+															 const MEMORY_FLAG flags) const {
 	return add_resource(std::make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 

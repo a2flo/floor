@@ -1462,7 +1462,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2610;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1517,6 +1517,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
@@ -1540,6 +1541,7 @@
 				"",
 				"",
 				"",
+				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
@@ -1556,6 +1558,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
+				"",
 				"",
 				"",
 				"",

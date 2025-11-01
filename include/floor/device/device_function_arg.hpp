@@ -87,8 +87,12 @@ struct device_function_arg {
 	// span arg with CPU storage
 	template <typename data_type>
 	constexpr device_function_arg(const std::span<data_type>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+	template <typename data_type, size_t count>
+	constexpr device_function_arg(const std::span<data_type, count>& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
 	template <typename data_type>
 	constexpr device_function_arg(std::span<data_type>&& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
+	template <typename data_type, size_t count>
+	constexpr device_function_arg(std::span<data_type, count>&& span_arg) noexcept : var((const void*)span_arg.data()), size(span_arg.size_bytes()) {}
 	
 	// any contiguous sized range with CPU storage (e.g. std::vector), but no smart pointers
 	template <std::ranges::contiguous_range cr_type>

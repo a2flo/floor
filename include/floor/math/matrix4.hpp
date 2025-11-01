@@ -89,9 +89,6 @@ public:
 	//! default copy-construct from same matrix type
 	constexpr matrix4(const matrix4<scalar_type>& m4) noexcept = default;
 	
-	//! copy-construct from same matrix type (pointer)
-	constexpr matrix4(const matrix4<scalar_type>* m4) noexcept : data(m4->data) {}
-	
 	//! default move-construct from same matrix type (rvalue)
 	constexpr matrix4(matrix4&& m4) noexcept = default;
 	
