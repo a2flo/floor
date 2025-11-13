@@ -171,7 +171,7 @@ namespace metal_args {
 	static inline void set_argument_buffer_array(const idx_handler& idx,
 												 encoder_selector_t<enc_type> encoder,
 												 const function_info& entry,
-												 const std::vector<buffer_array_elem_type>& arg,
+												 const std::span<buffer_array_elem_type> arg,
 												 const device& dev,
 												 const std::vector<uint32_t>* arg_buffer_indices,
 												 metal_resource_tracking::resource_info_t* res_info) {
@@ -216,22 +216,22 @@ namespace metal_args {
 	static inline void set_argument(const idx_handler& idx,
 									encoder_selector_t<enc_type> encoder,
 									const function_info& entry,
-									const std::vector<std::shared_ptr<device_buffer>>& arg,
+									const std::span<const std::shared_ptr<device_buffer>> arg,
 									const device& dev,
 									const std::vector<uint32_t>* arg_buffer_indices,
 									metal_resource_tracking::resource_info_t* res_info) {
-		set_argument_buffer_array<enc_type, std::shared_ptr<device_buffer>>(idx, encoder, entry, arg, dev, arg_buffer_indices, res_info);
+		set_argument_buffer_array<enc_type, const std::shared_ptr<device_buffer>>(idx, encoder, entry, arg, dev, arg_buffer_indices, res_info);
 	}
 	
 	template <ENCODER_TYPE enc_type> requires(enc_type == ENCODER_TYPE::ARGUMENT)
 	static inline void set_argument(const idx_handler& idx,
 									encoder_selector_t<enc_type> encoder,
 									const function_info& entry,
-									const std::vector<device_buffer*>& arg,
+									const std::span<const device_buffer* const> arg,
 									const device& dev,
 									const std::vector<uint32_t>* arg_buffer_indices,
 									metal_resource_tracking::resource_info_t* res_info) {
-		set_argument_buffer_array<enc_type, device_buffer*>(idx, encoder, entry, arg, dev, arg_buffer_indices, res_info);
+		set_argument_buffer_array<enc_type, const device_buffer* const>(idx, encoder, entry, arg, dev, arg_buffer_indices, res_info);
 	}
 	
 	template <ENCODER_TYPE enc_type>
@@ -360,7 +360,7 @@ namespace metal_args {
 	static inline void set_argument_image_array(const idx_handler& idx,
 												encoder_selector_t<enc_type> encoder,
 												const function_info& entry,
-												const std::vector<image_array_elem_type>& arg,
+												const std::span<image_array_elem_type> arg,
 												const std::vector<uint32_t>* arg_buffer_indices floor_unused,
 												metal_resource_tracking::resource_info_t* res_info) {
 		if constexpr (enc_type == ENCODER_TYPE::INDIRECT_COMPUTE || enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
@@ -377,7 +377,7 @@ namespace metal_args {
 		std::vector<id <MTLTexture>> mtl_img_array_for_res_info;
 		mtl_img_array_for_res_info.reserve(count);
 		for (size_t i = 0; i < count; ++i) {
-			metal_image* mtl_image = (arg[i] ? arg[i]->get_underlying_metal_image_safe() : nullptr);
+			const metal_image* mtl_image = (arg[i] ? arg[i]->get_underlying_metal_image_safe() : nullptr);
 			mtl_img_array[i] = (mtl_image ? mtl_image->get_metal_image() : nil);
 			// NOTE: we can only ignore heap-allocated image if they are never writable, otherwise we must still make them resident explicitly
 			if (res_info && mtl_image && (!mtl_image->is_image_read_only() || !mtl_image->is_heap_allocated())) {
@@ -409,20 +409,20 @@ namespace metal_args {
 	static inline void set_argument(const idx_handler& idx,
 									encoder_selector_t<enc_type> encoder,
 									const function_info& entry,
-									const std::vector<std::shared_ptr<device_image>>& arg,
+									const std::span<const std::shared_ptr<device_image>> arg,
 									const std::vector<uint32_t>* arg_buffer_indices,
 									metal_resource_tracking::resource_info_t* res_info) {
-		set_argument_image_array<enc_type, std::shared_ptr<device_image>>(idx, encoder, entry, arg, arg_buffer_indices, res_info);
+		set_argument_image_array<enc_type, const std::shared_ptr<device_image>>(idx, encoder, entry, arg, arg_buffer_indices, res_info);
 	}
 	
 	template <ENCODER_TYPE enc_type>
 	static inline void set_argument(const idx_handler& idx,
 									encoder_selector_t<enc_type> encoder,
 									const function_info& entry,
-									const std::vector<device_image*>& arg,
+									const std::span<const device_image* const> arg,
 									const std::vector<uint32_t>* arg_buffer_indices,
 									metal_resource_tracking::resource_info_t* res_info) {
-		set_argument_image_array<enc_type, device_image*>(idx, encoder, entry, arg, arg_buffer_indices, res_info);
+		set_argument_image_array<enc_type, const device_image* const>(idx, encoder, entry, arg, arg_buffer_indices, res_info);
 	}
 	
 	//! returns the entry for the current indices and makes sure that stage_input args are ignored
@@ -535,26 +535,26 @@ namespace metal_args {
 			
 			if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices, res_info);
-			} else if (auto vec_buf_ptrs = get_if<const std::vector<device_buffer*>*>(&arg.var)) {
+			} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
 				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-					set_argument<enc_type>(idx, encoder, *entry, **vec_buf_ptrs, dev, arg_buffer_indices, res_info);
+					set_argument<enc_type>(idx, encoder, *entry, *vec_buf_ptrs, dev, arg_buffer_indices, res_info);
 				} else {
 					log_error("buffer arrays are only supported for argument buffers");
 					return false;
 				}
-			} else if (auto vec_buf_sptrs = get_if<const std::vector<std::shared_ptr<device_buffer>>*>(&arg.var)) {
+			} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-					set_argument<enc_type>(idx, encoder, *entry, **vec_buf_sptrs, dev, arg_buffer_indices, res_info);
+					set_argument<enc_type>(idx, encoder, *entry, *vec_buf_sptrs, dev, arg_buffer_indices, res_info);
 				} else {
 					log_error("buffer arrays are only supported for argument buffers");
 					return false;
 				}
 			} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices, res_info);
-			} else if (auto vec_img_ptrs = get_if<const std::vector<device_image*>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_ptrs, arg_buffer_indices, res_info);
-			} else if (auto vec_img_sptrs = get_if<const std::vector<std::shared_ptr<device_image>>*>(&arg.var)) {
-				set_argument<enc_type>(idx, encoder, *entry, **vec_img_sptrs, arg_buffer_indices, res_info);
+			} else if (auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+				set_argument<enc_type>(idx, encoder, *entry, *vec_img_ptrs, arg_buffer_indices, res_info);
+			} else if (auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+				set_argument<enc_type>(idx, encoder, *entry, *vec_img_sptrs, arg_buffer_indices, res_info);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr, arg_buffer_indices, res_info);
 			} else if (auto generic_arg_ptr = get_if<const void*>(&arg.var)) {

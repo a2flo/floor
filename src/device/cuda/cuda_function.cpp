@@ -110,10 +110,10 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 				param = data;
 				memcpy(data, &((const cuda_buffer*)*buf_ptr)->get_cuda_buffer(), sizeof(cu_device_ptr));
 				data += sizeof(cu_device_ptr);
-			} else if ([[maybe_unused]] auto vec_buf_ptrs = get_if<const std::vector<device_buffer*>*>(&arg.var)) {
+			} else if ([[maybe_unused]] auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
 				log_error("array of buffers is not yet supported for CUDA");
 				return;
-			} else if ([[maybe_unused]] auto vec_buf_sptrs = get_if<const std::vector<std::shared_ptr<device_buffer>>*>(&arg.var)) {
+			} else if ([[maybe_unused]] auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 				log_error("array of buffers is not yet supported for CUDA");
 				return;
 			} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
@@ -143,10 +143,10 @@ REQUIRES(!completion_handlers_in_flight_lock) {
 				// set run-time image type
 				memcpy(data, &cu_img->get_image_type(), sizeof(IMAGE_TYPE));
 				data += sizeof(IMAGE_TYPE);
-			} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const std::vector<device_image*>*>(&arg.var)) {
+			} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
 				log_error("array of images is not supported for CUDA");
 				return;
-			} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const std::vector<std::shared_ptr<device_image>>*>(&arg.var)) {
+			} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 				log_error("array of images is not supported for CUDA");
 				return;
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {

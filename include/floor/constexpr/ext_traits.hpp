@@ -27,6 +27,7 @@
 #include <vector>
 #include <span>
 #endif
+#include <array>
 
 #include <floor/core/essentials.hpp>
 #include <floor/constexpr/soft_f16.hpp>
@@ -87,6 +88,11 @@ namespace fl::ext {
 	public std::conditional_t<(std::is_scalar<T>::value || ext::is_arithmetic_v<T>), std::true_type, std::false_type> {};
 	
 	template <typename T> constexpr bool is_scalar_v = ext::is_scalar<T>::value;
+	
+	//! is_array to detect std::array<T>
+	template <typename any_type> struct is_array : public std::false_type {};
+	template <typename elem_type, size_t extent> struct is_array<std::array<elem_type, extent>> : public std::true_type {};
+	template <typename T> constexpr bool is_array_v = ext::is_array<T>::value;
 	
 #if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 	//! is_vector to detect std::vector<T>

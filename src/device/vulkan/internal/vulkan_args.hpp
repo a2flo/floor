@@ -158,7 +158,7 @@ floor_inline_always static void set_buffer_array_argument(const vulkan_device& v
 														  const std::vector<VkDeviceSize>& argument_offsets,
 														  const idx_handler& idx,
 														  const std::span<uint8_t>& host_desc_data,
-														  const std::vector<T>& buffer_array, F&& buffer_accessor) {
+														  const std::span<T>& buffer_array, F&& buffer_accessor) {
 	assert(!idx.is_implicit);
 	const auto elem_count = arg_info.args[idx.arg].array_extent;
 	const auto write_offset = argument_offsets[idx.binding];
@@ -192,7 +192,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const function_info& arg_info,
 								const std::vector<VkDeviceSize>& argument_offsets,
 								const std::span<uint8_t>& host_desc_data,
-								const std::vector<std::shared_ptr<device_buffer>>& arg) {
+								const std::span<const std::shared_ptr<device_buffer>> arg) {
 	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const std::shared_ptr<device_buffer>& buf) {
 		return (buf ? buf->get_underlying_vulkan_buffer_safe() : nullptr);
 	});
@@ -203,8 +203,8 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const function_info& arg_info,
 								const std::vector<VkDeviceSize>& argument_offsets,
 								const std::span<uint8_t>& host_desc_data,
-								const std::vector<device_buffer*>& arg) {
-	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const device_buffer* buf) {
+								const std::span<const device_buffer* const> arg) {
+	set_buffer_array_argument(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, [](const device_buffer* const buf) {
 		return (buf ? buf->get_underlying_vulkan_buffer_safe() : nullptr);
 	});
 }
@@ -312,7 +312,7 @@ floor_inline_always static void set_image_array_argument(const vulkan_device& vk
 														 const std::vector<VkDeviceSize>& argument_offsets,
 														 const idx_handler& idx,
 														 const std::span<uint8_t>& host_desc_data,
-														 const std::vector<T>& image_array,
+														 const std::span<T>& image_array,
 														 transition_info_t* transition_info,
 														 F&& image_accessor) {
 	assert(!idx.is_implicit);
@@ -404,7 +404,7 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const function_info& arg_info,
 								const std::vector<VkDeviceSize>& argument_offsets,
 								const std::span<uint8_t>& host_desc_data,
-								const std::vector<std::shared_ptr<device_image>>& arg,
+								const std::span<const std::shared_ptr<device_image>> arg,
 								transition_info_t* transition_info) {
 	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info,
 									   [](const std::shared_ptr<device_image>& img) {
@@ -418,9 +418,10 @@ static inline void set_argument(const vulkan_device& vk_dev,
 								const function_info& arg_info,
 								const std::vector<VkDeviceSize>& argument_offsets,
 								const std::span<uint8_t>& host_desc_data,
-								const std::vector<device_image*>& arg,
+								const std::span<const device_image* const> arg,
 								transition_info_t* transition_info) {
-	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info, [](const device_image* img) {
+	set_image_array_argument<enc_type>(vk_dev, arg_info, argument_offsets, idx, host_desc_data, arg, transition_info,
+									   [](const device_image* const img) {
 		return (img ? img->get_underlying_vulkan_image_safe() : nullptr);
 	});
 }
@@ -562,16 +563,16 @@ set_arguments(const vulkan_device& dev,
 			
 			if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *buf_ptr);
-			} else if (auto vec_buf_ptrs = get_if<const std::vector<device_buffer*>*>(&arg.var)) {
-				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_ptrs);
-			} else if (auto vec_buf_sptrs = get_if<const std::vector<std::shared_ptr<device_buffer>>*>(&arg.var)) {
-				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_buf_sptrs);
+			} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_buf_ptrs);
+			} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_buf_sptrs);
 			} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *img_ptr, transition_info);
-			} else if (auto vec_img_ptrs = get_if<const std::vector<device_image*>*>(&arg.var)) {
-				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_ptrs, transition_info);
-			} else if (auto vec_img_sptrs = get_if<const std::vector<std::shared_ptr<device_image>>*>(&arg.var)) {
-				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, **vec_img_sptrs, transition_info);
+			} else if (auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_img_ptrs, transition_info);
+			} else if (auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_img_sptrs, transition_info);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 				// argument buffers may not be set by this: these must be handled by the user -> collect and return them
 				const auto arg_storage_buf = (*arg_buf_ptr)->get_storage_buffer();
