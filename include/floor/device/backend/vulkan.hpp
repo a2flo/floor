@@ -41,15 +41,11 @@ FLOOR_NUM_SUB_GROUPS_RANGE_ATTR uint32_t get_num_sub_groups() asm("floor.builtin
 
 // non-standard bit counting functions (don't use these directly, use math::func instead)
 // we don't have direct clz/ctz support
-const_func int16_t floor_vulkan_find_int_lsb(uint16_t x) asm("floor.find_int_lsb.u16");
-const_func int16_t floor_vulkan_find_int_lsb(int16_t x) asm("floor.find_int_lsb.s16");
+// NOTE: these currently only support 32-bit
 const_func int32_t floor_vulkan_find_int_lsb(uint32_t x) asm("floor.find_int_lsb.u32");
 const_func int32_t floor_vulkan_find_int_lsb(int32_t x) asm("floor.find_int_lsb.s32");
-const_func int64_t floor_vulkan_find_int_lsb(uint64_t x) asm("floor.find_int_lsb.u64");
-const_func int64_t floor_vulkan_find_int_lsb(int64_t x) asm("floor.find_int_lsb.s64");
-
-const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb.u32"); // 32-bit only
-const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32"); // 32-bit only
+const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb.u32");
+const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32");
 
 namespace fl {
 const_func uint16_t floor_rt_reverse_bits(uint16_t x) asm("floor.bit_reverse.u16");
@@ -67,23 +63,26 @@ const_func uint32_t floor_rt_clz(uint32_t x) {
 	return (msb_bit_idx < 0 ? 32 : (31 - msb_bit_idx));
 }
 const_func uint64_t floor_rt_clz(uint64_t x) {
-	// can't use "find_int_msb", b/c it's 32-bit only
-	// -> reverse the bits and find the lsb instead
-	const auto rev_lsb_bit_idx = floor_vulkan_find_int_lsb(floor_rt_reverse_bits(x));
-	return (rev_lsb_bit_idx < 0 ? 64 : rev_lsb_bit_idx);
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	const auto clz_upper = floor_rt_clz(upper);
+	const auto clz_lower = floor_rt_clz(lower);
+	return (clz_upper < 32 ? clz_upper : (clz_upper + clz_lower));
 }
 
-const_func uint16_t floor_rt_ctz(uint16_t x) {
-	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
-	return (lsb_bit_idx < 0 ? 16 : lsb_bit_idx);
-}
 const_func uint32_t floor_rt_ctz(uint32_t x) {
 	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
 	return (lsb_bit_idx < 0 ? 32 : lsb_bit_idx);
 }
+const_func uint16_t floor_rt_ctz(uint16_t x) {
+	return floor_rt_ctz(0xFFFF'0000u | uint32_t(x));
+}
 const_func uint64_t floor_rt_ctz(uint64_t x) {
-	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
-	return (lsb_bit_idx < 0 ? 64 : lsb_bit_idx);
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	const auto ctz_upper = floor_rt_ctz(upper);
+	const auto ctz_lower = floor_rt_ctz(lower);
+	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
 }
 
 // 32-bit popcount is natively supported, 16-bit and 64-bit can be easily emulated

@@ -136,14 +136,14 @@ struct device_function_arg {
 	
 	// canonical arg storage
 	std::variant<const void*, // generic arg
-			const device_buffer*, // single buffer
-			const std::span<const device_buffer* const>, // array of buffers
-			const std::span<const std::shared_ptr<device_buffer>>, // array of buffers
-			const device_image*, // single image
-			const std::span<const device_image* const>, // array of images
-			const std::span<const std::shared_ptr<device_image>>, // array of images
-			const argument_buffer* // single argument buffer
-			> var;
+				 const device_buffer*, // single buffer
+				 std::span<const device_buffer* const>, // array of buffers
+				 std::span<const std::shared_ptr<device_buffer>>, // array of buffers
+				 const device_image*, // single image
+				 std::span<const device_image* const>, // array of images
+				 std::span<const std::shared_ptr<device_image>>, // array of images
+				 const argument_buffer* // single argument buffer
+				 > var;
 	size_t size { 0 };
 	
 };

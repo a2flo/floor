@@ -46,7 +46,7 @@ bool host_argument_buffer::set_arguments(const device_queue& dev_queue floor_unu
 			const auto ptr = ((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr_with_sync();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
-		} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+		} else if (auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(void*);
 			for (const auto& entry : *vec_buf_ptrs) {
 				copy_size += arg_size;
@@ -59,7 +59,7 @@ bool host_argument_buffer::set_arguments(const device_queue& dev_queue floor_unu
 				memcpy(copy_buffer_ptr, &ptr, arg_size);
 				copy_buffer_ptr += arg_size;
 			}
-		} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+		} else if (auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(void*);
 			for (const auto& entry : *vec_buf_sptrs) {
 				copy_size += arg_size;
@@ -82,10 +82,10 @@ bool host_argument_buffer::set_arguments(const device_queue& dev_queue floor_unu
 			const auto ptr = ((const host_image*)(*img_ptr))->get_host_image_program_info_with_sync();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
-		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
 			return false;
-		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 			log_error("array of images is not supported for Host-Compute");
 			return false;
 		} else if ([[maybe_unused]] auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {

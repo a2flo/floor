@@ -76,15 +76,15 @@ REQUIRES(!args_lock) {
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 			set_function_argument(total_idx, arg_idx, handler.get(), entry, *buf_ptr);
-		} else if ([[maybe_unused]] auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 			log_error("array of buffers is not supported for OpenCL");
-		} else if ([[maybe_unused]] auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 			log_error("array of buffers is not supported for OpenCL");
 		} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 			set_function_argument(total_idx, arg_idx, handler.get(), entry, *img_ptr);
-		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var)) {
 			log_error("array of images is not supported for OpenCL");
-		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 			log_error("array of images is not supported for OpenCL");
 		} else if ([[maybe_unused]] auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 			log_error("argument buffer handling is not implemented yet for OpenCL");

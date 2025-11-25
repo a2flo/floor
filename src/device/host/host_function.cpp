@@ -757,7 +757,7 @@ void host_function::execute(const device_queue& cqueue,
 	for (const auto& arg : args) {
 		if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_buffer*)(*buf_ptr))->get_host_buffer_ptr_with_sync());
-		} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+		} else if (auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 			auto arr_arg = std::make_unique<void*[]>(vec_buf_ptrs->size());
 			auto arr_buf_ptr = arr_arg.get();
 			for (const auto& buf : *vec_buf_ptrs) {
@@ -765,7 +765,7 @@ void host_function::execute(const device_queue& cqueue,
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));
-		} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+		} else if (auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 			auto arr_arg = std::make_unique<void*[]>(vec_buf_sptrs->size());
 			auto arr_buf_ptr = arr_arg.get();
 			for (const auto& buf : *vec_buf_sptrs) {
@@ -775,7 +775,7 @@ void host_function::execute(const device_queue& cqueue,
 			array_args.emplace_back(std::move(arr_arg));
 		} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 			vptr_args.emplace_back(((const host_image*)(*img_ptr))->get_host_image_program_info_with_sync());
-		} else if (auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var); vec_img_ptrs) {
+		} else if (auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var); vec_img_ptrs) {
 			auto arr_arg = std::make_unique<void*[]>(vec_img_ptrs->size());
 			auto arr_img_ptr = arr_arg.get();
 			for (const auto& img : *vec_img_ptrs) {
@@ -783,7 +783,7 @@ void host_function::execute(const device_queue& cqueue,
 			}
 			vptr_args.emplace_back(arr_arg.get());
 			array_args.emplace_back(std::move(arr_arg));
-		} else if (auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var); vec_img_sptrs) {
+		} else if (auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var); vec_img_sptrs) {
 			auto arr_arg = std::make_unique<void*[]>(vec_img_sptrs->size());
 			auto arr_img_ptr = arr_arg.get();
 			for (const auto& img : *vec_img_sptrs) {

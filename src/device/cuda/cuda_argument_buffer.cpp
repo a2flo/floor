@@ -65,7 +65,7 @@ bool cuda_argument_buffer::set_arguments(const device_queue& dev_queue, const st
 			const auto ptr = ((const cuda_buffer*)(*buf_ptr))->get_cuda_buffer();
 			memcpy(copy_buffer_ptr, &ptr, arg_size);
 			copy_buffer_ptr += arg_size;
-		} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+		} else if (auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(cu_device_ptr);
 			for (const auto& buf_entry : *vec_buf_ptrs) {
 				copy_size += arg_size;
@@ -78,7 +78,7 @@ bool cuda_argument_buffer::set_arguments(const device_queue& dev_queue, const st
 				memcpy(copy_buffer_ptr, &ptr, arg_size);
 				copy_buffer_ptr += arg_size;
 			}
-		} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+		} else if (auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 			static constexpr const size_t arg_size = sizeof(cu_device_ptr);
 			for (const auto& buf_entry : *vec_buf_sptrs) {
 				copy_size += arg_size;
@@ -115,10 +115,10 @@ bool cuda_argument_buffer::set_arguments(const device_queue& dev_queue, const st
 			// set run-time image type
 			memcpy(copy_buffer_ptr, &cu_img->get_image_type(), sizeof(IMAGE_TYPE));
 			copy_buffer_ptr += sizeof(IMAGE_TYPE);
-		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
 			return false;
-		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+		} else if ([[maybe_unused]] auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 			log_error("array of images is not supported for CUDA");
 			return false;
 		} else if ([[maybe_unused]] auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {

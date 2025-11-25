@@ -535,14 +535,14 @@ namespace metal_args {
 			
 			if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *buf_ptr, arg_buffer_indices, res_info);
-			} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+			} else if (auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 					set_argument<enc_type>(idx, encoder, *entry, *vec_buf_ptrs, dev, arg_buffer_indices, res_info);
 				} else {
 					log_error("buffer arrays are only supported for argument buffers");
 					return false;
 				}
-			} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+			} else if (auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 				if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 					set_argument<enc_type>(idx, encoder, *entry, *vec_buf_sptrs, dev, arg_buffer_indices, res_info);
 				} else {
@@ -551,9 +551,9 @@ namespace metal_args {
 				}
 			} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *img_ptr, arg_buffer_indices, res_info);
-			} else if (auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+			} else if (auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *vec_img_ptrs, arg_buffer_indices, res_info);
-			} else if (auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+			} else if (auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *vec_img_sptrs, arg_buffer_indices, res_info);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 				set_argument<enc_type>(idx, encoder, *entry, *arg_buf_ptr, arg_buffer_indices, res_info);

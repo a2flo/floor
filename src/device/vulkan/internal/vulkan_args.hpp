@@ -563,15 +563,15 @@ set_arguments(const vulkan_device& dev,
 			
 			if (auto buf_ptr = get_if<const device_buffer*>(&arg.var)) {
 				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *buf_ptr);
-			} else if (auto vec_buf_ptrs = get_if<const std::span<const device_buffer* const>>(&arg.var)) {
+			} else if (auto vec_buf_ptrs = get_if<std::span<const device_buffer* const>>(&arg.var)) {
 				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_buf_ptrs);
-			} else if (auto vec_buf_sptrs = get_if<const std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
+			} else if (auto vec_buf_sptrs = get_if<std::span<const std::shared_ptr<device_buffer>>>(&arg.var)) {
 				set_argument(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_buf_sptrs);
 			} else if (auto img_ptr = get_if<const device_image*>(&arg.var)) {
 				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *img_ptr, transition_info);
-			} else if (auto vec_img_ptrs = get_if<const std::span<const device_image* const>>(&arg.var)) {
+			} else if (auto vec_img_ptrs = get_if<std::span<const device_image* const>>(&arg.var)) {
 				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_img_ptrs, transition_info);
-			} else if (auto vec_img_sptrs = get_if<const std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
+			} else if (auto vec_img_sptrs = get_if<std::span<const std::shared_ptr<device_image>>>(&arg.var)) {
 				set_argument<enc_type>(dev, idx, arg_info, arg_offsets, host_desc_data, *vec_img_sptrs, transition_info);
 			} else if (auto arg_buf_ptr = get_if<const argument_buffer*>(&arg.var)) {
 				// argument buffers may not be set by this: these must be handled by the user -> collect and return them
