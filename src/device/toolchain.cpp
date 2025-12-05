@@ -455,7 +455,7 @@ program_data compile_input(const std::string& input,
 			// * 8.7 for sm_120
 			// * 8.8 for sm_103/sm_121
 			// * 9.0 for sm_110/sm_88
-			// * 9.0 for anything else
+			// * 9.1 for anything else
 			switch (cuda_dev.sm.x) {
 				case 5:
 				case 6:
@@ -480,7 +480,7 @@ program_data compile_input(const std::string& input,
 					ptx_version = std::max(cuda_dev.sm.y == 0 ? 87u : 88u, ptx_version);
 					break;
 				default:
-					ptx_version = std::max(90u, ptx_version);
+					ptx_version = std::max(91u, ptx_version);
 					break;
 			}
 			if (!floor::get_cuda_force_ptx().empty() && !options.ignore_runtime_info) {
