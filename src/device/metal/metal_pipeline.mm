@@ -139,6 +139,12 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			// tessellation
 			MTLVertexDescriptor* mtl_vertex_desc = [MTLVertexDescriptor vertexDescriptor];
 			if (pipeline_desc.tessellation.max_factor > 0u) {
+				if (mtl_vs_entry->info->type != FUNCTION_TYPE::TESSELLATION_EVALUATION) {
+					log_error("expected a tessellation-evaluation shader instead of $ ($) in pipeline \"$\"",
+							  mtl_vs_entry->info->type, mtl_vs_entry->info->name, pipeline_desc.debug_label);
+					return;
+				}
+				
 				if (pipeline_desc.tessellation.max_factor > 64u) {
 					log_error("max tessellation factor is out-of-range: $!", pipeline_desc.tessellation.max_factor);
 					return;
@@ -169,9 +175,22 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 				// when using tessellation, we *must* also specify the vertex attributes that are being used,
 				// since vertices / control points will be fetched by fixed-function hardware and not a shader
 				if (pipeline_desc.tessellation.vertex_attributes.empty()) {
-					log_error("must specify vertex attributes when using tessellation");
+					log_error("must specify vertex attributes when using tessellation in pipeline \"$\"", pipeline_desc.debug_label);
 					return;
 				}
+				
+				// verify amount
+				for (const auto& arg : mtl_vs_entry->info->args) {
+					if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags)) {
+						if (arg.size != pipeline_desc.tessellation.vertex_attributes.size()) {
+							log_error("tessellation vertex attribute count mismatch: shader $' != pipeline description $' (in pipeline \"$\")",
+									  arg.size, pipeline_desc.tessellation.vertex_attributes.size(), pipeline_desc.debug_label);
+							return;
+						}
+						break;
+					}
+				}
+				
 				uint32_t vattr_idx = 0;
 				for (const auto& vattr : pipeline_desc.tessellation.vertex_attributes) {
 					mtl_vertex_desc.attributes[vattr_idx].format = metal_vertex_format_from_vertex_format(vattr);
@@ -187,6 +206,12 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 					++vattr_idx;
 				}
 				mtl_pipeline_desc.vertexDescriptor = mtl_vertex_desc;
+			} else {
+				if (mtl_vs_entry->info->type != FUNCTION_TYPE::VERTEX) {
+					log_error("expected a vertex shader instead of $ ($) in pipeline \"$\"",
+							  mtl_vs_entry->info->type, mtl_vs_entry->info->name, pipeline_desc.debug_label);
+					return;
+				}
 			}
 			
 			// set per-buffer mutability

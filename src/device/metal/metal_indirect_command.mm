@@ -395,6 +395,15 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																					 const uint32_t first_patch,
 																					 const uint32_t instance_count,
 																					 const uint32_t first_instance) {
+#if defined(FLOOR_DEBUG)
+	const auto& desc = pipeline.get_description(is_multi_view);
+	if (control_point_buffers.size() != desc.tessellation.vertex_attributes.size()) {
+		log_error("control point buffers <-> vertex attributes count mismatch (in \"$\"): $' != $'",
+				  desc.debug_label, control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
+		return *this;
+	}
+#endif
+	
 	@autoreleasepool {
 		uint32_t vbuffer_idx = 0u;
 		for (const auto& vbuffer : control_point_buffers) {
@@ -430,6 +439,15 @@ indirect_render_command_encoder& metal_indirect_render_command_encoder::draw_pat
 																							 const uint32_t first_patch,
 																							 const uint32_t instance_count,
 																							 const uint32_t first_instance) {
+#if defined(FLOOR_DEBUG)
+	const auto& desc = pipeline.get_description(is_multi_view);
+	if (control_point_buffers.size() != desc.tessellation.vertex_attributes.size()) {
+		log_error("control point buffers <-> vertex attributes count mismatch (in \"$\"): $' != $'",
+				  desc.debug_label, control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
+		return *this;
+	}
+#endif
+	
 	@autoreleasepool {
 		uint32_t vbuffer_idx = 0u;
 		for (const auto& vbuffer : control_point_buffers) {

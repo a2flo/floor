@@ -488,8 +488,24 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 								  (const metal_function::metal_function_entry*)mtl_pipeline_state->vs_entry,
 								  (const metal_function::metal_function_entry*)mtl_pipeline_state->fs_entry, args);
 		if (draw_entry != nullptr) {
+#if defined(FLOOR_DEBUG)
+			if (draw_entry->control_point_buffers.size() != desc.tessellation.vertex_attributes.size()) {
+				log_error("control point buffers <-> vertex attributes count mismatch (in \"$\"): $' != $'",
+						  desc.debug_label, draw_entry->control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
+				return;
+			}
+#endif
+			
 			tes->draw(encoder, *draw_entry);
 		} else if (draw_indexed_entry != nullptr) {
+#if defined(FLOOR_DEBUG)
+			if (draw_indexed_entry->control_point_buffers.size() != desc.tessellation.vertex_attributes.size()) {
+				log_error("control point buffers <-> vertex attributes count mismatch (in \"$\"): $' != $'",
+						  desc.debug_label, draw_entry->control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
+				return;
+			}
+#endif
+			
 			const auto index_size = index_type_size(desc.tessellation.index_type);
 			tes->draw(encoder, *draw_indexed_entry, index_size);
 		}
