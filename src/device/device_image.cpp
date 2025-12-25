@@ -504,8 +504,9 @@ bool device_image::blit_check(const device_queue&, const device_image& src) {
 }
 
 bool device_image::write_check(const size_t src_size, const uint3 offset, const uint3 extent,
-							   const uint2 mip_level_range, const uint2 layer_range) {
-	if (!has_flag<MEMORY_FLAG::HOST_WRITE>(flags)) {
+							   const uint2 mip_level_range, const uint2 layer_range,
+							   const bool needs_host_write) {
+	if (needs_host_write && !has_flag<MEMORY_FLAG::HOST_WRITE>(flags)) {
 		log_error("write: image is not host-writable");
 		return false;
 	}

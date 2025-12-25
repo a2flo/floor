@@ -156,7 +156,9 @@ vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_lim
 		if (generate_mip_maps) {
 			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 		}
-		
+	}
+	
+	if (!is_transient && !is_render_target) {
 		// always need this for now
 		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -506,7 +508,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 	// if mip-mapping is enabled and the image is writable or mip-maps should be generated,
 	// we need to create a per-level image view, so that functions can actually write to each mip-map level
 	// (Vulkan doesn't support this at this point, although SPIR-V does)
-	if(is_mip_mapped && (generate_mip_maps || has_flag<IMAGE_TYPE::WRITE>(image_type))) {
+	if (is_mip_mapped && has_flag<MEMORY_FLAG::WRITE>(flags)) {
 		mip_map_image_info.resize(dev.max_mip_levels);
 		mip_map_image_view.resize(dev.max_mip_levels);
 		const auto last_level = mip_level_count - 1;
@@ -548,8 +550,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 						"mip-map image view creation failed", false)
 			mip_map_image_info[i].imageView = mip_map_image_view[i];
 		}
-	}
-	else {
+	} else {
 		mip_map_image_info.resize(dev.max_mip_levels, image_info);
 		mip_map_image_view.resize(dev.max_mip_levels, image_view);
 	}
@@ -561,14 +562,13 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 	descriptor_data_sampled = std::make_unique<uint8_t[]>(descriptor_sampled_size);
 	descriptor_data_storage = std::make_unique<uint8_t[]>(descriptor_storage_size);
 	
-	// while not explicitly forbidden, we should not query the descriptor info of transient images
-	if (!is_transient) {
-		const VkDescriptorImageInfo desc_img_info {
-			.sampler = VK_NULL_HANDLE,
-			.imageView = image_info.imageView,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		};
-		
+	const VkDescriptorImageInfo desc_img_info {
+		.sampler = VK_NULL_HANDLE,
+		.imageView = image_info.imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+	};
+	
+	if (has_flag<MEMORY_FLAG::READ>(flags) && !is_transient) {
 		const VkDescriptorGetInfoEXT desc_info_sampled {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
 			.pNext = nullptr,
@@ -578,7 +578,11 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 			},
 		};
 		vkGetDescriptorEXT(vulkan_dev, &desc_info_sampled, vk_dev.desc_buffer_sizes.sampled_image, descriptor_data_sampled.get());
-		
+	} else {
+		memset(descriptor_data_sampled.get(), 0, descriptor_sampled_size);
+	}
+	
+	if (has_flag<MEMORY_FLAG::WRITE>(flags) && !is_transient) {
 		for (size_t mip_level = 0, level_count = mip_map_image_view.size(); mip_level < level_count; ++mip_level) {
 			const VkDescriptorImageInfo mm_desc_img_info {
 				.sampler = VK_NULL_HANDLE,
@@ -598,7 +602,6 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 							   descriptor_data_storage.get() + mip_level * vk_dev.desc_buffer_sizes.storage_image);
 		}
 	} else {
-		memset(descriptor_data_sampled.get(), 0, descriptor_sampled_size);
 		if (descriptor_storage_size > 0) {
 			memset(descriptor_data_storage.get(), 0, descriptor_storage_size);
 		}
@@ -612,10 +615,23 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 			log_error("can't initialize a render target with host data!");
 		} else {
 			// try direct copy if available, otherwise fall back to staging copy
-			if (vk_dev.host_image_copy_support &&
+			// NOTE: we need to check how many mip-levels are actually provided (must at least be one, but may be all)
+			uint32_t available_mip_level_count = 0u;
+			const uint3 copy_extent { extent.width, extent.height, extent.depth };
+			if (vk_dev.host_image_copy_support) {
+				size_t req_size = 0;
+				for (uint32_t level = 0; level < mip_level_count; ++level) {
+					req_size += image_mip_level_data_size_from_types(copy_extent >> level, image_type, level, layer_count);
+					if (req_size > host_data.size_bytes()) {
+						break;
+					}
+					++available_mip_level_count;
+				}
+			}
+			if (vk_dev.host_image_copy_support && available_mip_level_count > 0u &&
 				device_image::write(cqueue, host_data,
 									// NOTE: reusing extent here, because we want the dim specific extent, not the image dim itself
-									{}, { extent.width, extent.height, extent.depth }, { 0u, mip_level_count - 1u }, { 0u, layer_count - 1u })) {
+									{}, copy_extent, { 0u, available_mip_level_count - 1u }, { 0u, layer_count - 1u })) {
 				// success
 			} else {
 				if (!write_memory_data(cqueue, host_data, 0,

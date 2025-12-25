@@ -165,9 +165,6 @@ public:
 	//! feature support: VK_EXT_nested_command_buffer with all features supported
 	bool nested_cmd_buffers_support { false };
 	
-	//! feature support: VK_EXT_swapchain_maintenance1
-	bool swapchain_maintenance1_support { false };
-	
 	//! feature support: VK_EXT_memory_priority
 	bool memory_priority_support { false };
 	

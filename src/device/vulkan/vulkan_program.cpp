@@ -244,6 +244,7 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 		entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
 																	MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
 																	MEMORY_FLAG::VULKAN_HOST_COHERENT |
+																	MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
 																	MEMORY_FLAG::HEAP_ALLOCATION);
 #if defined(FLOOR_DEBUG)
 		entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + std::to_string(buf_idx));
@@ -302,6 +303,7 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 															   MEMORY_FLAG::READ |
 															   MEMORY_FLAG::HOST_READ_WRITE |
 															   MEMORY_FLAG::VULKAN_HOST_COHERENT |
+															   MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
 															   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
 															   MEMORY_FLAG::HEAP_ALLOCATION);
 			desc_buffers[buf_idx].first->set_debug_label("desc_buf:" + func_name + "#" + std::to_string(buf_idx));

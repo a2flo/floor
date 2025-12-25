@@ -433,7 +433,19 @@ enable_renderer(enable_renderer_) {
 		.apiVersion = VK_MAKE_VERSION(min_vulkan_api_version.x, min_vulkan_api_version.y, min_vulkan_api_version.z),
 	};
 	
-	// TODO: query exts
+	// query instance extensions
+	// TODO: properly check support for each extension + fail if not supported
+	uint32_t instance_ext_prop_count = 0;
+	std::unordered_set<std::string> supported_instance_extensions;
+	if (vkEnumerateInstanceExtensionProperties(nullptr, &instance_ext_prop_count, nullptr) == VK_SUCCESS) {
+		std::vector<VkExtensionProperties> instance_ext_props(instance_ext_prop_count);
+		vkEnumerateInstanceExtensionProperties(nullptr, &instance_ext_prop_count, instance_ext_props.data());
+		for (const auto& instance_ext_prop : instance_ext_props) {
+			//log_debug(" * instance ext: $", instance_ext_prop.extensionName);
+			supported_instance_extensions.emplace(instance_ext_prop.extensionName);
+		}
+	}
+	
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
 	std::set<std::string> instance_extensions;
 #if defined(FLOOR_DEBUG)
@@ -447,8 +459,11 @@ enable_renderer(enable_renderer_) {
 	if (enable_renderer && !internal->screen.x11_forwarding) {
 		instance_extensions.emplace(VK_KHR_SURFACE_EXTENSION_NAME);
 		instance_extensions.emplace(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
-		// TODO: VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME
-		instance_extensions.emplace(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+		if (supported_instance_extensions.contains(VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME)) {
+			instance_extensions.emplace(VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+		} else {
+			instance_extensions.emplace(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
+		}
 #if defined(SDL_PLATFORM_WIN32)
 		instance_extensions.emplace(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(SDL_PLATFORM_LINUX)
@@ -818,6 +833,14 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_shader_bfloat16",
 			"VK_KHR_shader_untyped_pointers",
 			"VK_KHR_copy_memory_indirect",
+			"VK_KHR_calibrated_timestamps",
+			"VK_KHR_deferred_host_operations",
+			"VK_KHR_depth_clamp_zero_one",
+			"VK_KHR_present_mode_fifo_latest_ready",
+			"VK_KHR_shader_fma",
+			"VK_KHR_shader_relaxed_extended_instruction",
+			"VK_KHR_swapchain_mutable_format",
+			"VK_KHR_unified_image_layouts",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
@@ -922,7 +945,6 @@ enable_renderer(enable_renderer_) {
 		
 		// deal with swapchain ext
 		auto swapchain_ext_iter = find(begin(device_extensions_set), end(device_extensions_set), VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		bool swapchain_maintenance1_support = false;
 		if (enable_renderer && !internal->screen.x11_forwarding) {
 			if (swapchain_ext_iter == device_extensions_set.end()) {
 				log_error("$ extension is not supported by the device", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -939,13 +961,15 @@ enable_renderer(enable_renderer_) {
 			// prefer KHR over EXT
 			if (device_supported_extensions_set.contains(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-				swapchain_maintenance1_support = true;
 			} else {
 				if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-					log_warn("$ (nor KHR) extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
+					log_error("neither $ nor $ are supported by device $",
+							  VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME,
+							  VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME,
+							  props.deviceName);
+					continue;
 				} else {
 					device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-					swapchain_maintenance1_support = true;
 				}
 			}
 #endif
@@ -2116,8 +2140,6 @@ enable_renderer(enable_renderer_) {
 			log_msg("nested cmd buffers are fully supported (max nesting level: $)", nested_cmds_props.maxCommandBufferNestingLevel);
 		}
 		
-		device.swapchain_maintenance1_support = swapchain_maintenance1_support;
-		
 		device.subgroup_uniform_cf_support = subgroup_uniform_cf_support;
 		
 		// check host image copy support (via extension or core)
@@ -2456,7 +2478,7 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 			return false;
 		}
 		const VkWaylandSurfaceCreateInfoKHR surf_create_info {
-			.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+			.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
 			.pNext = nullptr,
 			.flags = 0,
 			.display = way_display,
@@ -2710,7 +2732,7 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 	};
 	const VkSwapchainCreateInfoKHR swapchain_create_info {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-		.pNext = (screen.render_device->swapchain_maintenance1_support ? &swapchain_present_modes_info : nullptr),
+		.pNext = &swapchain_present_modes_info,
 		.flags = 0,
 		.surface = screen.surface,
 		.minImageCount = swapchain_image_count,
@@ -3199,7 +3221,7 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 		};
 		const VkPresentInfoKHR present_info {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-			.pNext = (((const vulkan_device&)dev_queue.get_device()).swapchain_maintenance1_support ? &present_fence_info : nullptr),
+			.pNext = &present_fence_info,
 			.waitSemaphoreCount = (drawable.present_sema ? 1 : 0),
 			.pWaitSemaphores = (drawable.present_sema ? &((vulkan_fence*)drawable.present_sema)->get_vulkan_fence() : nullptr),
 			.swapchainCount = 1,
@@ -3211,24 +3233,6 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 		if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR) {
 			log_error("failed to present: $: $", present_result, vulkan_error_to_string(present_result));
 			return false;
-		}
-		
-		if (!screen.render_device->swapchain_maintenance1_support) {
-			// when VK_KHR_swapchain_maintenance1 is not supported, perform a dummy queue submit to signal "present_fence"
-			// NOTE: this may or may not be correct and properly ordered, but we can't do much else here ...
-			const VkSubmitInfo2 submit_info {
-				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-				.pNext = nullptr,
-				.flags = 0,
-				.waitSemaphoreInfoCount = 0,
-				.pWaitSemaphoreInfos = nullptr,
-				.commandBufferInfoCount = 0,
-				.pCommandBufferInfos = nullptr,
-				.signalSemaphoreInfoCount = 0,
-				.pSignalSemaphoreInfos = nullptr,
-			};
-			VK_CALL_IGNORE(vkQueueSubmit2((VkQueue)const_cast<void*>(vk_queue.get_queue_ptr()), 1, &submit_info, drawable.present_fence),
-						   "present fence emulation failed")
 		}
 	}
 	

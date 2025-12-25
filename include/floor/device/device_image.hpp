@@ -51,6 +51,10 @@ public:
 		if (has_flag<IMAGE_TYPE::WRITE>(image_type)) {
 			flags_ |= MEMORY_FLAG::WRITE;
 		}
+		// mark image as writable if mip-maps need to be generated
+		if (has_flag<MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)) {
+			flags_ |= MEMORY_FLAG::WRITE;
+		}
 		
 		// flag as render target memory if the image is a render target
 		flags_ &= ~MEMORY_FLAG::RENDER_TARGET;
@@ -67,12 +71,16 @@ public:
 	}
 	
 	//! handles misc image type modifications (infer no-sampler flag, strip mip-mapped flag if mip-level count <= 1)
-	static constexpr IMAGE_TYPE handle_image_type(const uint4& image_dim_, IMAGE_TYPE image_type_) {
+	static constexpr IMAGE_TYPE handle_image_type(const uint4& image_dim_, IMAGE_TYPE image_type_, const MEMORY_FLAG flags_) {
 		IMAGE_TYPE ret = infer_image_flags(image_type_);
-		if(has_flag<IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)) {
-			if(image_mip_level_count(image_dim_, image_type_) <= 1) {
+		if (has_flag<IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)) {
+			if (image_mip_level_count(image_dim_, image_type_) <= 1) {
 				ret &= ~IMAGE_TYPE::FLAG_MIPMAPPED;
 			}
+		}
+		// mark image as writable if mip-maps need to be generated
+		if (has_flag<MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)) {
+			ret |= IMAGE_TYPE::WRITE;
 		}
 		return ret;
 	}
@@ -453,7 +461,7 @@ protected:
 				  const bool backend_may_need_shim_type,
 				  const uint32_t mip_level_limit) :
 	device_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_)),
-	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
+	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_, flags)),
 	is_mip_mapped(has_flag<IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
 					  has_flag<MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
@@ -614,7 +622,9 @@ protected:
 	bool blit_check(const device_queue& cqueue, const device_image& src);
 	
 	//! returns true if host data can be written into this image using the specified parameters, false if not (prints errors)
-	bool write_check(const size_t src_size, const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range);
+	//! NOTE: in some situations, the presence of MEMORY_FLAG::HOST_WRITE may not be required -> "needs_host_write" can be set to false then
+	bool write_check(const size_t src_size, const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range,
+					 const bool needs_host_write = true);
 	
 };
 

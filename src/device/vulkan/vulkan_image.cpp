@@ -260,7 +260,8 @@ bool vulkan_image::write(const device_queue& cqueue, const void* src, const size
 		return false;
 	}
 	
-	if (!write_check(src_size, offset, extent, mip_level_range, layer_range)) {
+	if (!write_check(src_size, offset, extent, mip_level_range, layer_range,
+					 !vk_dev.host_image_copy_support /* don't need HOST_WRITE if supported */)) {
 		return false;
 	}
 	
