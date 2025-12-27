@@ -527,12 +527,21 @@ uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
 		ret = (!requires_host_coherent ?
 			   find_index(vk_dev.device_mem_indices, vk_dev.device_mem_index, memory_type_bits) :
 			   find_index(vk_dev.device_mem_host_coherent_indices, vk_dev.device_mem_host_coherent_index, memory_type_bits));
-		if(ret.first) {
+		if (ret.first) {
 			return ret.second;
 		}
 		if (requires_device_memory) {
-			log_error("could not find device-local memory");
-			return 0;
+			if (requires_host_coherent) {
+				// try again w/o host-coherent
+				ret = find_index(vk_dev.device_mem_indices, vk_dev.device_mem_index, memory_type_bits);
+				const auto ret_mem_index = (ret.first ? ret.second : 0);
+				log_error("could not find device-local + host-coherent memory for requested allocation: using memory type #$ now",
+						  ret_mem_index);
+				return ret_mem_index;
+			} else {
+				log_error("could not find device-local memory for requested allocation");
+				return 0;
+			}
 		}
 	}
 	

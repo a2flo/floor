@@ -301,20 +301,20 @@ floor_inline_always int32_t atom_load(const global int32_t* addr) {
 floor_inline_always uint32_t atom_load(const global uint32_t* addr) {
 	return atom_add((global uint32_t*)addr, 0u);
 }
-floor_inline_always float atom_load(const global float* addr) {
-	const uint32_t ret = atom_add((global uint32_t*)addr, 0u);
-	return *(float*)&ret;
-}
 floor_inline_always int32_t atom_load(const local int32_t* addr) {
 	return atom_add((local int32_t*)addr, 0);
 }
 floor_inline_always uint32_t atom_load(const local uint32_t* addr) {
 	return atom_add((local uint32_t*)addr, 0u);
 }
-floor_inline_always float atom_load(const local float* addr) {
-	const uint32_t ret = atom_add((local uint32_t*)addr, 0u);
-	return *(float*)&ret;
+#if defined(FLOOR_DEVICE_INFO_HAS_32_BIT_FLOAT_ATOMICS_1)
+floor_inline_always float atom_load(const global float* addr) {
+	return atom_add((global float*)addr, 0.0f);
 }
+floor_inline_always float atom_load(const local float* addr) {
+	return atom_add((local float*)addr, 0.0f);
+}
+#endif
 #if defined(FLOOR_DEVICE_INFO_HAS_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atom_load(const global uint64_t* addr) {
 	return atom_add((global uint64_t*)addr, 0ull);
@@ -354,6 +354,14 @@ floor_inline_always float atom_inc(global float* p) { return atom_add(p, 1.0f); 
 floor_inline_always float atom_inc(local float* p) { return atom_add(p, 1.0f); }
 floor_inline_always float atom_dec(global float* p) { return atom_sub(p, 1.0f); }
 floor_inline_always float atom_dec(local float* p) { return atom_sub(p, 1.0f); }
+floor_inline_always float atom_load(const global float* addr) {
+	const uint32_t ret = atom_add((global uint32_t*)addr, 0u);
+	return *(float*)&ret;
+}
+floor_inline_always float atom_load(const local float* addr) {
+	const uint32_t ret = atom_add((local uint32_t*)addr, 0u);
+	return *(float*)&ret;
+}
 #endif
 // NOTE: the trouble with these is that pointer bitcasts are problematic in Vulkan
 floor_inline_always float atom_cmpxchg(global float* p, float cmp, float val) {

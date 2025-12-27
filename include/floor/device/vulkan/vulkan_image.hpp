@@ -23,12 +23,15 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/device/device_image.hpp>
+#include <floor/device/graphics_pass.hpp>
 #include <floor/device/vulkan/vulkan_memory.hpp>
+#include <floor/core/flat_map.hpp>
 
 namespace fl {
 
 struct external_vulkan_image_info;
 class vulkan_device;
+class vulkan_context;
 
 class vulkan_image : public device_image, public vulkan_memory {
 public:
@@ -158,6 +161,15 @@ protected:
 				 const external_vulkan_image_info& external_image,
 				 std::span<uint8_t> host_data_,
 				 const MEMORY_FLAG flags_);
+	
+	//! internal function - destroyed once by vulkan_context
+	static void destroy_internal(vulkan_context& ctx) REQUIRES(!att_clear_passes_lock);
+	//! access to "att_clear_passes" must be thread-safe
+	static safe_mutex att_clear_passes_lock;
+	//! dynamically created per-device attachment clear passes (destroyed via destroy_internal())
+	static fl::flat_map<const device*, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>>>
+	att_clear_passes GUARDED_BY(att_clear_passes_lock);
+	friend vulkan_context;
 	
 };
 

@@ -2291,6 +2291,9 @@ enable_renderer(enable_renderer_) {
 FLOOR_POP_WARNINGS()
 
 vulkan_context::~vulkan_context() {
+	// destroy vulkan_image
+	vulkan_image::destroy_internal(*this);
+	
 	if (resize_handler_fnctr) {
 		floor::get_event()->remove_internal_event_handler(resize_handler_fnctr);
 	}

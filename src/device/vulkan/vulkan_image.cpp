@@ -30,6 +30,7 @@
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>
 #include <floor/device/vulkan/vulkan_fence.hpp>
+#include <floor/device/vulkan/vulkan_pass.hpp>
 
 #if defined(__WINDOWS__)
 #include <floor/core/platform_windows.hpp>
@@ -40,6 +41,9 @@
 namespace fl {
 
 // TODO: proper error (return) value handling everywhere
+
+safe_mutex vulkan_image::att_clear_passes_lock;
+fl::flat_map<const device*, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>>> vulkan_image::att_clear_passes;
 
 vulkan_image::vulkan_image(const device_queue& cqueue,
 						   const uint4 image_dim_,
@@ -90,6 +94,13 @@ vulkan_image::~vulkan_image() {
 	}
 }
 
+void vulkan_image::destroy_internal(vulkan_context& ctx) {
+	GUARD(att_clear_passes_lock);
+	for (auto&& dev : ctx.get_devices()) {
+		att_clear_passes.erase(dev);
+	}
+}
+
 bool vulkan_image::zero(const device_queue& cqueue) {
 	if (image == nullptr) {
 		return false;
@@ -101,44 +112,170 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 	}
 	
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
-	VK_CMD_BLOCK_RET(vk_queue, "image zero", ({
-		// transition to optimal layout, then back to our current one at the end
-		auto& internal = (vulkan_image_internal&)*this;
-		
-		const auto restore_access_mask = cur_access_mask;
-		const auto restore_layout = internal.image_info.imageLayout;
-		
-		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-		
-		VkImageSubresourceRange zero_range {
-			.aspectMask = vk_aspect_flags_from_type(image_type),
-			.baseMipLevel = 0,
-			.levelCount = mip_level_count,
-			.baseArrayLayer = 0,
-			.layerCount = layer_count,
-		};
-		if (has_flag<IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-			zero_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-			if (has_flag<IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
-				zero_range.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	auto& internal = (vulkan_image_internal&)*this;
+	if (!has_flag<IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+		VK_CMD_BLOCK_RET(vk_queue, "image zero", ({
+			// transition to optimal layout, then back to our current one at the end
+			
+			const auto restore_access_mask = cur_access_mask;
+			const auto restore_layout = internal.image_info.imageLayout;
+			
+			internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+								VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+			
+			VkImageSubresourceRange zero_range {
+				.aspectMask = vk_aspect_flags_from_type(image_type),
+				.baseMipLevel = 0,
+				.levelCount = mip_level_count,
+				.baseArrayLayer = 0,
+				.layerCount = layer_count,
+			};
+			if (has_flag<IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+				const VkClearDepthStencilValue clear_value {
+					.depth = 0.0f,
+					.stencil = 0u,
+				};
+				vkCmdClearDepthStencilImage(block_cmd_buffer.cmd_buffer, image, internal.image_info.imageLayout, &clear_value, 1, &zero_range);
+			} else {
+				const VkClearColorValue clear_value {
+					.float32 = { 0.0f, 0.0f, 0.0f, 0.0f },
+				};
+				vkCmdClearColorImage(block_cmd_buffer.cmd_buffer, image, internal.image_info.imageLayout, &clear_value, 1, &zero_range);
 			}
 			
-			const VkClearDepthStencilValue clear_value {
-				.depth = 0.0f,
-				.stencil = 0u,
-			};
-			vkCmdClearDepthStencilImage(block_cmd_buffer.cmd_buffer, image, internal.image_info.imageLayout, &clear_value, 1, &zero_range);
-		} else {
-			const VkClearColorValue clear_value {
-				.float32 = { 0.0f, 0.0f, 0.0f, 0.0f },
-			};
-			vkCmdClearColorImage(block_cmd_buffer.cmd_buffer, image, internal.image_info.imageLayout, &clear_value, 1, &zero_range);
+			internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
+								VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		}), false /* return false on error */, true /* always blocking */);
+	} else {
+		// create or retrieve a clear render pass for this image type + device
+		const auto& dev = cqueue.get_device();
+		const auto& ctx = cqueue.get_context();
+		const auto clear_image_type = (image_type &
+									   (IMAGE_TYPE::__DATA_TYPE_MASK |
+										IMAGE_TYPE::__FORMAT_MASK |
+										IMAGE_TYPE::__CHANNELS_MASK |
+										IMAGE_TYPE::__DIM_MASK |
+										IMAGE_TYPE::__LAYOUT_MASK |
+										IMAGE_TYPE::__SAMPLE_COUNT_MASK |
+										IMAGE_TYPE::FLAG_NORMALIZED |
+										IMAGE_TYPE::FLAG_RENDER_TARGET |
+										IMAGE_TYPE::FLAG_DEPTH |
+										IMAGE_TYPE::FLAG_STENCIL |
+										IMAGE_TYPE::FLAG_SRGB |
+										IMAGE_TYPE::FLAG_MSAA |
+										IMAGE_TYPE::FLAG_ARRAY));
+		VkRenderPass vk_clear_pass = nullptr;
+		{
+			GUARD(att_clear_passes_lock);
+			auto dev_lut_iter = att_clear_passes.find(&dev);
+			if (dev_lut_iter == att_clear_passes.end()) {
+				auto [empl_iter, success] = att_clear_passes.emplace(&dev, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>> {});
+				if (!success) {
+					log_error("failed to create/emplace clear passes LUT for device $", dev.name);
+					return false;
+				}
+				dev_lut_iter = empl_iter;
+			}
+			
+			auto clear_pass_iter = dev_lut_iter->second.find(clear_image_type);
+			if (clear_pass_iter == dev_lut_iter->second.end()) {
+				// create clear pass
+				const render_pass_description clear_color_pass {
+					.attachments = {
+						{
+							.format = clear_image_type,
+							.load_op = LOAD_OP::CLEAR,
+							.store_op = STORE_OP::STORE,
+							.clear.color = {},
+						},
+					},
+					.automatic_multi_view_handling = true,
+					.debug_label = "clear_color_pass",
+				};
+				auto clear_pass = ctx.create_graphics_pass(clear_color_pass, true);
+				if (!clear_pass) {
+					log_error("failed to create clear pass for device $", dev.name);
+					return false;
+				}
+				auto [insert_iter, success] = dev_lut_iter->second.insert_or_assign(clear_image_type, std::move(clear_pass));
+				if (!success) {
+					log_error("failed to insert clear pass for device $", dev.name);
+					return false;
+				}
+				clear_pass_iter = insert_iter;
+			}
+			
+			// TODO: proper multi-view detection? does this matter when we're specifying the proper layer count below?
+			vk_clear_pass = ((const vulkan_pass*)clear_pass_iter->second.get())->get_vulkan_render_pass(dev, layer_count == 2u);
 		}
+		assert(vk_clear_pass);
 		
-		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
-							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-	}), false /* return false on error */, true /* always blocking */);
+		// create needed framebuffer (full image)
+		VkFramebufferCreateInfo framebuffer_create_info {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.renderPass = vk_clear_pass,
+			.attachmentCount = 1u,
+			.pAttachments = &internal.image_info.imageView,
+			.width = image_dim.x,
+			.height = image_dim.y,
+			.layers = layer_count,
+		};
+		VkFramebuffer framebuffer { nullptr };
+		VK_CALL_RET(vkCreateFramebuffer(vk_dev.device, &framebuffer_create_info, nullptr, &framebuffer),
+					"failed to create framebuffer", false)
+		
+		// begin/run/end render pass
+		VK_CMD_BLOCK_RET(vk_queue, "image zero", ({
+			const VkViewport cur_viewport {
+				.x = 0.0f,
+				.y = 0.0f,
+				.width = float(image_dim.x),
+				.height = float(image_dim.y),
+				.minDepth = 0.0f,
+				.maxDepth = 1.0f,
+			};
+			vkCmdSetViewport(block_cmd_buffer.cmd_buffer, 0, 1, &cur_viewport);
+			
+			const VkRect2D cur_render_area {
+				.offset = { 0, 0 },
+				.extent = { image_dim.x, image_dim.y },
+			};
+			vkCmdSetScissor(block_cmd_buffer.cmd_buffer, 0, 1, &cur_render_area);
+			
+			const VkClearValue clear_value {
+				// NOTE: this is zero for any color/depth/stencil variant
+				.color = {
+					.float32 = { 0.0f, 0.0f, 0.0f, 0.0f },
+				}
+			};
+			const VkRenderPassBeginInfo pass_begin_info {
+				.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+				.pNext = nullptr,
+				.renderPass = vk_clear_pass,
+				.framebuffer = framebuffer,
+				.renderArea = cur_render_area,
+				.clearValueCount = 1u,
+				.pClearValues = &clear_value,
+			};
+			const VkSubpassBeginInfo subpass_begin_info {
+				.sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,
+				.pNext = nullptr,
+				.contents = VK_SUBPASS_CONTENTS_INLINE,
+			};
+			vkCmdBeginRenderPass2(block_cmd_buffer.cmd_buffer, &pass_begin_info, &subpass_begin_info);
+			
+			const VkSubpassEndInfo subpass_end_info {
+				.sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO,
+				.pNext = nullptr,
+			};
+			vkCmdEndRenderPass2(block_cmd_buffer.cmd_buffer, &subpass_end_info);
+		}), false /* return false on error */, true /* always blocking */);
+		
+		// cleanup
+		vkDestroyFramebuffer(((const vulkan_device&)dev).device, framebuffer, nullptr);
+	}
 	
 	return true;
 }
