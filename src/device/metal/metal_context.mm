@@ -387,6 +387,9 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		log_msg("max total local size: $' (max resident $')", device.max_total_local_size, device.max_resident_local_size);
 		log_msg("max local size: $'", device.max_local_size);
 		log_msg("max global size: $'", device.max_global_size);
+		if (device.units > 0) {
+			log_msg("device units: $", device.units);
+		}
 		log_msg("SIMD width: $", device.simd_width);
 		log_msg("argument buffer tier: $", [dev argumentBuffersSupport] + 1);
 		

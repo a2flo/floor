@@ -292,7 +292,10 @@ using namespace std::literals;
 			//! if set, only assumes 7 rather than 16 descriptor sets are available
 			uint64_t low_desc_set_count : 1;
 			
-			uint64_t _unused : 8;
+			//! if set, enables untyped pointers support
+			uint64_t untyped_pointers_support : 1;
+			
+			uint64_t _unused : 7;
 		} vulkan;
 
 		//! packed value

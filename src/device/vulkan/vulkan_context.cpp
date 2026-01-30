@@ -831,7 +831,6 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_video_maintenance2",
 			"VK_KHR_shader_quad_control",
 			"VK_KHR_shader_bfloat16",
-			"VK_KHR_shader_untyped_pointers",
 			"VK_KHR_copy_memory_indirect",
 			"VK_KHR_calibrated_timestamps",
 			"VK_KHR_deferred_host_operations",
@@ -841,6 +840,7 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_shader_relaxed_extended_instruction",
 			"VK_KHR_swapchain_mutable_format",
 			"VK_KHR_unified_image_layouts",
+			"VK_KHR_internally_synchronized_queues",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
@@ -1044,9 +1044,15 @@ enable_renderer(enable_renderer_) {
 					  (void*)&device_pageable_device_local_mem_features : (void*)&robustness_features),
 			.fragmentShaderBarycentric = false,
 		};
+		VkPhysicalDeviceShaderUntypedPointersFeaturesKHR untyped_pointers_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR,
+			.pNext = &barycentric_features,
+			.shaderUntypedPointers = false,
+		};
 		VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR max_reconvergence_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR,
-			.pNext = &barycentric_features,
+			.pNext = (device_supported_extensions_set.contains(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME) ?
+					  (void*)&untyped_pointers_features : (void*)&barycentric_features),
 			.shaderMaximalReconvergence = false,
 		};
 		VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR subgroup_uni_control_flow_features {
@@ -1749,6 +1755,16 @@ enable_renderer(enable_renderer_) {
 			device_extensions_set.emplace(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
 		}
 		
+		// add VK_KHR_shader_untyped_pointers if *fully* supported
+		bool untyped_pointers_support = false;
+		if (device_supported_extensions_set.contains(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME) &&
+			untyped_pointers_features.shaderUntypedPointers) {
+#if 0 // TODO: disabled for now until compiler side is fully implemented
+			untyped_pointers_support = true;
+#endif
+			device_extensions_set.emplace(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME);
+		}
+		
 		// optionally enable VK_EXT_nested_command_buffer extension if *fully* supported
 		bool nested_cmd_buffers_support = false;
 		if (device_supported_extensions_set.count(VK_EXT_NESTED_COMMAND_BUFFER_EXTENSION_NAME)) {
@@ -2141,6 +2157,11 @@ enable_renderer(enable_renderer_) {
 		}
 		
 		device.subgroup_uniform_cf_support = subgroup_uniform_cf_support;
+		
+		device.untyped_pointers_support = untyped_pointers_support;
+		if (untyped_pointers_support) {
+			log_msg("SPIR-V untyped pointers are supported");
+		}
 		
 		// check host image copy support (via extension or core)
 		if ((device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ?

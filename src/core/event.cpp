@@ -198,7 +198,8 @@ void event::handle_events() {
 				}
 				case SDL_EVENT_MOUSE_WHEEL: {
 					const float2 mouse_coord { event_handle.wheel.mouse_x * coord_scale, event_handle.wheel.mouse_y * coord_scale };
-					auto amount = event_handle.wheel.y;
+					// NOTE: this works around any option/alt key weirdness, this should always be the .y component, but if it's 0, use .x instead
+					auto amount = (const_math::is_equal(event_handle.wheel.y, 0.0f, 1.0e-8f) ? event_handle.wheel.x : event_handle.wheel.y);
 					// NOTE: we assume the opposite behavior to SDL here in that "normal" needs to be flipped and "flipped" is non-flipped
 					if (event_handle.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
 						amount = -amount;

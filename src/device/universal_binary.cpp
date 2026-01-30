@@ -563,6 +563,7 @@ namespace fl::universal_binary {
 				vlk_dev.tessellation_support = vlk_target.tessellation_support;
 				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
 				vlk_dev.subgroup_uniform_cf_support = vlk_target.subgroup_uniform_cf_support;
+				vlk_dev.untyped_pointers_support = vlk_target.untyped_pointers_support;
 				vlk_dev.max_mip_levels = vlk_dev.max_mip_levels;
 				vlk_dev.argument_buffer_support = true;
 				vlk_dev.argument_buffer_image_support = true;
@@ -1498,6 +1499,9 @@ namespace fl::universal_binary {
 						vlk_dev.max_descriptor_set_count < vulkan_device::min_required_high_bound_descriptor_sets) {
 						continue;
 					}
+					if (vlk_target.untyped_pointers_support && !vlk_dev.untyped_pointers_support) {
+						continue;
+					}
 					
 					// -> binary is compatible, now check for best match
 					if (best_target_idx != ~size_t(0)) {
@@ -1551,6 +1555,7 @@ namespace fl::universal_binary {
 											  vlk_target.barycentric_coord_support +
 											  vlk_target.tessellation_support +
 											  vlk_target.subgroup_uniform_cf_support +
+											  vlk_target.untyped_pointers_support +
 											  (vlk_target.max_mip_levels >= dev.max_mip_levels ? 1u : 0u));
 						const auto best_cap_sum = (best_vlk.double_support +
 												   best_vlk.basic_64_bit_atomics_support +
@@ -1560,6 +1565,7 @@ namespace fl::universal_binary {
 												   best_vlk.barycentric_coord_support +
 												   best_vlk.tessellation_support +
 												   best_vlk.subgroup_uniform_cf_support +
+												   best_vlk.untyped_pointers_support +
 												   (best_vlk.max_mip_levels >= dev.max_mip_levels ? 1u : 0u));
 						if (cap_sum > best_cap_sum) {
 							best_target_idx = i;
