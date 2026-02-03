@@ -244,7 +244,8 @@ namespace fl::algorithm {
 			reduced_type total_sum {};
 			if (sub_group_id == 0u) {
 				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ? lmem[sub_group_local_id] : reduced_type(0));
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
+										reduced_type(lmem[sub_group_local_id]) : reduced_type(0));
 				total_sum = group::sub_group_reduce<group::OP::ADD>(sg_in_val);
 			}
 			local_barrier();
