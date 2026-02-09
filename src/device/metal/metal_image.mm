@@ -529,7 +529,10 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 				assert([image heap] && [image heap] == (is_private ? mtl_dev.heap_private : mtl_dev.heap_shared));
 			}
 		}
-		image = [mtl_device newTextureWithDescriptor:desc];
+		if (!is_heap_image) {
+			image = [mtl_device newTextureWithDescriptor:desc];
+			[image setPurgeableState:MTLPurgeableStateNonVolatile];
+		}
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data && host_data.data() != nullptr && !has_flag<MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
@@ -634,7 +637,7 @@ metal_image::~metal_image() {
 #endif
 	@autoreleasepool {
 		// kill the image
-		if (image
+		if (image && !is_heap_image
 #if TARGET_OS_SIMULATOR // in the simulator, doing this may lead to issues with external images
 			&& !is_external
 #endif

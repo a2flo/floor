@@ -24,9 +24,20 @@ namespace fl {
 device_program::~device_program() {}
 
 std::shared_ptr<device_function> device_program::get_function(const std::string_view& func_name) const {
-	const auto iter = find(cbegin(function_names), cend(function_names), func_name);
-	if(iter == cend(function_names)) return {};
-	return functions[(size_t)distance(cbegin(function_names), iter)];
+	const auto iter = std::find(function_names.cbegin(), function_names.cend(), func_name);
+	if (iter == function_names.cend()) {
+		return {};
+	}
+	return functions[size_t(std::distance(function_names.cbegin(), iter))];
+}
+
+const device_function* device_program::get_function_ptr(const std::string_view& func_name) const {
+	const auto iter = std::find(function_names.cbegin(), function_names.cend(), func_name);
+	if (iter == function_names.cend()) {
+		return nullptr;
+	}
+	const auto idx = size_t(std::distance(function_names.cbegin(), iter));
+	return functions.at(idx).get();
 }
 
 bool device_program::should_ignore_function_for_device(const device& dev, const toolchain::function_info& func_info) const {

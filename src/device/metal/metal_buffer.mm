@@ -198,6 +198,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 		if (has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 			buffer = [mtl_dev.device newBufferWithBytesNoCopy:host_data.data() length:host_data.size_bytes() options:options
 												  deallocator:nil /* opt-out */];
+			[buffer setPurgeableState:MTLPurgeableStateNonVolatile];
 			assert(!is_heap_buffer);
 			return true;
 		}
@@ -228,6 +229,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 				//    if available), then blit from the host memory buffer
 				if (!buffer) {
 					buffer = [mtl_dev.device newBufferWithLength:size options:options];
+					[buffer setPurgeableState:MTLPurgeableStateNonVolatile];
 				}
 				if (staging_buffer == nullptr) {
 					MTLResourceOptions host_mem_storage = MTLResourceStorageModeShared;
@@ -244,6 +246,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 						log_error("failed to allocate memory of size $'", size);
 						return false;
 					}
+					[buffer_with_host_mem setPurgeableState:MTLPurgeableStateNonVolatile];
 					
 					id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 					id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
@@ -266,6 +269,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 				// all other storage modes can just use it
 				if (!buffer) {
 					buffer = [mtl_dev.device newBufferWithBytes:host_data.data() length:host_data.size_bytes() options:options];
+					[buffer setPurgeableState:MTLPurgeableStateNonVolatile];
 				} else {
 					// -> heap allocated: need to write data manually
 					write(cqueue, host_data.data(), host_data.size_bytes());
@@ -275,6 +279,7 @@ bool metal_buffer::create_internal(const bool copy_host_data, const device_queue
 		// else: just create a buffer of the specified size (if we don't have already created a heap-allocated one)
 		else if (!buffer) {
 			buffer = [mtl_dev.device newBufferWithLength:size options:options];
+			[buffer setPurgeableState:MTLPurgeableStateNonVolatile];
 		}
 		
 		return true;

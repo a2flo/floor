@@ -83,7 +83,9 @@ indirect_command_pipeline(desc_) {
 			metal_pipeline_entry entry;
 			entry.icb = [mtl_dev newIndirectCommandBufferWithDescriptor:icb_desc
 														maxCommandCount:desc.max_command_count
-																options:0];
+																options:(MTLResourceCPUCacheModeDefaultCache |
+																		 MTLResourceStorageModeShared |
+																		 MTLResourceHazardTrackingModeUntracked)];
 			if (entry.icb == nil) {
 				log_error("failed to create indirect command buffer for device \"$\" in indirect command pipeline \"$\"",
 						  dev->name, desc.debug_label);

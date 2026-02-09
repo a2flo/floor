@@ -36,6 +36,9 @@ public:
 	//! returns the function with the exact function name of "func_name", nullptr if not found
 	virtual std::shared_ptr<device_function> get_function(const std::string_view& func_name) const;
 	
+	//! returns a non-owning pointer to the function with the exact function name of "func_name", nullptr if not found
+	virtual const device_function* get_function_ptr(const std::string_view& func_name) const;
+	
 	//! returns a container of all functions in this program
 	const std::vector<std::shared_ptr<device_function>>& get_functions() const {
 		return functions;
@@ -69,7 +72,7 @@ protected:
 				names.push_back(info.name);
 			}
 		}
-		names.erase(unique(begin(names), end(names)), end(names));
+		names.erase(std::unique(std::begin(names), std::end(names)), std::end(names));
 		return names;
 	}
 	

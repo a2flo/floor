@@ -172,6 +172,10 @@ template <typename T> struct decay_as<__attribute__((global_as)) T> { using type
 template <typename T> struct decay_as<__attribute__((local_as)) T> { using type = std::decay_t<T>; };
 template <typename T> struct decay_as<__attribute__((constant_as)) T> { using type = std::decay_t<T>; };
 template <typename T> struct decay_as<__attribute__((generic_as)) T> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((global_as)) T* __restrict> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((local_as)) T* __restrict> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((constant_as)) T* __restrict> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((generic_as)) T* __restrict> { using type = std::decay_t<T>; };
 #endif
 template <typename T> using decay_as_t = typename decay_as<T>::type;
 

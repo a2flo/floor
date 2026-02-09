@@ -505,6 +505,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 					mtl_dev->heap_private = [mtl_dev->device newHeapWithDescriptor:heap_desc];
 					if (mtl_dev->heap_private) {
 						log_msg("allocated private storage heap of size $'", [mtl_dev->heap_private size]);
+						[mtl_dev->heap_private setPurgeableState:MTLPurgeableStateNonVolatile];
 					} else {
 						log_error("failed to allocate private storage heap of size $'", heap_size_private);
 					}
@@ -515,6 +516,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 					mtl_dev->heap_shared = [mtl_dev->device newHeapWithDescriptor:heap_desc];
 					if (mtl_dev->heap_shared) {
 						log_msg("allocated shared storage heap of size $'", [mtl_dev->heap_shared size]);
+						[mtl_dev->heap_shared setPurgeableState:MTLPurgeableStateNonVolatile];
 					} else {
 						log_error("failed to allocate share storage heap of size $'", heap_size_shared);
 					}
