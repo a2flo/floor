@@ -144,7 +144,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 	for (id <MTLDevice> dev in mtl_devices) {
 		// check whitelist
 		if (!whitelist.empty()) {
-			const auto lc_dev_name = core::str_to_lower([[dev name] UTF8String]);
+			const auto lc_dev_name = core::str_to_lower(safe_string([[dev name] UTF8String]));
 			bool found = false;
 			for (const auto& entry : whitelist) {
 				if (lc_dev_name.find(entry) != std::string::npos) {
@@ -175,7 +175,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		auto& device = (metal_device&)*devices.back();
 		device.device = dev;
 		device.context = this;
-		device.name = [[dev name] UTF8String];
+		device.name = safe_string([[dev name] UTF8String]);
 		device.type = (device::TYPE)(uint32_t(device::TYPE::GPU0) + device_num);
 		++device_num;
 		
@@ -302,7 +302,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
 		// on macOS, we can get to the device properties through MTLDeviceSPI
-		device.vendor_name = [[dev_spi vendorName] UTF8String];
+		device.vendor_name = safe_string([[dev_spi vendorName] UTF8String]);
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if (lc_vendor_name.find("intel") != std::string::npos) {
 			device.vendor = VENDOR::INTEL;
@@ -680,15 +680,13 @@ std::shared_ptr<device_image> metal_context::create_image(const device_queue& cq
 												 mip_level_limit));
 }
 
-static std::shared_ptr<metal_program> add_metal_program(metal_program::program_map_type&& prog_map,
-												   std::vector<std::shared_ptr<metal_program>>* programs,
-												   atomic_spin_lock& programs_lock) REQUIRES(!programs_lock) {
+std::shared_ptr<metal_program> metal_context::add_metal_program(fl::flat_map<const metal_device*, metal_program_entry>&& prog_map) {
 	// create the program object, which in turn will create function objects for all functions in the program,
 	// for all devices contained in the program map
 	auto prog = std::make_shared<metal_program>(std::move(prog_map));
 	{
 		GUARD(programs_lock);
-		programs->push_back(prog);
+		programs.push_back(prog);
 	}
 	return prog;
 }
@@ -726,7 +724,7 @@ std::shared_ptr<device_program> metal_context::create_program_from_archive_binar
 		}
 	}
 	
-	return add_metal_program(std::move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_universal_binary(const std::string& file_name) {
@@ -806,7 +804,7 @@ std::shared_ptr<device_program> metal_context::add_program_file(const std::strin
 								  create_metal_program((const metal_device&)*dev,
 													   toolchain::compile_program_file(*dev, file_name, options)));
 	}
-	return add_metal_program(std::move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_program_source(const std::string& source_code,
@@ -824,7 +822,7 @@ std::shared_ptr<device_program> metal_context::add_program_source(const std::str
 								  create_metal_program((const metal_device&)*dev,
 													   toolchain::compile_program(*dev, source_code, options)));
 	}
-	return add_metal_program(std::move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_precompiled_program_file(const std::string& file_name,
@@ -857,7 +855,7 @@ std::shared_ptr<device_program> metal_context::add_precompiled_program_file(cons
 			prog_map.insert_or_assign((const metal_device*)dev.get(), entry);
 		}
 	}
-	return add_metal_program(std::move(prog_map), &programs, programs_lock);
+	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program::program_entry> metal_context::create_program_entry(const device& dev,

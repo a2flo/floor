@@ -53,6 +53,11 @@ floor_inline_always static bool stob(const std::string& str) {
 }
 #endif
 
+//! constructs a std::string from a const char* "str" that may potentially be nullptr
+floor_inline_always static std::string safe_string(const char* str) {
+	return std::string(str ? str : "");
+}
+
 } // namespace fl
 
 #endif // !FLOOR_DEVICE || FLOOR_DEVICE_HOST_COMPUTE

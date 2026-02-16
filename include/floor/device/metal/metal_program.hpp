@@ -32,19 +32,21 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class metal_device;
 
+//! stores a Metal program + function infos for an individual device
+struct metal_program_entry : device_program::program_entry {
+	id <MTLLibrary> program { nil };
+	
+	struct metal_function_data {
+		id <MTLFunction> function { nil };
+		id <MTLComputePipelineState> state { nil };
+	};
+	//! internal state, automatically created in metal_program
+	std::vector<metal_function_data> metal_functions {};
+};
+
 class metal_program final : public device_program {
 public:
-	//! stores a Metal program + function infos for an individual device
-	struct metal_program_entry : program_entry {
-		id <MTLLibrary> program { nil };
-		
-		struct metal_function_data {
-			id <MTLFunction> function { nil };
-			id <MTLComputePipelineState> state { nil };
-		};
-		//! internal state, automatically created in metal_program
-		std::vector<metal_function_data> metal_functions {};
-	};
+	using metal_program_entry = metal_program_entry;
 	
 	//! lookup map that contains the corresponding Metal program for multiple devices
 	using program_map_type = fl::flat_map<const metal_device*, metal_program_entry>;

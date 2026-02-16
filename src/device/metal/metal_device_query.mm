@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
+#include <floor/core/cpp_ext.hpp>
 
 namespace fl::metal_device_query {
 using namespace std::literals;
@@ -90,7 +91,7 @@ std::optional<device_info_t> query(id <MTLDevice> device) {
 				}
 			}
 		};
-		const std::string dev_name = [[device name] UTF8String];
+		const auto dev_name = safe_string([[device name] UTF8String]);
 		if (dev_name.find("AMD") != std::string::npos) {
 			uint32_t NumCUPerSH = 1, NumSH = 1, NumSE = 1;
 			query_and_parse_gpu_config({

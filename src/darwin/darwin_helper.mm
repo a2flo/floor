@@ -618,9 +618,9 @@ float darwin_helper::get_metal_view_hdr_max_nits(floor_metal_view* view) {
 
 uint32_t darwin_helper::get_dpi(SDL_Window* wnd floor_unused_on_ios_and_visionos) {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // on macOS this can be done properly through querying CoreGraphics
-	float2 display_res(float2(CGDisplayPixelsWide(CGMainDisplayID()),
-							  CGDisplayPixelsHigh(CGMainDisplayID())) * get_scale_factor(wnd));
-	const CGSize display_phys_size(CGDisplayScreenSize(CGMainDisplayID()));
+	const auto main_display_id = CGMainDisplayID();
+	auto display_res = get_scale_factor(wnd) *float2 { float(CGDisplayPixelsWide(main_display_id)), float(CGDisplayPixelsHigh(main_display_id)) };
+	const CGSize display_phys_size(CGDisplayScreenSize(main_display_id));
 	const float2 display_dpi((display_res.x / (float)display_phys_size.width) * 25.4f,
 							 (display_res.y / (float)display_phys_size.height) * 25.4f);
 	return (uint32_t)floorf(std::max(display_dpi.x, display_dpi.y));
@@ -737,12 +737,12 @@ std::string darwin_helper::get_computer_name() {
 #if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 	return [[[UIDevice currentDevice] name] UTF8String];
 #else
-	return [[[NSHost currentHost] localizedName] UTF8String];
+	return safe_string([[[NSHost currentHost] localizedName] UTF8String]);
 #endif
 }
 
 std::string darwin_helper::utf8_decomp_to_precomp(const std::string& str) {
-	return [[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String];
+	return safe_string([[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String]);
 }
 
 int64_t darwin_helper::get_memory_size() {
@@ -755,7 +755,7 @@ int64_t darwin_helper::get_memory_size() {
 
 std::string darwin_helper::get_bundle_identifier() {
 	NSString* bundle_id = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"];
-	return [bundle_id UTF8String];
+	return safe_string([bundle_id UTF8String]);
 }
 
 std::string darwin_helper::get_pref_path() {

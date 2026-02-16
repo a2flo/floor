@@ -301,6 +301,10 @@ static const char* metal_tensor_data_type_to_string(const MTLTensorDataType& dat
 		case MTLTensorDataTypeUInt16: return metal_data_type_to_string(MTLDataTypeUShort);
 		case MTLTensorDataTypeInt32: return metal_data_type_to_string(MTLDataTypeInt);
 		case MTLTensorDataTypeUInt32: return metal_data_type_to_string(MTLDataTypeUInt);
+#if defined(__MAC_26_4) || defined(__IPHONE_26_4) || defined(__VISIONOS_26_4)
+		case MTLTensorDataTypeInt4: return "TensorInt4";
+		case MTLTensorDataTypeUInt4: return "TensorUInt4";
+#endif
 	}
 	return "<unknown>";
 }

@@ -132,10 +132,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ == 17) // Xcode 16.3+
+#if (__clang_major__ < 21) // Xcode 16.3 - 26.3
 #define FLOOR_TOOLCHAIN_VERSION 190000u
-#else // newer/unreleased Xcode, default to 19.0 for now
-#define FLOOR_TOOLCHAIN_VERSION 190000u
+#else // newer/unreleased Xcode: can simply use reported clang version since Xcode 26.4
+#define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #endif
 
 #endif
@@ -185,8 +185,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_DEVICE_INFO_OS_VERSION_160000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 170000 && FLOOR_DEVICE_INFO_OS_VERSION < 180000
 #define FLOOR_DEVICE_INFO_OS_VERSION_170000
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 180000
+#elif FLOOR_DEVICE_INFO_OS_VERSION >= 180000 && FLOOR_DEVICE_INFO_OS_VERSION < 260000
 #define FLOOR_DEVICE_INFO_OS_VERSION_180000
+#elif FLOOR_DEVICE_INFO_OS_VERSION >= 260000
+#define FLOOR_DEVICE_INFO_OS_VERSION_260000
 #endif
 
 #elif defined(FLOOR_VISIONOS) // visionOS
@@ -207,8 +209,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_DEVICE_INFO_OS_VERSION_130000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 140000 && FLOOR_DEVICE_INFO_OS_VERSION < 150000
 #define FLOOR_DEVICE_INFO_OS_VERSION_140000
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 150000
+#elif FLOOR_DEVICE_INFO_OS_VERSION >= 150000 && FLOOR_DEVICE_INFO_OS_VERSION < 260000
 #define FLOOR_DEVICE_INFO_OS_VERSION_150000
+#elif FLOOR_DEVICE_INFO_OS_VERSION >= 260000
+#define FLOOR_DEVICE_INFO_OS_VERSION_260000
 #endif
 
 #endif

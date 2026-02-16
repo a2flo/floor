@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 
+#include <floor/core/cpp_ext.hpp>
 #include <floor/device/device_context.hpp>
 #include <floor/device/metal/metal_context.hpp>
 #include <floor/device/metal/metal_queue.hpp>
@@ -174,7 +175,7 @@ void metal_function::execute(const device_queue& cqueue,
 			[encoder->cmd_buffer waitUntilCompleted];
 #if defined(FLOOR_DEBUG)
 			if ([encoder->cmd_buffer status] == MTLCommandBufferStatus::MTLCommandBufferStatusError && [encoder->cmd_buffer error]) {
-				const std::string err_str = [[[encoder->cmd_buffer error] localizedDescription] UTF8String];
+				const auto err_str = safe_string([[[encoder->cmd_buffer error] localizedDescription] UTF8String]);
 				log_error("failed to execute kernel: $: $", entry.info->name, err_str);
 			}
 #endif

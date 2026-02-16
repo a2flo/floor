@@ -37,6 +37,7 @@ namespace fl {
 
 class metal_program;
 class metal_device;
+struct metal_program_entry;
 class vr_context;
 
 class metal_context final : public device_context {
@@ -203,6 +204,7 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	std::vector<std::shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
+	std::shared_ptr<metal_program> add_metal_program(fl::flat_map<const metal_device*, metal_program_entry>&& prog_map) REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
 	
