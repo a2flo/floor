@@ -82,7 +82,8 @@
 		"max_mip_levels": 16,
 		"subgroup_uniform_cf_support": false,
 		"low_iub_count": true,
-		"low_desc_set_count": true
+		"low_desc_set_count": true,
+		"untyped_pointers_support": false
 	},
 	// Host-Compute x86 + ARM
 	{
