@@ -36,10 +36,10 @@ public:
 	metal_device();
 	
 	// Metal software version (Metal API) which this device supports
-	METAL_VERSION metal_software_version { METAL_VERSION::METAL_3_0 };
+	METAL_VERSION metal_software_version { METAL_VERSION::METAL_3_2 };
 	
 	// Metal language version (kernels/shaders) which this device supports
-	METAL_VERSION metal_language_version { METAL_VERSION::METAL_3_0 };
+	METAL_VERSION metal_language_version { METAL_VERSION::METAL_3_2 };
 	
 	enum class FAMILY_TYPE : uint32_t {
 		APPLE, //!< iOS, tvOS, visionOS, ...
@@ -94,9 +94,6 @@ public:
 	
 	//! true if the device has support for SIMD reduction operations
 	bool simd_reduction { false };
-	
-	//! true if the device has support residency sets
-	bool residency_set_support { false };
 	
 	// compute queue used for internal purposes (try not to use this ...)
 	device_queue* internal_queue { nullptr };

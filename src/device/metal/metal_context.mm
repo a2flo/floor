@@ -226,12 +226,6 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		} else if (darwin_helper::get_system_version() >= 180000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
-		} else if (darwin_helper::get_system_version() >= 170000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_1;
-			device.metal_language_version = METAL_VERSION::METAL_3_1;
-		} else if (darwin_helper::get_system_version() >= 160000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
 #elif defined(FLOOR_VISIONOS)
 		if (darwin_helper::get_system_version() >= 260000) {
@@ -353,12 +347,6 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		} else if (darwin_helper::get_system_version() >= 150000) {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
-		} else if (darwin_helper::get_system_version() >= 140000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_1;
-			device.metal_language_version = METAL_VERSION::METAL_3_1;
-		} else if (darwin_helper::get_system_version() >= 130000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_0;
-			device.metal_language_version = METAL_VERSION::METAL_3_0;
 		}
 #endif
 		assert(device.max_total_local_size == 1024u); // should always be the case with Metal3
@@ -399,14 +387,8 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		
 		device.barycentric_coord_support = [dev supportsShaderBarycentricCoordinates];
 		
-		if (@available(macOS 15.0, iOS 18.0, visionOS 2.0, *)) {
-			device.residency_set_support = true;
-		}
-		
-		if ([dev respondsToSelector:@selector(architecture)]) {
-			if (const auto arch_str = [[[dev architecture] name] UTF8String]; arch_str) {
-				log_msg("architecture: $", arch_str);
-			}
+		if (const auto arch_str = [[[dev architecture] name] UTF8String]; arch_str) {
+			log_msg("architecture: $", arch_str);
 		}
 		
 		// done
@@ -522,8 +504,8 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 					}
 				}
 				
-				// allocate residency set for all heaps if supported
-				if (mtl_dev->residency_set_support && (mtl_dev->heap_shared || mtl_dev->heap_private)) {
+				// allocate residency set for all heaps
+				if (mtl_dev->heap_shared || mtl_dev->heap_private) {
 					MTLResidencySetDescriptor* res_set_desc = [[MTLResidencySetDescriptor alloc] init];
 					res_set_desc.label = @"heap_residency_set";
 					res_set_desc.initialCapacity = 2;

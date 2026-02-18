@@ -122,12 +122,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							if (dump_reflection_info) {
 								MTLAutoreleasedComputePipelineReflection refl_data { nil };
 								kernel_state = [[prog.second.program device] newComputePipelineStateWithDescriptor:mtl_pipeline_desc
-																										   options:(
-#if defined(__MAC_15_0) || defined(__IPHONE_18_0) || defined(FLOOR_VISIONOS)
-																													MTLPipelineOptionBindingInfo |
-#else
-																													MTLPipelineOptionArgumentInfo |
-#endif
+																										   options:(MTLPipelineOptionBindingInfo |
 																													MTLPipelineOptionBufferTypeInfo)
 																										reflection:&refl_data
 																											 error:&err];
@@ -274,12 +269,10 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeIntersectionFunctionTable: return "IntersectionFunctionTable";
 		case MTLDataTypePrimitiveAccelerationStructure: return "PrimitiveAccelerationStructure";
 		case MTLDataTypeInstanceAccelerationStructure: return "InstanceAccelerationStructure";
-#if defined(__MAC_14_0) || defined(__IPHONE_17_0) || defined(__VISIONOS_2_0)
 		case MTLDataTypeBFloat: return "BFloat";
 		case MTLDataTypeBFloat2: return "BFloat2";
 		case MTLDataTypeBFloat3: return "BFloat3";
 		case MTLDataTypeBFloat4: return "BFloat4";
-#endif
 #if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 		case MTLDataTypeDepthStencilState: return "DepthStencilState";
 		case MTLDataTypeTensor: return "Tensor";

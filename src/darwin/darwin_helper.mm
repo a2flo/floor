@@ -711,13 +711,13 @@ size_t darwin_helper::get_system_version() {
 	// just return lowest supported version
 #if defined(FLOOR_IOS)
 	log_error("unable to retrieve iOS version!");
-	return __IPHONE_16_0;
+	return __IPHONE_18_6;
 #elif defined(FLOOR_VISIONOS)
 	log_error("unable to retrieve visionOS version!");
-	return __VISIONOS_2_0;
+	return __VISIONOS_2_6;
 #else
 	log_error("unable to retrieve macOS version!");
-	return __MAC_13_0;
+	return __MAC_15_6;
 #endif
 }
 

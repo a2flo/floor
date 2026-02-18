@@ -64,9 +64,9 @@ if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor|clang_patchlevel" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# Apple Xcode/LLVM/clang versioning scheme -> at least 17.0 is required (ships with Xcode / CLI tools 16.3)
+		# Apple Xcode/LLVM/clang versioning scheme -> at least 17.0 is required (ships with Xcode / CLI tools 26.0)
 		if [ $CLANG_MAJOR -lt 17 ] || [ $CLANG_MAJOR -eq 17 -a $CLANG_MINOR -lt 0 -a $CLANG_PATCHLEVEL -lt 0 ]; then
-			error "at least Xcode 16.3 / Apple clang/LLVM 17.0.0 is required to compile this project!"
+			error "at least Xcode 26.0 / Apple clang/LLVM 17.0.0 is required to compile this project!"
 		fi
 	else
 		# standard clang versioning scheme -> at least 19.0 is required
@@ -757,9 +757,9 @@ REL_OPT_LD_FLAGS="-flto"
 # macOS/iOS: set min version
 if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "macos" ]; then
-		COMMON_FLAGS="${COMMON_FLAGS} -mmacos-version-min=13.0"
+		COMMON_FLAGS="${COMMON_FLAGS} -mmacos-version-min=15.6"
 	else # ios
-		COMMON_FLAGS="${COMMON_FLAGS} -mios-version-min=16.0"
+		COMMON_FLAGS="${COMMON_FLAGS} -mios-version-min=18.6"
 	fi
 	
 	# set lib version

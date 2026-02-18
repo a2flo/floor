@@ -45,7 +45,7 @@ public:
 		//! use the Vulkan 1.3+ renderer
 		VULKAN = 2,
 		
-		//! use the Metal 3.0+ renderer
+		//! use the Metal 3.2+ renderer
 		METAL = 3,
 	};
 	

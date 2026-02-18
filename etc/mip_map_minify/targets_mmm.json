@@ -45,10 +45,10 @@
 		"sub_group_ballot_support": false,
 		"simd_width": 0
 	},
-	// Metal 3.0+ macOS + iOS
+	// Metal 3.2+ macOS + iOS
 	{
 		"type": "Metal",
-		"version": [ 3, 0 ],
+		"version": [ 3, 2 ],
 		"platform": "macos",
 		"target": "generic",
 		"simd_width": 0,
@@ -57,7 +57,7 @@
 	},
 	{
 		"type": "Metal",
-		"version": [ 3, 0 ],
+		"version": [ 3, 2 ],
 		"platform": "ios",
 		"target": "generic",
 		"simd_width": 0,

@@ -1462,7 +1462,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2640;
 				ORGANIZATIONNAME = libfloor;
 				TargetAttributes = {
 					5CBB61241D6367A000B09EEE = {
@@ -1926,6 +1926,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
@@ -2019,7 +2020,6 @@
 					src,
 				);
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2029,7 +2029,6 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
@@ -2101,7 +2100,6 @@
 					"-Wno-missing-designated-field-initializers",
 					"-Wno-reserved-identifier",
 				);
-				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Debug;
 		};
@@ -2109,6 +2107,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
@@ -2197,7 +2196,6 @@
 					src,
 				);
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@loader_path/../Resources",
@@ -2207,7 +2205,6 @@
 					/usr/lib,
 					/opt/floor/lib,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				OTHER_CFLAGS = "-fparse-all-comments";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -2278,7 +2275,6 @@
 					"-Wno-missing-designated-field-initializers",
 					"-Wno-reserved-identifier",
 				);
-				XROS_DEPLOYMENT_TARGET = 2.0;
 			};
 			name = Release;
 		};
@@ -2296,6 +2292,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2328,6 +2325,7 @@
 					/usr/local/lib,
 					/opt/homebrew/lib,
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2368,6 +2366,7 @@
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
 				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 2.6;
 			};
 			name = Debug;
 		};
@@ -2397,6 +2396,7 @@
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
 				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 2.6;
 			};
 			name = Release;
 		};
@@ -2461,6 +2461,7 @@
 					FLOOR_NO_OPENCL,
 				);
 				INSTALL_PATH = /usr/lib/;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
 				ONLY_ACTIVE_ARCH = YES;
@@ -2488,6 +2489,7 @@
 					FLOOR_NO_OPENCL,
 				);
 				INSTALL_PATH = /usr/lib/;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
 				ONLY_ACTIVE_ARCH = NO;

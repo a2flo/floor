@@ -128,11 +128,11 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #if !defined(__apple_build_version__)
 #define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #else // map apple version scheme ... (*sigh*)
-#if (__clang_major__ < 17) // Xcode 16.3 with clang 17.0 is the min req.
+#if (__clang_major__ < 17) // Xcode 26.0 with clang 17.0 is the min req.
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ < 21) // Xcode 16.3 - 26.3
+#if (__clang_major__ < 21) // Xcode 26.0 - 26.3
 #define FLOOR_TOOLCHAIN_VERSION 190000u
 #else // newer/unreleased Xcode: can simply use reported clang version since Xcode 26.4
 #define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
@@ -179,12 +179,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #if defined(FLOOR_IOS) // iOS
 #define FLOOR_DEVICE_INFO_OS_VERSION __IPHONE_OS_VERSION_MAX_ALLOWED
 
-#if FLOOR_DEVICE_INFO_OS_VERSION < 160000
+#if FLOOR_DEVICE_INFO_OS_VERSION < 180000
 #error "invalid OS version"
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 160000 && FLOOR_DEVICE_INFO_OS_VERSION < 170000
-#define FLOOR_DEVICE_INFO_OS_VERSION_160000
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 170000 && FLOOR_DEVICE_INFO_OS_VERSION < 180000
-#define FLOOR_DEVICE_INFO_OS_VERSION_170000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 180000 && FLOOR_DEVICE_INFO_OS_VERSION < 260000
 #define FLOOR_DEVICE_INFO_OS_VERSION_180000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 260000
@@ -203,12 +199,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #else // macOS
 #define FLOOR_DEVICE_INFO_OS_VERSION MAC_OS_X_VERSION_MAX_ALLOWED
 
-#if FLOOR_DEVICE_INFO_OS_VERSION < 130000
+#if FLOOR_DEVICE_INFO_OS_VERSION < 150000
 #error "invalid OS version"
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 130000 && FLOOR_DEVICE_INFO_OS_VERSION < 140000
-#define FLOOR_DEVICE_INFO_OS_VERSION_130000
-#elif FLOOR_DEVICE_INFO_OS_VERSION >= 140000 && FLOOR_DEVICE_INFO_OS_VERSION < 150000
-#define FLOOR_DEVICE_INFO_OS_VERSION_140000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 150000 && FLOOR_DEVICE_INFO_OS_VERSION < 260000
 #define FLOOR_DEVICE_INFO_OS_VERSION_150000
 #elif FLOOR_DEVICE_INFO_OS_VERSION >= 260000

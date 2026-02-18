@@ -267,7 +267,6 @@ FLOOR_POP_WARNINGS()
 												IMAGE_TYPE::FORMAT_32_8 |
 												IMAGE_TYPE::FLAG_DEPTH |
 												IMAGE_TYPE::FLAG_STENCIL) },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4) || defined(FLOOR_VISIONOS)
 		// BC formats
 		{ MTLPixelFormatBC1_RGBA, IMAGE_TYPE::BC1_RGBA },
 		{ MTLPixelFormatBC1_RGBA_sRGB, IMAGE_TYPE::BC1_RGBA_SRGB },
@@ -283,7 +282,6 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatBC6H_RGBUfloat, IMAGE_TYPE::BC6H_RGBUHF },
 		{ MTLPixelFormatBC7_RGBAUnorm, IMAGE_TYPE::BC7_RGBA },
 		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, IMAGE_TYPE::BC7_RGBA_SRGB },
-#endif
 		// EAC/ETC formats
 		{ MTLPixelFormatEAC_R11Unorm, IMAGE_TYPE::EAC_R11UI },
 		{ MTLPixelFormatEAC_R11Snorm, IMAGE_TYPE::EAC_R11I },
@@ -300,6 +298,7 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatASTC_4x4_LDR, IMAGE_TYPE::ASTC_4X4_LDR },
 		{ MTLPixelFormatASTC_4x4_HDR, IMAGE_TYPE::ASTC_4X4_HDR },
 #if !defined(FLOOR_VISIONOS)
+FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
 		// PVRTC formats
 		{ MTLPixelFormatPVRTC_RGB_2BPP, IMAGE_TYPE::PVRTC_RGB2 },
 		{ MTLPixelFormatPVRTC_RGB_4BPP, IMAGE_TYPE::PVRTC_RGB4 },
@@ -309,6 +308,7 @@ FLOOR_POP_WARNINGS()
 		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGB4_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA2_SRGB },
 		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA4_SRGB },
+FLOOR_POP_WARNINGS()
 #endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
@@ -1204,7 +1204,6 @@ std::optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(co
 		   IMAGE_TYPE::FORMAT_32_8 |
 		   IMAGE_TYPE::FLAG_DEPTH |
 		   IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-#if !defined(FLOOR_IOS) || defined(__IPHONE_16_4) || defined(FLOOR_VISIONOS)
 		// BC formats
 		{ IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
 		{ IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
@@ -1220,7 +1219,6 @@ std::optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(co
 		{ IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
 		{ IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
 		{ IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
-#endif
 		// EAC/ETC formats
 		{ IMAGE_TYPE::EAC_R11UI, MTLPixelFormatEAC_R11Unorm },
 		{ IMAGE_TYPE::EAC_R11I, MTLPixelFormatEAC_R11Snorm },
@@ -1237,6 +1235,7 @@ std::optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(co
 		{ IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
 		{ IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
 #if !defined(FLOOR_VISIONOS)
+FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
 		// PVRTC formats
 		{ IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
 		{ IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
@@ -1246,6 +1245,7 @@ std::optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(co
 		{ IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
 		{ IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
 		{ IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
+FLOOR_POP_WARNINGS()
 #endif
 		// TODO: special image formats, these are partially supported
 	};

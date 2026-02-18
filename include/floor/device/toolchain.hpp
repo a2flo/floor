@@ -30,7 +30,7 @@ namespace fl::toolchain {
 		SPIR,
 		//! Nvidia CUDA PTX 8.0+
 		PTX,
-		//! Metal Apple-IR 3.0+
+		//! Metal Apple-IR 3.2+
 		AIR,
 		//! Vulkan SPIR-V 1.6+
 		SPIRV_VULKAN,

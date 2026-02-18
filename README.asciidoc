@@ -2707,20 +2707,20 @@ function void simplified_nbody ( %void() ) {
 * OS:
 ** only AMD64/Intel64/ARM64 are supported
 ** Windows: 10+
-** macOS: 13.0+
-** iOS: 16.0+
+** macOS: 15.6+
+** iOS: 18.6+
 ** Linux: any current x64 distribution
 ** other Unix: if other requirements are met
 * compiler/toolchain:
 ** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 19.0+
-** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 16.3+]
+** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 26.0+]
 ** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
 ** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 19.0+
 * libraries and optional requirements:
 ** link:https://www.libsdl.org[SDL3] 3.2.0+
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_50+/Maxwell+ GPU and CUDA 12.0+ drivers (CUDA SDK not required!)
-** (opt) Metal: requires iOS 16.0+ or macOS 13.0+, and a Metal 3.0 capable GPU
+** (opt) Metal: requires iOS 18.6+ or macOS 15.6+, and a Metal 3.0 capable GPU
 ** (opt) Host-Compute: requires just the compiler/toolchain that is stated above
 ** (opt) Vulkan: requires 1.4.321+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
 *** link:https://github.com/zeux/volk[volk] included as submodule

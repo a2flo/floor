@@ -295,12 +295,6 @@ program_data compile_input(const std::string& input,
 			const auto metal_force_version = (!options.ignore_runtime_info ? floor::get_metal_force_version() : 0);
 			if (metal_force_version != 0) {
 				switch (metal_force_version) {
-					case 30:
-						metal_version = METAL_VERSION::METAL_3_0;
-						break;
-					case 31:
-						metal_version = METAL_VERSION::METAL_3_1;
-						break;
 					case 32:
 						metal_version = METAL_VERSION::METAL_3_2;
 						break;
@@ -320,15 +314,9 @@ program_data compile_input(const std::string& input,
 			std::string os_target;
 			if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS ||
 				mtl_dev.platform_type == metal_device::PLATFORM_TYPE::IOS_SIMULATOR) {
-				// -> iOS 16.0+
+				// -> iOS 18.0+
 				switch (metal_version) {
 					default:
-					case METAL_VERSION::METAL_3_0:
-						os_target = "ios16.0.0";
-						break;
-					case METAL_VERSION::METAL_3_1:
-						os_target = "ios17.0.0";
-						break;
 					case METAL_VERSION::METAL_3_2:
 						os_target = "ios18.0.0";
 						break;
@@ -349,15 +337,9 @@ program_data compile_input(const std::string& input,
 						break;
 				}
 			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::MACOS) {
-				// -> macOS 13.0+
+				// -> macOS 15.0+
 				switch (metal_version) {
 					default:
-					case METAL_VERSION::METAL_3_0:
-						os_target = "macosx13.0.0";
-						break;
-					case METAL_VERSION::METAL_3_1:
-						os_target = "macosx14.0.0";
-						break;
 					case METAL_VERSION::METAL_3_2:
 						os_target = "macosx15.0.0";
 						break;
@@ -374,15 +356,9 @@ program_data compile_input(const std::string& input,
 				os_target += "-simulator";
 			}
 			
-			std::string metal_std = "metal3.0";
+			std::string metal_std = "metal3.2";
 			std::string air_target = "air64";
 			switch (metal_version) {
-				case METAL_VERSION::METAL_3_0:
-					metal_std = "metal3.0";
-					break;
-				case METAL_VERSION::METAL_3_1:
-					metal_std = "metal3.1";
-					break;
 				case METAL_VERSION::METAL_3_2:
 					metal_std = "metal3.2";
 					break;

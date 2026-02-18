@@ -113,12 +113,7 @@ namespace fl::metal_image {
 			uint64_t value;
 		};
 		
-		// is_constant is no longer set with Metal 3.2+
-#if FLOOR_DEVICE_METAL_MAJOR > 3 || (FLOOR_DEVICE_METAL_MAJOR == 3 && FLOOR_DEVICE_METAL_MINOR >= 2)
 		static constexpr const uint64_t is_constant_init { 0u };
-#else
-		static constexpr const uint64_t is_constant_init { 1u };
-#endif
 		
 		// must be known at compile-time for now
 		constexpr sampler(const ADDRESS_MODE address_mode = CLAMP_TO_EDGE,

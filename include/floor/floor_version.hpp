@@ -28,8 +28,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 5
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xa3
-#define FLOOR_DEV_STAGE_VERSION_STR "a3"
+#define FLOOR_DEV_STAGE_VERSION 0xa4
+#define FLOOR_DEV_STAGE_VERSION_STR "a4"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -109,7 +109,7 @@
 #else
 // Apple version
 #if (__clang_major__ < 17)
-#error "Sorry, but you need Apple clang 17.0+ (Xcode 16.3) to compile floor"
+#error "Sorry, but you need Apple clang 17.0+ (Xcode 26.0) to compile floor"
 #endif
 #endif
 
