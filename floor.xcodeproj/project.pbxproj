@@ -367,6 +367,7 @@
 		5C3B3773272F520600FD708D /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm140/build.sh; sourceTree = "<group>"; };
 		5C3B3774272F520600FD708D /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm140/deploy_pkg.sh; sourceTree = "<group>"; };
 		5C3B3775272F520600FD708D /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm140/pkg.sh; sourceTree = "<group>"; };
+		5C4B0D052F461EE3004DD3D3 /* validation.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = validation.hpp; path = include/floor/device/validation.hpp; sourceTree = SOURCE_ROOT; };
 		5C62E0A72C3E223200FF4E9A /* libfloord_visionos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_visionos.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C6DC6952DB0958100627453 /* soft_f16.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5C6DC6972DB0958100627453 /* bcm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bcm.cpp; sourceTree = "<group>"; };
@@ -1103,6 +1104,7 @@
 				5C6DCAFA2DB098F300627453 /* toolchain.hpp */,
 				5C6DC7012DB0958100627453 /* universal_binary.cpp */,
 				5C6DCAFB2DB098F300627453 /* universal_binary.hpp */,
+				5C4B0D052F461EE3004DD3D3 /* validation.hpp */,
 				5C6DCAB72DB098D300627453 /* backend */,
 				5C6DC6AC2DB0958100627453 /* cuda */,
 				5C6DC6B72DB0958100627453 /* host */,

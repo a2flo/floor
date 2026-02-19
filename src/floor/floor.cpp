@@ -374,7 +374,7 @@ bool floor::init(const init_state& state) {
 		config.internal_claim_toolchain_version = config_doc.get<uint32_t>("toolchain._claim_toolchain_version", 0u);
 		
 		//
-		const auto extract_string_array_set = []<bool convert_to_lower = true>(std::vector<std::string>& ret, const std::string& config_entry_name) {
+		const auto extract_string_array_set = []<bool convert_to_lower = true>(auto& ret, const std::string& config_entry_name) {
 			std::unordered_set<std::string> str_set;
 			const auto elems = config_doc.get<json::json_array>(config_entry_name);
 			for (const auto& elem : elems) {
@@ -392,8 +392,12 @@ bool floor::init(const init_state& state) {
 				str_set.emplace(std::move(str));
 			}
 			
-			for (const auto& elem : str_set) {
-				ret.push_back(elem);
+			if constexpr (std::is_same_v<std::decay_t<decltype(ret)>, std::unordered_set<std::string>>) {
+				ret = std::move(str_set);
+			} else {
+				for (const auto& elem : str_set) {
+					ret.push_back(elem);
+				}
 			}
 		};
 		
@@ -442,6 +446,8 @@ bool floor::init(const init_state& state) {
 		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
 		config.metal_soft_printf = config_doc.get<bool>("toolchain.metal.soft_printf", false);
 		config.metal_dump_reflection_info = config_doc.get<bool>("toolchain.metal.dump_reflection_info", false);
+		extract_string_array_set.operator()<false>(config.metal_kernel_validation_enable, "toolchain.metal.kernel_validation_enable");
+		extract_string_array_set.operator()<false>(config.metal_kernel_validation_disable, "toolchain.metal.kernel_validation_disable");
 		
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
 		config.vulkan_validation = config_doc.get<bool>("toolchain.vulkan.validation", true);
@@ -1726,6 +1732,12 @@ const bool& floor::get_metal_soft_printf() {
 }
 const bool& floor::get_metal_dump_reflection_info() {
 	return config.metal_dump_reflection_info;
+}
+const std::unordered_set<std::string>& floor::get_metal_kernel_validation_enable() {
+	return config.metal_kernel_validation_enable;
+}
+const std::unordered_set<std::string>& floor::get_metal_kernel_validation_disable() {
+	return config.metal_kernel_validation_disable;
 }
 
 bool floor::has_vulkan_toolchain() {

@@ -536,9 +536,20 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if (copy_host_data && host_data.data() != nullptr && !has_flag<MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			// copy to device memory must go through a blit command
-			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			const auto gen_mip_chain = (is_mip_mapped && mip_level_count > 1 && generate_mip_maps);
+			const auto needs_blit = (gen_mip_chain
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+									 || (storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged
+#endif
+									 );
+			
+			// copy to device memory may need to go through a blit command
+			id <MTLCommandBuffer> cmd_buffer = nil;
+			id <MTLBlitCommandEncoder> blit_encoder = nil;
+			if (needs_blit) {
+				cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+				blit_encoder = [cmd_buffer blitCommandEncoder];
+			}
 			
 			// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
 			const size_t slice_count = layer_count;
@@ -600,22 +611,24 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 				return true;
 			}, shim_image_type);
 			
+			if (needs_blit) {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-			if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-				[blit_encoder synchronizeResource:image];
-			}
+				if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+					[blit_encoder synchronizeResource:image];
+				}
 #endif
-			
-			// manually create the mip-map chain if this was specified
-			if (is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
-				// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
-				//       -> compressed + generate_mip_maps already fails at image creation
-				[blit_encoder generateMipmapsForTexture:image];
+				
+				// manually create the mip-map chain if this was specified
+				if (gen_mip_chain) {
+					// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
+					//       -> compressed + generate_mip_maps already fails at image creation
+					[blit_encoder generateMipmapsForTexture:image];
+				}
+				
+				[blit_encoder endEncoding];
+				[cmd_buffer commit];
+				[cmd_buffer waitUntilCompleted];
 			}
-			
-			[blit_encoder endEncoding];
-			[cmd_buffer commit];
-			[cmd_buffer waitUntilCompleted];
 		}
 		
 		return true;
@@ -756,9 +769,16 @@ bool metal_image::write(const device_queue& cqueue, const void* src, const size_
 	}
 	
 	@autoreleasepool {
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+		const auto needs_blit = ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
+		id <MTLCommandBuffer> cmd_buffer = nil;
+		id <MTLBlitCommandEncoder> blit_encoder = nil;
+		if (needs_blit) {
+			cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+			blit_encoder = [cmd_buffer blitCommandEncoder];
+		}
+#endif
 		
 		// need to convert RGB to RGBA if necessary
 		std::span<const uint8_t> host_buffer { (const uint8_t*)src, src_size };
@@ -806,13 +826,13 @@ bool metal_image::write(const device_queue& cqueue, const void* src, const size_
 		}, shim_image_type);
 		
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-		if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		if (needs_blit) {
 			[blit_encoder synchronizeResource:image];
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
 		}
 #endif
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
 		
 		// update mip-map chain
 		if (generate_mip_maps) {
@@ -1030,10 +1050,17 @@ bool metal_image::unmap(const device_queue& cqueue, void* floor_nullable __attri
 		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		@autoreleasepool {
 			// copy host memory to device memory
-			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
-			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 			const bool is_compressed = image_compressed(image_type);
 			const auto dim_count = image_dim_count(image_type);
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
+			const auto needs_blit = ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged);
+			id <MTLCommandBuffer> cmd_buffer = nil;
+			id <MTLBlitCommandEncoder> blit_encoder = nil;
+			if (needs_blit) {
+				cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
+				blit_encoder = [cmd_buffer blitCommandEncoder];
+			}
+#endif
 			
 			// again, need to convert RGB to RGBA if necessary
 			assert(iter->second.ptr.allocation_size() >= image_data_size);
@@ -1075,13 +1102,13 @@ bool metal_image::unmap(const device_queue& cqueue, void* floor_nullable __attri
 			}, shim_image_type);
 			
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
-			if ((storage_options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			if (needs_blit) {
 				[blit_encoder synchronizeResource:image];
+				[blit_encoder endEncoding];
+				[cmd_buffer commit];
+				[cmd_buffer waitUntilCompleted];
 			}
 #endif
-			[blit_encoder endEncoding];
-			[cmd_buffer commit];
-			[cmd_buffer waitUntilCompleted];
 			
 			// cleanup
 			host_shim_buffer = nullptr;

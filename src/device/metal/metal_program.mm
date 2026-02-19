@@ -39,6 +39,8 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 		// create all functions of all device programs
 		// note that this essentially reshuffles the program "device -> functions" data to "functions -> devices"
 		static const bool dump_reflection_info = floor::get_metal_dump_reflection_info();
+		static const auto& validation_enable_set = floor::get_metal_kernel_validation_enable();
+		static const auto& validation_disable_set = floor::get_metal_kernel_validation_disable();
 		functions.reserve(function_names.size());
 		for (const auto& function_name : function_names) {
 			metal_function::function_map_type function_map;
@@ -84,24 +86,28 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						bool supports_indirect_compute = false;
 						if ([func functionType] == MTLFunctionTypeKernel) {
 							MTLComputePipelineDescriptor* mtl_pipeline_desc = [[MTLComputePipelineDescriptor alloc] init];
-							const std::string label = info.name + " pipeline";
+							const std::string label = info.name + "_pipeline";
 							mtl_pipeline_desc.label = [NSString stringWithUTF8String:label.c_str()];
 							mtl_pipeline_desc.computeFunction = func;
 							
 							// optimization opt-in
 							mtl_pipeline_desc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true;
+							mtl_pipeline_desc.supportAddingBinaryFunctions = false;
 							mtl_pipeline_desc.maxCallStackDepth = 0;
-#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 							if (entry.info->has_valid_required_local_size()) {
+#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 								if (@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)) {
 									mtl_pipeline_desc.requiredThreadsPerThreadgroup = {
 										.width = entry.info->required_local_size.x,
 										.height = entry.info->required_local_size.y,
 										.depth = entry.info->required_local_size.z,
 									};
+								} else
+#endif
+								{
+									mtl_pipeline_desc.maxTotalThreadsPerThreadgroup = entry.info->required_local_size.extent();
 								}
 							}
-#endif
 							
 							// implicitly support indirect compute when the function doesn't take any non-global-AS parameters
 							bool has_non_global_args = false;
@@ -112,12 +118,18 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 									break;
 								}
 							}
-							if (!has_non_global_args) {
-								mtl_pipeline_desc.supportIndirectCommandBuffers = true;
-							}
+							mtl_pipeline_desc.supportIndirectCommandBuffers = !has_non_global_args;
 							
 							// set buffer mutability
 							metal_args::set_buffer_mutability<metal_args::ENCODER_TYPE::COMPUTE>(mtl_pipeline_desc, { &info });
+							
+							// since compute pipeline creation is not exposed, shader validation enablement is handled via config
+							if (!validation_enable_set.empty() && validation_enable_set.contains(function_name)) {
+								mtl_pipeline_desc.shaderValidation = MTLShaderValidation::MTLShaderValidationEnabled;
+							} else if (!validation_disable_set.empty() && validation_disable_set.contains(function_name)) {
+								mtl_pipeline_desc.shaderValidation = MTLShaderValidation::MTLShaderValidationDisabled;
+							}
+							// else: keep default
 							
 							if (dump_reflection_info) {
 								MTLAutoreleasedComputePipelineReflection refl_data { nil };

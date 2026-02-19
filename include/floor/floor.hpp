@@ -303,6 +303,8 @@ public:
 	static const uint32_t& get_metal_force_version();
 	static const bool& get_metal_soft_printf();
 	static const bool& get_metal_dump_reflection_info();
+	static const std::unordered_set<std::string>& get_metal_kernel_validation_enable();
+	static const std::unordered_set<std::string>& get_metal_kernel_validation_disable();
 	
 	// vulkan
 	static bool has_vulkan_toolchain();
@@ -473,6 +475,8 @@ protected:
 		uint32_t metal_force_version = 0;
 		bool metal_soft_printf = false;
 		bool metal_dump_reflection_info = false;
+		std::unordered_set<std::string> metal_kernel_validation_enable;
+		std::unordered_set<std::string> metal_kernel_validation_disable;
 		
 		// host
 		bool host_toolchain_exists = false;

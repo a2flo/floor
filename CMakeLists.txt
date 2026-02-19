@@ -203,6 +203,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/spirv_handler.hpp
 	include/floor/device/toolchain.hpp
 	include/floor/device/universal_binary.hpp
+	include/floor/device/validation.hpp
 	include/floor/device/vulkan/vulkan_argument_buffer.hpp
 	include/floor/device/vulkan/vulkan_buffer.hpp
 	include/floor/device/vulkan/vulkan_common.hpp

@@ -126,8 +126,8 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		
 		// create and setup the encoder
 		encoder = [cmd_buffer renderCommandEncoderWithDescriptor:mtl_pass_desc];
-		encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer encoder" :
-						 [NSString stringWithUTF8String:(pipeline_desc.debug_label + " encoder").c_str()]);
+		encoder.label = (pipeline_desc.debug_label.empty() ? @"metal_renderer_encoder" :
+						 [NSString stringWithUTF8String:(pipeline_desc.debug_label + "_encoder").c_str()]);
 		if (!pipeline_desc.debug_label.empty()) {
 			[encoder pushDebugGroup:(encoder.label ? encoder.label : @"metal_renderer")];
 		}

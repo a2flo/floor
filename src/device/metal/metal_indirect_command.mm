@@ -27,6 +27,7 @@
 #include <floor/device/metal/metal_buffer.hpp>
 #include <floor/device/metal/metal_pipeline.hpp>
 #include <floor/device/metal/metal_args.hpp>
+#include <floor/device/metal/metal_queue.hpp>
 #include <floor/device/soft_printf.hpp>
 #include <Metal/MTLIndirectCommandEncoder.h>
 
@@ -185,6 +186,15 @@ void metal_indirect_command_pipeline::complete_pipeline(const device& dev, metal
 			}
 		}
 		entry.sort_and_unique_all_resources();
+		
+		// optimize contained commands
+		const auto dev_queue = dev.context->get_device_default_queue(dev);
+		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue*)dev_queue)->make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		[blit_encoder optimizeIndirectCommandBuffer:entry.icb withRange:NSRange { .location = 0, .length = get_command_count() }];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
 	}
 }
 
@@ -199,7 +209,7 @@ void metal_indirect_command_pipeline::reset() {
 }
 
 std::optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
-																					  const uint32_t command_count) const {
+																						   const uint32_t command_count) const {
 	NSRange range { command_offset, command_count };
 	if (command_count == ~0u) {
 		range.length = get_command_count();

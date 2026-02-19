@@ -24,6 +24,7 @@
 #include <floor/device/backend/image_types.hpp>
 #include <floor/device/graphics_vertex_format.hpp>
 #include <floor/device/graphics_index_type.hpp>
+#include <floor/device/validation.hpp>
 #include <optional>
 
 namespace fl {
@@ -251,6 +252,9 @@ struct render_pipeline_description {
 	
 	//! sets the debug label for pipelines created from this description (e.g. for display in a debugger)
 	std::string debug_label;
+	
+	//! on backends that support it: allows explicit control over validation behavior
+	VALIDATION_CONTROL validation { VALIDATION_CONTROL::DEFAULT };
 };
 
 //! pipeline object used for rendering with graphics_renderer
