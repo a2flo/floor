@@ -43,7 +43,7 @@ namespace fl {
 // TODO: proper error (return) value handling everywhere
 
 safe_mutex vulkan_image::att_clear_passes_lock;
-fl::flat_map<const device*, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>>> vulkan_image::att_clear_passes;
+fl::flat_map<const device*, fl::flat_map<IMAGE_TYPE, std::shared_ptr<graphics_pass>>> vulkan_image::att_clear_passes;
 
 vulkan_image::vulkan_image(const device_queue& cqueue,
 						   const uint4 image_dim_,
@@ -171,7 +171,7 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 			GUARD(att_clear_passes_lock);
 			auto dev_lut_iter = att_clear_passes.find(&dev);
 			if (dev_lut_iter == att_clear_passes.end()) {
-				auto [empl_iter, success] = att_clear_passes.emplace(&dev, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>> {});
+				auto [empl_iter, success] = att_clear_passes.emplace(&dev, fl::flat_map<IMAGE_TYPE, std::shared_ptr<graphics_pass>> {});
 				if (!success) {
 					log_error("failed to create/emplace clear passes LUT for device $", dev.name);
 					return false;

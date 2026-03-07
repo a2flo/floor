@@ -246,6 +246,11 @@ public:
 		return (find(key) != end() ? 1 : 0);
 	}
 	
+	//! returns true if a <key, value> entry for 'key' exists in this map, false if not
+	bool contains(const key_type& key) const {
+		return (find(key) != end());
+	}
+	
 	// forward auxiliary functions
 	auto begin() { return data.begin(); }
 	auto end() { return data.end(); }

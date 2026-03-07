@@ -169,7 +169,7 @@ protected:
 	//! access to "att_clear_passes" must be thread-safe
 	static safe_mutex att_clear_passes_lock;
 	//! dynamically created per-device attachment clear passes (destroyed via destroy_internal())
-	static fl::flat_map<const device*, std::unordered_map<IMAGE_TYPE, std::unique_ptr<graphics_pass>>>
+	static fl::flat_map<const device*, fl::flat_map<IMAGE_TYPE, std::shared_ptr<graphics_pass>>>
 	att_clear_passes GUARDED_BY(att_clear_passes_lock);
 	friend vulkan_context;
 	

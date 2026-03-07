@@ -2714,7 +2714,7 @@ function void simplified_nbody ( %void() ) {
 * compiler/toolchain:
 ** Generic: link:https://clang.llvm.org[Clang] / link:https://llvm.org[LLVM] / link:https://libcxx.llvm.org[pass:[libc++]] 19.0+
 ** macOS/iOS: link:https://developer.apple.com/xcode/downloads[Xcode 26.0+]
-** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2022] with provided clang/LLVM
+** Windows (VS): link:https://visualstudio.microsoft.com/vs[VS2026] with provided clang/LLVM
 ** Windows (MinGW): link:https://www.msys2.org[MSYS2] with Clang/LLVM/libc++ 19.0+
 * libraries and optional requirements:
 ** link:https://www.libsdl.org[SDL3] 3.2.0+
@@ -2805,7 +2805,7 @@ function void simplified_nbody ( %void() ) {
 * create a `%%ProgramFiles%%/floor` folder (C:/Program Files/floor)
 * inside this folder:
 ** create a `lib` folder
-** VS2022:
+** VS2026:
 *** copy everything from bin/ in there (dlls/lib/exp)
 ** MinGW/MSYS2:
 *** copy libfloor_static.a/libfloord_static.a there

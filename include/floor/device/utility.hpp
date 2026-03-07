@@ -23,6 +23,7 @@
 #include <string>
 #include <mutex>
 #include <queue>
+#include <chrono>
 #include <condition_variable>
 
 namespace fl {
