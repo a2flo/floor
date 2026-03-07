@@ -28,9 +28,12 @@ namespace fl {
 metal_argument_buffer::metal_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer_,
 											 aligned_ptr<uint8_t>&& storage_buffer_backing_,
 											 id <MTLArgumentEncoder> encoder_, const toolchain::function_info& arg_info_,
-											 std::vector<uint32_t>&& arg_indices_) :
-argument_buffer(func_, storage_buffer_), metal_resource_tracking(), storage_buffer_backing(std::move(storage_buffer_backing_)), encoder(encoder_),
-arg_info(arg_info_), arg_indices(std::move(arg_indices_)) {}
+											 std::vector<uint32_t>&& arg_indices_, const char* debug_label_) :
+argument_buffer(func_, storage_buffer_, debug_label_), metal_resource_tracking(),
+storage_buffer_backing(std::move(storage_buffer_backing_)), encoder(encoder_),
+arg_info(arg_info_), arg_indices(std::move(arg_indices_)) {
+	// NOTE: not updating the Metal debug label on the storage buffer here, as this will already have been done in metal_function
+}
 
 metal_argument_buffer::~metal_argument_buffer() {
 	@autoreleasepool {

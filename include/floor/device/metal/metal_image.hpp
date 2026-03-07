@@ -40,7 +40,8 @@ public:
 				const IMAGE_TYPE image_type,
 				std::span<uint8_t> host_data_ = {},
 				const MEMORY_FLAG flags_ = (MEMORY_FLAG::HOST_READ_WRITE),
-				const uint32_t mip_level_limit = 0u);
+				const uint32_t mip_level_limit = 0u,
+				const char* floor_nullable debug_label_ = nullptr);
 	
 #if defined(__OBJC__)
 	//! wraps an already existing Metal image, with the specified flags and backed by the specified host pointer
@@ -48,7 +49,8 @@ public:
 				id <MTLTexture> floor_nonnull external_image,
 				std::span<uint8_t> host_data_ = {},
 				const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													MEMORY_FLAG::HOST_READ_WRITE));
+											MEMORY_FLAG::HOST_READ_WRITE),
+				const char* floor_nullable debug_label_ = nullptr);
 #endif
 	
 	~metal_image() override;
@@ -68,8 +70,7 @@ public:
 														   (MEMORY_MAP_FLAG::READ_WRITE |
 															MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	bool unmap(const device_queue& cqueue,
-			   void* floor_nullable __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	void set_debug_label(const std::string& label) override;
 	
@@ -87,12 +88,6 @@ public:
 	
 	//! creates the mip-map chain for this Metal image
 	void generate_mip_map_chain(const device_queue& cqueue) override;
-	
-	//! returns the corresponding MTLPixelFormat for the specified IMAGE_TYPE,
-	//! or nothing if there is no matching pixel format
-#if defined(__OBJC__)
-	static std::optional<MTLPixelFormat> metal_pixel_format_from_image_type(const IMAGE_TYPE& image_type_);
-#endif
 	
 protected:
 #if defined(__OBJC__)

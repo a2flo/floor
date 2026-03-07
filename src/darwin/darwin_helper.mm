@@ -16,16 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if __cplusplus > 202302L
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 // work around invalid enum arithmetic
 #define CGBitmapInfoMake(...) CGBitmapInfoMakeDummy(uint32_t alpha, uint32_t component, uint32_t byteOrder, uint32_t pixelFormat)
 // prevent include of ColorSyncDeprecated.h
 #define __COLORSYNCDEPRECATED__ 1
-#endif
 
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 #include <Cocoa/Cocoa.h>
 #endif
+
+#import <QuartzCore/CAMetalLayer.h>
+#import <Metal/Metal.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
@@ -39,6 +40,7 @@
 #include <floor/floor.hpp>
 #include <floor/constexpr/const_math.hpp>
 #include <floor/core/hdr_metadata.hpp>
+#include <floor/device/metal/metal4_queue.hpp>
 
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 #import <AppKit/AppKit.h>
@@ -49,8 +51,6 @@
 #define UI_VIEW_CLASS UIView
 #endif
 
-#import <QuartzCore/CAMetalLayer.h>
-#import <Metal/Metal.h>
 #import <Foundation/NSData.h>
 
 // cocoa or uikit window type
@@ -535,10 +535,17 @@ id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(floor_metal_view* vi
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(direct-ivar-access)
 	@autoreleasepool {
+		uint32_t acquisition_attempt = 0u;
 		while (view->max_scheduled_frames == 0) {
+			// abort after 5 attempts so that we don't wait indefinitely
+			if (acquisition_attempt == 5) {
+				return nullptr;
+			}
+			
 			// wait until woken up or 250ms timeout
 			std::unique_lock<std::mutex> start_render_lock_guard(view->available_frame_cv_lock);
-			if (view->available_frame_cv.wait_for(start_render_lock_guard, 250ms) == std::cv_status::timeout) {
+			if (view->available_frame_cv.wait_for(start_render_lock_guard, 200ms) == std::cv_status::timeout) {
+				++acquisition_attempt;
 				continue;
 			}
 		}
@@ -560,6 +567,48 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 		return drawable;
 	}
 FLOOR_POP_WARNINGS()
+}
+
+id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(floor_metal_view* view, const metal4_queue& dev_queue,
+															metal4_command_buffer& cmd_buffer) {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(direct-ivar-access)
+	@autoreleasepool {
+		uint32_t acquisition_attempt = 0u;
+		while (view->max_scheduled_frames == 0) {
+			// abort after 5 attempts so that we don't wait indefinitely
+			if (acquisition_attempt == 5) {
+				return nullptr;
+			}
+			
+			// wait until woken up or 250ms timeout
+			std::unique_lock<std::mutex> start_render_lock_guard(view->available_frame_cv_lock);
+			if (view->available_frame_cv.wait_for(start_render_lock_guard, 200ms) == std::cv_status::timeout) {
+				++acquisition_attempt;
+				continue;
+			}
+		}
+		
+		// take away one frame/drawable
+		--view->max_scheduled_frames;
+		
+		dev_queue.add_completion_handler(cmd_buffer, [view] {
+			// free up frame + signal that a new frame can be rendered again
+			++view->max_scheduled_frames;
+			view->available_frame_cv.notify_one();
+		});
+		auto drawable = [[view metal_layer] nextDrawable];
+#if !TARGET_OS_SIMULATOR // in the simulator, doing this will lead to issues
+		// since macOS 13.0: must manually set this to non-volatile
+		[[drawable texture] setPurgeableState:MTLPurgeableStateNonVolatile];
+#endif
+		return drawable;
+	}
+FLOOR_POP_WARNINGS()
+}
+
+id <MTLResidencySet> darwin_helper::get_view_residency_set(floor_metal_view* view) {
+	return [[view metal_layer] residencySet];
 }
 
 MTLPixelFormat darwin_helper::get_metal_pixel_format(floor_metal_view* view) {
@@ -735,7 +784,7 @@ size_t darwin_helper::get_compiled_system_version() {
 
 std::string darwin_helper::get_computer_name() {
 #if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-	return [[[UIDevice currentDevice] name] UTF8String];
+	return safe_string([[[UIDevice currentDevice] name] UTF8String]);
 #else
 	return safe_string([[[NSHost currentHost] localizedName] UTF8String]);
 #endif

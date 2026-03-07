@@ -44,6 +44,16 @@
 #include <floor/device/metal/metal_pipeline.hpp>
 #include <floor/device/metal/metal_pass.hpp>
 #include <floor/device/metal/metal_renderer.hpp>
+#include <floor/device/metal/metal4_buffer.hpp>
+#include <floor/device/metal/metal4_image.hpp>
+#include <floor/device/metal/metal4_indirect_command.hpp>
+#include <floor/device/metal/metal4_soft_indirect_command.hpp>
+#include <floor/device/generic_indirect_command.hpp>
+#include <floor/device/metal/metal4_pass.hpp>
+#include <floor/device/metal/metal4_pipeline.hpp>
+#include <floor/device/metal/metal4_renderer.hpp>
+#include <floor/device/metal/metal4_program.hpp>
+#include <floor/device/metal/metal4_queue.hpp>
 #include <floor/vr/vr_context.hpp>
 #include <floor/floor.hpp>
 #include <Metal/Metal.h>
@@ -158,7 +168,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		}
 		
 #if !TARGET_OS_SIMULATOR
-		// device must support Metal 3
+		// device must at least support Metal 3
 		if (![dev supportsFamily:MTLGPUFamilyMetal3]) {
 			continue;
 		}
@@ -209,7 +219,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 #endif
 		
 		// find max supported Apple* family
-		static constexpr const auto max_gpu_family = MTLGPUFamily(1010) /* MTLGPUFamilyApple10 */;
+		static constexpr const auto max_gpu_family = MTLGPUFamilyApple10;
 		device.family_tier = 0;
 		for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
 			if ([dev supportsFamily:family]) {
@@ -219,25 +229,15 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		assert(device.family_tier >= 7 || TARGET_OS_SIMULATOR);
 		
 		// figure out which Metal version we can use
-#if defined(FLOOR_IOS)
-		if (darwin_helper::get_system_version() >= 260000) {
+		if (darwin_helper::get_system_version() >= 260000 &&
+			[dev supportsFamily:MTLGPUFamilyMetal4] &&
+			!floor::get_metal_use_metal3()) {
 			device.metal_software_version = METAL_VERSION::METAL_4_0;
 			device.metal_language_version = METAL_VERSION::METAL_4_0;
-		} else if (darwin_helper::get_system_version() >= 180000) {
+		} else {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
 		}
-#elif defined(FLOOR_VISIONOS)
-		if (darwin_helper::get_system_version() >= 260000) {
-			device.metal_software_version = METAL_VERSION::METAL_4_0;
-			device.metal_language_version = METAL_VERSION::METAL_4_0;
-		} else if (darwin_helper::get_system_version() >= 20000) {
-			device.metal_software_version = METAL_VERSION::METAL_3_2;
-			device.metal_language_version = METAL_VERSION::METAL_3_2;
-		}
-#else
-#error "unhandled OS"
-#endif
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
 		switch (device.family_tier) {
@@ -341,10 +341,12 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 		device.max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
 		
 		// figure out which Metal version we can use
-		if (darwin_helper::get_system_version() >= 260000) {
+		if (darwin_helper::get_system_version() >= 260000 &&
+			[dev supportsFamily:MTLGPUFamilyMetal4] &&
+			!floor::get_metal_use_metal3()) {
 			device.metal_software_version = METAL_VERSION::METAL_4_0;
 			device.metal_language_version = METAL_VERSION::METAL_4_0;
-		} else if (darwin_helper::get_system_version() >= 150000) {
+		} else {
 			device.metal_software_version = METAL_VERSION::METAL_3_2;
 			device.metal_language_version = METAL_VERSION::METAL_3_2;
 		}
@@ -391,9 +393,127 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			log_msg("architecture: $", arch_str);
 		}
 		
+		// tessellation is only supported on Metal 3
+		if (!device.is_metal4()) {
+			device.tessellation_support = true;
+			device.max_tessellation_factor = 64u;
+		}
+		
+		if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
+			log_warn("heap creation can no longer be disabled");
+		}
+		
+		// determine heap sizes
+		// NOTE: global_mem_size may be >= max_mem_alloc, but also ensure we don't allocate too much memory (10% safety margin)
+		const auto safety_global_mem_size = uint64_t(double(device.global_mem_size) * 0.9);
+		auto private_size_scaler = std::min(!floor::get_metal_shared_only_with_unified_memory() ?
+											floor::get_metal_heap_private_size() : 0.0f, 1.0f); // in [-inf, 1] now
+		auto shared_size_scaler = std::min(device.unified_memory ?
+										   floor::get_metal_heap_shared_size() : 0.0f, 1.0f); // in [-inf, 1] now
+		// for both if < 0: determine default -> always 25% if explicit heap, otherwise 50% if memory needs to be split between the two, or 100% if all can be used
+		if (private_size_scaler < 0.0f) {
+			private_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
+								   (!device.unified_memory ? 1.0f : 0.5f));
+		}
+		if (shared_size_scaler < 0.0f) {
+			shared_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
+								  (private_size_scaler <= 0.0f ? 1.0f : 0.5f));
+		}
+		uint64_t heap_size_private = std::min(uint64_t(double(safety_global_mem_size) * double(private_size_scaler)), device.max_mem_alloc);
+		uint64_t heap_size_shared = std::min(uint64_t(double(safety_global_mem_size) * double(shared_size_scaler)), device.max_mem_alloc);
+		assert(heap_size_private <= device.max_mem_alloc && heap_size_shared <= device.max_mem_alloc);
+		if (!device.unified_memory) {
+			// we don't have any shared storage mode memory on GPUs w/o unified memory
+			heap_size_shared = 0u;
+		} else {
+			if (floor::get_metal_shared_only_with_unified_memory()) {
+				heap_size_private = 0u;
+			}
+		}
+		if (heap_size_private + heap_size_shared > safety_global_mem_size) {
+			// ensure the combined heap sizes aren't bigger than the max possible memory size
+			const auto over_size = (heap_size_private + heap_size_shared) - safety_global_mem_size;
+			const auto half_over_size = over_size / 2u;
+			heap_size_private = (heap_size_private >= half_over_size ? heap_size_private - half_over_size : 0u);
+			heap_size_shared = (heap_size_shared >= half_over_size ? heap_size_shared - half_over_size : 0u);
+			log_warn("wanted heap sizes were too large ($' over $'), reducing them to private $', shared $'",
+					 over_size, safety_global_mem_size, heap_size_private, heap_size_shared);
+		}
+		
+		// allocate internal heap
+		auto heap_desc = [MTLHeapDescriptor new];
+		heap_desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
+		heap_desc.hazardTrackingMode = MTLHazardTrackingModeUntracked;
+		heap_desc.type = MTLHeapTypeAutomatic;
+		if (heap_size_private > 0u) {
+			heap_desc.size = heap_size_private;
+			heap_desc.storageMode = MTLStorageModePrivate;
+			device.heap_private = [device.device newHeapWithDescriptor:heap_desc];
+			if (device.heap_private) {
+				log_msg("allocated private storage heap of size $'", [device.heap_private size]);
+				[device.heap_private setPurgeableState:MTLPurgeableStateNonVolatile];
+			} else {
+				log_error("failed to allocate private storage heap of size $'", heap_size_private);
+			}
+		}
+		if (heap_size_shared > 0u) {
+			heap_desc.size = heap_size_shared;
+			heap_desc.storageMode = MTLStorageModeShared;
+			device.heap_shared = [device.device newHeapWithDescriptor:heap_desc];
+			if (device.heap_shared) {
+				log_msg("allocated shared storage heap of size $'", [device.heap_shared size]);
+				[device.heap_shared setPurgeableState:MTLPurgeableStateNonVolatile];
+			} else {
+				log_error("failed to allocate share storage heap of size $'", heap_size_shared);
+			}
+		}
+		
+		// allocate residency set for all heaps
+		if (device.heap_shared || device.heap_private) {
+			MTLResidencySetDescriptor* res_set_desc = [MTLResidencySetDescriptor new];
+			res_set_desc.label = @"heap_residency_set";
+			res_set_desc.initialCapacity = (device.heap_shared ? 1 : 0) + (device.heap_private ? 1 : 0);
+			NSError* res_set_error = nil;
+			device.heap_residency_set = [device.device newResidencySetWithDescriptor:res_set_desc
+																			   error:&res_set_error];
+			if (res_set_error) {
+				log_error("failed to create heap residency set for device $: $", device.name,
+						  [[res_set_error localizedDescription] UTF8String]);
+				devices.pop_back();
+				continue;
+			} else {
+				if (device.heap_shared) {
+					[device.heap_residency_set addAllocation:device.heap_shared];
+				}
+				if (device.heap_private) {
+					[device.heap_residency_set addAllocation:device.heap_private];
+				}
+				[device.heap_residency_set commit];
+				[device.heap_residency_set requestResidency];
+			}
+		}
+		
+#if FLOOR_METAL_DEBUG_RS
+		if (device.is_metal4()) {
+			MTLResidencySetDescriptor* res_set_desc = [MTLResidencySetDescriptor new];
+			res_set_desc.label = @"debug_residency_set";
+			res_set_desc.initialCapacity = 128;
+			NSError* res_set_error = nil;
+			device.debug_residency_set = [device.device newResidencySetWithDescriptor:res_set_desc
+																				error:&res_set_error];
+			if (res_set_error) {
+				log_error("failed to create debug residency set for device $: $", device.name,
+						  [[res_set_error localizedDescription] UTF8String]);
+				devices.pop_back();
+				continue;
+			}
+		}
+#endif
+		
 		// done
 		supported = true;
 		platform_vendor = VENDOR::APPLE;
+		has_any_metal4_device |= device.is_metal4();
 		log_debug("GPU (global: $' MB, local: $' bytes, unified: $): $, Metal $, family type $ tier $",
 				  (uint32_t)(device.global_mem_size / 1024ull / 1024ull),
 				  device.local_mem_size,
@@ -435,114 +555,30 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 	
 	// create an internal queue, null buffer, (if enabled) soft-printf buffer cache for each device, and the internal heap(s)
 	@autoreleasepool {
+		// init internal structures
+		if (has_any_metal4_device) {
+			metal4_program::init(devices);
+			metal4_queue::init();
+		}
+		
 		for (auto& dev : devices) {
-			auto mtl_dev = (metal_device*)dev.get();
-			
-			// allocate internal (experimental) heap
-			if (!has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
-				// determine heap sizes
-				// NOTE: global_mem_size may be >= max_mem_alloc, but also ensure we don't allocate too much memory (10% safety margin)
-				const auto safety_global_mem_size = uint64_t(double(dev->global_mem_size) * 0.9);
-				auto private_size_scaler = std::min(!floor::get_metal_shared_only_with_unified_memory() ?
-													floor::get_metal_heap_private_size() : 0.0f, 1.0f); // in [-inf, 1] now
-				auto shared_size_scaler = std::min(dev->unified_memory ?
-												   floor::get_metal_heap_shared_size() : 0.0f, 1.0f); // in [-inf, 1] now
-				// for both if < 0: determine default -> always 25% if explicit heap, otherwise 50% if memory needs to be split between the two, or 100% if all can be used
-				if (private_size_scaler < 0.0f) {
-					private_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
-										   (!dev->unified_memory ? 1.0f : 0.5f));
-				}
-				if (shared_size_scaler < 0.0f) {
-					shared_size_scaler = (has_flag<DEVICE_CONTEXT_FLAGS::EXPLICIT_HEAP>(context_flags) ? 0.25f :
-										  (private_size_scaler <= 0.0f ? 1.0f : 0.5f));
-				}
-				uint64_t heap_size_private = std::min(uint64_t(double(safety_global_mem_size) * double(private_size_scaler)), dev->max_mem_alloc);
-				uint64_t heap_size_shared = std::min(uint64_t(double(safety_global_mem_size) * double(shared_size_scaler)),dev->max_mem_alloc);
-				assert(heap_size_private <= dev->max_mem_alloc && heap_size_shared <= dev->max_mem_alloc);
-				if (!dev->unified_memory) {
-					// we don't have any shared storage mode memory on GPUs w/o unified memory
-					heap_size_shared = 0u;
-				} else {
-					if (floor::get_metal_shared_only_with_unified_memory()) {
-						heap_size_private = 0u;
-					}
-				}
-				if (heap_size_private + heap_size_shared > safety_global_mem_size) {
-					// ensure the combined heap sizes aren't bigger than the max possible memory size
-					const auto over_size = (heap_size_private + heap_size_shared) - safety_global_mem_size;
-					const auto half_over_size = over_size / 2u;
-					heap_size_private = (heap_size_private >= half_over_size ? heap_size_private - half_over_size : 0u);
-					heap_size_shared = (heap_size_shared >= half_over_size ? heap_size_shared - half_over_size : 0u);
-					log_warn("wanted heap sizes were too large ($' over $'), reducing them to private $', shared $'",
-							 over_size, safety_global_mem_size, heap_size_private, heap_size_shared);
-				}
-				
-				auto heap_desc = [[MTLHeapDescriptor alloc] init];
-				heap_desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
-				heap_desc.hazardTrackingMode = MTLHazardTrackingModeUntracked;
-				heap_desc.type = MTLHeapTypeAutomatic;
-				if (heap_size_private > 0u) {
-					heap_desc.size = heap_size_private;
-					heap_desc.storageMode = MTLStorageModePrivate;
-					mtl_dev->heap_private = [mtl_dev->device newHeapWithDescriptor:heap_desc];
-					if (mtl_dev->heap_private) {
-						log_msg("allocated private storage heap of size $'", [mtl_dev->heap_private size]);
-						[mtl_dev->heap_private setPurgeableState:MTLPurgeableStateNonVolatile];
-					} else {
-						log_error("failed to allocate private storage heap of size $'", heap_size_private);
-					}
-				}
-				if (heap_size_shared > 0u) {
-					heap_desc.size = heap_size_shared;
-					heap_desc.storageMode = MTLStorageModeShared;
-					mtl_dev->heap_shared = [mtl_dev->device newHeapWithDescriptor:heap_desc];
-					if (mtl_dev->heap_shared) {
-						log_msg("allocated shared storage heap of size $'", [mtl_dev->heap_shared size]);
-						[mtl_dev->heap_shared setPurgeableState:MTLPurgeableStateNonVolatile];
-					} else {
-						log_error("failed to allocate share storage heap of size $'", heap_size_shared);
-					}
-				}
-				
-				// allocate residency set for all heaps
-				if (mtl_dev->heap_shared || mtl_dev->heap_private) {
-					MTLResidencySetDescriptor* res_set_desc = [[MTLResidencySetDescriptor alloc] init];
-					res_set_desc.label = @"heap_residency_set";
-					res_set_desc.initialCapacity = 2;
-					NSError* res_set_error = nil;
-					mtl_dev->heap_residency_set = [mtl_dev->device newResidencySetWithDescriptor:res_set_desc
-																						   error:&res_set_error];
-					if (res_set_error) {
-						log_error("failed to create heap residency set for device $: $", mtl_dev->name,
-								  [[res_set_error localizedDescription] UTF8String]);
-						mtl_dev->heap_residency_set = nil;
-					} else {
-						if (mtl_dev->heap_shared) {
-							[mtl_dev->heap_residency_set addAllocation:mtl_dev->heap_shared];
-						}
-						if (mtl_dev->heap_private) {
-							[mtl_dev->heap_residency_set addAllocation:mtl_dev->heap_private];
-						}
-						[mtl_dev->heap_residency_set commit];
-						[mtl_dev->heap_residency_set requestResidency];
-						log_msg("using a global residency set for all heaps");
-					}
-				}
-			}
+			auto& mtl_dev = (metal_device&)*dev;
 			
 			// queue
-			auto dev_queue = create_queue(*dev);
-			dev_queue->set_debug_label("default_queue");
+			auto dev_queue = create_queue(*dev, "default_queue");
 			internal_queues.insert_or_assign(dev.get(), dev_queue);
-			mtl_dev->internal_queue = dev_queue.get();
+			mtl_dev.internal_queue = dev_queue.get();
 			
-			// create null buffer
-			auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
-											 MEMORY_FLAG::READ | MEMORY_FLAG::HOST_READ_WRITE |
-											 MEMORY_FLAG::NO_RESOURCE_TRACKING |
-											 MEMORY_FLAG::HEAP_ALLOCATION);
-			null_buffer->zero(*dev_queue);
-			internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
+			// no longer needed with Metal 4
+			if (!mtl_dev.is_metal4()) {
+				// create null buffer
+				auto null_buffer = create_buffer(*dev_queue, aligned_ptr<int>::page_size,
+												 MEMORY_FLAG::READ | MEMORY_FLAG::HOST_READ_WRITE |
+												 MEMORY_FLAG::NO_RESOURCE_TRACKING |
+												 MEMORY_FLAG::HEAP_ALLOCATION);
+				null_buffer->zero(*dev_queue);
+				internal_null_buffers.insert_or_assign(dev.get(), null_buffer);
+			}
 			
 			// create soft-printf buffer cache
 			if (floor::get_metal_soft_printf()) {
@@ -558,8 +594,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 	// init renderer
 	if (enable_renderer) {
 		render_device = (const metal_device*)fastest_gpu_device;
-		auto mtl_dev = render_device->device;
-		view = darwin_helper::create_metal_view(floor::get_window(), mtl_dev, hdr_metadata);
+		view = darwin_helper::create_metal_view(floor::get_window(), render_device->device, hdr_metadata);
 		if (view == nullptr) {
 			log_error("failed to create Metal view!");
 			supported = false;
@@ -573,27 +608,98 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			}
 		}
 #endif
+		
+		// add the view/layer/drawable residency set to the render device internal queue
+		// NOTE: due to initialization ordering, this isn't automatically done in create_queue()
+		if (render_device->is_metal4()) {
+			auto& mtl_queue = (metal4_queue&)*render_device->internal_queue;
+			[mtl_queue.get_queue() addResidencySet:darwin_helper::get_view_residency_set(view)];
+		}
 	}
 }
 
-std::shared_ptr<device_queue> metal_context::create_queue(const device& dev) const {
+metal_context::~metal_context() {
+	if (has_any_metal4_device) {
+		// destroy internal structures
+#if FLOOR_METAL_DEBUG_SINGLE_QUEUE
+		single_queue = nil;
+#endif
+		metal4_queue::destroy();
+		metal4_program::destroy();
+	}
+}
+
+std::shared_ptr<device_queue> metal_context::create_queue(const device& dev, const char* debug_label, const bool add_view_rs) const {
 	@autoreleasepool {
 		const auto& mtl_dev = (const metal_device&)dev;
-		id <MTLCommandQueue> queue = [mtl_dev.device newCommandQueue];
-		if (queue == nullptr) {
-			log_error("failed to create command queue");
-			return {};
-		}
-		
-		// always add the heaps residency set to all queues so that they are always resident in all queues
-		if (mtl_dev.heap_residency_set) {
+		if (mtl_dev.is_metal4()) {
+#if FLOOR_METAL_DEBUG_SINGLE_QUEUE
+			// in single-queue debug mode, we will only create a single underlying queue object in Metal 4
+			if (single_queue) {
+				// -> reuse the single queue object
+				auto ret = std::make_shared<metal4_queue>(dev, single_queue);
+				queues.push_back(ret);
+				return ret;
+			}
+#endif
+			
+			MTL4CommandQueueDescriptor* desc = [MTL4CommandQueueDescriptor new];
+			if (debug_label) {
+				desc.label = [NSString stringWithUTF8String:debug_label];
+			}
+			NSError* err = nil;
+			id <MTL4CommandQueue> queue = [mtl_dev.device newMTL4CommandQueueWithDescriptor:desc error:&err];
+			if (queue == nullptr || err) {
+				log_error("failed to create command queue: $", (err ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
+				return {};
+			}
+#if FLOOR_METAL_DEBUG_SINGLE_QUEUE
+			single_queue = queue;
+#endif
+			
+			// always add the heaps residency set to all queues so that they are always resident in all queues
 			[queue addResidencySet:mtl_dev.heap_residency_set];
+#if FLOOR_METAL_DEBUG_RS
+			[queue addResidencySet:mtl_dev.debug_residency_set];
+#endif
+			
+			// automatically add the view/layer/drawable residency set if this is a queue on the render device + this is not compute-only
+			if (render_device == &mtl_dev && view && add_view_rs) {
+				[queue addResidencySet:darwin_helper::get_view_residency_set(view)];
+			}
+			
+			auto ret = std::make_shared<metal4_queue>(dev, queue);
+			if (debug_label) {
+				ret->set_debug_label(debug_label); // still need to set device_queue debug_label
+			}
+			queues.push_back(ret);
+			return ret;
+		} else {
+			id <MTLCommandQueue> queue = [mtl_dev.device newCommandQueue];
+			if (queue == nullptr) {
+				log_error("failed to create command queue");
+				return {};
+			}
+			
+			// always add the heaps residency set to all queues so that they are always resident in all queues
+			[queue addResidencySet:mtl_dev.heap_residency_set];
+			
+			auto ret = std::make_shared<metal_queue>(dev, queue);
+			if (debug_label) {
+				ret->set_debug_label(debug_label);
+			}
+			queues.push_back(ret);
+			return ret;
 		}
-		
-		auto ret = std::make_shared<metal_queue>(dev, queue);
-		queues.push_back(ret);
-		return ret;
 	}
+}
+
+std::shared_ptr<device_queue> metal_context::create_queue(const device& dev, const char* debug_label) const {
+	return create_queue(dev, debug_label, true);
+}
+
+std::shared_ptr<device_queue> metal_context::create_compute_queue(const device& dev, const char* debug_label) const {
+	return create_queue(dev, debug_label, false);
 }
 
 const device_queue* metal_context::get_device_default_queue(const device& dev) const {
@@ -604,14 +710,15 @@ const device_queue* metal_context::get_device_default_queue(const device& dev) c
 	return nullptr;
 }
 
-std::unique_ptr<device_fence> metal_context::create_fence(const device_queue& cqueue) const {
+std::unique_ptr<device_fence> metal_context::create_fence(const device_queue& cqueue, const char* debug_label) const {
 	@autoreleasepool {
 		id <MTLFence> mtl_fence = [((const metal_device&)cqueue.get_device()).device newFence];
-		return std::make_unique<metal_fence>(mtl_fence);
+		return std::make_unique<metal_fence>(mtl_fence, debug_label);
 	}
 }
 
 const metal_buffer* metal_context::get_null_buffer(const device& dev) const {
+	assert(!((const metal_device&)dev).is_metal4());
 	if (const auto iter = internal_null_buffers.find(&dev); iter != internal_null_buffers.end()) {
 		return (const metal_buffer*)iter->second.get();
 	}
@@ -635,31 +742,41 @@ void metal_context::release_soft_printf_buffer(const device& dev, const std::pai
 	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);
 }
 
-std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue,
-															const size_t size, const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue, const size_t size, const MEMORY_FLAG flags,
+															const char* debug_label) const {
+	if (((const metal_device&)cqueue.get_device()).is_metal4()) [[likely]] {
+		return add_resource(std::make_shared<metal4_buffer>(cqueue, size, flags, debug_label));
+	}
 	return add_resource(std::make_shared<metal_buffer>(cqueue, size,
 													   flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
 																MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
 }
 
-std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue,
-															std::span<uint8_t> data,
-															const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> metal_context::create_buffer(const device_queue& cqueue, std::span<uint8_t> data, const MEMORY_FLAG flags,
+															const char* debug_label) const {
+	if (((const metal_device&)cqueue.get_device()).is_metal4()) [[likely]] {
+		return add_resource(std::make_shared<metal4_buffer>(cqueue, data.size_bytes(), data, flags, debug_label));
+	}
 	return add_resource(std::make_shared<metal_buffer>(cqueue, data.size_bytes(), data,
 													   flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-																MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE)));
+																MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE),
+													   debug_label));
 }
 
 std::shared_ptr<device_image> metal_context::create_image(const device_queue& cqueue,
-													  const uint4 image_dim,
-													  const IMAGE_TYPE image_type,
-													  std::span<uint8_t> data,
-													  const MEMORY_FLAG flags,
-													  const uint32_t mip_level_limit) const {
+														  const uint4 image_dim,
+														  const IMAGE_TYPE image_type,
+														  std::span<uint8_t> data,
+														  const MEMORY_FLAG flags,
+														  const uint32_t mip_level_limit,
+														  const char* debug_label) const {
+	if (((const metal_device&)cqueue.get_device()).is_metal4()) [[likely]] {
+		return add_resource(std::make_shared<metal4_image>(cqueue, image_dim, image_type, data, flags, mip_level_limit, debug_label));
+	}
 	return add_resource(std::make_shared<metal_image>(cqueue, image_dim, image_type, data,
-												 flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
-														  MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE),
-												 mip_level_limit));
+													  flags | (has_flag<DEVICE_CONTEXT_FLAGS::NO_RESOURCE_TRACKING>(context_flags) ?
+															   MEMORY_FLAG::NO_RESOURCE_TRACKING : MEMORY_FLAG::NONE),
+													  mip_level_limit, debug_label));
 }
 
 std::shared_ptr<metal_program> metal_context::add_metal_program(fl::flat_map<const metal_device*, metal_program_entry>&& prog_map) {
@@ -673,6 +790,17 @@ std::shared_ptr<metal_program> metal_context::add_metal_program(fl::flat_map<con
 	return prog;
 }
 
+std::shared_ptr<metal4_program> metal_context::add_metal4_program(fl::flat_map<const metal_device*, metal4_program_entry>&& prog_map) {
+	// create the program object, which in turn will create function objects for all functions in the program,
+	// for all devices contained in the program map
+	auto prog = std::make_shared<metal4_program>(std::move(prog_map));
+	{
+		GUARD(programs_lock);
+		programs_mtl4.push_back(prog);
+	}
+	return prog;
+}
+
 std::shared_ptr<device_program> metal_context::create_program_from_archive_binaries(universal_binary::archive_binaries& bins) {
 	// move the archive memory to a shared_ptr
 	// NOTE: we need to do this because dispatch_data_t/newLibraryWithData will access the data after leaving this function,
@@ -680,33 +808,62 @@ std::shared_ptr<device_program> metal_context::create_program_from_archive_binar
 	std::shared_ptr<universal_binary::archive> ar(bins.ar.release());
 	
 	// create the program
-	metal_program::program_map_type prog_map;
-	@autoreleasepool {
-		for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
-			const auto mtl_dev = (const metal_device*)devices[i].get();
-			const auto& dev_best_bin = bins.dev_binaries[i];
-			const auto func_info = universal_binary::translate_function_info(dev_best_bin);
-			
-			metal_program::metal_program_entry entry;
-			entry.archive = ar; // ensure we keep the archive memory
-			entry.functions = func_info;
-			
-			NSError* err { nil };
-			dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
-															dispatch_get_main_queue(), ^{} /* must be non-default */);
-			entry.program = [mtl_dev->device newLibraryWithData:lib_data error:&err];
-			if (!entry.program) {
-				log_error("failed to create Metal program/library for device $: $",
-						  mtl_dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-				return {};
+	if (has_any_metal4_device) {
+		metal4_program::program_map_type prog_map;
+		@autoreleasepool {
+			for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+				const auto& mtl_dev = (const metal_device&)*devices[i];
+				assert(mtl_dev.is_metal4());
+				const auto& dev_best_bin = bins.dev_binaries[i];
+				const auto func_info = universal_binary::translate_function_info(dev_best_bin);
+				
+				metal4_program::metal4_program_entry entry;
+				entry.archive = ar; // ensure we keep the archive memory
+				entry.functions = func_info;
+				
+				NSError* err { nil };
+				dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
+																dispatch_get_main_queue(), ^{} /* must be non-default */);
+				entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
+				if (!entry.program) {
+					log_error("failed to create Metal program/library for device $: $",
+							  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
+					return {};
+				}
+				entry.valid = true;
+				
+				prog_map.insert_or_assign(&mtl_dev, entry);
 			}
-			entry.valid = true;
-			
-			prog_map.insert_or_assign(mtl_dev, entry);
 		}
+		return add_metal4_program(std::move(prog_map));
+	} else {
+		metal_program::program_map_type prog_map;
+		@autoreleasepool {
+			for (size_t i = 0, dev_count = devices.size(); i < dev_count; ++i) {
+				const auto& mtl_dev = (const metal_device&)*devices[i];
+				const auto& dev_best_bin = bins.dev_binaries[i];
+				const auto func_info = universal_binary::translate_function_info(dev_best_bin);
+				
+				metal_program::metal_program_entry entry;
+				entry.archive = ar; // ensure we keep the archive memory
+				entry.functions = func_info;
+				
+				NSError* err { nil };
+				dispatch_data_t lib_data = dispatch_data_create(dev_best_bin.first->data.data(), dev_best_bin.first->data.size(),
+																dispatch_get_main_queue(), ^{} /* must be non-default */);
+				entry.program = [mtl_dev.device newLibraryWithData:lib_data error:&err];
+				if (!entry.program) {
+					log_error("failed to create Metal program/library for device $: $",
+							  mtl_dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
+					return {};
+				}
+				entry.valid = true;
+				
+				prog_map.insert_or_assign(&mtl_dev, entry);
+			}
+		}
+		return add_metal_program(std::move(prog_map));
 	}
-	
-	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_universal_binary(const std::string& file_name) {
@@ -727,13 +884,16 @@ std::shared_ptr<device_program> metal_context::add_universal_binary(const std::s
 	return create_program_from_archive_binaries(bins);
 }
 
-static metal_program::metal_program_entry create_metal_program(const metal_device& dev floor_unused_on_ios_and_visionos,
-															   toolchain::program_data program) {
-	metal_program::metal_program_entry ret;
+template <bool is_metal4>
+static auto create_metal_program([[maybe_unused]] const metal_device& dev, toolchain::program_data program) {
+	assert(dev.is_metal4() == is_metal4);
+	
+	using ret_type = std::conditional_t<is_metal4, metal4_program::metal4_program_entry, metal_program::metal_program_entry>;
+	ret_type ret {};
 	ret.functions = program.function_info;
 	
-	if(!program.valid) {
-		return ret;
+	if (!program.valid) {
+		floor_return_no_nrvo(ret);
 	}
 	
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // can only do this on macOS
@@ -743,78 +903,107 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 		const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
 		if (!lib_file_name) {
 			log_error("invalid library file name: $", program.data_or_filename);
-			return ret;
+			floor_return_no_nrvo(ret);
 		}
 		auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
 		ret.program = [dev.device newLibraryWithURL:lib_url
-												 error:&err];
-		if(!floor::get_toolchain_keep_temp()) {
+											  error:&err];
+		if (!floor::get_toolchain_keep_temp()) {
 			// cleanup
-			if(!floor::get_toolchain_debug()) {
+			if (!floor::get_toolchain_debug()) {
 				std::error_code ec {};
 				(void)std::filesystem::remove(program.data_or_filename, ec);
 			}
 		}
-		if(!ret.program) {
+		if (!ret.program) {
 			log_error("failed to create Metal program/library for device $: $",
 					  dev.name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
-			return ret;
+			floor_return_no_nrvo(ret);
 		}
 		
 		// TODO: print out the build log
 		ret.valid = true;
-		return ret;
+		floor_return_no_nrvo(ret);
 	}
 #else
 	log_error("this is not supported on iOS!");
-	return ret;
+	floor_return_no_nrvo(ret);
 #endif
 }
 
 std::shared_ptr<device_program> metal_context::add_program_file(const std::string& file_name,
-															const std::string additional_options) {
+																const std::string additional_options) {
 	return add_program_file(file_name, compile_options { .cli = additional_options });
 }
 
 std::shared_ptr<device_program> metal_context::add_program_file(const std::string& file_name,
-															compile_options options) {
+																compile_options options) {
 	// compile the source file for all devices in the context
-	metal_program::program_map_type prog_map;
-	options.target = toolchain::TARGET::AIR;
-	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const metal_device*)dev.get(),
-								  create_metal_program((const metal_device&)*dev,
-													   toolchain::compile_program_file(*dev, file_name, options)));
+	if (has_any_metal4_device) {
+		metal4_program::program_map_type prog_map;
+		options.target = toolchain::TARGET::AIR;
+		for (const auto& dev : devices) {
+			const auto& mtl_dev = (const metal_device&)*dev;
+			assert(mtl_dev.is_metal4());
+			prog_map.insert_or_assign(&mtl_dev, create_metal_program<true>(mtl_dev, toolchain::compile_program_file(*dev, file_name, options)));
+		}
+		return add_metal4_program(std::move(prog_map));
+	} else {
+		metal_program::program_map_type prog_map;
+		options.target = toolchain::TARGET::AIR;
+		for (const auto& dev : devices) {
+			prog_map.insert_or_assign((const metal_device*)dev.get(),
+									  create_metal_program<false>((const metal_device&)*dev,
+																  toolchain::compile_program_file(*dev, file_name, options)));
+		}
+		return add_metal_program(std::move(prog_map));
 	}
-	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_program_source(const std::string& source_code,
-															  const std::string additional_options) {
+																  const std::string additional_options) {
 	return add_program_source(source_code, compile_options { .cli = additional_options });
 }
 
 std::shared_ptr<device_program> metal_context::add_program_source(const std::string& source_code,
-															  compile_options options) {
+																  compile_options options) {
 	// compile the source code for all devices in the context
-	metal_program::program_map_type prog_map;
-	options.target = toolchain::TARGET::AIR;
-	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((const metal_device*)dev.get(),
-								  create_metal_program((const metal_device&)*dev,
-													   toolchain::compile_program(*dev, source_code, options)));
+	if (has_any_metal4_device) {
+		metal4_program::program_map_type prog_map;
+		options.target = toolchain::TARGET::AIR;
+		for (const auto& dev : devices) {
+			const auto& mtl_dev = (const metal_device&)*dev;
+			assert(mtl_dev.is_metal4());
+			prog_map.insert_or_assign(&mtl_dev,
+									  create_metal_program<true>(mtl_dev, toolchain::compile_program(*dev, source_code, options)));
+		}
+		return add_metal4_program(std::move(prog_map));
+	} else {
+		metal_program::program_map_type prog_map;
+		options.target = toolchain::TARGET::AIR;
+		for (const auto& dev : devices) {
+			prog_map.insert_or_assign((const metal_device*)dev.get(),
+									  create_metal_program<false>((const metal_device&)*dev,
+																  toolchain::compile_program(*dev, source_code, options)));
+		}
+		return add_metal_program(std::move(prog_map));
 	}
-	return add_metal_program(std::move(prog_map));
 }
 
 std::shared_ptr<device_program> metal_context::add_precompiled_program_file(const std::string& file_name,
-																		const std::vector<toolchain::function_info>& functions) {
+																			const std::vector<toolchain::function_info>& functions) {
 	log_debug("loading mtllib: $", file_name);
 	
 	// assume pre-compiled program is the same for all devices
 	metal_program::program_map_type prog_map;
 	@autoreleasepool {
-		for(const auto& dev : devices) {
+		for (const auto& dev : devices) {
+			const auto& mtl_dev = (const metal_device&)*dev;
+			if (mtl_dev.is_metal4()) {
+				log_error("this can currently not be supported on Metal 4");
+				return {};
+			}
+			
 			metal_program::metal_program_entry entry;
 			entry.functions = functions;
 			
@@ -825,8 +1014,8 @@ std::shared_ptr<device_program> metal_context::add_precompiled_program_file(cons
 				continue;
 			}
 			auto lib_url = [NSURL fileURLWithPath:floor_force_nonnull(lib_file_name)];
-			entry.program = [((const metal_device&)*dev).device newLibraryWithURL:lib_url
-																			error:&err];
+			entry.program = [mtl_dev.device newLibraryWithURL:lib_url
+														error:&err];
 			if(!entry.program) {
 				log_error("failed to create Metal program/library for device $: $",
 						  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
@@ -841,9 +1030,13 @@ std::shared_ptr<device_program> metal_context::add_precompiled_program_file(cons
 }
 
 std::shared_ptr<device_program::program_entry> metal_context::create_program_entry(const device& dev,
-																			   toolchain::program_data program,
-																			   const toolchain::TARGET) {
-	return std::make_shared<metal_program::metal_program_entry>(create_metal_program((const metal_device&)dev, program));
+																				   toolchain::program_data program,
+																				   const toolchain::TARGET) {
+	if (((const metal_device&)dev).is_metal4()) {
+		log_error("this can currently not be supported on Metal 4");
+		return {};
+	}
+	return std::make_shared<metal_program::metal_program_entry>(create_metal_program<false>((const metal_device&)dev, program));
 }
 
 std::shared_ptr<device_program> metal_context::create_metal_test_program(std::shared_ptr<device_program::program_entry> entry) {
@@ -851,13 +1044,17 @@ std::shared_ptr<device_program> metal_context::create_metal_test_program(std::sh
 	
 	// find the device the specified program has been compiled for
 	const metal_device* metal_dev = nullptr;
-	for(auto& dev : devices) {
-		if(((const metal_device&)*dev).device == [metal_entry->program device]) {
+	for (auto& dev : devices) {
+		if (((const metal_device&)*dev).device == [metal_entry->program device]) {
 			metal_dev = (const metal_device*)&dev;
+			if (metal_dev->is_metal4()) {
+				log_error("this can currently not be supported on Metal 4");
+				return {};
+			}
 			break;
 		}
 	}
-	if(metal_dev == nullptr) {
+	if (metal_dev == nullptr) {
 		log_error("program device is not part of this context");
 		return nullptr;
 	}
@@ -869,11 +1066,31 @@ std::shared_ptr<device_program> metal_context::create_metal_test_program(std::sh
 }
 
 std::unique_ptr<indirect_command_pipeline> metal_context::create_indirect_command_pipeline(const indirect_command_description& desc) const {
-	auto pipeline = std::make_unique<metal_indirect_command_pipeline>(desc, devices);
+#if defined(FLOOR_DEBUG)
+	if (has_any_metal4_device) [[likely]] {
+		for (const auto& dev : devices) {
+			assert(((const metal_device*)dev.get())->is_metal4());
+		}
+	}
+#endif
+	
+	std::unique_ptr<indirect_command_pipeline> pipeline;
+	if (floor::get_metal_soft_indirect()) {
+		if (has_any_metal4_device) [[likely]] {
+			pipeline = std::make_unique<metal4_soft_indirect_command_pipeline>(desc, devices);
+		} else {
+			pipeline = std::make_unique<generic_indirect_command_pipeline>(desc, devices);
+		}
+	} else if (has_any_metal4_device) [[likely]] {
+		pipeline = std::make_unique<metal4_indirect_command_pipeline>(desc, devices);
+	} else {
+		pipeline = std::make_unique<metal_indirect_command_pipeline>(desc, devices);
+	}
+	
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
-	return pipeline;
+	floor_return_no_nrvo(pipeline);
 }
 
 MTLPixelFormat metal_context::get_metal_renderer_pixel_format() const {
@@ -892,6 +1109,15 @@ id <CAMetalDrawable> metal_context::get_metal_next_drawable(id <MTLCommandBuffer
 	}
 }
 
+id <CAMetalDrawable> metal_context::get_metal_next_drawable(const metal4_queue& dev_queue, metal4_command_buffer& cmd_buffer) const {
+	@autoreleasepool {
+		if (view == nullptr) {
+			return nil;
+		}
+		return darwin_helper::get_metal_next_drawable(view, dev_queue, cmd_buffer);
+	}
+}
+
 bool metal_context::init_vr_renderer() {
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 	if (!vr_ctx) {
@@ -906,9 +1132,10 @@ bool metal_context::init_vr_renderer() {
 											  IMAGE_TYPE::FLAG_RENDER_TARGET |
 											  IMAGE_TYPE::READ_WRITE);
 	for (uint32_t i = 0; i < vr_image_count; ++i) {
+		const std::string debug_label = "VR screen image #" + std::to_string(i);
 		vr_images[i].image = create_image(dev_queue, vr_screen_dim, vr_image_type,
-										  MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE);
-		vr_images[i].image->set_debug_label("VR screen image #" + std::to_string(i));
+										  MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE,
+										  debug_label.c_str());
 	}
 	
 	return true;
@@ -953,7 +1180,21 @@ void metal_context::present_metal_vr_drawable(const device_queue&, const device_
 #endif
 
 std::unique_ptr<graphics_pipeline> metal_context::create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
-																	  const bool with_multi_view_support) const {
+																		   const bool with_multi_view_support) const {
+	if (has_any_metal4_device) [[likely]] {
+#if defined(FLOOR_DEBUG)
+		for (const auto& dev : devices) {
+			assert(((const metal_device*)dev.get())->is_metal4());
+		}
+#endif
+		
+		auto pipeline = std::make_unique<metal4_pipeline>(pipeline_desc, devices, with_multi_view_support && (vr_ctx != nullptr));
+		if (!pipeline || !pipeline->is_valid()) {
+			return {};
+		}
+		return pipeline;
+	}
+	
 	auto pipeline = std::make_unique<metal_pipeline>(pipeline_desc, devices, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
@@ -962,7 +1203,21 @@ std::unique_ptr<graphics_pipeline> metal_context::create_graphics_pipeline(const
 }
 
 std::unique_ptr<graphics_pass> metal_context::create_graphics_pass(const render_pass_description& pass_desc,
-															  const bool with_multi_view_support) const {
+																   const bool with_multi_view_support) const {
+	if (has_any_metal4_device) [[likely]] {
+#if defined(FLOOR_DEBUG)
+		for (const auto& dev : devices) {
+			assert(((const metal_device*)dev.get())->is_metal4());
+		}
+#endif
+		
+		auto pass = std::make_unique<metal4_pass>(pass_desc, with_multi_view_support && (vr_ctx != nullptr));
+		if (!pass || !pass->is_valid()) {
+			return {};
+		}
+		return pass;
+	}
+	
 	auto pass = std::make_unique<metal_pass>(pass_desc, with_multi_view_support && (vr_ctx != nullptr));
 	if (!pass || !pass->is_valid()) {
 		return {};
@@ -971,12 +1226,26 @@ std::unique_ptr<graphics_pass> metal_context::create_graphics_pass(const render_
 }
 
 std::unique_ptr<graphics_renderer> metal_context::create_graphics_renderer(const device_queue& cqueue,
-																	  const graphics_pass& pass,
-																	  const graphics_pipeline& pipeline,
-																	  const bool create_multi_view_renderer) const {
+																		   const graphics_pass& pass,
+																		   const graphics_pipeline& pipeline,
+																		   const bool create_multi_view_renderer) const {
 	if (create_multi_view_renderer && !is_vr_supported()) {
 		log_error("can't create a multi-view/VR graphics renderer when VR is not supported");
 		return {};
+	}
+	
+	if (has_any_metal4_device) [[likely]] {
+#if defined(FLOOR_DEBUG)
+		for (const auto& dev : devices) {
+			assert(((const metal_device*)dev.get())->is_metal4());
+		}
+#endif
+		
+		auto renderer = std::make_unique<metal4_renderer>(cqueue, pass, pipeline, create_multi_view_renderer);
+		if (!renderer || !renderer->is_valid()) {
+			return {};
+		}
+		return renderer;
 	}
 	
 	auto renderer = std::make_unique<metal_renderer>(cqueue, pass, pipeline, create_multi_view_renderer);
@@ -1066,7 +1335,7 @@ bool metal_context::start_metal_capture(const device& dev, const std::string& fi
 			return false;
 		}
 		
-		MTLCaptureDescriptor* capture_desc = [[MTLCaptureDescriptor alloc] init];
+		MTLCaptureDescriptor* capture_desc = [MTLCaptureDescriptor new];
 		capture_manager.defaultCaptureScope =
 		[capture_manager newCaptureScopeWithDevice:((const metal_device&)dev).device];
 		capture_desc.captureObject = capture_manager.defaultCaptureScope;
@@ -1120,6 +1389,286 @@ device_context::memory_usage_t metal_context::get_memory_usage(const device& dev
 	}
 	
 	return ret;
+}
+
+IMAGE_TYPE metal_context::image_type_from_pixel_format(const MTLPixelFormat pixel_format) {
+	static const std::unordered_map<MTLPixelFormat, IMAGE_TYPE> format_lut {
+		// R
+		{ MTLPixelFormatR8Unorm, IMAGE_TYPE::R8UI_NORM },
+		{ MTLPixelFormatR8Snorm, IMAGE_TYPE::R8I_NORM },
+		{ MTLPixelFormatR8Uint, IMAGE_TYPE::R8UI },
+		{ MTLPixelFormatR8Sint, IMAGE_TYPE::R8I },
+		{ MTLPixelFormatR16Unorm, IMAGE_TYPE::R16UI_NORM },
+		{ MTLPixelFormatR16Snorm, IMAGE_TYPE::R16I_NORM },
+		{ MTLPixelFormatR16Uint, IMAGE_TYPE::R16UI },
+		{ MTLPixelFormatR16Sint, IMAGE_TYPE::R16I },
+		{ MTLPixelFormatR16Float, IMAGE_TYPE::R16F },
+		{ MTLPixelFormatR32Uint, IMAGE_TYPE::R32UI },
+		{ MTLPixelFormatR32Sint, IMAGE_TYPE::R32I },
+		{ MTLPixelFormatR32Float, IMAGE_TYPE::R32F },
+		// RG
+		{ MTLPixelFormatRG8Unorm, IMAGE_TYPE::RG8UI_NORM },
+		{ MTLPixelFormatRG8Snorm, IMAGE_TYPE::RG8I_NORM },
+		{ MTLPixelFormatRG8Uint, IMAGE_TYPE::RG8UI },
+		{ MTLPixelFormatRG8Sint, IMAGE_TYPE::RG8I },
+		{ MTLPixelFormatRG16Unorm, IMAGE_TYPE::RG16UI_NORM },
+		{ MTLPixelFormatRG16Snorm, IMAGE_TYPE::RG16I_NORM },
+		{ MTLPixelFormatRG16Uint, IMAGE_TYPE::RG16UI },
+		{ MTLPixelFormatRG16Sint, IMAGE_TYPE::RG16I },
+		{ MTLPixelFormatRG16Float, IMAGE_TYPE::RG16F },
+		{ MTLPixelFormatRG32Uint, IMAGE_TYPE::RG32UI },
+		{ MTLPixelFormatRG32Sint, IMAGE_TYPE::RG32I },
+		{ MTLPixelFormatRG32Float, IMAGE_TYPE::RG32F },
+		// RGB
+		{ MTLPixelFormatRG11B10Float, IMAGE_TYPE::RG11B10F },
+		{ MTLPixelFormatRGB9E5Float, IMAGE_TYPE::RGB9E5F },
+		// RGBA
+		{ MTLPixelFormatRGBA8Unorm, IMAGE_TYPE::RGBA8UI_NORM },
+		{ MTLPixelFormatRGBA8Snorm, IMAGE_TYPE::RGBA8I_NORM },
+		{ MTLPixelFormatRGBA8Uint, IMAGE_TYPE::RGBA8UI },
+		{ MTLPixelFormatRGBA8Sint, IMAGE_TYPE::RGBA8I },
+		{ MTLPixelFormatRGBA16Unorm, IMAGE_TYPE::RGBA16UI_NORM },
+		{ MTLPixelFormatRGBA16Snorm, IMAGE_TYPE::RGBA16I_NORM },
+		{ MTLPixelFormatRGBA16Uint, IMAGE_TYPE::RGBA16UI },
+		{ MTLPixelFormatRGBA16Sint, IMAGE_TYPE::RGBA16I },
+		{ MTLPixelFormatRGBA16Float, IMAGE_TYPE::RGBA16F },
+		{ MTLPixelFormatRGBA32Uint, IMAGE_TYPE::RGBA32UI },
+		{ MTLPixelFormatRGBA32Sint, IMAGE_TYPE::RGBA32I },
+		{ MTLPixelFormatRGBA32Float, IMAGE_TYPE::RGBA32F },
+		// BGR(A)
+		{ MTLPixelFormatBGRA8Unorm, IMAGE_TYPE::BGRA8UI_NORM },
+		{ MTLPixelFormatBGR10A2Unorm, IMAGE_TYPE::A2BGR10UI_NORM },
+		{ MTLPixelFormatBGR10_XR, IMAGE_TYPE::BGR10UI_NORM },
+		{ MTLPixelFormatBGR10_XR_sRGB, IMAGE_TYPE::BGR10UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		{ MTLPixelFormatBGRA10_XR, IMAGE_TYPE::BGRA10UI_NORM },
+		{ MTLPixelFormatBGRA10_XR_sRGB, IMAGE_TYPE::BGRA10UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		// sRGB
+		{ MTLPixelFormatR8Unorm_sRGB, IMAGE_TYPE::R8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		{ MTLPixelFormatRG8Unorm_sRGB, IMAGE_TYPE::RG8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		{ MTLPixelFormatRGBA8Unorm_sRGB, IMAGE_TYPE::RGBA8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		{ MTLPixelFormatBGRA8Unorm_sRGB, IMAGE_TYPE::BGRA8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
+		// depth / depth+stencil
+		{ MTLPixelFormatDepth32Float, (IMAGE_TYPE::FLOAT |
+									   IMAGE_TYPE::CHANNELS_1 |
+									   IMAGE_TYPE::FORMAT_32 |
+									   IMAGE_TYPE::FLAG_DEPTH) },
+		{ MTLPixelFormatDepth16Unorm, (IMAGE_TYPE::UINT |
+									   IMAGE_TYPE::CHANNELS_1 |
+									   IMAGE_TYPE::FORMAT_16 |
+									   IMAGE_TYPE::FLAG_DEPTH) },
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
+		{ MTLPixelFormatDepth24Unorm_Stencil8, (IMAGE_TYPE::UINT |
+												IMAGE_TYPE::CHANNELS_2 |
+												IMAGE_TYPE::FORMAT_24_8 |
+												IMAGE_TYPE::FLAG_DEPTH |
+												IMAGE_TYPE::FLAG_STENCIL) },
+#endif
+		{ MTLPixelFormatDepth32Float_Stencil8, (IMAGE_TYPE::FLOAT |
+												IMAGE_TYPE::CHANNELS_2 |
+												IMAGE_TYPE::FORMAT_32_8 |
+												IMAGE_TYPE::FLAG_DEPTH |
+												IMAGE_TYPE::FLAG_STENCIL) },
+		// BC formats
+		{ MTLPixelFormatBC1_RGBA, IMAGE_TYPE::BC1_RGBA },
+		{ MTLPixelFormatBC1_RGBA_sRGB, IMAGE_TYPE::BC1_RGBA_SRGB },
+		{ MTLPixelFormatBC2_RGBA, IMAGE_TYPE::BC2_RGBA },
+		{ MTLPixelFormatBC2_RGBA_sRGB, IMAGE_TYPE::BC2_RGBA_SRGB },
+		{ MTLPixelFormatBC3_RGBA, IMAGE_TYPE::BC3_RGBA },
+		{ MTLPixelFormatBC3_RGBA_sRGB, IMAGE_TYPE::BC3_RGBA_SRGB },
+		{ MTLPixelFormatBC4_RUnorm, IMAGE_TYPE::BC4_RUI },
+		{ MTLPixelFormatBC4_RSnorm, IMAGE_TYPE::BC4_RI },
+		{ MTLPixelFormatBC5_RGUnorm, IMAGE_TYPE::BC5_RGUI },
+		{ MTLPixelFormatBC5_RGSnorm, IMAGE_TYPE::BC5_RGI },
+		{ MTLPixelFormatBC6H_RGBFloat, IMAGE_TYPE::BC6H_RGBHF },
+		{ MTLPixelFormatBC6H_RGBUfloat, IMAGE_TYPE::BC6H_RGBUHF },
+		{ MTLPixelFormatBC7_RGBAUnorm, IMAGE_TYPE::BC7_RGBA },
+		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, IMAGE_TYPE::BC7_RGBA_SRGB },
+		// EAC/ETC formats
+		{ MTLPixelFormatEAC_R11Unorm, IMAGE_TYPE::EAC_R11UI },
+		{ MTLPixelFormatEAC_R11Snorm, IMAGE_TYPE::EAC_R11I },
+		{ MTLPixelFormatEAC_RG11Unorm, IMAGE_TYPE::EAC_RG11UI },
+		{ MTLPixelFormatEAC_RG11Snorm, IMAGE_TYPE::EAC_RG11I },
+		{ MTLPixelFormatEAC_RGBA8, IMAGE_TYPE::EAC_RGBA8 },
+		{ MTLPixelFormatEAC_RGBA8_sRGB, IMAGE_TYPE::EAC_RGBA8_SRGB },
+		{ MTLPixelFormatETC2_RGB8, IMAGE_TYPE::ETC2_RGB8 },
+		{ MTLPixelFormatETC2_RGB8_sRGB, IMAGE_TYPE::ETC2_RGB8_SRGB },
+		{ MTLPixelFormatETC2_RGB8A1, IMAGE_TYPE::ETC2_RGB8A1 },
+		{ MTLPixelFormatETC2_RGB8A1_sRGB, IMAGE_TYPE::ETC2_RGB8A1_SRGB },
+		// ASTC formats
+		{ MTLPixelFormatASTC_4x4_sRGB, IMAGE_TYPE::ASTC_4X4_SRGB },
+		{ MTLPixelFormatASTC_4x4_LDR, IMAGE_TYPE::ASTC_4X4_LDR },
+		{ MTLPixelFormatASTC_4x4_HDR, IMAGE_TYPE::ASTC_4X4_HDR },
+#if !defined(FLOOR_VISIONOS)
+		FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
+		// PVRTC formats
+		{ MTLPixelFormatPVRTC_RGB_2BPP, IMAGE_TYPE::PVRTC_RGB2 },
+		{ MTLPixelFormatPVRTC_RGB_4BPP, IMAGE_TYPE::PVRTC_RGB4 },
+		{ MTLPixelFormatPVRTC_RGBA_2BPP, IMAGE_TYPE::PVRTC_RGBA2 },
+		{ MTLPixelFormatPVRTC_RGBA_4BPP, IMAGE_TYPE::PVRTC_RGBA4 },
+		{ MTLPixelFormatPVRTC_RGB_2BPP_sRGB, IMAGE_TYPE::PVRTC_RGB2_SRGB },
+		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGB4_SRGB },
+		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA2_SRGB },
+		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA4_SRGB },
+		FLOOR_POP_WARNINGS()
+#endif
+	};
+	const auto lut_iter = format_lut.find(pixel_format);
+	if (lut_iter == format_lut.end()) {
+		return IMAGE_TYPE::NONE;
+	}
+	return lut_iter->second;
+}
+
+MTLPixelFormat metal_context::pixel_format_from_image_type(const IMAGE_TYPE image_type) {
+	static const std::unordered_map<IMAGE_TYPE, MTLPixelFormat> format_lut {
+		// R
+		{ IMAGE_TYPE::R8UI_NORM, MTLPixelFormatR8Unorm },
+		{ IMAGE_TYPE::R8I_NORM, MTLPixelFormatR8Snorm },
+		{ IMAGE_TYPE::R8UI, MTLPixelFormatR8Uint },
+		{ IMAGE_TYPE::R8I, MTLPixelFormatR8Sint },
+		{ IMAGE_TYPE::R16UI_NORM, MTLPixelFormatR16Unorm },
+		{ IMAGE_TYPE::R16I_NORM, MTLPixelFormatR16Snorm },
+		{ IMAGE_TYPE::R16UI, MTLPixelFormatR16Uint },
+		{ IMAGE_TYPE::R16I, MTLPixelFormatR16Sint },
+		{ IMAGE_TYPE::R16F, MTLPixelFormatR16Float },
+		{ IMAGE_TYPE::R32UI, MTLPixelFormatR32Uint },
+		{ IMAGE_TYPE::R32I, MTLPixelFormatR32Sint },
+		{ IMAGE_TYPE::R32F, MTLPixelFormatR32Float },
+		// RG
+		{ IMAGE_TYPE::RG8UI_NORM, MTLPixelFormatRG8Unorm },
+		{ IMAGE_TYPE::RG8I_NORM, MTLPixelFormatRG8Snorm },
+		{ IMAGE_TYPE::RG8UI, MTLPixelFormatRG8Uint },
+		{ IMAGE_TYPE::RG8I, MTLPixelFormatRG8Sint },
+		{ IMAGE_TYPE::RG16UI_NORM, MTLPixelFormatRG16Unorm },
+		{ IMAGE_TYPE::RG16I_NORM, MTLPixelFormatRG16Snorm },
+		{ IMAGE_TYPE::RG16UI, MTLPixelFormatRG16Uint },
+		{ IMAGE_TYPE::RG16I, MTLPixelFormatRG16Sint },
+		{ IMAGE_TYPE::RG16F, MTLPixelFormatRG16Float },
+		{ IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
+		{ IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
+		{ IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
+		// RGB
+		{ IMAGE_TYPE::RG11B10F, MTLPixelFormatRG11B10Float },
+		{ IMAGE_TYPE::RGB9E5F, MTLPixelFormatRGB9E5Float },
+		// RGB -> RGBA
+		{ IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
+		{ IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
+		{ IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
+		{ IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
+		{ IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
+		{ IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
+		{ IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
+		{ IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
+		// RGBA
+		{ IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ IMAGE_TYPE::RGBA8UI, MTLPixelFormatRGBA8Uint },
+		{ IMAGE_TYPE::RGBA8I, MTLPixelFormatRGBA8Sint },
+		{ IMAGE_TYPE::RGBA16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ IMAGE_TYPE::RGBA16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ IMAGE_TYPE::RGBA16UI, MTLPixelFormatRGBA16Uint },
+		{ IMAGE_TYPE::RGBA16I, MTLPixelFormatRGBA16Sint },
+		{ IMAGE_TYPE::RGBA16F, MTLPixelFormatRGBA16Float },
+		{ IMAGE_TYPE::RGBA32UI, MTLPixelFormatRGBA32Uint },
+		{ IMAGE_TYPE::RGBA32I, MTLPixelFormatRGBA32Sint },
+		{ IMAGE_TYPE::RGBA32F, MTLPixelFormatRGBA32Float },
+		// BGR(A)
+		{ IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
+		{ IMAGE_TYPE::A2BGR10UI_NORM, MTLPixelFormatBGR10A2Unorm },
+		{ IMAGE_TYPE::BGR10UI_NORM, MTLPixelFormatBGR10_XR },
+		{ IMAGE_TYPE::BGR10UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGR10_XR_sRGB },
+		{ IMAGE_TYPE::BGRA10UI_NORM, MTLPixelFormatBGRA10_XR },
+		{ IMAGE_TYPE::BGRA10UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA10_XR_sRGB },
+		// sRGB
+		{ IMAGE_TYPE::R8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatR8Unorm_sRGB },
+		{ IMAGE_TYPE::RG8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRG8Unorm_sRGB },
+		{ IMAGE_TYPE::RGB8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRGBA8Unorm_sRGB }, // allow RGB -> RGBA
+		{ IMAGE_TYPE::RGBA8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRGBA8Unorm_sRGB },
+		{ IMAGE_TYPE::BGRA8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA8Unorm_sRGB },
+		// depth / depth+stencil
+		{ (IMAGE_TYPE::FLOAT |
+		   IMAGE_TYPE::CHANNELS_1 |
+		   IMAGE_TYPE::FORMAT_32 |
+		   IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
+		{ (IMAGE_TYPE::UINT |
+		   IMAGE_TYPE::CHANNELS_1 |
+		   IMAGE_TYPE::FORMAT_16 |
+		   IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
+#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
+		{ (IMAGE_TYPE::UINT |
+		   IMAGE_TYPE::CHANNELS_2 |
+		   IMAGE_TYPE::FORMAT_24_8 |
+		   IMAGE_TYPE::FLAG_DEPTH |
+		   IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth24Unorm_Stencil8 },
+#endif
+		{ (IMAGE_TYPE::FLOAT |
+		   IMAGE_TYPE::CHANNELS_2 |
+		   IMAGE_TYPE::FORMAT_32_8 |
+		   IMAGE_TYPE::FLAG_DEPTH |
+		   IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
+		// BC formats
+		{ IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
+		{ IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
+		{ IMAGE_TYPE::BC2_RGBA, MTLPixelFormatBC2_RGBA },
+		{ IMAGE_TYPE::BC2_RGBA_SRGB, MTLPixelFormatBC2_RGBA_sRGB },
+		{ IMAGE_TYPE::BC3_RGBA, MTLPixelFormatBC3_RGBA },
+		{ IMAGE_TYPE::BC3_RGBA_SRGB, MTLPixelFormatBC3_RGBA_sRGB },
+		{ IMAGE_TYPE::BC4_RUI, MTLPixelFormatBC4_RUnorm },
+		{ IMAGE_TYPE::BC4_RI, MTLPixelFormatBC4_RSnorm },
+		{ IMAGE_TYPE::BC5_RGUI, MTLPixelFormatBC5_RGUnorm },
+		{ IMAGE_TYPE::BC5_RGI, MTLPixelFormatBC5_RGSnorm },
+		{ IMAGE_TYPE::BC6H_RGBHF, MTLPixelFormatBC6H_RGBFloat },
+		{ IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
+		{ IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
+		{ IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
+		// EAC/ETC formats
+		{ IMAGE_TYPE::EAC_R11UI, MTLPixelFormatEAC_R11Unorm },
+		{ IMAGE_TYPE::EAC_R11I, MTLPixelFormatEAC_R11Snorm },
+		{ IMAGE_TYPE::EAC_RG11UI, MTLPixelFormatEAC_RG11Unorm },
+		{ IMAGE_TYPE::EAC_RG11I, MTLPixelFormatEAC_RG11Snorm },
+		{ IMAGE_TYPE::EAC_RGBA8, MTLPixelFormatEAC_RGBA8 },
+		{ IMAGE_TYPE::EAC_RGBA8_SRGB, MTLPixelFormatEAC_RGBA8_sRGB },
+		{ IMAGE_TYPE::ETC2_RGB8, MTLPixelFormatETC2_RGB8 },
+		{ IMAGE_TYPE::ETC2_RGB8_SRGB, MTLPixelFormatETC2_RGB8_sRGB },
+		{ IMAGE_TYPE::ETC2_RGB8A1, MTLPixelFormatETC2_RGB8A1 },
+		{ IMAGE_TYPE::ETC2_RGB8A1_SRGB, MTLPixelFormatETC2_RGB8A1_sRGB },
+		// ASTC formats
+		{ IMAGE_TYPE::ASTC_4X4_SRGB, MTLPixelFormatASTC_4x4_sRGB },
+		{ IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
+		{ IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
+#if !defined(FLOOR_VISIONOS)
+FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
+		// PVRTC formats
+		{ IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
+		{ IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
+		{ IMAGE_TYPE::PVRTC_RGBA2, MTLPixelFormatPVRTC_RGBA_2BPP },
+		{ IMAGE_TYPE::PVRTC_RGBA4, MTLPixelFormatPVRTC_RGBA_4BPP },
+		{ IMAGE_TYPE::PVRTC_RGB2_SRGB, MTLPixelFormatPVRTC_RGB_2BPP_sRGB },
+		{ IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
+		{ IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
+		{ IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
+FLOOR_POP_WARNINGS()
+#endif
+		// TODO: special image formats, these are partially supported
+	};
+	const auto masked_image_type = (image_type & (IMAGE_TYPE::__DATA_TYPE_MASK |
+												  IMAGE_TYPE::__CHANNELS_MASK |
+												  IMAGE_TYPE::__COMPRESSION_MASK |
+												  IMAGE_TYPE::__FORMAT_MASK |
+												  IMAGE_TYPE::__LAYOUT_MASK |
+												  IMAGE_TYPE::FLAG_NORMALIZED |
+												  IMAGE_TYPE::FLAG_DEPTH |
+												  IMAGE_TYPE::FLAG_STENCIL |
+												  IMAGE_TYPE::FLAG_SRGB));
+	const auto metal_pixel_format = format_lut.find(masked_image_type);
+	if (metal_pixel_format == format_lut.end()) {
+		return MTLPixelFormatInvalid;
+	}
+	return metal_pixel_format->second;
 }
 
 } // namespace fl

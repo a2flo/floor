@@ -20,14 +20,29 @@
 #include <floor/device/device_image.hpp>
 #include <floor/device/device.hpp>
 #include <floor/device/device_context.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/floor.hpp>
 #include <unordered_set>
 
 namespace fl {
 
+//! when software indirect rendering is enabled, we don't want to treat the renderer as a proper indirect renderer, but a "normal" one instead
+static bool is_software_indirect(const device_context& ctx) {
+	switch (ctx.get_platform_type()) {
+		case PLATFORM_TYPE::METAL:
+			return floor::get_metal_soft_indirect();
+		case PLATFORM_TYPE::VULKAN:
+			return floor::get_vulkan_soft_indirect();
+		default:
+			break;
+	}
+	return false;
+}
+
 graphics_renderer::graphics_renderer(const device_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_) :
 cqueue(cqueue_), ctx(cqueue.get_mutable_context()), pass(pass_), cur_pipeline(&pipeline), multi_view(multi_view_),
-is_indirect(pipeline.get_description(multi_view_).support_indirect_rendering) {
+is_indirect(pipeline.get_description(multi_view_).support_indirect_rendering && !is_software_indirect(ctx)) {
 	// TODO: check validity, check compat between pass <-> pipeline, check if cqueue dev is in pass+pipeline
 	
 	// all successful, mark as valid for now (can be changed to false again by derived implementations)
@@ -124,6 +139,56 @@ bool graphics_renderer::set_depth_attachment(attachment_t& attachment) {
 
 bool graphics_renderer::set_tessellation_factors(const device_buffer& tess_factors_buffer floor_unused) {
 	return true;
+}
+
+// NOTE: this is the generic implementation (using generic_indirect_command_pipeline) and can only be active when determined by the *_context,
+//       e.g. the resp. context must have created a generic_indirect_command_pipeline rather than an impl specific one for this to work
+void graphics_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd) {
+	const auto command_count = indirect_cmd.get_command_count();
+	if (command_count == 0) {
+		return;
+	}
+	
+#if defined(FLOOR_DEBUG)
+	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
+				  indirect_cmd.get_description().debug_label);
+		return;
+	}
+#endif
+	
+	const auto& dev = cqueue.get_device();
+	const auto& generic_indirect_cmd = (const generic_indirect_command_pipeline&)indirect_cmd;
+	const auto generic_indirect_pipeline_entry = generic_indirect_cmd.get_pipeline_entry(dev);
+	if (!generic_indirect_pipeline_entry) {
+		log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
+				  dev.name, indirect_cmd.get_description().debug_label);
+		return;
+	}
+	
+	for (uint32_t cmd_idx = 0u; cmd_idx < command_count; ++cmd_idx) {
+		const auto& cmd = generic_indirect_pipeline_entry->commands[cmd_idx];
+		if (!cmd.render.index_buffer) {
+			std::array<multi_draw_entry, 1> draw_entry { multi_draw_entry {
+				.vertex_count = cmd.render.vertex.vertex_count,
+				.instance_count = cmd.render.vertex.instance_count,
+				.first_vertex = cmd.render.vertex.first_vertex,
+				.first_instance = cmd.render.vertex.first_instance,
+			}};
+			draw_internal(draw_entry, {}, cmd.args);
+		} else {
+			std::array<multi_draw_indexed_entry, 1> draw_entry { multi_draw_indexed_entry {
+				.index_buffer = cmd.render.index_buffer,
+				.index_count = cmd.render.indexed.index_count,
+				.instance_count = cmd.render.indexed.instance_count,
+				.first_index = cmd.render.indexed.first_index,
+				.vertex_offset = cmd.render.indexed.vertex_offset,
+				.first_instance = cmd.render.indexed.first_instance,
+				.index_type = cmd.render.indexed.index_type,
+			}};
+			draw_internal({}, draw_entry, cmd.args);
+		}
+	}
 }
 
 } // namespace fl

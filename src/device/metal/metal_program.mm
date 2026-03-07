@@ -85,7 +85,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						id <MTLComputePipelineState> kernel_state = nil;
 						bool supports_indirect_compute = false;
 						if ([func functionType] == MTLFunctionTypeKernel) {
-							MTLComputePipelineDescriptor* mtl_pipeline_desc = [[MTLComputePipelineDescriptor alloc] init];
+							MTLComputePipelineDescriptor* mtl_pipeline_desc = [MTLComputePipelineDescriptor new];
 							const std::string label = info.name + "_pipeline";
 							mtl_pipeline_desc.label = [NSString stringWithUTF8String:label.c_str()];
 							mtl_pipeline_desc.computeFunction = func;
@@ -95,30 +95,31 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							mtl_pipeline_desc.supportAddingBinaryFunctions = false;
 							mtl_pipeline_desc.maxCallStackDepth = 0;
 							if (entry.info->has_valid_required_local_size()) {
-#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 								if (@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)) {
 									mtl_pipeline_desc.requiredThreadsPerThreadgroup = {
 										.width = entry.info->required_local_size.x,
 										.height = entry.info->required_local_size.y,
 										.depth = entry.info->required_local_size.z,
 									};
-								} else
-#endif
-								{
+								} else {
 									mtl_pipeline_desc.maxTotalThreadsPerThreadgroup = entry.info->required_local_size.extent();
 								}
 							}
 							
-							// implicitly support indirect compute when the function doesn't take any non-global-AS parameters
-							bool has_non_global_args = false;
-							for (const auto& func_arg : info.args) {
-								if (func_arg.address_space != toolchain::ARG_ADDRESS_SPACE::GLOBAL &&
-									!has_flag<toolchain::ARG_FLAG::ARGUMENT_BUFFER>(func_arg.flags)) {
-									has_non_global_args = true;
-									break;
+							if (!floor::get_metal_soft_indirect()) {
+								// implicitly support indirect compute when the function doesn't take any non-global-AS parameters
+								bool has_non_global_args = false;
+								for (const auto& func_arg : info.args) {
+									if (func_arg.address_space != toolchain::ARG_ADDRESS_SPACE::GLOBAL &&
+										!has_flag<toolchain::ARG_FLAG::ARGUMENT_BUFFER>(func_arg.flags)) {
+										has_non_global_args = true;
+										break;
+									}
 								}
+								mtl_pipeline_desc.supportIndirectCommandBuffers = !has_non_global_args;
+							} else {
+								mtl_pipeline_desc.supportIndirectCommandBuffers = false;
 							}
-							mtl_pipeline_desc.supportIndirectCommandBuffers = !has_non_global_args;
 							
 							// set buffer mutability
 							metal_args::set_buffer_mutability<metal_args::ENCODER_TYPE::COMPUTE>(mtl_pipeline_desc, { &info });
@@ -285,15 +286,12 @@ static const char* metal_data_type_to_string(const MTLDataType& data_type) {
 		case MTLDataTypeBFloat2: return "BFloat2";
 		case MTLDataTypeBFloat3: return "BFloat3";
 		case MTLDataTypeBFloat4: return "BFloat4";
-#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 		case MTLDataTypeDepthStencilState: return "DepthStencilState";
 		case MTLDataTypeTensor: return "Tensor";
-#endif
 	}
 	return "<unknown>";
 }
 
-#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 static const char* metal_tensor_data_type_to_string(const MTLTensorDataType& data_type) {
 	switch (data_type) {
 		case MTLTensorDataTypeNone: return "None";
@@ -313,7 +311,6 @@ static const char* metal_tensor_data_type_to_string(const MTLTensorDataType& dat
 	}
 	return "<unknown>";
 }
-#endif
 
 static void dump_refl_array(MTLArrayType* arr_type, std::stringstream& sstr, const uint32_t level);
 static void dump_refl_struct(MTLStructType* struct_type, std::stringstream& sstr, const uint32_t level);
@@ -477,7 +474,6 @@ void metal_program::dump_bindings_reflection(const std::string& reflection_info_
 				sstr << std::endl;
 				break;
 			}
-#if defined(__MAC_26_0) || defined(__IPHONE_26_0) || defined(__VISIONOS_26_0)
 			case MTLBindingTypeTensor: {
 				auto tensor_binding = (id<MTLTensorBinding>)binding;
 				sstr << "tensor: type: " << metal_tensor_data_type_to_string([tensor_binding tensorDataType]);
@@ -497,7 +493,6 @@ void metal_program::dump_bindings_reflection(const std::string& reflection_info_
 				sstr << std::endl;
 				break;
 			}
-#endif
 			case MTLBindingTypeSampler:
 			case MTLBindingTypeImageblockData:
 			case MTLBindingTypeImageblock:

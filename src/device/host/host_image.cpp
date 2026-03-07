@@ -42,8 +42,9 @@ host_image::host_image(const device_queue& cqueue,
 					   std::span<uint8_t> host_data_,
 					   const MEMORY_FLAG flags_,
 					   device_image* shared_image_,
-					   const uint32_t mip_level_limit_) :
-device_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_) {
+					   const uint32_t mip_level_limit_,
+					   const char* debug_label_) :
+device_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_, debug_label_) {
 	// check Metal/Vulkan buffer sharing validity
 #if defined(FLOOR_NO_METAL)
 	if (has_flag<MEMORY_FLAG::METAL_SHARING>(flags)) {
@@ -137,8 +138,7 @@ bool host_image::create_internal(const bool copy_host_data, const device_queue& 
 		}
 		
 		// acquire for use with the host
-		const device_queue* comp_mtl_queue = get_default_queue_for_memory(*shared_image);
-		acquire_metal_image(&cqueue, (const metal_queue*)comp_mtl_queue);
+		acquire_metal_image(&cqueue, get_default_queue_for_memory(*shared_image));
 	}
 #endif
 #if !defined(FLOOR_NO_VULKAN)
@@ -247,13 +247,15 @@ void* __attribute__((aligned(128))) host_image::map(const device_queue& cqueue,
 	return image.get();
 }
 
-bool host_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+bool host_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if (!image) return false;
 	if (mapped_ptr == nullptr) return false;
 	
-	// manually create mip-map chain
-	if(generate_mip_maps) {
-		generate_mip_map_chain(cqueue);
+	if (!discard) {
+		// manually create mip-map chain
+		if (generate_mip_maps) {
+			generate_mip_map_chain(cqueue);
+		}
 	}
 	
 	return true;
@@ -273,9 +275,9 @@ static bool needs_sync_from_host(const MEMORY_FLAG& flags) {
 			 has_flag<MEMORY_FLAG::SHARING_RENDER_READ>(flags)));
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_image_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool acquire_sync_image(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									  aligned_ptr<uint8_t>& image, shared_image_type* shared_image_ptr,
+									  aligned_ptr<uint8_t>& image, device_image* shared_image_ptr,
 									  bool& shared_object_state, const size_t& image_data_size,
 									  const MEMORY_FLAG& flags) {
 	if (!shared_image_ptr || !image) {
@@ -296,18 +298,17 @@ static inline bool acquire_sync_image(const device_queue* cqueue_, const backend
 		}
 #endif
 		
-		auto shared_image_base_ptr = (device_image*)shared_image_ptr;
 		const auto comp_rqueue = (rqueue != nullptr ? (const device_queue*)rqueue :
-								  device_memory::get_default_queue_for_memory(*shared_image_base_ptr));
+								  device_memory::get_default_queue_for_memory(*shared_image_ptr));
 		
 		// full sync
 		cqueue->finish();
 		comp_rqueue->finish();
 		
 		// read/copy shared image data to host memory
-		auto img_data = shared_image_base_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::READ | MEMORY_MAP_FLAG::BLOCK);
+		auto img_data = shared_image_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::READ | MEMORY_MAP_FLAG::BLOCK);
 		memcpy(image.get(), img_data, image_data_size);
-		shared_image_base_ptr->unmap(*comp_rqueue, img_data);
+		shared_image_ptr->unmap(*comp_rqueue, img_data);
 		
 		// finish read
 		comp_rqueue->finish();
@@ -317,9 +318,9 @@ static inline bool acquire_sync_image(const device_queue* cqueue_, const backend
 	return true;
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_image_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool release_sync_image(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									  const aligned_ptr<uint8_t>& image, shared_image_type* shared_image_ptr,
+									  const aligned_ptr<uint8_t>& image, device_image* shared_image_ptr,
 									  bool& shared_object_state, const size_t& image_data_size,
 									  const MEMORY_FLAG& flags) {
 	if (!shared_image_ptr || !image) {
@@ -340,18 +341,17 @@ static inline bool release_sync_image(const device_queue* cqueue_, const backend
 		}
 #endif
 		
-		auto shared_image_base_ptr = (device_image*)shared_image_ptr;
 		const auto comp_rqueue = (rqueue != nullptr ? (const device_queue*)rqueue :
-								  device_memory::get_default_queue_for_memory(*shared_image_base_ptr));
+								  device_memory::get_default_queue_for_memory(*shared_image_ptr));
 		
 		// full sync
 		cqueue->finish();
 		comp_rqueue->finish();
 		
 		// write/copy the host data to the shared image
-		auto img_data = shared_image_base_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK);
+		auto img_data = shared_image_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK);
 		memcpy(img_data, image.get(), image_data_size);
-		shared_image_base_ptr->unmap(*comp_rqueue, img_data);
+		shared_image_ptr->unmap(*comp_rqueue, img_data);
 		
 		// finish write
 		comp_rqueue->finish();
@@ -361,9 +361,9 @@ static inline bool release_sync_image(const device_queue* cqueue_, const backend
 	return true;
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_image_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool sync_shared_image(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									 const aligned_ptr<uint8_t>& image, shared_image_type* shared_image_ptr,
+									 const aligned_ptr<uint8_t>& image, device_image* shared_image_ptr,
 									 const bool& shared_object_state, const size_t& image_data_size,
 									 const MEMORY_FLAG& flags) {
 	if (!shared_image_ptr || !image) {
@@ -384,18 +384,17 @@ static inline bool sync_shared_image(const device_queue* cqueue_, const backend_
 		}
 #endif
 		
-		auto shared_image_base_ptr = (device_image*)shared_image_ptr;
 		const auto comp_rqueue = (rqueue != nullptr ? (const device_queue*)rqueue :
-								  device_memory::get_default_queue_for_memory(*shared_image_base_ptr));
+								  device_memory::get_default_queue_for_memory(*shared_image_ptr));
 		
 		// full sync
 		cqueue->finish();
 		comp_rqueue->finish();
 		
 		// write/copy the host data to the shared image
-		auto img_data = shared_image_base_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK);
+		auto img_data = shared_image_ptr->map(*comp_rqueue, MEMORY_MAP_FLAG::WRITE_INVALIDATE | MEMORY_MAP_FLAG::BLOCK);
 		memcpy(img_data, image.get(), image_data_size);
-		shared_image_base_ptr->unmap(*comp_rqueue, img_data);
+		shared_image_ptr->unmap(*comp_rqueue, img_data);
 		
 		// finish write
 		comp_rqueue->finish();
@@ -405,40 +404,40 @@ static inline bool sync_shared_image(const device_queue* cqueue_, const backend_
 }
 
 #if !defined(FLOOR_NO_METAL)
-bool host_image::acquire_metal_image(const device_queue* cqueue, const metal_queue* mtl_queue) const {
-	return acquire_sync_image<"Metal"_cs>(cqueue, mtl_queue, dev, image, shared_mtl_image, mtl_object_state, image_data_size, flags);
+bool host_image::acquire_metal_image(const device_queue* cqueue, const device_queue* mtl_queue) const {
+	return acquire_sync_image<"Metal"_cs>(cqueue, mtl_queue, dev, image, shared_image, mtl_object_state, image_data_size, flags);
 }
 
-bool host_image::release_metal_image(const device_queue* cqueue, const metal_queue* mtl_queue) const {
-	return release_sync_image<"Metal"_cs>(cqueue, mtl_queue, dev, image, shared_mtl_image, mtl_object_state, image_data_size, flags);
+bool host_image::release_metal_image(const device_queue* cqueue, const device_queue* mtl_queue) const {
+	return release_sync_image<"Metal"_cs>(cqueue, mtl_queue, dev, image, shared_image, mtl_object_state, image_data_size, flags);
 }
 
-bool host_image::sync_metal_image(const device_queue* cqueue_, const metal_queue* mtl_queue_) const {
-	return sync_shared_image<"Metal"_cs>(cqueue_, mtl_queue_, dev, image, shared_mtl_image, mtl_object_state, image_data_size, flags);
+bool host_image::sync_metal_image(const device_queue* cqueue_, const device_queue* mtl_queue_) const {
+	return sync_shared_image<"Metal"_cs>(cqueue_, mtl_queue_, dev, image, shared_image, mtl_object_state, image_data_size, flags);
 }
 #else
-bool host_image::acquire_metal_image(const device_queue*, const metal_queue*) const {
+bool host_image::acquire_metal_image(const device_queue*, const device_queue*) const {
 	return false;
 }
-bool host_image::release_metal_image(const device_queue*, const metal_queue*) const {
+bool host_image::release_metal_image(const device_queue*, const device_queue*) const {
 	return false;
 }
-bool host_image::sync_metal_image(const device_queue*, const metal_queue*) const {
+bool host_image::sync_metal_image(const device_queue*, const device_queue*) const {
 	return false;
 }
 #endif
 
 #if !defined(FLOOR_NO_VULKAN)
 bool host_image::acquire_vulkan_image(const device_queue* cqueue, const vulkan_queue* vk_queue) const {
-	return acquire_sync_image<"Vulkan"_cs>(cqueue, vk_queue, dev, image, shared_vk_image, vk_object_state, image_data_size, flags);
+	return acquire_sync_image<"Vulkan"_cs>(cqueue, vk_queue, dev, image, shared_image, vk_object_state, image_data_size, flags);
 }
 
 bool host_image::release_vulkan_image(const device_queue* cqueue, const vulkan_queue* vk_queue) const {
-	return release_sync_image<"Vulkan"_cs>(cqueue, vk_queue, dev, image, shared_vk_image, vk_object_state, image_data_size, flags);
+	return release_sync_image<"Vulkan"_cs>(cqueue, vk_queue, dev, image, shared_image, vk_object_state, image_data_size, flags);
 }
 
 bool host_image::sync_vulkan_image(const device_queue* cqueue_, const vulkan_queue* vk_queue_) const {
-	return sync_shared_image<"Vulkan"_cs>(cqueue_, vk_queue_, dev, image, shared_vk_image, vk_object_state, image_data_size, flags);
+	return sync_shared_image<"Vulkan"_cs>(cqueue_, vk_queue_, dev, image, shared_image, vk_object_state, image_data_size, flags);
 }
 #else
 bool host_image::acquire_vulkan_image(const device_queue*, const vulkan_queue*) const {
@@ -483,8 +482,7 @@ bool host_image::create_shared_image(const bool copy_host_data) {
 	// create the underlying Metal/Vulkan image
 	auto default_queue = render_ctx->get_device_default_queue(*render_dev);
 	auto shared_image_flags = device_memory::make_host_shared_memory_flags(flags, *render_dev, copy_host_data);
-	host_shared_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_image_flags);
-	host_shared_image->set_debug_label("host_shared_image");
+	host_shared_image = render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_image_flags, 0u, "host_shared_image");
 	if (!host_shared_image) {
 		log_error("Host <-> Metal/Vulkan image sharing failed: failed to create the underlying shared Metal/Vulkan image");
 		return false;

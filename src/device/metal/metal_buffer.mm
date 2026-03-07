@@ -48,10 +48,12 @@ metal_buffer::metal_buffer(const bool is_staging_buffer_,
 						   const device_queue& cqueue,
 						   const size_t& size_,
 						   std::span<uint8_t> host_data_,
-						   const MEMORY_FLAG flags_) :
-device_buffer(cqueue, size_, host_data_, infer_metal_buffer_flags(flags_, (const metal_device&)cqueue.get_device())),
+						   const MEMORY_FLAG flags_,
+						   const char* debug_label_) :
+device_buffer(cqueue, size_, host_data_, infer_metal_buffer_flags(flags_, (const metal_device&)cqueue.get_device()),
+			  nullptr, debug_label_),
 is_staging_buffer(is_staging_buffer_) {
-	if(size < min_multiple()) return;
+	if (size < min_multiple()) return;
 	
 	// no special MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
 	
@@ -84,10 +86,10 @@ is_staging_buffer(is_staging_buffer_) {
 				// for performance reasons, still use private storage here, but also create a host-accessible staging buffer
 				// that we'll use to copy memory to and from the private storage buffer
 				options |= MTLResourceStorageModePrivate;
+				const std::string staging_debug_label = (!debug_label.empty() ? debug_label + "_staging_buffer" : "staging_buffer");
 				staging_buffer = std::make_unique<metal_buffer>(true, cqueue, size, std::span<uint8_t> {},
-																MEMORY_FLAG::READ_WRITE |
-																(flags & MEMORY_FLAG::HOST_READ_WRITE));
-				staging_buffer->set_debug_label(debug_label + "_staging_buffer");
+																MEMORY_FLAG::READ_WRITE | (flags & MEMORY_FLAG::HOST_READ_WRITE),
+																staging_debug_label.c_str());
 			} else {
 				// use managed storage for the staging buffer or host memory backed buffer
 				// note that this requires us to perform explicit sync operations
@@ -130,13 +132,18 @@ is_staging_buffer(is_staging_buffer_) {
 	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
+	}
 }
 
 metal_buffer::metal_buffer(const device_queue& cqueue,
 						   id <MTLBuffer> external_buffer,
 						   std::span<uint8_t> host_data_,
-						   const MEMORY_FLAG flags_) :
-device_buffer(cqueue, [external_buffer length], host_data_, flags_), buffer(external_buffer), is_external(true) {
+						   const MEMORY_FLAG flags_,
+						   const char* debug_label_) :
+device_buffer(cqueue, [external_buffer length], host_data_, flags_, nullptr, debug_label_), buffer(external_buffer), is_external(true) {
 	// size _has_ to match and be valid/compatible (device_buffer will try to fix the size, but it's obviously an external object)
 	// -> detect size mismatch and bail out
 	if(size != [external_buffer length]) {
@@ -182,6 +189,10 @@ FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
 #if defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
 FLOOR_POP_WARNINGS()
 #endif
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
+	}
 }
 
 bool metal_buffer::create_internal(const bool copy_host_data, const device_queue& cqueue) {
@@ -583,9 +594,10 @@ void* __attribute__((aligned(128))) metal_buffer::map(const device_queue& cqueue
 #endif
 }
 
-bool metal_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
-	if(buffer == nil) return false;
-	if(mapped_ptr == nullptr) return false;
+bool metal_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr,
+						 const bool discard) NO_THREAD_SAFETY_ANALYSIS {
+	if (buffer == nil) return false;
+	if (mapped_ptr == nullptr) return false;
 	
 	bool success = true;
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
@@ -601,8 +613,9 @@ bool metal_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligne
 		
 		if (is_managed) {
 			// check if we need to actually copy data back to the device (not the case if read-only mapping)
-			if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-				has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+			if (!discard &&
+				(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+				 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 				// if mapping is write-only, mapped_ptr was manually alloc'ed and we need to copy the data
 				// to the actual Metal buffer
 				if(iter->second.write_only) {
@@ -613,11 +626,13 @@ bool metal_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligne
 				// finally, notify the buffer that we changed its contents
 				[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];
 			}
-		} else if(has_staging_buffer) {
+		} else if (has_staging_buffer) {
 			// perform unmap on the staging buffer, then update this buffer if necessary
-			success = staging_buffer->unmap(cqueue, mapped_ptr);
-			if (iter->second.write_only || !iter->second.read_only) {
-				copy(cqueue, *staging_buffer, iter->second.size, iter->second.offset);
+			success = staging_buffer->unmap(cqueue, mapped_ptr, discard);
+			if (!discard) {
+				if (iter->second.write_only || !iter->second.read_only) {
+					copy(cqueue, *staging_buffer, iter->second.size, iter->second.offset);
+				}
 			}
 		}
 		
@@ -626,8 +641,10 @@ bool metal_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligne
 	}
 #endif
 	
-	if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
-		sync_metal_resource(cqueue, buffer);
+	if (!discard) {
+		if ((options & MTLResourceStorageModeMask) == MTLResourceStorageModeShared) {
+			sync_metal_resource(cqueue, buffer);
+		}
 	}
 	
 	_unlock();

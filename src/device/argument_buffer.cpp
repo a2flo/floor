@@ -19,10 +19,13 @@
 #include <floor/device/argument_buffer.hpp>
 #include <floor/device/device_buffer.hpp>
 #include <floor/device/device_context.hpp>
+#include <floor/core/cpp_ext.hpp>
 
 namespace fl {
 
-argument_buffer::argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer_) : func(func_), storage_buffer(storage_buffer_) {}
+argument_buffer::argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer_,
+								 const char* debug_label_) :
+func(func_), storage_buffer(storage_buffer_), debug_label(safe_string(debug_label_)) {}
 
 void argument_buffer::set_debug_label(const std::string& label) {
 	debug_label = label;

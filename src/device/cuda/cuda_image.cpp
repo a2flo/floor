@@ -118,8 +118,9 @@ cuda_image::cuda_image(const device_queue& cqueue,
 					   std::span<uint8_t> host_data_,
 					   const MEMORY_FLAG flags_,
 					   device_image* shared_image_,
-					   const uint32_t mip_level_limit_) :
-device_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_),
+					   const uint32_t mip_level_limit_,
+					   const char* debug_label_) :
+device_image(cqueue, image_dim_, image_type_, host_data_, flags_, shared_image_, false, mip_level_limit_, debug_label_),
 is_mip_mapped_or_vulkan(is_mip_mapped || has_flag<MEMORY_FLAG::VULKAN_SHARING>(flags)) {
 	// TODO: handle the remaining flags + host ptr
 	
@@ -766,8 +767,7 @@ void* __attribute__((aligned(128))) cuda_image::map(const device_queue& cqueue, 
 	return ret_ptr;
 }
 
-bool cuda_image::unmap(const device_queue& cqueue,
-					   void* __attribute__((aligned(128))) mapped_ptr) {
+bool cuda_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if(image == nullptr) return false;
 	if(mapped_ptr == nullptr) return false;
 	
@@ -780,17 +780,18 @@ bool cuda_image::unmap(const device_queue& cqueue,
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	bool success = true;
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (!discard &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		auto cpy_host_ptr = (uint8_t*)mapped_ptr;
 		success = apply_on_levels([this, &cpy_host_ptr](const uint32_t& level,
 														const uint4& mip_image_dim,
 														const uint32_t& slice_data_size,
 														const uint32_t& level_data_size) {
-			if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
-																		 (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
-																		 slice_data_size / std::max(mip_image_dim.y, 1u),
-																		 mip_image_dim.y, mip_image_dim.z * layer_count)) {
+			if (!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
+																		  (is_mip_mapped_or_vulkan ? image_mipmap_arrays[level] : image_array),
+																		  slice_data_size / std::max(mip_image_dim.y, 1u),
+																		  mip_image_dim.y, mip_image_dim.z * layer_count)) {
 				log_error("failed to copy host memory to device");
 				return false;
 			}
@@ -799,7 +800,7 @@ bool cuda_image::unmap(const device_queue& cqueue,
 		});
 		
 		// update mip-map chain
-		if(generate_mip_maps) {
+		if (generate_mip_maps) {
 			generate_mip_map_chain(cqueue);
 		}
 	}
@@ -837,8 +838,8 @@ bool cuda_image::create_shared_vulkan_image(const bool copy_host_data) {
 			if (!copy_host_data) {
 				shared_vk_image_flags |= MEMORY_FLAG::NO_INITIAL_COPY;
 			}
-			cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_data, shared_vk_image_flags);
-			cuda_vk_image->set_debug_label("cuda_vk_image");
+			cuda_vk_image = vk_render_ctx->create_image(*default_queue, image_dim, image_type, host_data,
+														shared_vk_image_flags, 0u, "cuda_vk_image");
 			if (!cuda_vk_image) {
 				log_error("CUDA/Vulkan image sharing failed: failed to create the underlying shared Vulkan image");
 				return false;

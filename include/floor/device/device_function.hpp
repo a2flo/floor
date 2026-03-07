@@ -73,7 +73,8 @@ public:
 	//! NOTE: this will perform basic validity checking and automatically compute the necessary buffer size
 	virtual std::unique_ptr<argument_buffer> create_argument_buffer(const device_queue& cqueue, const uint32_t& arg_index,
 																	const MEMORY_FLAG add_mem_flags = MEMORY_FLAG::NONE,
-																	const bool zero_init = true) const;
+																	const bool zero_init = true,
+																	const char* debug_label = nullptr) const;
 	
 	//! checks the specified local work size against the max local work size in the function_entry,
 	//! and will compute a proper local work size if the specified one is invalid
@@ -104,7 +105,8 @@ protected:
 																			 const uint32_t& user_arg_index,
 																			 const uint32_t& ll_arg_index,
 																			 const MEMORY_FLAG& add_mem_flags,
-																			 const bool zero_init) const;
+																			 const bool zero_init,
+																			 const char* debug_label) const;
 	
 };
 

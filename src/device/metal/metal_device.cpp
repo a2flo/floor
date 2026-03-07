@@ -56,10 +56,6 @@ metal_device::metal_device() : device() {
 	// will be overwritten later
 	max_mip_levels = 15u; // 16384px
 	
-	// tessellation is always supported with 64 max factor
-	tessellation_support = true;
-	max_tessellation_factor = 64u;
-	
 	primitive_id_support = true;
 	
 	argument_buffer_support = true;

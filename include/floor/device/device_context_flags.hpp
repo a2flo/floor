@@ -27,7 +27,7 @@ namespace fl {
 enum class DEVICE_CONTEXT_FLAGS : uint32_t {
 	NONE = 0u,
 	
-	//! Metal-only (right now): disables any automatic resource tracking on the allocated Metal object
+	//! Metal3-only: disables any automatic resource tracking on the allocated Metal object
 	//! NOTE: this is achieved by automatically adding MEMORY_FLAG::NO_RESOURCE_TRACKING for all buffers/images that are created
 	NO_RESOURCE_TRACKING = (1u << 0u),
 	
@@ -40,11 +40,18 @@ enum class DEVICE_CONTEXT_FLAGS : uint32_t {
 	//! NOTE: mutually exclusive with DISABLE_HEAP
 	EXPLICIT_HEAP = (1u << 2u),
 	
-	//! Metal/Vulkan-only: disbles heap memory management
+	//! Vulkan-only: disbles heap memory management
 	//! by default, all supported allocations will be made from internal memory heaps rather than dedicated allocations,
 	//! enabling this flag disables that behavior and all allocations are dedicated
 	//! NOTE: mutually exclusive with EXPLICIT_HEAP
+	//! NOTE: this is not supported on the Metal backend
 	DISABLE_HEAP = (1u << 3u),
+	
+	//! Metal4-only: flag that enables blocking queue submission
+	METAL_BLOCKING = (1u << 4u),
+	
+	//! alreay enables the resource registry at context creation rather than at a later call to enable_resource_registry()
+	RESOURCE_REGISTRY = (1u << 5u),
 };
 floor_global_enum_ext(DEVICE_CONTEXT_FLAGS)
 

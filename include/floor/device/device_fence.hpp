@@ -20,6 +20,7 @@
 
 #include <floor/core/essentials.hpp>
 #include <floor/core/enum_helpers.hpp>
+#include <floor/core/cpp_ext.hpp>
 #include <string>
 #include <cstdint>
 
@@ -45,7 +46,7 @@ floor_global_enum_ext(SYNC_STAGE)
 //! NOTE: this only supports synchronization within the same device_queue
 class device_fence {
 public:
-	device_fence() = default;
+	device_fence(const char* debug_label_) : debug_label(safe_string(debug_label_)) {}
 	virtual ~device_fence() = default;
 	
 	//! sets the debug label for this fence object (e.g. for display in a debugger)

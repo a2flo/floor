@@ -37,7 +37,8 @@ public:
 			   std::span<uint8_t> host_data_ = {},
 			   const MEMORY_FLAG flags_ = (MEMORY_FLAG::HOST_READ_WRITE),
 			   device_image* shared_image_ = nullptr,
-			   const uint32_t mip_level_limit = 0u);
+			   const uint32_t mip_level_limit = 0u,
+			   const char* debug_label_ = nullptr);
 	
 	~host_image() override;
 	
@@ -49,7 +50,7 @@ public:
 	void* __attribute__((aligned(128))) map(const device_queue& cqueue,
 											const MEMORY_MAP_FLAG flags = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	//! returns a direct pointer to the internal host image buffer
 	auto get_host_image_buffer_ptr() const {
@@ -64,9 +65,9 @@ public:
 	//! returns the internal structure necessary to run a function/program with this image and synchronizes buffer contents if synchronization flags are set
 	void* get_host_image_program_info_with_sync() const;
 	
-	bool acquire_metal_image(const device_queue* cqueue, const metal_queue* mtl_queue) const override;
-	bool release_metal_image(const device_queue* cqueue, const metal_queue* mtl_queue) const override;
-	bool sync_metal_image(const device_queue* cqueue, const metal_queue* mtl_queue) const override;
+	bool acquire_metal_image(const device_queue* cqueue, const device_queue* mtl_queue) const override;
+	bool release_metal_image(const device_queue* cqueue, const device_queue* mtl_queue) const override;
+	bool sync_metal_image(const device_queue* cqueue, const device_queue* mtl_queue) const override;
 	
 	bool acquire_vulkan_image(const device_queue* cqueue, const vulkan_queue* vk_queue) const override;
 	bool release_vulkan_image(const device_queue* cqueue, const vulkan_queue* vk_queue) const override;

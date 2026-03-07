@@ -25,6 +25,12 @@
 #include <Metal/Metal.h>
 #endif
 
+//! if enabled, this creates a global residency set that *all* resources are put into and that is attached to *all* queues
+#define FLOOR_METAL_DEBUG_RS 0
+#if FLOOR_METAL_DEBUG_RS
+#include <floor/threading/thread_safety.hpp>
+#endif
+
 namespace fl {
 
 FLOOR_PUSH_WARNINGS()
@@ -55,6 +61,11 @@ public:
 			case FAMILY_TYPE::IOS_MAC: return "iOS-Mac";
 		}
 		floor_unreachable();
+	}
+	
+	//! returns true if the device supports Metal 4
+	bool is_metal4() const {
+		return (metal_software_version >= METAL_VERSION::METAL_4_0);
 	}
 	
 	// device family type
@@ -103,8 +114,7 @@ public:
 	id <MTLDevice> device { nil };
 	
 	//! internal memory heaps
-	//! NOTE: these exists by default, unless DEVICE_CONTEXT_FLAGS::DISABLE_HEAP was specified,
-	//!       or "shared_only_with_unified_memory" config option was set to disable private heaps
+	//! NOTE: this exists by default, unless "shared_only_with_unified_memory" config option was set to disable private heaps
 	id <MTLHeap> heap_private { nil };
 	id <MTLHeap> heap_shared { nil };
 	
@@ -115,6 +125,28 @@ public:
 	void* _heap_private { nullptr };
 	void* _heap_shared { nullptr };
 	void* _heap_residency_set { nullptr };
+#endif
+	
+#if FLOOR_METAL_DEBUG_RS
+	mutable safe_mutex debug_residency_set_lock;
+#if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
+	mutable id <MTLResidencySet> debug_residency_set { nil };
+	
+	void add_debug_allocation(id <MTLAllocation> alloc) const REQUIRES(!debug_residency_set_lock) {
+		GUARD(debug_residency_set_lock);
+		[debug_residency_set addAllocation:alloc];
+	}
+	void remove_debug_allocation(id <MTLAllocation> alloc) const REQUIRES(!debug_residency_set_lock) {
+		GUARD(debug_residency_set_lock);
+		[debug_residency_set removeAllocation:alloc];
+	}
+	void commit_debug_residency_set() const REQUIRES(!debug_residency_set_lock) {
+		GUARD(debug_residency_set_lock);
+		[debug_residency_set commit];
+	}
+#else
+	void* _debug_residency_set { nullptr };
+#endif
 #endif
 	
 	//! returns true if the specified object is the same object as this

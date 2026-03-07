@@ -33,8 +33,9 @@ host_buffer::host_buffer(const device_queue& cqueue,
 						 const size_t& size_,
 						 std::span<uint8_t> host_data_,
 						 const MEMORY_FLAG flags_,
-						 device_buffer* shared_buffer_) :
-device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
+						 device_buffer* shared_buffer_,
+						 const char* debug_label_) :
+device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_, debug_label_) {
 	if(size < min_multiple()) return;
 	
 	// check Metal/Vulkan buffer sharing validity
@@ -82,8 +83,7 @@ bool host_buffer::create_internal(const bool copy_host_data, const device_queue&
 		}
 		
 		// acquire for use with the host
-		const device_queue* comp_mtl_queue = get_default_queue_for_memory(*shared_buffer);
-		acquire_metal_buffer(&cqueue, (const metal_queue*)comp_mtl_queue);
+		acquire_metal_buffer(&cqueue, get_default_queue_for_memory(*shared_buffer));
 	}
 #endif
 #if !defined(FLOOR_NO_VULKAN)
@@ -219,7 +219,8 @@ void* __attribute__((aligned(128))) host_buffer::map(const device_queue& cqueue,
 	return buffer.get() + offset;
 }
 
-bool host_buffer::unmap(const device_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
+bool host_buffer::unmap(const device_queue& cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr,
+						[[maybe_unused]] const bool discard) {
 	if (!buffer) return false;
 	if (mapped_ptr == nullptr) return false;
 	
@@ -241,9 +242,9 @@ static bool needs_sync_from_host(const MEMORY_FLAG& flags) {
 			 has_flag<MEMORY_FLAG::SHARING_RENDER_READ>(flags)));
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool acquire_sync_buffer(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									   aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									   aligned_ptr<uint8_t>& buffer, device_buffer* shared_buffer_ptr,
 									   bool& shared_object_state, const size_t& buffer_size,
 									   const MEMORY_FLAG& flags) {
 	if (!shared_buffer_ptr || !buffer) {
@@ -282,9 +283,9 @@ static inline bool acquire_sync_buffer(const device_queue* cqueue_, const backen
 	return true;
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool release_sync_buffer(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									   const aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									   const aligned_ptr<uint8_t>& buffer, device_buffer* shared_buffer_ptr,
 									   bool& shared_object_state, const size_t& buffer_size,
 									   const MEMORY_FLAG& flags) {
 	if (!shared_buffer_ptr || !buffer) {
@@ -323,9 +324,9 @@ static inline bool release_sync_buffer(const device_queue* cqueue_, const backen
 	return true;
 }
 
-template <auto backend_name, typename backend_queue_type, typename shared_buffer_type>
+template <auto backend_name, typename backend_queue_type>
 static inline bool sync_shared_buffer(const device_queue* cqueue_, const backend_queue_type* rqueue, const device& dev,
-									  const aligned_ptr<uint8_t>& buffer, shared_buffer_type* shared_buffer_ptr,
+									  const aligned_ptr<uint8_t>& buffer, device_buffer* shared_buffer_ptr,
 									  bool& shared_object_state, const size_t& buffer_size,
 									  const MEMORY_FLAG& flags) {
 	if (!shared_buffer_ptr || !buffer) {
@@ -364,25 +365,25 @@ static inline bool sync_shared_buffer(const device_queue* cqueue_, const backend
 }
 
 #if !defined(FLOOR_NO_METAL)
-bool host_buffer::acquire_metal_buffer(const device_queue* cqueue_, const metal_queue* mtl_queue_) const {
+bool host_buffer::acquire_metal_buffer(const device_queue* cqueue_, const device_queue* mtl_queue_) const {
 	return acquire_sync_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
 }
 
-bool host_buffer::release_metal_buffer(const device_queue* cqueue_, const metal_queue* mtl_queue_) const {
+bool host_buffer::release_metal_buffer(const device_queue* cqueue_, const device_queue* mtl_queue_) const {
 	return release_sync_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
 }
 
-bool host_buffer::sync_metal_buffer(const device_queue* cqueue_, const metal_queue* mtl_queue_) const {
+bool host_buffer::sync_metal_buffer(const device_queue* cqueue_, const device_queue* mtl_queue_) const {
 	return sync_shared_buffer<"Metal"_cs>(cqueue_, mtl_queue_, dev, buffer, shared_buffer, mtl_object_state, size, flags);
 }
 #else
-bool host_buffer::acquire_metal_buffer(const device_queue*, const metal_queue*) const {
+bool host_buffer::acquire_metal_buffer(const device_queue*, const device_queue*) const {
 	return false;
 }
-bool host_buffer::release_metal_buffer(const device_queue*, const metal_queue*) const {
+bool host_buffer::release_metal_buffer(const device_queue*, const device_queue*) const {
 	return false;
 }
-bool host_buffer::sync_metal_buffer(const device_queue*, const metal_queue*) const {
+bool host_buffer::sync_metal_buffer(const device_queue*, const device_queue*) const {
 	return false;
 }
 #endif
@@ -443,13 +444,12 @@ bool host_buffer::create_shared_buffer(const bool copy_host_data) {
 	auto default_queue = render_ctx->get_device_default_queue(*render_dev);
 	auto shared_buffer_flags = device_memory::make_host_shared_memory_flags(flags, *render_dev, copy_host_data);
 	host_shared_buffer = (host_data.data() != nullptr ?
-						  render_ctx->create_buffer(*default_queue, host_data, shared_buffer_flags) :
-						  render_ctx->create_buffer(*default_queue, size, shared_buffer_flags));
+						  render_ctx->create_buffer(*default_queue, host_data, shared_buffer_flags, "host_shared_buffer") :
+						  render_ctx->create_buffer(*default_queue, size, shared_buffer_flags, "host_shared_buffer"));
 	if (!host_shared_buffer) {
 		log_error("Host <-> Metal/Vulkan buffer sharing failed: failed to create the underlying shared Metal/Vulkan buffer");
 		return false;
 	}
-	host_shared_buffer->set_debug_label("host_shared_buffer");
 	shared_buffer = host_shared_buffer.get();
 	
 	return true;

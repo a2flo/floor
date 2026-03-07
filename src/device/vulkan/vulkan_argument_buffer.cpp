@@ -36,8 +36,9 @@ vulkan_argument_buffer::vulkan_argument_buffer(const device_function& func_,
 											   std::vector<VkDeviceSize>&& argument_offsets_,
 											   std::span<uint8_t> mapped_host_memory_,
 											   std::shared_ptr<device_buffer> constant_buffer_storage_,
-											   std::span<uint8_t> constant_buffer_mapping_) :
-argument_buffer(func_, storage_buffer_), arg_info(arg_info_), layout(layout_), argument_offsets(argument_offsets_),
+											   std::span<uint8_t> constant_buffer_mapping_,
+											   const char* debug_label_) :
+argument_buffer(func_, storage_buffer_, debug_label_), arg_info(arg_info_), layout(layout_), argument_offsets(argument_offsets_),
 mapped_host_memory(mapped_host_memory_), constant_buffer_storage(constant_buffer_storage_), constant_buffer_mapping(constant_buffer_mapping_) {
 	if (mapped_host_memory.data() == nullptr || mapped_host_memory.size_bytes() == 0) {
 		throw std::runtime_error("argument buffer host memory has not been mapped");
@@ -53,16 +54,19 @@ mapped_host_memory(mapped_host_memory_), constant_buffer_storage(constant_buffer
 		throw std::runtime_error("argument buffer storage has not been created with descriptor buffer support");
 	}
 #endif
+	
+	// NOTE: not updating the Vulkan debug label on the storage buffer here, as this will already have been done in vulkan_function
 }
 
 vulkan_argument_buffer::~vulkan_argument_buffer() {
 	// ensure buffers are unmapped when they are heap-allocated
 	if (storage_buffer->is_heap_allocated()) {
-		storage_buffer->unmap(*storage_buffer->get_default_queue_for_memory(*storage_buffer), mapped_host_memory.data());
+		storage_buffer->unmap(*storage_buffer->get_default_queue_for_memory(*storage_buffer), mapped_host_memory.data(),
+							  true /* discard */);
 	}
 	if (constant_buffer_storage && constant_buffer_storage->is_heap_allocated()) {
 		constant_buffer_storage->unmap(*constant_buffer_storage->get_default_queue_for_memory(*constant_buffer_storage),
-									   constant_buffer_mapping.data());
+									   constant_buffer_mapping.data(), true /* discard */);
 	}
 }
 

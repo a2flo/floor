@@ -29,11 +29,11 @@
 #include <floor/device/metal/metal_pass.hpp>
 #include <floor/device/metal/metal_pipeline.hpp>
 #include <floor/device/metal/metal_shader.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 #include <floor/core/logger.hpp>
 
-#if __cplusplus > 202302L
+// work around C++26 compat issue
 #define CGBitmapInfoMake(...) CGBitmapInfoMakeDummy(uint32_t alpha, uint32_t component, uint32_t byteOrder, uint32_t pixelFormat)
-#endif
 #import <QuartzCore/CAMetalLayer.h>
 
 namespace fl {
@@ -204,17 +204,6 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		[encoder setDepthStencilState:mtl_pipeline_state->depth_stencil_state];
 		[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
 		
-		// make heaps implicitly resident (unless we're already using the heap residency set)
-		const auto& mtl_dev = (const metal_device&)cqueue.get_device();
-		if (!mtl_dev.heap_residency_set) {
-			if (mtl_dev.heap_shared) {
-				[encoder useHeap:mtl_dev.heap_shared stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
-			}
-			if (mtl_dev.heap_private) {
-				[encoder useHeap:mtl_dev.heap_private stages:(MTLRenderStageVertex | MTLRenderStageFragment)];
-			}
-		}
-		
 		return true;
 	}
 }
@@ -361,9 +350,8 @@ bool metal_renderer::set_attachment(const uint32_t& index, attachment_t& attachm
 	return true;
 }
 
-void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd,
-									  const uint32_t command_offset,
-									  const uint32_t command_count) {
+void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd) {
+	const auto command_count = indirect_cmd.get_command_count();
 	if (command_count == 0) {
 		return;
 	}
@@ -376,17 +364,17 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 	}
 #endif
 	
+	if (const auto generic_ind_pipeline = dynamic_cast<const generic_indirect_command_pipeline*>(&indirect_cmd); generic_ind_pipeline) {
+		graphics_renderer::execute_indirect(indirect_cmd);
+		return;
+	}
+	
 	@autoreleasepool {
 		const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
 		const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(cqueue.get_device());
 		if (!mtl_indirect_pipeline_entry) {
 			log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
 					  cqueue.get_device().name, indirect_cmd.get_description().debug_label);
-			return;
-		}
-		
-		const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-		if (!range) {
 			return;
 		}
 		
@@ -423,7 +411,7 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 		}
 		
 		[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
-							   withRange:*range];
+							   withRange:NSRange { .location = 0, .length = command_count }];
 		
 		if (mtl_indirect_pipeline_entry->printf_buffer) {
 			mtl_indirect_pipeline_entry->printf_completion(cqueue, cmd_buffer);
@@ -449,18 +437,19 @@ bool metal_renderer::update_metal_pipeline() {
 	return true;
 }
 
-void metal_renderer::draw_internal(const std::vector<multi_draw_entry>* draw_entries,
-								   const std::vector<multi_draw_indexed_entry>* draw_indexed_entries,
+void metal_renderer::draw_internal(const std::span<const multi_draw_entry> draw_entries,
+								   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 								   const std::vector<device_function_arg>& args) {
 	@autoreleasepool {
 		const auto vs = (const metal_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
 		vs->set_shader_arguments(cqueue, encoder, cmd_buffer,
 								 (const metal_function::metal_function_entry*)mtl_pipeline_state->vs_entry,
 								 (const metal_function::metal_function_entry*)mtl_pipeline_state->fs_entry, args);
-		if (draw_entries != nullptr) {
-			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_entries);
-		} else if (draw_indexed_entries != nullptr) {
-			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, *draw_indexed_entries);
+		assert(draw_entries.empty() != draw_indexed_entries.empty()); // only one must be active
+		if (!draw_entries.empty()) {
+			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, draw_entries);
+		} else if (!draw_indexed_entries.empty()) {
+			vs->draw(encoder, cur_pipeline->get_description(multi_view).primitive, draw_indexed_entries);
 		}
 	}
 }
@@ -501,7 +490,7 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 #if defined(FLOOR_DEBUG)
 			if (draw_indexed_entry->control_point_buffers.size() != desc.tessellation.vertex_attributes.size()) {
 				log_error("control point buffers <-> vertex attributes count mismatch (in \"$\"): $' != $'",
-						  desc.debug_label, draw_entry->control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
+						  desc.debug_label, draw_indexed_entry->control_point_buffers.size(), desc.tessellation.vertex_attributes.size());
 				return;
 			}
 #endif

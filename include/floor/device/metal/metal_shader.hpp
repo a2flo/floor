@@ -57,11 +57,11 @@ public:
 	
 	//! enqueue draw call(s) of the specified primitive type in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
-			  const std::vector<graphics_renderer::multi_draw_entry>& draw_entries) const;
+			  const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const;
 	
 	//! enqueue draw call(s) with indexing of the specified primitive type in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
-			  const std::vector<graphics_renderer::multi_draw_indexed_entry>& draw_indexed_entries) const;
+			  const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const;
 	
 	//! enqueue a patch draw call in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder,

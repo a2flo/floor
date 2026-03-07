@@ -399,15 +399,15 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	}
 	
 	// create a default queue for each device
-	for(const auto& dev : devices) {
-		default_queues.emplace(dev.get(), create_queue(*dev));
+	for (const auto& dev : devices) {
+		default_queues.emplace(dev.get(), create_queue(*dev, "default_queue"));
 	}
 	
 	// init shaders in cuda_image
 	cuda_image::init_internal(this);
 }
 
-std::shared_ptr<device_queue> cuda_context::create_queue(const device& dev) const {
+std::shared_ptr<device_queue> cuda_context::create_queue(const device& dev, const char* debug_label) const {
 	// ensure context is set for the calling thread
 	const auto& cuda_dev = (const cuda_device&)dev;
 	if (cuda_dev.ctx != nullptr) {
@@ -421,6 +421,9 @@ std::shared_ptr<device_queue> cuda_context::create_queue(const device& dev) cons
 				"failed to create CUDA stream", {})
 	
 	auto ret = std::make_shared<cuda_queue>(dev, stream);
+	if (debug_label) {
+		ret->set_debug_label(debug_label);
+	}
 	queues.push_back(ret);
 	return ret;
 }
@@ -435,50 +438,48 @@ const device_queue* cuda_context::get_device_default_queue(const device& dev) co
 	return nullptr;
 }
 
-std::unique_ptr<device_fence> cuda_context::create_fence(const device_queue&) const {
+std::unique_ptr<device_fence> cuda_context::create_fence(const device_queue&, const char*) const {
 	log_error("fence creation not yet supported by cuda_context!");
 	return {};
 }
 
-std::shared_ptr<device_buffer> cuda_context::create_buffer(const device_queue& cqueue,
-														   const size_t size, const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<cuda_buffer>(cqueue, size, flags));
+std::shared_ptr<device_buffer> cuda_context::create_buffer(const device_queue& cqueue, const size_t size, const MEMORY_FLAG flags,
+														   const char* debug_label) const {
+	return add_resource(std::make_shared<cuda_buffer>(cqueue, size, flags, nullptr, debug_label));
 }
 
-std::shared_ptr<device_buffer> cuda_context::create_buffer(const device_queue& cqueue,
-														   std::span<uint8_t> data,
-														   const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<cuda_buffer>(cqueue, data.size_bytes(), data, flags));
+std::shared_ptr<device_buffer> cuda_context::create_buffer(const device_queue& cqueue, std::span<uint8_t> data, const MEMORY_FLAG flags,
+														   const char* debug_label) const {
+	return add_resource(std::make_shared<cuda_buffer>(cqueue, data.size_bytes(), data, flags, nullptr, debug_label));
 }
 
-std::shared_ptr<device_buffer> cuda_context::wrap_buffer(const device_queue& cqueue,
-													 vulkan_buffer& vk_buffer,
-													 const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> cuda_context::wrap_buffer(const device_queue& cqueue, vulkan_buffer& vk_buffer, const MEMORY_FLAG flags,
+														 const char* debug_label) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(std::make_shared<cuda_buffer>(cqueue, vk_buffer.get_size(), std::span<uint8_t> {},
-												 flags | MEMORY_FLAG::VULKAN_SHARING, &vk_buffer));
+													  flags | MEMORY_FLAG::VULKAN_SHARING, &vk_buffer, debug_label));
 #else
-	return device_context::wrap_buffer(cqueue, vk_buffer, flags);
+	return device_context::wrap_buffer(cqueue, vk_buffer, flags, debug_label);
 #endif
 }
 
 std::shared_ptr<device_image> cuda_context::create_image(const device_queue& cqueue,
-													 const uint4 image_dim,
-													 const IMAGE_TYPE image_type,
-													 std::span<uint8_t> data,
-													 const MEMORY_FLAG flags,
-													 const uint32_t mip_level_limit) const {
-	return add_resource(std::make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, nullptr, mip_level_limit));
+														 const uint4 image_dim,
+														 const IMAGE_TYPE image_type,
+														 std::span<uint8_t> data,
+														 const MEMORY_FLAG flags,
+														 const uint32_t mip_level_limit,
+														 const char* debug_label) const {
+	return add_resource(std::make_shared<cuda_image>(cqueue, image_dim, image_type, data, flags, nullptr, mip_level_limit, debug_label));
 }
 
-std::shared_ptr<device_image> cuda_context::wrap_image(const device_queue& cqueue,
-												   vulkan_image& vk_image,
-												   const MEMORY_FLAG flags) const {
+std::shared_ptr<device_image> cuda_context::wrap_image(const device_queue& cqueue, vulkan_image& vk_image, const MEMORY_FLAG flags,
+													   const char* debug_label) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(std::make_shared<cuda_image>(cqueue, vk_image.get_image_dim(), vk_image.get_image_type(), std::span<uint8_t> {},
-												flags | MEMORY_FLAG::VULKAN_SHARING, (device_image*)&vk_image));
+													 flags | MEMORY_FLAG::VULKAN_SHARING, (device_image*)&vk_image, 0, debug_label));
 #else
-	return device_context::wrap_image(cqueue, vk_image, flags);
+	return device_context::wrap_image(cqueue, vk_image, flags, debug_label);
 #endif
 }
 

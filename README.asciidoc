@@ -2720,7 +2720,7 @@ function void simplified_nbody ( %void() ) {
 ** link:https://www.libsdl.org[SDL3] 3.2.0+
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers (link:https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html[Intel], link:https://github.com/GPUOpen-LibrariesAndSDKs/OCL-SDK/releases[AMD])
 ** (opt) CUDA: requires sm_50+/Maxwell+ GPU and CUDA 12.0+ drivers (CUDA SDK not required!)
-** (opt) Metal: requires iOS 18.6+ or macOS 15.6+, and a Metal 3.0 capable GPU
+** (opt) Metal: requires iOS 18.6+ or macOS 15.6+, and a Metal 3 capable GPU
 ** (opt) Host-Compute: requires just the compiler/toolchain that is stated above
 ** (opt) Vulkan: requires 1.4.321+ link:https://vulkan.lunarg.com[ICD loader / headers / SDK]
 *** link:https://github.com/zeux/volk[volk] included as submodule
@@ -2847,6 +2847,7 @@ function void simplified_nbody ( %void() ) {
 ** as a simple workaround, add the following line to it (replace user_name with your user name) and relog:
 *** `user_name hard nofile unlimited`
 ** NOTE: when using ssh, PAM must be enabled for this to apply
+* when using the Metal 4 backend, it is recommended to fully disable "GPU Frame Capture" in Xcode as this can lead to sporadic command buffer failures otherwise (even when not actually performing a frame capture)
 
 == Projects and Examples using libfloor ==
 * link:https://github.com/a2flo/floor_examples[floor_examples] (dnn, nbody, warp, hlbvh, path tracer, other)

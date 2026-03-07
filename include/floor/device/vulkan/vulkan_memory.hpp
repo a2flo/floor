@@ -90,7 +90,7 @@ protected:
 											const MEMORY_MAP_FLAG flags,
 											const size_t size = 0, const size_t offset = 0);
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr);
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false);
 	
 	virtual void image_copy_dev_to_host(const device_queue&, VkCommandBuffer, VkBuffer) {}
 	virtual void image_copy_host_to_dev(const device_queue&, VkCommandBuffer, VkBuffer, std::span<uint8_t>) {}

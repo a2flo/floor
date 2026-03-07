@@ -27,7 +27,7 @@ namespace fl {
 
 class metal_fence final : public device_fence {
 public:
-	metal_fence(id <MTLFence> mtl_fence_);
+	metal_fence(id <MTLFence> mtl_fence_, const char* debug_label_ = nullptr);
 	~metal_fence() override;
 	
 	//! returns the Metal specific fence object

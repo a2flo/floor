@@ -353,7 +353,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(const device_queue& cqueu
 	return host_ptr;
 }
 
-bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if (*object == 0 || mapped_ptr == nullptr) {
 		return false;
 	}
@@ -372,8 +372,9 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 	const auto is_host_coherent = has_flag<MEMORY_FLAG::VULKAN_HOST_COHERENT>(memory_flags);
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags)) {
+	if (!discard &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags))) {
 		if (!is_host_coherent || is_image) {
 			do {
 				// host -> device copy
@@ -427,8 +428,9 @@ bool vulkan_memory::unmap(const device_queue& cqueue, void* __attribute__((align
 	}
 	
 	// barrier after unmap when using unified memory
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags)) {
+	if (!discard &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(mapping.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(mapping.flags))) {
 		if (is_host_coherent && !is_image) {
 			VK_CMD_BLOCK(vk_queue, "host -> dev memory barrier", ({
 				const VkBufferMemoryBarrier2 buffer_barrier {

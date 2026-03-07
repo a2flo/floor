@@ -32,7 +32,8 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class argument_buffer {
 public:
 	//! creates an argument buffer using the specified storage buffer
-	argument_buffer(const device_function& func, std::shared_ptr<device_buffer> storage_buffer);
+	argument_buffer(const device_function& func, std::shared_ptr<device_buffer> storage_buffer,
+					const char* debug_label_ = nullptr);
 	
 	virtual ~argument_buffer() = default;
 	

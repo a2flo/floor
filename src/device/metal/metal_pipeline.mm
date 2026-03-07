@@ -23,7 +23,7 @@
 #include <floor/device/metal/metal_program.hpp>
 #include <floor/device/metal/metal_function.hpp>
 #include <floor/device/metal/metal_device.hpp>
-#include <floor/device/metal/metal_image.hpp>
+#include <floor/device/metal/metal_context.hpp>
 #include <floor/device/metal/metal_args.hpp>
 #include <floor/floor.hpp>
 
@@ -46,14 +46,15 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			const auto mtl_vs_entry = (const metal_function::metal_function_entry*)mtl_vs->get_function_entry(*dev);
 			const auto mtl_fs_entry = (mtl_fs != nullptr ? (const metal_function::metal_function_entry*)mtl_fs->get_function_entry(*dev) : nullptr);
 			
-			MTLRenderPipelineDescriptor* mtl_pipeline_desc = [[MTLRenderPipelineDescriptor alloc] init];
+			MTLRenderPipelineDescriptor* mtl_pipeline_desc = [MTLRenderPipelineDescriptor new];
 			mtl_pipeline_desc.label = (pipeline_desc.debug_label.empty() ? @"metal_graphics_pipeline" :
 									   [NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
 			// NOTE: there is no difference here between a pre- and post-tessallation vertex shader
 			mtl_pipeline_desc.vertexFunction = (__bridge __unsafe_unretained id<MTLFunction>)mtl_vs_entry->function;
 			mtl_pipeline_desc.fragmentFunction = (mtl_fs_entry != nullptr ?
 												  (__bridge __unsafe_unretained id<MTLFunction>)mtl_fs_entry->function : nil);
-			mtl_pipeline_desc.supportIndirectCommandBuffers = pipeline_desc.support_indirect_rendering;
+			mtl_pipeline_desc.supportIndirectCommandBuffers = (!floor::get_metal_soft_indirect() ?
+															   pipeline_desc.support_indirect_rendering : false);
 			mtl_pipeline_desc.shaderValidation = (MTLShaderValidation)pipeline_desc.validation;
 			
 			// multi-sampling
@@ -69,12 +70,12 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 					return;
 				}
 				
-				const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(color_att.format);
-				if (!metal_pixel_format) {
+				const auto metal_pixel_format = metal_context::pixel_format_from_image_type(color_att.format);
+				if (metal_pixel_format == MTLPixelFormatInvalid) {
 					log_error("no matching Metal pixel format found for color image type $X", color_att.format);
 					return;
 				}
-				mtl_pipeline_desc.colorAttachments[i].pixelFormat = *metal_pixel_format;
+				mtl_pipeline_desc.colorAttachments[i].pixelFormat = metal_pixel_format;
 				
 				// handle blending
 				if (color_att.blend.enable) {
@@ -110,12 +111,12 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			
 			// set optional depth attachment
 			if (pipeline_desc.depth_attachment.format != IMAGE_TYPE::NONE) {
-				const auto metal_pixel_format = metal_image::metal_pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
-				if (!metal_pixel_format) {
+				const auto metal_pixel_format = metal_context::pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
+				if (metal_pixel_format == MTLPixelFormatInvalid) {
 					log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
 					return;
 				}
-				mtl_pipeline_desc.depthAttachmentPixelFormat = *metal_pixel_format;
+				mtl_pipeline_desc.depthAttachmentPixelFormat = metal_pixel_format;
 			}
 			
 			// stencil is not supported yet
@@ -250,7 +251,7 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 			
 			// create depth/stencil state
 			// TODO: depth range?
-			auto depth_stencil_desc = [[MTLDepthStencilDescriptor alloc] init];
+			auto depth_stencil_desc = [MTLDepthStencilDescriptor new];
 			depth_stencil_desc.depthWriteEnabled = pipeline_desc.depth.write;
 			depth_stencil_desc.depthCompareFunction = metal_compare_func_from_depth_compare(pipeline_desc.depth.compare);
 			entry.depth_stencil_state = [mtl_dev newDepthStencilStateWithDescriptor:depth_stencil_desc];

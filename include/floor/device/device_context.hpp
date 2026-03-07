@@ -47,7 +47,9 @@ class vulkan_context;
 class vulkan_buffer;
 class vulkan_image;
 class metal_buffer;
+class metal4_buffer;
 class metal_image;
+class metal4_image;
 class device_fence;
 
 class indirect_command_pipeline;
@@ -108,15 +110,15 @@ public:
 	const device* get_corresponding_device(const device& external_dev) const;
 	
 	//! creates and returns a device_queue (aka command queue or stream) for the specified device
-	virtual std::shared_ptr<device_queue> create_queue(const device& dev) const = 0;
+	virtual std::shared_ptr<device_queue> create_queue(const device& dev, const char* debug_label = nullptr) const = 0;
 	
 	//! returns the internal default device_queue for the specified device
 	virtual const device_queue* get_device_default_queue(const device& dev) const = 0;
 	
 	//! create a compute-only queue for the specified device
 	//! NOTE: this is only relevant on backends that a) offer graphics supports and b) offer compute-only queues
-	virtual std::shared_ptr<device_queue> create_compute_queue(const device& dev) const {
-		return create_queue(dev);
+	virtual std::shared_ptr<device_queue> create_compute_queue(const device& dev, const char* debug_label = nullptr) const {
+		return create_queue(dev, debug_label);
 	}
 	
 	//! returns the internal default compute-only device_queue for the specified device
@@ -139,15 +141,17 @@ public:
 	//! creates up to "wanted_count" number of device_queues for the specified device "dev",
 	//! for backends that only support a certain amount of distinct queues, this will create/return distinct queues from that pool,
 	//! with the returned number of created queues limited to min(wanted_count, get_max_distinct_queue_count())
-	virtual std::vector<std::shared_ptr<device_queue>> create_distinct_queues(const device& dev, const uint32_t wanted_count) const;
+	virtual std::vector<std::shared_ptr<device_queue>> create_distinct_queues(const device& dev, const uint32_t wanted_count,
+																			  const std::span<const char* const> debug_labels = {}) const;
 	
 	//! creates up to "wanted_count" number of compute-only device_queues for the specified device "dev",
 	//! for backends that only support a certain amount of distinct compute-only queues, this will create/return distinct queues from that pool,
 	//! with the returned number of created queues limited to min(wanted_count, get_max_distinct_compute_queue_count())
-	virtual std::vector<std::shared_ptr<device_queue>> create_distinct_compute_queues(const device& dev, const uint32_t wanted_count) const;
+	virtual std::vector<std::shared_ptr<device_queue>> create_distinct_compute_queues(const device& dev, const uint32_t wanted_count,
+																					  const std::span<const char* const> debug_labels = {}) const;
 	
 	//! creates and returns a fence for the specified queue
-	virtual std::unique_ptr<device_fence> create_fence(const device_queue& cqueue) const = 0;
+	virtual std::unique_ptr<device_fence> create_fence(const device_queue& cqueue, const char* debug_label = nullptr) const = 0;
 	
 	//! memory usage returned by get_memory_usage()
 	struct memory_usage_t {
@@ -179,56 +183,76 @@ public:
 	//! constructs an uninitialized buffer of the specified size on the specified device
 	virtual std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 														 const size_t size,
-														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																					MEMORY_FLAG::HOST_READ_WRITE),
+														 const char* debug_label = nullptr) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	virtual std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 														 std::span<uint8_t> data,
-														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const = 0;
+														 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																					MEMORY_FLAG::HOST_READ_WRITE),
+														 const char* debug_label = nullptr) const = 0;
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 std::span<data_type> data,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const {
+		return create_buffer(cqueue, {
+			reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes()
+		}, flags, debug_label);
 	}
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	template <typename data_type, size_t count>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 std::span<data_type, count> data,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_buffer(cqueue, { reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() }, flags);
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const {
+		return create_buffer(cqueue, {
+			reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes()
+		}, flags, debug_label);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 const std::vector<data_type>& data,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags);
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const {
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * data.size() }, flags, debug_label);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type, size_t n>
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 const std::array<data_type, n>& data,
-												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const {
-		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags);
+												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const {
+		return create_buffer(cqueue, { (uint8_t*)const_cast<data_type*>(data.data()), sizeof(data_type) * n }, flags, debug_label);
 	}
 	
 	//! wraps an already existing Vulkan buffer, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
 													   vulkan_buffer& vk_buffer,
-													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
+													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																				  MEMORY_FLAG::HOST_READ_WRITE),
+													   const char* debug_label = nullptr) const;
 	
 	//! wraps an already existing Metal buffer, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual std::shared_ptr<device_buffer> wrap_buffer(const device_queue& cqueue,
 													   metal_buffer& mtl_buffer,
-													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
+													   const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																				  MEMORY_FLAG::HOST_READ_WRITE),
+													   const char* debug_label = nullptr) const;
 	
 	//////////////////////////////////////////
 	// image creation
@@ -239,15 +263,17 @@ public:
 													   const IMAGE_TYPE image_type,
 													   std::span<uint8_t> data,
 													   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-													   const uint32_t mip_level_limit = 0u) const = 0;
+													   const uint32_t mip_level_limit = 0u,
+													   const char* debug_label = nullptr) const = 0;
 	
 	//! constructs an uninitialized image of the specified dimensions, types and channel count on the specified device
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
 											   const uint4 image_dim,
 											   const IMAGE_TYPE image_type,
 											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-											   const uint32_t mip_level_limit = 0u) const {
-		return create_image(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, mip_level_limit);
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const {
+		return create_image(cqueue, image_dim, image_type, std::span<uint8_t> {}, flags, mip_level_limit, debug_label);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -257,10 +283,11 @@ public:
 											   const IMAGE_TYPE image_type,
 											   std::span<data_type> data,
 											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-											   const uint32_t mip_level_limit = 0u) const {
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const {
 		return create_image(cqueue, image_dim, image_type,
 							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
-							flags, mip_level_limit);
+							flags, mip_level_limit, debug_label);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -270,10 +297,11 @@ public:
 											   const IMAGE_TYPE image_type,
 											   std::span<data_type, count> data,
 											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-											   const uint32_t mip_level_limit = 0u) const {
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const {
 		return create_image(cqueue, image_dim, image_type,
 							{ reinterpret_cast<uint8_t*>(const_cast<std::remove_const_t<data_type>*>(data.data())), data.size_bytes() },
-							flags, mip_level_limit);
+							flags, mip_level_limit, debug_label);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -283,9 +311,10 @@ public:
 											   const IMAGE_TYPE image_type,
 											   const std::vector<data_type>& data,
 											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-											   const uint32_t mip_level_limit = 0u) const {
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const {
 		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), data.size() * sizeof(data_type) },
-							flags, mip_level_limit);
+							flags, mip_level_limit, debug_label);
 	}
 	
 	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
@@ -295,22 +324,27 @@ public:
 											   const IMAGE_TYPE image_type,
 											   const std::array<data_type, n>& data,
 											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-											   const uint32_t mip_level_limit = 0u) const {
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const {
 		return create_image(cqueue, image_dim, image_type, { (uint8_t*)const_cast<data_type*>(data.data()), n * sizeof(data_type) },
-							flags, mip_level_limit);
+							flags, mip_level_limit, debug_label);
 	}
 	
 	//! wraps an already existing Vulkan image, with the specified flags
 	//! NOTE: VULKAN_SHARING flag is always implied
 	virtual std::shared_ptr<device_image> wrap_image(const device_queue& cqueue,
 													 vulkan_image& vk_image,
-													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
+													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																				MEMORY_FLAG::HOST_READ_WRITE),
+													 const char* debug_label = nullptr) const;
 	
 	//! wraps an already existing Metal image, with the specified flags
 	//! NOTE: METAL_SHARING flag is always implied
 	virtual std::shared_ptr<device_image> wrap_image(const device_queue& cqueue,
 													 metal_image& mtl_image,
-													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE)) const;
+													 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
+																				MEMORY_FLAG::HOST_READ_WRITE),
+													 const char* debug_label = nullptr) const;
 	
 	// TODO: add is_image_format_supported(...) function
 	
@@ -413,6 +447,10 @@ public:
 	//! NOTE: only resources created *after* calling this will be available in the registry
 	virtual void enable_resource_registry();
 	
+	//! disables the resource registry functionality again
+	//! NOTE: this does not clear previous registrations, only prevents the addition of new ones
+	virtual void disable_resource_registry();
+	
 	//! retrieves a resource from the registry
 	virtual std::weak_ptr<device_memory> get_memory_from_resource_registry(const std::string& label) REQUIRES(!resource_registry_lock);
 	
@@ -424,7 +462,8 @@ public:
 	
 protected:
 	device_context(const DEVICE_CONTEXT_FLAGS context_flags_, const bool has_toolchain_) :
-	context_flags(context_flags_), has_toolchain(has_toolchain_) {}
+	context_flags(context_flags_), has_toolchain(has_toolchain_),
+	resource_registry_enabled(has_flag<DEVICE_CONTEXT_FLAGS::RESOURCE_REGISTRY>(context_flags_)) {}
 	
 	//! platform vendor enum (set after initialization)
 	VENDOR platform_vendor { VENDOR::UNKNOWN };

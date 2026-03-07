@@ -62,8 +62,8 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 													   const VkPipelineLayout pipeline_layout,
 													   const vulkan_function_entry* vertex_shader,
 													   const vulkan_function_entry* fragment_shader,
-													   const std::vector<graphics_renderer::multi_draw_entry>* draw_entries,
-													   const std::vector<graphics_renderer::multi_draw_indexed_entry>* draw_indexed_entries,
+													   const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
+													   const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
 													   const std::vector<device_function_arg>& args) const {
 	if (vertex_shader == nullptr) {
 		log_error("must specify a vertex shader!");
@@ -77,7 +77,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 	const std::vector<const vulkan_function_entry*> shader_entries {
 		vertex_shader, fragment_shader
 	};
-	auto encoder = create_encoder(cqueue, &cmd_buffer, pipeline, pipeline_layout,
+	auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
 								  shader_entries, nullptr, encoder_success);
 	if (!encoder_success) {
 		log_error("failed to create Vulkan encoder / command buffer for shader \"$\"",
@@ -160,7 +160,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 		.layout = encoder->pipeline_layout,
 		.set = 0 /* always set #0 */,
 	};
-	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(encoder->cmd_buffer.cmd_buffer, &bind_embedded_info);
+	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(cmd_buffer.cmd_buffer, &bind_embedded_info);
 	
 	if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 		// setup + bind descriptor buffers
@@ -202,7 +202,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			++desc_buf_binding_idx;
 		}
 		
-		vkCmdBindDescriptorBuffersEXT(encoder->cmd_buffer.cmd_buffer, uint32_t(desc_buf_bindings.size()), desc_buf_bindings.data());
+		vkCmdBindDescriptorBuffersEXT(cmd_buffer.cmd_buffer, uint32_t(desc_buf_bindings.size()), desc_buf_bindings.data());
 		
 		// set fixed descriptor buffers (set #1 is the vertex shader, set #2 is the fragment shader)
 		// NOTE: these may be optional
@@ -222,7 +222,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 				.pBufferIndices = &buffer_indices[0],
 				.pOffsets = &offsets[0],
 			};
-			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
+			vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 		
 		// bind argument buffers if there are any
@@ -253,7 +253,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 				.pBufferIndices = arg_buf_vs_buf_indices.data(),
 				.pOffsets = arg_buf_offsets.data(),
 			};
-			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
+			vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 		if (arg_buf_fs_set_count > 0) {
 			const auto is_fs_low_desc_count = (fragment_shader != nullptr &&
@@ -270,26 +270,26 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 				.pBufferIndices = arg_buf_fs_buf_indices.data(),
 				.pOffsets = arg_buf_offsets.data(),
 			};
-			vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
+			vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 		}
 	}
 	
-	if (draw_entries != nullptr) {
-		for (const auto& entry : *draw_entries) {
-			vkCmdDraw(encoder->cmd_buffer.cmd_buffer, entry.vertex_count, entry.instance_count,
+	assert(draw_entries.empty() != draw_indexed_entries.empty()); // only one must be active
+	if (!draw_entries.empty()) {
+		for (const auto& entry : draw_entries) {
+			vkCmdDraw(cmd_buffer.cmd_buffer, entry.vertex_count, entry.instance_count,
 					  entry.first_vertex, entry.first_instance);
 		}
-	}
-	if (draw_indexed_entries != nullptr) {
-		for (const auto& entry : *draw_indexed_entries) {
+	} else if (!draw_indexed_entries.empty()) {
+		for (const auto& entry : draw_indexed_entries) {
 			const auto vk_idx_buffer = entry.index_buffer->get_underlying_vulkan_buffer_safe()->get_vulkan_buffer();
 			const auto vk_idx_type = vulkan_index_type_from_index_type(entry.index_type);
 			if (vk_dev.vulkan_version >= VULKAN_VERSION::VULKAN_1_4) {
-				vkCmdBindIndexBuffer2(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
+				vkCmdBindIndexBuffer2(cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
 			} else {
-				vkCmdBindIndexBuffer2KHR(encoder->cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
+				vkCmdBindIndexBuffer2KHR(cmd_buffer.cmd_buffer, vk_idx_buffer, 0, VK_WHOLE_SIZE, vk_idx_type);
 			}
-			vkCmdDrawIndexed(encoder->cmd_buffer.cmd_buffer, entry.index_count, entry.instance_count, entry.first_index,
+			vkCmdDrawIndexed(cmd_buffer.cmd_buffer, entry.index_count, entry.instance_count, entry.first_index,
 							 entry.vertex_offset, entry.first_instance);
 		}
 	}
@@ -306,11 +306,6 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 				handle_printf_buffer(std::span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
 			}
 		});
-	}
-	
-	// attach constant buffers to queue+cmd_buffer so that they will be destroyed once this is completed
-	if (!encoder->constant_buffers.empty()) {
-		vk_queue.add_retained_buffers(cmd_buffer, encoder->constant_buffers);
 	}
 	
 	// release acquired descriptor sets again after completion
@@ -331,7 +326,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 	}
 	
 #if defined(FLOOR_DEBUG)
-	vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
+	vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
 #endif
 	
 	return transition_info.barriers;

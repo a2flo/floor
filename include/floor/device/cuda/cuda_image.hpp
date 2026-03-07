@@ -41,7 +41,8 @@ public:
 			   std::span<uint8_t> host_data_ = {},
 			   const MEMORY_FLAG flags_ = (MEMORY_FLAG::HOST_READ_WRITE),
 			   device_image* shared_image_ = nullptr,
-			   const uint32_t mip_level_limit = 0u);
+			   const uint32_t mip_level_limit = 0u,
+			   const char* debug_label_ = nullptr);
 	
 	~cuda_image() override;
 	
@@ -62,7 +63,7 @@ public:
 											(MEMORY_MAP_FLAG::READ_WRITE |
 											 MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	//! returns the CUDA specific image pointer (array or mip-mapped array)
 	const void* get_cuda_image() const { return image; }

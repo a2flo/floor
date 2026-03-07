@@ -98,7 +98,8 @@ protected:
 																	 const uint32_t& user_arg_index,
 																	 const uint32_t& ll_arg_index,
 																	 const MEMORY_FLAG& add_mem_flags,
-																	 const bool zero_init) const override;
+																	 const bool zero_init,
+																	 const char* debug_label) const override;
 	
 	friend host_context;
 	static void init();

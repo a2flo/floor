@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/essentials.hpp>
 #include "internal/vulkan_headers.hpp"
+#include <floor/device/generic_indirect_command.hpp>
 #include <floor/device/vulkan/vulkan_common.hpp>
 #include <floor/device/vulkan/vulkan_context.hpp>
 #include <floor/device/vulkan/vulkan_buffer.hpp>
@@ -163,6 +164,7 @@ bool vulkan_renderer::create_cmd_buffer() {
 	static constexpr const char* cmd_buffer_label = "vk_renderer_cmd_buffer";
 #endif
 	render_cmd_buffer = vk_queue.make_command_buffer(cmd_buffer_label);
+	assert(render_cmd_buffer);
 	const VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.pNext = nullptr,
@@ -494,10 +496,15 @@ graphics_renderer::drawable_t* vulkan_renderer::get_next_drawable(const bool get
 		.image_base_type = vk_drawable.base_type,
 		.dim = { vk_drawable.image_size, vk_drawable.layer_count, 0 },
 	};
-	internal->cur_drawable->vk_image = std::make_unique<vulkan_image_internal>(cqueue, info);
 #if defined(FLOOR_DEBUG)
-	internal->cur_drawable->vk_image->set_debug_label("swapchain_image#" + std::to_string(vk_drawable.index));
+	const std::string swapchain_image_debug_label = "swapchain_image#" + std::to_string(vk_drawable.index);
 #endif
+	internal->cur_drawable->vk_image = std::make_unique<vulkan_image_internal>(cqueue, info, std::span<uint8_t> {},
+																			   MEMORY_FLAG::READ_WRITE | MEMORY_FLAG::HOST_READ_WRITE
+#if defined(FLOOR_DEBUG)
+																			   , swapchain_image_debug_label.c_str()
+#endif
+																			   );
 	internal->cur_drawable->image = internal->cur_drawable->vk_image.get();
 	
 	return internal->cur_drawable.get();
@@ -567,9 +574,8 @@ bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 	return attachment_transition(*attachment.image, att_transition_barriers, is_read_only_depth);
 }
 
-void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd,
-									   const uint32_t command_offset,
-									   const uint32_t command_count) {
+void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd) {
+	const auto command_count = indirect_cmd.get_command_count();
 	if (command_count == 0) {
 		return;
 	}
@@ -582,6 +588,11 @@ void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect
 	}
 #endif
 	
+	if (const auto generic_ind_pipeline = dynamic_cast<const generic_indirect_command_pipeline*>(&indirect_cmd); generic_ind_pipeline) {
+		graphics_renderer::execute_indirect(indirect_cmd);
+		return;
+	}
+	
 	const auto& vk_indirect_cmd = (const vulkan_indirect_command_pipeline&)indirect_cmd;
 	const auto vk_indirect_pipeline_entry = vk_indirect_cmd.get_vulkan_pipeline_entry(cqueue.get_device());
 	if (!vk_indirect_pipeline_entry) {
@@ -590,18 +601,13 @@ void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect
 		return;
 	}
 	
-	const auto range = vk_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-	if (!range) {
-		return;
-	}
-	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
 		vk_indirect_pipeline_entry->printf_init(cqueue);
 	}
 	
 	// NOTE: for render pipelines, this is always per_queue_data[0]
-	vkCmdExecuteCommands(render_cmd_buffer.cmd_buffer, range->count,
-						 &vk_indirect_pipeline_entry->per_queue_data[0].cmd_buffers[range->offset]);
+	vkCmdExecuteCommands(render_cmd_buffer.cmd_buffer, command_count,
+						 &vk_indirect_pipeline_entry->per_queue_data[0].cmd_buffers[0]);
 	
 	if (vk_indirect_pipeline_entry->printf_buffer) {
 		vk_indirect_pipeline_entry->printf_completion(cqueue, render_cmd_buffer);
@@ -626,8 +632,8 @@ bool vulkan_renderer::update_vulkan_pipeline() {
 	return true;
 }
 
-void vulkan_renderer::draw_internal(const std::vector<multi_draw_entry>* draw_entries,
-									const std::vector<multi_draw_indexed_entry>* draw_indexed_entries,
+void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw_entries,
+									const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 									const std::vector<device_function_arg>& args) {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	vulkan_command_buffer* cmd_buffer = &render_cmd_buffer;
@@ -636,6 +642,7 @@ void vulkan_renderer::draw_internal(const std::vector<multi_draw_entry>* draw_en
 		// -> direct draw within an indirect renderer
 		// we need to create and execute a secondary cmd buffer for any direct rendering
 		sec_cmd_buffer = vk_queue.make_secondary_command_buffer("vk_renderer_sec_cmd_buffer");
+		assert(sec_cmd_buffer);
 		cmd_buffer = &sec_cmd_buffer;
 		const VkCommandBufferInheritanceInfo inheritance_info {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
@@ -676,15 +683,14 @@ void vulkan_renderer::draw_internal(const std::vector<multi_draw_entry>* draw_en
 	if (is_indirect) {
 		// end + execute this secondary cmd buffer
 		VK_CALL_RET(vkEndCommandBuffer(sec_cmd_buffer.cmd_buffer), "failed to end secondary command buffer")
-		vk_queue.execute_secondary_command_buffer(render_cmd_buffer, sec_cmd_buffer);
+		vk_queue.execute_secondary_command_buffer(render_cmd_buffer, std::move(sec_cmd_buffer));
 	}
 }
 
 void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry floor_unused,
 											const patch_draw_indexed_entry* draw_indexed_entry floor_unused,
 											const std::vector<device_function_arg>& args floor_unused) {
-	// TODO: implement this!
-	log_error("patch drawing not implemented yet!");
+	throw std::runtime_error("tessellation is not implemented in Vulkan");
 }
 
 void vulkan_renderer::wait_for_fence(const device_fence& fence, const SYNC_STAGE before_stage) {

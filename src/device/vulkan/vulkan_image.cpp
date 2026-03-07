@@ -50,15 +50,17 @@ vulkan_image::vulkan_image(const device_queue& cqueue,
 						   const IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
 						   const MEMORY_FLAG flags_,
-						   const uint32_t mip_level_limit_) :
-device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */, mip_level_limit_),
+						   const uint32_t mip_level_limit_,
+						   const char* debug_label_) :
+device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */, mip_level_limit_, debug_label_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags) {
 	// NOTE: actual image will be created in vulkan_image_internal constructor
 }
 
-vulkan_image::vulkan_image(const device_queue& cqueue, const external_vulkan_image_info& external_image, std::span<uint8_t> host_data_, const MEMORY_FLAG flags_) :
+vulkan_image::vulkan_image(const device_queue& cqueue, const external_vulkan_image_info& external_image,
+						   std::span<uint8_t> host_data_, const MEMORY_FLAG flags_, const char* debug_label_) :
 device_image(cqueue, external_image.dim, compute_vulkan_image_type(external_image, flags_), host_data_, flags_,
-			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */, 0u),
+			  nullptr, true /* we don't support this, but still need to set all vars + needed error checking */, 0u, debug_label_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_external(true) {
 	image = external_image.image;
 	image_view = external_image.image_view;
@@ -564,15 +566,14 @@ void* __attribute__((aligned(128))) vulkan_image::map(const device_queue& cqueue
 											   image_data_size : shim_image_data_size), 0);
 }
 
-bool vulkan_image::unmap(const device_queue& cqueue,
-						 void* __attribute__((aligned(128))) mapped_ptr) {
+bool vulkan_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	const auto iter = mappings.find(mapped_ptr);
 	if(iter == mappings.end()) {
 		log_error("invalid mapped pointer: $X", mapped_ptr);
 		return false;
 	}
 	
-	if (!vulkan_memory::unmap(cqueue, mapped_ptr)) {
+	if (!vulkan_memory::unmap(cqueue, mapped_ptr, discard)) {
 		return false;
 	}
 	
@@ -588,9 +589,10 @@ bool vulkan_image::unmap(const device_queue& cqueue,
 	}
 	
 	// manually create mip-map chain
-	if(generate_mip_maps &&
-	   (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+	if (!discard &&
+		generate_mip_maps &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		generate_mip_map_chain(cqueue);
 	}
 	

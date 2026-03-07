@@ -22,12 +22,13 @@
 #include <floor/device/host/host_argument_buffer.hpp>
 #include <floor/device/host/host_buffer.hpp>
 #include <floor/device/host/host_image.hpp>
+#include <cstring>
 
 namespace fl {
 
 host_argument_buffer::host_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer_,
-										   const toolchain::function_info& arg_info_) :
-argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
+										   const toolchain::function_info& arg_info_, const char* debug_label_) :
+argument_buffer(func_, storage_buffer_, debug_label_), arg_info(arg_info_) {}
 
 bool host_argument_buffer::set_arguments(const device_queue& dev_queue floor_unused, const std::vector<device_function_arg>& args) {
 	auto host_storage_buffer = (host_buffer*)storage_buffer.get();

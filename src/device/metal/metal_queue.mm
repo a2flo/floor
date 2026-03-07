@@ -24,6 +24,7 @@
 #include <floor/device/metal/metal_indirect_command.hpp>
 #include <floor/device/metal/metal_fence.hpp>
 #include <floor/device/metal/metal_device.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 
 namespace fl {
 
@@ -31,6 +32,7 @@ metal_queue::metal_queue(const device& dev_, id <MTLCommandQueue> queue_) : devi
 
 metal_queue::~metal_queue() {
 	@autoreleasepool {
+		finish();
 		queue = nil;
 	}
 }
@@ -69,9 +71,8 @@ void metal_queue::flush() const {
 
 void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								   const indirect_execution_parameters_t& params,
-								   kernel_completion_handler_f&& completion_handler,
-								   const uint32_t command_offset,
-								   const uint32_t command_count) const {
+								   kernel_completion_handler_f&& completion_handler) const {
+	const auto command_count = indirect_cmd.get_command_count();
 	if (command_count == 0) {
 		return;
 	}
@@ -84,17 +85,17 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 	}
 #endif
 	
+	if (const auto generic_ind_pipeline = dynamic_cast<const generic_indirect_command_pipeline*>(&indirect_cmd); generic_ind_pipeline) {
+		device_queue::execute_indirect(indirect_cmd, params, std::move(completion_handler));
+		return;
+	}
+	
 	@autoreleasepool {
 		const auto& mtl_indirect_cmd = (const metal_indirect_command_pipeline&)indirect_cmd;
 		const auto mtl_indirect_pipeline_entry = mtl_indirect_cmd.get_metal_pipeline_entry(dev);
 		if (!mtl_indirect_pipeline_entry) {
 			log_error("no indirect command pipeline state for device \"$\" in indirect command pipeline \"$\"",
 					  dev.name, indirect_cmd.get_description().debug_label);
-			return;
-		}
-		
-		const auto range = mtl_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-		if (!range) {
 			return;
 		}
 		
@@ -107,16 +108,6 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 		
 		for (const auto& fence : params.wait_fences) {
 			[encoder waitForFence:((const metal_fence*)fence)->get_metal_fence()];
-		}
-		
-		const auto& mtl_dev = (const metal_device&)dev;
-		if (!mtl_dev.heap_residency_set) {
-			if (mtl_dev.heap_shared) {
-				[encoder useHeap:mtl_dev.heap_shared];
-			}
-			if (mtl_dev.heap_private) {
-				[encoder useHeap:mtl_dev.heap_private];
-			}
 		}
 		
 		// declare all used resources
@@ -147,7 +138,7 @@ void metal_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd
 		}
 		
 		[encoder executeCommandsInBuffer:mtl_indirect_pipeline_entry->icb
-							   withRange:*range];
+							   withRange:NSRange { .location = 0, .length = command_count }];
 		
 		for (const auto& fence : params.signal_fences) {
 			[encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
@@ -231,6 +222,7 @@ uint64_t metal_queue::stop_profiling() const {
 }
 
 void metal_queue::set_debug_label(const std::string& label) {
+	device_queue::set_debug_label(label);
 	if (queue) {
 		queue.label = [NSString stringWithUTF8String:label.c_str()];
 	}

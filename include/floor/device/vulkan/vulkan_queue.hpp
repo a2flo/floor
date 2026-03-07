@@ -24,23 +24,57 @@
 
 #include <floor/device/device_queue.hpp>
 #include <floor/threading/thread_safety.hpp>
+#include <floor/threading/resource_slot_handler.hpp>
 #include <bitset>
 
 namespace fl {
 
-struct vulkan_command_buffer {
-	VkCommandBuffer cmd_buffer { nullptr };
-	uint32_t index { ~0u };
-	const char* name { nullptr };
-	bool is_secondary { false };
-	
-	explicit operator bool() const { return (cmd_buffer != nullptr); }
-};
-
-class vulkan_queue;
 class vulkan_command_block;
 struct vulkan_queue_impl;
+class vulkan_queue;
 struct vulkan_command_pool_t;
+struct vulkan_command_buffer_completion_impl;
+
+//! per-thread command resource count
+//! NOTE: since these are *per-thread* we are probably never going to need more than this
+static constexpr const uint32_t vulkan_thread_resource_count { 64u };
+
+struct vulkan_command_buffer {
+	VkCommandBuffer cmd_buffer { nullptr };
+	const char* name { nullptr };
+	uint8_t index { resource_slot_handler<vulkan_thread_resource_count>::invalid_slot_idx };
+	bool is_secondary { false };
+	
+	vulkan_command_buffer() = default;
+	vulkan_command_buffer(vulkan_command_buffer&& other) :
+	cmd_buffer(other.cmd_buffer), name(other.name), index(other.index), is_secondary(other.is_secondary) {
+		other.reset();
+	}
+	vulkan_command_buffer& operator=(vulkan_command_buffer&& other) {
+		assert(cmd_buffer == nullptr &&
+			   index == resource_slot_handler<vulkan_thread_resource_count>::invalid_slot_idx);
+		cmd_buffer = other.cmd_buffer;
+		name = other.name;
+		index = other.index;
+		is_secondary = other.is_secondary;
+		other.reset();
+		return *this;
+	}
+	
+	explicit operator bool() const {
+		return (cmd_buffer != nullptr &&
+				index != resource_slot_handler<vulkan_thread_resource_count>::invalid_slot_idx);
+	}
+	
+protected:
+	friend vulkan_command_buffer_completion_impl;
+	friend vulkan_queue;
+	
+	void reset() {
+		cmd_buffer = nullptr;
+		index = resource_slot_handler<vulkan_thread_resource_count>::invalid_slot_idx;
+	}
+};
 
 class vulkan_queue final : public device_queue {
 public:
@@ -56,9 +90,7 @@ public:
 	
 	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 						  const indirect_execution_parameters_t& params,
-						  kernel_completion_handler_f&& completion_handler,
-						  const uint32_t command_offset,
-						  const uint32_t command_count) const override REQUIRES(!queue_lock);
+						  kernel_completion_handler_f&& completion_handler) const override REQUIRES(!queue_lock);
 	
 	// this is synchronized elsewhere
 	const void* get_queue_ptr() const override NO_THREAD_SAFETY_ANALYSIS {
@@ -101,6 +133,9 @@ public:
 	
 	vulkan_command_buffer make_command_buffer(const char* name = nullptr) const;
 	
+	//! free an unsubmitted command buffer
+	void free_command_buffer(vulkan_command_buffer&& cmd_buffer) const;
+	
 	//! submits the specified "cmd_buffer" to this queue,
 	//! execution will wait until all "wait_fences" requirements are fulfilled,
 	//! "signal_fences" will be signaled once their requirements are fulfilled (the cmd buffer has completed execution up to sync stage),
@@ -118,14 +153,9 @@ public:
 	vulkan_command_buffer make_secondary_command_buffer(const char* name = nullptr) const;
 	
 	//! executes the specified secondary command buffer within the specified primary command buffer
-	//! NOTE: this will automatically hold onto the secondary command buffer until the primary has completed execution
+	//! NOTE: this transfers the ownership + will automatically hold onto the secondary command buffer until the primary has completed execution
 	bool execute_secondary_command_buffer(const vulkan_command_buffer& primary_cmd_buffer,
-										  const vulkan_command_buffer& secondary_cmd_buffer) const;
-	
-	//! attaches buffers to the specified command buffer that will be retained until the command buffer has finished execution
-	//! NOTE: must be called before submit_command_buffer, otherwise this has no effect
-	void add_retained_buffers(const vulkan_command_buffer& cmd_buffer,
-							  const std::vector<std::shared_ptr<device_buffer>>& buffers) const;
+										  vulkan_command_buffer&& secondary_cmd_buffer) const;
 	
 	//! completion handler type for "add_completion_handler"
 	using vulkan_completion_handler_t = std::function<void()>;
@@ -138,7 +168,7 @@ public:
 	void set_debug_label(const std::string& label) override REQUIRES(!queue_lock);
 	
 protected:
-	VkQueue vk_queue GUARDED_BY(queue_lock);
+	VkQueue vk_queue GUARDED_BY(queue_lock) { nullptr };
 	mutable safe_mutex queue_lock;
 	const uint32_t family_index;
 	const uint32_t queue_index;
@@ -180,7 +210,7 @@ protected:
 do { \
 	bool error_signal_ = false; \
 	{ \
-		auto cmd_block_ = vk_queue.make_command_block(name, error_signal_, is_blocking, ##__VA_ARGS__); \
+		auto cmd_block_ = (vk_queue).make_command_block(name, error_signal_, is_blocking, ##__VA_ARGS__); \
 		if (!cmd_block_ || error_signal_) { \
 			return ret; \
 		} \

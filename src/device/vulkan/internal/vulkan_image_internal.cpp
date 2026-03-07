@@ -109,8 +109,9 @@ vulkan_image_internal::vulkan_image_internal(const device_queue& cqueue_,
 											 const IMAGE_TYPE image_type_,
 											 std::span<uint8_t> host_data_,
 											 const MEMORY_FLAG flags_,
-											 const uint32_t mip_level_limit_) :
-vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_limit_) {
+											 const uint32_t mip_level_limit_,
+											 const char* debug_label_) :
+vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_limit_, debug_label_) {
 	const auto is_render_target = has_flag<IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	const auto is_transient = has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(image_type);
 	assert(!is_render_target || has_flag<MEMORY_FLAG::RENDER_TARGET>(flags));
@@ -189,17 +190,25 @@ vulkan_image(cqueue_, image_dim_, image_type_, host_data_, flags_, mip_level_lim
 	if (!create_internal(true, cqueue_, usage)) {
 		return; // can't do much else
 	}
+	
+	if (debug_label_) {
+		vulkan_image::set_debug_label(debug_label);
+	}
 }
 
 vulkan_image_internal::vulkan_image_internal(const device_queue& cqueue_, const external_vulkan_image_info& external_image_,
-											 std::span<uint8_t> host_data_, const MEMORY_FLAG flags_) :
-vulkan_image(cqueue_, external_image_, host_data_, flags_) {
+											 std::span<uint8_t> host_data_, const MEMORY_FLAG flags_, const char* debug_label_) :
+vulkan_image(cqueue_, external_image_, host_data_, flags_, debug_label_) {
 	image_info.sampler = nullptr;
 	image_info.imageView = image_view;
 	image_info.imageLayout = external_image_.layout;
 	vk_format = external_image_.format;
 	if (shim_image_type != image_type) {
 		throw std::runtime_error("shim image type is not supported for external Vulkan images");
+	}
+	
+	if (debug_label_) {
+		vulkan_image::set_debug_label(debug_label);
 	}
 }
 
@@ -680,7 +689,7 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 #endif
 	}
 	
-	return false;
+	return true;
 }
 
 std::pair<bool, VkImageMemoryBarrier2> vulkan_image_internal::transition(const device_queue* cqueue,

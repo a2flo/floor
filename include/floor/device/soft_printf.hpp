@@ -264,8 +264,8 @@ static inline std::shared_ptr<device_buffer> allocate_printf_buffer(const device
 															   MEMORY_FLAG::READ_WRITE |
 															   MEMORY_FLAG::HOST_READ_WRITE |
 															   MEMORY_FLAG::NO_RESOURCE_TRACKING |
-															   MEMORY_FLAG::HEAP_ALLOCATION);
-	printf_buffer->set_debug_label("printf_buffer");
+															   MEMORY_FLAG::HEAP_ALLOCATION,
+															   "printf_buffer");
 	return printf_buffer;
 }
 

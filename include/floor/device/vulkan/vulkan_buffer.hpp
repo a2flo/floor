@@ -35,13 +35,15 @@ public:
 				  const size_t& size_,
 				  std::span<uint8_t> host_data_,
 				  const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													  MEMORY_FLAG::HOST_READ_WRITE));
+											  MEMORY_FLAG::HOST_READ_WRITE),
+				  const char* debug_label_ = nullptr);
 	
 	vulkan_buffer(const device_queue& cqueue,
 				  const size_t& size_,
 				  const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													  MEMORY_FLAG::HOST_READ_WRITE)) :
-	vulkan_buffer(cqueue, size_, {}, flags_) {}
+											  MEMORY_FLAG::HOST_READ_WRITE),
+				  const char* debug_label_ = nullptr) :
+	vulkan_buffer(cqueue, size_, {}, flags_, debug_label_) {}
 	
 	~vulkan_buffer() override;
 	
@@ -64,7 +66,7 @@ public:
 											const MEMORY_MAP_FLAG flags = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK),
 											const size_t size = 0, const size_t offset = 0) override;
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	//! returns the Vulkan specific buffer object/pointer
 	const VkBuffer& get_vulkan_buffer() const { return buffer; }

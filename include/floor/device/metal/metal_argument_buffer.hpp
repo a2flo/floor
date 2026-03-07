@@ -33,8 +33,10 @@ namespace fl {
 
 class metal_argument_buffer : public argument_buffer, public metal_resource_tracking {
 public:
-	metal_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer, aligned_ptr<uint8_t>&& storage_buffer_backing,
-						  id <MTLArgumentEncoder> encoder, const toolchain::function_info& arg_info, std::vector<uint32_t>&& arg_indices);
+	metal_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer,
+						  aligned_ptr<uint8_t>&& storage_buffer_backing, id <MTLArgumentEncoder> encoder,
+						  const toolchain::function_info& arg_info, std::vector<uint32_t>&& arg_indices,
+						  const char* debug_label_ = nullptr);
 	~metal_argument_buffer() override;
 	
 	bool set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) override;

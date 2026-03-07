@@ -50,7 +50,6 @@ indirect_command_pipeline(desc_) {
 		valid = false;
 		return;
 	}
-	[[maybe_unused]] bool tessellation_support = true;
 	for (const auto& dev : devices) {
 		if (!dev->argument_buffer_support) {
 			log_error("specified device \"$\" has no support for argument buffers in indirect command pipeline \"$\"",
@@ -59,9 +58,6 @@ indirect_command_pipeline(desc_) {
 			return;
 		}
 		assert(dev->indirect_render_command_support);
-		if (!dev->tessellation_support) {
-			tessellation_support = false;
-		}
 	}
 	// NOTE: we don't have a technical limit for this in Vulkan -> keep it at the same limit as Metal for consistency
 	if (!desc.ignore_max_max_command_count_limit && desc.max_command_count > 16384u) {
@@ -154,10 +150,8 @@ indirect_command_pipeline(desc_) {
 													MEMORY_FLAG::READ |
 													MEMORY_FLAG::HOST_READ_WRITE |
 													MEMORY_FLAG::VULKAN_HOST_COHERENT |
-													MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER);
-#if defined(FLOOR_DEBUG)
-		entry.cmd_parameters->set_debug_label("icp_cmd_params_buf");
-#endif
+													MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER,
+													"icp_cmd_params_buf");
 		// note that this doesn't have any direct dependency on the queue (type) itself (-> will work for both ALL and COMPUTE queues later on)
 		entry.mapped_cmd_parameters = entry.cmd_parameters->map(*default_queue, (MEMORY_MAP_FLAG::WRITE |
 																				 MEMORY_MAP_FLAG::BLOCK));
@@ -174,7 +168,7 @@ vulkan_indirect_command_pipeline::~vulkan_indirect_command_pipeline() {
 	for (auto&& pipeline : pipelines) {
 		if (pipeline.second.cmd_parameters && pipeline.second.cmd_parameters->is_heap_allocated()) {
 			auto dev_queue = pipeline.first->context->get_device_default_queue(*pipeline.first);
-			pipeline.second.cmd_parameters->unmap(*dev_queue, pipeline.second.mapped_cmd_parameters);
+			pipeline.second.cmd_parameters->unmap(*dev_queue, pipeline.second.mapped_cmd_parameters, true /* discard */);
 		}
 	}
 }
@@ -273,52 +267,6 @@ void vulkan_indirect_command_pipeline::reset() {
 	indirect_command_pipeline::reset();
 }
 
-std::optional<vulkan_indirect_command_pipeline::command_range_t>
-vulkan_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
-																	 const uint32_t command_count) const {
-	command_range_t range { command_offset, command_count };
-	if (command_count == ~0u) {
-		range.count = get_command_count();
-	}
-#if defined(FLOOR_DEBUG)
-	{
-		const auto cmd_count = get_command_count();
-		if (command_offset != 0 || range.count != cmd_count) {
-			static std::once_flag flag;
-			std::call_once(flag, [] {
-				// see below
-				log_warn("efficient resource usage declarations when using partial command ranges is not implemented yet");
-			});
-		}
-		if (cmd_count == 0) {
-			log_warn("no commands in indirect command pipeline \"$\"", desc.debug_label);
-		}
-		if (range.offset >= cmd_count) {
-			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
-					  range.offset, desc.debug_label);
-			return {};
-		}
-		uint32_t sum = 0;
-		if (__builtin_uadd_overflow((uint32_t)range.offset, (uint32_t)range.count, &sum)) {
-			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
-					  range.offset, range.count, desc.debug_label);
-			return {};
-		}
-		if (sum > cmd_count) {
-			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
-					  range.count, desc.debug_label);
-			return {};
-		}
-	}
-#endif
-	// post count check, since this might have been modified, but we still want the debug messages
-	if (range.count == 0) {
-		return {};
-	}
-	
-	return range;
-}
-
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry::vulkan_pipeline_entry(vulkan_pipeline_entry&& entry) :
 vk_dev(entry.vk_dev), per_queue_data(std::move(entry.per_queue_data)),
 cmd_parameters(entry.cmd_parameters), mapped_cmd_parameters(entry.mapped_cmd_parameters), per_cmd_size(entry.per_cmd_size), printf_buffer(entry.printf_buffer) {
@@ -359,7 +307,8 @@ void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_init(const 
 	initialize_printf_buffer(dev_queue, *printf_buffer);
 }
 
-void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(const device_queue& dev_queue, vulkan_command_buffer cmd_buffer) const {
+void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(const device_queue& dev_queue,
+																				vulkan_command_buffer& cmd_buffer) const {
 	auto internal_dev_queue = ((const vulkan_context&)dev_queue.get_context()).get_device_default_queue(dev_queue.get_device());
 	((const vulkan_queue&)dev_queue).add_completion_handler(cmd_buffer, [this, internal_dev_queue]() {
 		auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
@@ -726,7 +675,7 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_pa
 																					  const uint32_t first_patch [[maybe_unused]],
 																					  const uint32_t instance_count [[maybe_unused]],
 																					  const uint32_t first_instance [[maybe_unused]]) {
-	throw std::runtime_error("tessellation not implemented in Vulkan yet");
+	throw std::runtime_error("tessellation not implemented in Vulkan");
 }
 
 indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_patches_indexed(const std::vector<const device_buffer*> control_point_buffers [[maybe_unused]],
@@ -738,7 +687,7 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_pa
 																							  const uint32_t first_patch [[maybe_unused]],
 																							  const uint32_t instance_count [[maybe_unused]],
 																							  const uint32_t first_instance [[maybe_unused]]) {
-	throw std::runtime_error("tessellation not implemented in Vulkan yet");
+	throw std::runtime_error("tessellation not implemented in Vulkan");
 }
 
 vulkan_indirect_compute_command_encoder::vulkan_indirect_compute_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,

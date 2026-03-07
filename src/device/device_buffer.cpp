@@ -24,6 +24,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 #include <floor/device/metal/metal_buffer.hpp>
+#include <floor/device/metal/metal4_buffer.hpp>
 #endif
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/device/vulkan/vulkan_buffer.hpp>
@@ -32,11 +33,12 @@
 namespace fl {
 
 device_buffer::device_buffer(const device_queue& cqueue,
-							   const size_t& size_,
-							   std::span<uint8_t> host_data_,
-							   const MEMORY_FLAG flags_,
-							   device_buffer* shared_buffer_) :
-device_memory(cqueue, host_data_, flags_), size(align_size(size_)), shared_buffer(shared_buffer_) {
+							 const size_t& size_,
+							 std::span<uint8_t> host_data_,
+							 const MEMORY_FLAG flags_,
+							 device_buffer* shared_buffer_,
+							 const char* debug_label_) :
+device_memory(cqueue, host_data_, flags_, debug_label_), size(align_size(size_)), shared_buffer(shared_buffer_) {
 	if (size == 0) {
 		throw std::runtime_error("can't allocate a buffer of size 0!");
 	}
@@ -64,7 +66,8 @@ device_memory(cqueue, host_data_, flags_), size(align_size(size_)), shared_buffe
 }
 
 std::shared_ptr<device_buffer> device_buffer::clone(const device_queue& cqueue, const bool copy_contents,
-												 const MEMORY_FLAG flags_override) {
+													const MEMORY_FLAG flags_override,
+													const char* clone_debug_label) {
 	if (dev.context == nullptr) {
 		log_error("invalid buffer/device state");
 		return {};
@@ -76,9 +79,9 @@ std::shared_ptr<device_buffer> device_buffer::clone(const device_queue& cqueue, 
 		// never copy host data on the newly created buffer
 		clone_flags |= MEMORY_FLAG::NO_INITIAL_COPY;
 		assert(size == host_data.size_bytes());
-		ret = dev.context->create_buffer(cqueue, host_data, clone_flags);
+		ret = dev.context->create_buffer(cqueue, host_data, clone_flags, clone_debug_label);
 	} else {
-		ret = dev.context->create_buffer(cqueue, size, clone_flags);
+		ret = dev.context->create_buffer(cqueue, size, clone_flags, clone_debug_label);
 	}
 	if (ret && copy_contents) {
 		ret->copy(cqueue, *this);
@@ -107,6 +110,29 @@ const metal_buffer* device_buffer::get_underlying_metal_buffer_safe() const {
 		return ret;
 	}
 	return (const metal_buffer*)this;
+}
+
+const metal4_buffer* device_buffer::get_underlying_metal4_buffer_safe() const {
+	if (has_flag<MEMORY_FLAG::METAL_SHARING>(flags)) {
+		const metal4_buffer* ret = get_shared_metal4_buffer();
+		if (ret) {
+			if (has_flag<MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_buffer(nullptr, nullptr);
+			} else if (has_flag<MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_buffer(nullptr, nullptr);
+			}
+		} else {
+			ret = (const metal4_buffer*)this;
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_buffer = dynamic_cast<const metal4_buffer*>(ret); !test_cast_mtl_buffer) {
+			throw std::runtime_error("specified buffer is neither a Metal buffer nor a shared Metal buffer");
+		}
+#endif
+		return ret;
+	}
+	return (const metal4_buffer*)this;
 }
 
 const vulkan_buffer* device_buffer::get_underlying_vulkan_buffer_safe() const {

@@ -41,8 +41,9 @@ namespace fl {
 vulkan_buffer::vulkan_buffer(const device_queue& cqueue,
 							 const size_t& size_,
 							 std::span<uint8_t> host_data_,
-							 const MEMORY_FLAG flags_) :
-device_buffer(cqueue, size_, host_data_, flags_),
+							 const MEMORY_FLAG flags_,
+							 const char* debug_label_) :
+device_buffer(cqueue, size_, host_data_, flags_, nullptr, debug_label_),
 vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	if (size < min_multiple()) return;
 	
@@ -62,6 +63,10 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &buffer, flags) {
 	// actually create the buffer
 	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
+	}
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
 	}
 }
 
@@ -456,8 +461,8 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(const device_queue& cqueu
 	return vulkan_memory::map(cqueue, flags_, map_size, offset);
 }
 
-bool vulkan_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	return vulkan_memory::unmap(cqueue, mapped_ptr);
+bool vulkan_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
+	return vulkan_memory::unmap(cqueue, mapped_ptr, discard);
 }
 
 void vulkan_buffer::set_debug_label(const std::string& label) {

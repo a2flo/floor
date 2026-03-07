@@ -248,20 +248,14 @@ public:
 	};
 	
 	//! executes the compute commands from an indirect command pipeline, additionally using the specified execution parameters,
-	//! calling the specified "completion_handler" on indirect command completion,
-	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
+	//! calling the specified "completion_handler" on indirect command completion
 	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
 								  const indirect_execution_parameters_t& params,
-								  kernel_completion_handler_f&& completion_handler = {},
-								  const uint32_t command_offset = 0u,
-								  const uint32_t command_count = ~0u) const;
+								  kernel_completion_handler_f&& completion_handler = {}) const;
 	
 	//! executes the compute commands from an indirect command pipeline
-	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
-	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) const {
-		return execute_indirect(indirect_cmd, {}, {}, command_offset, command_count);
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd) const {
+		return execute_indirect(indirect_cmd, {}, {});
 	}
 	
 	//! returns the device associated with this queue
@@ -287,12 +281,15 @@ public:
 	}
 	
 	//! sets the debug label of this device queue
-	virtual void set_debug_label(const std::string& label [[maybe_unused]]) {}
+	virtual void set_debug_label(const std::string& label);
+	//! returns the current debug label
+	virtual const std::string& get_debug_label() const;
 	
 protected:
 	const device& dev;
 	mutable uint64_t us_prof_start { 0 };
 	const QUEUE_TYPE queue_type { QUEUE_TYPE::ALL };
+	std::string debug_label;
 	
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(const device_function& kernel,

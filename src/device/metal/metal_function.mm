@@ -47,8 +47,8 @@ struct metal_encoder {
 };
 
 static std::unique_ptr<metal_encoder> create_encoder(const device_queue& cqueue,
-												const metal_function::metal_function_entry& entry,
-												const char* debug_label) {
+													 const metal_function::metal_function_entry& entry,
+													 const char* debug_label) {
 	id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
 	id <MTLComputeCommandEncoder> encoder = [cmd_buffer computeCommandEncoderWithDispatchType:MTLDispatchTypeConcurrent];
 	auto ret = std::make_unique<metal_encoder>(cmd_buffer, encoder);
@@ -64,9 +64,9 @@ device_function(function_name_), functions(std::move(functions_)) {
 }
 
 std::pair<uint3, uint3> metal_function::compute_grid_and_block_dim(const function_entry& entry,
-															const uint32_t& dim,
-															const uint3& global_work_size,
-															const uint3& local_work_size) const {
+																   const uint32_t& dim,
+																   const uint3& global_work_size,
+																   const uint3& local_work_size) const {
 	// check work size (NOTE: will set elements to at least 1)
 	const auto block_dim = check_local_work_size(entry, local_work_size);
 	const uint3 grid_dim_overflow {
@@ -80,16 +80,16 @@ std::pair<uint3, uint3> metal_function::compute_grid_and_block_dim(const functio
 }
 
 void metal_function::execute(const device_queue& cqueue,
-						   const bool& is_cooperative,
-						   const bool& wait_until_completion,
-						   const uint32_t& dim,
-						   const uint3& global_work_size,
-						   const uint3& local_work_size,
-						   const std::vector<device_function_arg>& args,
-						   const std::vector<const device_fence*>& wait_fences,
-						   const std::vector<device_fence*>& signal_fences,
-						   const char* debug_label,
-						   kernel_completion_handler_f&& completion_handler) const {
+							 const bool& is_cooperative,
+							 const bool& wait_until_completion,
+							 const uint32_t& dim,
+							 const uint3& global_work_size,
+							 const uint3& local_work_size,
+							 const std::vector<device_function_arg>& args,
+							 const std::vector<const device_fence*>& wait_fences,
+							 const std::vector<device_fence*>& signal_fences,
+							 const char* debug_label,
+							 kernel_completion_handler_f&& completion_handler) const {
 	const auto dev = (const metal_device*)&cqueue.get_device();
 	const auto ctx = (const metal_context*)dev->context;
 	
@@ -126,18 +126,16 @@ void metal_function::execute(const device_queue& cqueue,
 			}
 		}
 		
-		if (!dev->heap_residency_set) {
-			if (dev->heap_shared) {
-				[encoder->encoder useHeap:dev->heap_shared];
-			}
-			if (dev->heap_private) {
-				[encoder->encoder useHeap:dev->heap_private];
-			}
-		}
-		
 		// set and handle function arguments
 		const function_entry& entry = function_iter->second;
-		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info }, args, implicit_args);
+		if (!metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::COMPUTE>(*dev, encoder->encoder, { entry.info },
+																					 args, implicit_args)) {
+			log_error("failed to encode kernel arguments in \"$\"", entry.info->name);
+			if (printf_buffer_rsrc.first) {
+				ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+			}
+			return;
+		}
 		
 		// compute sizes
 		auto [grid_dim, block_dim] = compute_grid_and_block_dim(function_iter->second, dim, global_work_size, local_work_size);
@@ -149,7 +147,6 @@ void metal_function::execute(const device_queue& cqueue,
 		for (const auto& fence : signal_fences) {
 			[encoder->encoder updateFence:((const metal_fence*)fence)->get_metal_fence()];
 		}
-		[encoder->encoder endEncoding];
 		
 		// if soft-printf is being used, block/wait for completion here and read-back results
 		if (toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(function_iter->second.info->flags)) {
@@ -169,6 +166,7 @@ void metal_function::execute(const device_queue& cqueue,
 			}];
 		}
 		
+		[encoder->encoder endEncoding];
 		[encoder->cmd_buffer commit];
 		
 		if (wait_until_completion) {
@@ -200,7 +198,8 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 																				 const uint32_t& user_arg_index,
 																				 const uint32_t& ll_arg_index,
 																				 const MEMORY_FLAG& add_mem_flags,
-																				 const bool zero_init) const {
+																				 const bool zero_init,
+																				 const char* debug_label) const {
 	@autoreleasepool {
 		const auto& dev = cqueue.get_device();
 		const auto& mtl_entry = (const metal_function_entry&)entry;
@@ -270,12 +269,13 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 		// NOTE: the buffer has to be allocated in managed mode (dedicated GPU) or shared mode (integrated GPU) -> set appropriate flags
 		std::shared_ptr<device_buffer> buf;
 		aligned_ptr<uint8_t> storage_buffer_backing;
+		const std::string buf_debug_label = (debug_label ? debug_label : entry.info->name + "_arg_buffer");
 		if (dev.unified_memory) {
 			buf = dev.context->create_buffer(cqueue, arg_buffer_size_page,
 											 MEMORY_FLAG::READ |
 											 MEMORY_FLAG::HOST_WRITE |
 											 MEMORY_FLAG::HEAP_ALLOCATION |
-											 add_mem_flags);
+											 add_mem_flags, buf_debug_label.c_str());
 			if (zero_init) {
 				buf->zero(cqueue);
 			}
@@ -286,14 +286,14 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 											 MEMORY_FLAG::READ |
 											 MEMORY_FLAG::HOST_WRITE |
 											 MEMORY_FLAG::USE_HOST_MEMORY |
-											 add_mem_flags);
+											 add_mem_flags, buf_debug_label.c_str());
 			if (zero_init && buf->is_heap_allocated()) {
 				// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
 				buf->zero(cqueue);
 			}
 		}
-		buf->set_debug_label(entry.info->name + "_arg_buffer");
-		return std::make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder, *arg_info, std::move(arg_indices));
+		return std::make_unique<metal_argument_buffer>(*this, buf, std::move(storage_buffer_backing), arg_encoder,
+													   *arg_info, std::move(arg_indices), buf_debug_label.c_str());
 	}
 }
 

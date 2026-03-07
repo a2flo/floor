@@ -39,14 +39,16 @@ public:
 				 const size_t& size_,
 				 std::span<uint8_t> host_data_,
 				 const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													 MEMORY_FLAG::HOST_READ_WRITE)) :
-	metal_buffer(false, cqueue, size_, host_data_, flags_) {}
+											 MEMORY_FLAG::HOST_READ_WRITE),
+				 const char* floor_nullable debug_label_ = nullptr) :
+	metal_buffer(false, cqueue, size_, host_data_, flags_, debug_label_) {}
 	
 	metal_buffer(const device_queue& cqueue,
 				 const size_t& size_,
 				 const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													 MEMORY_FLAG::HOST_READ_WRITE)) :
-	metal_buffer(false, cqueue, size_, {}, flags_) {}
+											 MEMORY_FLAG::HOST_READ_WRITE),
+				 const char* floor_nullable debug_label_ = nullptr) :
+	metal_buffer(false, cqueue, size_, {}, flags_, debug_label_) {}
 	
 #if defined(__OBJC__)
 	//! wraps an already existing Metal buffer, with the specified flags and backed by the specified host pointer
@@ -54,7 +56,8 @@ public:
 				 id <MTLBuffer> floor_nonnull external_buffer,
 				 std::span<uint8_t> host_data_ = {},
 				 const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													 MEMORY_FLAG::HOST_READ_WRITE));
+											 MEMORY_FLAG::HOST_READ_WRITE),
+				 const char* floor_nullable debug_label_ = nullptr);
 #endif
 	
 	~metal_buffer() override;
@@ -79,7 +82,7 @@ public:
 														   const size_t size = 0,
 														   const size_t offset = 0) override;
 	
-	bool unmap(const device_queue& cqueue, void* floor_nonnull __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* floor_nonnull __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	void set_debug_label(const std::string& label) override;
 	
@@ -116,7 +119,8 @@ public:
 				 const device_queue& cqueue,
 				 const size_t& size_,
 				 std::span<uint8_t> host_data_,
-				 const MEMORY_FLAG flags_);
+				 const MEMORY_FLAG flags_,
+				 const char* floor_nullable debug_label_);
 	
 protected:
 #if defined(__OBJC__)

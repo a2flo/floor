@@ -27,8 +27,8 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class vulkan_buffer;
 class metal_buffer;
+class metal4_buffer;
 class vulkan_queue;
-class metal_queue;
 
 class device_buffer : public device_memory {
 public:
@@ -80,7 +80,8 @@ public:
 	
 	//! clones this buffer, optionally copying its contents as well
 	virtual std::shared_ptr<device_buffer> clone(const device_queue& cqueue, const bool copy_contents = false,
-											 const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE);
+												 const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
+												 const char* debug_label = nullptr);
 	
 	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes),
 	//! returns true on success
@@ -107,10 +108,11 @@ public:
 		return (std::array<data_type, n>*)map(cqueue, flags_, size_, offset_);
 	}
 	
-	//! unmaps a previously mapped memory pointer, returns true on success
+	//! unmaps a previously mapped memory pointer, returns true on success,
+	//! if "discard" is true, the memory will only be unmapped, but no memory will be copied to the device if it would otherwise be required
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) = 0;
 	
 	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }
@@ -119,26 +121,30 @@ public:
 	const metal_buffer* get_shared_metal_buffer() const {
 		return shared_mtl_buffer;
 	}
+	const metal4_buffer* get_shared_metal4_buffer() const {
+		return shared_mtl4_buffer;
+	}
 	
 	//! acquires the associated Metal buffer for use with compute (-> release from Metal use)
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool acquire_metal_buffer(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool acquire_metal_buffer(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Metal buffer from use with compute (-> acquire for Metal use)
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool release_metal_buffer(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool release_metal_buffer(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this buffer with the shared Metal buffer
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool sync_metal_buffer(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool sync_metal_buffer(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Metal buffer that should be used on the device (i.e. this or a shared buffer)
 	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const metal_buffer* get_underlying_metal_buffer_safe() const;
+	const metal4_buffer* get_underlying_metal4_buffer_safe() const;
 	
 	//! returns the internal shared Vulkan buffer if there is one, returns nullptr otherwise
 	const vulkan_buffer* get_shared_vulkan_buffer() const {
@@ -180,27 +186,27 @@ public:
 protected:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	device_buffer(const device_queue& cqueue,
-				   const size_t& size_,
-				   std::span<uint8_t> host_data_,
-				   const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													   MEMORY_FLAG::HOST_READ_WRITE),
-				   device_buffer* shared_buffer_ = nullptr);
+				  const size_t& size_,
+				  std::span<uint8_t> host_data_,
+				  const MEMORY_FLAG flags_,
+				  device_buffer* shared_buffer_,
+				  const char* debug_label_);
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	device_buffer(const device_queue& cqueue,
-				   std::span<uint8_t> host_data_,
-				   const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													   MEMORY_FLAG::HOST_READ_WRITE),
-				   device_buffer* shared_buffer_ = nullptr) :
-	device_buffer(cqueue, host_data_.size_bytes(), host_data_, flags_, shared_buffer_) {}
+				  std::span<uint8_t> host_data_,
+				  const MEMORY_FLAG flags_,
+				  device_buffer* shared_buffer_,
+				  const char* debug_label_) :
+	device_buffer(cqueue, host_data_.size_bytes(), host_data_, flags_, shared_buffer_, debug_label_) {}
 	
 	//! constructs an uninitialized buffer of the specified size
 	device_buffer(const device_queue& cqueue,
-				   const size_t& size_,
-				   const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													   MEMORY_FLAG::HOST_READ_WRITE),
-				   device_buffer* shared_buffer_ = nullptr) :
-	device_buffer(cqueue, size_, {}, flags_, shared_buffer_) {}
+				  const size_t& size_,
+				  const MEMORY_FLAG flags_,
+				  device_buffer* shared_buffer_,
+				  const char* debug_label_) :
+	device_buffer(cqueue, size_, {}, flags_, shared_buffer_, debug_label_) {}
 	
 	size_t size { 0u };
 	
@@ -211,6 +217,7 @@ protected:
 		vulkan_buffer* shared_vk_buffer;
 		// shared Metal buffer object when Metal sharing is used
 		metal_buffer* shared_mtl_buffer;
+		metal4_buffer* shared_mtl4_buffer;
 	};
 	
 	// buffer size/offset checking (used for debugging/development purposes)

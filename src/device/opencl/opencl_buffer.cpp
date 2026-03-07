@@ -32,8 +32,9 @@ namespace fl {
 opencl_buffer::opencl_buffer(const device_queue& cqueue,
 							 const size_t& size_,
 							 std::span<uint8_t> host_data_,
-							 const MEMORY_FLAG flags_) :
-device_buffer(cqueue, size_, host_data_, flags_) {
+							 const MEMORY_FLAG flags_,
+							 const char* debug_label_) :
+device_buffer(cqueue, size_, host_data_, flags_, nullptr, debug_label_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & MEMORY_FLAG::READ_WRITE) {
@@ -210,7 +211,7 @@ void* __attribute__((aligned(128))) opencl_buffer::map(const device_queue& cqueu
 	return ret_ptr;
 }
 
-bool opencl_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+bool opencl_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, [[maybe_unused]] const bool discard) {
 	if(buffer == nullptr) return false;
 	if(mapped_ptr == nullptr) return false;
 	

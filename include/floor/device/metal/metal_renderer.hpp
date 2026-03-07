@@ -64,9 +64,7 @@ public:
 	bool set_attachments(std::vector<attachment_t>& attachments) override;
 	bool set_attachment(const uint32_t& index, attachment_t& attachment) override;
 	
-	void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-						  const uint32_t command_offset = 0u,
-						  const uint32_t command_count = ~0u) override;
+	void execute_indirect(const indirect_command_pipeline& indirect_cmd) override;
 	
 	bool set_tessellation_factors(const device_buffer& tess_factors_buffer) override;
 	
@@ -82,8 +80,8 @@ protected:
 	id <MTLRenderCommandEncoder> encoder;
 	std::unique_ptr<metal_drawable_t> cur_drawable;
 	
-	void draw_internal(const std::vector<multi_draw_entry>* draw_entries,
-					   const std::vector<multi_draw_indexed_entry>* draw_indexed_entries,
+	void draw_internal(const std::span<const multi_draw_entry> draw_entries,
+					   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 					   const std::vector<device_function_arg>& args) override;
 	
 	void draw_patches_internal(const patch_draw_entry* draw_entry,

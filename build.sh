@@ -691,7 +691,7 @@ fi
 # flags
 
 # set up initial C++ and C flags
-CXXFLAGS="${CXXFLAGS} -std=gnu++23"
+CXXFLAGS="${CXXFLAGS} -std=gnu++26"
 if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
 else
@@ -710,10 +710,12 @@ if [ $BUILD_OS == "mingw" ]; then
 fi
 
 # arch handling (use -arch on macOS/iOS and -m64 everywhere else, except for mingw)
+BUILD_IS_ARM=0
 if [ $BUILD_OS == "macos" -o $BUILD_OS == "ios" ]; then
 	case $BUILD_ARCH in
 		"arm"*)
 			COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
+			BUILD_IS_ARM=1
 			;;
 		*)
 			COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
@@ -730,6 +732,10 @@ COMMON_FLAGS="${COMMON_FLAGS} -ffast-math -fstrict-aliasing"
 # set flags when building for the native/host cpu
 if [ $BUILD_CONF_NATIVE -gt 0 ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -march=native -mtune=native"
+else
+	if [ $BUILD_IS_ARM -eq 0 ]; then
+		COMMON_FLAGS="${COMMON_FLAGS} -march=corei7-avx -mf16c"
+	fi
 fi
 
 # debug flags, only used in the debug target
@@ -787,13 +793,14 @@ COMMON_FLAGS="${COMMON_FLAGS} -DFLOOR_EXPORT=1"
 WARNINGS="-Weverything ${WARNINGS}"
 # in case we're using warning options that aren't supported by other clang versions
 WARNINGS="${WARNINGS} -Wno-unknown-warning-option"
-# remove std compat warnings (C++23 with gnu and clang extensions is required)
+# remove std compat warnings (C++26 with GNU and clang extensions is required)
 WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++11-compat -Wno-c++11-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
 WARNINGS="${WARNINGS} -Wno-c++17-compat -Wno-c++17-compat-pedantic -Wno-c++17-extensions"
 WARNINGS="${WARNINGS} -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions"
 WARNINGS="${WARNINGS} -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions"
+WARNINGS="${WARNINGS} -Wno-c++26-compat -Wno-c++26-compat-pedantic -Wno-c++26-extensions"
 WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions"
 WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
 WARNINGS="${WARNINGS} -Wno-nullability-extension"

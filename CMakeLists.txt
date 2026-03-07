@@ -1,5 +1,5 @@
 # CMake project for libfloor
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.30)
 # NOTE: "lib" prefix is automatically added by CMake when not targeting VS/CMake
 # also: can't use "if (MSVC)" before project(...), so use VCPKG_TARGET_TRIPLET instead
 if (VCPKG_TARGET_TRIPLET)
@@ -14,14 +14,9 @@ option(BUILD_REPRODUCIBLE "perform a reproducible build" OFF)
 option(WITH_ASAN "build with address sanitizer" OFF)
 option(WITH_TSAN "build with thread sanitizer" OFF)
 option(WITH_LIBCXX "build with libc++" OFF)
-option(WITH_CXX26 OFF)
 
 ## set wanted C++ standard + always enable GNU/MSVC extensions
-if (WITH_CXX26)
-	set(CMAKE_CXX_STANDARD 26)
-else ()
-	set(CMAKE_CXX_STANDARD 23)
-endif (WITH_CXX26)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
@@ -80,6 +75,7 @@ add_library(${PROJECT_NAME}
 	include/floor/core/platform.hpp
 	include/floor/core/serializer_storage.hpp
 	include/floor/core/serializer.hpp
+	include/floor/core/small_ring_buffer.hpp
 	include/floor/core/sig_handler.hpp
 	include/floor/core/timer.hpp
 	include/floor/core/unicode.hpp
@@ -156,6 +152,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/device_program.hpp
 	include/floor/device/device_queue.hpp
 	include/floor/device/device.hpp
+	include/floor/device/generic_indirect_command.hpp
 	include/floor/device/graphics_index_type.hpp
 	include/floor/device/graphics_pass.hpp
 	include/floor/device/graphics_pipeline.hpp
@@ -191,6 +188,21 @@ add_library(${PROJECT_NAME}
 	include/floor/device/metal/metal_renderer.hpp
 	include/floor/device/metal/metal_resource_tracking.hpp
 	include/floor/device/metal/metal_shader.hpp
+	include/floor/device/metal/metal4_args.hpp
+	include/floor/device/metal/metal4_argument_buffer.hpp
+	include/floor/device/metal/metal4_buffer.hpp
+	include/floor/device/metal/metal4_function_entry.hpp
+	include/floor/device/metal/metal4_function.hpp
+	include/floor/device/metal/metal4_image.hpp
+	include/floor/device/metal/metal4_indirect_command.hpp
+	include/floor/device/metal/metal4_pass.hpp
+	include/floor/device/metal/metal4_pipeline.hpp
+	include/floor/device/metal/metal4_program.hpp
+	include/floor/device/metal/metal4_queue.hpp
+	include/floor/device/metal/metal4_renderer.hpp
+	include/floor/device/metal/metal4_resource_tracking.hpp
+	include/floor/device/metal/metal4_shader.hpp
+	include/floor/device/metal/metal4_soft_indirect_command.hpp
 	include/floor/device/opencl/opencl_buffer.hpp
 	include/floor/device/opencl/opencl_common.hpp
 	include/floor/device/opencl/opencl_context.hpp
@@ -203,6 +215,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/spirv_handler.hpp
 	include/floor/device/toolchain.hpp
 	include/floor/device/universal_binary.hpp
+	include/floor/device/utility.hpp
 	include/floor/device/validation.hpp
 	include/floor/device/vulkan/vulkan_argument_buffer.hpp
 	include/floor/device/vulkan/vulkan_buffer.hpp
@@ -242,6 +255,7 @@ add_library(${PROJECT_NAME}
 	include/floor/threading/atomic_shared_ptr.hpp
 	include/floor/threading/atomic_spin_lock.hpp
 	include/floor/threading/atomics.hpp
+	include/floor/threading/resource_slot_handler.hpp
 	include/floor/threading/safe_resource_container.hpp
 	include/floor/threading/task.hpp
 	include/floor/threading/thread_base.hpp
@@ -281,6 +295,7 @@ add_library(${PROJECT_NAME}
 	src/device/device_program.cpp
 	src/device/device_queue.cpp
 	src/device/device.cpp
+	src/device/generic_indirect_command.cpp
 	src/device/graphics_pass.cpp
 	src/device/graphics_pipeline.cpp
 	src/device/graphics_renderer.cpp
@@ -310,6 +325,19 @@ add_library(${PROJECT_NAME}
 	src/device/metal/metal_queue.mm
 	src/device/metal/metal_renderer.mm
 	src/device/metal/metal_shader.mm
+	src/device/metal/metal4_argument_buffer.mm
+	src/device/metal/metal4_buffer.mm
+	src/device/metal/metal4_function_entry.mm
+	src/device/metal/metal4_function.mm
+	src/device/metal/metal4_image.mm
+	src/device/metal/metal4_indirect_command.mm
+	src/device/metal/metal4_pass.mm
+	src/device/metal/metal4_pipeline.mm
+	src/device/metal/metal4_program.mm
+	src/device/metal/metal4_queue.mm
+	src/device/metal/metal4_renderer.mm
+	src/device/metal/metal4_shader.mm
+	src/device/metal/metal4_soft_indirect_command.mm
 	src/device/opencl/opencl_buffer.cpp
 	src/device/opencl/opencl_context.cpp
 	src/device/opencl/opencl_device.cpp

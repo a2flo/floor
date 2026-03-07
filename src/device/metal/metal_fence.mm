@@ -25,7 +25,11 @@
 
 namespace fl {
 
-metal_fence::metal_fence(id <MTLFence> mtl_fence_) : device_fence(), mtl_fence(mtl_fence_) {
+metal_fence::metal_fence(id <MTLFence> mtl_fence_, const char* debug_label_) :
+device_fence(debug_label_), mtl_fence(mtl_fence_) {
+	if (debug_label_) {
+		set_debug_label(debug_label);
+	}
 }
 
 metal_fence::~metal_fence() {

@@ -96,7 +96,7 @@ void metal_shader::set_shader_arguments(const device_queue& cqueue,
 }
 
 void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
-						const std::vector<graphics_renderer::multi_draw_entry>& draw_entries) const {
+						const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const {
 	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(primitive);
 	for (const auto& entry : draw_entries) {
 		[encoder drawPrimitives:mtl_primitve
@@ -108,7 +108,7 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& p
 }
 
 void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
-						const std::vector<graphics_renderer::multi_draw_indexed_entry>& draw_indexed_entries) const {
+						const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const {
 	@autoreleasepool {
 		const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(primitive);
 		for (const auto& entry : draw_indexed_entries) {

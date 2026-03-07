@@ -27,9 +27,9 @@
 // <major>.<minor>.<revision><dev_stage>-<build>
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 5
-#define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xa4
-#define FLOOR_DEV_STAGE_VERSION_STR "a4"
+#define FLOOR_REVISION_VERSION 1
+#define FLOOR_DEV_STAGE_VERSION 0xa1
+#define FLOOR_DEV_STAGE_VERSION_STR "a1"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -94,9 +94,9 @@
 // msvc check
 #if defined(_MSC_VER)
 #if !defined(__clang__)
-#error "Sorry, you need clang/LLVM and VS2022 to compile floor (http://llvm.org/builds/)"
+#error "Sorry, you need clang/LLVM and VS2022+ to compile floor (http://llvm.org/builds/)"
 #elif (_MSC_VER < 1930)
-#error "Sorry, but you need VS2022 to compile floor"
+#error "Sorry, but you need VS2022+ to compile floor"
 #endif
 
 // clang check

@@ -241,14 +241,18 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 #endif
 	for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
 		// allocate in device-local/host-coherent memory
+#if defined(FLOOR_DEBUG)
+		const std::string constants_debug_label = const_buffer_label_stem + std::to_string(buf_idx);
+#endif
 		entry.constant_buffers_storage[buf_idx] = ctx.create_buffer(*dev_queue, constant_buffer_size,
 																	MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
 																	MEMORY_FLAG::VULKAN_HOST_COHERENT |
 																	MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
-																	MEMORY_FLAG::HEAP_ALLOCATION);
+																	MEMORY_FLAG::HEAP_ALLOCATION
 #if defined(FLOOR_DEBUG)
-		entry.constant_buffers_storage[buf_idx]->set_debug_label(const_buffer_label_stem + std::to_string(buf_idx));
+																	, constants_debug_label.c_str()
 #endif
+																	);
 		entry.constant_buffer_mappings[buf_idx] = entry.constant_buffers_storage[buf_idx]->map(*dev_queue,
 																							   MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 																							   MEMORY_MAP_FLAG::BLOCK);
@@ -298,6 +302,7 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 		std::array<vulkan_descriptor_buffer_container::resource_type, vulkan_descriptor_buffer_container::descriptor_count> desc_buffers;
 		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
 			// alloc with Vulkan flags: need host-visible/host-coherent and descriptor buffer usage flags
+			const std::string desc_buffer_debug_label = "desc_buf:" + func_name + "#" + std::to_string(buf_idx);
 			desc_buffers[buf_idx].first = vk_ctx.create_buffer(*dev_queue, entry.desc_buffer.layout_size_in_bytes,
 															   // NOTE: read-only on the device side (until writable argument buffers are implemented)
 															   MEMORY_FLAG::READ |
@@ -305,8 +310,8 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 															   MEMORY_FLAG::VULKAN_HOST_COHERENT |
 															   MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
 															   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
-															   MEMORY_FLAG::HEAP_ALLOCATION);
-			desc_buffers[buf_idx].first->set_debug_label("desc_buf:" + func_name + "#" + std::to_string(buf_idx));
+															   MEMORY_FLAG::HEAP_ALLOCATION,
+															   desc_buffer_debug_label.c_str());
 			auto mapped_host_ptr = desc_buffers[buf_idx].first->map(*dev_queue, (MEMORY_MAP_FLAG::WRITE_INVALIDATE |
 																				 MEMORY_MAP_FLAG::BLOCK));
 			desc_buffers[buf_idx].second = { (uint8_t*)mapped_host_ptr, entry.desc_buffer.layout_size_in_bytes };
@@ -509,7 +514,7 @@ vulkan_program::~vulkan_program() {
 			if (!entry.constant_buffer_info.empty()) {
 				for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
 					if (entry.constant_buffer_mappings[buf_idx]) {
-						entry.constant_buffers_storage[buf_idx]->unmap(*dev_queue, entry.constant_buffer_mappings[buf_idx]);
+						entry.constant_buffers_storage[buf_idx]->unmap(*dev_queue, entry.constant_buffer_mappings[buf_idx], true /* discard */);
 					}
 				}
 			}
@@ -517,7 +522,7 @@ vulkan_program::~vulkan_program() {
 			if (entry.desc_buffer.desc_buffer_container) {
 				for (auto& desc_buffer_ptrs : entry.desc_buffer.desc_buffer_ptrs) {
 					if (desc_buffer_ptrs.first && desc_buffer_ptrs.second) {
-						desc_buffer_ptrs.first->unmap(*dev_queue, desc_buffer_ptrs.second);
+						desc_buffer_ptrs.first->unmap(*dev_queue, desc_buffer_ptrs.second, true /* discard */);
 					}
 				}
 			}

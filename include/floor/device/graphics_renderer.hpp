@@ -250,27 +250,27 @@ public:
 	//! emit a simple draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	template <typename... Args> void draw(const multi_draw_entry& draw_entry, const Args&... args) {
-		const std::vector<multi_draw_entry> draw_entries { draw_entry };
-		draw_internal(&draw_entries, nullptr, { args... });
+		draw_internal({ &draw_entry, 1 }, {}, { args... });
 	}
 	
 	//! emit an indexed draw call with the draw-call information stored in "draw_entry"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	template <typename... Args> void draw_indexed(const multi_draw_indexed_entry& draw_entry, const Args&... args) {
-		const std::vector<multi_draw_indexed_entry> draw_entries { draw_entry };
-		draw_internal(nullptr, &draw_entries, { args... });
+		draw_internal({}, { &draw_entry, 1 }, { args... });
 	}
 	
 	//! emit simple draw calls with the per-draw-call information stored in "draw_entries"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void multi_draw(const std::vector<multi_draw_entry>& draw_entries, const Args&... args) {
-		draw_internal(&draw_entries, nullptr, { args... });
+	template <typename... Args> void multi_draw(const std::span<const multi_draw_entry> draw_entries, const Args&... args) {
+		assert(!draw_entries.empty());
+		draw_internal(draw_entries, {}, { args... });
 	}
 	
 	//! emit indexed draw calls with the per-draw-call information stored in "draw_entries"
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
-	template <typename... Args> void multi_draw_indexed(const std::vector<multi_draw_indexed_entry>& draw_entries, const Args&... args) {
-		draw_internal(nullptr, &draw_entries, { args... });
+	template <typename... Args> void multi_draw_indexed(const std::span<const multi_draw_indexed_entry> draw_entries, const Args&... args) {
+		assert(!draw_entries.empty());
+		draw_internal({}, draw_entries, { args... });
 	}
 	
 	//! draw info with contiguous control points creating a new primitive every "patch_control_point_count" points
@@ -310,10 +310,7 @@ public:
 	}
 	
 	//! executes the render commands from an indirect command pipeline
-	//! executes #"command_count" commands (or all if ~0u) starting at "command_offset" -> all commands by default
-	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd,
-								  const uint32_t command_offset = 0u,
-								  const uint32_t command_count = ~0u) = 0;
+	virtual void execute_indirect(const indirect_command_pipeline& indirect_cmd);
 	
 	//////////////////////////////////////////
 	// synchronization
@@ -346,8 +343,8 @@ protected:
 	const bool is_indirect { false };
 	
 	//! internal draw call dispatcher for the respective backend
-	virtual void draw_internal(const std::vector<multi_draw_entry>* floor_nullable draw_entries,
-							   const std::vector<multi_draw_indexed_entry>* floor_nullable draw_indexed_entries,
+	virtual void draw_internal(const std::span<const multi_draw_entry> draw_entries,
+							   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 							   const std::vector<device_function_arg>& args) = 0;
 	
 	//! internal draw-patches call dispatcher for the respective backend

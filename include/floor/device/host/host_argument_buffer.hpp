@@ -28,7 +28,8 @@ namespace fl {
 
 class host_argument_buffer : public argument_buffer {
 public:
-	host_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer, const toolchain::function_info& arg_info);
+	host_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer,
+						 const toolchain::function_info& arg_info, const char* debug_label_ = nullptr);
 	
 	bool set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) override;
 	

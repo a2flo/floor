@@ -21,6 +21,7 @@
 #include <floor/device/graphics_pass.hpp>
 #include <floor/device/graphics_renderer.hpp>
 #include <floor/device/indirect_command.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 
 namespace fl {
 
@@ -104,22 +105,22 @@ const device* device_context::get_corresponding_device(const device& external_de
 	return nullptr;
 }
 
-std::shared_ptr<device_buffer> device_context::wrap_buffer(const device_queue&, vulkan_buffer&, const MEMORY_FLAG) const {
+std::shared_ptr<device_buffer> device_context::wrap_buffer(const device_queue&, vulkan_buffer&, const MEMORY_FLAG, const char*) const {
 	log_error("Vulkan buffer sharing is not supported by this backend");
 	return {};
 }
 
-std::shared_ptr<device_image> device_context::wrap_image(const device_queue&, vulkan_image&, const MEMORY_FLAG) const {
+std::shared_ptr<device_image> device_context::wrap_image(const device_queue&, vulkan_image&, const MEMORY_FLAG, const char*) const {
 	log_error("Vulkan image sharing is not supported by this backend");
 	return {};
 }
 
-std::shared_ptr<device_buffer> device_context::wrap_buffer(const device_queue&, metal_buffer&, const MEMORY_FLAG) const {
+std::shared_ptr<device_buffer> device_context::wrap_buffer(const device_queue&, metal_buffer&, const MEMORY_FLAG, const char*) const {
 	log_error("Metal buffer sharing is not supported by this backend");
 	return {};
 }
 
-std::shared_ptr<device_image> device_context::wrap_image(const device_queue&, metal_image&, const MEMORY_FLAG) const {
+std::shared_ptr<device_image> device_context::wrap_image(const device_queue&, metal_image&, const MEMORY_FLAG, const char*) const {
 	log_error("Metal image sharing is not supported by this backend");
 	return {};
 }
@@ -182,6 +183,10 @@ float device_context::get_hdr_display_max_nits() const {
 
 void device_context::enable_resource_registry() {
 	resource_registry_enabled = true;
+}
+
+void device_context::disable_resource_registry() {
+	resource_registry_enabled = false;
 }
 
 std::weak_ptr<device_memory> device_context::get_memory_from_resource_registry(const std::string& label) {
@@ -269,7 +274,8 @@ std::vector<std::weak_ptr<device_memory>> device_context::get_resource_registry_
 	return ret;
 }
 
-std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_queues(const device& dev, const uint32_t wanted_count,
+																				  const std::span<const char* const> debug_labels) const {
 	if (wanted_count == 0) {
 		return {};
 	}
@@ -277,12 +283,13 @@ std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_queue
 	std::vector<std::shared_ptr<device_queue>> ret;
 	ret.reserve(wanted_count);
 	for (uint32_t i = 0; i < wanted_count; ++i) {
-		ret.emplace_back(create_queue(dev));
+		ret.emplace_back(create_queue(dev, (i < debug_labels.size() ? debug_labels[i] : nullptr)));
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count,
+																						  const std::span<const char* const> debug_labels) const {
 	if (wanted_count == 0) {
 		return {};
 	}
@@ -290,7 +297,7 @@ std::vector<std::shared_ptr<device_queue>> device_context::create_distinct_compu
 	std::vector<std::shared_ptr<device_queue>> ret;
 	ret.reserve(wanted_count);
 	for (uint32_t i = 0; i < wanted_count; ++i) {
-		ret.emplace_back(create_compute_queue(dev));
+		ret.emplace_back(create_compute_queue(dev, (i < debug_labels.size() ? debug_labels[i] : nullptr)));
 	}
 	return ret;
 }

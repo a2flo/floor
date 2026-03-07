@@ -79,19 +79,17 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Weverything)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wframe-larger-than=16384)
 # in case we're using warning options that aren't supported by other clang versions
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unknown-warning-option)
-# remove std compat warnings (c++23 with gnu and clang extensions is required)
+# remove std compat warnings (C++26 with GNU and clang extensions is required)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++98-compat -Wno-c++98-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++11-compat -Wno-c++11-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++14-compat -Wno-c++14-compat-pedantic)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++17-compat -Wno-c++17-compat-pedantic -Wno-c++17-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++20-compat -Wno-c++20-compat-pedantic -Wno-c++20-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++23-compat -Wno-c++23-compat-pedantic -Wno-c++23-extensions)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++26-compat -Wno-c++26-compat-pedantic -Wno-c++26-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c99-extensions -Wno-c11-extensions -Wno-c17-extensions -Wno-c23-extensions)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-gnu -Wno-gcc-compat)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nullability-extension)
-if (WITH_CXX26)
-	target_compile_options(${PROJECT_NAME} PUBLIC -Wno-c++26-compat -Wno-c++26-compat-pedantic -Wno-c++26-extensions)
-endif (WITH_CXX26)
 # don't be too pedantic
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command
 	-Wno-old-style-cast -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro

@@ -241,7 +241,8 @@ std::unique_ptr<argument_buffer> cuda_function::create_argument_buffer_internal(
 																				const uint32_t& user_arg_index,
 																				const uint32_t& ll_arg_index,
 																				const MEMORY_FLAG& add_mem_flags,
-																				const bool zero_init) const {
+																				const bool zero_init,
+																				const char* debug_label) const {
 	const auto& dev = cqueue.get_device();
 	const auto& cuda_entry = (const cuda_function_entry&)kern_entry;
 	
@@ -259,10 +260,11 @@ std::unique_ptr<argument_buffer> cuda_function::create_argument_buffer_internal(
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags);
+	const std::string buf_debug_label = (debug_label ? debug_label : kern_entry.info->name + "_arg_buffer");
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags,
+										  buf_debug_label.c_str());
 	(void)zero_init; // newly created buffers are zero-initialized
-	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
-	return std::make_unique<cuda_argument_buffer>(*this, buf, *arg_info);
+	return std::make_unique<cuda_argument_buffer>(*this, buf, *arg_info, buf_debug_label.c_str());
 }
 
 } // namespace fl

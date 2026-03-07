@@ -30,14 +30,24 @@
 #if defined(__OBJC__)
 @class floor_metal_view;
 @protocol CAMetalDrawable;
+@protocol MTL4CommandQueue;
 #import <Metal/Metal.h>
 #endif
+
+//! for debugging purposes: if set to 1, only allocates ands uses a single MTL4CommandQueue instance
+#define FLOOR_METAL_DEBUG_SINGLE_QUEUE 0
 
 namespace fl {
 
 class metal_program;
+class metal4_program;
 class metal_device;
+class metal4_queue;
+struct metal4_command_buffer;
+class metal_buffer;
+class metal4_buffer;
 struct metal_program_entry;
+struct metal4_program_entry;
 class vr_context;
 
 class metal_context final : public device_context {
@@ -51,7 +61,7 @@ public:
 				  vr_context* vr_ctx_ = nullptr,
 				  const std::vector<std::string> whitelist = {});
 	
-	~metal_context() override = default;
+	~metal_context() override;
 	
 	bool is_supported() const override { return supported; }
 	
@@ -64,11 +74,15 @@ public:
 	//////////////////////////////////////////
 	// device functions
 	
-	std::shared_ptr<device_queue> create_queue(const device& dev) const override;
+	std::shared_ptr<device_queue> create_queue(const device& dev, const char* debug_label = nullptr) const override;
 	
 	const device_queue* get_device_default_queue(const device& dev) const override;
 	
-	std::unique_ptr<device_fence> create_fence(const device_queue& cqueue) const override;
+	//! NOTE: while we have no direct underlying distinction between normal queues and compute-only queues in Metal,
+	//!       we won't automatically add the current render view (drawable) residency set to compute-only queues
+	std::shared_ptr<device_queue> create_compute_queue(const device& dev, const char* debug_label = nullptr) const override;
+	
+	std::unique_ptr<device_fence> create_fence(const device_queue& cqueue, const char* debug_label = nullptr) const override;
 	
 	memory_usage_t get_memory_usage(const device& dev) const override;
 	
@@ -78,22 +92,25 @@ public:
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 const size_t size,
 												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const override;
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 std::span<uint8_t> data,
 												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const override;
 	
 	//////////////////////////////////////////
 	// image creation
 	
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   std::span<uint8_t> data,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const override;
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   std::span<uint8_t> data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const override;
 	
 	//////////////////////////////////////////
 	// program/function functionality
@@ -103,23 +120,25 @@ public:
 	std::shared_ptr<device_program> add_universal_binary(const std::span<const uint8_t> data) override REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> add_program_file(const std::string& file_name,
-												 const std::string additional_options) override REQUIRES(!programs_lock);
+													 const std::string additional_options) override REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> add_program_file(const std::string& file_name,
-												 compile_options options = {}) override REQUIRES(!programs_lock);
+													 compile_options options = {}) override REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> add_program_source(const std::string& source_code,
-												   const std::string additional_options) override REQUIRES(!programs_lock);
+													   const std::string additional_options) override REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> add_program_source(const std::string& source_code,
-												   compile_options options = {}) override REQUIRES(!programs_lock);
+													   compile_options options = {}) override REQUIRES(!programs_lock);
 	
+	//! NOTE: currently not Metal 4 compatible!
 	std::shared_ptr<device_program> add_precompiled_program_file(const std::string& file_name,
-															 const std::vector<toolchain::function_info>& functions) override REQUIRES(!programs_lock);
+																 const std::vector<toolchain::function_info>& functions) override REQUIRES(!programs_lock);
 	
+	//! NOTE: currently not Metal 4 compatible!
 	std::shared_ptr<device_program::program_entry> create_program_entry(const device& dev,
-																	toolchain::program_data program,
-																	const toolchain::TARGET target) override REQUIRES(!programs_lock);
+																		toolchain::program_data program,
+																		const toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
 	// execution functionality
@@ -130,15 +149,15 @@ public:
 	// graphics functionality
 	
 	std::unique_ptr<graphics_pipeline> create_graphics_pipeline(const render_pipeline_description& pipeline_desc,
-														   const bool with_multi_view_support = true) const override;
+																const bool with_multi_view_support = true) const override;
 	
 	std::unique_ptr<graphics_pass> create_graphics_pass(const render_pass_description& pass_desc,
-												   const bool with_multi_view_support = true) const override;
+														const bool with_multi_view_support = true) const override;
 	
 	std::unique_ptr<graphics_renderer> create_graphics_renderer(const device_queue& cqueue,
-														   const graphics_pass& pass,
-														   const graphics_pipeline& pipeline,
-														   const bool create_multi_view_renderer = false) const override;
+																const graphics_pass& pass,
+																const graphics_pipeline& pipeline,
+																const bool create_multi_view_renderer = false) const override;
 	
 	IMAGE_TYPE get_renderer_image_type() const override;
 	
@@ -156,6 +175,7 @@ public:
 	// Metal specific functions
 	
 	//! for debugging/testing purposes only (circumvents the internal program handling)
+	//! NOTE: currently not Metal 4 compatible!
 	std::shared_ptr<device_program> create_metal_test_program(std::shared_ptr<device_program::program_entry> entry);
 	
 	// Metal functions only available in Objective-C/C++ mode
@@ -165,6 +185,7 @@ public:
 	
 	//! if this context was created with renderer support, return the next drawable of the Metal view
 	id <CAMetalDrawable> get_metal_next_drawable(id <MTLCommandBuffer> cmd_buffer) const;
+	id <CAMetalDrawable> get_metal_next_drawable(const metal4_queue& dev_queue, metal4_command_buffer& cmd_buffer) const;
 	
 	//! if this context was created with renderer and VR support, return the next drawable VR Metal image
 	std::shared_ptr<device_image> get_metal_next_vr_drawable() const;
@@ -180,12 +201,20 @@ public:
 	
 	//! returns the null-buffer for the specified device
 	//! NOTE: the null buffer is one page in size (x86: 4KiB, ARM: 16KiB)
+	//! NOTE: only available on Metal 3
 	const metal_buffer* get_null_buffer(const device& dev) const;
 	
 	//! acquire an internal soft-printf buffer
 	std::pair<device_buffer*, uint32_t> acquire_soft_printf_buffer(const device& dev) const;
 	//! release an internal soft-printf buffer
 	void release_soft_printf_buffer(const device& dev, const std::pair<device_buffer*, uint32_t>& buf) const;
+	
+#if defined(__OBJC__)
+	//! returns the IMAGE_TYPE for the specified Metal "pixel_format", returns IMAGE_TYPE::NONE if there is no match
+	static IMAGE_TYPE image_type_from_pixel_format(const MTLPixelFormat pixel_format);
+	//! returns the Metal pixel format for the specified "image_type", returns MTLPixelFormatInvalid if there is no match
+	static MTLPixelFormat pixel_format_from_image_type(const IMAGE_TYPE image_type);
+#endif
 	
 protected:
 	void* ctx { nullptr };
@@ -204,9 +233,13 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	std::vector<std::shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
+	std::vector<std::shared_ptr<metal4_program>> programs_mtl4 GUARDED_BY(programs_lock);
 	std::shared_ptr<metal_program> add_metal_program(fl::flat_map<const metal_device*, metal_program_entry>&& prog_map) REQUIRES(!programs_lock);
+	std::shared_ptr<metal4_program> add_metal4_program(fl::flat_map<const metal_device*, metal4_program_entry>&& prog_map) REQUIRES(!programs_lock);
 	
 	std::shared_ptr<device_program> create_program_from_archive_binaries(universal_binary::archive_binaries& bins) REQUIRES(!programs_lock);
+	
+	std::shared_ptr<device_queue> create_queue(const device& dev, const char* debug_label, const bool add_view_rs) const;
 	
 	// VR handling
 	struct vr_image_t {
@@ -222,6 +255,17 @@ protected:
 	static constexpr const uint32_t soft_printf_buffer_count { 32u };
 	using soft_printf_buffer_rsrc_container_type = safe_resource_container<std::shared_ptr<device_buffer>, soft_printf_buffer_count, ~0u>;
 	fl::flat_map<const device*, std::unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
+	
+	//! true if any Metal device supports Metal4
+	bool has_any_metal4_device { false };
+	
+#if FLOOR_METAL_DEBUG_SINGLE_QUEUE
+#if defined(__OBJC__)
+	mutable id <MTL4CommandQueue> single_queue { nil };
+#else
+	void* single_queue { nullptr };
+#endif
+#endif
 	
 };
 

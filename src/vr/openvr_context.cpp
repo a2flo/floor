@@ -43,6 +43,7 @@
 #include <floor/device/metal/metal_context.hpp>
 #include <floor/device/metal/metal_device.hpp>
 #include <floor/device/metal/metal_image.hpp>
+#include <floor/device/metal/metal4_image.hpp>
 #endif
 
 namespace fl {
@@ -833,17 +834,21 @@ bool openvr_context::present(const device_queue& cqueue, const device_image* ima
 #elif !defined(FLOOR_NO_METAL)
 	(void)cqueue; // unused
 	
-	// check if specified image is actually from Metal
-	if (const auto mtl_image_ptr = dynamic_cast<const metal_image*>(image); !mtl_image_ptr) {
-		log_error("specified queue is not a Metal image");
+	// check if specified image is actually from Metal + get raw image ptr
+	void* mtl_image_raw_ptr = nullptr;
+	if (const auto mtl_image_ptr = dynamic_cast<const metal_image*>(image); mtl_image_ptr) {
+		mtl_image_raw_ptr = mtl_image_ptr->get_metal_image_void_ptr();
+	} else if (const auto mtl4_image_ptr = dynamic_cast<const metal4_image*>(image); mtl4_image_ptr) {
+		mtl_image_raw_ptr = mtl4_image_ptr->get_metal_image_void_ptr();
+	} else {
+		log_error("specified queue is not an Metal image");
 		return false;
 	}
-	const auto& mtl_image = *(const metal_image*)image;
 	
 	// present VR image
 	// NOTE: with TextureType_Metal we can directly present a layered 2D image
 	vr::Texture_t vr_image {
-		.handle = mtl_image.get_metal_image_void_ptr(),
+		.handle = mtl_image_raw_ptr,
 		.eType = vr::ETextureType::TextureType_Metal,
 		.eColorSpace = vr::EColorSpace::ColorSpace_Gamma,
 	};

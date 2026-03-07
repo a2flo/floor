@@ -28,7 +28,8 @@
 
 namespace fl {
 
-vulkan_fence::vulkan_fence(const device& dev_, const bool create_binary_sema) : device_fence(), dev(dev_), is_binary(create_binary_sema) {
+vulkan_fence::vulkan_fence(const device& dev_, const bool create_binary_sema, const char* debug_label_) :
+device_fence(debug_label_), dev(dev_), is_binary(create_binary_sema) {
 	const auto& vk_dev = (const vulkan_device&)dev;
 	const VkSemaphoreTypeCreateInfo sema_type_create_info {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
@@ -46,6 +47,10 @@ vulkan_fence::vulkan_fence(const device& dev_, const bool create_binary_sema) : 
 	
 	if (is_binary) {
 		signal_value = 1; // always 1 for binary semas
+	}
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
 	}
 }
 

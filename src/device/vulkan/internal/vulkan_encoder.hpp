@@ -27,10 +27,9 @@ namespace fl {
 struct vulkan_function_entry;
 
 struct vulkan_encoder {
-	vulkan_command_buffer cmd_buffer;
+	const vulkan_command_buffer* cmd_buffer { nullptr };
 	const vulkan_queue& cqueue;
 	const vulkan_device& dev;
-	std::vector<std::shared_ptr<device_buffer>> constant_buffers;
 	const VkPipeline pipeline { nullptr };
 	const VkPipelineLayout pipeline_layout { nullptr };
 	const std::vector<const vulkan_function_entry*> entries;

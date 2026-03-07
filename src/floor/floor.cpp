@@ -444,7 +444,10 @@ bool floor::init(const init_state& state) {
 		config.metal_dis = config_doc.get<std::string>("toolchain.metal.dis", config.default_dis);
 		config.metallib_dis = config_doc.get<std::string>("toolchain.metal.metallib_dis", config.metallib_dis);
 		config.metal_force_version = config_doc.get<uint32_t>("toolchain.metal.force_version", 0);
+		config.metal_use_metal3 = config_doc.get<bool>("toolchain.metal.use_metal3", false);
 		config.metal_soft_printf = config_doc.get<bool>("toolchain.metal.soft_printf", false);
+		// enable by default unless specifically using Metal 3
+		config.metal_soft_indirect = config_doc.get<bool>("toolchain.metal.soft_indirect", !config.metal_use_metal3);
 		config.metal_dump_reflection_info = config_doc.get<bool>("toolchain.metal.dump_reflection_info", false);
 		extract_string_array_set.operator()<false>(config.metal_kernel_validation_enable, "toolchain.metal.kernel_validation_enable");
 		extract_string_array_set.operator()<false>(config.metal_kernel_validation_disable, "toolchain.metal.kernel_validation_disable");
@@ -463,6 +466,7 @@ bool floor::init(const init_state& state) {
 		config.vulkan_spirv_validator = config_doc.get<std::string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
 		config.vulkan_spirv_opt = config_doc.get<std::string>("toolchain.vulkan.spirv-opt", config.vulkan_spirv_opt);
 		config.vulkan_soft_printf = config_doc.get<bool>("toolchain.vulkan.soft_printf", false);
+		config.vulkan_soft_indirect = config_doc.get<bool>("toolchain.vulkan.soft_indirect", false);
 		extract_string_array_set.operator()<false>(config.vulkan_log_binary_filter, "toolchain.vulkan.log_binary_filter");
 		config.vulkan_nvidia_device_diagnostics = config_doc.get<bool>("toolchain.vulkan.nvidia_device_diagnostics", false);
 		config.vulkan_debug_labels = config_doc.get<bool>("toolchain.vulkan.debug_labels", false);
@@ -1727,8 +1731,14 @@ const std::string& floor::get_metal_objdump() {
 const uint32_t& floor::get_metal_force_version() {
 	return config.metal_force_version;
 }
+const bool& floor::get_metal_use_metal3() {
+	return config.metal_use_metal3;
+}
 const bool& floor::get_metal_soft_printf() {
 	return config.metal_soft_printf;
+}
+const bool& floor::get_metal_soft_indirect() {
+	return config.metal_soft_indirect;
 }
 const bool& floor::get_metal_dump_reflection_info() {
 	return config.metal_dump_reflection_info;
@@ -1790,6 +1800,9 @@ const std::string& floor::get_vulkan_spirv_opt() {
 }
 const bool& floor::get_vulkan_soft_printf() {
 	return config.vulkan_soft_printf;
+}
+const bool& floor::get_vulkan_soft_indirect() {
+	return config.vulkan_soft_indirect;
 }
 const std::vector<std::string>& floor::get_vulkan_log_binary_filter() {
 	return config.vulkan_log_binary_filter;

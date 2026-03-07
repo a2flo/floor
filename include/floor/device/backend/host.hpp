@@ -318,7 +318,6 @@ namespace fl {
 
 // tessellation
 
-// TODO: implement this
 template <typename point_data_t>
 class host_patch_control_point {
 public:

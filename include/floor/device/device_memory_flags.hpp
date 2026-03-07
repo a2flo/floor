@@ -106,7 +106,7 @@ enum class MEMORY_FLAG : uint32_t {
 	//! NOTE: must have HOST_READ and/or HOST_WRITE set
 	VULKAN_HOST_COHERENT		= (1u << 15u),
 	
-	//! Metal-only: disables any automatic resource tracking on the allocated Metal object
+	//! Metal3-only: disables any automatic resource tracking on the allocated Metal object
 	//! NOTE: may be used for other backends as well in the future
 	NO_RESOURCE_TRACKING		= (1u << 16u),
 	

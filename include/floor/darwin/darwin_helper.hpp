@@ -42,11 +42,16 @@
 @class CAMetalLayer;
 @protocol MTLCommandBuffer;
 @protocol CAMetalDrawable;
+@protocol MTLResidencySet;
+@protocol MTLDevice;
 #endif
 
 namespace fl {
 
 struct hdr_metadata_t;
+
+struct metal4_command_buffer;
+class metal4_queue;
 
 class darwin_helper {
 public:
@@ -77,6 +82,9 @@ public:
 	static floor_metal_view* create_metal_view(SDL_Window* wnd, id <MTLDevice> device, const hdr_metadata_t& hdr_metadata);
 	static CAMetalLayer* get_metal_layer(floor_metal_view* view);
 	static id <CAMetalDrawable> get_metal_next_drawable(floor_metal_view* view, id <MTLCommandBuffer> cmd_buffer);
+	static id <CAMetalDrawable> get_metal_next_drawable(floor_metal_view* view, const metal4_queue& dev_queue,
+														metal4_command_buffer& cmd_buffer);
+	static id <MTLResidencySet> get_view_residency_set(floor_metal_view* view);
 	static MTLPixelFormat get_metal_pixel_format(floor_metal_view* view);
 	static uint2 get_metal_view_dim(floor_metal_view* view);
 	static void set_metal_view_hdr_metadata(floor_metal_view* view, const hdr_metadata_t& hdr_metadata);

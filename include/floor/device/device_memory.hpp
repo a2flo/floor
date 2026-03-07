@@ -167,15 +167,15 @@ public:
 protected:
 	//! constructs an incomplete memory object
 	device_memory(const device_queue& cqueue,
-				   std::span<uint8_t> host_data_,
-				   const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													   MEMORY_FLAG::HOST_READ_WRITE));
+				  std::span<uint8_t> host_data_,
+				  const MEMORY_FLAG flags_,
+				  const char* debug_label_);
 	
 	//! constructs an incomplete memory object
 	device_memory(const device_queue& cqueue,
-				   const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													   MEMORY_FLAG::HOST_READ_WRITE)) :
-	device_memory(cqueue, {}, flags_) {}
+				  const MEMORY_FLAG flags_,
+				  const char* debug_label_) :
+	device_memory(cqueue, {}, flags_, debug_label_) {}
 	
 	const device& dev;
 	std::span<uint8_t> host_data {};

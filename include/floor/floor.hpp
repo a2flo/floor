@@ -301,7 +301,9 @@ public:
 	static const std::string& get_metallib_dis();
 	static const std::string& get_metal_objdump();
 	static const uint32_t& get_metal_force_version();
+	static const bool& get_metal_use_metal3();
 	static const bool& get_metal_soft_printf();
+	static const bool& get_metal_soft_indirect();
 	static const bool& get_metal_dump_reflection_info();
 	static const std::unordered_set<std::string>& get_metal_kernel_validation_enable();
 	static const std::unordered_set<std::string>& get_metal_kernel_validation_disable();
@@ -324,6 +326,7 @@ public:
 	static const std::string& get_vulkan_spirv_validator();
 	static const std::string& get_vulkan_spirv_opt();
 	static const bool& get_vulkan_soft_printf();
+	static const bool& get_vulkan_soft_indirect();
 	static const std::vector<std::string>& get_vulkan_log_binary_filter();
 	static const bool& get_vulkan_nvidia_device_diagnostics();
 	static const bool& get_vulkan_debug_labels();
@@ -473,7 +476,9 @@ protected:
 		std::string metallib_dis = "metallib-dis";
 		std::string metal_objdump = default_objdump;
 		uint32_t metal_force_version = 0;
+		bool metal_use_metal3 = false;
 		bool metal_soft_printf = false;
+		bool metal_soft_indirect = false;
 		bool metal_dump_reflection_info = false;
 		std::unordered_set<std::string> metal_kernel_validation_enable;
 		std::unordered_set<std::string> metal_kernel_validation_disable;
@@ -507,6 +512,7 @@ protected:
 		std::string vulkan_spirv_validator = "spirv-val";
 		std::string vulkan_spirv_opt = "spirv-opt";
 		bool vulkan_soft_printf = false;
+		bool vulkan_soft_indirect = false;
 		std::vector<std::string> vulkan_log_binary_filter;
 		bool vulkan_nvidia_device_diagnostics = false;
 		bool vulkan_debug_labels = false;

@@ -49,14 +49,16 @@ public:
 						  const IMAGE_TYPE image_type,
 						  std::span<uint8_t> host_data_ = {},
 						  const MEMORY_FLAG flags_ = (MEMORY_FLAG::HOST_READ_WRITE),
-						  const uint32_t mip_level_limit = 0u);
+						  const uint32_t mip_level_limit = 0u,
+						  const char* debug_label_ = nullptr);
 	
 	//! wraps an already existing Vulkan image, with the specified flags and backed by the specified host pointer
 	vulkan_image_internal(const device_queue& cqueue,
 						  const external_vulkan_image_info& external_image,
 						  std::span<uint8_t> host_data_ = {},
 						  const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													  MEMORY_FLAG::HOST_READ_WRITE));
+													  MEMORY_FLAG::HOST_READ_WRITE),
+						  const char* debug_label_ = nullptr);
 	
 	~vulkan_image_internal() override;
 	

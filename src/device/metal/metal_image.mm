@@ -39,8 +39,10 @@ metal_image::metal_image(const device_queue& cqueue,
 						 const IMAGE_TYPE image_type_,
 						 std::span<uint8_t> host_data_,
 						 const MEMORY_FLAG flags_,
-						 const uint32_t mip_level_limit_) :
-device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */, mip_level_limit_) {
+						 const uint32_t mip_level_limit_,
+						 const char* debug_label_) :
+device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true /* may need shim type */,
+			 mip_level_limit_, debug_label_) {
 	const auto is_render_target = has_flag<IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type);
 	assert(!is_render_target || has_flag<MEMORY_FLAG::RENDER_TARGET>(flags));
 	
@@ -147,6 +149,10 @@ device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, true 
 	if (!create_internal(true, cqueue)) {
 		return; // can't do much else
 	}
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
+	}
 }
 
 static uint4 compute_metal_image_dim(id <MTLTexture> floor_nonnull img) {
@@ -191,132 +197,12 @@ FLOOR_POP_WARNINGS()
 	}
 	
 	// handle the pixel format
-	static const std::unordered_map<MTLPixelFormat, IMAGE_TYPE> format_lut {
-		// R
-		{ MTLPixelFormatR8Unorm, IMAGE_TYPE::R8UI_NORM },
-		{ MTLPixelFormatR8Snorm, IMAGE_TYPE::R8I_NORM },
-		{ MTLPixelFormatR8Uint, IMAGE_TYPE::R8UI },
-		{ MTLPixelFormatR8Sint, IMAGE_TYPE::R8I },
-		{ MTLPixelFormatR16Unorm, IMAGE_TYPE::R16UI_NORM },
-		{ MTLPixelFormatR16Snorm, IMAGE_TYPE::R16I_NORM },
-		{ MTLPixelFormatR16Uint, IMAGE_TYPE::R16UI },
-		{ MTLPixelFormatR16Sint, IMAGE_TYPE::R16I },
-		{ MTLPixelFormatR16Float, IMAGE_TYPE::R16F },
-		{ MTLPixelFormatR32Uint, IMAGE_TYPE::R32UI },
-		{ MTLPixelFormatR32Sint, IMAGE_TYPE::R32I },
-		{ MTLPixelFormatR32Float, IMAGE_TYPE::R32F },
-		// RG
-		{ MTLPixelFormatRG8Unorm, IMAGE_TYPE::RG8UI_NORM },
-		{ MTLPixelFormatRG8Snorm, IMAGE_TYPE::RG8I_NORM },
-		{ MTLPixelFormatRG8Uint, IMAGE_TYPE::RG8UI },
-		{ MTLPixelFormatRG8Sint, IMAGE_TYPE::RG8I },
-		{ MTLPixelFormatRG16Unorm, IMAGE_TYPE::RG16UI_NORM },
-		{ MTLPixelFormatRG16Snorm, IMAGE_TYPE::RG16I_NORM },
-		{ MTLPixelFormatRG16Uint, IMAGE_TYPE::RG16UI },
-		{ MTLPixelFormatRG16Sint, IMAGE_TYPE::RG16I },
-		{ MTLPixelFormatRG16Float, IMAGE_TYPE::RG16F },
-		{ MTLPixelFormatRG32Uint, IMAGE_TYPE::RG32UI },
-		{ MTLPixelFormatRG32Sint, IMAGE_TYPE::RG32I },
-		{ MTLPixelFormatRG32Float, IMAGE_TYPE::RG32F },
-		// RGB
-		{ MTLPixelFormatRG11B10Float, IMAGE_TYPE::RG11B10F },
-		{ MTLPixelFormatRGB9E5Float, IMAGE_TYPE::RGB9E5F },
-		// RGBA
-		{ MTLPixelFormatRGBA8Unorm, IMAGE_TYPE::RGBA8UI_NORM },
-		{ MTLPixelFormatRGBA8Snorm, IMAGE_TYPE::RGBA8I_NORM },
-		{ MTLPixelFormatRGBA8Uint, IMAGE_TYPE::RGBA8UI },
-		{ MTLPixelFormatRGBA8Sint, IMAGE_TYPE::RGBA8I },
-		{ MTLPixelFormatRGBA16Unorm, IMAGE_TYPE::RGBA16UI_NORM },
-		{ MTLPixelFormatRGBA16Snorm, IMAGE_TYPE::RGBA16I_NORM },
-		{ MTLPixelFormatRGBA16Uint, IMAGE_TYPE::RGBA16UI },
-		{ MTLPixelFormatRGBA16Sint, IMAGE_TYPE::RGBA16I },
-		{ MTLPixelFormatRGBA16Float, IMAGE_TYPE::RGBA16F },
-		{ MTLPixelFormatRGBA32Uint, IMAGE_TYPE::RGBA32UI },
-		{ MTLPixelFormatRGBA32Sint, IMAGE_TYPE::RGBA32I },
-		{ MTLPixelFormatRGBA32Float, IMAGE_TYPE::RGBA32F },
-		// BGR(A)
-		{ MTLPixelFormatBGRA8Unorm, IMAGE_TYPE::BGRA8UI_NORM },
-		{ MTLPixelFormatBGR10A2Unorm, IMAGE_TYPE::A2BGR10UI_NORM },
-		{ MTLPixelFormatBGR10_XR, IMAGE_TYPE::BGR10UI_NORM },
-		{ MTLPixelFormatBGR10_XR_sRGB, IMAGE_TYPE::BGR10UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		{ MTLPixelFormatBGRA10_XR, IMAGE_TYPE::BGRA10UI_NORM },
-		{ MTLPixelFormatBGRA10_XR_sRGB, IMAGE_TYPE::BGRA10UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		// sRGB
-		{ MTLPixelFormatR8Unorm_sRGB, IMAGE_TYPE::R8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		{ MTLPixelFormatRG8Unorm_sRGB, IMAGE_TYPE::RG8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		{ MTLPixelFormatRGBA8Unorm_sRGB, IMAGE_TYPE::RGBA8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		{ MTLPixelFormatBGRA8Unorm_sRGB, IMAGE_TYPE::BGRA8UI_NORM | IMAGE_TYPE::FLAG_SRGB },
-		// depth / depth+stencil
-		{ MTLPixelFormatDepth32Float, (IMAGE_TYPE::FLOAT |
-									   IMAGE_TYPE::CHANNELS_1 |
-									   IMAGE_TYPE::FORMAT_32 |
-									   IMAGE_TYPE::FLAG_DEPTH) },
-		{ MTLPixelFormatDepth16Unorm, (IMAGE_TYPE::UINT |
-									   IMAGE_TYPE::CHANNELS_1 |
-									   IMAGE_TYPE::FORMAT_16 |
-									   IMAGE_TYPE::FLAG_DEPTH) },
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
-		{ MTLPixelFormatDepth24Unorm_Stencil8, (IMAGE_TYPE::UINT |
-												IMAGE_TYPE::CHANNELS_2 |
-												IMAGE_TYPE::FORMAT_24_8 |
-												IMAGE_TYPE::FLAG_DEPTH |
-												IMAGE_TYPE::FLAG_STENCIL) },
-#endif
-		{ MTLPixelFormatDepth32Float_Stencil8, (IMAGE_TYPE::FLOAT |
-												IMAGE_TYPE::CHANNELS_2 |
-												IMAGE_TYPE::FORMAT_32_8 |
-												IMAGE_TYPE::FLAG_DEPTH |
-												IMAGE_TYPE::FLAG_STENCIL) },
-		// BC formats
-		{ MTLPixelFormatBC1_RGBA, IMAGE_TYPE::BC1_RGBA },
-		{ MTLPixelFormatBC1_RGBA_sRGB, IMAGE_TYPE::BC1_RGBA_SRGB },
-		{ MTLPixelFormatBC2_RGBA, IMAGE_TYPE::BC2_RGBA },
-		{ MTLPixelFormatBC2_RGBA_sRGB, IMAGE_TYPE::BC2_RGBA_SRGB },
-		{ MTLPixelFormatBC3_RGBA, IMAGE_TYPE::BC3_RGBA },
-		{ MTLPixelFormatBC3_RGBA_sRGB, IMAGE_TYPE::BC3_RGBA_SRGB },
-		{ MTLPixelFormatBC4_RUnorm, IMAGE_TYPE::BC4_RUI },
-		{ MTLPixelFormatBC4_RSnorm, IMAGE_TYPE::BC4_RI },
-		{ MTLPixelFormatBC5_RGUnorm, IMAGE_TYPE::BC5_RGUI },
-		{ MTLPixelFormatBC5_RGSnorm, IMAGE_TYPE::BC5_RGI },
-		{ MTLPixelFormatBC6H_RGBFloat, IMAGE_TYPE::BC6H_RGBHF },
-		{ MTLPixelFormatBC6H_RGBUfloat, IMAGE_TYPE::BC6H_RGBUHF },
-		{ MTLPixelFormatBC7_RGBAUnorm, IMAGE_TYPE::BC7_RGBA },
-		{ MTLPixelFormatBC7_RGBAUnorm_sRGB, IMAGE_TYPE::BC7_RGBA_SRGB },
-		// EAC/ETC formats
-		{ MTLPixelFormatEAC_R11Unorm, IMAGE_TYPE::EAC_R11UI },
-		{ MTLPixelFormatEAC_R11Snorm, IMAGE_TYPE::EAC_R11I },
-		{ MTLPixelFormatEAC_RG11Unorm, IMAGE_TYPE::EAC_RG11UI },
-		{ MTLPixelFormatEAC_RG11Snorm, IMAGE_TYPE::EAC_RG11I },
-		{ MTLPixelFormatEAC_RGBA8, IMAGE_TYPE::EAC_RGBA8 },
-		{ MTLPixelFormatEAC_RGBA8_sRGB, IMAGE_TYPE::EAC_RGBA8_SRGB },
-		{ MTLPixelFormatETC2_RGB8, IMAGE_TYPE::ETC2_RGB8 },
-		{ MTLPixelFormatETC2_RGB8_sRGB, IMAGE_TYPE::ETC2_RGB8_SRGB },
-		{ MTLPixelFormatETC2_RGB8A1, IMAGE_TYPE::ETC2_RGB8A1 },
-		{ MTLPixelFormatETC2_RGB8A1_sRGB, IMAGE_TYPE::ETC2_RGB8A1_SRGB },
-		// ASTC formats
-		{ MTLPixelFormatASTC_4x4_sRGB, IMAGE_TYPE::ASTC_4X4_SRGB },
-		{ MTLPixelFormatASTC_4x4_LDR, IMAGE_TYPE::ASTC_4X4_LDR },
-		{ MTLPixelFormatASTC_4x4_HDR, IMAGE_TYPE::ASTC_4X4_HDR },
-#if !defined(FLOOR_VISIONOS)
-FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
-		// PVRTC formats
-		{ MTLPixelFormatPVRTC_RGB_2BPP, IMAGE_TYPE::PVRTC_RGB2 },
-		{ MTLPixelFormatPVRTC_RGB_4BPP, IMAGE_TYPE::PVRTC_RGB4 },
-		{ MTLPixelFormatPVRTC_RGBA_2BPP, IMAGE_TYPE::PVRTC_RGBA2 },
-		{ MTLPixelFormatPVRTC_RGBA_4BPP, IMAGE_TYPE::PVRTC_RGBA4 },
-		{ MTLPixelFormatPVRTC_RGB_2BPP_sRGB, IMAGE_TYPE::PVRTC_RGB2_SRGB },
-		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGB4_SRGB },
-		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA2_SRGB },
-		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, IMAGE_TYPE::PVRTC_RGBA4_SRGB },
-FLOOR_POP_WARNINGS()
-#endif
-	};
-	const auto metal_format = format_lut.find([img pixelFormat]);
-	if (metal_format == end(format_lut)) {
+	const auto metal_image_type = metal_context::image_type_from_pixel_format([img pixelFormat]);
+	if (metal_image_type == IMAGE_TYPE::NONE) {
 		log_error("unsupported image pixel format: $X", [img pixelFormat]);
 		return IMAGE_TYPE::NONE;
 	}
-	type |= metal_format->second;
+	type |= metal_image_type;
 	
 	// handle render target
 	if (([img usage] & MTLTextureUsageRenderTarget) == MTLTextureUsageRenderTarget || [img isFramebufferOnly]) {
@@ -354,9 +240,10 @@ FLOOR_POP_WARNINGS()
 metal_image::metal_image(const device_queue& cqueue,
 						 id <MTLTexture> floor_nonnull external_image,
 						 std::span<uint8_t> host_data_,
-						 const MEMORY_FLAG flags_) :
+						 const MEMORY_FLAG flags_,
+						 const char* debug_label_) :
 device_image(cqueue, compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
-			  host_data_, flags_, nullptr, false /* no shim type here */, 0u), image(external_image), is_external(true) {
+			  host_data_, flags_, nullptr, false /* no shim type here */, 0u, debug_label_), image(external_image), is_external(true) {
 	// device must match
 	if(((const metal_device&)dev).device != [external_image device]) {
 		log_error("specified Metal device does not match the device set in the external image");
@@ -400,6 +287,10 @@ FLOOR_POP_WARNINGS()
 	
 	// shim type is unnecessary here
 	shim_image_type = image_type;
+	
+	if (debug_label_) {
+		set_debug_label(debug_label);
+	}
 }
 
 bool metal_image::create_internal(const bool copy_host_data, const device_queue& cqueue) {
@@ -413,7 +304,7 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 	
 	@autoreleasepool {
 		// create an appropriate texture descriptor
-		desc = [[MTLTextureDescriptor alloc] init];
+		desc = [MTLTextureDescriptor new];
 		
 		const auto dim_count = image_dim_count(image_type);
 		const bool is_array = has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type);
@@ -498,12 +389,12 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 		[desc setTextureType:tex_type];
 		
 		// and now for the fun bit: pixel format conversion ...
-		const auto metal_format = metal_pixel_format_from_image_type(image_type);
-		if (!metal_format) {
+		const auto metal_format = metal_context::pixel_format_from_image_type(image_type);
+		if (metal_format == MTLPixelFormatInvalid) {
 			log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 			return false;
 		}
-		[desc setPixelFormat:*metal_format];
+		[desc setPixelFormat:metal_format];
 		
 		// misc options
 		[desc setMipmapLevelCount:mip_level_count];
@@ -846,7 +737,7 @@ bool metal_image::write(const device_queue& cqueue, const void* src, const size_
 bool metal_image::zero(const device_queue& cqueue) {
 	if(image == nil) return false;
 	
-	bool success = false;
+	bool success = true;
 	@autoreleasepool {
 		const bool is_compressed = image_compressed(image_type);
 		const auto dim_count = image_dim_count(image_type);
@@ -892,8 +783,8 @@ bool metal_image::zero(const device_queue& cqueue) {
 			auto zero_buffer = cqueue.get_context().create_buffer(cqueue, bytes_per_slice,
 																  MEMORY_FLAG::READ_WRITE |
 																  MEMORY_FLAG::NO_RESOURCE_TRACKING |
-																  MEMORY_FLAG::HEAP_ALLOCATION);
-			zero_buffer->set_debug_label("zero_buffer");
+																  MEMORY_FLAG::HEAP_ALLOCATION,
+																  "zero_buffer");
 			auto mtl_zero_buffer = ((const metal_buffer&)*zero_buffer).get_metal_buffer();
 			
 			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue&)cqueue).make_command_buffer();
@@ -901,10 +792,10 @@ bool metal_image::zero(const device_queue& cqueue) {
 			
 			[blit_encoder fillBuffer:mtl_zero_buffer range:NSRange { 0, bytes_per_slice } value:0u];
 			
-			success = apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
-																												const uint4& mip_image_dim,
-																												const uint32_t& slice_data_size,
-																												const uint32_t&) {
+			success &= apply_on_levels<true>([this, &mtl_zero_buffer, &blit_encoder, &dim_count, &is_compressed](const uint32_t& level,
+																												 const uint4& mip_image_dim,
+																												 const uint32_t& slice_data_size,
+																												 const uint32_t&) {
 				const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * std::max(mip_image_dim.x, 1u);
 				for (size_t slice = 0; slice < layer_count; ++slice) {
 					const MTLSize copy_size {
@@ -938,10 +829,8 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const device
 																	const MEMORY_MAP_FLAG flags_) {
 	if(image == nil) return nullptr;
 	
-	// TODO: parameter origin + region + layer
 	const auto dim_count = image_dim_count(image_type);
 	
-	// TODO: image map check + move this check there:
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
 		log_error("can't map an image which is set to be inaccessible by the host!");
 		return nullptr;
@@ -1033,7 +922,7 @@ void* floor_nullable __attribute__((aligned(128))) metal_image::map(const device
 	return ret_ptr;
 }
 
-bool metal_image::unmap(const device_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr) {
+bool metal_image::unmap(const device_queue& cqueue, void* floor_nullable __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if(image == nil) return false;
 	if(mapped_ptr == nullptr) return false;
 	
@@ -1046,8 +935,9 @@ bool metal_image::unmap(const device_queue& cqueue, void* floor_nullable __attri
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	bool success = true;
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (!discard &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		@autoreleasepool {
 			// copy host memory to device memory
 			const bool is_compressed = image_compressed(image_type);
@@ -1138,158 +1028,6 @@ void metal_image::generate_mip_map_chain(const device_queue& cqueue) {
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
 	}
-}
-
-std::optional<MTLPixelFormat> metal_image::metal_pixel_format_from_image_type(const IMAGE_TYPE& image_type_) {
-	static const std::unordered_map<IMAGE_TYPE, MTLPixelFormat> format_lut {
-		// R
-		{ IMAGE_TYPE::R8UI_NORM, MTLPixelFormatR8Unorm },
-		{ IMAGE_TYPE::R8I_NORM, MTLPixelFormatR8Snorm },
-		{ IMAGE_TYPE::R8UI, MTLPixelFormatR8Uint },
-		{ IMAGE_TYPE::R8I, MTLPixelFormatR8Sint },
-		{ IMAGE_TYPE::R16UI_NORM, MTLPixelFormatR16Unorm },
-		{ IMAGE_TYPE::R16I_NORM, MTLPixelFormatR16Snorm },
-		{ IMAGE_TYPE::R16UI, MTLPixelFormatR16Uint },
-		{ IMAGE_TYPE::R16I, MTLPixelFormatR16Sint },
-		{ IMAGE_TYPE::R16F, MTLPixelFormatR16Float },
-		{ IMAGE_TYPE::R32UI, MTLPixelFormatR32Uint },
-		{ IMAGE_TYPE::R32I, MTLPixelFormatR32Sint },
-		{ IMAGE_TYPE::R32F, MTLPixelFormatR32Float },
-		// RG
-		{ IMAGE_TYPE::RG8UI_NORM, MTLPixelFormatRG8Unorm },
-		{ IMAGE_TYPE::RG8I_NORM, MTLPixelFormatRG8Snorm },
-		{ IMAGE_TYPE::RG8UI, MTLPixelFormatRG8Uint },
-		{ IMAGE_TYPE::RG8I, MTLPixelFormatRG8Sint },
-		{ IMAGE_TYPE::RG16UI_NORM, MTLPixelFormatRG16Unorm },
-		{ IMAGE_TYPE::RG16I_NORM, MTLPixelFormatRG16Snorm },
-		{ IMAGE_TYPE::RG16UI, MTLPixelFormatRG16Uint },
-		{ IMAGE_TYPE::RG16I, MTLPixelFormatRG16Sint },
-		{ IMAGE_TYPE::RG16F, MTLPixelFormatRG16Float },
-		{ IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
-		{ IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
-		{ IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
-		// RGB
-		{ IMAGE_TYPE::RG11B10F, MTLPixelFormatRG11B10Float },
-		{ IMAGE_TYPE::RGB9E5F, MTLPixelFormatRGB9E5Float },
-		// RGB -> RGBA
-		{ IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
-		{ IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
-		{ IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
-		{ IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
-		{ IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
-		{ IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
-		{ IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
-		{ IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
-		{ IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
-		{ IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
-		{ IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
-		{ IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
-		// RGBA
-		{ IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
-		{ IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
-		{ IMAGE_TYPE::RGBA8UI, MTLPixelFormatRGBA8Uint },
-		{ IMAGE_TYPE::RGBA8I, MTLPixelFormatRGBA8Sint },
-		{ IMAGE_TYPE::RGBA16UI_NORM, MTLPixelFormatRGBA16Unorm },
-		{ IMAGE_TYPE::RGBA16I_NORM, MTLPixelFormatRGBA16Snorm },
-		{ IMAGE_TYPE::RGBA16UI, MTLPixelFormatRGBA16Uint },
-		{ IMAGE_TYPE::RGBA16I, MTLPixelFormatRGBA16Sint },
-		{ IMAGE_TYPE::RGBA16F, MTLPixelFormatRGBA16Float },
-		{ IMAGE_TYPE::RGBA32UI, MTLPixelFormatRGBA32Uint },
-		{ IMAGE_TYPE::RGBA32I, MTLPixelFormatRGBA32Sint },
-		{ IMAGE_TYPE::RGBA32F, MTLPixelFormatRGBA32Float },
-		// BGR(A)
-		{ IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
-		{ IMAGE_TYPE::A2BGR10UI_NORM, MTLPixelFormatBGR10A2Unorm },
-		{ IMAGE_TYPE::BGR10UI_NORM, MTLPixelFormatBGR10_XR },
-		{ IMAGE_TYPE::BGR10UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGR10_XR_sRGB },
-		{ IMAGE_TYPE::BGRA10UI_NORM, MTLPixelFormatBGRA10_XR },
-		{ IMAGE_TYPE::BGRA10UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA10_XR_sRGB },
-		// sRGB
-		{ IMAGE_TYPE::R8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatR8Unorm_sRGB },
-		{ IMAGE_TYPE::RG8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRG8Unorm_sRGB },
-		{ IMAGE_TYPE::RGB8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRGBA8Unorm_sRGB }, // allow RGB -> RGBA
-		{ IMAGE_TYPE::RGBA8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatRGBA8Unorm_sRGB },
-		{ IMAGE_TYPE::BGRA8UI_NORM | IMAGE_TYPE::FLAG_SRGB, MTLPixelFormatBGRA8Unorm_sRGB },
-		// depth / depth+stencil
-		{ (IMAGE_TYPE::FLOAT |
-		   IMAGE_TYPE::CHANNELS_1 |
-		   IMAGE_TYPE::FORMAT_32 |
-		   IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
-		{ (IMAGE_TYPE::UINT |
-		   IMAGE_TYPE::CHANNELS_1 |
-		   IMAGE_TYPE::FORMAT_16 |
-		   IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth16Unorm },
-#if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS) // macOS only
-		{ (IMAGE_TYPE::UINT |
-		   IMAGE_TYPE::CHANNELS_2 |
-		   IMAGE_TYPE::FORMAT_24_8 |
-		   IMAGE_TYPE::FLAG_DEPTH |
-		   IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth24Unorm_Stencil8 },
-#endif
-		{ (IMAGE_TYPE::FLOAT |
-		   IMAGE_TYPE::CHANNELS_2 |
-		   IMAGE_TYPE::FORMAT_32_8 |
-		   IMAGE_TYPE::FLAG_DEPTH |
-		   IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-		// BC formats
-		{ IMAGE_TYPE::BC1_RGBA, MTLPixelFormatBC1_RGBA },
-		{ IMAGE_TYPE::BC1_RGBA_SRGB, MTLPixelFormatBC1_RGBA_sRGB },
-		{ IMAGE_TYPE::BC2_RGBA, MTLPixelFormatBC2_RGBA },
-		{ IMAGE_TYPE::BC2_RGBA_SRGB, MTLPixelFormatBC2_RGBA_sRGB },
-		{ IMAGE_TYPE::BC3_RGBA, MTLPixelFormatBC3_RGBA },
-		{ IMAGE_TYPE::BC3_RGBA_SRGB, MTLPixelFormatBC3_RGBA_sRGB },
-		{ IMAGE_TYPE::BC4_RUI, MTLPixelFormatBC4_RUnorm },
-		{ IMAGE_TYPE::BC4_RI, MTLPixelFormatBC4_RSnorm },
-		{ IMAGE_TYPE::BC5_RGUI, MTLPixelFormatBC5_RGUnorm },
-		{ IMAGE_TYPE::BC5_RGI, MTLPixelFormatBC5_RGSnorm },
-		{ IMAGE_TYPE::BC6H_RGBHF, MTLPixelFormatBC6H_RGBFloat },
-		{ IMAGE_TYPE::BC6H_RGBUHF, MTLPixelFormatBC6H_RGBUfloat },
-		{ IMAGE_TYPE::BC7_RGBA, MTLPixelFormatBC7_RGBAUnorm },
-		{ IMAGE_TYPE::BC7_RGBA_SRGB, MTLPixelFormatBC7_RGBAUnorm_sRGB },
-		// EAC/ETC formats
-		{ IMAGE_TYPE::EAC_R11UI, MTLPixelFormatEAC_R11Unorm },
-		{ IMAGE_TYPE::EAC_R11I, MTLPixelFormatEAC_R11Snorm },
-		{ IMAGE_TYPE::EAC_RG11UI, MTLPixelFormatEAC_RG11Unorm },
-		{ IMAGE_TYPE::EAC_RG11I, MTLPixelFormatEAC_RG11Snorm },
-		{ IMAGE_TYPE::EAC_RGBA8, MTLPixelFormatEAC_RGBA8 },
-		{ IMAGE_TYPE::EAC_RGBA8_SRGB, MTLPixelFormatEAC_RGBA8_sRGB },
-		{ IMAGE_TYPE::ETC2_RGB8, MTLPixelFormatETC2_RGB8 },
-		{ IMAGE_TYPE::ETC2_RGB8_SRGB, MTLPixelFormatETC2_RGB8_sRGB },
-		{ IMAGE_TYPE::ETC2_RGB8A1, MTLPixelFormatETC2_RGB8A1 },
-		{ IMAGE_TYPE::ETC2_RGB8A1_SRGB, MTLPixelFormatETC2_RGB8A1_sRGB },
-		// ASTC formats
-		{ IMAGE_TYPE::ASTC_4X4_SRGB, MTLPixelFormatASTC_4x4_sRGB },
-		{ IMAGE_TYPE::ASTC_4X4_LDR, MTLPixelFormatASTC_4x4_LDR },
-		{ IMAGE_TYPE::ASTC_4X4_HDR, MTLPixelFormatASTC_4x4_HDR },
-#if !defined(FLOOR_VISIONOS)
-FLOOR_PUSH_AND_IGNORE_WARNING(deprecated) // while deprecated, we still want to support them
-		// PVRTC formats
-		{ IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
-		{ IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
-		{ IMAGE_TYPE::PVRTC_RGBA2, MTLPixelFormatPVRTC_RGBA_2BPP },
-		{ IMAGE_TYPE::PVRTC_RGBA4, MTLPixelFormatPVRTC_RGBA_4BPP },
-		{ IMAGE_TYPE::PVRTC_RGB2_SRGB, MTLPixelFormatPVRTC_RGB_2BPP_sRGB },
-		{ IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
-		{ IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
-		{ IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
-FLOOR_POP_WARNINGS()
-#endif
-		// TODO: special image formats, these are partially supported
-	};
-	const auto masked_image_type = (image_type_ & (IMAGE_TYPE::__DATA_TYPE_MASK |
-												   IMAGE_TYPE::__CHANNELS_MASK |
-												   IMAGE_TYPE::__COMPRESSION_MASK |
-												   IMAGE_TYPE::__FORMAT_MASK |
-												   IMAGE_TYPE::__LAYOUT_MASK |
-												   IMAGE_TYPE::FLAG_NORMALIZED |
-												   IMAGE_TYPE::FLAG_DEPTH |
-												   IMAGE_TYPE::FLAG_STENCIL |
-												   IMAGE_TYPE::FLAG_SRGB));
-	const auto metal_pixel_format = format_lut.find(masked_image_type);
-	if (metal_pixel_format == end(format_lut)) {
-		return {};
-	}
-	return metal_pixel_format->second;
 }
 
 void* floor_nullable metal_image::get_metal_image_void_ptr() const {

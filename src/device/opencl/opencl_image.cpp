@@ -35,8 +35,9 @@ opencl_image::opencl_image(const device_queue& cqueue,
 						   const IMAGE_TYPE image_type_,
 						   std::span<uint8_t> host_data_,
 						   const MEMORY_FLAG flags_,
-						   const uint32_t mip_level_limit_) :
-device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, false, mip_level_limit_),
+						   const uint32_t mip_level_limit_,
+						   const char* debug_label_) :
+device_image(cqueue, image_dim_, image_type_, host_data_, flags_, nullptr, false, mip_level_limit_, debug_label_),
 mip_origin_idx(!is_mip_mapped ? 0 :
 			   (image_dim_count(image_type) + (has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type) ? 1 : 0))) {
 	switch(flags & MEMORY_FLAG::READ_WRITE) {
@@ -350,7 +351,7 @@ void* __attribute__((aligned(128))) opencl_image::map(const device_queue& cqueue
 	return ret_ptr;
 }
 
-bool opencl_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+bool opencl_image::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if(image == nullptr) return false;
 	if(mapped_ptr == nullptr) return false;
 	
@@ -363,11 +364,11 @@ bool opencl_image::unmap(const device_queue& cqueue, void* __attribute__((aligne
 	
 	// when using manual mip-mapping and write/write_invalidate mapping,
 	// data must be copied back from the contiguous buffer to each mapped mip-level
-	if(!generate_mip_maps && is_mip_mapped &&
-	   (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+	if (!discard && !generate_mip_maps && is_mip_mapped &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		auto cpy_ptr = (uint8_t*)mapped_ptr;
-		for(size_t i = 0; i < iter->second.mapped_ptrs.size(); ++i) {
+		for (size_t i = 0; i < iter->second.mapped_ptrs.size(); ++i) {
 			memcpy(iter->second.mapped_ptrs[i], cpy_ptr, iter->second.level_sizes[i]);
 			cpy_ptr += iter->second.level_sizes[i];
 		}
@@ -379,11 +380,13 @@ bool opencl_image::unmap(const device_queue& cqueue, void* __attribute__((aligne
 	}
 	mappings.erase(mapped_ptr);
 	
-	// manually create mip-map chain (only if mapping was write/write_invalidate)
-	if(generate_mip_maps &&
-	   (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
-		generate_mip_map_chain(cqueue);
+	if (!discard) {
+		// manually create mip-map chain (only if mapping was write/write_invalidate)
+		if (generate_mip_maps &&
+			(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+			 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+			generate_mip_map_chain(cqueue);
+		}
 	}
 	
 	return true;

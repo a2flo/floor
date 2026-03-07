@@ -54,7 +54,7 @@ indirect_command_pipeline(desc_) {
 	
 	@autoreleasepool {
 		// init descriptor from indirect_command_description
-		MTLIndirectCommandBufferDescriptor* icb_desc = [[MTLIndirectCommandBufferDescriptor alloc] init];
+		MTLIndirectCommandBufferDescriptor* icb_desc = [MTLIndirectCommandBufferDescriptor new];
 		
 		icb_desc.commandTypes = 0;
 		if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
@@ -78,15 +78,15 @@ indirect_command_pipeline(desc_) {
 		icb_desc.inheritBuffers = NO;
 		
 		for (const auto& dev : devices) {
-			const auto& mtl_dev = ((const metal_device&)*dev).device;
+			const auto& mtl_dev = (const metal_device&)*dev;
 			
 			// create the actual indirect command buffer for this device
 			metal_pipeline_entry entry;
-			entry.icb = [mtl_dev newIndirectCommandBufferWithDescriptor:icb_desc
-														maxCommandCount:desc.max_command_count
-																options:(MTLResourceCPUCacheModeDefaultCache |
-																		 MTLResourceStorageModeShared |
-																		 MTLResourceHazardTrackingModeUntracked)];
+			entry.icb = [mtl_dev.device newIndirectCommandBufferWithDescriptor:icb_desc
+															   maxCommandCount:desc.max_command_count
+																	   options:(MTLResourceCPUCacheModeDefaultCache |
+																				MTLResourceStorageModeShared |
+																				MTLResourceHazardTrackingModeUntracked)];
 			if (entry.icb == nil) {
 				log_error("failed to create indirect command buffer for device \"$\" in indirect command pipeline \"$\"",
 						  dev->name, desc.debug_label);
@@ -188,13 +188,16 @@ void metal_indirect_command_pipeline::complete_pipeline(const device& dev, metal
 		entry.sort_and_unique_all_resources();
 		
 		// optimize contained commands
-		const auto dev_queue = dev.context->get_device_default_queue(dev);
-		id <MTLCommandBuffer> cmd_buffer = ((const metal_queue*)dev_queue)->make_command_buffer();
-		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		[blit_encoder optimizeIndirectCommandBuffer:entry.icb withRange:NSRange { .location = 0, .length = get_command_count() }];
-		[blit_encoder endEncoding];
-		[cmd_buffer commit];
-		[cmd_buffer waitUntilCompleted];
+		static const auto mtl_validation = getenv("MTL_DEBUG_LAYER"); // avoid invalid "endEncoding without use" error
+		if (mtl_validation == nullptr || mtl_validation[0] == '0') [[likely]] {
+			const auto dev_queue = dev.context->get_device_default_queue(dev);
+			id <MTLCommandBuffer> cmd_buffer = ((const metal_queue*)dev_queue)->make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			[blit_encoder optimizeIndirectCommandBuffer:entry.icb withRange:NSRange { .location = 0, .length = get_command_count() }];
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
+			[cmd_buffer waitUntilCompleted];
+		}
 	}
 }
 
@@ -206,51 +209,6 @@ void metal_indirect_command_pipeline::reset() {
 		}
 		indirect_command_pipeline::reset();
 	}
-}
-
-std::optional<NSRange> metal_indirect_command_pipeline::compute_and_validate_command_range(const uint32_t command_offset,
-																						   const uint32_t command_count) const {
-	NSRange range { command_offset, command_count };
-	if (command_count == ~0u) {
-		range.length = get_command_count();
-	}
-#if defined(FLOOR_DEBUG)
-	{
-		const auto cmd_count = get_command_count();
-		if (command_offset != 0 || range.length != cmd_count) {
-			static std::once_flag flag;
-			std::call_once(flag, [] {
-				// see below
-				log_warn("efficient resource usage declarations when using partial command ranges is not implemented yet");
-			});
-		}
-		if (cmd_count == 0) {
-			log_warn("no commands in indirect command pipeline \"$\"", desc.debug_label);
-		}
-		if (range.location >= cmd_count) {
-			log_error("out-of-bounds command offset $ for indirect command pipeline \"$\"",
-					  range.location, desc.debug_label);
-			return {};
-		}
-		uint32_t sum = 0;
-		if (__builtin_uadd_overflow((uint32_t)range.location, (uint32_t)range.length, &sum)) {
-			log_error("command offset $ + command count $ overflow for indirect command pipeline \"$\"",
-					  range.location, range.length, desc.debug_label);
-			return {};
-		}
-		if (sum > cmd_count) {
-			log_error("out-of-bounds command count $ for indirect command pipeline \"$\"",
-					  range.length, desc.debug_label);
-			return {};
-		}
-	}
-#endif
-	// post count check, since this might have been modified, but we still want the debug messages
-	if (range.length == 0) {
-		return {};
-	}
-	
-	return range;
 }
 
 metal_indirect_command_pipeline::metal_pipeline_entry::metal_pipeline_entry(metal_pipeline_entry&& entry) :

@@ -36,7 +36,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 //! NOTE: it is still possible to create binary semaphores by setting "create_binary_sema" to true (in that case, ignore the above NOTE)
 class vulkan_fence final : public device_fence {
 public:
-	vulkan_fence(const device& dev, const bool create_binary_sema = false);
+	vulkan_fence(const device& dev, const bool create_binary_sema = false, const char* debug_label_ = nullptr);
 	~vulkan_fence() override;
 	
 	//! returns the Vulkan specific "fence" object (a timeline semaphore)

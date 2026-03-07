@@ -570,7 +570,9 @@ namespace metal_args {
 	}
 	
 	//! sets the buffer mutability of all buffers of the specified "entries" in the specified pipeline descriptor
+	//! NOTE: only used by Metal 3
 	template <ENCODER_TYPE enc_type>
+	requires (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER)
 	bool set_buffer_mutability(pipeline_selector_t<enc_type>* pipeline_desc,
 							   const std::vector<const function_info*>& entries) {
 		idx_handler idx;

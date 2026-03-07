@@ -60,24 +60,7 @@ public:
 				 const std::vector<const device_fence*>& wait_fences,
 				 const std::vector<device_fence*>& signal_fences,
 				 const char* debug_label,
-				 kernel_completion_handler_f&& completion_handler) const override {
-		// just forward to the other execute() function, without a cmd buffer
-		execute(cqueue, nullptr, is_cooperative, wait_until_completion, dim, global_work_size, local_work_size, args,
-				wait_fences, signal_fences, debug_label, std::forward<kernel_completion_handler_f>(completion_handler));
-	}
-	
-	void execute(const device_queue& cqueue,
-				 vulkan_command_buffer* external_cmd_buffer,
-				 const bool& is_cooperative,
-				 const bool& wait_until_completion,
-				 const uint32_t& dim,
-				 const uint3& global_work_size,
-				 const uint3& local_work_size,
-				 const std::vector<device_function_arg>& args,
-				 const std::vector<const device_fence*>& wait_fences,
-				 const std::vector<device_fence*>& signal_fences,
-				 const char* debug_label,
-				 kernel_completion_handler_f&& completion_handler) const;
+				 kernel_completion_handler_f&& completion_handler) const override;
 	
 	const function_entry* get_function_entry(const device& dev) const override;
 	
@@ -100,12 +83,12 @@ protected:
 	PLATFORM_TYPE get_platform_type() const override { return PLATFORM_TYPE::VULKAN; }
 	
 	std::shared_ptr<vulkan_encoder> create_encoder(const device_queue& queue,
-											  const vulkan_command_buffer* cmd_buffer,
-											  const VkPipeline pipeline,
-											  const VkPipelineLayout pipeline_layout,
-											  const std::vector<const vulkan_function_entry*>& entries,
-											  const char* debug_label,
-											  bool& success) const;
+												   const vulkan_command_buffer& cmd_buffer,
+												   const VkPipeline pipeline,
+												   const VkPipelineLayout pipeline_layout,
+												   const std::vector<const vulkan_function_entry*>& entries,
+												   const char* debug_label,
+												   bool& success) const;
 	
 	bool set_and_handle_arguments(const bool is_shader,
 								  vulkan_encoder& encoder,
@@ -120,7 +103,8 @@ protected:
 																	 const uint32_t& user_arg_index,
 																	 const uint32_t& ll_arg_index,
 																	 const MEMORY_FLAG& add_mem_flags,
-																	 const bool zero_init) const override;
+																	 const bool zero_init,
+																	 const char* debug_label) const override;
 	
 };
 

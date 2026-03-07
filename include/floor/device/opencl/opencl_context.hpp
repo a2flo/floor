@@ -53,11 +53,11 @@ public:
 	//////////////////////////////////////////
 	// device functions
 	
-	std::shared_ptr<device_queue> create_queue(const device& dev) const override;
+	std::shared_ptr<device_queue> create_queue(const device& dev, const char* debug_label = nullptr) const override;
 	
 	const device_queue* get_device_default_queue(const device& dev) const override;
 	
-	std::unique_ptr<device_fence> create_fence(const device_queue& cqueue) const override;
+	std::unique_ptr<device_fence> create_fence(const device_queue& cqueue, const char* debug_label = nullptr) const override;
 	
 	memory_usage_t get_memory_usage(const device& dev) const override;
 	
@@ -67,22 +67,25 @@ public:
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 const size_t size,
 												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const override;
 	
 	std::shared_ptr<device_buffer> create_buffer(const device_queue& cqueue,
 												 std::span<uint8_t> data,
 												 const MEMORY_FLAG flags = (MEMORY_FLAG::READ_WRITE |
-																			MEMORY_FLAG::HOST_READ_WRITE)) const override;
+																			MEMORY_FLAG::HOST_READ_WRITE),
+												 const char* debug_label = nullptr) const override;
 	
 	//////////////////////////////////////////
 	// image creation
 	
 	std::shared_ptr<device_image> create_image(const device_queue& cqueue,
-										   const uint4 image_dim,
-										   const IMAGE_TYPE image_type,
-										   std::span<uint8_t> data,
-										   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
-										   const uint32_t mip_level_limit = 0u) const override;
+											   const uint4 image_dim,
+											   const IMAGE_TYPE image_type,
+											   std::span<uint8_t> data,
+											   const MEMORY_FLAG flags = (MEMORY_FLAG::HOST_READ_WRITE),
+											   const uint32_t mip_level_limit = 0u,
+											   const char* debug_label = nullptr) const override;
 	
 	//////////////////////////////////////////
 	// program/function functionality

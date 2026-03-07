@@ -40,8 +40,9 @@ cuda_buffer::cuda_buffer(const device_queue& cqueue,
 						 const size_t& size_,
 						 std::span<uint8_t> host_data_,
 						 const MEMORY_FLAG flags_,
-						 device_buffer* shared_buffer_) :
-device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_) {
+						 device_buffer* shared_buffer_,
+						 const char* debug_label_) :
+device_buffer(cqueue, size_, host_data_, flags_, shared_buffer_, debug_label_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & MEMORY_FLAG::READ_WRITE) {
@@ -360,8 +361,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(const device_queue& cqueue,
 	return ret_ptr;
 }
 
-bool cuda_buffer::unmap(const device_queue& cqueue,
-						void* __attribute__((aligned(128))) mapped_ptr) {
+bool cuda_buffer::unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard) {
 	if(buffer == 0) return false;
 	if(mapped_ptr == nullptr) return false;
 	
@@ -374,8 +374,9 @@ bool cuda_buffer::unmap(const device_queue& cqueue,
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	bool success = true;
-	if (has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
-		has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+	if (!discard &&
+		(has_flag<MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		CU_CALL_ERROR_EXEC(cu_memcpy_htod_async(buffer + iter->second.offset, mapped_ptr, iter->second.size,
 												(const_cu_stream)cqueue.get_queue_ptr()),
 						   "failed to copy host memory to device", { success = false; })
@@ -417,13 +418,12 @@ bool cuda_buffer::create_shared_vulkan_buffer(const bool copy_host_data) {
 			}
 			assert(host_data.data() == nullptr || size == host_data.size_bytes());
 			cuda_vk_buffer = (host_data.data() != nullptr ?
-							  vk_render_ctx->create_buffer(*default_queue, host_data, shared_vk_buffer_flags) :
-							  vk_render_ctx->create_buffer(*default_queue, size, shared_vk_buffer_flags));
+							  vk_render_ctx->create_buffer(*default_queue, host_data, shared_vk_buffer_flags, "cuda_vk_buffer") :
+							  vk_render_ctx->create_buffer(*default_queue, size, shared_vk_buffer_flags, "cuda_vk_buffer"));
 			if (!cuda_vk_buffer) {
 				log_error("CUDA/Vulkan buffer sharing failed: failed to create the underlying shared Vulkan buffer");
 				return false;
 			}
-			cuda_vk_buffer->set_debug_label("cuda_vk_buffer");
 			shared_vk_buffer = (vulkan_buffer*)cuda_vk_buffer.get();
 		}
 		// else: wrapping an existing Vulkan buffer

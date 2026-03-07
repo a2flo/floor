@@ -872,8 +872,17 @@ bool openxr_context::create_session(vulkan_context& vk_ctx_, const vulkan_device
 								IMAGE_TYPE::FLAG_RENDER_TARGET),
 			.dim = { recommended_render_size.x, recommended_render_size.y, uint32_t(internal->views.size()), 0 },
 		};
-		internal->swapchain.swapchain_images[swapchain_image_idx] = std::make_unique<vulkan_image_internal>(vk_queue, info);
-		internal->swapchain.swapchain_images[swapchain_image_idx]->set_debug_label("swapchain_image_#" + std::to_string(swapchain_image_idx));
+#if defined(FLOOR_DEBUG)
+		const std::string swapchain_image_debug_label = "xr_swapchain_image#" + std::to_string(swapchain_image_idx);
+#endif
+		internal->swapchain.swapchain_images[swapchain_image_idx] = std::make_unique<vulkan_image_internal>(vk_queue, info,
+																											std::span<uint8_t> {},
+																											MEMORY_FLAG::READ_WRITE |
+																											MEMORY_FLAG::HOST_READ_WRITE
+#if defined(FLOOR_DEBUG)
+																											, swapchain_image_debug_label.c_str()
+#endif
+																											);
 	}
 	
 	// can now create input handling (-> openxr_input.cpp)

@@ -28,6 +28,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 #include <floor/device/metal/metal_image.hpp>
+#include <floor/device/metal/metal4_image.hpp>
 #endif
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/device/vulkan/vulkan_image.hpp>
@@ -133,11 +134,11 @@ namespace fl {
 static constexpr const uint8_t mmm_fubar[] {
 #embed "../../etc/mip_map_minify/mmm.fubar"
 };
-#define FLOOR_HAS_EMBEDDED_MMM_FUBAR 1
+#else
+#error "no embedded mip-map-minify program"
 #endif
 
 bool device_image::add_embedded_minify_program([[maybe_unused]] device_context& ctx) {
-#if defined(FLOOR_HAS_EMBEDDED_MMM_FUBAR)
 	// try to load embedded mip-map minify programs/functions
 	static_assert(std::size(mmm_fubar) > 0, "mmm.fubar is missing or empty");
 	const std::span<const uint8_t> mmm_fubar_data { mmm_fubar };
@@ -149,9 +150,6 @@ bool device_image::add_embedded_minify_program([[maybe_unused]] device_context& 
 	
 	// create the minify program for this context
 	return device_image::provide_minify_program(ctx, embedded_mmm_program);
-#else
-	return false;
-#endif
 }
 
 bool device_image::provide_minify_program(device_context& ctx, std::shared_ptr<device_program> prog) {
@@ -235,7 +233,6 @@ void device_image::build_mip_map_minification_program() const {
 }
 
 void device_image::generate_mip_map_chain(const device_queue& cqueue) {
-#if defined(FLOOR_HAS_EMBEDDED_MMM_FUBAR)
 	// load the embedded mip-map minify program/FUBAR for each context that gets here
 	static safe_mutex did_add_embedded_program_lock;
 	// this signals whether we have already tried loading the FUBAR and if it was successful or not
@@ -247,7 +244,6 @@ void device_image::generate_mip_map_chain(const device_queue& cqueue) {
 			did_add_embedded_program[&ctx] = add_embedded_minify_program(ctx);
 		}
 	}
-#endif
 	
 	const device_function* minify_function = nullptr;
 	for (uint32_t try_out = 0; ; ++try_out) {
@@ -449,7 +445,8 @@ std::string device_image::image_type_to_string(const IMAGE_TYPE& type) {
 
 std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, const bool copy_contents,
 												  const MEMORY_FLAG flags_override,
-												  const IMAGE_TYPE image_type_override) {
+												  const IMAGE_TYPE image_type_override,
+												  const char* clone_debug_label) {
 	if (dev.context == nullptr) {
 		log_error("invalid image/device state");
 		return {};
@@ -462,7 +459,7 @@ std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, co
 	}
 	
 	auto ret = dev.context->create_image(cqueue, image_dim, (image_type_override == IMAGE_TYPE::NONE ? image_type : image_type_override),
-										 host_data, clone_flags, mip_level_count);
+										 host_data, clone_flags, mip_level_count, clone_debug_label);
 	if (ret && copy_contents) {
 		ret->blit(cqueue, *this);
 	}
@@ -576,6 +573,29 @@ metal_image* device_image::get_underlying_metal_image_safe() {
 	return (metal_image*)this;
 }
 
+metal4_image* device_image::get_underlying_metal4_image_safe() {
+	if (has_flag<MEMORY_FLAG::METAL_SHARING>(flags)) {
+		metal4_image* ret = get_shared_metal4_image();
+		if (ret) {
+			if (has_flag<MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_image(nullptr, nullptr);
+			} else if (has_flag<MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image(nullptr, nullptr);
+			}
+		} else {
+			ret = (metal4_image*)this;
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_image = dynamic_cast<metal4_image*>(ret); !test_cast_mtl_image) {
+			throw std::runtime_error("specified image is neither a Metal image nor a shared Metal image");
+		}
+#endif
+		return ret;
+	}
+	return (metal4_image*)this;
+}
+
 const metal_image* device_image::get_underlying_metal_image_safe() const {
 	if (has_flag<MEMORY_FLAG::METAL_SHARING>(flags)) {
 		const metal_image* ret = get_shared_metal_image();
@@ -597,6 +617,29 @@ const metal_image* device_image::get_underlying_metal_image_safe() const {
 		return ret;
 	}
 	return (const metal_image*)this;
+}
+
+const metal4_image* device_image::get_underlying_metal4_image_safe() const {
+	if (has_flag<MEMORY_FLAG::METAL_SHARING>(flags)) {
+		const metal4_image* ret = get_shared_metal4_image();
+		if (ret) {
+			if (has_flag<MEMORY_FLAG::SHARING_SYNC>(flags)) {
+				// -> release from compute use, acquire for Metal use
+				release_metal_image(nullptr, nullptr);
+			} else if (has_flag<MEMORY_FLAG::METAL_SHARING_SYNC_SHARED>(flags)) {
+				sync_metal_image(nullptr, nullptr);
+			}
+		} else {
+			ret = (const metal4_image*)this;
+		}
+#if defined(FLOOR_DEBUG) && !defined(FLOOR_NO_METAL)
+		if (auto test_cast_mtl_image = dynamic_cast<const metal4_image*>(ret); !test_cast_mtl_image) {
+			throw std::runtime_error("specified image is neither a Metal image nor a shared Metal image");
+		}
+#endif
+		return ret;
+	}
+	return (const metal4_image*)this;
 }
 
 vulkan_image* device_image::get_underlying_vulkan_image_safe() {
@@ -644,5 +687,18 @@ const vulkan_image* device_image::get_underlying_vulkan_image_safe() const {
 	}
 	return (const vulkan_image*)this;
 }
+
+#if defined(__APPLE__)
+void device_image::handle_image_type_apple(IMAGE_TYPE& ret, const IMAGE_TYPE image_type_) {
+	// disable FLAG_TRANSIENT/memoryless when API validation is enabled due to a bug in the validation
+	if (has_flag<IMAGE_TYPE::FLAG_TRANSIENT>(image_type_)) {
+		static const auto mtl_validation = getenv("MTL_DEBUG_LAYER");
+		if (mtl_validation != nullptr && mtl_validation[0] != '0') {
+			log_warn("disabled FLAG_TRANSIENT due to the presence of Metal API validation");
+			ret &= ~IMAGE_TYPE::FLAG_TRANSIENT;
+		}
+	}
+}
+#endif
 
 } // namespace fl

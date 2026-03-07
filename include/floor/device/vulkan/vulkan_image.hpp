@@ -48,7 +48,7 @@ public:
 	void* __attribute__((aligned(128))) map(const device_queue& cqueue,
 											const MEMORY_MAP_FLAG flags = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK)) override;
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	//! returns the Vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
@@ -150,9 +150,10 @@ protected:
 	vulkan_image(const device_queue& cqueue,
 				 const uint4 image_dim,
 				 const IMAGE_TYPE image_type,
-				 std::span<uint8_t> host_data_ = {},
-				 const MEMORY_FLAG flags_ = (MEMORY_FLAG::HOST_READ_WRITE),
-				 const uint32_t mip_level_limit = 0u);
+				 std::span<uint8_t> host_data_,
+				 const MEMORY_FLAG flags_,
+				 const uint32_t mip_level_limit_,
+				 const char* debug_label_);
 	
 	~vulkan_image() override;
 	
@@ -160,7 +161,8 @@ protected:
 	vulkan_image(const device_queue& cqueue,
 				 const external_vulkan_image_info& external_image,
 				 std::span<uint8_t> host_data_,
-				 const MEMORY_FLAG flags_);
+				 const MEMORY_FLAG flags_,
+				 const char* debug_label_);
 	
 	//! internal function - destroyed once by vulkan_context
 	static void destroy_internal(vulkan_context& ctx) REQUIRES(!att_clear_passes_lock);

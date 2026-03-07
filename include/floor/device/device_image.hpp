@@ -36,7 +36,7 @@ class device_fence;
 class vulkan_image;
 class vulkan_queue;
 class metal_image;
-class metal_queue;
+class metal4_image;
 
 class device_image : public device_memory {
 public:
@@ -71,7 +71,7 @@ public:
 	}
 	
 	//! handles misc image type modifications (infer no-sampler flag, strip mip-mapped flag if mip-level count <= 1)
-	static constexpr IMAGE_TYPE handle_image_type(const uint4& image_dim_, IMAGE_TYPE image_type_, const MEMORY_FLAG flags_) {
+	static constexpr IMAGE_TYPE handle_image_type(const uint4& image_dim_, const IMAGE_TYPE image_type_, const MEMORY_FLAG flags_) {
 		IMAGE_TYPE ret = infer_image_flags(image_type_);
 		if (has_flag<IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)) {
 			if (image_mip_level_count(image_dim_, image_type_) <= 1) {
@@ -82,6 +82,11 @@ public:
 		if (has_flag<MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)) {
 			ret |= IMAGE_TYPE::WRITE;
 		}
+		
+#if defined(__APPLE__)
+		handle_image_type_apple(ret, image_type_);
+#endif
+		
 		return ret;
 	}
 	
@@ -139,17 +144,19 @@ public:
 		return (std::array<data_type, n>*)map(cqueue, flags_);
 	}
 	
-	//! unmaps a previously mapped memory pointer, returns true on success
+	//! unmaps a previously mapped memory pointer, returns true on success,
+	//! if "discard" is true, the memory will only be unmapped, but no memory will be copied to the device if it would otherwise be required
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	virtual bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) = 0;
 	
 	//! clones this image, optionally copying its contents as well
 	//! NOTE: contents can only be copied if the image is READ_WRITE
 	//! NOTE: if "image_type_override" is set (not NONE), the cloned image type will be set to this (caller must ensure compatibility!)
 	virtual std::shared_ptr<device_image> clone(const device_queue& cqueue, const bool copy_contents = false,
 												const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
-												const IMAGE_TYPE image_type_override = IMAGE_TYPE::NONE);
+												const IMAGE_TYPE image_type_override = IMAGE_TYPE::NONE,
+												const char* debug_label = nullptr);
 	
 	//! creates the mip-map chain for this image (if not manually generating mip-maps)
 	virtual void generate_mip_map_chain(const device_queue& cqueue);
@@ -161,35 +168,43 @@ public:
 	metal_image* get_shared_metal_image() {
 		return shared_mtl_image;
 	}
+	metal4_image* get_shared_metal4_image() {
+		return shared_mtl4_image;
+	}
 	
 	//! returns the internal shared Metal image if there is one, returns nullptr otherwise
 	const metal_image* get_shared_metal_image() const {
 		return shared_mtl_image;
 	}
+	const metal4_image* get_shared_metal4_image() const {
+		return shared_mtl4_image;
+	}
 	
 	//! acquires the associated Metal image for use with compute (-> release from Metal use)
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool acquire_metal_image(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool acquire_metal_image(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! releases the associated Metal image from use with compute (-> acquire for Metal use)
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool release_metal_image(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool release_metal_image(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	//! synchronizes the contents of this image with the shared Metal image
 	//! NOTE: "cqueue" must be a device_queue of the compute context (or nullptr), "mtl_queue" must be a device_queue of the Metal context (or nullptr)
-	virtual bool sync_metal_image(const device_queue* cqueue floor_unused, const metal_queue* mtl_queue floor_unused) const {
+	virtual bool sync_metal_image(const device_queue* cqueue floor_unused, const device_queue* mtl_queue floor_unused) const {
 		return false;
 	}
 	
 	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
 	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	metal_image* get_underlying_metal_image_safe();
+	metal4_image* get_underlying_metal4_image_safe();
 	
 	//! returns the underlying Metal image that should be used on the device (i.e. this or a shared image)
 	//! NOTE: when synchronization flags are set, this may synchronize buffer contents
 	const metal_image* get_underlying_metal_image_safe() const;
+	const metal4_image* get_underlying_metal4_image_safe() const;
 	
 	//! returns the internal shared Vulkan image if there is one, returns nullptr otherwise
 	vulkan_image* get_shared_vulkan_image() {
@@ -453,14 +468,15 @@ protected:
 	friend class floor;
 	
 	device_image(const device_queue& cqueue,
-				  const uint4 image_dim_,
-				  const IMAGE_TYPE image_type_,
-				  std::span<uint8_t> host_data_,
-				  const MEMORY_FLAG flags_,
-				  device_image* shared_image_,
-				  const bool backend_may_need_shim_type,
-				  const uint32_t mip_level_limit) :
-	device_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_)),
+				 const uint4 image_dim_,
+				 const IMAGE_TYPE image_type_,
+				 std::span<uint8_t> host_data_,
+				 const MEMORY_FLAG flags_,
+				 device_image* shared_image_,
+				 const bool backend_may_need_shim_type,
+				 const uint32_t mip_level_limit,
+				 const char* debug_label_) :
+	device_memory(cqueue, host_data_, infer_rw_flags(image_type_, flags_), debug_label_),
 	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_, flags)),
 	is_mip_mapped(has_flag<IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
@@ -538,6 +554,7 @@ protected:
 		vulkan_image* shared_vk_image;
 		// shared Metal image object when Metal sharing is used
 		metal_image* shared_mtl_image;
+		metal4_image* shared_mtl4_image;
 	};
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
@@ -625,6 +642,10 @@ protected:
 	//! NOTE: in some situations, the presence of MEMORY_FLAG::HOST_WRITE may not be required -> "needs_host_write" can be set to false then
 	bool write_check(const size_t src_size, const uint3 offset, const uint3 extent, const uint2 mip_level_range, const uint2 layer_range,
 					 const bool needs_host_write = true);
+	
+#if defined(__APPLE__)
+	static void handle_image_type_apple(IMAGE_TYPE& ret, const IMAGE_TYPE image_type_);
+#endif
 	
 };
 

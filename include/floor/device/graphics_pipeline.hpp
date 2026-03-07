@@ -215,7 +215,8 @@ struct render_pipeline_description {
 	};
 	depth_attachment_t depth_attachment;
 	
-	//! tessellation state
+	//! (deprecated) tessellation state
+	//! NOTE: this is deprecated/unavailable as of Metal 4 and also not supported in the Vulkan backend
 	struct tessellation_t {
 		//! maximum tessellation factor that may be used
 		//! NOTE: tessellation is inactive if this is 0

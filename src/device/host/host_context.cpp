@@ -249,7 +249,7 @@ host_context::host_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	main_queue = std::make_shared<host_queue>(*fastest_cpu_device);
 }
 
-std::shared_ptr<device_queue> host_context::create_queue(const device& dev floor_unused) const {
+std::shared_ptr<device_queue> host_context::create_queue(const device& dev floor_unused, const char* debug_label floor_unused) const {
 	return main_queue;
 }
 
@@ -261,83 +261,81 @@ std::optional<uint32_t> host_context::get_max_distinct_compute_queue_count(const
 	return 1;
 }
 
-std::vector<std::shared_ptr<device_queue>> host_context::create_distinct_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> host_context::create_distinct_queues(const device& dev, const uint32_t wanted_count,
+																				const std::span<const char* const>) const {
 	if (wanted_count == 0) {
 		return {};
 	}
 	return { create_queue(dev) };
 }
 
-std::vector<std::shared_ptr<device_queue>> host_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> host_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count,
+																						const std::span<const char* const>) const {
 	return create_distinct_queues(dev, wanted_count);
 }
 
-std::unique_ptr<device_fence> host_context::create_fence(const device_queue&) const {
+std::unique_ptr<device_fence> host_context::create_fence(const device_queue&, const char*) const {
 	log_error("fence creation not yet supported by Host-Compute!");
 	return {};
 }
 
-std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue,
-														   const size_t size, const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<host_buffer>(cqueue, size, flags));
+std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue, const size_t size, const MEMORY_FLAG flags,
+														   const char* debug_label) const {
+	return add_resource(std::make_shared<host_buffer>(cqueue, size, flags, nullptr, debug_label));
 }
 
-std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue,
-														   std::span<uint8_t> data,
-														   const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<host_buffer>(cqueue, data.size_bytes(), data, flags));
+std::shared_ptr<device_buffer> host_context::create_buffer(const device_queue& cqueue, std::span<uint8_t> data, const MEMORY_FLAG flags,
+														   const char* debug_label) const {
+	return add_resource(std::make_shared<host_buffer>(cqueue, data.size_bytes(), data, flags, nullptr, debug_label));
 }
 
-std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue,
-														 metal_buffer& mtl_buffer,
-														 const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue, metal_buffer& mtl_buffer, const MEMORY_FLAG flags,
+														 const char* debug_label) const {
 #if !defined(FLOOR_NO_METAL)
 	return add_resource(std::make_shared<host_buffer>(cqueue, ((const device_buffer&)mtl_buffer).get_size(), std::span<uint8_t> {},
-												 flags | MEMORY_FLAG::METAL_SHARING, (device_buffer*)&mtl_buffer));
+													  flags | MEMORY_FLAG::METAL_SHARING, (device_buffer*)&mtl_buffer, debug_label));
 #else
-	return device_context::wrap_buffer(cqueue, mtl_buffer, flags);
+	return device_context::wrap_buffer(cqueue, mtl_buffer, flags, debug_label);
 #endif
 }
 
-std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue,
-														 vulkan_buffer& vk_buffer,
-														 const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> host_context::wrap_buffer(const device_queue& cqueue, vulkan_buffer& vk_buffer, const MEMORY_FLAG flags,
+														 const char* debug_label) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(std::make_shared<host_buffer>(cqueue, ((const device_buffer&)vk_buffer).get_size(), std::span<uint8_t> {},
-												 flags | MEMORY_FLAG::VULKAN_SHARING, (device_buffer*)&vk_buffer));
+													  flags | MEMORY_FLAG::VULKAN_SHARING, (device_buffer*)&vk_buffer, debug_label));
 #else
-	return device_context::wrap_buffer(cqueue, vk_buffer, flags);
+	return device_context::wrap_buffer(cqueue, vk_buffer, flags, debug_label);
 #endif
 }
 
 std::shared_ptr<device_image> host_context::create_image(const device_queue& cqueue,
-													 const uint4 image_dim,
-													 const IMAGE_TYPE image_type,
-													 std::span<uint8_t> data,
-													 const MEMORY_FLAG flags,
-													 const uint32_t mip_level_limit) const {
-	return add_resource(std::make_shared<host_image>(cqueue, image_dim, image_type, data, flags, nullptr, mip_level_limit));
+														 const uint4 image_dim,
+														 const IMAGE_TYPE image_type,
+														 std::span<uint8_t> data,
+														 const MEMORY_FLAG flags,
+														 const uint32_t mip_level_limit,
+														 const char* debug_label) const {
+	return add_resource(std::make_shared<host_image>(cqueue, image_dim, image_type, data, flags, nullptr, mip_level_limit, debug_label));
 }
 
-std::shared_ptr<device_image> host_context::wrap_image(const device_queue& cqueue,
-												   metal_image& mtl_image,
-												   const MEMORY_FLAG flags) const {
+std::shared_ptr<device_image> host_context::wrap_image(const device_queue& cqueue, metal_image& mtl_image, const MEMORY_FLAG flags,
+													   [[maybe_unused]] const char* debug_label) const {
 #if !defined(FLOOR_NO_METAL)
 	return add_resource(std::make_shared<host_image>(cqueue, ((const device_image&)mtl_image).get_image_dim(),
-												((const device_image&)mtl_image).get_image_type(), std::span<uint8_t> {},
-												flags | MEMORY_FLAG::METAL_SHARING, (device_image*)&mtl_image));
+													 ((const device_image&)mtl_image).get_image_type(), std::span<uint8_t> {},
+													 flags | MEMORY_FLAG::METAL_SHARING, (device_image*)&mtl_image, 0u, debug_label));
 #else
 	return device_context::wrap_image(cqueue, mtl_image, flags);
 #endif
 }
 
-std::shared_ptr<device_image> host_context::wrap_image(const device_queue& cqueue,
-												   vulkan_image& vk_image,
-												   const MEMORY_FLAG flags) const {
+std::shared_ptr<device_image> host_context::wrap_image(const device_queue& cqueue, vulkan_image& vk_image, const MEMORY_FLAG flags,
+													   [[maybe_unused]] const char* debug_label) const {
 #if !defined(FLOOR_NO_VULKAN)
 	return add_resource(std::make_shared<host_image>(cqueue, ((const device_image&)vk_image).get_image_dim(),
-												((const device_image&)vk_image).get_image_type(), std::span<uint8_t> {},
-												flags | MEMORY_FLAG::VULKAN_SHARING, (device_image*)&vk_image));
+													 ((const device_image&)vk_image).get_image_type(), std::span<uint8_t> {},
+													 flags | MEMORY_FLAG::VULKAN_SHARING, (device_image*)&vk_image, 0u, debug_label));
 #else
 	return device_context::wrap_image(cqueue, vk_image, flags);
 #endif

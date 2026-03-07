@@ -10,6 +10,33 @@
 		5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F617D148C5007F536E /* Cocoa.framework */; };
 		5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F817D148CB007F536E /* AppKit.framework */; };
 		5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FA17D148D0007F536E /* ApplicationServices.framework */; };
+		5C240B192F4E691400291522 /* generic_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C240B182F4E691400291522 /* generic_indirect_command.cpp */; };
+		5C240B1A2F4E691400291522 /* generic_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C240B182F4E691400291522 /* generic_indirect_command.cpp */; };
+		5C240B1B2F4E691400291522 /* generic_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C240B182F4E691400291522 /* generic_indirect_command.cpp */; };
+		5C4BA1502F48EC86001435CF /* metal4_pipeline.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14F2F48EC86001435CF /* metal4_pipeline.mm */; };
+		5C4BA1512F48EC86001435CF /* metal4_pass.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14E2F48EC86001435CF /* metal4_pass.mm */; };
+		5C4BA1522F48EC86001435CF /* metal4_pipeline.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14F2F48EC86001435CF /* metal4_pipeline.mm */; };
+		5C4BA1532F48EC86001435CF /* metal4_pass.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14E2F48EC86001435CF /* metal4_pass.mm */; };
+		5C4BA1542F48EC86001435CF /* metal4_pipeline.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14F2F48EC86001435CF /* metal4_pipeline.mm */; };
+		5C4BA1552F48EC86001435CF /* metal4_pass.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4BA14E2F48EC86001435CF /* metal4_pass.mm */; };
+		5C4F0DAE2F482B42004FE561 /* metal4_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DAD2F482B42004FE561 /* metal4_buffer.mm */; };
+		5C4F0DAF2F482B42004FE561 /* metal4_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DAD2F482B42004FE561 /* metal4_buffer.mm */; };
+		5C4F0DB02F482B42004FE561 /* metal4_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DAD2F482B42004FE561 /* metal4_buffer.mm */; };
+		5C4F0DB42F483805004FE561 /* metal4_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB32F483805004FE561 /* metal4_program.mm */; };
+		5C4F0DB52F483805004FE561 /* metal4_function.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB22F483805004FE561 /* metal4_function.mm */; };
+		5C4F0DB62F483805004FE561 /* metal4_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB32F483805004FE561 /* metal4_program.mm */; };
+		5C4F0DB72F483805004FE561 /* metal4_function.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB22F483805004FE561 /* metal4_function.mm */; };
+		5C4F0DB82F483805004FE561 /* metal4_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB32F483805004FE561 /* metal4_program.mm */; };
+		5C4F0DB92F483805004FE561 /* metal4_function.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DB22F483805004FE561 /* metal4_function.mm */; };
+		5C4F0DBD2F4838A6004FE561 /* metal4_shader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DBC2F4838A6004FE561 /* metal4_shader.mm */; };
+		5C4F0DBE2F4838A6004FE561 /* metal4_shader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DBC2F4838A6004FE561 /* metal4_shader.mm */; };
+		5C4F0DBF2F4838A6004FE561 /* metal4_shader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DBC2F4838A6004FE561 /* metal4_shader.mm */; };
+		5C4F0DC22F485020004FE561 /* metal4_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC12F485020004FE561 /* metal4_argument_buffer.mm */; };
+		5C4F0DC32F485020004FE561 /* metal4_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC12F485020004FE561 /* metal4_argument_buffer.mm */; };
+		5C4F0DC42F485020004FE561 /* metal4_argument_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC12F485020004FE561 /* metal4_argument_buffer.mm */; };
+		5C4F0DC72F48689F004FE561 /* metal4_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC62F48689F004FE561 /* metal4_image.mm */; };
+		5C4F0DC82F48689F004FE561 /* metal4_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC62F48689F004FE561 /* metal4_image.mm */; };
+		5C4F0DC92F48689F004FE561 /* metal4_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C4F0DC62F48689F004FE561 /* metal4_image.mm */; };
 		5C62E0A32C3E223200FF4E9A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 		5C6DC71C2DB0958100627453 /* vulkan_indirect_command.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC6E72DB0958100627453 /* vulkan_indirect_command.cpp */; };
 		5C6DC71D2DB0958100627453 /* serializer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DC69D2DB0958100627453 /* serializer.cpp */; };
@@ -343,7 +370,22 @@
 		5CAC49BD2E323F5C006377F5 /* vulkan_heap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */; };
 		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
+		5CDF64602F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CDF645F2F5B5F6A00584EEB /* metal4_function_entry.mm */; };
+		5CDF64612F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CDF645F2F5B5F6A00584EEB /* metal4_function_entry.mm */; };
+		5CDF64622F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CDF645F2F5B5F6A00584EEB /* metal4_function_entry.mm */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
+		5CE6D6BF2F49E99800FEF485 /* metal4_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6BE2F49E99800FEF485 /* metal4_indirect_command.mm */; };
+		5CE6D6C02F49E99800FEF485 /* metal4_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6BE2F49E99800FEF485 /* metal4_indirect_command.mm */; };
+		5CE6D6C12F49E99800FEF485 /* metal4_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6BE2F49E99800FEF485 /* metal4_indirect_command.mm */; };
+		5CE6D6C42F4A044000FEF485 /* metal4_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6C32F4A044000FEF485 /* metal4_renderer.mm */; };
+		5CE6D6C52F4A044000FEF485 /* metal4_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6C32F4A044000FEF485 /* metal4_renderer.mm */; };
+		5CE6D6C62F4A044000FEF485 /* metal4_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CE6D6C32F4A044000FEF485 /* metal4_renderer.mm */; };
+		5CF729D82F47134500BFBA4B /* metal4_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CF729D72F47134500BFBA4B /* metal4_queue.mm */; };
+		5CF729D92F47134500BFBA4B /* metal4_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CF729D72F47134500BFBA4B /* metal4_queue.mm */; };
+		5CF729DA2F47134500BFBA4B /* metal4_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CF729D72F47134500BFBA4B /* metal4_queue.mm */; };
+		5CFDD0242F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */; };
+		5CFDD0252F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */; };
+		5CFDD0262F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */; };
 		5CFE62E82E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
 		5CFE62E92E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
 		5CFE62EA2E922CC900C5CBFA /* bbox.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE62E72E922CC900C5CBFA /* bbox.cpp */; };
@@ -358,16 +400,37 @@
 		5C1091F617D148C5007F536E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		5C1091F817D148CB007F536E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		5C1091FA17D148D0007F536E /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		5C19D8852F5A2FBF00602EE7 /* utility.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = utility.hpp; path = include/floor/device/utility.hpp; sourceTree = SOURCE_ROOT; };
 		5C1E536C2E7EED0E0035371D /* metal_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = metal_group.hpp; sourceTree = "<group>"; };
 		5C1E536D2E7F16780035371D /* vulkan_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vulkan_group.hpp; sourceTree = "<group>"; };
 		5C1E536E2E7F1AF40035371D /* cuda_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cuda_group.hpp; sourceTree = "<group>"; };
 		5C1E53702E813B060035371D /* host_group.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = host_group.hpp; sourceTree = "<group>"; };
+		5C240B182F4E691400291522 /* generic_indirect_command.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = generic_indirect_command.cpp; sourceTree = "<group>"; };
+		5C240B1C2F4E692600291522 /* generic_indirect_command.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = generic_indirect_command.hpp; path = include/floor/device/generic_indirect_command.hpp; sourceTree = SOURCE_ROOT; };
 		5C38EC1122A2D00B001E7086 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		5C3B3772272F520600FD708D /* deploy_dev.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_dev.sh; path = etc/llvm140/deploy_dev.sh; sourceTree = "<group>"; };
 		5C3B3773272F520600FD708D /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm140/build.sh; sourceTree = "<group>"; };
 		5C3B3774272F520600FD708D /* deploy_pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = deploy_pkg.sh; path = etc/llvm140/deploy_pkg.sh; sourceTree = "<group>"; };
 		5C3B3775272F520600FD708D /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm140/pkg.sh; sourceTree = "<group>"; };
 		5C4B0D052F461EE3004DD3D3 /* validation.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = validation.hpp; path = include/floor/device/validation.hpp; sourceTree = SOURCE_ROOT; };
+		5C4BA14D2F48DFAC001435CF /* resource_slot_handler.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = resource_slot_handler.hpp; path = include/floor/threading/resource_slot_handler.hpp; sourceTree = SOURCE_ROOT; };
+		5C4BA14E2F48EC86001435CF /* metal4_pass.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_pass.mm; sourceTree = "<group>"; };
+		5C4BA14F2F48EC86001435CF /* metal4_pipeline.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_pipeline.mm; sourceTree = "<group>"; };
+		5C4BA1562F48EC99001435CF /* metal4_pass.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_pass.hpp; path = include/floor/device/metal/metal4_pass.hpp; sourceTree = SOURCE_ROOT; };
+		5C4BA1572F48EC99001435CF /* metal4_pipeline.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_pipeline.hpp; path = include/floor/device/metal/metal4_pipeline.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DAD2F482B42004FE561 /* metal4_buffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_buffer.mm; sourceTree = "<group>"; };
+		5C4F0DB12F482B54004FE561 /* metal4_buffer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_buffer.hpp; path = include/floor/device/metal/metal4_buffer.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DB22F483805004FE561 /* metal4_function.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_function.mm; sourceTree = "<group>"; };
+		5C4F0DB32F483805004FE561 /* metal4_program.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_program.mm; sourceTree = "<group>"; };
+		5C4F0DBA2F483817004FE561 /* metal4_function.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_function.hpp; path = include/floor/device/metal/metal4_function.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DBB2F483817004FE561 /* metal4_program.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_program.hpp; path = include/floor/device/metal/metal4_program.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DBC2F4838A6004FE561 /* metal4_shader.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_shader.mm; sourceTree = "<group>"; };
+		5C4F0DC02F4838B7004FE561 /* metal4_shader.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_shader.hpp; path = include/floor/device/metal/metal4_shader.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DC12F485020004FE561 /* metal4_argument_buffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_argument_buffer.mm; sourceTree = "<group>"; };
+		5C4F0DC52F485032004FE561 /* metal4_argument_buffer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_argument_buffer.hpp; path = include/floor/device/metal/metal4_argument_buffer.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DC62F48689F004FE561 /* metal4_image.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_image.mm; sourceTree = "<group>"; };
+		5C4F0DCA2F4868B6004FE561 /* metal4_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_image.hpp; path = include/floor/device/metal/metal4_image.hpp; sourceTree = SOURCE_ROOT; };
+		5C4F0DCB2F4880AC004FE561 /* metal4_args.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_args.hpp; path = include/floor/device/metal/metal4_args.hpp; sourceTree = SOURCE_ROOT; };
 		5C62E0A72C3E223200FF4E9A /* libfloord_visionos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_visionos.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C6DC6952DB0958100627453 /* soft_f16.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
 		5C6DC6972DB0958100627453 /* bcm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bcm.cpp; sourceTree = "<group>"; };
@@ -690,12 +753,14 @@
 		5C83AE902DBD6863009E4182 /* thread_helpers.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = thread_helpers.hpp; path = include/floor/threading/thread_helpers.hpp; sourceTree = SOURCE_ROOT; };
 		5C83AE922DBD692B009E4182 /* thread_helpers.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thread_helpers.cpp; sourceTree = "<group>"; };
 		5C84964D261284D50009DBCA /* README.asciidoc */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.asciidoc; sourceTree = "<group>"; };
+		5C90B0EA2F4B599900A5E5C4 /* metal4_resource_tracking.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_resource_tracking.hpp; path = include/floor/device/metal/metal4_resource_tracking.hpp; sourceTree = SOURCE_ROOT; };
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
 		5CAC49B92E323F5C006377F5 /* vulkan_heap.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vulkan_heap.hpp; sourceTree = "<group>"; };
 		5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vulkan_heap.cpp; sourceTree = "<group>"; };
 		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		5CC6C0A62F48C9BF000D35F5 /* metal4_function_entry.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_function_entry.hpp; path = include/floor/device/metal/metal4_function_entry.hpp; sourceTree = SOURCE_ROOT; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCB822A2BF970130037975D /* build.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = build.yml; sourceTree = "<group>"; };
 		5CCB822B2BF970130037975D /* update.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = update.yml; sourceTree = "<group>"; };
@@ -716,9 +781,19 @@
 		5CCB82422BF970130037975D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5CCB82432BF970130037975D /* volk.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = volk.c; sourceTree = "<group>"; };
 		5CCB82442BF970130037975D /* volk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = volk.h; sourceTree = "<group>"; };
+		5CDF645F2F5B5F6A00584EEB /* metal4_function_entry.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_function_entry.mm; sourceTree = "<group>"; };
 		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		5CE6D6BE2F49E99800FEF485 /* metal4_indirect_command.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_indirect_command.mm; sourceTree = "<group>"; };
+		5CE6D6C22F49E9AC00FEF485 /* metal4_indirect_command.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_indirect_command.hpp; path = include/floor/device/metal/metal4_indirect_command.hpp; sourceTree = SOURCE_ROOT; };
+		5CE6D6C32F4A044000FEF485 /* metal4_renderer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_renderer.mm; sourceTree = "<group>"; };
+		5CE6D6C72F4A046C00FEF485 /* metal4_renderer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_renderer.hpp; path = include/floor/device/metal/metal4_renderer.hpp; sourceTree = SOURCE_ROOT; };
 		5CE959F02E368441001965FB /* device_context_flags.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = device_context_flags.hpp; path = include/floor/device/device_context_flags.hpp; sourceTree = SOURCE_ROOT; };
+		5CF729D22F47124C00BFBA4B /* metal4_queue.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_queue.hpp; path = include/floor/device/metal/metal4_queue.hpp; sourceTree = SOURCE_ROOT; };
+		5CF729D72F47134500BFBA4B /* metal4_queue.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_queue.mm; sourceTree = "<group>"; };
+		5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_soft_indirect_command.mm; sourceTree = "<group>"; };
+		5CFDD0272F54AB8F002456D7 /* metal4_soft_indirect_command.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_soft_indirect_command.hpp; path = include/floor/device/metal/metal4_soft_indirect_command.hpp; sourceTree = SOURCE_ROOT; };
 		5CFE62E72E922CC900C5CBFA /* bbox.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bbox.cpp; sourceTree = "<group>"; };
+		5CFF53B22F5A189600752E80 /* small_ring_buffer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = small_ring_buffer.hpp; path = include/floor/core/small_ring_buffer.hpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -857,6 +932,7 @@
 				5C6DC69D2DB0958100627453 /* serializer.cpp */,
 				5C6DC9B22DB097E000627453 /* serializer.hpp */,
 				5C6DC9B32DB097E000627453 /* serializer_storage.hpp */,
+				5CFF53B22F5A189600752E80 /* small_ring_buffer.hpp */,
 				5C6DC69E2DB0958100627453 /* sig_handler.cpp */,
 				5C6DC9B42DB097E000627453 /* sig_handler.hpp */,
 				5C6DC9B52DB097E000627453 /* timer.hpp */,
@@ -968,6 +1044,34 @@
 				5C6DCA0A2DB0984200627453 /* metal_resource_tracking.hpp */,
 				5C6DC6C62DB0958100627453 /* metal_shader.mm */,
 				5C6DCA0B2DB0984200627453 /* metal_shader.hpp */,
+				5C4F0DCB2F4880AC004FE561 /* metal4_args.hpp */,
+				5C4F0DC12F485020004FE561 /* metal4_argument_buffer.mm */,
+				5C4F0DC52F485032004FE561 /* metal4_argument_buffer.hpp */,
+				5C4F0DAD2F482B42004FE561 /* metal4_buffer.mm */,
+				5C4F0DB12F482B54004FE561 /* metal4_buffer.hpp */,
+				5CDF645F2F5B5F6A00584EEB /* metal4_function_entry.mm */,
+				5CC6C0A62F48C9BF000D35F5 /* metal4_function_entry.hpp */,
+				5C4F0DB22F483805004FE561 /* metal4_function.mm */,
+				5C4F0DBA2F483817004FE561 /* metal4_function.hpp */,
+				5C4F0DC62F48689F004FE561 /* metal4_image.mm */,
+				5C4F0DCA2F4868B6004FE561 /* metal4_image.hpp */,
+				5CE6D6BE2F49E99800FEF485 /* metal4_indirect_command.mm */,
+				5CE6D6C22F49E9AC00FEF485 /* metal4_indirect_command.hpp */,
+				5C4BA14E2F48EC86001435CF /* metal4_pass.mm */,
+				5C4BA1562F48EC99001435CF /* metal4_pass.hpp */,
+				5C4BA14F2F48EC86001435CF /* metal4_pipeline.mm */,
+				5C4BA1572F48EC99001435CF /* metal4_pipeline.hpp */,
+				5C4F0DB32F483805004FE561 /* metal4_program.mm */,
+				5C4F0DBB2F483817004FE561 /* metal4_program.hpp */,
+				5CF729D72F47134500BFBA4B /* metal4_queue.mm */,
+				5CF729D22F47124C00BFBA4B /* metal4_queue.hpp */,
+				5CE6D6C32F4A044000FEF485 /* metal4_renderer.mm */,
+				5CE6D6C72F4A046C00FEF485 /* metal4_renderer.hpp */,
+				5C90B0EA2F4B599900A5E5C4 /* metal4_resource_tracking.hpp */,
+				5C4F0DBC2F4838A6004FE561 /* metal4_shader.mm */,
+				5C4F0DC02F4838B7004FE561 /* metal4_shader.hpp */,
+				5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */,
+				5CFDD0272F54AB8F002456D7 /* metal4_soft_indirect_command.hpp */,
 			);
 			path = metal;
 			sourceTree = "<group>";
@@ -1097,6 +1201,8 @@
 				5C6DCAF62DB098F300627453 /* graphics_vertex_format.hpp */,
 				5C6DC6FE2DB0958100627453 /* indirect_command.cpp */,
 				5C6DCAF72DB098F300627453 /* indirect_command.hpp */,
+				5C240B182F4E691400291522 /* generic_indirect_command.cpp */,
+				5C240B1C2F4E692600291522 /* generic_indirect_command.hpp */,
 				5C6DCAF82DB098F300627453 /* soft_printf.hpp */,
 				5C6DC6FF2DB0958100627453 /* spirv_handler.cpp */,
 				5C6DCAF92DB098F300627453 /* spirv_handler.hpp */,
@@ -1104,6 +1210,7 @@
 				5C6DCAFA2DB098F300627453 /* toolchain.hpp */,
 				5C6DC7012DB0958100627453 /* universal_binary.cpp */,
 				5C6DCAFB2DB098F300627453 /* universal_binary.hpp */,
+				5C19D8852F5A2FBF00602EE7 /* utility.hpp */,
 				5C4B0D052F461EE3004DD3D3 /* validation.hpp */,
 				5C6DCAB72DB098D300627453 /* backend */,
 				5C6DC6AC2DB0958100627453 /* cuda */,
@@ -1182,6 +1289,7 @@
 				5C6DCA742DB098AA00627453 /* atomic_shared_ptr.hpp */,
 				5C6DCA752DB098AA00627453 /* atomic_spin_lock.hpp */,
 				5C6DCA762DB098AA00627453 /* atomics.hpp */,
+				5C4BA14D2F48DFAC001435CF /* resource_slot_handler.hpp */,
 				5C6DCA772DB098AA00627453 /* safe_resource_container.hpp */,
 				5C6DCA782DB098AA00627453 /* task.hpp */,
 				5C6DC7132DB0958100627453 /* thread_base.cpp */,
@@ -1513,18 +1621,14 @@
 			shellScript = (
 				"./build_version.sh",
 				"",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
 			);
 		};
 		5C47A5D4186B435000BE743A /* build version */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
+			inputFileListPaths = (
+				"$(SRCROOT)/sources.xcfilelist",
+			);
 			inputPaths = (
 				"$(SRCROOT)/build_version.sh",
 			);
@@ -1536,19 +1640,15 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
 				"",
 			);
 		};
 		5C62E0362C3E223200FF4E9A /* build version */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
+			inputFileListPaths = (
+				"$(SRCROOT)/sources.xcfilelist",
+			);
 			inputPaths = (
 				"$(SRCROOT)/build_version.sh",
 			);
@@ -1560,13 +1660,6 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"./build_version.sh",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
-				"",
 				"",
 			);
 		};
@@ -1577,6 +1670,7 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				5C6DC7932DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
+				5CE6D6C42F4A044000FEF485 /* metal4_renderer.mm in Sources */,
 				5C6DC7942DB0958100627453 /* serializer.cpp in Sources */,
 				5C6DC7952DB0958100627453 /* cuda_argument_buffer.cpp in Sources */,
 				5C6DC7962DB0958100627453 /* vulkan_program.cpp in Sources */,
@@ -1586,6 +1680,8 @@
 				5C6DC79A2DB0958100627453 /* darwin_helper.mm in Sources */,
 				5C6DC79B2DB0958100627453 /* grammar.cpp in Sources */,
 				5C6DC79C2DB0958100627453 /* opencl_device.cpp in Sources */,
+				5C4F0DAE2F482B42004FE561 /* metal4_buffer.mm in Sources */,
+				5C4F0DC32F485020004FE561 /* metal4_argument_buffer.mm in Sources */,
 				5C6DC79D2DB0958100627453 /* cuda_image.cpp in Sources */,
 				5C6DC79E2DB0958100627453 /* metal_renderer.mm in Sources */,
 				5C6DC79F2DB0958100627453 /* vulkan_memory.cpp in Sources */,
@@ -1600,6 +1696,8 @@
 				5C6DC7A72DB0958100627453 /* json.cpp in Sources */,
 				5C6DC7A82DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC7A92DB0958100627453 /* host_context.cpp in Sources */,
+				5C4F0DB62F483805004FE561 /* metal4_program.mm in Sources */,
+				5C4F0DB72F483805004FE561 /* metal4_function.mm in Sources */,
 				5C6DC7AA2DB0958100627453 /* device_image.cpp in Sources */,
 				5C6DC7AB2DB0958100627453 /* metal_pipeline.mm in Sources */,
 				5C6DC7AC2DB0958100627453 /* vector_3d.cpp in Sources */,
@@ -1609,6 +1707,7 @@
 				5C6DC7B02DB0958100627453 /* vulkan_function.cpp in Sources */,
 				5C6DC7B12DB0958100627453 /* graphics_renderer.cpp in Sources */,
 				5C6DC7B22DB0958100627453 /* vulkan_image.cpp in Sources */,
+				5CDF64622F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */,
 				5C6DC7B32DB0958100627453 /* metal_device_query.mm in Sources */,
 				5C6DC7B42DB0958100627453 /* metal_shader.mm in Sources */,
 				5C6DC7B52DB0958100627453 /* device_fence.cpp in Sources */,
@@ -1626,11 +1725,13 @@
 				5C6DC7BF2DB0958100627453 /* vector_1d.cpp in Sources */,
 				5C6DC7C02DB0958100627453 /* cuda_buffer.cpp in Sources */,
 				5C6DC7C12DB0958100627453 /* vector_2d.cpp in Sources */,
+				5C4F0DBE2F4838A6004FE561 /* metal4_shader.mm in Sources */,
 				5C6DC7C22DB0958100627453 /* metal_argument_buffer.mm in Sources */,
 				5C6DC7C32DB0958100627453 /* host_image.cpp in Sources */,
 				5C6DC7C42DB0958100627453 /* lexer.cpp in Sources */,
 				5C6DC7C52DB0958100627453 /* metal_indirect_command.mm in Sources */,
 				5C6DC7C62DB0958100627453 /* metal_pass.mm in Sources */,
+				5C4F0DC82F48689F004FE561 /* metal4_image.mm in Sources */,
 				5C6DC7C72DB0958100627453 /* openxr_input.cpp in Sources */,
 				5C6DC7C82DB0958100627453 /* host_buffer.cpp in Sources */,
 				5C6DC7C92DB0958100627453 /* thread_base.cpp in Sources */,
@@ -1645,6 +1746,7 @@
 				5C6DC7D22DB0958100627453 /* core.cpp in Sources */,
 				5C6DC7D32DB0958100627453 /* elf_binary.cpp in Sources */,
 				5C6DC7D42DB0958100627453 /* vector_4d.cpp in Sources */,
+				5CFDD0242F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */,
 				5C6DC7D52DB0958100627453 /* vulkan_shader.cpp in Sources */,
 				5C6DC7D62DB0958100627453 /* cuda_program.cpp in Sources */,
 				5C6DC7D72DB0958100627453 /* opencl_function.cpp in Sources */,
@@ -1658,11 +1760,15 @@
 				5C6DC7DF2DB0958100627453 /* toolchain.cpp in Sources */,
 				5C6DC7E02DB0958100627453 /* event.cpp in Sources */,
 				5C6DC7E12DB0958100627453 /* cuda_queue.cpp in Sources */,
+				5CE6D6C12F49E99800FEF485 /* metal4_indirect_command.mm in Sources */,
+				5CF729D82F47134500BFBA4B /* metal4_queue.mm in Sources */,
 				5C6DC7E22DB0958100627453 /* opencl_queue.cpp in Sources */,
 				5C6DC7E32DB0958100627453 /* universal_binary.cpp in Sources */,
 				5C6DC7E42DB0958100627453 /* vulkan_pipeline.cpp in Sources */,
 				5C6DC7E52DB0958100627453 /* metal_device.cpp in Sources */,
 				5C6DC7E62DB0958100627453 /* host_argument_buffer.cpp in Sources */,
+				5C4BA1522F48EC86001435CF /* metal4_pipeline.mm in Sources */,
+				5C4BA1532F48EC86001435CF /* metal4_pass.mm in Sources */,
 				5C6DC7E72DB0958100627453 /* openxr_context.cpp in Sources */,
 				5C6DC7E82DB0958100627453 /* host_queue.cpp in Sources */,
 				5C6DC7E92DB0958100627453 /* host_program.cpp in Sources */,
@@ -1677,6 +1783,7 @@
 				5C6DC7F22DB0958100627453 /* metal_context.mm in Sources */,
 				5C6DC7F32DB0958100627453 /* device.cpp in Sources */,
 				5C6DC7F42DB0958100627453 /* vulkan_queue.cpp in Sources */,
+				5C240B192F4E691400291522 /* generic_indirect_command.cpp in Sources */,
 				5C6DC7F52DB0958100627453 /* device_function.cpp in Sources */,
 				5C6DC7F62DB0958100627453 /* cuda_device.cpp in Sources */,
 				5C6DC7F72DB0958100627453 /* host_device_builtins.cpp in Sources */,
@@ -1693,6 +1800,7 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				5C6DC71C2DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
+				5CE6D6C52F4A044000FEF485 /* metal4_renderer.mm in Sources */,
 				5C6DC71D2DB0958100627453 /* serializer.cpp in Sources */,
 				5C6DC71E2DB0958100627453 /* cuda_argument_buffer.cpp in Sources */,
 				5C6DC71F2DB0958100627453 /* vulkan_program.cpp in Sources */,
@@ -1702,6 +1810,8 @@
 				5C6DC7232DB0958100627453 /* darwin_helper.mm in Sources */,
 				5C6DC7242DB0958100627453 /* grammar.cpp in Sources */,
 				5C6DC7252DB0958100627453 /* opencl_device.cpp in Sources */,
+				5C4F0DAF2F482B42004FE561 /* metal4_buffer.mm in Sources */,
+				5C4F0DC42F485020004FE561 /* metal4_argument_buffer.mm in Sources */,
 				5C6DC7262DB0958100627453 /* cuda_image.cpp in Sources */,
 				5C6DC7272DB0958100627453 /* metal_renderer.mm in Sources */,
 				5C6DC7282DB0958100627453 /* vulkan_memory.cpp in Sources */,
@@ -1716,6 +1826,8 @@
 				5C6DC7302DB0958100627453 /* json.cpp in Sources */,
 				5C6DC7312DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC7322DB0958100627453 /* host_context.cpp in Sources */,
+				5C4F0DB42F483805004FE561 /* metal4_program.mm in Sources */,
+				5C4F0DB52F483805004FE561 /* metal4_function.mm in Sources */,
 				5C6DC7332DB0958100627453 /* device_image.cpp in Sources */,
 				5C6DC7342DB0958100627453 /* metal_pipeline.mm in Sources */,
 				5C6DC7352DB0958100627453 /* vector_3d.cpp in Sources */,
@@ -1725,6 +1837,7 @@
 				5C6DC7392DB0958100627453 /* vulkan_function.cpp in Sources */,
 				5C6DC73A2DB0958100627453 /* graphics_renderer.cpp in Sources */,
 				5C6DC73B2DB0958100627453 /* vulkan_image.cpp in Sources */,
+				5CDF64602F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */,
 				5C6DC73C2DB0958100627453 /* metal_device_query.mm in Sources */,
 				5C6DC73D2DB0958100627453 /* metal_shader.mm in Sources */,
 				5C6DC73E2DB0958100627453 /* device_fence.cpp in Sources */,
@@ -1742,11 +1855,13 @@
 				5C6DC7482DB0958100627453 /* vector_1d.cpp in Sources */,
 				5C6DC7492DB0958100627453 /* cuda_buffer.cpp in Sources */,
 				5C6DC74A2DB0958100627453 /* vector_2d.cpp in Sources */,
+				5C4F0DBF2F4838A6004FE561 /* metal4_shader.mm in Sources */,
 				5C6DC74B2DB0958100627453 /* metal_argument_buffer.mm in Sources */,
 				5C6DC74C2DB0958100627453 /* host_image.cpp in Sources */,
 				5C6DC74D2DB0958100627453 /* lexer.cpp in Sources */,
 				5C6DC74E2DB0958100627453 /* metal_indirect_command.mm in Sources */,
 				5C6DC74F2DB0958100627453 /* metal_pass.mm in Sources */,
+				5C4F0DC92F48689F004FE561 /* metal4_image.mm in Sources */,
 				5C6DC7502DB0958100627453 /* openxr_input.cpp in Sources */,
 				5C6DC7512DB0958100627453 /* host_buffer.cpp in Sources */,
 				5C6DC7522DB0958100627453 /* thread_base.cpp in Sources */,
@@ -1761,6 +1876,7 @@
 				5C6DC75B2DB0958100627453 /* core.cpp in Sources */,
 				5C6DC75C2DB0958100627453 /* elf_binary.cpp in Sources */,
 				5C6DC75D2DB0958100627453 /* vector_4d.cpp in Sources */,
+				5CFDD0262F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */,
 				5C6DC75E2DB0958100627453 /* vulkan_shader.cpp in Sources */,
 				5C6DC75F2DB0958100627453 /* cuda_program.cpp in Sources */,
 				5C6DC7602DB0958100627453 /* opencl_function.cpp in Sources */,
@@ -1774,11 +1890,15 @@
 				5C6DC7682DB0958100627453 /* toolchain.cpp in Sources */,
 				5C6DC7692DB0958100627453 /* event.cpp in Sources */,
 				5C6DC76A2DB0958100627453 /* cuda_queue.cpp in Sources */,
+				5CE6D6BF2F49E99800FEF485 /* metal4_indirect_command.mm in Sources */,
+				5CF729D92F47134500BFBA4B /* metal4_queue.mm in Sources */,
 				5C6DC76B2DB0958100627453 /* opencl_queue.cpp in Sources */,
 				5C6DC76C2DB0958100627453 /* universal_binary.cpp in Sources */,
 				5C6DC76D2DB0958100627453 /* vulkan_pipeline.cpp in Sources */,
 				5C6DC76E2DB0958100627453 /* metal_device.cpp in Sources */,
 				5C6DC76F2DB0958100627453 /* host_argument_buffer.cpp in Sources */,
+				5C4BA1502F48EC86001435CF /* metal4_pipeline.mm in Sources */,
+				5C4BA1512F48EC86001435CF /* metal4_pass.mm in Sources */,
 				5C6DC7702DB0958100627453 /* openxr_context.cpp in Sources */,
 				5C6DC7712DB0958100627453 /* host_queue.cpp in Sources */,
 				5C6DC7722DB0958100627453 /* host_program.cpp in Sources */,
@@ -1793,6 +1913,7 @@
 				5C6DC77B2DB0958100627453 /* metal_context.mm in Sources */,
 				5C6DC77C2DB0958100627453 /* device.cpp in Sources */,
 				5C6DC77D2DB0958100627453 /* vulkan_queue.cpp in Sources */,
+				5C240B1B2F4E691400291522 /* generic_indirect_command.cpp in Sources */,
 				5C6DC77E2DB0958100627453 /* device_function.cpp in Sources */,
 				5C6DC77F2DB0958100627453 /* cuda_device.cpp in Sources */,
 				5C6DC7802DB0958100627453 /* host_device_builtins.cpp in Sources */,
@@ -1809,6 +1930,7 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				5C6DC7FF2DB0958100627453 /* vulkan_indirect_command.cpp in Sources */,
+				5CE6D6C62F4A044000FEF485 /* metal4_renderer.mm in Sources */,
 				5C6DC8002DB0958100627453 /* serializer.cpp in Sources */,
 				5C6DC8012DB0958100627453 /* cuda_argument_buffer.cpp in Sources */,
 				5C6DC8022DB0958100627453 /* vulkan_program.cpp in Sources */,
@@ -1818,6 +1940,8 @@
 				5C6DC8062DB0958100627453 /* darwin_helper.mm in Sources */,
 				5C6DC8072DB0958100627453 /* grammar.cpp in Sources */,
 				5C6DC8082DB0958100627453 /* opencl_device.cpp in Sources */,
+				5C4F0DB02F482B42004FE561 /* metal4_buffer.mm in Sources */,
+				5C4F0DC22F485020004FE561 /* metal4_argument_buffer.mm in Sources */,
 				5C6DC8092DB0958100627453 /* cuda_image.cpp in Sources */,
 				5C6DC80A2DB0958100627453 /* metal_renderer.mm in Sources */,
 				5C6DC80B2DB0958100627453 /* vulkan_memory.cpp in Sources */,
@@ -1832,6 +1956,8 @@
 				5C6DC8132DB0958100627453 /* json.cpp in Sources */,
 				5C6DC8142DB0958100627453 /* quaternion.cpp in Sources */,
 				5C6DC8152DB0958100627453 /* host_context.cpp in Sources */,
+				5C4F0DB82F483805004FE561 /* metal4_program.mm in Sources */,
+				5C4F0DB92F483805004FE561 /* metal4_function.mm in Sources */,
 				5C6DC8162DB0958100627453 /* device_image.cpp in Sources */,
 				5C6DC8172DB0958100627453 /* metal_pipeline.mm in Sources */,
 				5C6DC8182DB0958100627453 /* vector_3d.cpp in Sources */,
@@ -1841,6 +1967,7 @@
 				5C6DC81C2DB0958100627453 /* vulkan_function.cpp in Sources */,
 				5C6DC81D2DB0958100627453 /* graphics_renderer.cpp in Sources */,
 				5C6DC81E2DB0958100627453 /* vulkan_image.cpp in Sources */,
+				5CDF64612F5B5F6A00584EEB /* metal4_function_entry.mm in Sources */,
 				5C6DC81F2DB0958100627453 /* metal_device_query.mm in Sources */,
 				5C6DC8202DB0958100627453 /* metal_shader.mm in Sources */,
 				5C6DC8212DB0958100627453 /* device_fence.cpp in Sources */,
@@ -1858,11 +1985,13 @@
 				5C6DC82B2DB0958100627453 /* vector_1d.cpp in Sources */,
 				5C6DC82C2DB0958100627453 /* cuda_buffer.cpp in Sources */,
 				5C6DC82D2DB0958100627453 /* vector_2d.cpp in Sources */,
+				5C4F0DBD2F4838A6004FE561 /* metal4_shader.mm in Sources */,
 				5C6DC82E2DB0958100627453 /* metal_argument_buffer.mm in Sources */,
 				5C6DC82F2DB0958100627453 /* host_image.cpp in Sources */,
 				5C6DC8302DB0958100627453 /* lexer.cpp in Sources */,
 				5C6DC8312DB0958100627453 /* metal_indirect_command.mm in Sources */,
 				5C6DC8322DB0958100627453 /* metal_pass.mm in Sources */,
+				5C4F0DC72F48689F004FE561 /* metal4_image.mm in Sources */,
 				5C6DC8332DB0958100627453 /* openxr_input.cpp in Sources */,
 				5C6DC8342DB0958100627453 /* host_buffer.cpp in Sources */,
 				5C6DC8352DB0958100627453 /* thread_base.cpp in Sources */,
@@ -1877,6 +2006,7 @@
 				5C6DC83E2DB0958100627453 /* core.cpp in Sources */,
 				5C6DC83F2DB0958100627453 /* elf_binary.cpp in Sources */,
 				5C6DC8402DB0958100627453 /* vector_4d.cpp in Sources */,
+				5CFDD0252F54AB78002456D7 /* metal4_soft_indirect_command.mm in Sources */,
 				5C6DC8412DB0958100627453 /* vulkan_shader.cpp in Sources */,
 				5C6DC8422DB0958100627453 /* cuda_program.cpp in Sources */,
 				5C6DC8432DB0958100627453 /* opencl_function.cpp in Sources */,
@@ -1890,11 +2020,15 @@
 				5C6DC84B2DB0958100627453 /* toolchain.cpp in Sources */,
 				5C6DC84C2DB0958100627453 /* event.cpp in Sources */,
 				5C6DC84D2DB0958100627453 /* cuda_queue.cpp in Sources */,
+				5CE6D6C02F49E99800FEF485 /* metal4_indirect_command.mm in Sources */,
+				5CF729DA2F47134500BFBA4B /* metal4_queue.mm in Sources */,
 				5C6DC84E2DB0958100627453 /* opencl_queue.cpp in Sources */,
 				5C6DC84F2DB0958100627453 /* universal_binary.cpp in Sources */,
 				5C6DC8502DB0958100627453 /* vulkan_pipeline.cpp in Sources */,
 				5C6DC8512DB0958100627453 /* metal_device.cpp in Sources */,
 				5C6DC8522DB0958100627453 /* host_argument_buffer.cpp in Sources */,
+				5C4BA1542F48EC86001435CF /* metal4_pipeline.mm in Sources */,
+				5C4BA1552F48EC86001435CF /* metal4_pass.mm in Sources */,
 				5C6DC8532DB0958100627453 /* openxr_context.cpp in Sources */,
 				5C6DC8542DB0958100627453 /* host_queue.cpp in Sources */,
 				5C6DC8552DB0958100627453 /* host_program.cpp in Sources */,
@@ -1909,6 +2043,7 @@
 				5C6DC85E2DB0958100627453 /* metal_context.mm in Sources */,
 				5C6DC85F2DB0958100627453 /* device.cpp in Sources */,
 				5C6DC8602DB0958100627453 /* vulkan_queue.cpp in Sources */,
+				5C240B1A2F4E691400291522 /* generic_indirect_command.cpp in Sources */,
 				5C6DC8612DB0958100627453 /* device_function.cpp in Sources */,
 				5C6DC8622DB0958100627453 /* cuda_device.cpp in Sources */,
 				5C6DC8632DB0958100627453 /* host_device_builtins.cpp in Sources */,
@@ -1934,7 +2069,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++26";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_ARC_EXCEPTIONS = YES;
@@ -1965,15 +2100,15 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				COMPILATION_CACHE_ENABLE_CACHING = YES;
+				COMPILATION_CACHE_ENABLE_CACHING = NO;
 				COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = NO;
 				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.5.0;
+				CURRENT_PROJECT_VERSION = 0.5.1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.5.0;
-				DYLIB_CURRENT_VERSION = 0.5.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.5.1;
+				DYLIB_CURRENT_VERSION = 0.5.1;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -2115,7 +2250,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++23";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++26";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_ARC_EXCEPTIONS = YES;
@@ -2146,15 +2281,15 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				COMPILATION_CACHE_ENABLE_CACHING = YES;
+				COMPILATION_CACHE_ENABLE_CACHING = NO;
 				COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = NO;
 				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.5.0;
+				CURRENT_PROJECT_VERSION = 0.5.1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.5.0;
-				DYLIB_CURRENT_VERSION = 0.5.0;
+				DYLIB_COMPATIBILITY_VERSION = 0.5.1;
+				DYLIB_CURRENT_VERSION = 0.5.1;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -2348,8 +2483,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_visionos.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64";
-				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64_x86_64-simulator";
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_VISIONOS,
@@ -2378,8 +2513,8 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_visionos.dst;
-				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64";
-				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/visionos-arm64_x86_64-simulator";
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_VISIONOS,

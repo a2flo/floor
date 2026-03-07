@@ -41,6 +41,7 @@
 #include <floor/device/vulkan/vulkan_pipeline.hpp>
 #include <floor/device/vulkan/vulkan_pass.hpp>
 #include <floor/device/vulkan/vulkan_renderer.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 #include <floor/vr/vr_context.hpp>
 #include <floor/vr/openxr_context.hpp>
 #include <filesystem>
@@ -1472,8 +1473,7 @@ enable_renderer(enable_renderer_) {
 		
 #if !defined(FLOOR_NO_OPENVR) || !defined(FLOOR_NO_OPENXR)
 		if (vr_ctx) {
-			if (!vulkan11_features.multiview ||
-				!vulkan11_features.multiviewTessellationShader) {
+			if (!vulkan11_features.multiview) {
 				log_error("VR requirements not met: multi-view features are not supported by $", props.deviceName);
 				continue;
 			}
@@ -2271,16 +2271,14 @@ enable_renderer(enable_renderer_) {
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
 	for (auto& dev : devices) {
-		auto default_queue = create_queue(*dev);
-		default_queue->set_debug_label("default_queue");
+		auto default_queue = create_queue(*dev, "default_queue");
 		default_queues.emplace(dev.get(), default_queue);
 		
 		auto& vk_dev = (vulkan_device&)*dev;
 		
 		// create a default compute-only queue as well if there is a separate compute-only family
 		if (vk_dev.all_queue_family_index != vk_dev.compute_queue_family_index) {
-			auto default_device_queue = create_compute_queue(*dev);
-			default_device_queue->set_debug_label("default_device_queue");
+			auto default_device_queue = create_compute_queue(*dev, "default_device_queue");
 			default_device_queues.emplace(dev.get(), default_device_queue);
 		}
 		
@@ -2447,12 +2445,12 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 																					IMAGE_TYPE::FLAG_RENDER_TARGET,
 																					std::span<uint8_t> {},
 																					MEMORY_FLAG::READ_WRITE |
-																					MEMORY_FLAG::HOST_READ_WRITE));
+																					MEMORY_FLAG::HOST_READ_WRITE,
+																					0u, "x11_screen"));
 		if(!screen.x11_screen) {
 			log_error("failed to create image/render-target for x11 forwarding");
 			return false;
 		}
-		screen.x11_screen->set_debug_label("x11_screen");
 		
 		screen.swapchain_images.emplace_back(screen.x11_screen->get_vulkan_image());
 		screen.swapchain_image_views.emplace_back(screen.x11_screen->get_vulkan_image_view());
@@ -2818,12 +2816,20 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 		acquisition_semas.resize(sync_object_count);
 		present_semas.resize(sync_object_count);
 		for (uint32_t i = 0; i < sync_object_count; ++i) {
-			acquisition_semas[i] = std::make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
-			present_semas[i] = std::make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */);
 #if defined(FLOOR_DEBUG)
-			acquisition_semas[i]->set_debug_label("acq_sema#" + std::to_string(i));
-			present_semas[i]->set_debug_label("present_sema#" + std::to_string(i));
+			const std::string acq_sema_debug_label = "acq_sema#" + std::to_string(i);
+			const std::string present_sema_debug_label = "present_sema#" + std::to_string(i);
 #endif
+			acquisition_semas[i] = std::make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */
+#if defined(FLOOR_DEBUG)
+																  , acq_sema_debug_label.c_str()
+#endif
+																  );
+			present_semas[i] = std::make_unique<vulkan_fence>(*screen.render_device, true /* must be a binary sema! */
+#if defined(FLOOR_DEBUG)
+															  , present_sema_debug_label.c_str()
+#endif
+															  );
 		}
 	}
 	VK_CALL_RET(vkGetSwapchainImagesKHR(screen.render_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
@@ -2908,9 +2914,10 @@ bool vulkan_context::init_vr_renderer() {
 		// TODO: does this need to be writable (and host writable)?
 		vr_screen.image_type |= IMAGE_TYPE::IMAGE_2D_ARRAY | IMAGE_TYPE::FLAG_RENDER_TARGET | IMAGE_TYPE::READ;
 		for (uint32_t i = 0; i < vr_screen.image_count; ++i) {
+			const std::string vr_screen_debug_label = "VR screen image #" + std::to_string(i);
 			vr_screen.images.emplace_back(create_image(vk_queue, uint3 { vr_screen.size, vr_screen.layer_count }, vr_screen.image_type,
-													   std::span<uint8_t> {}, MEMORY_FLAG::READ | MEMORY_FLAG::VULKAN_ALIASING));
-			vr_screen.images.back()->set_debug_label("VR screen image #" + std::to_string(i));
+													   std::span<uint8_t> {}, MEMORY_FLAG::READ | MEMORY_FLAG::VULKAN_ALIASING,
+													   0u, vr_screen_debug_label.c_str()));
 		}
 	} else {
 		const auto info = vr_ctx->get_swapchain_info();
@@ -3246,7 +3253,7 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 		const VkPresentInfoKHR present_info {
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			.pNext = &present_fence_info,
-			.waitSemaphoreCount = (drawable.present_sema ? 1 : 0),
+			.waitSemaphoreCount = (drawable.present_sema ? 1u : 0u),
 			.pWaitSemaphores = (drawable.present_sema ? &((vulkan_fence*)drawable.present_sema)->get_vulkan_fence() : nullptr),
 			.swapchainCount = 1,
 			.pSwapchains = &screen.swapchain,
@@ -3264,8 +3271,8 @@ bool vulkan_context::queue_present(const device_queue& dev_queue, const vulkan_d
 }
 
 std::shared_ptr<device_queue> vulkan_context::create_queue_internal(const device& dev, const uint32_t family_index,
-																const device_queue::QUEUE_TYPE queue_type,
-																uint32_t& queue_index) const {
+																	const device_queue::QUEUE_TYPE queue_type,
+																	uint32_t& queue_index, const char* debug_label) const {
 	const auto& vulkan_dev = (const vulkan_device&)dev;
 	
 	// can only create a certain amount of queues per device with Vulkan, so handle this + handle the queue index
@@ -3283,26 +3290,28 @@ std::shared_ptr<device_queue> vulkan_context::create_queue_internal(const device
 		return {};
 	}
 	
-	const std::string queue_name = (family_index == vulkan_dev.all_queue_family_index ?
-							   "queue:" + (next_queue_index == 0 ? "default" : std::to_string(next_queue_index)) :
-							   "device_queue:" + (next_queue_index == 0 ? "default" : std::to_string(next_queue_index)));
-	set_vulkan_debug_label(vulkan_dev, VK_OBJECT_TYPE_QUEUE, uint64_t(queue_obj), queue_name);
-	
+	const std::string queue_name = ((family_index == vulkan_dev.all_queue_family_index ?
+									 "queue:" + (next_queue_index == 0 ? "default" : std::to_string(next_queue_index)) :
+									 "device_queue:" + (next_queue_index == 0 ? "default" : std::to_string(next_queue_index))) +
+									(debug_label ? "_" + std::string(debug_label) : ""));
 	auto ret = std::make_shared<vulkan_queue>(dev, queue_obj, family_index, next_queue_index, queue_type);
+	ret->set_debug_label(queue_name);
 	queues.push_back(ret);
 	return ret;
 }
 
-std::shared_ptr<device_queue> vulkan_context::create_queue(const device& dev) const {
+std::shared_ptr<device_queue> vulkan_context::create_queue(const device& dev, const char* debug_label) const {
 	const auto& vulkan_dev = (const vulkan_device&)dev;
-	return create_queue_internal(dev, vulkan_dev.all_queue_family_index, device_queue::QUEUE_TYPE::ALL, vulkan_dev.cur_queue_idx);
+	return create_queue_internal(dev, vulkan_dev.all_queue_family_index, device_queue::QUEUE_TYPE::ALL, vulkan_dev.cur_queue_idx,
+								 debug_label);
 }
 
-std::shared_ptr<device_queue> vulkan_context::create_compute_queue(const device& dev) const {
+std::shared_ptr<device_queue> vulkan_context::create_compute_queue(const device& dev, const char* debug_label) const {
 	const auto& vulkan_dev = (const vulkan_device&)dev;
 	return create_queue_internal(dev, vulkan_dev.compute_queue_family_index, device_queue::QUEUE_TYPE::COMPUTE,
 								 (vulkan_dev.compute_queue_family_index != vulkan_dev.all_queue_family_index ?
-								  vulkan_dev.cur_compute_queue_idx : vulkan_dev.cur_queue_idx));
+								  vulkan_dev.cur_compute_queue_idx : vulkan_dev.cur_queue_idx),
+								 debug_label);
 }
 
 const device_queue* vulkan_context::get_device_default_queue(const device& dev) const {
@@ -3343,7 +3352,8 @@ std::optional<uint32_t> vulkan_context::get_max_distinct_compute_queue_count(con
 	return vk_dev.queue_counts[vk_dev.compute_queue_family_index];
 }
 
-std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_queues(const device& dev, const uint32_t wanted_count,
+																				  const std::span<const char* const> debug_labels) const {
 	if (wanted_count == 0) {
 		return {};
 	}
@@ -3353,12 +3363,14 @@ std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_queue
 	std::vector<std::shared_ptr<device_queue>> ret;
 	ret.reserve(actual_count);
 	for (uint32_t i = 0, queue_index = 0; i < actual_count; ++i) {
-		ret.emplace_back(create_queue_internal(dev, vk_dev.all_queue_family_index, device_queue::QUEUE_TYPE::ALL, queue_index));
+		ret.emplace_back(create_queue_internal(dev, vk_dev.all_queue_family_index, device_queue::QUEUE_TYPE::ALL, queue_index,
+											   (i < debug_labels.size() ? debug_labels[i] : nullptr)));
 	}
 	return ret;
 }
 
-std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count) const {
+std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_compute_queues(const device& dev, const uint32_t wanted_count,
+																						  const std::span<const char* const> debug_labels) const {
 	if (wanted_count == 0) {
 		return {};
 	}
@@ -3368,33 +3380,34 @@ std::vector<std::shared_ptr<device_queue>> vulkan_context::create_distinct_compu
 	std::vector<std::shared_ptr<device_queue>> ret;
 	ret.reserve(actual_count);
 	for (uint32_t i = 0, queue_index = 0; i < actual_count; ++i) {
-		ret.emplace_back(create_queue_internal(dev, vk_dev.compute_queue_family_index, device_queue::QUEUE_TYPE::COMPUTE, queue_index));
+		ret.emplace_back(create_queue_internal(dev, vk_dev.compute_queue_family_index, device_queue::QUEUE_TYPE::COMPUTE, queue_index,
+											   (i < debug_labels.size() ? debug_labels[i] : nullptr)));
 	}
 	return ret;
 }
 
-std::unique_ptr<device_fence> vulkan_context::create_fence(const device_queue& cqueue) const {
-	return std::make_unique<vulkan_fence>(cqueue.get_device());
+std::unique_ptr<device_fence> vulkan_context::create_fence(const device_queue& cqueue, const char* debug_label) const {
+	return std::make_unique<vulkan_fence>(cqueue.get_device(), false, debug_label);
 }
 
-std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue,
-															 const size_t size, const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<vulkan_buffer>(cqueue, size, flags));
+std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue, const size_t size, const MEMORY_FLAG flags,
+															 const char* debug_label) const {
+	return add_resource(std::make_shared<vulkan_buffer>(cqueue, size, flags, debug_label));
 }
 
-std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue,
-															 std::span<uint8_t> data,
-															 const MEMORY_FLAG flags) const {
-	return add_resource(std::make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags));
+std::shared_ptr<device_buffer> vulkan_context::create_buffer(const device_queue& cqueue, std::span<uint8_t> data, const MEMORY_FLAG flags,
+															 const char* debug_label) const {
+	return add_resource(std::make_shared<vulkan_buffer>(cqueue, data.size_bytes(), data, flags, debug_label));
 }
 
 std::shared_ptr<device_image> vulkan_context::create_image(const device_queue& cqueue,
-													   const uint4 image_dim,
-													   const IMAGE_TYPE image_type,
-													   std::span<uint8_t> data,
-													   const MEMORY_FLAG flags,
-													   const uint32_t mip_level_limit) const {
-	return add_resource(std::make_shared<vulkan_image_internal>(cqueue, image_dim, image_type, data, flags, mip_level_limit));
+														   const uint4 image_dim,
+														   const IMAGE_TYPE image_type,
+														   std::span<uint8_t> data,
+														   const MEMORY_FLAG flags,
+														   const uint32_t mip_level_limit,
+														   const char* debug_label) const {
+	return add_resource(std::make_shared<vulkan_image_internal>(cqueue, image_dim, image_type, data, flags, mip_level_limit, debug_label));
 }
 
 std::shared_ptr<device_program> vulkan_context::create_program_from_archive_binaries(universal_binary::archive_binaries& bins,
@@ -3750,11 +3763,16 @@ void vulkan_context::set_vk_screen_hdr_metadata() {
 }
 
 std::unique_ptr<indirect_command_pipeline> vulkan_context::create_indirect_command_pipeline(const indirect_command_description& desc) const {
-	auto pipeline = std::make_unique<vulkan_indirect_command_pipeline>(desc, devices);
+	std::unique_ptr<indirect_command_pipeline> pipeline;
+	if (floor::get_vulkan_soft_indirect()) {
+		pipeline = std::make_unique<generic_indirect_command_pipeline>(desc, devices);
+	} else {
+		pipeline = std::make_unique<vulkan_indirect_command_pipeline>(desc, devices);
+	}
 	if (!pipeline || !pipeline->is_valid()) {
 		return {};
 	}
-	return pipeline;
+	floor_return_no_nrvo(pipeline);
 }
 
 device_context::memory_usage_t vulkan_context::get_memory_usage(const device& dev) const {

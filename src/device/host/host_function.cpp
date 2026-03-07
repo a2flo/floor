@@ -349,7 +349,7 @@ struct alignas(floor_fiber_context_alignment) floor_fiber_context {
 		}
 	}
 	
-	void reset() noexcept {
+	[[clang::suppress]] /* ignore analyzer issue */ void reset() noexcept {
 		// reset registers, set ip to enter_context and reset sp
 #if defined(FLOOR_DEBUG) // this isn't actually necessary
 #if defined(__x86_64__)
@@ -1165,7 +1165,8 @@ std::unique_ptr<argument_buffer> host_function::create_argument_buffer_internal(
 																				const uint32_t& user_arg_index,
 																				const uint32_t& ll_arg_index,
 																				const MEMORY_FLAG& add_mem_flags,
-																				const bool zero_init) const {
+																				const bool zero_init,
+																				const char* debug_label) const {
 	const auto& dev = cqueue.get_device();
 	const auto& host_entry = (const host_function_entry&)kern_entry;
 	
@@ -1183,12 +1184,13 @@ std::unique_ptr<argument_buffer> host_function::create_argument_buffer_internal(
 	}
 	
 	// create the argument buffer
-	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags);
-	buf->set_debug_label(kern_entry.info->name + "_arg_buffer");
+	const std::string buf_debug_label = (debug_label ? debug_label : kern_entry.info->name + "_arg_buffer");
+	auto buf = dev.context->create_buffer(cqueue, arg_buffer_size, MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE | add_mem_flags,
+										  buf_debug_label.c_str());
 	if (zero_init) {
 		buf->zero(cqueue);
 	}
-	return std::make_unique<host_argument_buffer>(*this, buf, *arg_info);
+	return std::make_unique<host_argument_buffer>(*this, buf, *arg_info, buf_debug_label.c_str());
 }
 
 } // namespace fl

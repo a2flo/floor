@@ -179,7 +179,7 @@ typename vulkan_function::function_map_type::iterator vulkan_function::get_funct
 }
 
 std::shared_ptr<vulkan_encoder> vulkan_function::create_encoder(const device_queue& cqueue,
-																const vulkan_command_buffer* cmd_buffer_,
+																const vulkan_command_buffer& cmd_buffer,
 																const VkPipeline pipeline,
 																const VkPipelineLayout pipeline_layout,
 																const std::vector<const vulkan_function_entry*>& entries,
@@ -188,29 +188,10 @@ std::shared_ptr<vulkan_encoder> vulkan_function::create_encoder(const device_que
 	success = false;
 	if (entries.empty()) return {};
 	
-	// create a command buffer if none was specified
-	vulkan_command_buffer cmd_buffer;
-	if (cmd_buffer_ == nullptr) {
-		cmd_buffer = ((const vulkan_queue&)cqueue).make_command_buffer("encoder");
-		if(cmd_buffer.cmd_buffer == nullptr) return {}; // just abort
-		
-		// begin recording
-		const VkCommandBufferBeginInfo begin_info {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.pNext = nullptr,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			.pInheritanceInfo = nullptr,
-		};
-		VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-					"failed to begin command buffer", {})
-	} else {
-		cmd_buffer = *(const vulkan_command_buffer*)cmd_buffer_;
-	}
-	
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	
 	auto encoder = std::make_shared<vulkan_encoder>(vulkan_encoder {
-		.cmd_buffer = cmd_buffer,
+		.cmd_buffer = &cmd_buffer,
 		.cqueue = (const vulkan_queue&)cqueue,
 		.dev = vk_dev,
 		.pipeline = pipeline,
@@ -275,7 +256,6 @@ REQUIRES(!entry.specializations_lock) {
 }
 
 void vulkan_function::execute(const device_queue& cqueue,
-							  vulkan_command_buffer* external_cmd_buffer,
 							  const bool& is_cooperative,
 							  const bool& wait_until_completion,
 							  const uint32_t& dim floor_unused,
@@ -319,16 +299,30 @@ void vulkan_function::execute(const device_queue& cqueue,
 	uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 	grid_dim.max(1u);
 	
-	// create command buffer ("encoder") for this function execution
+	// create + begin the command buffer for this function execution
+	auto cmd_buffer = vk_queue.make_command_buffer("encoder");
+	if (!cmd_buffer) {
+		return; // just abort
+	}
+	const VkCommandBufferBeginInfo begin_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr,
+	};
+	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info), "failed to begin command buffer")
+	
+	// create the encoder for this function execution
 	const std::vector<const vulkan_function_entry*> shader_entries {
 		function_iter->second.get()
 	};
 	bool encoder_success = false;
-	auto encoder = create_encoder(cqueue, external_cmd_buffer,
+	auto encoder = create_encoder(cqueue, cmd_buffer,
 								  get_pipeline_spec(vk_dev, *function_iter->second, block_dim, {} /* use default or program defined */),
 								  function_iter->second->pipeline_layout,
 								  shader_entries, debug_label, encoder_success);
 	if (!encoder_success) {
+		vk_queue.free_command_buffer(std::move(cmd_buffer));
 		log_error("failed to create Vulkan encoder / command buffer for function \"$\"", function_iter->second->info->name);
 		return;
 	}
@@ -396,7 +390,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 				}
 			}
 		}
-		vkCmdPipelineBarrier2(encoder->cmd_buffer.cmd_buffer, &dep_info);
+		vkCmdPipelineBarrier2(cmd_buffer.cmd_buffer, &dep_info);
 	}
 	
 	// set/write/update descriptors
@@ -407,7 +401,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 		.layout = entry.pipeline_layout,
 		.set = 0 /* always set #0 */,
 	};
-	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(encoder->cmd_buffer.cmd_buffer, &bind_embedded_info);
+	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(cmd_buffer.cmd_buffer, &bind_embedded_info);
 	
 	if (!encoder->acquired_descriptor_buffers.empty() || !encoder->argument_buffers.empty()) {
 		// setup + bind descriptor buffers
@@ -451,7 +445,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 			++desc_buf_binding_idx;
 		}
 		
-		vkCmdBindDescriptorBuffersEXT(encoder->cmd_buffer.cmd_buffer, desc_buf_count, desc_buf_bindings.data());
+		vkCmdBindDescriptorBuffersEXT(cmd_buffer.cmd_buffer, desc_buf_count, desc_buf_bindings.data());
 		
 		// kernel descriptor set + any argument buffers are stored in contiguous descriptor set indices
 		const std::vector<VkDeviceSize> offsets(desc_buf_count, 0); // always 0 for all
@@ -470,34 +464,32 @@ void vulkan_function::execute(const device_queue& cqueue,
 			.pBufferIndices = buffer_indices.data(),
 			.pOffsets = offsets.data(),
 		};
-		vkCmdSetDescriptorBufferOffsets2EXT(encoder->cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
+		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 	}
 	
 	// set dims + pipeline
 	// TODO: check if grid_dim matches compute shader definition
-	vkCmdDispatch(encoder->cmd_buffer.cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
+	vkCmdDispatch(cmd_buffer.cmd_buffer, grid_dim.x, grid_dim.y, grid_dim.z);
 	
 	// all done here, end + submit
 #if defined(FLOOR_DEBUG)
-	vulkan_end_cmd_debug_label(encoder->cmd_buffer.cmd_buffer);
+	vulkan_end_cmd_debug_label(cmd_buffer.cmd_buffer);
 #endif
-	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer")
+	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer")
 	// add completion handler if required
 	if (completion_handler) {
-		vk_queue.add_completion_handler(encoder->cmd_buffer, [handler = std::move(completion_handler)]() {
+		vk_queue.add_completion_handler(cmd_buffer, [handler = std::move(completion_handler)]() {
 			handler();
 		});
 	}
 	
 	auto wait_fences = vulkan_queue::encode_wait_fences(wait_fences_);
 	auto signal_fences = vulkan_queue::encode_signal_fences(signal_fences_);
-	vk_queue.submit_command_buffer(std::move(encoder->cmd_buffer),
+	encoder->cmd_buffer = nullptr; // must no longer be referenced after this
+	vk_queue.submit_command_buffer(std::move(cmd_buffer),
 								   std::move(wait_fences), std::move(signal_fences),
 								   [encoder](const vulkan_command_buffer&) {
-		// -> completion handler
-		
-		// kill constant buffers after the function has finished execution
-		encoder->constant_buffers.clear();
+		// retain encoder until completion
 	}, wait_until_completion || is_soft_printf /* must block when soft-print is used */);
 	
 	// release all acquired descriptor sets/buffers and constant buffers again
@@ -594,7 +586,8 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 																				  const uint32_t& user_arg_index,
 																				  const uint32_t& ll_arg_index,
 																				  const MEMORY_FLAG& add_mem_flags,
-																				  const bool zero_init) const {
+																				  const bool zero_init,
+																				  const char* debug_label) const {
 	const auto& vk_dev = (const vulkan_device&)cqueue.get_device();
 	const auto& vk_ctx = (const vulkan_context&)*vk_dev.context;
 	const auto& vulkan_entry = (const vulkan_function_entry&)kern_entry;
@@ -606,7 +599,8 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 		return {};
 	}
 	
-	const auto arg_buf_name = vulkan_entry.info->name + ".arg_buffer@" + std::to_string(user_arg_index);
+	const auto arg_buf_name = (debug_label ? std::string(debug_label) :
+							   vulkan_entry.info->name + ".arg_buffer@" + std::to_string(user_arg_index));
 	
 	// argument buffers are implemented as individual descriptor sets inside the parent function/program, stored in descriptor buffers
 	// -> grab the descriptor set layout from the parent function that has already created this + allocate a descriptor buffer
@@ -653,8 +647,7 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 												   MEMORY_FLAG::VULKAN_HOST_COHERENT |
 												   MEMORY_FLAG::VULKAN_DESCRIPTOR_BUFFER |
 												   MEMORY_FLAG::HEAP_ALLOCATION |
-												   add_mem_flags);
-	arg_buffer_storage->set_debug_label(arg_buf_name);
+												   add_mem_flags, arg_buf_name.c_str());
 	if (zero_init && arg_buffer_storage->is_heap_allocated()) {
 		// only need zero-init if allocated from heap, otherwise newly created buffer is zero-initialized already
 		arg_buffer_storage->zero(cqueue);
@@ -674,10 +667,10 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 		const auto& ctx = *(const vulkan_context*)vk_dev.context;
 		
 		// allocate in device-local/host-coherent memory
+		const std::string storage_debug_label = arg_buf_name + ":const_buf";
 		constant_buffer_storage = ctx.create_buffer(cqueue, constant_buffer_size,
 													MEMORY_FLAG::READ | MEMORY_FLAG::HOST_WRITE |
-													MEMORY_FLAG::VULKAN_HOST_COHERENT);
-		constant_buffer_storage->set_debug_label(arg_buf_name + ":const_buf");
+													MEMORY_FLAG::VULKAN_HOST_COHERENT, storage_debug_label.c_str());
 		
 		auto constant_buffer_host_ptr = constant_buffer_storage->map(cqueue,
 																	 MEMORY_MAP_FLAG::WRITE_INVALIDATE |
@@ -690,8 +683,9 @@ std::unique_ptr<argument_buffer> vulkan_function::create_argument_buffer_interna
 	}
 	
 	// create the argument buffer
-	return std::make_unique<vulkan_argument_buffer>(*this, arg_buffer_storage, *arg_info, arg_buf_info.layout, std::move(argument_offsets),
-													mapped_host_memory, constant_buffer_storage, constant_buffer_mapping);
+	return std::make_unique<vulkan_argument_buffer>(*this, arg_buffer_storage, *arg_info, arg_buf_info.layout,
+													std::move(argument_offsets), mapped_host_memory, constant_buffer_storage,
+													constant_buffer_mapping, arg_buf_name.c_str());
 }
 
 } // namespace fl

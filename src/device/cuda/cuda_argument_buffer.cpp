@@ -26,8 +26,8 @@
 namespace fl {
 
 cuda_argument_buffer::cuda_argument_buffer(const device_function& func_, std::shared_ptr<device_buffer> storage_buffer_,
-										   const toolchain::function_info& arg_info_) :
-argument_buffer(func_, storage_buffer_), arg_info(arg_info_) {}
+										   const toolchain::function_info& arg_info_, const char* debug_label_) :
+argument_buffer(func_, storage_buffer_, debug_label_), arg_info(arg_info_) {}
 
 bool cuda_argument_buffer::set_arguments(const device_queue& dev_queue, const std::vector<device_function_arg>& args) {
 	auto cuda_storage_buffer = (cuda_buffer*)storage_buffer.get();

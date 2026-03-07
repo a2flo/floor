@@ -71,7 +71,7 @@ public:
 		//! soft-printf handling
 		mutable std::shared_ptr<device_buffer> printf_buffer;
 		void printf_init(const device_queue& dev_queue) const;
-		void printf_completion(const device_queue& dev_queue, vulkan_command_buffer cmd_buffer) const;
+		void printf_completion(const device_queue& dev_queue, vulkan_command_buffer& cmd_buffer) const;
 	};
 	
 	//! return the device specific Vulkan pipeline state for the specified device (or nullptr if it doesn't exist)
@@ -91,11 +91,6 @@ public:
 		uint32_t offset { 0u };
 		uint32_t count { 0u };
 	};
-	
-	//! computes the command command_range_t that is necessary for indirect command execution from the given parameters
-	//! and validates if the given parameters specify a correct range, returning empty if invalid
-	std::optional<command_range_t> compute_and_validate_command_range(const uint32_t command_offset,
-																 const uint32_t command_count) const;
 	
 protected:
 	fl::flat_map<const device*, vulkan_pipeline_entry> pipelines;

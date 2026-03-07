@@ -20,6 +20,7 @@
 #include <floor/core/core.hpp>
 #include <floor/device/device_function.hpp>
 #include <floor/device/indirect_command.hpp>
+#include <floor/device/generic_indirect_command.hpp>
 
 namespace fl {
 
@@ -76,9 +77,8 @@ void device_queue::execute_with_parameters(const device_function& kernel, const 
 
 void device_queue::execute_indirect(const indirect_command_pipeline& indirect_cmd,
 									const indirect_execution_parameters_t& params,
-									kernel_completion_handler_f&& completion_handler,
-									const uint32_t command_offset,
-									const uint32_t command_count) const {
+									kernel_completion_handler_f&& completion_handler) const {
+	const auto command_count = indirect_cmd.get_command_count();
 	if (command_count == 0) {
 		return;
 	}
@@ -99,26 +99,22 @@ void device_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		return;
 	}
 	
-	const auto range = generic_indirect_cmd.compute_and_validate_command_range(command_offset, command_count);
-	if (!range) {
-		return;
-	}
-	
 	// wait fences handling: we add "wait_fences" to all kernel executions until we hit the first kernel that acts as a barrier,
 	//                       i.e. it has wait_until_completion set -> after that, we can safely ignore wait_fences
 	bool has_encountered_barrier = false;
 	const std::vector<const device_fence*> empty_wait_fences;
 	const std::vector<device_fence*> empty_signal_fences;
-	for (uint32_t cmd_idx = range->offset, cmd_end = range->offset + range->count; cmd_idx < cmd_end; ++cmd_idx) {
+	for (uint32_t cmd_idx = 0u; cmd_idx < command_count; ++cmd_idx) {
 		const auto& cmd = generic_indirect_pipeline_entry->commands[cmd_idx];
 		// the last command is somewhat special: it is used both to execute the final completion handler + emit "signal_fences"
-		const auto is_last_cmd = (cmd_idx + 1u == cmd_end);
-		cmd.kernel_ptr->execute(*this, false, cmd.wait_until_completion, cmd.dim, cmd.global_work_size, cmd.local_work_size, cmd.args,
-								!has_encountered_barrier && !params.wait_fences.empty() ? params.wait_fences : empty_wait_fences,
-								!is_last_cmd ? empty_signal_fences : params.signal_fences,
-								params.debug_label ? params.debug_label : generic_indirect_pipeline_entry->debug_label.c_str(),
-								is_last_cmd && completion_handler ? completion_handler : kernel_completion_handler_f {});
-		if (cmd.wait_until_completion) {
+		const auto is_last_cmd = (cmd_idx + 1u == command_count);
+		cmd.compute.kernel_ptr->execute(*this, false, cmd.compute.wait_until_completion, cmd.compute.dim,
+										cmd.compute.global_work_size, cmd.compute.local_work_size, cmd.args,
+										!has_encountered_barrier && !params.wait_fences.empty() ? params.wait_fences : empty_wait_fences,
+										!is_last_cmd ? empty_signal_fences : params.signal_fences,
+										params.debug_label ? params.debug_label : generic_indirect_pipeline_entry->debug_label.c_str(),
+										is_last_cmd && completion_handler ? completion_handler : kernel_completion_handler_f {});
+		if (cmd.compute.wait_until_completion) {
 			has_encountered_barrier = true;
 		}
 	}
@@ -134,6 +130,14 @@ const device_context& device_queue::get_context() const {
 
 device_context& device_queue::get_mutable_context() const {
 	return *dev.context;
+}
+
+void device_queue::set_debug_label(const std::string& label) {
+	debug_label = label;
+}
+
+const std::string& device_queue::get_debug_label() const {
+	return debug_label;
 }
 
 } // namespace fl

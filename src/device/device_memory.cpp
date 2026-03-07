@@ -22,6 +22,7 @@
 #include <floor/device/device_context.hpp>
 #include <floor/device/vulkan/vulkan_device.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/cpp_ext.hpp>
 
 namespace fl {
 
@@ -119,9 +120,11 @@ static constexpr MEMORY_FLAG handle_memory_flags(MEMORY_FLAG flags) {
 }
 
 device_memory::device_memory(const device_queue& cqueue,
-							   std::span<uint8_t> host_data_,
-							   const MEMORY_FLAG flags_) :
-dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_)) {
+							 std::span<uint8_t> host_data_,
+							 const MEMORY_FLAG flags_,
+							 const char* debug_label_) :
+dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags_)),
+debug_label(safe_string(debug_label_)) {
 	if ((flags_ & MEMORY_FLAG::READ_WRITE) == MEMORY_FLAG::NONE &&
 		!has_flag<MEMORY_FLAG::RENDER_TARGET>(flags)) {
 		log_error("memory must be read-only, write-only or read-write!");
@@ -133,6 +136,9 @@ dev(cqueue.get_device()), host_data(host_data_), flags(handle_memory_flags(flags
 	if (has_flag<MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
 		has_flag<MEMORY_FLAG::METAL_SHARING>(flags_)) {
 		log_error("USE_HOST_MEMORY and METAL_SHARING are mutually exclusive!");
+	}
+	if (!debug_label.empty()) {
+		dev.context->update_resource_registry(this, "", debug_label);
 	}
 }
 

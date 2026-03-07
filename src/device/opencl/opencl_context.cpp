@@ -733,16 +733,16 @@ FLOOR_POP_WARNINGS()
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
 	for(const auto& dev : devices) {
-		create_queue(*dev);
+		create_queue(*dev, "default_queue");
 	}
 }
 
-std::shared_ptr<device_queue> opencl_context::create_queue(const device& dev) const {
+std::shared_ptr<device_queue> opencl_context::create_queue(const device& dev, const char* debug_label) const {
 	// has a default queue already been created for this device?
 	bool has_default_queue = false;
 	std::shared_ptr<device_queue> dev_default_queue;
 	for (auto&& default_queue : default_queues) {
-		if(default_queue.first == &dev) {
+		if (default_queue.first == &dev) {
 			has_default_queue = true;
 			dev_default_queue = default_queue.second;
 			break;
@@ -751,15 +751,15 @@ std::shared_ptr<device_queue> opencl_context::create_queue(const device& dev) co
 	
 	// has the user already created a queue for this device (i.e. accessed the default queue)?
 	bool user_accessed = false;
-	if(has_default_queue) {
+	if (has_default_queue) {
 		const auto iter = default_queues_user_accessed.find(&dev);
-		if(iter != std::end(default_queues_user_accessed)) {
+		if (iter != std::end(default_queues_user_accessed)) {
 			user_accessed = iter->second;
 		}
 		
 		// default queue exists and the user is creating a queue for this device for the first time
 		// -> return the default queue
-		if(!user_accessed) {
+		if (!user_accessed) {
 			// signal that the user has accessed the default queue, any subsequent create_queue calls will actually create a new queue
 			default_queues_user_accessed.emplace(&dev, 1u);
 			floor_return_no_nrvo(dev_default_queue);
@@ -781,16 +781,19 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
 FLOOR_POP_WARNINGS()
 #endif
-	if(create_err != CL_SUCCESS) {
+	if (create_err != CL_SUCCESS) {
 		log_error("failed to create command queue: $: $", create_err, cl_error_to_string(create_err));
 		return {};
 	}
 	
 	auto ret = std::make_shared<opencl_queue>(dev, cl_queue);
+	if (debug_label) {
+		ret->set_debug_label(debug_label);
+	}
 	queues.push_back(ret);
 	
 	// set the default queue if it hasn't been set yet
-	if(!has_default_queue) {
+	if (!has_default_queue) {
 		default_queues.emplace(&dev, ret);
 	}
 	
@@ -808,28 +811,28 @@ const device_queue* opencl_context::get_device_default_queue(const device& dev) 
 	return nullptr;
 }
 
-std::unique_ptr<device_fence> opencl_context::create_fence(const device_queue&) const {
+std::unique_ptr<device_fence> opencl_context::create_fence(const device_queue&, const char*) const {
 	log_error("fence creation not yet supported by opencl_context!");
 	return {};
 }
 
-std::shared_ptr<device_buffer> opencl_context::create_buffer(const device_queue& cqueue,
-															 const size_t size, const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> opencl_context::create_buffer(const device_queue& cqueue, const size_t size, const MEMORY_FLAG flags,
+															 [[maybe_unused]] const char* debug_label) const {
 	return add_resource(std::make_shared<opencl_buffer>(cqueue, size, flags));
 }
 
-std::shared_ptr<device_buffer> opencl_context::create_buffer(const device_queue& cqueue,
-															 std::span<uint8_t> data,
-															 const MEMORY_FLAG flags) const {
+std::shared_ptr<device_buffer> opencl_context::create_buffer(const device_queue& cqueue, std::span<uint8_t> data, const MEMORY_FLAG flags,
+															 [[maybe_unused]] const char* debug_label) const {
 	return add_resource(std::make_shared<opencl_buffer>(cqueue, data.size_bytes(), data, flags));
 }
 
 std::shared_ptr<device_image> opencl_context::create_image(const device_queue& cqueue,
-													   const uint4 image_dim,
-													   const IMAGE_TYPE image_type,
-													   std::span<uint8_t> data,
-													   const MEMORY_FLAG flags,
-													   const uint32_t mip_level_limit) const {
+														   const uint4 image_dim,
+														   const IMAGE_TYPE image_type,
+														   std::span<uint8_t> data,
+														   const MEMORY_FLAG flags,
+														   const uint32_t mip_level_limit,
+														   [[maybe_unused]] const char* debug_label) const {
 	return add_resource(std::make_shared<opencl_image>(cqueue, image_dim, image_type, data, flags, mip_level_limit));
 }
 

@@ -35,6 +35,20 @@
 
 namespace fl {
 
+//! based on the specified "attempt", this will either spin-wait or thread-yield-wait,
+//! and reset "attempt" to 0 if a thread-yield-wait was executed
+static floor_inline_always void spin_wait_or_yield(uint32_t& attempt) {
+	if (attempt < 16) [[likely]] {
+		// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
+		// Malte recommendation: to improve latency, only try this 16 times ...
+		FLOOR_SPIN_WAIT();
+	} else {
+		// ... and after the 16th attempt: actually yield the thread (then start again)
+		std::this_thread::yield();
+		attempt = 0;
+	}
+}
+
 //! performs a spin-wait loop until "conditional()" returns true
 template <typename conditional_type, typename... Args>
 static floor_inline_always void spin_wait_condition(conditional_type&& conditional, Args&&... args) {
@@ -53,16 +67,7 @@ static floor_inline_always void spin_wait_condition(conditional_type&& condition
 				break;
 			}
 		}
-		
-		if (trial < 16) {
-			// AMD recommendation: "pause" when lock could not be acquired (b/c SMT)
-			// Malte recommendation: to improve latency, only try this 16 times ...
-			FLOOR_SPIN_WAIT();
-		} else {
-			// ... and after the 16th attempt: actually yield the thread (then start again)
-			std::this_thread::yield();
-			trial = 0;
-		}
+		spin_wait_or_yield(trial);
 	}
 }
 

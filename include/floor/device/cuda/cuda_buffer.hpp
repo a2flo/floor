@@ -36,15 +36,17 @@ public:
 				const size_t& size_,
 				std::span<uint8_t> host_data_,
 				const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													MEMORY_FLAG::HOST_READ_WRITE),
-				device_buffer* shared_buffer_ = nullptr);
+											MEMORY_FLAG::HOST_READ_WRITE),
+				device_buffer* shared_buffer_ = nullptr,
+				const char* debug_label_ = nullptr);
 	
 	cuda_buffer(const device_queue& cqueue,
 				const size_t& size_,
 				const MEMORY_FLAG flags_ = (MEMORY_FLAG::READ_WRITE |
-													MEMORY_FLAG::HOST_READ_WRITE),
-				device_buffer* shared_buffer_ = nullptr) :
-	cuda_buffer(cqueue, size_, {}, flags_, shared_buffer_) {}
+											MEMORY_FLAG::HOST_READ_WRITE),
+				device_buffer* shared_buffer_ = nullptr,
+				const char* debug_label_ = nullptr) :
+	cuda_buffer(cqueue, size_, {}, flags_, shared_buffer_, debug_label_) {}
 	
 	~cuda_buffer() override;
 	
@@ -67,7 +69,7 @@ public:
 											const MEMORY_MAP_FLAG flags = (MEMORY_MAP_FLAG::READ_WRITE | MEMORY_MAP_FLAG::BLOCK),
 											const size_t size = 0, const size_t offset = 0) override;
 	
-	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	bool unmap(const device_queue& cqueue, void* __attribute__((aligned(128))) mapped_ptr, const bool discard = false) override;
 	
 	bool acquire_vulkan_buffer(const device_queue* cqueue, const vulkan_queue* vk_queue) const override;
 	bool release_vulkan_buffer(const device_queue* cqueue, const vulkan_queue* vk_queue) const override;
