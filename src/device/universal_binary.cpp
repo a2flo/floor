@@ -437,6 +437,10 @@ namespace fl::universal_binary {
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
 				
 				// overwrite device/metal_device defaults
+				if (mtl_dev.metal_language_version < METAL_VERSION::METAL_4_0) {
+					dev->tessellation_support = true;
+					dev->max_tessellation_factor = 64u;
+				}
 				if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ||
 					mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR) {
 					mtl_dev.platform_type = (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR ?
