@@ -67,7 +67,7 @@ device_memory(cqueue, host_data_, flags_, debug_label_), size(align_size(size_))
 
 std::shared_ptr<device_buffer> device_buffer::clone(const device_queue& cqueue, const bool copy_contents,
 													const MEMORY_FLAG flags_override,
-													const char* clone_debug_label) {
+													const char* clone_debug_label) const {
 	if (dev.context == nullptr) {
 		log_error("invalid buffer/device state");
 		return {};

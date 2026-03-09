@@ -55,8 +55,8 @@ public:
 	
 	~metal_image() override;
 	
-	bool blit(const device_queue& cqueue, device_image& src) override;
-	bool blit_async(const device_queue& cqueue, device_image& src,
+	bool blit(const device_queue& cqueue, const device_image& src) override;
+	bool blit_async(const device_queue& cqueue, const device_image& src,
 					std::vector<const device_fence*>&& wait_fences,
 					std::vector<device_fence*>&& signal_fences) override;
 	
@@ -117,7 +117,7 @@ protected:
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const device_queue& cqueue);
 	
-	bool blit_internal(const bool is_async, const device_queue& cqueue, device_image& src,
+	bool blit_internal(const bool is_async, const device_queue& cqueue, const device_image& src,
 					   const std::vector<const device_fence*>& wait_fences,
 					   const std::vector<device_fence*>& signal_fences);
 	

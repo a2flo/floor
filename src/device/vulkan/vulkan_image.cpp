@@ -282,7 +282,7 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 	return true;
 }
 
-bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue, device_image& src,
+bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue, const device_image& src,
 								 const std::vector<const device_fence*>& wait_fences,
 								 const std::vector<device_fence*>& signal_fences) {
 	if (image == nullptr) {
@@ -293,7 +293,7 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 		return false;
 	}
 	
-	auto& vk_src = (vulkan_image_internal&)src;
+	const auto& vk_src = (const vulkan_image_internal&)src;
 	auto src_image = vk_src.get_vulkan_image();
 	if (!src_image) {
 		log_error("blit: source Vulkan image is null");
@@ -319,8 +319,15 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 		const auto src_restore_access_mask = vk_src.cur_access_mask;
 		const auto src_restore_layout = vk_src.image_info.imageLayout;
 		
-		vk_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		const auto src_needs_transition = (src_restore_layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		if (src_needs_transition) {
+			// unfortunate, but can't do much here yet
+			// TODO: VK_KHR_unified_image_layouts support -> won't need a transition?
+			auto& vk_mutable_src = const_cast<vulkan_image_internal&>(vk_src);
+			vk_mutable_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_READ_BIT,
+									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+									  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		}
 		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 		
@@ -376,18 +383,21 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
 							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 		
-		vk_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
-						  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		if (src_needs_transition) {
+			auto& vk_mutable_src = const_cast<vulkan_image_internal&>(vk_src);
+			vk_mutable_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
+									  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+		}
 	}), false /* return false on error */, !is_async /* blocking if not async */, std::move(vk_wait_fences), std::move(vk_signal_fences));
 	
 	return true;
 }
 
-bool vulkan_image::blit(const device_queue& cqueue, device_image& src) {
+bool vulkan_image::blit(const device_queue& cqueue, const device_image& src) {
 	return blit_internal(false, cqueue, src, {}, {});
 }
 
-bool vulkan_image::blit_async(const device_queue& cqueue, device_image& src,
+bool vulkan_image::blit_async(const device_queue& cqueue, const device_image& src,
 							  std::vector<const device_fence*>&& wait_fences,
 							  std::vector<device_fence*>&& signal_fences) {
 	return blit_internal(true, cqueue, src, wait_fences, signal_fences);

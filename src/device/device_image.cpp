@@ -446,7 +446,7 @@ std::string device_image::image_type_to_string(const IMAGE_TYPE& type) {
 std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, const bool copy_contents,
 												  const MEMORY_FLAG flags_override,
 												  const IMAGE_TYPE image_type_override,
-												  const char* clone_debug_label) {
+												  const char* clone_debug_label) const {
 	if (dev.context == nullptr) {
 		log_error("invalid image/device state");
 		return {};
@@ -466,7 +466,7 @@ std::shared_ptr<device_image> device_image::clone(const device_queue& cqueue, co
 	return ret;
 }
 
-bool device_image::blit_check(const device_queue&, const device_image& src) {
+bool device_image::blit_check(const device_queue&, const device_image& src) const {
 	const auto src_image_dim = src.get_image_dim();
 	if ((src_image_dim != image_dim).any()) {
 		log_error("blit: dim mismatch: src $ != dst $", src_image_dim, image_dim);

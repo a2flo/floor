@@ -37,8 +37,8 @@ class vulkan_image : public device_image, public vulkan_memory {
 public:
 	bool zero(const device_queue& cqueue) override;
 	
-	bool blit(const device_queue& cqueue, device_image& src) override;
-	bool blit_async(const device_queue& cqueue, device_image& src,
+	bool blit(const device_queue& cqueue, const device_image& src) override;
+	bool blit_async(const device_queue& cqueue, const device_image& src,
 					std::vector<const device_fence*>&& wait_fences,
 					std::vector<device_fence*>&& signal_fences) override;
 	
@@ -141,7 +141,7 @@ protected:
 	void image_copy_host_to_dev(const device_queue& cqueue,
 								VkCommandBuffer cmd_buffer, VkBuffer host_buffer, std::span<uint8_t> data) override;
 	
-	bool blit_internal(const bool is_async, const device_queue& cqueue, device_image& src,
+	bool blit_internal(const bool is_async, const device_queue& cqueue, const device_image& src,
 					   const std::vector<const device_fence*>& wait_fences,
 					   const std::vector<device_fence*>& signal_fences);
 	

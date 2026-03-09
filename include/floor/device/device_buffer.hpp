@@ -81,7 +81,7 @@ public:
 	//! clones this buffer, optionally copying its contents as well
 	virtual std::shared_ptr<device_buffer> clone(const device_queue& cqueue, const bool copy_contents = false,
 												 const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
-												 const char* debug_label = nullptr);
+												 const char* debug_label = nullptr) const;
 	
 	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes),
 	//! returns true on success

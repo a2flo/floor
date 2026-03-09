@@ -98,14 +98,14 @@ public:
 	//! blits the "src" image onto this image, returns true on success
 	//! NOTE: dim must be identical, format must be compatible
 	//! TODO: implement this everywhere
-	virtual bool blit(const device_queue& cqueue floor_unused, device_image& src floor_unused) { return false; }
+	virtual bool blit(const device_queue& cqueue floor_unused, const device_image& src floor_unused) { return false; }
 	
 	
 	//! asynchronously blits the "src" image onto this image, returns true if encoding was successful,
 	//! waits for all fences specified in "wait_fences" and signals all fences specified in "signal_fences"
 	//! NOTE: dim must be identical, format must be compatible
 	//! TODO: implement this everywhere
-	virtual bool blit_async(const device_queue& cqueue floor_unused, device_image& src floor_unused,
+	virtual bool blit_async(const device_queue& cqueue floor_unused, const device_image& src floor_unused,
 							std::vector<const device_fence*>&& wait_fences floor_unused,
 							std::vector<device_fence*>&& signal_fences floor_unused) { return false; }
 	
@@ -156,7 +156,7 @@ public:
 	virtual std::shared_ptr<device_image> clone(const device_queue& cqueue, const bool copy_contents = false,
 												const MEMORY_FLAG flags_override = MEMORY_FLAG::NONE,
 												const IMAGE_TYPE image_type_override = IMAGE_TYPE::NONE,
-												const char* debug_label = nullptr);
+												const char* debug_label = nullptr) const;
 	
 	//! creates the mip-map chain for this image (if not manually generating mip-maps)
 	virtual void generate_mip_map_chain(const device_queue& cqueue);
@@ -636,7 +636,7 @@ protected:
 	bool add_embedded_minify_program(device_context& ctx);
 	
 	//! returns true if "src" can be blitted onto this image, false if not (prints errors)
-	bool blit_check(const device_queue& cqueue, const device_image& src);
+	bool blit_check(const device_queue& cqueue, const device_image& src) const;
 	
 	//! returns true if host data can be written into this image using the specified parameters, false if not (prints errors)
 	//! NOTE: in some situations, the presence of MEMORY_FLAG::HOST_WRITE may not be required -> "needs_host_write" can be set to false then

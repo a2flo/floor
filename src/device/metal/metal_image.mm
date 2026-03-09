@@ -568,7 +568,7 @@ metal_image::~metal_image() {
 #endif
 }
 
-bool metal_image::blit_internal(const bool is_async, const device_queue& cqueue, device_image& src,
+bool metal_image::blit_internal(const bool is_async, const device_queue& cqueue, const device_image& src,
 								const std::vector<const device_fence*>& wait_fences,
 								const std::vector<device_fence*>& signal_fences) {
 	if (image == nil) {
@@ -639,11 +639,11 @@ bool metal_image::blit_internal(const bool is_async, const device_queue& cqueue,
 	}
 }
 
-bool metal_image::blit(const device_queue& cqueue, device_image& src) {
+bool metal_image::blit(const device_queue& cqueue, const device_image& src) {
 	return blit_internal(false, cqueue, src, {}, {});
 }
 
-bool metal_image::blit_async(const device_queue& cqueue, device_image& src,
+bool metal_image::blit_async(const device_queue& cqueue, const device_image& src,
 							 std::vector<const device_fence*>&& wait_fences,
 							 std::vector<device_fence*>&& signal_fences) {
 	return blit_internal(true, cqueue, src, wait_fences, signal_fences);
