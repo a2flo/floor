@@ -210,3 +210,19 @@ using half = soft_f16;
 } // namespace fl
 
 #endif
+
+namespace fl {
+
+// we can't use the 'h' suffix everywhere (e.g. Host-Compute with a vanilla clang)
+// -> add custom '_h' UDL which can be used everywhere
+#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+static constexpr inline fl::half operator""_h (long double val) {
+	return fl::half(val);
+}
+#else
+static constexpr inline half operator""_h (long double val) {
+	return half(val);
+}
+#endif
+
+} // namespace fl

@@ -276,18 +276,6 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 // always include const_math, rt_math and math constexpr-select functionality
 #include <floor/constexpr/const_math.hpp>
 
-// we can't use the 'h' suffix everywhere (e.g. Host-Compute with a vanilla clang)
-// -> add custom '_h' UDL which can be used everywhere
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-static constexpr inline fl::half operator""_h (long double val) {
-	return fl::half(val);
-}
-#else
-static constexpr inline half operator""_h (long double val) {
-	return half(val);
-}
-#endif
-
 // always include vector lib/types
 #if !defined(FLOOR_DEBUG)
 #include <floor/math/vector_lib.hpp>
