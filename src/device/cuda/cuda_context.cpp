@@ -272,8 +272,10 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 			device.ptx = { 8, 9 };
 		} else if (driver_version < 13010) {
 			device.ptx = { 9, 0 };
-		} else {
+		} else if (driver_version < 13020) {
 			device.ptx = { 9, 1 };
+		} else {
+			device.ptx = { 9, 2 };
 		}
 		
 		if ((device.sm.x < 9 && !(device.sm.x == 8 && device.sm.y == 8)) ||
@@ -290,7 +292,7 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 				   (device.sm.x == 11 && device.sm.y == 0)) {
 			device.min_req_ptx = { 9, 0 };
 		} else {
-			device.min_req_ptx = { 9, 1 };
+			device.min_req_ptx = { 9, 2 };
 		}
 		
 		// additional info

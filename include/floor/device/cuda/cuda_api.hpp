@@ -923,6 +923,9 @@ enum class CU_LAUNCH_ATTRIBUTE {
 	PREFERRED_SHARED_MEMORY_CARVEOUT = 14,
 	// CUDA 13.0+
 	NVLINK_UTIL_CENTRIC_SCHEDULING = 16,
+	// CUDA 13.2+
+	PORTABLE_CLUSTER_SIZE_MODE = 17,
+	SHARED_MEMORY_MODE = 18,
 };
 
 enum class CU_ACCESS_PROPERTY {
@@ -962,6 +965,20 @@ struct cu_launch_mem_sync_domain_map {
 	uint32_t remote_domain;
 };
 
+// CUDA 13.2+
+enum class CU_LAUNCH_ATTRIBUTE_PORTABLE_CLUSTER_MODE {
+	DEFAULT = 0,
+	REQUIRE_PORTABLE = 1,
+	ALLOW_NON_PORTABLE = 2,
+};
+
+// CUDA 13.2+
+enum class CU_SHARED_MEMORY_MODE {
+	DEFAULT = 0,
+	REQUIRE_PORTABLE = 1,
+	ALLOW_NON_PORTABLE = 2,
+};
+
 union cu_launch_attribute_value {
 	char pad[64];
 	cu_access_policy_window access_policy_window;
@@ -998,6 +1015,9 @@ union cu_launch_attribute_value {
 	uint32_t shared_memory_carveout;
 	// CUDA 13.0+
 	uint32_t nvlink_util_centric_scheduling;
+	// CUDA 13.2+
+	CU_LAUNCH_ATTRIBUTE_PORTABLE_CLUSTER_MODE portable_cluster_size_mode;
+	CU_SHARED_MEMORY_MODE shared_memory_mode;
 };
 
 struct cu_launch_attribute {
