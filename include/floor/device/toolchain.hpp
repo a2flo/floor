@@ -281,6 +281,12 @@ namespace fl::toolchain {
 			//! all comments from the preprocessed .ii file
 			//! NOTE: only available for Metal targets
 			bool preprocess_preserve_comments { false };
+			
+			//! emit an error when there still is an alloca at the end of all optimizations
+			bool error_on_alloca { false };
+			
+			//! emit an error when there still is an alloca with a pointer type at the end of all optimizations
+			bool error_on_ptr_type_alloca { false };
 		} debug;
 		
 		//! CUDA specific options

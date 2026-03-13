@@ -1118,6 +1118,14 @@ program_data compile_input(const std::string& input,
 		}
 	}
 	
+	// handle alloca error options
+	if (options.debug.error_on_alloca) {
+		clang_cmd += " -Xclang -floor-error-on-alloca";
+	}
+	if (options.debug.error_on_ptr_type_alloca) {
+		clang_cmd += " -Xclang -floor-error-on-ptr-type-alloca";
+	}
+	
 	// default disabled warning flags
 	static constexpr const char disabled_warning_flags[] {
 		// let's start with everything
