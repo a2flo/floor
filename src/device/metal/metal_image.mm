@@ -752,7 +752,7 @@ bool metal_image::zero(const device_queue& cqueue) {
 				pass_desc.depthAttachment.texture = image;
 				pass_desc.depthAttachment.loadAction = MTLLoadActionClear;
 				pass_desc.depthAttachment.storeAction = MTLStoreActionStore;
-				pass_desc.depthAttachment.clearDepth = 1.0;
+				pass_desc.depthAttachment.clearDepth = 0.0;
 			} else {
 				pass_desc.colorAttachments[0].texture = image;
 				pass_desc.colorAttachments[0].loadAction = MTLLoadActionClear;
